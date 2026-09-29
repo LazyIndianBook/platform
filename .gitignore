@@ -1,0 +1,9 @@
+# Source PDFs (textbooks, board papers, syllabi) stay on disk: 4.4 GB in all, and several files
+# exceed GitHub's limit of 100 MB per file. Every one is listed in docs/SOURCE_FILES.md.
+docs/**/*.pdf
+
+# working files
+__pycache__/
+*.pyc
+.DS_Store
+.claude/
