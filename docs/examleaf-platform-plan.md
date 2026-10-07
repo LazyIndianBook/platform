@@ -50,7 +50,7 @@ Covered by its own run and design document. The key numbers: handwritten Assames
 | When | Product | Notes |
 |---|---|---|
 | Now (ready) | Class 12 Science sample papers, Assam board: Physics, Chemistry, Mathematics, Biology — 30 papers each, with a separate Solutions book | PDFs built; printing needs ISBN, price, higher-resolution covers, the sealed pre-board pack decision and the answer-key decision |
-| Next print run | Compact answer key printed at the back of each Sample Papers book (final answers and marks split, a few pages) | keeps feedback immediate; the Solutions book remains the full product |
+| Next print run | Compact answer key printed at the back of each Sample Papers book | keeps feedback immediate; the Solutions book remains the full product. Measured on our files: a one-line answer exists for 97 % of Mathematics questions and 64 % of Physics questions, but only 31 % of Chemistry and 23 % of Biology questions (theory answers have no one-line form). For those two subjects print the marking-scheme summary (the first step of each solution) instead of a bare key, or point to the open web solutions. |
 | Next | Class 10 Assam (SEBA) sample papers in the same three tiers | reuse the pipeline; research the SEBA pattern and syllabus first |
 | Then | Question banks (chapter-wise, from the same bank of 5,883 questions plus new ones) and guidebooks | the question bank data model already exists in the platform |
 | Pilot | Revision videos: 3–4 chapters, segmented, with built-in questions, on YouTube | decide on scale and languages after measuring |
