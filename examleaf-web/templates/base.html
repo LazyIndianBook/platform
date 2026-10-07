@@ -1,0 +1,31 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block head_title %}Sample papers with free solutions{% endblock %} · ExamLeaf</title>
+<meta name="description" content="ExamLeaf Sample Papers for the Assam Board (ASSEB) Class 12 examination, with free worked solutions for registered students.">
+<link rel="stylesheet" href="{% static 'css/site.css' %}">
+{% block extra_head %}{% endblock %}
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="{% url 'home' %}">Exam<span>Leaf</span></a>
+  <nav>
+    {% if user.is_authenticated %}
+      <a href="{% url 'record' %}">My record</a>
+      <form method="post" action="{% url 'account_logout' %}">{% csrf_token %}<button type="submit" class="link">Log out</button></form>
+    {% else %}
+      <a href="{% url 'account_login' %}">Log in</a>
+      <a class="button small" href="{% url 'account_signup' %}">Register</a>
+    {% endif %}
+  </nav>
+</header>
+{% if messages %}<ul class="messages">{% for message in messages %}<li class="{{ message.tags }}">{{ message }}</li>{% endfor %}</ul>{% endif %}
+<main>{% block content %}{% endblock %}</main>
+<footer class="site-footer">
+  <a href="{% url 'about' %}">About</a> · <a href="{% url 'privacy' %}">Privacy</a> · © ExamLeaf LLP
+</footer>
+{% block extra_body %}{% endblock %}
+</body>
+</html>

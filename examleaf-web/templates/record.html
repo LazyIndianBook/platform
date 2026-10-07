@@ -1,0 +1,36 @@
+{% extends "base.html" %}{% load widget_tweaks %}
+{% block head_title %}My record{% endblock %}
+{% block content %}
+<h1>My record</h1>
+<form class="filters" method="get">
+  {% render_field filter.form.subject aria-label="Subject" %}
+  {% render_field filter.form.tier aria-label="Tier" %}
+  <button type="submit" class="secondary">Show</button>
+</form>
+{% if averages %}
+<ul class="averages">
+  {% for label, count, average in averages %}<li><strong>{{ label }}</strong> {{ average }}% <small>average of {{ count }} paper{{ count|pluralize }}</small></li>{% endfor %}
+</ul>
+{% endif %}
+{% if object_list %}
+<div class="table-scroll">
+<table class="record">
+  <thead><tr><th>Paper</th><th>Date</th><th class="num">Marks</th><th class="num">Time</th><th>What to revise</th><th></th></tr></thead>
+  <tbody>
+  {% for attempt in object_list %}
+    <tr>
+      <td><a href="{{ attempt.paper.get_absolute_url }}">{{ attempt.paper.code }}</a></td>
+      <td>{{ attempt.date|date:"j M Y" }}</td>
+      <td class="num">{{ attempt.marks_obtained|floatformat:"-1" }}/{{ attempt.paper.full_marks }}</td>
+      <td class="num">{% if attempt.time_taken_minutes %}{{ attempt.time_taken_minutes }} min{% endif %}</td>
+      <td>{{ attempt.notes|linebreaksbr }}</td>
+      <td><a href="{% url 'attempt_edit' attempt.pk %}">Edit</a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p>Nothing recorded yet. After you mark a paper against its solutions, save your score at the end of the solutions page.</p>
+{% endif %}
+{% endblock %}

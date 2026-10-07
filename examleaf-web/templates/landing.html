@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block head_title %}Solutions to Sample Paper {{ paper.short_code }} — {{ paper.book.subject.name }}{% endblock %}
+{% block content %}
+<section class="landing">
+  <p class="eyebrow">{{ paper.code }} · {{ paper.get_tier_display }}</p>
+  <h1>Solutions to Sample Paper {{ paper.short_code }} — {{ paper.book.subject.name }}</h1>
+  <p>Free for registered students. Register once with your email address; after that every QR code in your ExamLeaf book opens its solutions.</p>
+  <p class="actions">
+    <a class="button" href="{% url 'account_signup' %}?next={{ request.path|urlencode }}">Register</a>
+    <a class="button secondary" href="{% url 'account_login' %}?next={{ request.path|urlencode }}">Log in</a>
+  </p>
+</section>
+{% endblock %}

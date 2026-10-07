@@ -1,0 +1,18 @@
+{% extends "base.html" %}{% load static %}
+{% block content %}
+<section class="hero">
+  <h1>ExamLeaf Sample Papers</h1>
+  <p class="lead">Assam Board (ASSEB) · Class 12 · 30 papers in each book: 10 Easy, 10 Medium, 10 Hard.</p>
+  <p class="how">Buy the book, sit a paper, scan its QR code, and check your answers here — free.</p>
+</section>
+<ul class="books">
+  {% for book in object_list %}
+  <li><a href="{{ book.get_absolute_url }}">
+    <img src="{% static book.cover %}" alt="Cover of {{ book.title }}" width="480" height="678">
+    <span>{{ book.subject.name }}</span>
+  </a></li>
+  {% empty %}
+  <li>No books yet. Run <code>manage.py import_papers --all</code>.</li>
+  {% endfor %}
+</ul>
+{% endblock %}

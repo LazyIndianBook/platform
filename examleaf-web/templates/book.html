@@ -1,0 +1,20 @@
+{% extends "base.html" %}{% load static %}
+{% block head_title %}{{ book.title }}{% endblock %}
+{% block content %}
+<div class="book-head">
+  <img src="{% static book.cover %}" alt="" width="480" height="678">
+  <div>
+    <h1>{{ book.title }}</h1>
+    <p class="muted">{{ book.subject.board }} · {{ book.subject.class_level }} · {{ book.edition }}</p>
+    <p>The solutions to every paper are free for registered students. Scan the QR code printed on the paper, or choose it here.</p>
+  </div>
+</div>
+{% for label, papers in tiers %}
+<section class="tier tier-{{ label|lower }}">
+  <h2>{{ label }} papers</h2>
+  <ul class="paper-grid">
+    {% for paper in papers %}<li><a href="{{ paper.get_absolute_url }}">{{ paper.short_code }}</a></li>{% endfor %}
+  </ul>
+</section>
+{% endfor %}
+{% endblock %}

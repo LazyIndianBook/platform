@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block head_title %}Record marks · {{ form.paper.code }}{% endblock %}
+{% block content %}
+<h1>{{ form.paper.code }} — your marks</h1>
+<form method="post" class="narrow">
+  {% csrf_token %}
+  {{ form }}
+  <button type="submit">Save</button>
+</form>
+<p><a href="{{ form.paper.get_absolute_url }}">Back to the solutions</a> · <a href="{% url 'record' %}">My record</a></p>
+{% endblock %}

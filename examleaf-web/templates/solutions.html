@@ -1,0 +1,53 @@
+{% extends "base.html" %}{% load markdown %}
+{% block head_title %}Solutions · {{ paper.code }}{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.19.0/dist/katex.min.css" integrity="sha256-1KtbjuFpibBwzbDqJL1q1I/I3xt4fygPKdOuT5WfLAA=" crossorigin="anonymous">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.19.0/dist/katex.min.js" integrity="sha256-EDpTdjzAM7uo0XW/Pwull8NQXJtnR90/LHvCpr/Miuc=" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.19.0/dist/contrib/auto-render.min.js" integrity="sha256-5TctGZvNrotN5x0PfOunKkuhJ3SifGCm8fd9A7MijuQ=" crossorigin="anonymous"
+  onload="renderMathInElement(document.querySelector('main'), {delimiters: [{left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false}], throwOnError: false, strict: false})"></script>
+{% endblock %}
+{% block content %}
+<div class="paperbar"><strong>{{ paper.code }}</strong> · {{ paper.book.subject.name }} · {{ paper.get_tier_display }} <a href="#record">Record marks</a></div>
+<header class="paper-head">
+  <p class="eyebrow">Sample Paper {{ paper.short_code }} · {{ paper.get_tier_display }}</p>
+  <h1>{{ paper.book.subject.name }} — solutions</h1>
+  <dl class="facts">
+    <div><dt>Full marks</dt><dd>{{ paper.full_marks }}</dd></div>
+    <div><dt>Pass marks</dt><dd>{{ paper.pass_marks }}</dd></div>
+    <div><dt>Time</dt><dd>{{ paper.time_text }}</dd></div>
+  </dl>
+  <details>
+    <summary>Instructions and allotment of marks</summary>
+    {% for line in paper.header_json.lines %}<p>{{ line|markdown_inline }}</p>{% endfor %}
+    {% for table in paper.header_json.allotment %}{{ table|markdown }}{% endfor %}
+  </details>
+</header>
+
+{% for q in questions %}
+  {% ifchanged q.part_label %}{% if q.part_label %}<h2 class="part">{{ q.part_label }}</h2>{% endif %}{% endifchanged %}
+  {% ifchanged q.group_label %}{% if q.group_label %}<p class="group">{{ q.group_label|markdown_inline }}</p>{% endif %}{% endifchanged %}
+  {% if q.is_alternative %}<div class="or"><span>Or</span></div>{% endif %}
+  <article class="question" id="q-{{ q.label|slugify }}">
+    <div class="q">
+      <span class="qno">{% if not q.is_alternative %}{{ q.number }}{% endif %}</span>
+      <div class="qtext">
+        {{ q.text_md|markdown }}
+        {% if q.table_md %}{{ q.table_md|markdown }}{% endif %}
+        {% if q.options_json %}<ul class="options">{% for option in q.options_json %}<li>{{ option|markdown_inline }}</li>{% endfor %}</ul>{% endif %}
+        {% if q.marks_text %}<p class="marks">[{{ q.marks_text }}]</p>{% endif %}
+      </div>
+    </div>
+    {% if q.solution %}<div class="solution">{{ q.solution.body_md|markdown }}</div>{% endif %}
+  </article>
+{% endfor %}
+
+<section class="record-form" id="record">
+  <h2>Record your marks</h2>
+  <p>Mark your answers against these solutions, then save your score to <a href="{% url 'record' %}">My record</a>.</p>
+  <form method="post" action="{% url 'attempt_add' paper.code %}">
+    {% csrf_token %}
+    {{ form }}
+    <button type="submit">Save to my record</button>
+  </form>
+</section>
+{% endblock %}
