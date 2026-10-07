@@ -147,6 +147,24 @@ and saved attempts today and in the last 30 days, and the teacher requests and a
 Books, papers, questions, solutions and legal pages keep a full edit history (django-simple-history); users, attempts
 and consent records export to CSV (django-import-export); periodic tasks and task results are under Celery.
 
+## REST API
+
+`/api/v1/`, for the app. The guide is [API.md](API.md): authentication from the app, token lifetimes, the endpoints
+with curl examples, the error format, rate limits and the versioning policy. OpenAPI schema at `/api/schema/`, Swagger
+UI at `/api/docs/`, Redoc at `/api/redoc/` (both served by the site, so the CSP stays strict).
+
+- Code in `api/` (`auth.py` sign-up and log-in, `views.py`, `serializers.py`), settings in `examleaf/api_settings.py`
+  (imported at the end of `settings.py`), URLs in `examleaf/api_urls.py`.
+- JWT for the app (15-minute access, 30-day refresh, rotated, blacklisted on log-out, all ended by a password change,
+  a reset or the deletion purge); the session for the site's own pages. Log-in, log-out, refresh and passwords are
+  dj-rest-auth's; sign-up and the email code run on `accounts.forms.SignupForm` and allauth's code flow, so the parent
+  and consent rules, the STUDENT role, the consent record and the emails are the website's.
+- The catalogue is public, read-only and cached for 15 minutes; solutions and attempts need a confirmed email address;
+  Download my data and Delete my account reuse the website's functions and ask for the password.
+- JSON only; page-number pagination (50, at most 200), filters, search and ordering; DRF's error format (a JSON 404
+  for unknown `/api/` paths); throttles counted in the cache; CORS only for `CORS_ALLOWED_ORIGINS` and only on `/api/`;
+  `X-Request-ID` as on the site. Beat deletes expired refresh tokens daily (`api.tasks.flush_expired_tokens`).
+
 ## Tests
 
 ```sh
@@ -229,13 +247,6 @@ CSP must then allow Razorpay's checkout script and frame (`script-src`/`frame-sr
 Order and invoice records must survive account deletion (tax law): keep them on `DeletionRequest.complete()`'s
 anonymised user, or detach them, rather than cascading.
 
-**REST API** (Django REST Framework, dj-rest-auth, drf-spectacular) for the apps. Ready for it: roles map to DRF
-permissions (`DjangoModelPermissions` uses the same group permissions; `user.has_role()` for custom ones), allauth is
-the account backend dj-rest-auth builds on (registration must keep the consent and parent rules of
-`accounts.forms.SignupForm` and call `ConsentRecord.record`), Download my data and deletion are plain functions to
-expose as endpoints, `CSRF_TRUSTED_ORIGINS`/proxy settings are environment-driven, and Redis is there for DRF
-throttling. The app stores will ask for the Privacy Policy and an in-app account deletion, both of which exist.
-
 ## Libraries
 
 | Library | Purpose |
@@ -263,13 +274,18 @@ throttling. The app stores will ask for the Privacy Policy and an in-app account
 | django-widget-tweaks | template-level attributes for the My record filter form |
 | django-phonenumber-field (phonenumberslite) | phone field and validation of Indian numbers (region IN) for the parent's contact |
 | django-import-export | CSV export of users, attempts and consent records from the admin |
-| django-filter | the subject/tier filter on My record |
+| django-filter | the subject/tier filter on My record and the API's list filters |
 | django-qr-code (segno) | generates the QR images (PNG for `/qr/<code>.png`, PNG and SVG for `export_qr`) |
 | django-storages[s3] (boto3) | optional private S3-compatible buckets for uploaded answer sheets and for database backups |
 | django-debug-toolbar | development only, when `DEBUG=1` |
 | markdown-it-py | Markdown (with tables) to HTML for questions, solutions and legal pages |
 | Pillow | image support for the answer-sheet `ImageField` |
 | pytest, pytest-django, pytest-cov, factory_boy | tests, coverage and test data (development and CI) |
+| djangorestframework | the REST API (`api/`, API.md): views, serializers, versioning, pagination, throttles |
+| dj-rest-auth | the API's log-in, log-out, token refresh, password change and reset, user details |
+| djangorestframework-simplejwt | JWT access and refresh tokens for the app; rotation and blacklist |
+| drf-spectacular (drf-spectacular-sidecar) | the OpenAPI 3 schema, Swagger UI and Redoc (their files served by the site) |
+| django-cors-headers | CORS for web clients on other origins, `/api/` only |
 | ruff | lint and formatting (`pyproject.toml`) |
 | KaTeX 0.19 (jsDelivr CDN, with SRI) | renders the `$…$` maths in the browser |
 

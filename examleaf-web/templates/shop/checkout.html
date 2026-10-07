@@ -1,0 +1,25 @@
+{% extends "base.html" %}{% load shop %}
+{% block head_title %}Checkout{% endblock %}
+{% block content %}
+<h1>Checkout</h1>
+<ul class="summary">
+  {% for line in totals.lines %}<li>{{ line.quantity }} × {{ line.product }} <span>{{ line.total|inr }}</span></li>{% endfor %}
+  {% if totals.coupon %}<li>Coupon {{ totals.coupon }} <span>−{{ totals.discount|inr }}</span></li>{% endif %}
+</ul>
+<p class="muted">Shipping{% for rate in rates %}{% if forloop.first %}: {% else %} · {% endif %}{{ rate.name }} {{ rate.fee|inr }}{% if rate.free_above %} (free from {{ rate.free_above|inr }}){% endif %}{% endfor %}. The total is shown on the next page, before you pay.</p>
+{% if not user.is_authenticated %}<p>Have an account? <a href="{% url 'account_login' %}?next={{ request.path|urlencode }}">Log in</a> to use your saved addresses and see the order in your account. Or go on as a guest:</p>{% endif %}
+
+<form method="post" class="narrow checkout">{% csrf_token %}
+  {{ form.non_field_errors }}
+  {% if form.email %}{{ form.email.as_field_group }}{% endif %}
+  {% if form.saved_address %}{{ form.saved_address.as_field_group }}{% endif %}
+  <fieldset>
+    <legend>{% if form.saved_address %}New address{% else %}Delivery address{% endif %}</legend>
+    {{ address_form }}
+    {% if form.save_address %}{{ form.save_address.as_field_group }}{% endif %}
+  </fieldset>
+  {{ form.payment_method.as_field_group }}
+  <button type="submit">Continue to payment</button>
+</form>
+<p><a href="{% url 'shop:cart' %}">Back to the cart</a></p>
+{% endblock %}

@@ -1,0 +1,46 @@
+{% extends "base.html" %}{% load shop %}
+{% block head_title %}Order {{ order.number }}{% endblock %}
+{% block content %}
+{% if thanks %}
+<section class="landing thanks">
+  <h1>Thank you!</h1>
+  {% if order.status == "pending" and not order.placed_at %}
+    <p>We are confirming your payment with the bank. This page and your email show it in a few minutes; nothing more to do.</p>
+  {% else %}
+    <p>Order <strong>{{ order.number }}</strong> is placed. A confirmation is on its way to {{ order.email }}.</p>
+  {% endif %}
+  {% if not user.is_authenticated %}<p class="muted">Keep the order number: with your email address it opens this page again (<a href="{% url 'shop:lookup' %}">Find your order</a>).</p>{% endif %}
+</section>
+{% else %}
+<h1>Order {{ order.number }}</h1>
+{% endif %}
+
+<p class="status status-{{ order.status }}">{{ order.status_label|capfirst }}</p>
+<ol class="timeline">
+  {% for label, when in order.timeline %}<li><strong>{{ label|capfirst }}</strong> <time datetime="{{ when|date:'c' }}">{{ when|date:"j M Y, H:i" }}</time></li>{% endfor %}
+</ol>
+
+{% for shipment in shipments %}
+<p class="shipment">Sent by {{ shipment.courier }} on {{ shipment.shipped_at|date:"j M Y" }}, tracking number <strong>{{ shipment.tracking_number }}</strong>{% if shipment.tracking_url %} · <a href="{{ shipment.tracking_url }}" rel="noopener" target="_blank">track the parcel</a>{% endif %}{% if shipment.delivered_at %} · delivered {{ shipment.delivered_at|date:"j M Y" }}{% endif %}</p>
+{% endfor %}
+{% for refund in refunds %}
+<p class="shipment">Refund of {{ refund.amount|inr }}: {% if refund.status == "processed" %}sent on {{ refund.processed_at|date:"j M Y" }}; your bank may take 5–7 working days to show it{% elif refund.status == "pending" %}on its way to the account you paid from (5–7 working days){% else %}delayed; we are on it and will email you{% endif %}.</p>
+{% endfor %}
+
+{% include "shop/order_summary.html" %}
+<h2>Delivery to</h2>
+<p class="address">{% for line in order.address_lines %}{{ line }}<br>{% endfor %}</p>
+<p class="muted">Payment: {{ order.get_payment_method_display }}{% if order.placed_at %} · ordered {{ order.placed_at|date:"j M Y" }}{% endif %}</p>
+
+<p class="actions">
+  {% if order.status == "pending" and not order.placed_at %}<a class="button" href="{% url 'shop:pay' order.number %}">Pay now</a>{% endif %}
+  {% if invoice %}<a class="button secondary" href="{% url 'shop:invoice' order.number %}">Download the invoice</a>{% elif order.placed_at and not order.is_cod %}<span class="muted">The invoice will appear here in a few minutes.</span>{% endif %}
+</p>
+{% if order.can_cancel %}
+<form method="post" action="{% url 'shop:order_cancel' order.number %}" class="cancel">{% csrf_token %}
+  <button type="submit" class="secondary">Cancel the order</button>
+  <span class="helptext">{% if order.status == "paid" %}The full amount is refunded to the way you paid within 5–7 working days.{% else %}Nothing has been charged.{% endif %}</span>
+</form>
+{% endif %}
+<p><a href="{% if user.is_authenticated %}{% url 'shop:orders' %}{% else %}{% url 'shop:catalogue' %}{% endif %}">{% if user.is_authenticated %}My orders{% else %}Back to the shop{% endif %}</a> · Questions? <a href="{% url 'contact' %}">Contact us</a> with the order number.</p>
+{% endblock %}

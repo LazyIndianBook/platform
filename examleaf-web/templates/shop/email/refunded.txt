@@ -1,0 +1,6 @@
+{% autoescape off %}We have refunded {{ refund.amount }} for order {{ order.number }} to the account, card or UPI ID you paid from
+(Razorpay refund {{ refund.razorpay_refund_id|default:"" }}). Your bank may take up to 5–7 working days to show it.
+
+Your order: {{ site_url }}{{ order.get_absolute_url }}
+
+ExamLeaf{% endautoescape %}

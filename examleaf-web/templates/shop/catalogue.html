@@ -1,0 +1,25 @@
+{% extends "base.html" %}{% load shop %}
+{% block head_title %}Shop: printed books{% endblock %}
+{% block meta_description %}Buy ExamLeaf Sample Papers and Solutions books for the Assam Board (ASSEB) Class 12 examination, delivered across India.{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>Buy the books</h1>
+  <p class="lead">Printed Sample Papers and Solutions books, delivered anywhere in India. Pay online with UPI, a card or net banking.</p>
+</section>
+<ul class="products">
+  {% for product in object_list %}
+  <li>
+    <a href="{{ product.get_absolute_url }}">
+      {% if product.cover %}<img src="{% url 'shop:media' product.cover.name %}" alt="" width="480" height="678" loading="lazy">{% else %}{% include "shop/no_cover.html" %}{% endif %}
+      <span class="kind">{{ product.get_kind_display }}</span>
+      <strong>{{ product.title }}</strong>
+    </a>
+    <p class="price">{{ product.price|inr }}{% if product.mrp != product.price %} <s>{{ product.mrp|inr }}</s>{% endif %}</p>
+    {% if not product.available %}<p class="stock out">Out of stock</p>{% endif %}
+  </li>
+  {% empty %}
+  <li>No books on sale yet.</li>
+  {% endfor %}
+</ul>
+<p class="muted">Ordered without an account? <a href="{% url 'shop:lookup' %}">Find your order</a>.</p>
+{% endblock %}

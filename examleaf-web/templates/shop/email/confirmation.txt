@@ -1,0 +1,7 @@
+{% autoescape off %}Thank you for your order {{ order.number }}.
+
+{% include "shop/email/_order.txt" %}
+We dispatch within 2 working days and email you the tracking number. Delivery usually takes 5–10 working days.
+You can cancel the order on its page until it is packed.
+
+ExamLeaf{% endautoescape %}

@@ -1,0 +1,10 @@
+{% autoescape off %}Your order {{ order.number }} is on its way.
+
+Courier: {{ shipment.courier }}
+Tracking number: {{ shipment.tracking_number }}{% if shipment.tracking_url %}
+Track it: {{ shipment.tracking_url }}{% endif %}
+
+{% include "shop/email/_order.txt" %}{% if order.is_cod %}
+Please keep {{ order.total }} ready for the courier.{% endif %}
+
+ExamLeaf{% endautoescape %}

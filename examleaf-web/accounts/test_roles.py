@@ -34,7 +34,9 @@ def test_each_role_has_its_permissions_and_nothing_more():
         ]
     )
     assert not support.has_perm("accounts.change_user") and not support.has_perm("content.change_question")
-    assert sales.get_all_permissions() == {"content.view_book"}  # orders and shipments come with the shop
+    assert sales.has_perms(["content.view_book", "shop.change_order", "shop.add_refund", "shop.change_product"])
+    assert not sales.has_perm("accounts.view_user") and not sales.has_perm("shop.delete_order")
+    assert support.has_perm("shop.view_order") and not support.has_perm("shop.change_order")
     assert not member(roles.STUDENT).get_all_permissions() and not member(roles.TEACHER).get_all_permissions()
 
 

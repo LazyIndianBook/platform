@@ -1,0 +1,118 @@
+"""Razorpay (official SDK): the client, the Razorpay order behind a checkout, the check of what Checkout returns, and
+the webhooks. Signatures are HMAC-SHA256, checked locally by the SDK; every network call has a timeout. Tests replace
+the network calls of `client()`."""
+
+import json
+import logging
+
+import razorpay
+import requests
+from django.conf import settings
+from django.db import transaction
+from django.db.models import Q
+from django_fsm import can_proceed
+from razorpay.errors import BadRequestError, GatewayError, ServerError, SignatureVerificationError
+
+from . import services
+from .models import INR, Payment, Refund, paise
+
+logger = logging.getLogger(__name__)
+TIMEOUT = 10  # seconds per Razorpay call: an unreachable Razorpay must not hang a page
+API_ERRORS = (requests.RequestException, BadRequestError, GatewayError, ServerError)
+
+
+class Unavailable(Exception):
+    """Razorpay is not set up or could not be reached; the order stays pending and the page offers a retry."""
+
+
+def client():
+    return razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+
+
+def test_mode():
+    return settings.RAZORPAY_KEY_ID.startswith("rzp_test_")
+
+
+def razorpay_order_id(payment):
+    """The Razorpay order Checkout pays, created on first use (and again on a retry after Razorpay was unreachable).
+    Its amount is the order's total in paise, fixed when the order was made."""
+    if payment.razorpay_order_id:
+        return payment.razorpay_order_id
+    if not (settings.RAZORPAY_KEY_ID and settings.RAZORPAY_KEY_SECRET):
+        raise Unavailable("Online payment is not set up yet.")
+    number = payment.order.number
+    try:
+        data = client().order.create(
+            {"amount": paise(payment.amount), "currency": INR, "receipt": number, "notes": {"order": number}},
+            timeout=TIMEOUT,
+        )
+    except API_ERRORS as error:
+        logger.warning("Razorpay order for %s not created: %s", number, error)
+        raise Unavailable("The payment service could not be reached.") from error
+    Payment.objects.filter(pk=payment.pk, razorpay_order_id=None).update(razorpay_order_id=data["id"])
+    return Payment.objects.values_list("razorpay_order_id", flat=True).get(pk=payment.pk)  # another tab's, if first
+
+
+def confirm_return(payment, data):
+    """Checkout's success callback (`data`: razorpay_order_id, razorpay_payment_id, razorpay_signature). Returns False
+    if the signature is wrong. Otherwise the payment is authorized, then Razorpay is asked for it and it is recorded
+    if captured (capturing it first if the account does not capture by itself). If Razorpay cannot be asked now, the
+    payment.captured webhook completes the order."""
+    params = {name: data.get(name, "") for name in ("razorpay_order_id", "razorpay_payment_id", "razorpay_signature")}
+    if not payment.razorpay_order_id or params["razorpay_order_id"] != payment.razorpay_order_id:
+        return False
+    try:
+        client().utility.verify_payment_signature(params)
+    except SignatureVerificationError:
+        logger.warning("Wrong Checkout signature for order %s", payment.order.number)
+        return False
+    with transaction.atomic():
+        locked = Payment.objects.select_for_update().get(pk=payment.pk)
+        locked.razorpay_signature = params["razorpay_signature"]
+        if can_proceed(locked.authorize):
+            locked.razorpay_payment_id = params["razorpay_payment_id"]
+            locked.authorize()
+        locked.save()
+    try:
+        entity = client().payment.fetch(params["razorpay_payment_id"], timeout=TIMEOUT)
+        if entity["status"] == "authorized" and entity["amount"] == paise(payment.amount):
+            entity = client().payment.capture(entity["id"], entity["amount"], {"currency": INR}, timeout=TIMEOUT)
+    except API_ERRORS as error:
+        logger.warning("Razorpay payment %s not confirmed now (%s); waiting for the webhook", params, error)
+        return True
+    if entity.get("status") == "captured" and entity.get("order_id") == payment.razorpay_order_id:
+        services.record_capture(entity)
+    return True
+
+
+def handle_webhook(body, signature):
+    """A Razorpay webhook. Returns False if the signature (HMAC of the raw body with the webhook secret) is wrong or
+    no secret is set. Events for unknown orders (another integration on the same account) are ignored."""
+    secret = settings.RAZORPAY_WEBHOOK_SECRET
+    if not secret or not signature:
+        return False
+    try:
+        client().utility.verify_webhook_signature(body.decode(), signature, secret)
+        event = json.loads(body)
+    except SignatureVerificationError, UnicodeDecodeError, ValueError:
+        return False
+    name, payload = event.get("event", ""), event.get("payload", {})
+    if name in ("payment.captured", "order.paid", "payment.failed"):
+        entity = payload["payment"]["entity"]
+        if Payment.objects.filter(razorpay_order_id=entity.get("order_id") or None).exists():
+            if name == "payment.failed":
+                services.record_failure(entity, payload=event)
+            else:
+                services.record_capture(entity, payload=event)
+    elif name in ("refund.processed", "refund.failed"):
+        entity = payload["refund"]["entity"]
+        notes = entity.get("notes") if isinstance(entity.get("notes"), dict) else {}  # Razorpay sends [] when empty
+        ours = Q(razorpay_refund_id=entity["id"])
+        if str(notes.get("refund_id", "")).isdigit():
+            ours |= Q(pk=int(notes["refund_id"]), razorpay_refund_id=None)  # webhook before the API's answer
+        if refund := Refund.objects.filter(ours).first():
+            if name == "refund.processed":
+                services.refund_processed(refund.pk, razorpay_refund_id=entity["id"])
+            else:
+                services.refund_failed(refund.pk, (entity.get("error_description") or "refund failed"))
+    return True

@@ -1,0 +1,25 @@
+{% extends "base.html" %}{% load shop %}
+{% block head_title %}My orders{% endblock %}
+{% block content %}
+<h1>My orders</h1>
+{% if object_list %}
+<div class="table-scroll">
+<table class="record">
+  <thead><tr><th>Order</th><th>Date</th><th>Books</th><th class="num">Total</th><th>Status</th></tr></thead>
+  <tbody>
+  {% for order in object_list %}
+    <tr>
+      <td><a href="{{ order.get_absolute_url }}">{{ order.number }}</a></td>
+      <td>{{ order.created|date:"j M Y" }}</td>
+      <td>{% for item in order.items.all %}{{ item.quantity }} × {{ item.title }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</td>
+      <td class="num">{{ order.total|inr }}</td>
+      <td>{{ order.status_label|capfirst }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p>No orders yet. <a href="{% url 'shop:catalogue' %}">See the books</a>.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,14 @@
+{% load shop %}<div class="table-scroll">
+<table class="cart">
+  <thead><tr><th>Book</th><th class="num">Copies</th><th class="num">Amount</th></tr></thead>
+  <tbody>
+  {% for item in order.items.all %}<tr><td>{{ item.title }}<br><small>{{ item.unit_price|inr }} each</small></td><td class="num">{{ item.quantity }}</td><td class="num">{{ item.line_total|inr }}</td></tr>{% endfor %}
+  </tbody>
+</table>
+</div>
+<dl class="totals">
+  <dt>Books</dt><dd>{{ order.subtotal|inr }}</dd>
+  {% if order.discount.amount %}<dt>Coupon {{ order.coupon_code }}</dt><dd>−{{ order.discount|inr }}</dd>{% endif %}
+  <dt>Shipping</dt><dd>{% if order.shipping_fee.amount %}{{ order.shipping_fee|inr }}{% else %}free{% endif %}</dd>
+  <dt class="grand">Total</dt><dd class="grand">{{ order.total|inr }}</dd>
+</dl>

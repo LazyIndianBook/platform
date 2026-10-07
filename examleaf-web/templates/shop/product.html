@@ -1,0 +1,58 @@
+{% extends "base.html" %}{% load shop markdown %}
+{% block head_title %}{{ product.seo_title|default:product.title }}{% endblock %}
+{% block meta_description %}{{ product.seo_description|default:product.title }}{% endblock %}
+{% block content %}
+<div class="book-head">
+  {% if product.cover %}<img src="{% url 'shop:media' product.cover.name %}" alt="Cover of {{ product.title }}" width="480" height="678">{% else %}{% include "shop/no_cover.html" %}{% endif %}
+  <div>
+    <p class="eyebrow">{{ product.get_kind_display }}{% if product.subject %} · {{ product.subject.board }} · {{ product.subject.class_level }}{% endif %}</p>
+    <h1>{{ product.title }}</h1>
+    <p class="price big">{{ product.price|inr }}
+      {% if product.mrp != product.price %}<s>{{ product.mrp|inr }}</s> <span class="save">{{ product.saving_percent }}% off</span>{% endif %}</p>
+    {% with left=product.available %}
+    {% if left %}
+      <form method="post" action="{% url 'shop:cart_add' product.pk %}" class="add-to-cart">{% csrf_token %}
+        <label for="quantity">Copies</label>
+        <input id="quantity" name="quantity" type="number" min="1" max="{{ left|stringformat:'d' }}" value="1" inputmode="numeric">
+        <button type="submit">Add to cart</button>
+      </form>
+      {% if left < 10 %}<p class="stock">Only {{ left }} left.</p>{% endif %}
+    {% else %}
+      <p class="stock out">Out of stock for now.</p>
+    {% endif %}
+    {% endwith %}
+  </div>
+</div>
+
+{% if product.description %}<div class="prose">{{ product.description|markdown }}</div>{% endif %}
+
+{% if bundle_items %}
+<h2>In this bundle</h2>
+<ul>{% for item in bundle_items %}<li>{{ item.quantity }} × <a href="{{ item.product.get_absolute_url }}">{{ item.product }}</a></li>{% endfor %}</ul>
+{% endif %}
+
+{% if tiers %}
+<h2>What's inside</h2>
+<ul>
+  {% for label, count in tiers %}<li>{{ count }} {{ label }} paper{{ count|pluralize }}</li>{% endfor %}
+  {% if sample_paper %}<li>Each paper: {{ sample_paper.full_marks }} marks, {{ sample_paper.time_text }}, in the board's pattern</li>{% endif %}
+  {% if product.kind == "sample-papers" %}<li>A QR code on every paper opens its full marking-scheme solutions on this site, free</li>{% endif %}
+</ul>
+{% if sample_paper %}<p>See a sample: <a href="{{ sample_paper.get_absolute_url }}">Paper {{ sample_paper.short_code }}</a> · <a href="{{ product.book.get_absolute_url }}">all the papers in the book</a></p>{% endif %}
+{% endif %}
+
+<h2>Details</h2>
+<dl class="details">
+  {% if product.subject %}<dt>Subject</dt><dd>{{ product.subject.name }}</dd><dt>Board</dt><dd>{{ product.subject.board.name }}</dd><dt>Class</dt><dd>{{ product.subject.class_level.number }}</dd>{% endif %}
+  {% if product.book.edition %}<dt>Edition</dt><dd>{{ product.book.edition }}</dd>{% endif %}
+  {% if product.pages %}<dt>Pages</dt><dd>{{ product.pages }}</dd>{% endif %}
+  {% if product.isbn %}<dt>ISBN</dt><dd>{{ product.isbn }}</dd>{% endif %}
+  {% if product.weight_grams %}<dt>Weight</dt><dd>{{ product.weight_grams }} g</dd>{% endif %}
+  <dt>Delivery</dt><dd>Anywhere in India, usually 5–10 working days. <a href="{% url 'shipping' %}">Shipping</a> · <a href="{% url 'refunds' %}">Refunds</a></dd>
+</dl>
+
+{% for image in product.images.all %}
+<figure class="gallery"><img src="{% url 'shop:media' image.image.name %}" alt="{{ image.alt }}" loading="lazy">{% if image.alt %}<figcaption>{{ image.alt }}</figcaption>{% endif %}</figure>
+{% endfor %}
+<p><a href="{% url 'shop:catalogue' %}">All books</a></p>
+{% endblock %}

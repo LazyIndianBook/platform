@@ -1,0 +1,38 @@
+{% extends "base.html" %}{% load shop static %}
+{% block head_title %}Pay for order {{ order.number }}{% endblock %}
+{% block content %}
+<h1>Review and pay</h1>
+<p class="eyebrow">Order {{ order.number }}</p>
+{% include "shop/order_summary.html" %}
+<h2>Delivery to</h2>
+<p class="address">{% for line in order.address_lines %}{{ line }}<br>{% endfor %}</p>
+<p class="muted">Confirmation to {{ order.email }}. Wrong? <a href="{% url 'shop:checkout' %}">Change the details</a> (this order will simply not be paid).</p>
+
+{% if order.is_cod %}
+  <form method="post">{% csrf_token %}
+    <button type="submit">Place order: pay {{ order.total|inr }} on delivery</button>
+  </form>
+{% elif unavailable %}
+  <div class="notice">
+    <p><strong>{{ unavailable }}</strong> Your order is saved and nothing has been charged.</p>
+    <p><a class="button" href="{{ request.path }}">Try again</a></p>
+  </div>
+{% else %}
+  {% if test_mode %}<p class="notice-line">Test mode: no real money is taken. Use Razorpay's test card or UPI ID.</p>{% endif %}
+  <p id="pay-error" class="notice-line" hidden></p>
+  <p><button type="button" id="pay-button" disabled>Pay {{ order.total|inr }}</button></p>
+  <noscript><p class="notice-line">The payment window needs JavaScript.</p></noscript>
+  <p class="muted">UPI, cards, net banking and wallets, through Razorpay. You will come back to this site when it is done.</p>
+  <form method="post" action="{% url 'shop:pay_verify' order.number %}" id="razorpay-form">{% csrf_token %}
+    <input type="hidden" name="razorpay_payment_id"><input type="hidden" name="razorpay_order_id"><input type="hidden" name="razorpay_signature">
+  </form>
+  {{ checkout|json_script:"razorpay-options" }}
+{% endif %}
+{% if order.can_cancel %}
+<form method="post" action="{% url 'shop:order_cancel' order.number %}">{% csrf_token %}<button type="submit" class="link">Cancel this order</button></form>
+{% endif %}
+{% endblock %}
+{% block extra_body %}{% if checkout %}
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script src="{% static 'shop/checkout.js' %}"></script>
+{% endif %}{% endblock %}

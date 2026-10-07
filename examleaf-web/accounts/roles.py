@@ -29,14 +29,23 @@ ROLES = {
         *crud("content", ["board", "classlevel", "subject"], ["view"]),
         *crud("pages", ["page"], ["view", "change"]),
     ],
-    # The shop phase adds: view/change order, view payment, view/add invoice, view/add/change shipment, and
-    # view/change product (prices and stock), then runs bootstrap_roles.
-    SALES: crud("content", ["book"], ["view"]),
+    SALES: [  # the shop: catalogue, prices and stock, coupons, shipping rates; orders, shipments and refunds
+        "content.view_book",
+        *crud("shop", ["product", "coupon", "shippingrate", "shipment"]),
+        *crud("shop", ["productimage", "bundleitem"], ["view", "add", "change", "delete"]),
+        *crud("shop", ["order"], ["view", "change"]),  # change: the pack / ship / deliver actions
+        *crud("shop", ["refund"], ["view", "add"]),  # add: the refund action (Razorpay refund)
+        *crud("shop", ["orderitem", "payment", "invoice"], ["view"]),
+    ],
     SUPPORT: [  # help students: look up accounts and records, verify teachers, answer data requests
         *crud("accounts", ["user", "consentrecord", "deletionrequest"], ["view"]),
         *crud("accounts", ["teacherprofile"], ["view", "change"]),
         "account.view_emailaddress",  # allauth: is the address confirmed?
         "practice.view_attempt",
+        # orders: view only (answer "where is my parcel?"; refunds and shipping are SALES')
+        *crud(
+            "shop", ["order", "orderitem", "payment", "shipment", "refund", "invoice", "product", "address"], ["view"]
+        ),
     ],
     ADMIN: ALL,
 }

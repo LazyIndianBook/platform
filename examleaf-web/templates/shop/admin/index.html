@@ -1,0 +1,17 @@
+{% extends "admin/dashboard.html" %}{% load shop %}
+{% block content %}
+{% if perms.shop.view_order %}{% shop_stats as shop %}
+<div class="module" id="shop-dashboard">
+<table>
+  <caption>Shop</caption>
+  <thead><tr><th scope="col"></th><th scope="col">Today</th><th scope="col">Last 30 days</th></tr></thead>
+  <tbody>
+  {% for label, today, month in shop.rows %}<tr><th scope="row">{{ label }}</th><td>{{ today }}</td><td>{{ month }}</td></tr>{% endfor %}
+  </tbody>
+</table>
+<p>Waiting: <a href="{% url 'admin:shop_order_changelist' %}?status__exact=paid">{{ shop.to_pack }} order{{ shop.to_pack|pluralize }} to pack</a> (paid, or cash on delivery placed)
+ · <a href="{% url 'admin:shop_order_changelist' %}?status__exact=shipped">{{ shop.to_deliver }} on the way</a></p>
+</div>
+{% endif %}
+{{ block.super }}
+{% endblock %}

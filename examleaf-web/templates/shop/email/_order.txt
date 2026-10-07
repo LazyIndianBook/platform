@@ -1,0 +1,10 @@
+{% load shop %}{% for item in order.items.all %}{{ item.quantity }} × {{ item.title }}  {{ item.line_total|inr }}
+{% endfor %}{% if order.discount.amount %}Coupon {{ order.coupon_code }}  −{{ order.discount|inr }}
+{% endif %}Shipping  {% if order.shipping_fee.amount %}{{ order.shipping_fee|inr }}{% else %}free{% endif %}
+Total  {{ order.total|inr }}{% if order.is_cod %} (pay on delivery){% endif %}
+
+Delivery to:
+{% for line in order.address_lines %}{{ line }}
+{% endfor %}
+Your order: {{ site_url }}{{ order.get_absolute_url }}{% if not order.user_id %}
+(Without an account, open {{ site_url }}{% url 'shop:lookup' %} with the order number and this email address.){% endif %}

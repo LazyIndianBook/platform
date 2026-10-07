@@ -53,6 +53,8 @@ INSTALLED_APPS = [
     "practice",
     "pages",
     "ops",
+    "djmoney",
+    "shop",  # after ops: its admin index template extends the ops dashboard
 ]
 
 MIDDLEWARE = [
@@ -198,6 +200,23 @@ CELERY_BEAT_SCHEDULE = {  # written into the beat tables at start-up
         "schedule": crontab(hour=3, minute=0),
     },
     "reset-failed-logins": {"task": "ops.tasks.reset_failed_logins", "schedule": crontab(hour=3, minute=30)},
+    "shop-clean-up": {"task": "shop.tasks.clean_up", "schedule": crontab(hour=4, minute=30)},
+}
+
+# Shop (shop/, README.md "Shop"): Razorpay test keys (rzp_test_…) until going live, an optional cash on delivery,
+# and the seller's details printed on the invoices.
+RAZORPAY_KEY_ID = env("RAZORPAY_KEY_ID", default="")
+RAZORPAY_KEY_SECRET = env("RAZORPAY_KEY_SECRET", default="")
+RAZORPAY_WEBHOOK_SECRET = env("RAZORPAY_WEBHOOK_SECRET", default="")  # webhooks are refused while it is empty
+SHOP_COD_ENABLED = env.bool("SHOP_COD_ENABLED", default=False)
+SHOP_SELLER = {
+    "name": env("SELLER_LEGAL_NAME", default="ExamLeaf LLP"),
+    "address": env("SELLER_ADDRESS", default="[address], [city], Assam [PIN]"),
+    "gstin": env("SELLER_GSTIN", default=""),  # empty: "not registered" on the invoice
+    "state": env("SELLER_STATE", default="AS"),  # two-letter code: same state as the buyer = CGST + SGST, else IGST
+    "state_code": env("SELLER_STATE_CODE", default="18"),  # GST state code (Assam: 18)
+    "email": env("SELLER_EMAIL", default="[email]"),
+    "phone": env("SELLER_PHONE", default="[phone]"),
 }
 
 # Logging: one JSON object per line on stdout (LOG_JSON=0 for plain text), each with the request ID set by django-guid
@@ -233,6 +252,8 @@ LOGGING = {
         "django": {"handlers": [], "level": "INFO"},  # through the root handler (no duplicate in DEBUG)
         "axes": {"level": "WARNING"},  # not its start-up banner in every command
         "django_guid": {"level": "WARNING"},  # not a line per request saying that an ID was generated
+        "weasyprint": {"level": "WARNING"},  # not a line per step of every invoice PDF
+        "fontTools": {"level": "WARNING"},
     },
 }
 
@@ -294,3 +315,11 @@ if env("BACKUP_BUCKET", default=""):  # scripts/backup.sh uploads database dumps
 from import_export.formats.base_formats import CSV  # noqa: E402
 
 EXPORT_FORMATS = [CSV]
+
+# REST API (api/, /api/v1/): DRF, JWT, OpenAPI, CORS and throttle settings are in examleaf/api_settings.py.
+from .api_settings import *  # noqa: E402, F403
+
+INSTALLED_APPS += API_APPS  # noqa: F405
+MIDDLEWARE.insert(
+    MIDDLEWARE.index("django.middleware.common.CommonMiddleware"), "corsheaders.middleware.CorsMiddleware"
+)

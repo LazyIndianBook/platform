@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block head_title %}Find your order{% endblock %}
+{% block content %}
+<h1>Find your order</h1>
+<p>Ordered without an account? Type the order number from the confirmation email and the email address you used.</p>
+<form method="post" class="narrow">{% csrf_token %}
+  {{ form }}
+  <button type="submit">Show the order</button>
+</form>
+{% if user.is_authenticated %}<p>Orders placed while logged in are in <a href="{% url 'shop:orders' %}">My orders</a>.</p>{% endif %}
+{% endblock %}

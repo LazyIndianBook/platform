@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block head_title %}Sample papers with free solutions{% endblock %} · ExamLeaf</title>
-<meta name="description" content="ExamLeaf Sample Papers for the Assam Board (ASSEB) Class 12 examination, with free worked solutions for registered students.">
+<meta name="description" content="{% block meta_description %}ExamLeaf Sample Papers for the Assam Board (ASSEB) Class 12 examination, with free worked solutions for registered students.{% endblock %}">
 <link rel="stylesheet" href="{% static 'css/site.css' %}">
 {% block extra_head %}{% endblock %}
 </head>
@@ -12,6 +12,8 @@
 <header class="site-header">
   <a class="brand" href="{% url 'home' %}">Exam<span>Leaf</span></a>
   <nav>
+    <a href="{% url 'shop:catalogue' %}">Shop</a>
+    {% if request.session.shop_cart_count %}<a href="{% url 'shop:cart' %}">Cart ({{ request.session.shop_cart_count }})</a>{% endif %}
     {% if user.is_authenticated %}
       <a href="{% url 'record' %}">My record</a>
       <a href="{% url 'account' %}">Account</a>
@@ -27,6 +29,7 @@
 <footer class="site-footer">
   <a href="{% url 'about' %}">About</a> · <a href="{% url 'contact' %}">Contact</a> · <a href="{% url 'privacy' %}">Privacy</a> ·
   <a href="{% url 'terms' %}">Terms</a> · <a href="{% url 'refunds' %}">Refunds</a> · <a href="{% url 'shipping' %}">Shipping</a> ·
+  {% if user.is_authenticated %}<a href="{% url 'shop:orders' %}">My orders</a>{% else %}<a href="{% url 'shop:lookup' %}">Find your order</a>{% endif %} ·
   © ExamLeaf LLP
 </footer>
 {% block extra_body %}{% endblock %}
