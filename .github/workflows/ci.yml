@@ -51,5 +51,5 @@ jobs:
         run: docker build --tag examleaf-web:ci examleaf-web
       - name: Django and WeasyPrint load in the image
         run: |
-          docker run --rm -e SECRET_KEY=ci-only-not-secret -e DATABASE_URL=sqlite:////tmp/ci.sqlite3 examleaf-web:ci python manage.py check --deploy --fail-level ERROR
+          docker run --rm -e SECRET_KEY=ci-only-not-secret -e DATABASE_URL=sqlite:////tmp/ci.sqlite3 -e EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend examleaf-web:ci python manage.py check --deploy --fail-level ERROR
           docker run --rm examleaf-web:ci python -c "import weasyprint"
