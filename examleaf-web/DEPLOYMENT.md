@@ -11,7 +11,8 @@ if the data should stay in India, as the Privacy Policy draft says ("servers in 
 - an email provider supported by django-anymail (Brevo, Amazon SES, Postmark, Mailgun …), with the sending domain
   verified (SPF and DKIM records as the provider shows them, plus a DMARC record);
 - optional: Sentry (errors), an S3-compatible bucket for off-site backups (Cloudflare R2, Backblaze B2, AWS S3);
-- an uptime monitor (e.g. UptimeRobot) for `https://examleaf.in/health/`.
+- an uptime monitor (e.g. UptimeRobot) for `https://examleaf.in/health/`;
+- for the shop: a Razorpay account in the name of ExamLeaf LLP (section 12).
 
 ## 2. DNS
 
@@ -114,8 +115,10 @@ Add to the `examleaf` user's crontab (`crontab -e`):
 
 It writes `backups/examleaf-YYYYMMDD-HHMMSS.dump` (readable by the owner only), keeps `BACKUP_KEEP_DAYS` (30) days and
 uploads each dump to `BACKUP_BUCKET` when set. Without a bucket the dumps stay on the same disk as the database:
-copy them elsewhere. Try a restore once (RUNBOOK.md) before relying on them. The `media` volume (answer-sheet photos,
-when that feature exists) needs backing up too once it holds files.
+copy them elsewhere. Try a restore once (RUNBOOK.md) before relying on them. The `media` volume holds the invoice PDFs
+(tax records: keep them eight years) and the product pictures: back it up too, e.g.
+`docker run --rm -v examleaf-web_media:/m -v /srv/examleaf/backups:/b alpine tar czf /b/media-$(date +%F).tgz -C /m .`
+(the volume name is `docker volume ls`'s); invoices can also be made again from the orders (`generate_invoice`).
 
 ## 10. Logs
 
@@ -136,3 +139,47 @@ docker compose exec web python manage.py import_papers --all   # when papers cha
 ```
 
 The site is down for the few seconds the web container takes to restart.
+
+## 12. Shop: Razorpay
+
+The shop works in Razorpay's test mode (no real money) until the checklist below is done. README.md "Shop" describes
+the flows.
+
+1. **Account.** Sign up at <https://dashboard.razorpay.com> as ExamLeaf LLP and complete the activation (KYC: the LLP's
+   documents, PAN, bank account, GSTIN if registered). Razorpay reviews the website: the Privacy, Terms, Refund,
+   Shipping and Contact pages must be filled in (no square brackets left) and the shop must show prices.
+2. **Test keys.** Dashboard in Test Mode → Account & Settings → API Keys → Generate. Put them in `.env`:
+   `RAZORPAY_KEY_ID=rzp_test_…`, `RAZORPAY_KEY_SECRET=…`.
+3. **Webhook.** Account & Settings → Webhooks → Add new webhook: URL `https://examleaf.in/shop/webhooks/razorpay/`,
+   a secret (`python3 -c "import secrets; print(secrets.token_urlsafe(32))"`, also into `.env` as
+   `RAZORPAY_WEBHOOK_SECRET`), an alert email, and the events `payment.captured`, `payment.failed`, `order.paid`,
+   `refund.processed`, `refund.failed`. The webhook completes orders whose customer never came back from the payment
+   page, and finishes refunds that Razorpay processes later.
+4. **Capture.** Account & Settings → Payment Capture: automatic (the site also captures an authorized payment when the
+   customer comes back, so manual capture works too, but then a payment whose customer never returns is not captured).
+5. **Seller and options** in `.env`: `SELLER_LEGAL_NAME`, `SELLER_ADDRESS`, `SELLER_GSTIN` (empty if not registered),
+   `SELLER_STATE`, `SELLER_STATE_CODE`, `SELLER_EMAIL`, `SELLER_PHONE`; `SHOP_COD_ENABLED=1` for cash on delivery.
+   Then `docker compose up -d` (the containers read `.env` when they start).
+6. **Catalogue.** `docker compose exec web python manage.py seed_shop`, then in the admin (Shop): real prices and MRP,
+   stock, ISBN, pages, weights, a cover for each Solutions book, the coupon's dates (or untick it), the shipping rates.
+   Give the people who pack and ship the SALES role, and those who answer customers SUPPORT.
+7. **Try it** with Razorpay's test card or the UPI ID `success@razorpay`: an order is paid, the confirmation email
+   arrives, the invoice appears on the order page; a failed payment (`failure@razorpay`) can be retried; a cancellation
+   is refunded; Mark packed, Mark shipped (a tracking number) and Mark delivered send their emails. Dashboard →
+   Webhooks shows each delivery answered 200.
+
+### Going live
+
+- [ ] Legal pages final: the email, phone, address, GSTIN and Grievance Officer filled in; the courier and dispatch days
+      in Shipping; the refund rules in Refunds checked against what the business wants.
+- [ ] Seller details in `.env` correct: they print on every invoice and cannot be changed afterwards.
+- [ ] Real prices, stock and ISBNs. Orders made in test mode stay in the admin; their invoices are in the test series
+      (`T/2026-27/…`, marked as not a tax document), so the real ones start at `EL/<year>/00001`.
+- [ ] Razorpay account activated. Switch the Dashboard to Live Mode, generate live keys and set `RAZORPAY_KEY_ID=rzp_live_…`
+      and `RAZORPAY_KEY_SECRET`; create the same webhook again in Live Mode (webhooks are per mode) and set its
+      secret as `RAZORPAY_WEBHOOK_SECRET`; `docker compose up -d`. The payment page no longer says "Test mode".
+- [ ] One real purchase of a cheap book, then cancel it: the refund appears in the Razorpay Dashboard (Refunds) and
+      the money comes back to the card or UPI account.
+- [ ] `check --deploy` shows only W005 and W021; `/health/` is OK; Sentry receives errors; the `media` volume is backed
+      up (invoices).
+

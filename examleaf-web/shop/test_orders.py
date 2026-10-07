@@ -51,6 +51,22 @@ def test_guest_checkout_checks_email_pin_and_mobile_then_makes_a_pending_order(c
     assert order.items.get().quantity == 2 and order.total.amount == Decimal("598.00")
 
 
+def test_logged_in_checkout_saves_the_address_once_and_offers_it_next_time(client):
+    user = UserFactory()
+    client.force_login(user)
+    product = ProductFactory(stock=1)
+    client.post(reverse("shop:cart_add", args=[product.pk]), {"quantity": 2})
+    fields = {k: v for k, v in GUEST.items() if k != "email"}
+    assert "Only 1 copy" in client.post(reverse("shop:checkout"), {**fields, "save_address": "on"}).content.decode()
+    assert not Address.objects.exists()  # nothing saved for an order that was not made
+    client.post(reverse("shop:cart"), {"action": "update", f"qty-{product.pk}": "1", "remove": "x"})
+    client.post(reverse("shop:checkout"), {**fields, "save_address": "on"})
+    address = Address.objects.get()
+    assert address.user == user and address.is_default and Order.objects.get().email == user.email
+    page = client.get(reverse("shop:checkout"))
+    assert page.context["form"].fields["saved_address"].initial == address
+
+
 def test_checkout_charges_todays_price_not_the_carts(client, rzp):
     product = ProductFactory(price=299)
     client.post(reverse("shop:cart_add", args=[product.pk]))
@@ -194,7 +210,7 @@ def test_refund_is_retried_while_razorpay_is_down_and_stops_when_refused(rzp, co
 
 
 @pytest.mark.real_pdf
-def test_invoice_is_a_pdf_with_gst_columns_even_at_zero(rzp):
+def test_invoice_is_a_pdf_with_gst_columns_even_at_zero(rzp, settings):
     try:
         import weasyprint  # noqa: F401
     except OSError:
@@ -203,17 +219,19 @@ def test_invoice_is_a_pdf_with_gst_columns_even_at_zero(rzp):
     services.record_capture(captured(order))
     tasks.generate_invoice(order.pk)
     invoice = Invoice.objects.get()
-    year = invoice.financial_year
-    assert invoice.number == f"EL/{year}/00001" and len(invoice.number) == 16
+    year = invoice.financial_year.removeprefix("T")
+    assert invoice.number == f"T/{year}/00001" and invoice.is_test  # Razorpay test keys: the test series
     assert invoice.pdf.read().startswith(b"%PDF")
     context = invoices.context(invoice)
     assert context["title"] == "Bill of supply" and not context["intra_state"]  # Delhi: IGST at 0 %
     assert context["lines"][0]["taxable"] == Decimal("598.00") and context["lines"][0]["igst"] == 0
+    settings.RAZORPAY_KEY_ID = "rzp_live_key"  # live: the real series starts at 00001
     second = make_order((ProductFactory(price=100, gst_rate=12), 1))
     services.record_capture(captured(second))
     tasks.generate_invoice(second.pk)
     line = invoices.context(second.invoice)["lines"][0]
-    assert second.invoice.number == f"EL/{year}/00002" and invoices.context(second.invoice)["title"] == "Tax invoice"
+    assert second.invoice.number == f"EL/{year}/00001" and len(second.invoice.number) == 16
+    assert invoices.context(second.invoice)["title"] == "Tax invoice"
     assert (line["taxable"], line["cgst"], line["sgst"]) == (Decimal("89.29"), Decimal("5.36"), Decimal("5.35"))
 
 

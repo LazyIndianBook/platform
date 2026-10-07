@@ -94,6 +94,17 @@ def test_refund_action_needs_a_reason_and_refunds_through_razorpay(client, paid,
     assert "Nothing refunded for" in response.content.decode() and Refund.objects.count() == 1
 
 
+def test_partial_refund_of_a_refused_parcel(client, paid, rzp, commit):
+    client.force_login(staff(roles.SALES))
+    with commit():
+        services.pack_order(paid)
+        services.ship_order(paid, "India Post", "EA1IN")
+        act(client, "refund", [paid], apply="1", reason="Parcel refused: books less shipping.", amount="259.00")
+    paid.refresh_from_db()
+    assert paid.refunds.get().amount.amount == 259 and rzp.payment.refund.call_args.args[1]["amount"] == 25900
+    assert paid.status == Order.Status.REFUNDED
+
+
 def test_export_has_one_row_per_order_with_the_address(client, paid):
     data = OrderResource().export(Order.objects.all())
     row = dict(zip(data.headers, data[0], strict=True))

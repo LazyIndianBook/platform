@@ -3,7 +3,7 @@ from django.contrib import admin, messages
 from django.forms import formset_factory
 from django.shortcuts import render
 from django.urls import reverse
-from django.utils.html import format_html
+from django.utils.html import format_html, format_html_join
 from django_fsm import TransitionNotAllowed
 from import_export import fields, resources
 from import_export.admin import ExportMixin
@@ -198,7 +198,7 @@ class OrderAdmin(ExportMixin, SimpleHistoryAdmin):
 
     @admin.display(description="deliver to")
     def delivery_address(self, order):
-        return format_html("{}", "\n".join(order.address_lines))
+        return format_html_join("", "{}<br>", ((line,) for line in order.address_lines))
 
     @admin.display(description="invoice")
     def invoice_link(self, order):
@@ -271,7 +271,7 @@ class OrderAdmin(ExportMixin, SimpleHistoryAdmin):
             reason, started, nothing = form.cleaned_data["reason"], [], []
             for order in queryset:
                 try:
-                    refund = services.refund_order(order, reason, by=request.user)
+                    refund = services.refund_order(order, reason, by=request.user, amount=form.cleaned_data["amount"])
                 except TransitionNotAllowed:
                     refund = None
                 (started if refund else nothing).append(str(order))

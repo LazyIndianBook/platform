@@ -547,11 +547,12 @@ def financial_year(day):
 
 class Invoice(TimeStampedModel):
     """The GST invoice (a bill of supply while every book is exempt). Numbers run per financial year, at most
-    16 characters as GST requires: EL/2026-27/00001."""
+    16 characters as GST requires: EL/2026-27/00001. With Razorpay test keys they run in a separate series,
+    T/2026-27/00001, so the real numbering starts at 00001 when the shop goes live."""
 
     order = models.OneToOneField(Order, on_delete=models.PROTECT, related_name="invoice")
     number = models.CharField(max_length=16, unique=True)
-    financial_year = models.CharField(max_length=7)
+    financial_year = models.CharField(max_length=8, help_text="T before it: the test series.")
     serial = models.PositiveIntegerField()
     pdf = models.FileField(upload_to="invoices/", blank=True)
 
@@ -562,15 +563,22 @@ class Invoice(TimeStampedModel):
     def __str__(self):
         return self.number
 
+    @property
+    def is_test(self):
+        return self.financial_year.startswith("T")
+
     @classmethod
     def for_order(cls, order):
         """The order's invoice, numbered now if it has none (the unique constraint stops two taking one number)."""
         if invoice := cls.objects.filter(order=order).first():
             return invoice
         year = financial_year(timezone.localdate())
-        last = cls.objects.filter(financial_year=year).order_by("-serial").values_list("serial", flat=True).first()
+        test = settings.RAZORPAY_KEY_ID.startswith("rzp_test_")
+        series = f"T{year}" if test else year
+        last = cls.objects.filter(financial_year=series).order_by("-serial").values_list("serial", flat=True).first()
         serial = (last or 0) + 1
-        return cls.objects.create(order=order, financial_year=year, serial=serial, number=f"EL/{year}/{serial:05d}")
+        number = f"{'T' if test else 'EL'}/{year}/{serial:05d}"
+        return cls.objects.create(order=order, financial_year=series, serial=serial, number=number)
 
 
 @receiver(post_save, sender=DeletionRequest)

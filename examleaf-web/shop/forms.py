@@ -81,3 +81,11 @@ class ShipForm(forms.Form):  # admin: "mark shipped", one row per order
 
 class RefundForm(forms.Form):  # admin: "refund"
     reason = forms.CharField(max_length=200, initial="Refunded by ExamLeaf.")
+    amount = forms.DecimalField(
+        label="Amount (₹)",
+        required=False,
+        min_value=1,
+        decimal_places=2,
+        help_text="Empty: everything paid. Less, e.g. a refused parcel: the books without the shipping. Orders not "
+        "yet shipped are always cancelled and refunded in full.",
+    )

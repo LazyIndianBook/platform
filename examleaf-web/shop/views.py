@@ -139,7 +139,7 @@ def cart_view(request):
     coupon_form = CouponForm(request.POST if request.POST.get("action") == "coupon" else None)
     if request.method == "POST" and cart:
         action = request.POST.get("action")
-        if remove := request.POST.get("remove"):
+        if (remove := request.POST.get("remove", "")).isdigit():
             cart.items.filter(product_id=remove).delete()
         elif action == "update":
             for item in cart.items.select_related("product"):
@@ -183,9 +183,6 @@ def checkout(request):
             address_form = AddressForm()  # not used: no errors to show
         if saved or address_form.is_valid():
             address = saved or address_form.save(commit=False)
-            if user and not saved and form.cleaned_data.get("save_address"):
-                address.user, address.is_default = user, not user.addresses.exists()
-                address.save()
             try:
                 order = services.create_order(
                     cart,
@@ -197,6 +194,9 @@ def checkout(request):
             except services.ShopError as error:
                 form.add_error(None, str(error))
             else:
+                if user and not saved and form.cleaned_data.get("save_address"):
+                    address.user, address.is_default = user, not user.addresses.exists()
+                    address.save()
                 grant(request, order)
                 return redirect("shop:pay", order.number)
     context = {

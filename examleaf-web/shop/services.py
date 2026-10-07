@@ -135,17 +135,22 @@ def place_cod(order):
     return order
 
 
+def _lock_payment(entity, payload):
+    payment = Payment.objects.select_for_update().get(razorpay_order_id=entity["order_id"])
+    if payload is not None:  # the last webhook, kept for staff; an update, so that a repeat adds no history
+        payment.raw_payload = payload
+        Payment.objects.filter(pk=payment.pk).update(raw_payload=payload)
+    return payment
+
+
 def record_capture(entity, payload=None):
     """A captured Razorpay payment (`entity` from the API or a webhook): the payment is marked captured and the order
     paid, once. Calling it again (a repeated webhook; the webhook and the return page both arriving, in either order)
     changes nothing. A payment that cannot pay its order (wrong amount, order cancelled meanwhile, books sold out) is
     refunded in full."""
     with transaction.atomic():
-        payment = Payment.objects.select_for_update().get(razorpay_order_id=entity["order_id"])
-        if payload is not None:
-            payment.raw_payload = payload
+        payment = _lock_payment(entity, payload)
         if payment.status in (Payment.Status.CAPTURED, Payment.Status.REFUNDED):
-            payment.save()
             return payment.order
         payment.razorpay_payment_id = entity["id"]
         payment.capture()
@@ -176,12 +181,10 @@ def record_capture(entity, payload=None):
 def record_failure(entity, payload=None):
     """A failed Razorpay payment attempt. The order stays pending: Checkout lets the customer try again."""
     with transaction.atomic():
-        payment = Payment.objects.select_for_update().get(razorpay_order_id=entity["order_id"])
-        if payload is not None:
-            payment.raw_payload = payload
+        payment = _lock_payment(entity, payload)
         if can_proceed(payment.fail):  # never after a capture (a late webhook of an earlier, failed attempt)
             payment.fail(entity.get("error_description") or "The payment failed.")
-        payment.save()
+            payment.save()
 
 
 def start_refund(order, reason, payment=None, by=None, amount=None):
@@ -284,13 +287,17 @@ def deliver_order(order):
     return order
 
 
-def refund_order(order, reason, by=None):
-    """Staff's refund (admin): an order not yet shipped is cancelled (stock back) and refunded; a shipped or
-    delivered one (damaged, never arrived) is refunded. Returns the Refund or None."""
+def refund_order(order, reason, by=None, amount=None):
+    """Staff's refund (admin): an order not yet shipped is cancelled (stock back) and refunded in full; a shipped or
+    delivered one (damaged, refused, never arrived) is refunded in full or by `amount` rupees (at most what was
+    paid). Returns the Refund or None."""
     if can_proceed(order.cancel):
         return cancel_order(order, reason, by=by).refunds.exclude(status=Refund.Status.FAILED).first()
     with transaction.atomic():
-        return start_refund(_lock(order), reason, by=by)
+        order = _lock(order)
+        paid = order.payments.filter(status=Payment.Status.CAPTURED).first()
+        amount = min(amount, paid.amount.amount) if amount and paid else None
+        return start_refund(order, reason, by=by, amount=amount)
 
 
 def expire_unpaid_orders():

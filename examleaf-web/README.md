@@ -88,6 +88,12 @@ or a plain-http address (a printed book cannot be corrected), unless you pass `-
 | `/account/data/` | Download my data (a JSON file; asks for the password again) |
 | `/account/delete/` | Delete my account (seven days to change one's mind; `/account/delete/cancel/` keeps it) |
 | `/privacy/`, `/terms/`, `/refunds/`, `/shipping/`, `/contact/` | legal pages, edited in the admin (Pages) |
+| `/shop/`, `/shop/<slug>/` | the books on sale; a book's page (price, stock, what's inside, a sample paper, add to cart) |
+| `/cart/`, `/checkout/` | cart (copies, coupon); checkout (log in or a guest email, address, payment choice) |
+| `/checkout/<number>/pay/` | review and pay: Razorpay Checkout, or "place order" for cash on delivery; `…/done/` thanks |
+| `/account/orders/`, `/account/orders/<number>/` | My orders; an order's timeline, tracking, invoice and Cancel (also for guests who looked it up) |
+| `/orders/lookup/` | Find your order: number and email, for guests |
+| `/shop/webhooks/razorpay/` | Razorpay's webhooks (signed) |
 | `/about/`, `/sitemap.xml`, `/admin/` | |
 | `/health/`, `/health/web/` | health checks (JSON with `Accept: application/json`); see Production |
 
@@ -110,8 +116,8 @@ including those of apps migrated later.
 | STUDENT | every registration (added at sign-up) | none: uses the site, not the admin |
 | TEACHER | teachers whose `TeacherProfile` staff verified | none yet |
 | CONTENT_EDITOR | prepares papers and pages | view/add/change books, papers, questions, solutions; view boards, classes, subjects; view/change legal pages |
-| SALES | orders (shop phase) | view books; the shop phase adds its order, payment, invoice, shipment and product permissions |
-| SUPPORT | helps students | view users, email addresses, attempts, consent records, deletion requests; view/change teacher profiles (verifies teachers) |
+| SALES | runs the shop | view books; view/add/change products (and their images and bundle items), coupons, shipping rates, shipments; view/change orders (the pack, ship, deliver and cancel actions); view/add refunds (the refund action); view order items, payments, invoices |
+| SUPPORT | helps students | view users, email addresses, attempts, consent records, deletion requests; view/change teacher profiles (verifies teachers); view orders, order items, payments, shipments, refunds, invoices, products, addresses |
 | ADMIN | runs the site | every permission |
 
 `user.is_student`, `is_teacher`, `is_editor`, `is_sales`, `is_support`, `is_admin` (ADMIN or superuser) and
@@ -165,11 +171,85 @@ UI at `/api/docs/`, Redoc at `/api/redoc/` (both served by the site, so the CSP 
   for unknown `/api/` paths); throttles counted in the cache; CORS only for `CORS_ALLOWED_ORIGINS` and only on `/api/`;
   `X-Request-ID` as on the site. Beat deletes expired refresh tokens daily (`api.tasks.flush_expired_tokens`).
 
+## Shop
+
+The printed books, sold online across India: `shop/` (models; `services.py`, every flow; `payments.py`, Razorpay;
+`cart.py`; `tasks.py`; `invoices.py`), templates in `templates/shop/`, static `shop/static/shop/checkout.js`.
+
+### Set up
+
+```sh
+.venv/bin/python manage.py seed_shop --stock 50   # the 8 books, the Physics bundle, coupon WELCOME10, 3 shipping rates
+```
+
+- `seed_shop` is idempotent and never overwrites what the admin changed. Its prices are placeholders (Sample Papers
+  ₹299, Solutions ₹249, bundle ₹499), ISBN blank, stock 0 without `--stock`. The Sample Papers and the bundle get the
+  covers from `static/img/`; Solutions get none (those images are the Sample Papers' covers) until one is uploaded.
+- Razorpay (`.env`, DEPLOYMENT.md "Shop: Razorpay"): `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` (test keys
+  `rzp_test_…` until going live; the payment page then says "Test mode"), and `RAZORPAY_WEBHOOK_SECRET`, the secret of
+  the webhook for `https://<domain>/shop/webhooks/razorpay/` with the events `payment.captured`, `payment.failed`,
+  `order.paid`, `refund.processed`, `refund.failed`. Without keys the payment page says online payment is not set up;
+  without the secret every webhook is refused. In development the return from Checkout is enough to complete an order;
+  to try webhooks, expose the port (e.g. `ngrok http 8000`) and point a test-mode webhook at it.
+- `SHOP_COD_ENABLED=1` offers cash on delivery.
+- The seller on invoices: `SELLER_LEGAL_NAME`, `SELLER_ADDRESS`, `SELLER_GSTIN` (empty: "not registered"),
+  `SELLER_STATE` (two letters: same state as the buyer = CGST + SGST, otherwise IGST), `SELLER_STATE_CODE`,
+  `SELLER_EMAIL`, `SELLER_PHONE`.
+- Invoice PDFs are made by WeasyPrint, which needs Pango: `brew install pango` on a Mac; the Dockerfile installs it
+  with the DejaVu fonts (₹ sign).
+
+### How it works
+
+- **Money**: django-money, INR. `cart.totals` is the one place money is added up, from today's prices, on the cart
+  page, at checkout and when the order is made; per-cent discounts round half up to the paisa; Razorpay gets paise.
+- **Checkout**: log in (saved addresses) or a guest email; the address needs a state from the list, a 6-digit PIN
+  code and a 10-digit Indian mobile number (django-localflavor, django-phonenumber-field). A pending order is made with
+  a copy of the address and of each book's title, HSN, GST rate and price; the review-and-pay page shows the total.
+- **Payment**: the Razorpay order is created server-side for the order's total (on the payment page; Razorpay
+  unreachable: a friendly message, the order stays pending, "Try again"). Checkout's answer is posted back, its
+  signature checked by the SDK, the payment fetched and, if only authorized, captured: the order is paid. The
+  webhooks do the same, so a lost redirect still completes the order; repeats and either order of arrival change
+  nothing (row locks and the state machines). A payment that cannot pay its order (cancelled meanwhile, sold out,
+  wrong amount) is refunded automatically. Cash on delivery: "place order"; the courier's cash captures the payment
+  at delivery.
+- **Stock** is taken on payment (cash on delivery: when placed) under `select_for_update`, in product-id order, and
+  checked first, so the last copy sells once; it goes back on cancellation. A bundle sells its books' copies.
+- **States** (django-fsm-2, guarded transitions, `status` writable only through them): order pending → paid → packed
+  → shipped → delivered, cancelled (pending or paid by the customer, packed by staff) and refunded; payment created →
+  authorized → captured, failed or refunded. django-simple-history keeps every change: the customer's timeline.
+- **Customers**: emails for confirmation, shipping (courier and tracking), delivery, cancellation and refund
+  (`ops.tasks.queue_text_email`). My orders: timeline, tracking, invoice download, Cancel while pending or paid
+  (refund through Razorpay by a Celery task, retried for hours while Razorpay is down; a refusal shows as a failed
+  refund in the admin). Guests find an order by number and email (10 tries per 10 minutes per address; Django's
+  cache). The guest cart joins the account's cart at log-in.
+- **Invoices**: numbered per financial year (`EL/2026-27/00001`, 16 characters at most), made by a task when the
+  order is paid (cash on delivery: when shipped), retried on failure; the link appears once the PDF exists. A bill of
+  supply while every item is 0 % (books, HSN 4901), with HSN, taxable value and CGST + SGST or IGST columns; prices
+  include tax, the coupon is shared out over the lines.
+- **Coupons**: per cent or rupees off, minimum order, dates, a total and a per-customer limit (by account and by
+  email), any case. A use is a paid (or placed cash-on-delivery) order not cancelled or refunded.
+- **Shipping rates**: a flat fee per group of states (one rate without states covers the rest), free from an order
+  value (after the discount).
+- **Admin**: products (images, bundle items), coupons, shipping rates; orders with filters and search (number,
+  email, name, phone, tracking number), items, payments, shipments and refunds inline, actions Mark packed, Mark
+  shipped (courier and tracking number per order), Mark delivered, Cancel, Refund (in full; shipped orders also by an
+  amount, e.g. a refused parcel less shipping), export to CSV and XLSX; payments, refunds and invoices read-only; the
+  shop's numbers (orders and revenue today and in 30 days, orders to pack, parcels on the way) on the admin index.
+- **Beat** (04:30, `shop.tasks.clean_up`): online orders unpaid for two days are cancelled (a late payment is
+  refunded), refund and invoice tasks lost on the way (broker down) are queued again, guest carts idle for 30 days go.
+- **Security**: Razorpay's script, frames and API calls are allowed by the CSP on the payment page only, with
+  `Cross-Origin-Opener-Policy: same-origin-allow-popups` for the banks' windows; the webhook is CSRF-exempt but signed
+  and rate-limited; order pages are visible to their account, or to the browser session that placed or looked them
+  up; invoices to those and to staff with `shop.view_invoice`. Product pictures are served by `/shop/media/…` only
+  for files a product names (`media/` stays private).
+- **Account deletion** deletes the saved addresses and the cart; orders and invoices stay (tax records) with their
+  copy of the address, on the anonymised user.
+
 ## Tests
 
 ```sh
-make test                                 # pytest: 52 tests, about 35 s (imports all four subjects once)
-make cov                                  # the same with a coverage report (91 %)
+make test                                 # pytest: 114 tests, about 50 s (imports all four subjects once)
+make cov                                  # the same with a coverage report (93 %)
 make lint                                 # ruff, as in CI
 make check                                # manage.py check and missing migrations
 ```
@@ -184,7 +264,13 @@ and the consent record), the Markdown renderer, query counts, the Content-Securi
 paper page, axes, recording attempts; the role groups' permissions, bootstrap_roles, role actions in the admin (and
 that support staff cannot use them), the teacher request and verification; Download my data, deletion with its
 grace period and cancellation, the purge task and what it erases, email change re-verification; the legal pages and
-their history, the health endpoint, request IDs, the email fallback, the admin dashboard and the backup upload.
+their history, the health endpoint, request IDs, the email fallback, the admin dashboard and the backup upload. The
+shop's tests (`shop/test_*.py`, helpers in `shop/factories.py`; Razorpay's network calls are mocked and any real HTTP
+call fails a test, while signatures are checked for real) cover the cart and coupon maths, checkout validation, a price
+changed after the cart, stock and bundles, cash on delivery, the state machines, Checkout's signature, the webhooks'
+signature, repeats and order of arrival, the automatic refunds, refunds and their retries, the invoice (a real PDF when
+Pango is installed), guest lookup and its rate limit, the cart merge at log-in, account deletion, the daily clean-up,
+SALES and SUPPORT in the admin, the order actions, the export, the dashboard and `seed_shop`.
 
 ## Production
 
@@ -221,6 +307,11 @@ publicly, or to a private bucket with `MEDIA_BUCKET`; the upload view must check
 - `pages.Page` — the five legal pages (slug = URL, title, Markdown text, version, history). First drafts in
   `pages/drafts/*.md`, loaded by a migration; the words in square brackets (address, GSTIN, phone, email, Grievance
   Officer, delivery times, a refund rule to confirm) must be filled in before the shop opens.
+- `shop` — `Product` (kind sample-papers/solutions/bundle, subject and book links, ISBN, pages, cover, MRP and price,
+  GST rate, HSN, weight, stock, SEO), `ProductImage`, `BundleItem`, `Coupon`, `ShippingRate`, `Address`, `Cart` and
+  `CartItem`, `Order` (EL-2026-000123, address copy, money, coupon, method, status machine, history), `OrderItem`
+  (copies of title, HSN, GST rate and prices), `Payment` (Razorpay ids, signature, status machine, history, last
+  webhook), `Refund`, `Shipment`, `Invoice` (number per financial year, PDF).
 - `ops` — no models: Celery email task, admin dashboard, admin theme, `upload_backup` command.
 
 ## Planned extensions (not built)
@@ -237,15 +328,8 @@ publicly, or to a private bucket with `MEDIA_BUCKET`; the upload view must check
 
 ## Phases to come
 
-**Shop** (printed books: orders, Razorpay payments, invoices, shipments). Ready for it: the SALES group (add the shop's
-permissions to `ROLES[SALES]` in `accounts/roles.py`, then `bootstrap_roles`); the Refund, Shipping, Terms and Contact
-pages Razorpay asks for; Celery for order emails (`ops.tasks.queue_email` / `queue_text_email`) and for webhook
-follow-up work; beat for reconciliation jobs; `CELERY_RESULT_BACKEND` for task results; the request ID in logs to trace
-a payment; `.env.example` and DEPLOYMENT.md to extend with `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET`/webhook secret. The
-CSP must then allow Razorpay's checkout script and frame (`script-src`/`frame-src https://checkout.razorpay.com`,
-`connect-src`/`img-src` as Razorpay documents), and the Privacy Policy already describes order data and Razorpay.
-Order and invoice records must survive account deletion (tax law): keep them on `DeletionRequest.complete()`'s
-anonymised user, or detach them, rather than cascading.
+**Shop**: built (see Shop). Open: a credit note for refunds of invoiced orders, weight-based shipping, the shop's
+data in Download my data (`accounts.views.export_user_data`), and REST endpoints for the app.
 
 ## Libraries
 
@@ -268,6 +352,12 @@ anonymised user, or detach them, rather than cascading.
 | django-guid | request IDs: from the proxy's `X-Request-ID` or new, in every log line (also in Celery tasks) and in the response |
 | django-health-check | `/health/` and `/health/web/`: database, cache, storage, Celery workers |
 | django-admin-interface (django-colorfield) | the admin theme |
+| razorpay | the official Razorpay SDK: orders, payment fetch and capture, refunds, signature checks |
+| django-money (py-moneyed, babel) | INR money fields and ₹ formatting |
+| django-localflavor (python-stdnum) | Indian states and PIN code validation |
+| django-fsm-2 | the order and payment state machines (guarded transitions) |
+| WeasyPrint | invoice PDFs from an HTML template (needs Pango) |
+| openpyxl | XLSX export of orders (django-import-export) |
 | django-model-utils | `TimeStampedModel` (created/modified) and `StatusModel` for the answer-sheet status |
 | django-simple-history | audit trail of edits to books, papers, questions, solutions and legal pages (admin History button) |
 | django-taggit | chapter and textbook-section tags on questions |

@@ -1,4 +1,5 @@
 {% extends "admin/dashboard.html" %}{% load shop %}
+{% block extrastyle %}{{ block.super }}<style>#dashboard th[scope=col], #shop-dashboard th[scope=col] { white-space: nowrap; }</style>{% endblock %}
 {% block content %}
 {% if perms.shop.view_order %}{% shop_stats as shop %}
 <div class="module" id="shop-dashboard">
