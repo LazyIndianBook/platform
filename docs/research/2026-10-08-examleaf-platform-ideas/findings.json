@@ -1,5 +1,5 @@
 {
- "question": "ExamLeaf product ideas: sealed sample papers, QR-gated free solutions with registration, 15-minute revision videos, question banks for state boards, AI answer-sheet checking — evidence and recommendations",
+ "question": "Research for planning the ExamLeaf platform — an Indian school-exam preparation publisher (first products: Class 12 sample-paper books for the Assam board ASSEB; plan: Class 10 and Class 12 sample papers, guidebooks and question banks for several Indian state boards, a Django web platform and later a mobile app). Investigate, with evidence and sources, these five ideas and what is known about them:\n\n1. SEALED SAMPLE PAPERS IN A PRINTED BOOK: the idea is to print each sample paper as a sealed set (a blank or perforated leaf between consecutive papers, a tamper-evident seal or glued edge so a paper cannot be read before the seal is broken), to give an examination feel. Find: whether any Indian or international exam-prep publisher does this (sealed/perforated/tear-out sample papers, 'exam pack' formats); printing and binding techniques and their cost (perforation, gummed edge, remoistenable glue, shrink-wrapped inserts, sticker seals); practical drawbacks (bookshop browsing, returns, binding strength); and evidence on whether an exam-like format improves practice (test-taking effect, timed mock exams research).\n\n2. QR-CODE-GATED FREE SOLUTIONS ON OUR OWN SERVER: solutions not printed in the book but on a Django website, free, requiring student registration, reached by scanning a QR code printed on each paper. Find: how Indian publishers (Oswaal, Arihant, Educart, MTG, S. Chand, Xam Idea) and others deliver digital solutions or QR content; evidence on registration friction and conversion for Indian students (data on smartphone/internet access among Class 10–12 students in Assam/North-East India and rural India, ASER or similar surveys); India's Digital Personal Data Protection Act 2023 and its rules on children's data (verifiable parental consent for under-18s, tracking restrictions) and what that implies for registering school students; good practices for QR codes on printed books (dynamic QR, short URLs, codes that survive reprints); risk of solutions being copied and shared, and whether that matters.\n\n3. SHORT REVISION VIDEOS (about 15 minutes per chapter, with exam tricks) versus long tutorials: evidence from learning science on short-form or micro-learning videos, retrieval practice and spaced repetition for exam results; what Indian competitors offer (PhysicsWallah, Vedantu, BYJU'S, Unacademy, YouTube channels) and their lengths; costs and tooling for producing such videos in regional languages (Assamese, Bengali, Hindi) including AI dubbing.\n\n4. QUESTION BANKS AND GUIDEBOOKS FOR MULTIPLE STATE BOARDS: the structure of the Indian school-book market for state boards (which boards follow NCERT/SCERT, how many students appear in Class 10 and 12 in Assam, West Bengal, Bihar, Odisha, Uttar Pradesh and other large boards), how publishers localise content per board, copyright limits on using board question papers and NCERT text, and distribution through regional booksellers.\n\n5. AI CHECKING OF HANDWRITTEN ANSWER SHEETS: students photograph their written answers and the app grades them like an examiner against a marking scheme. Find: current accuracy of handwriting OCR and multimodal LLMs on handwritten student work (benchmarks or studies on automated essay/short-answer scoring, maths-step grading, Indian-language or mixed-script handwriting); existing products doing this (Indian and global), their pricing and failure modes; what regulators or boards say; and realistic human-in-the-loop designs.\n\nFor each idea, gather concrete facts, numbers, costs and dated sources; note disagreements between sources; and finish with the evidence-backed recommendations a careful product strategist would give ExamLeaf, including the risks the founder may not have considered.",
  "summary": "This run has verified evidence for ideas 1 to 3 only. Ideas 4 (multi-board market) and 5 (AI answer checking) produced no surviving claims, so recommendations on them would rest on two earlier, separate runs in docs/research. Sealed exam packs already exist: Educart's 2026-27 CBSE Class 10 books seal 2 of their 15 papers as 'pre-board' sets, and Korea's EBS sells an envelope mock exam every year. The learning research supports regular practice on board-pattern papers with corrective feedback (quizzing g about 0.50; matched format 0.53 vs 0.40; with feedback 0.54 vs 0.37). It says nothing about the seal itself, and the cost of sealing and its effect on bookshop sales and returns were not verified. Putting solutions behind a QR scan plus student registration creates three problems. It weakens the feedback that the evidence supports. Once the DPDP duties start (about 13 May 2027), it makes ExamLeaf a fiduciary of children's data that needs identity-checked parental consent, with no publisher exemption. And it reaches rural Assam teenagers who mostly use a family phone, of whom only about half could produce a connected phone and complete a web search. On videos, edX course logs favour segments of about 6 minutes or less, and one small experiment says chapter navigation matters more than length. Meanwhile PhysicsWallah's national and Assam channels draw their audiences with live revision sessions of 2 to 12 hours, so a 15-minute chapter format is an untested bet. The course the evidence supports: 1. Print answers or a marking scheme in the book. 2. Keep detailed solutions free and open, with no student accounts. 3. Seal only a final pre-board set, if anything. 4. Pilot short, chaptered videos with built-in questions before scaling.",
  "findings": [
   {
@@ -191,5 +191,183 @@
   "What share of Assam Class 10 and 12 buyers would actually complete scan, registration and solution viewing, compared with an open no-login link? A small pilot printing two different codes could measure this before the DPDP duties start in May 2027. Separately, a lawyer should say whether aggregate page analytics or a parent-held account fall under section 9.",
   "Do short, chaptered revision videos with built-in questions improve board marks for Class 10-12 students compared with long one-shot sessions, or only engagement? And what does producing them in Assamese, Bengali and Hindi, including AI dubbing, cost per chapter?",
   "For ideas 4 and 5:\n- Class 10 and 12 candidate numbers and NCERT/SCERT adoption for the Assam, West Bengal, Bihar, Odisha and Uttar Pradesh boards.\n- The copyright position on reusing board papers and NCERT text.\n- Regional distribution margins.\n- Whether the AI-checker evidence in the 8 Oct 2026 archive holds for ExamLeaf's real inputs."
- ]
+ ],
+ "refuted": [
+  {
+   "claim": "EBS pitches the pack as an exam rehearsal: banner text says the paper is in the same format as the real exam paper and that an OMR answer card is enclosed in the envelope so students practise marking and time allocation (the HTML alt text adds a timer instruction; the 2027-edition page states in HTML text that CSAT-format papers plus an OMR card are supplied). The page gives no price, never says the envelope is sealed or tamper-evident, and cites no outcome data; it is publisher marketing copy.",
+   "vote": "1-2",
+   "source": "https://www.ebsi.co.kr/ebs/pot/potg/retrieveSeriesSubjectList.ebs?seriesGrpId=PKG_0262&seriesId=PRO_1736"
+  },
+  {
+   "claim": "Regional-language leaders show the same split between all-time hits and current output (snapshot 8 Oct 2026): their most-viewed videos are 1-4 h chapter lectures (PW Bangla, 601K subscribers: 27 of its top 30 exceed 60 min, median 123 min, nine lectures at 315K-429K views; Let's Approach, Assam, 209K: 20 of its top 30 exceed 60 min, with chapter Q&A videos of 1 h 43 min to 3 h 11 min at 138K-274K views; Som's Classroom, Bengal, 321K: none of its top 30 is under 20 min, median 54 min), while their latest 30 uploads in the exam run-up have median lengths of 7.5 min (PW Bangla; 21 of 30 at or under 10 min), 15.8 min (Som's Classroom; median 24K views) and 24.9 min (Let's Approach), mostly last-minute-suggestion, game-plan or paper-solution videos. The top videos are 2-6 years old, so age confounds the comparison.",
+   "vote": "0-3",
+   "source": "https://www.youtube.com/@PWAssam-Science"
+  }
+ ],
+ "unverified": [],
+ "sources": [
+  {
+   "url": "https://www.educart.co/news/educart-cbse-class-10-sample-papers-40-off-2026-27",
+   "quality": "primary",
+   "angle": "Sealed exam-pack print format: precedent, cost, evidence",
+   "claimCount": 5
+  },
+  {
+   "url": "https://www.ebsi.co.kr/ebs/pot/potg/retrieveSeriesSubjectList.ebs?seriesGrpId=PKG_0262&seriesId=PRO_1736",
+   "quality": "primary",
+   "angle": "Sealed exam-pack print format: precedent, cost, evidence",
+   "claimCount": 4
+  },
+  {
+   "url": "https://www.abebooks.com/servlet/SearchResults?isbn=9781782946632&n=100121501",
+   "quality": "secondary",
+   "angle": "Sealed exam-pack print format: precedent, cost, evidence",
+   "claimCount": 4
+  },
+  {
+   "url": "https://gwern.net/doc/spacedrepetition/2021-yang.pdf",
+   "quality": "primary",
+   "angle": "Sealed exam-pack print format: precedent, cost, evidence",
+   "claimCount": 5
+  },
+  {
+   "url": "https://www.meity.gov.in/static/uploads/2025/11/53450e6e5dc0bfa85ebd78686cadad39.pdf",
+   "quality": "primary",
+   "angle": "QR-gated online solutions: law, access, competitor practice",
+   "claimCount": 5
+  },
+  {
+   "url": "https://oswaalbooks.com/community/faq",
+   "quality": "primary",
+   "angle": "QR-gated online solutions: law, access, competitor practice",
+   "claimCount": 5
+  },
+  {
+   "url": "https://asercentre.org/wp-content/uploads/2022/12/Assam-1.pdf",
+   "quality": "primary",
+   "angle": "QR-gated online solutions: law, access, competitor practice",
+   "claimCount": 5
+  },
+  {
+   "url": "https://asercentre.org/wp-content/uploads/2022/12/3_Assam_Kamrup.pdf",
+   "quality": "primary",
+   "angle": "QR-gated online solutions: law, access, competitor practice",
+   "claimCount": 5
+  },
+  {
+   "url": "https://up.csail.mit.edu/other-pubs/las2014-pguo-engagement.pdf",
+   "quality": "primary",
+   "angle": "Short revision videos: learning science and Indian market",
+   "claimCount": 5
+  },
+  {
+   "url": "https://scholars.hkbu.edu.hk/en/publications/testing-quizzing-boosts-classroom-learning-a-systematic-and-meta-/",
+   "quality": "primary",
+   "angle": "Short revision videos: learning science and Indian market",
+   "claimCount": 4
+  },
+  {
+   "url": "https://www.youtube.com/@NCERTWallahClass12PW",
+   "quality": "primary",
+   "angle": "Short revision videos: learning science and Indian market",
+   "claimCount": 5
+  },
+  {
+   "url": "https://www.youtube.com/@PWAssam-Science",
+   "quality": "primary",
+   "angle": "Short revision videos: learning science and Indian market",
+   "claimCount": 5
+  },
+  {
+   "url": "https://link.springer.com/article/10.1007/s10758-024-09745-2",
+   "quality": "primary",
+   "angle": "Short revision videos: learning science and Indian market",
+   "claimCount": 5
+  },
+  {
+   "url": "https://news.careers360.com/class-10th-12th-board-exam-result-analysis-delhi-board-top-pass-percentage-education-ministry-dbse-scrap-cisce-upmsp-mpbse-dhse",
+   "quality": "secondary",
+   "angle": "State-board market: candidates, syllabus, copyright, trade",
+   "claimCount": 5
+  },
+  {
+   "url": "https://school.careers360.com/articles/assam-board-12th-result",
+   "quality": "secondary",
+   "angle": "State-board market: candidates, syllabus, copyright, trade",
+   "claimCount": 5
+  },
+  {
+   "url": "https://ey.com/content/dam/ey-unified-site/ey-com/en-in/insights/strategy-transactions/documents/ey-value-proposition-of-the-indian-publishing.pdf",
+   "quality": "secondary",
+   "angle": "State-board market: candidates, syllabus, copyright, trade",
+   "claimCount": 5
+  },
+  {
+   "url": "https://www.careratings.com/upload/CompanyFiles/PR/202608140815_S._Chand_and_Company_Limited.pdf",
+   "quality": "secondary",
+   "angle": "State-board market: candidates, syllabus, copyright, trade",
+   "claimCount": 5
+  },
+  {
+   "url": "https://indialegallive.com/constitutional-law-news/courts-news/allahabad-high-court-booksellers/",
+   "quality": "secondary",
+   "angle": "State-board market: candidates, syllabus, copyright, trade",
+   "claimCount": 5
+  },
+  {
+   "url": "https://www.casemine.com/in/column/copyright-in-examination-question-papers-in-india/view",
+   "quality": "secondary",
+   "angle": "State-board market: candidates, syllabus, copyright, trade",
+   "claimCount": 5
+  },
+  {
+   "url": "https://arxiv.org/abs/2605.19043",
+   "quality": "primary",
+   "angle": "AI grading of photographed handwritten answers",
+   "claimCount": 5
+  },
+  {
+   "url": "https://arxiv.org/abs/2510.05538",
+   "quality": "primary",
+   "angle": "AI grading of photographed handwritten answers",
+   "claimCount": 4
+  },
+  {
+   "url": "https://arxiv.org/abs/2509.18081",
+   "quality": "primary",
+   "angle": "AI grading of photographed handwritten answers",
+   "claimCount": 5
+  },
+  {
+   "url": "https://arxiv.org/abs/2609.14284",
+   "quality": "primary",
+   "angle": "AI grading of photographed handwritten answers",
+   "claimCount": 5
+  },
+  {
+   "url": "https://www.gov.uk/government/publications/principles-of-ai-use-in-marking/principles-of-ai-use-in-marking",
+   "quality": "primary",
+   "angle": "AI grading of photographed handwritten answers",
+   "claimCount": 5
+  },
+  {
+   "url": "https://arxiv.org/abs/2603.13083",
+   "quality": "primary",
+   "angle": "AI grading of photographed handwritten answers",
+   "claimCount": 5
+  }
+ ],
+ "stats": {
+  "angles": 5,
+  "sourcesFetched": 25,
+  "claimsExtracted": 121,
+  "claimsVerified": 25,
+  "confirmed": 23,
+  "killed": 2,
+  "unverified": 0,
+  "afterSynthesis": 18,
+  "urlDupes": 0,
+  "budgetDropped": 5,
+  "agentCalls": 107
+ }
 }
