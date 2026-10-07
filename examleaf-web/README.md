@@ -2,7 +2,8 @@
 
 The website behind the ExamLeaf Sample Papers books. The solutions are not printed in the books: every paper carries a
 QR code that opens `/s/<CODE>/` (e.g. `/s/PHY-E01/`), where a registered student reads the full marking-scheme
-solutions for free and can save the marks scored. Now: Class 12, Assam board (ASSEB), Physics, Chemistry,
+solutions for free and can save the marks scored (or anyone reads them, with `SOLUTIONS_REQUIRE_LOGIN=0`: see "Open or
+registered solutions"). Now: Class 12, Assam board (ASSEB), Physics, Chemistry,
 Mathematics and Biology, 30 papers each (E01–E10 Easy, M01–M10 Medium, H01–H10 Hard).
 
 Django 6.1 · Python 3.14 · server-rendered templates · one hand-written CSS file (`static/css/site.css`), no build step ·
@@ -80,9 +81,10 @@ or a plain-http address (a printed book cannot be corrected), unless you pass `-
 |---|---|
 | `/` | the four books |
 | `/books/<slug>/` | a book's 30 papers by tier (`physics-2027`, `chemistry-2027`, `mathematics-2027`, `biology-2027`) |
-| `/s/<CODE>/` | QR landing page: register / log in (returning here via `next`) for visitors, the solutions for students |
+| `/s/<CODE>/` | QR landing page: register / log in (returning here via `next`) for visitors, the solutions for students; with `SOLUTIONS_REQUIRE_LOGIN=0` the solutions for everyone (saving marks still needs an account) |
 | `/account/signup/` (`/account/register/` redirects), `/account/login/`, `/account/logout/`, `/account/email/`, `/account/password/change/`, `/account/password/reset/` | django-allauth |
-| `/account/` | My account: details, change email or password, teacher access, Download my data, Delete my account |
+| `/account/` | My account: details, change email or password, My record and My orders, the address book, teacher access, Download my data, Delete my account |
+| `/account/addresses/add/`, `/account/addresses/<id>/` | the address book: add or change a saved address (Delete is a button on My account) |
 | `/account/record/` | My record: attempts, filter by subject and tier, average per tier; add from a solutions page, edit from here |
 | `/account/teacher/` | request teacher access (school, district, subject); staff verify it in the admin |
 | `/account/data/` | Download my data (a JSON file; asks for the password again) |
@@ -91,7 +93,7 @@ or a plain-http address (a printed book cannot be corrected), unless you pass `-
 | `/shop/`, `/shop/<slug>/` | the books on sale; a book's page (price, stock, what's inside, a sample paper, add to cart) |
 | `/cart/`, `/checkout/` | cart (copies, coupon); checkout (log in or a guest email, address, payment choice) |
 | `/checkout/<number>/pay/` | review and pay: Razorpay Checkout, or "place order" for cash on delivery; `…/done/` thanks |
-| `/account/orders/`, `/account/orders/<number>/` | My orders; an order's timeline, tracking, invoice and Cancel (also for guests who looked it up) |
+| `/account/orders/`, `/account/orders/<number>/` | My orders; an order's timeline, tracking, invoice and credit notes (`…/invoice/`, `…/credit-notes/<id>/`) and Cancel (also for guests who looked it up) |
 | `/orders/lookup/` | Find your order: number and email, for guests |
 | `/shop/webhooks/razorpay/` | Razorpay's webhooks (signed) |
 | `/about/`, `/sitemap.xml`, `/admin/` | |
@@ -103,6 +105,25 @@ the event in a `ConsentRecord`. Under 18 it also requires a parent's or guardian
 parent ticks the box; for adults no parent data is asked, validated or kept. The email address is confirmed with a code
 typed on the same page, then the student lands back on the paper whose QR code was scanned. The consent is
 self-declared: nothing verifies that the person who ticked it is the parent (see RUNBOOK.md).
+
+## Open or registered solutions
+
+`SOLUTIONS_REQUIRE_LOGIN` (environment, default `1`) decides who reads the solutions behind the QR codes, on the website
+(`/s/<CODE>/`) and in the API (`papers/<code>/solutions/`):
+
+- `1` (registered, today's choice): visitors get the register / log-in page and come back to the paper. Every reader is
+  an account, which means a parent's consent for each under-18 student, personal data kept for each, and a sign-up
+  step between a stuck student and the answer.
+- `0` (open): everyone reads the solutions; accounts stay optional, for saving marks (the record form appears only for
+  a signed-in student, visitors see a log-in link instead), orders and the app. The page is then the same for every
+  visitor and is sent `Cache-Control: public, max-age=300`; for a signed-in student it stays private (the form carries
+  a CSRF token).
+
+The research (`docs/examleaf-platform-plan.md`, "Open solutions") recommends open: a registration wall weakens the
+feedback that makes practice work, most for weak students; it makes ExamLeaf the keeper of many children's data under
+the DPDP Act, with identity-checked parental consent, from May 2027; and in rural Assam many students use a parent's
+phone. The cost of open is that the solutions can be copied without an account (no evidence that this hurts sales). The
+QR codes point at `/s/<CODE>/` either way, so the switch needs no reprint.
 
 ## Roles and permissions
 
@@ -131,9 +152,11 @@ last of them clears it. Teacher profiles have "Verify" (adds TEACHER, records wh
   HMAC of the address keyed with `SECRET_KEY`). Sign-up records one; asking for deletion records a withdrawal and
   cancelling it a new consent. Read-only in the admin, exportable as CSV.
 - **Download my data:** `/account/data/` returns the profile, email addresses, teacher profile, attempts, answer sheets,
-  consent records and deletion requests as JSON, after allauth's re-authentication (password, if none was entered in
-  the last five minutes).
-- **Delete my account:** a `DeletionRequest` due seven days later; the student gets an email, can log in and cancel
+  consent records, deletion requests, saved addresses and orders (items, address copy, shipments, refunds, and the
+  invoice and credit notes by number: the PDFs stay on the order pages) as JSON, after allauth's re-authentication
+  (password, if none was entered in the last five minutes). The API's `me/export/` gives the same file.
+- **Delete my account:** a `DeletionRequest` due seven days later (`accounts.views.request_deletion` and
+  `keep_account`, used by the website and the API alike); the student gets an email, can log in and cancel
   until then; the daily purge (`accounts.tasks.purge_due_deletions`) anonymises the user row (name, email, phone,
   date of birth, district, parent data, notes cleared; answer-sheet photos, email addresses, teacher profile and
   failed log-ins deleted; consent records kept as proof without the address hash; admin log entries renamed;
@@ -142,7 +165,11 @@ last of them clears it. Teacher profiles have "Verify" (adds TEACHER, records wh
 - **Changing the email address:** allauth's `ACCOUNT_CHANGE_EMAIL` keeps one address; a new one replaces it only after
   the emailed code is confirmed, after re-authentication, and the old address is notified.
 - **Logs:** no personal data in them by design (no logs of good log-ins; Celery's task arguments, which hold email
-  texts, are left out of the JSON log lines; Sentry runs with `send_default_pii=False`).
+  texts, are left out of the JSON log lines). Sentry runs with `send_default_pii=False` (no cookies, users or client
+  addresses) and `examleaf/sentry.py`'s `before_send`, which replaces, anywhere in an event (request body, headers,
+  stack-frame variables, breadcrumbs, extra), passwords, codes, verification and JWT tokens, Razorpay signatures,
+  emails, names, address and card- or phone-like fields, and card numbers, Indian mobile numbers and email addresses
+  inside any text, with `[Filtered]`.
 
 ## Admin
 
@@ -165,8 +192,14 @@ UI at `/api/docs/`, Redoc at `/api/redoc/` (both served by the site, so the CSP 
   a reset or the deletion purge); the session for the site's own pages. Log-in, log-out, refresh and passwords are
   dj-rest-auth's; sign-up and the email code run on `accounts.forms.SignupForm` and allauth's code flow, so the parent
   and consent rules, the STUDENT role, the consent record and the emails are the website's.
-- The catalogue is public, read-only and cached for 15 minutes; solutions and attempts need a confirmed email address;
-  Download my data and Delete my account reuse the website's functions and ask for the password.
+- The catalogue is public, read-only and cached for 15 minutes; solutions (unless open, `SOLUTIONS_REQUIRE_LOGIN=0`)
+  and attempts need a confirmed email address; Download my data and Delete my account reuse the website's functions
+  and ask for the password.
+- The shop (`api/shop.py`): products (public), and for a confirmed account the cart, saved addresses and orders:
+  checkout, payment with Razorpay's mobile SDK (`orders/<number>/payment/` gives the SDK its options,
+  `…/payment/confirm/` checks the signature), cancellation, the invoice and credit note PDFs; guests look an order up
+  by number and email (its own rate limit). Everything runs through `shop.services`, `shop.cart` and `shop.payments`,
+  and the Razorpay webhook stays `/shop/webhooks/razorpay/`.
 - JSON only; page-number pagination (50, at most 200), filters, search and ordering; DRF's error format (a JSON 404
   for unknown `/api/` paths); throttles counted in the cache; CORS only for `CORS_ALLOWED_ORIGINS` and only on `/api/`;
   `X-Request-ID` as on the site. Beat deletes expired refresh tokens daily (`api.tasks.flush_expired_tokens`).
@@ -209,7 +242,9 @@ The printed books, sold online across India: `shop/` (models; `services.py`, eve
   unreachable: a friendly message, the order stays pending, "Try again"). Checkout's answer is posted back, its
   signature checked by the SDK, the payment fetched and, if only authorized, captured: the order is paid. The
   webhooks do the same, so a lost redirect still completes the order; repeats and either order of arrival change
-  nothing (row locks and the state machines). A payment that cannot pay its order (cancelled meanwhile, sold out,
+  nothing (row locks and the state machines). Each webhook is recorded (`WebhookEvent`: Razorpay's event id and the
+  hash of the signed body) and handled once, in one transaction with what it changes; a replay, even under another
+  event id, is acknowledged and ignored, and events signed more than seven days ago are refused. A payment that cannot pay its order (cancelled meanwhile, sold out,
   wrong amount) is refunded automatically. Cash on delivery: "place order"; the courier's cash captures the payment
   at delivery.
 - **Stock** is taken on payment (cash on delivery: when placed) under `select_for_update`, in product-id order, and
@@ -218,7 +253,8 @@ The printed books, sold online across India: `shop/` (models; `services.py`, eve
   → shipped → delivered, cancelled (pending or paid by the customer, packed by staff) and refunded; payment created →
   authorized → captured, failed or refunded. django-simple-history keeps every change: the customer's timeline.
 - **Customers**: emails for confirmation, shipping (courier and tracking), delivery, cancellation and refund
-  (`ops.tasks.queue_text_email`). My orders: timeline, tracking, invoice download, Cancel while pending or paid
+  (`ops.tasks.queue_text_email`). Saved addresses in My account (add, change, delete, the default one). My orders:
+  timeline, tracking, invoice and credit note downloads, Cancel while pending or paid
   (refund through Razorpay by a Celery task, retried for hours while Razorpay is down; a refusal shows as a failed
   refund in the admin). Guests find an order by number and email (10 tries per 10 minutes per address; Django's
   cache). The guest cart joins the account's cart at log-in.
@@ -226,6 +262,11 @@ The printed books, sold online across India: `shop/` (models; `services.py`, eve
   order is paid (cash on delivery: when shipped), retried on failure; the link appears once the PDF exists. A bill of
   supply while every item is 0 % (books, HSN 4901), with HSN, taxable value and CGST + SGST or IGST columns; prices
   include tax, the coupon is shared out over the lines.
+- **Credit notes**: a refund of an invoiced order, in full or in part, gets a credit note (`CN/2026-27/00001`, its own
+  series per financial year; `TC/…` with test keys), made by a task once Razorpay has refunded (or once the invoice
+  is made, when the refund came first). It credits the books first, over the invoice's lines in proportion, then the
+  shipping with what is left (a refused parcel refunded less the shipping credits the books only), reversing each
+  line's GST. Linked next to the invoice in My orders, the API and the admin (order page, Credit notes).
 - **Coupons**: per cent or rupees off, minimum order, dates, a total and a per-customer limit (by account and by
   email), any case. A use is a paid (or placed cash-on-delivery) order not cancelled or refunded.
 - **Shipping rates**: a flat fee per group of states (one rate without states covers the rest), free from an order
@@ -233,10 +274,12 @@ The printed books, sold online across India: `shop/` (models; `services.py`, eve
 - **Admin**: products (images, bundle items), coupons, shipping rates; orders with filters and search (number,
   email, name, phone, tracking number), items, payments, shipments and refunds inline, actions Mark packed, Mark
   shipped (courier and tracking number per order), Mark delivered, Cancel, Refund (in full; shipped orders also by an
-  amount, e.g. a refused parcel less shipping), export to CSV and XLSX; payments, refunds and invoices read-only; the
+  amount, e.g. a refused parcel less shipping), export to CSV and XLSX; payments, refunds, invoices and credit notes
+  read-only; the
   shop's numbers (orders and revenue today and in 30 days, orders to pack, parcels on the way) on the admin index.
 - **Beat** (04:30, `shop.tasks.clean_up`): online orders unpaid for two days are cancelled (a late payment is
-  refunded), refund and invoice tasks lost on the way (broker down) are queued again, guest carts idle for 30 days go.
+  refunded), refund, invoice and credit note tasks lost on the way (broker down) are queued again, guest carts idle
+  for 30 days go, and so do webhook records older than seven days.
 - **Security**: Razorpay's script, frames and API calls are allowed by the CSP on the payment page only, with
   `Cross-Origin-Opener-Policy: same-origin-allow-popups` for the banks' windows; the webhook is CSRF-exempt but signed
   and rate-limited; order pages are visible to their account, or to the browser session that placed or looked them
@@ -248,8 +291,8 @@ The printed books, sold online across India: `shop/` (models; `services.py`, eve
 ## Tests
 
 ```sh
-make test                                 # pytest: 114 tests, about 50 s (imports all four subjects once)
-make cov                                  # the same with a coverage report (93 %)
+make test                                 # pytest: 128 tests, about 50 s (imports all four subjects once)
+make cov                                  # the same with a coverage report (94 %)
 make lint                                 # ruff, as in CI
 make check                                # manage.py check and missing migrations
 ```
@@ -257,20 +300,28 @@ make check                                # manage.py check and missing migratio
 pytest with pytest-django runs the old Django `TestCase` classes and the newer pytest functions (factories in
 `accounts/factories.py`, factory_boy); `manage.py test` still runs the `TestCase` classes. CI
 (`.github/workflows/ci.yml` at the repository root) runs ruff, the migration check and the tests with coverage on
-PostgreSQL 17. They cover the import of the four subjects (30 papers each, every solution matched, re-import changes
-nothing), the QR landing redirect, the gated solutions page and log-in returning to it (and never to another site), the
-QR image and export guard, registration (parent details and consent under 18, none kept for adults; the STUDENT role
+PostgreSQL 17, and builds the Docker image (job `docker-build`: `docker build`, then Django and WeasyPrint must load
+in the image; nothing is pushed). Every test module passes on its own and in any order, on SQLite and PostgreSQL (no
+test relies on ids or on rows made by another). They cover the import of the four subjects (30 papers each, every solution matched, re-import changes
+nothing), the QR landing redirect, the gated solutions page and log-in returning to it (and never to another site), open
+or registered solutions (both settings, website and API), the QR image and export guard, registration (parent details and consent under 18, none kept for adults; the STUDENT role
 and the consent record), the Markdown renderer, query counts, the Content-Security-Policy and private caching of the
 paper page, axes, recording attempts; the role groups' permissions, bootstrap_roles, role actions in the admin (and
 that support staff cannot use them), the teacher request and verification; Download my data, deletion with its
 grace period and cancellation, the purge task and what it erases, email change re-verification; the legal pages and
-their history, the health endpoint, request IDs, the email fallback, the admin dashboard and the backup upload. The
+their history, the health endpoint and the readiness check, request IDs, the email fallback, Redis stopped (its
+connections refused: pages, rate limits and throttles still answer, emails go out, the health checks fail), request
+body limits, Sentry's scrubbing, the admin dashboard and the backup upload. The
 shop's tests (`shop/test_*.py`, helpers in `shop/factories.py`; Razorpay's network calls are mocked and any real HTTP
 call fails a test, while signatures are checked for real) cover the cart and coupon maths, checkout validation, a price
 changed after the cart, stock and bundles, cash on delivery, the state machines, Checkout's signature, the webhooks'
-signature, repeats and order of arrival, the automatic refunds, refunds and their retries, the invoice (a real PDF when
-Pango is installed), guest lookup and its rate limit, the cart merge at log-in, account deletion, the daily clean-up,
-SALES and SUPPORT in the admin, the order actions, the export, the dashboard and `seed_shop`.
+signature, repeats, replays and order of arrival, the automatic refunds, refunds and their retries, the invoice and
+the credit notes (real PDFs when Pango is installed; numbering, partial refunds, a refund before the invoice), guest
+lookup and its rate limit, the cart merge at log-in, the address book, account deletion and Download my data with the
+orders, the daily clean-up, SALES and SUPPORT in the admin, the order actions, the export, the dashboard and
+`seed_shop`. `shop/test_api.py` covers the shop's REST endpoints: products, the cart, addresses, checkout, payment
+through the SDK (and a bad signature), cancellation, invoice and credit note PDFs, other customers' orders (404),
+cash on delivery, and the guests' lookup and its limit.
 
 ## Production
 
@@ -287,8 +338,28 @@ the cache, file storage and, when a broker is set, that a Celery worker answers;
 uptime monitor). `/health/web/` leaves Celery out: it is the web container's own health check, which the worker waits
 for.
 Logs are JSON lines on stdout with `request_id` (from Caddy's `X-Request-ID`, also sent back in the response).
-Errors go to Sentry when `SENTRY_DSN` is set. Uploaded files (answer-sheet photos, later) go to `media/`, never served
-publicly, or to a private bucket with `MEDIA_BUCKET`; the upload view must check the file size when it is built.
+Errors go to Sentry when `SENTRY_DSN` is set (scrubbed: see "Personal data"). Uploaded files (answer-sheet photos,
+later) go to `media/`, never served publicly, or to a private bucket with `MEDIA_BUCKET`; the upload view must check
+the file size when it is built.
+
+Running without surprises:
+
+- **Readiness**: the web container migrates, brings the roles up to date and then runs django-health-check's
+  `manage.py health_check health_web --no-http` (database, cache, a write to the media volume) before gunicorn starts;
+  if it fails the container stops and Docker restarts it.
+- **Redis down**: the cache fails soft (django-redis with one-second timeouts and `IGNORE_EXCEPTIONS`: every call counts
+  as a miss and is logged), so pages keep working while rate limits and throttles let requests through (sessions and
+  axes are in the database); emails are sent from the web process when the broker cannot be reached (about a second
+  late); invoice, credit note and refund tasks lost meanwhile are queued again by the daily clean-up; `/health/`
+  reports the cache.
+- **Request sizes**: Caddy refuses bodies over 10 MB; Django refuses more than 1 MB of form or JSON data
+  (`DATA_UPLOAD_MAX_MEMORY_SIZE`; the API answers 413 in its JSON format) and more than 10 files in one request.
+- **Database connections** persist between requests (`CONN_MAX_AGE`, default 60 s, health-checked before reuse) rather
+  than in a pool: gunicorn's sync workers serve one request at a time, so a pool would hold as many connections.
+- **Transactions** are explicit, with row locks (`shop/services.py`): checkout (the order and the address saved with
+  it), payment, refunds, each webhook together with its record; `ATOMIC_REQUESTS` stays off.
+- **Static files** are collected into the image at build time (hashed and compressed, WhiteNoise); the CI's
+  `docker-build` job builds that image on every push.
 
 ## Data model
 
@@ -311,7 +382,8 @@ publicly, or to a private bucket with `MEDIA_BUCKET`; the upload view must check
   GST rate, HSN, weight, stock, SEO), `ProductImage`, `BundleItem`, `Coupon`, `ShippingRate`, `Address`, `Cart` and
   `CartItem`, `Order` (EL-2026-000123, address copy, money, coupon, method, status machine, history), `OrderItem`
   (copies of title, HSN, GST rate and prices), `Payment` (Razorpay ids, signature, status machine, history, last
-  webhook), `Refund`, `Shipment`, `Invoice` (number per financial year, PDF).
+  webhook), `Refund`, `Shipment`, `Invoice` (number per financial year, PDF), `CreditNote` (a refund of an invoiced
+  order: its own number series, PDF), `WebhookEvent` (webhooks handled: Razorpay's event id and the body's hash).
 - `ops` — no models: Celery email task, admin dashboard, admin theme, `upload_backup` command.
 
 ## Planned extensions (not built)
@@ -328,8 +400,8 @@ publicly, or to a private bucket with `MEDIA_BUCKET`; the upload view must check
 
 ## Phases to come
 
-**Shop**: built (see Shop). Open: a credit note for refunds of invoiced orders, weight-based shipping, the shop's
-data in Download my data (`accounts.views.export_user_data`), and REST endpoints for the app.
+**Shop**: built (see Shop), with credit notes, its data in Download my data and its REST endpoints for the app.
+Open: weight-based shipping.
 
 ## Libraries
 
@@ -346,23 +418,23 @@ data in Download my data (`accounts.views.export_user_data`), and REST endpoints
 | celery | background tasks: emails, the daily purge, clean-ups |
 | django-celery-beat | the periodic-task schedule, stored in the database and editable in the admin (pinned to an upstream commit until a release supports Django 6.1) |
 | django-celery-results | task results in the database, cleaned up by beat after a week |
-| redis, django-redis | Redis client; Redis cache backend for `CACHE_URL=redis://…` |
-| sentry-sdk | error reports when `SENTRY_DSN` is set (server side only, no personal data) |
+| redis, django-redis | Redis client; Redis cache backend for `CACHE_URL=redis://…`, failing soft (a miss) while Redis is down |
+| sentry-sdk | error reports when `SENTRY_DSN` is set (server side only, no personal data: `examleaf/sentry.py` scrubs secrets, card and phone numbers) |
 | python-json-logger | JSON log lines on stdout |
 | django-guid | request IDs: from the proxy's `X-Request-ID` or new, in every log line (also in Celery tasks) and in the response |
-| django-health-check | `/health/` and `/health/web/`: database, cache, storage, Celery workers |
+| django-health-check | `/health/` and `/health/web/`: database, cache, storage, Celery workers; its `health_check` command is the web container's readiness check |
 | django-admin-interface (django-colorfield) | the admin theme |
-| razorpay | the official Razorpay SDK: orders, payment fetch and capture, refunds, signature checks |
+| razorpay | the official Razorpay SDK: orders (also for the app's mobile SDK, through the API), payment fetch and capture, refunds, signature checks |
 | django-money (py-moneyed, babel) | INR money fields and ₹ formatting |
 | django-localflavor (python-stdnum) | Indian states and PIN code validation |
 | django-fsm-2 | the order and payment state machines (guarded transitions) |
-| WeasyPrint | invoice PDFs from an HTML template (needs Pango) |
+| WeasyPrint | invoice and credit note PDFs from HTML templates (needs Pango) |
 | openpyxl | XLSX export of orders (django-import-export) |
 | django-model-utils | `TimeStampedModel` (created/modified) and `StatusModel` for the answer-sheet status |
 | django-simple-history | audit trail of edits to books, papers, questions, solutions and legal pages (admin History button) |
 | django-taggit | chapter and textbook-section tags on questions |
 | django-widget-tweaks | template-level attributes for the My record filter form |
-| django-phonenumber-field (phonenumberslite) | phone field and validation of Indian numbers (region IN) for the parent's contact |
+| django-phonenumber-field (phonenumberslite) | phone fields and validation of Indian numbers (region IN): the parent's contact, delivery addresses (website and API) |
 | django-import-export | CSV export of users, attempts and consent records from the admin |
 | django-filter | the subject/tier filter on My record and the API's list filters |
 | django-qr-code (segno) | generates the QR images (PNG for `/qr/<code>.png`, PNG and SVG for `export_qr`) |
@@ -371,7 +443,7 @@ data in Download my data (`accounts.views.export_user_data`), and REST endpoints
 | markdown-it-py | Markdown (with tables) to HTML for questions, solutions and legal pages |
 | Pillow | image support for the answer-sheet `ImageField` |
 | pytest, pytest-django, pytest-cov, factory_boy | tests, coverage and test data (development and CI) |
-| djangorestframework | the REST API (`api/`, API.md): views, serializers, versioning, pagination, throttles |
+| djangorestframework | the REST API (`api/`, API.md): views, serializers, versioning, pagination, throttles; the catalogue, solutions, attempts, accounts and the shop |
 | dj-rest-auth | the API's log-in, log-out, token refresh, password change and reset, user details |
 | djangorestframework-simplejwt | JWT access and refresh tokens for the app; rotation and blacklist |
 | drf-spectacular (drf-spectacular-sidecar) | the OpenAPI 3 schema, Swagger UI and Redoc (their files served by the site) |

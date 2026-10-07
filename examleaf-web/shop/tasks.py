@@ -9,7 +9,7 @@ from django.utils import timezone
 from razorpay.errors import BadRequestError, GatewayError, ServerError
 
 from . import invoices, payments, services
-from .models import Cart, Invoice, Order, Refund, paise
+from .models import Cart, CreditNote, Invoice, Order, Refund, WebhookEvent, paise
 
 
 @shared_task(
@@ -53,12 +53,29 @@ def generate_invoice(order_id):
     invoice = Invoice.for_order(Order.objects.get(pk=order_id))
     if not invoice.pdf:
         invoice.pdf.save(f"{invoice.number.replace('/', '-')}.pdf", ContentFile(invoices.render_pdf(invoice)))
+    refunded = Refund.objects.filter(order=order_id, status=Refund.Status.PROCESSED, credit_note=None)
+    for pk in refunded.values_list("pk", flat=True):  # refunded before the invoice was made
+        generate_credit_note.delay(pk)
+
+
+@shared_task(autoretry_for=(Exception,), retry_backoff=60, max_retries=6)
+def generate_credit_note(refund_id):
+    """The credit note of a processed refund of an invoiced order (none before the invoice exists: generate_invoice
+    comes back here once it does). Numbered on the first try, the PDF made with WeasyPrint; a failure is retried."""
+    refund = Refund.objects.get(pk=refund_id)
+    invoice = Invoice.objects.filter(order=refund.order_id).first()
+    if refund.status != Refund.Status.PROCESSED or invoice is None:
+        return
+    note = CreditNote.for_refund(refund, invoice)
+    if not note.pdf:
+        note.pdf.save(f"{note.number.replace('/', '-')}.pdf", ContentFile(invoices.render_pdf(note)))
 
 
 @shared_task
 def clean_up():
-    """Daily (celery beat): cancel online orders left unpaid; queue again the refunds and invoices whose task was lost
-    (broker down when queued, retries used up); delete guest carts untouched for 30 days."""
+    """Daily (celery beat): cancel online orders left unpaid; queue again the refunds, invoices and credit notes whose
+    task was lost (broker down when queued, retries used up); delete guest carts untouched for 30 days and the record
+    of webhooks too old to be accepted again."""
     services.expire_unpaid_orders()
     hour_ago = timezone.now() - timedelta(hours=1)
     lost_refunds = Refund.objects.filter(status=Refund.Status.PENDING, razorpay_refund_id=None, created__lt=hour_ago)
@@ -72,4 +89,8 @@ def clean_up():
     )
     for pk in no_invoice.values_list("pk", flat=True):
         generate_invoice.delay(pk)
+    no_note = Refund.objects.filter(status=Refund.Status.PROCESSED, order__invoice__isnull=False, modified__lt=hour_ago)
+    for pk in no_note.filter(Q(credit_note=None) | Q(credit_note__pdf="")).values_list("pk", flat=True):
+        generate_credit_note.delay(pk)
     Cart.objects.filter(user=None, modified__lt=timezone.now() - timedelta(days=30)).delete()
+    WebhookEvent.objects.filter(received_at__lt=timezone.now() - payments.WEBHOOK_MAX_AGE).delete()

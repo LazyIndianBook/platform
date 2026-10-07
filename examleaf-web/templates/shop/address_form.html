@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block head_title %}{% if object %}Change an address{% else %}Add an address{% endif %}{% endblock %}
+{% block content %}
+<h1>{% if object %}Change an address{% else %}Add an address{% endif %}</h1>
+<form method="post">{% csrf_token %}
+  {{ form }}
+  <p class="actions"><button type="submit">Save</button> <a href="{% url 'account' %}">Cancel</a></p>
+</form>
+{% endblock %}

@@ -89,7 +89,8 @@ def captured(order, **changes):
     return {**entity, **changes}
 
 
-def post_webhook(client, event, entity, kind="payment", secret=WEBHOOK_SECRET):
-    body = json.dumps({"event": event, "payload": {kind: {"entity": entity}}})
-    url = reverse("shop:razorpay_webhook")
-    return client.post(url, body, content_type="application/json", HTTP_X_RAZORPAY_SIGNATURE=sign(body, secret))
+def post_webhook(client, event, entity, kind="payment", secret=WEBHOOK_SECRET, event_id="", **fields):
+    """A signed webhook; `fields` go into the body (e.g. created_at), `event_id` into X-Razorpay-Event-Id."""
+    body = json.dumps({"event": event, "payload": {kind: {"entity": entity}}, **fields})
+    headers = {"HTTP_X_RAZORPAY_SIGNATURE": sign(body, secret), "HTTP_X_RAZORPAY_EVENT_ID": event_id}
+    return client.post(reverse("shop:razorpay_webhook"), body, content_type="application/json", **headers)

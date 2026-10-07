@@ -4,23 +4,20 @@ the DPDP self-service of the profile (Download my data, Delete my account) with 
 import django_filters
 from allauth.account.utils import has_verified_email
 from django.conf import settings
-from django.db import transaction
+from django.core.exceptions import RequestDataTooBig
 from django.db.models import Prefetch
-from django.urls import reverse
-from django.utils import timezone
 from django.utils.decorators import method_decorator
-from django.utils.formats import date_format
 from django.views.decorators.cache import cache_page
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
-from rest_framework import exceptions, generics, permissions, serializers, status, viewsets
+from rest_framework import exceptions, generics, permissions, serializers, status, views, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from accounts.models import ConsentRecord, DeletionRequest
-from accounts.views import export_user_data
+from accounts.models import DeletionRequest
+from accounts.views import export_user_data, keep_account, request_deletion
 from content.models import Board, Book, Paper, Subject
-from ops.tasks import queue_text_email
+from content.views import cache_solutions
 from practice.forms import AttemptFilter
 from practice.models import Attempt
 
@@ -36,13 +33,31 @@ from .serializers import (
 PUBLIC_CACHE = 15 * 60  # seconds; the catalogue changes only when papers are imported
 
 
+class PayloadTooLarge(exceptions.APIException):
+    status_code = status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+    default_detail = "The request body is too large."
+    default_code = "too_large"
+
+
+def exception_handler(exc, context):
+    """DRF's error format, also for a JSON body over DATA_UPLOAD_MAX_MEMORY_SIZE (Django would answer an HTML 400)."""
+    return views.exception_handler(PayloadTooLarge() if isinstance(exc, RequestDataTooBig) else exc, context)
+
+
 class VerifiedEmail(permissions.BasePermission):
-    """Signed in with a confirmed email address, as the website requires before it shows solutions."""
+    """Signed in with a confirmed email address (a website log-in needs one too)."""
 
     message = "Confirm your email address first."
 
     def has_permission(self, request, view):
         return bool(request.user and request.user.is_authenticated and has_verified_email(request.user))
+
+
+class CanReadSolutions(VerifiedEmail):
+    """Everyone while the solutions are open (SOLUTIONS_REQUIRE_LOGIN=0), as on the website; otherwise VerifiedEmail."""
+
+    def has_permission(self, request, view):
+        return not settings.SOLUTIONS_REQUIRE_LOGIN or super().has_permission(request, view)
 
 
 def cached(viewset):
@@ -104,16 +119,11 @@ class PaperViewSet(viewsets.ReadOnlyModelViewSet):
     ordering = ["code"]
 
     @extend_schema(responses=QuestionSerializer(many=True))
-    @action(
-        detail=True,
-        permission_classes=[permissions.IsAuthenticated, VerifiedEmail],
-        pagination_class=None,
-        filter_backends=[],
-    )
+    @action(detail=True, permission_classes=[CanReadSolutions], pagination_class=None, filter_backends=[])
     def solutions(self, request, *args, **kwargs):
         """The questions in paper order, each with its marking-scheme solution (Markdown and HTML)."""
         questions = self.get_object().questions.select_related("solution")
-        return Response(QuestionSerializer(questions, many=True).data)
+        return cache_solutions(Response(QuestionSerializer(questions, many=True).data), request.user)
 
 
 class QrView(generics.RetrieveAPIView):
@@ -175,9 +185,9 @@ class DeletionSerializer(serializers.ModelSerializer):
         fields = ["status", "requested_at", "due_at"]
 
 
-# The steps and emails are those of accounts.views.delete_account and cancel_deletion: keep them the same.
 class DeletionView(generics.GenericAPIView):
-    """Delete my account: POST (with the password) asks for it, due seven days later; DELETE cancels it."""
+    """Delete my account: POST (with the password) asks for it, due seven days later; DELETE cancels it. The steps and
+    emails are the website's (accounts.views.request_deletion and keep_account)."""
 
     serializer_class = PasswordSerializer
     throttle_scope = "dj_rest_auth"
@@ -185,32 +195,13 @@ class DeletionView(generics.GenericAPIView):
     @extend_schema(responses={201: DeletionSerializer, 200: DeletionSerializer})
     def post(self, request, *args, **kwargs):
         self.get_serializer(data=request.data).is_valid(raise_exception=True)
-        if deletion := request.user.pending_deletion:
-            return Response(DeletionSerializer(deletion).data)
-        with transaction.atomic():
-            deletion = DeletionRequest.objects.create(user=request.user)
-            ConsentRecord.record(request, request.user, event=ConsentRecord.Event.WITHDRAWN)
-        day = date_format(timezone.localtime(deletion.due_at), "j F Y")
-        queue_text_email(
-            request.user.email,
-            "Your account will be deleted",
-            f"We have your request to delete your ExamLeaf account. It will be deleted on {day}.\n\n"
-            f'Changed your mind, or did not ask for this? Log in before then and press "Keep my '
-            f'account" on {settings.SITE_URL}{reverse("account")}',
+        deletion, created = request_deletion(request)
+        return Response(
+            DeletionSerializer(deletion).data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK
         )
-        return Response(DeletionSerializer(deletion).data, status=status.HTTP_201_CREATED)
 
     @extend_schema(request=None, responses={204: None})
     def delete(self, request, *args, **kwargs):
-        deletion = request.user.pending_deletion
-        if not deletion:
+        if not keep_account(request):
             raise exceptions.NotFound("No account deletion is waiting.")
-        deletion.status, deletion.closed_at = DeletionRequest.Status.CANCELLED, timezone.now()
-        deletion.save()
-        ConsentRecord.record(request, request.user)  # staying on is consenting again
-        queue_text_email(
-            request.user.email,
-            "Your account will not be deleted",
-            "The deletion of your ExamLeaf account has been cancelled. Your account stays as it was.",
-        )
         return Response(status=status.HTTP_204_NO_CONTENT)

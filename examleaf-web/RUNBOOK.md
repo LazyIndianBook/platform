@@ -90,6 +90,9 @@ Celery → Task results; `docker compose logs worker | grep send_email`.
 
 - **/health/ returns 500:** the JSON (`curl -H 'Accept: application/json' https://examleaf.in/health/`) names the
   failing part: database (`docker compose logs db`), cache (Redis), storage (disk full? `df -h`), Celery (worker).
+  With Redis down the site keeps working without its cache (rate limits are off meanwhile) and sends emails itself;
+  `docker compose up -d redis`, then the daily clean-up queues again the invoices, credit notes and refunds that
+  could not be queued. A web container that will not start prints the failing check (`docker compose logs web`).
 - **Disk full:** `docker system df`; old images (`docker image prune`), backups beyond `BACKUP_KEEP_DAYS`; logs are
   rotated already.
 - **Certificate problems:** `docker compose logs caddy`; DNS must point at the server and ports 80/443 be open.

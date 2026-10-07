@@ -172,6 +172,30 @@ class PaperPageTests(TestCase):
         self.client.force_login(self.student)
         self.assertIn("private", self.client.get("/s/PHY-E01/")["Cache-Control"])
 
+    def test_solutions_for_students_or_for_everyone_by_setting(self):
+        for required in (True, False):
+            with self.subTest(required=required), override_settings(SOLUTIONS_REQUIRE_LOGIN=required):
+                self.client.logout()
+                page, api = self.client.get("/s/PHY-E01/"), self.client.get("/api/v1/papers/PHY-E01/solutions/")
+                if required:
+                    self.assertTemplateUsed(page, "landing.html")
+                    self.assertIn("private", page["Cache-Control"])
+                    self.assertEqual(api.status_code, 401)
+                else:  # open: the same page for every visitor, kept a few minutes by shared caches
+                    self.assertTemplateUsed(page, "solutions.html")
+                    self.assertContains(page, "Final answer")
+                    self.assertNotContains(page, "Save to my record")  # saving marks needs an account
+                    self.assertContains(page, reverse("account_login") + "?next=/s/PHY-E01/")
+                    self.assertNotIn("csrftoken", page.cookies)
+                    for response in (page, api):
+                        self.assertEqual(sorted(response["Cache-Control"].split(", ")), ["max-age=300", "public"])
+                    self.assertEqual(api.json()[0]["solution"]["markdown"][:5], "| Ste")
+                self.client.force_login(self.student)
+                page = self.client.get("/s/PHY-E01/")
+                self.assertContains(page, "Save to my record")
+                self.assertIn("private", page["Cache-Control"])
+                self.assertEqual(self.client.get("/api/v1/papers/PHY-E01/solutions/").status_code, 200)
+
     def test_login_does_not_redirect_to_another_site(self):
         for url in ["https://evil.example/", "//evil.example/", "/\\evil.example", "javascript:alert(1)"]:
             with self.subTest(url):

@@ -4,23 +4,27 @@ from axes.helpers import get_client_ip_address
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.messages.views import SuccessMessageMixin
 from django.core.cache import cache
 from django.core.files.storage import default_storage
+from django.db import transaction
 from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse_lazy
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_control, never_cache
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
-from django.views.generic import DetailView, ListView
+from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
 from django_fsm import TransitionNotAllowed
 
 from content.models import Paper
 
 from . import payments, services
 from .cart import COUNT_KEY, SESSION_KEY, get_cart, remember_count, set_quantity, totals
-from .forms import AddressForm, CheckoutForm, CouponForm, LookupForm
-from .models import Coupon, Order, Product, ProductImage, ShippingRate, paise
+from .forms import AddressBookForm, AddressForm, CheckoutForm, CouponForm, LookupForm
+from .models import Coupon, CreditNote, Order, Product, ProductImage, ShippingRate
 
 ORDERS_KEY = "shop_orders"  # numbers of the orders this browser session placed or looked up (guests' access)
 # Razorpay Checkout: its script, its frames and its API calls, allowed on the payment page only.
@@ -55,7 +59,7 @@ def rate_limit(scope, limit, seconds):
                 except ValueError:  # expired between add and incr
                     count = 1
                     cache.set(key, count, seconds)
-                if count > limit:
+                if (count or 0) > limit:  # None: the cache (Redis) is down; let the request through
                     return HttpResponse("Too many requests. Please wait a few minutes.", status=429)
             return view(request, *args, **kwargs)
 
@@ -184,19 +188,20 @@ def checkout(request):
         if saved or address_form.is_valid():
             address = saved or address_form.save(commit=False)
             try:
-                order = services.create_order(
-                    cart,
-                    user=user,
-                    email=user.email if user else form.cleaned_data["email"],
-                    address=address.snapshot(),
-                    method=form.cleaned_data["payment_method"],
-                )
+                with transaction.atomic():  # the order and the address saved with it, or neither
+                    order = services.create_order(
+                        cart,
+                        user=user,
+                        email=user.email if user else form.cleaned_data["email"],
+                        address=address.snapshot(),
+                        method=form.cleaned_data["payment_method"],
+                    )
+                    if user and not saved and form.cleaned_data.get("save_address"):
+                        address.user, address.is_default = user, not user.addresses.exists()
+                        address.save()
             except services.ShopError as error:
                 form.add_error(None, str(error))
             else:
-                if user and not saved and form.cleaned_data.get("save_address"):
-                    address.user, address.is_default = user, not user.addresses.exists()
-                    address.save()
                 grant(request, order)
                 return redirect("shop:pay", order.number)
     context = {
@@ -224,23 +229,8 @@ def pay(request, number):
         return redirect(order)
     context = {"order": order}
     if not order.is_cod:
-        payment = order.payments.filter(method=Order.Method.RAZORPAY).first()
         try:
-            context["checkout"] = {
-                "key": settings.RAZORPAY_KEY_ID,
-                "order_id": payments.razorpay_order_id(payment),
-                "amount": paise(payment.amount),
-                "currency": "INR",
-                "name": "ExamLeaf",
-                "description": f"Order {order.number}",
-                "prefill": {
-                    "name": order.shipping_address["name"],
-                    "email": order.email,
-                    "contact": order.shipping_address["phone"],
-                },
-                "notes": {"order": order.number},
-                "theme": {"color": "#0b2a5b"},
-            }
+            context["checkout"] = payments.checkout_options(order)
         except payments.Unavailable as error:
             context["unavailable"] = str(error)
         context["test_mode"] = payments.test_mode()
@@ -274,6 +264,7 @@ def order_detail(request, number, thanks=False):
         "shipments": order.shipments.all(),
         "refunds": order.refunds.all(),
         "invoice": invoice if invoice and invoice.pdf else None,
+        "credit_notes": CreditNote.objects.filter(invoice__order=order).exclude(pdf=""),
         "payment": order.payments.first(),
     }
     return render(request, "shop/order_detail.html", context)
@@ -308,17 +299,24 @@ def order_cancel(request, number):
     return redirect(order)
 
 
+def pdf_response(document):
+    """An Invoice's or a CreditNote's PDF as a download (404 until the file has been made)."""
+    if document is None or not document.pdf:
+        raise Http404
+    filename = f"ExamLeaf-{document.number.replace('/', '-')}.pdf"
+    return FileResponse(document.pdf.open("rb"), as_attachment=True, filename=filename)
+
+
 @never_cache
-def invoice_pdf(request, number):
-    if request.user.has_perm("shop.view_invoice"):
+def invoice_pdf(request, number, note=None):
+    """The invoice, or with `note` a credit note, of an order the visitor may see (or staff who may view them)."""
+    if request.user.has_perm("shop.view_creditnote" if note else "shop.view_invoice"):
         order = get_object_or_404(Order, number=number)
     else:
         order = visible_order(request, number)
-    invoice = getattr(order, "invoice", None)
-    if invoice is None or not invoice.pdf:
-        raise Http404
-    filename = f"ExamLeaf-{invoice.number.replace('/', '-')}.pdf"
-    return FileResponse(invoice.pdf.open("rb"), as_attachment=True, filename=filename)
+    if note:
+        return pdf_response(CreditNote.objects.filter(invoice__order=order, pk=note).first())
+    return pdf_response(getattr(order, "invoice", None))
 
 
 @never_cache
@@ -339,6 +337,34 @@ def lookup(request):
 @require_POST
 @rate_limit("webhook", 300, 60)
 def razorpay_webhook(request):
-    if payments.handle_webhook(request.body, request.headers.get("X-Razorpay-Signature", "")):
+    headers = request.headers
+    if payments.handle_webhook(
+        request.body, headers.get("X-Razorpay-Signature", ""), headers.get("X-Razorpay-Event-Id", "")
+    ):
         return HttpResponse("ok")
     return HttpResponse("bad signature", status=400)
+
+
+class MyAddresses(LoginRequiredMixin):
+    """The address book on My account: the user's own addresses only (anyone else's: 404)."""
+
+    success_url = reverse_lazy("account")
+
+    def get_queryset(self):
+        return self.request.user.addresses.all()
+
+
+class AddressCreate(MyAddresses, SuccessMessageMixin, CreateView):
+    form_class, template_name, success_message = AddressBookForm, "shop/address_form.html", "Address saved."
+
+    def form_valid(self, form):
+        form.instance.user = self.request.user
+        return super().form_valid(form)
+
+
+class AddressUpdate(MyAddresses, SuccessMessageMixin, UpdateView):
+    form_class, template_name, success_message = AddressBookForm, "shop/address_form.html", "Address saved."
+
+
+class AddressDelete(MyAddresses, DeleteView):
+    http_method_names = ["post"]  # the button on My account

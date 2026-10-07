@@ -35,7 +35,7 @@ ROLES = {
         *crud("shop", ["productimage", "bundleitem"], ["view", "add", "change", "delete"]),
         *crud("shop", ["order"], ["view", "change"]),  # change: the pack / ship / deliver actions
         *crud("shop", ["refund"], ["view", "add"]),  # add: the refund action (Razorpay refund)
-        *crud("shop", ["orderitem", "payment", "invoice"], ["view"]),
+        *crud("shop", ["orderitem", "payment", "invoice", "creditnote"], ["view"]),
     ],
     SUPPORT: [  # help students: look up accounts and records, verify teachers, answer data requests
         *crud("accounts", ["user", "consentrecord", "deletionrequest"], ["view"]),
@@ -44,7 +44,9 @@ ROLES = {
         "practice.view_attempt",
         # orders: view only (answer "where is my parcel?"; refunds and shipping are SALES')
         *crud(
-            "shop", ["order", "orderitem", "payment", "shipment", "refund", "invoice", "product", "address"], ["view"]
+            "shop",
+            ["order", "orderitem", "payment", "shipment", "refund", "invoice", "creditnote", "product", "address"],
+            ["view"],
         ),
     ],
     ADMIN: ALL,

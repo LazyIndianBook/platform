@@ -15,7 +15,20 @@
   <dt>Password</dt><dd><a href="{% url 'account_change_password' %}">change</a></dd>
   {% if user.class_level %}<dt>Class</dt><dd>{{ user.get_class_level_display }}{% if user.board %}, {{ user.board }}{% endif %}</dd>{% endif %}
 </dl>
-<p><a href="{% url 'record' %}">My record</a></p>
+<p><a href="{% url 'record' %}">My record</a> · <a href="{% url 'shop:orders' %}">My orders</a></p>
+
+<h2>Addresses</h2>
+{% for address in user.addresses.all %}
+<div class="shipment">
+  <p class="address">{% for line in address.lines %}{{ line }}<br>{% endfor %}{% if address.is_default %}<strong>Used by default</strong>{% endif %}</p>
+  <form method="post" action="{% url 'shop:address_delete' address.pk %}" class="actions">{% csrf_token %}
+    <a href="{% url 'shop:address_edit' address.pk %}">Change</a> <button type="submit" class="link">Delete</button>
+  </form>
+</div>
+{% empty %}
+<p class="muted">No saved addresses. Addresses saved at checkout appear here.</p>
+{% endfor %}
+<p><a href="{% url 'shop:address_add' %}">Add an address</a></p>
 
 <h2>Teacher access</h2>
 {% with profile=user.teacher_profile %}

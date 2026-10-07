@@ -35,6 +35,7 @@
 <p class="actions">
   {% if order.status == "pending" and not order.placed_at %}<a class="button" href="{% url 'shop:pay' order.number %}">Pay now</a>{% endif %}
   {% if invoice %}<a class="button secondary" href="{% url 'shop:invoice' order.number %}">Download the invoice</a>{% elif order.placed_at and not order.is_cod %}<span class="muted">The invoice will appear here in a few minutes.</span>{% endif %}
+  {% for note in credit_notes %}<a class="button secondary" href="{% url 'shop:credit_note' order.number note.pk %}">Credit note {{ note.number }}</a>{% endfor %}
 </p>
 {% if order.can_cancel %}
 <form method="post" action="{% url 'shop:order_cancel' order.number %}" class="cancel">{% csrf_token %}

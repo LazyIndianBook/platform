@@ -15,7 +15,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from accounts.factories import PASSWORD, UserFactory
 from accounts.models import ConsentRecord, DeletionRequest, User
 from accounts.tests import birthday
-from content.models import Book, Paper, Question, Solution
+from content.models import Board, Book, Paper, Question, Solution
 from content.tests import make_paper
 from practice.models import Attempt
 
@@ -129,7 +129,7 @@ def register(api, age, **extra):
         "password1": PASSWORD,
         "password2": PASSWORD,
         "class_level": 12,
-        "board": 1,
+        "board": Board.objects.get().pk,  # the paper fixture's board (ids differ between databases)
         "date_of_birth": birthday(age).isoformat(),
         **extra,
     }
@@ -137,17 +137,17 @@ def register(api, age, **extra):
 
 
 def test_registration_keeps_the_website_rules(api, paper):
-    response = register(api, 16, board=paper.book.subject.board_id, consent=True)
+    response = register(api, 16, consent=True)
     assert response.status_code == 400
     assert set(response.json()) == {"parent_name", "parent_contact"}  # under 18 without a parent: refused
-    assert set(register(api, 16, board=1, parent_name="Anita Das", parent_contact="98640 12345").json()) == {"consent"}
-    assert "parent or guardian" in register(api, 16, board=1, consent=False).json()["consent"][0]
-    assert set(register(api, 19, board=1, consent=True, password2="other-Pass-2027").json()) == {"password2"}
+    assert set(register(api, 16, parent_name="Anita Das", parent_contact="98640 12345").json()) == {"consent"}
+    assert "parent or guardian" in register(api, 16, consent=False).json()["consent"][0]
+    assert set(register(api, 19, consent=True, password2="other-Pass-2027").json()) == {"password2"}
     assert not User.objects.exists() and not mail.outbox
 
 
 def test_sign_up_then_the_emailed_code_logs_the_student_in(api, paper):
-    response = register(api, 16, board=1, parent_name="Anita Das", parent_contact="98640 12345", consent=True)
+    response = register(api, 16, parent_name="Anita Das", parent_contact="98640 12345", consent=True)
     assert response.status_code == 201 and response.json()["detail"] == "Verification e-mail sent."
     assert "sessionid" not in response.cookies  # the app holds the token; no cookie
     token = response.json()["verification_token"]
@@ -169,7 +169,7 @@ def test_sign_up_then_the_emailed_code_logs_the_student_in(api, paper):
 
 def test_signing_up_with_a_registered_address_looks_the_same_and_tells_its_owner(api, paper):
     student(email="rahul@example.com")
-    response = register(api, 19, board=1, consent=True)
+    response = register(api, 19, consent=True)
     assert response.status_code == 201 and response.json()["verification_token"]  # no way to tell who is registered
     assert User.objects.count() == 1 and "already" in mail.outbox[-1].body
     response = api.post(
@@ -268,7 +268,12 @@ def test_profile_reads_and_updates_what_the_student_may_change(api, paper):
     user = sign_in(api, student(email="rahul@example.com", date_of_birth=birthday(16), parent_name="Anita Das"))
     me = api.get("/api/v1/me/").json()
     assert me["email"] == "rahul@example.com" and me["parent_name"] == "Anita Das" and me["deletion_due_at"] is None
-    changes = {"full_name": "Rahul Kumar Das", "district": "Kamrup", "phone": "98640 12345", "board": 1}
+    changes = {
+        "full_name": "Rahul Kumar Das",
+        "district": "Kamrup",
+        "phone": "98640 12345",
+        "board": paper.book.subject.board_id,
+    }
     response = api.patch("/api/v1/me/", {**changes, "email": "x@example.com", "date_of_birth": "2000-01-01"})
     assert response.status_code == 200 and response.json()["phone"] == "+919864012345"
     user.refresh_from_db()
@@ -285,6 +290,7 @@ def test_download_my_data_asks_for_the_password(api, paper):
     data = api.post("/api/v1/me/export/", {"password": PASSWORD}).json()
     assert data["profile"]["email"] == "rahul@example.com" and data["attempts"][0]["notes"] == "revise optics"
     assert data["email_addresses"] == [{"email": "rahul@example.com", "verified": True, "primary": True}]
+    assert data["addresses"] == [] and data["orders"] == []  # the website's export, shop included
 
 
 def test_account_deletion_waits_seven_days_and_can_be_cancelled(api):
@@ -315,6 +321,14 @@ def test_throttles_count_per_address_and_per_scope(api, paper, monkeypatch):
     assert [r.status_code for r in logins] == [400, 400, 429] and int(logins[-1]["Retry-After"]) > 0
 
 
+def test_request_bodies_are_limited_on_the_api_and_the_site(api, client, settings):
+    settings.DATA_UPLOAD_MAX_MEMORY_SIZE = 1000
+    response = api.post("/api/v1/auth/login/", {"email": "a@example.com", "password": "x" * 2000})
+    assert response.status_code == 413 and response.json() == {"detail": "The request body is too large."}
+    assert client.post("/account/login/", {"login": "a@example.com", "password": "x" * 2000}).status_code == 400
+    assert api.post("/api/v1/auth/login/", {"email": "a@example.com", "password": "x"}).status_code == 400  # parsed
+
+
 def test_cors_only_for_listed_origins_and_only_on_the_api(api, paper, settings):
     settings.CORS_ALLOWED_ORIGINS = ["https://app.examleaf.in"]
     preflight = {"HTTP_ACCESS_CONTROL_REQUEST_METHOD": "GET", "HTTP_ACCESS_CONTROL_REQUEST_HEADERS": "authorization"}
@@ -341,5 +355,8 @@ def test_openapi_schema_is_valid_and_the_docs_pages_load(api, tmp_path):
     call_command("spectacular", "--validate", "--fail-on-warn", "--file", tmp_path / "schema.yml")
     schema = (tmp_path / "schema.yml").read_text()
     assert "/api/v1/papers/{code}/solutions/" in schema and "AStudentUnder18" in schema
+    for path in ["/api/v1/cart/items/{product}/", "/api/v1/orders/{number}/payment/confirm/", "/api/v1/orders/lookup/"]:
+        assert path in schema  # the shop
+    assert "application/pdf" in schema  # invoices and credit notes are files, not JSON
     for url in ["/api/schema/", "/api/docs/", "/api/docs/?script", "/api/redoc/"]:
         assert api.get(url).status_code == 200, url

@@ -16,9 +16,9 @@ from razorpay.errors import BadRequestError
 
 from accounts.factories import PASSWORD, UserFactory
 from accounts.models import DeletionRequest
-from shop import invoices, services, tasks
-from shop.factories import ADDRESS, ProductFactory, captured, make_order, post_webhook
-from shop.models import Address, BundleItem, Cart, Invoice, Order, Payment, Product, Refund
+from shop import invoices, payments, services, tasks
+from shop.factories import ADDRESS, ProductFactory, ShippingRateFactory, captured, make_order, post_webhook
+from shop.models import Address, BundleItem, Cart, CreditNote, Invoice, Order, Payment, Product, Refund, WebhookEvent
 
 pytestmark = pytest.mark.django_db
 GUEST = {
@@ -210,7 +210,7 @@ def test_refund_is_retried_while_razorpay_is_down_and_stops_when_refused(rzp, co
 
 
 @pytest.mark.real_pdf
-def test_invoice_is_a_pdf_with_gst_columns_even_at_zero(rzp, settings):
+def test_invoice_and_credit_note_are_pdfs_with_gst_columns_even_at_zero(rzp, settings, commit):
     try:
         import weasyprint  # noqa: F401
     except OSError:
@@ -225,6 +225,9 @@ def test_invoice_is_a_pdf_with_gst_columns_even_at_zero(rzp, settings):
     context = invoices.context(invoice)
     assert context["title"] == "Bill of supply" and not context["intra_state"]  # Delhi: IGST at 0 %
     assert context["lines"][0]["taxable"] == Decimal("598.00") and context["lines"][0]["igst"] == 0
+    with commit():
+        services.cancel_order(order, "Changed my mind.")
+    assert CreditNote.objects.get().pdf.read().startswith(b"%PDF")
     settings.RAZORPAY_KEY_ID = "rzp_live_key"  # live: the real series starts at 00001
     second = make_order((ProductFactory(price=100, gst_rate=12), 1))
     services.record_capture(captured(second))
@@ -255,6 +258,43 @@ def test_invoice_link_appears_once_the_pdf_exists(client, rzp, monkeypatch):
     assert response["Content-Type"] == "application/pdf" and Invoice.objects.count() == 1
 
 
+def test_refunds_of_invoiced_orders_get_credit_notes(client, rzp, commit, settings):
+    ShippingRateFactory()  # Assam: ₹40 below ₹499
+    user = UserFactory()
+    order = make_order((ProductFactory(price=299), 1), user=user, email=user.email)
+    with commit():
+        services.record_capture(captured(order))  # paid: the invoice is made
+        services.pack_order(order)
+        shipped = services.ship_order(order, "India Post", "EA123456789IN")
+        services.refund_order(shipped, "Parcel refused.", amount=Decimal("299"))  # the books, not the shipping
+    note = CreditNote.objects.get()
+    year = note.financial_year.removeprefix("T")
+    assert note.number == f"TC/{year}/00001" and note.invoice.order == order and note.pdf  # test keys: test series
+    context = invoices.credit_note_context(note)
+    assert (context["books_credit"], context["shipping_credit"], context["total_credit"]) == (299, 0, 299)
+    client.force_login(user)
+    assert f"Credit note {note.number}" in client.get(order.get_absolute_url()).content.decode()
+    response = client.get(reverse("shop:credit_note", args=[order.number, note.pk]))
+    assert response["Content-Type"] == "application/pdf"
+    client.force_login(UserFactory(is_staff=True, is_superuser=True))
+    assert note.number in client.get(reverse("admin:shop_order_change", args=[order.pk])).content.decode()
+    assert note.number in client.get(reverse("admin:shop_creditnote_changelist")).content.decode()
+
+    settings.RAZORPAY_KEY_ID = "rzp_live_key"
+    late = make_order((ProductFactory(price=299), 1), (ProductFactory(price=100, gst_rate=12), 1))
+    services.record_capture(captured(late))  # its invoice task has not run yet
+    with commit():
+        services.cancel_order(late, "Changed my mind.")
+    assert not CreditNote.objects.filter(refund__order=late).exists()  # nothing to credit before the invoice
+    tasks.generate_invoice(late.pk)
+    late_note = CreditNote.objects.get(refund__order=late)  # made once the invoice was
+    assert late_note.number == f"CN/{year}/00001" and len(late_note.number) == 16
+    context = invoices.credit_note_context(late_note)
+    assert (context["books_credit"], context["shipping_credit"]) == (399, 40)  # in full: the shipping too
+    assert [line["taxable"] for line in context["lines"]] == [Decimal("299.00"), Decimal("89.29")]
+    assert context["tax_total"] == Decimal("10.71")
+
+
 def test_guest_finds_an_order_by_number_and_email_only(client):
     order = make_order((ProductFactory(), 1), email="guest@example.com")
     assert client.get(order.get_absolute_url()).status_code == 404  # another browser
@@ -282,6 +322,26 @@ def test_guest_cart_joins_the_account_cart_at_log_in(client):
     assert client.session["shop_cart_count"] == 4
 
 
+def test_address_book_on_my_account(client):
+    user, other = UserFactory(), UserFactory()
+    theirs = Address.objects.create(user=other, **{**ADDRESS, "phone": "+919864012345"})
+    client.force_login(user)
+    page = client.get(reverse("account")).content.decode()
+    assert reverse("shop:orders") in page and "No saved addresses" in page  # My orders is linked
+    data = {**ADDRESS, "phone": "98640 12345", "pin": "781 001", "is_default": "on"}
+    assert client.post(reverse("shop:address_add"), {**data, "pin": "012345"}).status_code == 200  # refused
+    assert client.post(reverse("shop:address_add"), data).url == reverse("account")
+    address = user.addresses.get()
+    assert address.is_default and address.pin == "781001" and "Zoo Road" in client.get(reverse("account")).text
+    client.post(reverse("shop:address_edit", args=[address.pk]), {**data, "city": "Jorhat"})
+    address.refresh_from_db()
+    assert address.city == "Jorhat"
+    assert client.get(reverse("shop:address_edit", args=[theirs.pk])).status_code == 404  # someone else's
+    assert client.post(reverse("shop:address_delete", args=[theirs.pk])).status_code == 404
+    client.post(reverse("shop:address_delete", args=[address.pk]))
+    assert not user.addresses.exists() and Address.objects.filter(pk=theirs.pk).exists()
+
+
 def test_account_deletion_removes_addresses_and_keeps_orders(client):
     user = UserFactory()
     Address.objects.create(user=user, **{**ADDRESS, "phone": "+919864012345"})
@@ -297,8 +357,11 @@ def test_daily_clean_up(client, rzp, commit):
     Order.objects.update(
         created=timezone.now() - services.UNPAID_ORDERS_EXPIRE, modified=timezone.now() - timedelta(hours=2)
     )
+    WebhookEvent.objects.create(event_id="evt_old", digest="0" * 64, name="payment.captured")
+    WebhookEvent.objects.update(received_at=timezone.now() - payments.WEBHOOK_MAX_AGE - timedelta(minutes=1))
     with commit():
         tasks.clean_up()
     unpaid.refresh_from_db()
     assert unpaid.status == Order.Status.CANCELLED and not mail.outbox  # expired quietly
     assert Invoice.objects.get().order == paid and paid.invoice.pdf
+    assert not WebhookEvent.objects.exists()  # too old to be accepted again anyway

@@ -1,6 +1,7 @@
+from django.conf import settings
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
-from django.utils.decorators import method_decorator
+from django.utils.cache import patch_cache_control
 from django.views.decorators.cache import cache_control
 from django.views.generic import DetailView, ListView
 
@@ -24,9 +25,22 @@ class BookView(DetailView):
         return super().get_context_data(tiers=tiers, **kwargs)
 
 
-@method_decorator(cache_control(private=True), name="dispatch")  # one URL, two pages (landing / solutions) by login
+OPEN_SOLUTIONS_MAX_AGE = 300  # seconds a shared cache may keep open solutions
+
+
+def cache_solutions(response, user):
+    """Private while the page depends on the log-in (landing or solutions; the record form's CSRF token). Open
+    solutions seen by a visitor are the same for everyone: public for a few minutes."""
+    if settings.SOLUTIONS_REQUIRE_LOGIN or user.is_authenticated:
+        patch_cache_control(response, private=True)
+    else:
+        patch_cache_control(response, public=True, max_age=OPEN_SOLUTIONS_MAX_AGE)
+    return response
+
+
 class PaperView(DetailView):
-    """/s/<code>/, the address in the QR code: a register / log-in page for visitors, the solutions for students."""
+    """/s/<code>/, the address in the QR code: the solutions, for signed-in students (a register / log-in page for
+    visitors) or for everyone (SOLUTIONS_REQUIRE_LOGIN=0); saving marks always needs an account."""
 
     queryset = Paper.objects.filter(is_published=True).select_related("book__subject")
 
@@ -37,15 +51,20 @@ class PaperView(DetailView):
         self.object = self.get_object()
         if self.object.code != kwargs["code"]:  # /s/phy-e01/ -> /s/PHY-E01/
             return redirect(self.object, permanent=True)
-        return self.render_to_response(self.get_context_data())
+        return cache_solutions(self.render_to_response(self.get_context_data()), request.user)
+
+    @property
+    def shows_solutions(self):
+        return self.request.user.is_authenticated or not settings.SOLUTIONS_REQUIRE_LOGIN
 
     def get_template_names(self):
-        return ["solutions.html" if self.request.user.is_authenticated else "landing.html"]
+        return ["solutions.html" if self.shows_solutions else "landing.html"]
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        if self.request.user.is_authenticated:
+        if self.shows_solutions:
             context["questions"] = self.object.questions.select_related("solution")
+        if self.request.user.is_authenticated:
             context["form"] = AttemptForm(paper=self.object)
         return context
 

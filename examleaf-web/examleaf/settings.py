@@ -23,6 +23,9 @@ CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[SITE_URL])
 TESTING = sys.argv[1:2] == ["test"] or "pytest" in sys.modules  # manage.py test, or pytest
 # Where book.py and the Markdown papers live (the book repository root).
 BOOK_ROOT = Path(env("BOOK_ROOT", default=str(BASE_DIR.parent)))
+# The solutions behind the QR codes (/s/<CODE>/ and the API): for signed-in students only (1), or open to everyone (0;
+# then only saving marks needs an account). README "Open or registered solutions" explains the trade-off.
+SOLUTIONS_REQUIRE_LOGIN = env.bool("SOLUTIONS_REQUIRE_LOGIN", default=True)
 
 INSTALLED_APPS = [
     "admin_interface",  # admin theme (before django.contrib.admin); ExamLeaf colours set in ops/migrations
@@ -97,10 +100,18 @@ TEMPLATES = [
 ]
 
 DATABASES = {"default": env.db("DATABASE_URL", default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}")}
-DATABASES["default"]["CONN_MAX_AGE"] = env.int("CONN_MAX_AGE", default=60)  # keep connections between requests
+# Persistent connections (one per gunicorn worker or Celery process, checked before reuse) rather than a pool: the
+# sync workers serve one request at a time, so a pool would hold the same number of connections.
+DATABASES["default"]["CONN_MAX_AGE"] = env.int("CONN_MAX_AGE", default=60)
 DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
-# CACHE_URL=redis://… uses django-redis; without it, the local-memory cache (one per process).
+# CACHE_URL=redis://… uses django-redis; without it, the local-memory cache (one per process). With Redis down every
+# cache call gives up within a second and counts as a miss (logged): pages keep working, rate limits and throttles
+# let requests through meanwhile (sessions and axes are in the database), and /health/ reports the cache.
 CACHES = {"default": env.cache("CACHE_URL", default="locmemcache://")}
+REDIS_CACHE_OPTIONS = {"SOCKET_CONNECT_TIMEOUT": 1, "SOCKET_TIMEOUT": 1, "IGNORE_EXCEPTIONS": True}
+if CACHES["default"]["BACKEND"] == "django_redis.cache.RedisCache":
+    CACHES["default"]["OPTIONS"] = {**REDIS_CACHE_OPTIONS, **CACHES["default"].get("OPTIONS", {})}
+DJANGO_REDIS_LOG_IGNORED_EXCEPTIONS = True
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 AUTH_USER_MODEL = "accounts.User"
@@ -176,6 +187,13 @@ if DEBUG:
     SECURE_CSP_REPORT_ONLY = CONTENT_SECURITY_POLICY
 else:
     SECURE_CSP = CONTENT_SECURITY_POLICY
+
+# Request sizes. Caddy refuses bodies over 10 MB. Django: at most 1 MB of form or JSON data (files not counted; the API
+# answers 413), at most 10 files in one request; an upload over 2.5 MB is streamed to a temporary file instead of
+# being held in memory. An upload view must still check its file's size and type.
+DATA_UPLOAD_MAX_MEMORY_SIZE = env.int("DATA_UPLOAD_MAX_MEMORY_SIZE", default=1024 * 1024)
+DATA_UPLOAD_MAX_NUMBER_FILES = 10
+FILE_UPLOAD_MAX_MEMORY_SIZE = 2_621_440
 
 # Email (Django 6.1 mailers): console in development; an ESP through django-anymail in production (ANYMAIL_* variables).
 # The variable keeps its old name, EMAIL_BACKEND.
@@ -257,15 +275,20 @@ LOGGING = {
     },
 }
 
-# Errors to Sentry when SENTRY_DSN is set; server side only (no browser script), without personal data.
+# Errors to Sentry when SENTRY_DSN is set; server side only (no browser script), without personal data: no cookies,
+# users or addresses, and examleaf/sentry.py scrubs passwords, codes, tokens, signatures, card and phone numbers.
 if SENTRY_DSN := env("SENTRY_DSN", default=""):
     import sentry_sdk
+
+    from .sentry import before_send
 
     sentry_sdk.init(
         dsn=SENTRY_DSN,
         environment=env("SENTRY_ENVIRONMENT", default="production"),
         release=env("RELEASE", default=None),
         send_default_pii=False,
+        before_send=before_send,
+        before_send_transaction=before_send,
         traces_sample_rate=env.float("SENTRY_TRACES_SAMPLE_RATE", default=0.0),
     )
 

@@ -2,22 +2,26 @@
 the webhooks. Signatures are HMAC-SHA256, checked locally by the SDK; every network call has a timeout. Tests replace
 the network calls of `client()`."""
 
+import hashlib
 import json
 import logging
+import time
+from datetime import timedelta
 
 import razorpay
 import requests
 from django.conf import settings
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django_fsm import can_proceed
 from razorpay.errors import BadRequestError, GatewayError, ServerError, SignatureVerificationError
 
 from . import services
-from .models import INR, Payment, Refund, paise
+from .models import INR, Order, Payment, Refund, WebhookEvent, paise
 
 logger = logging.getLogger(__name__)
 TIMEOUT = 10  # seconds per Razorpay call: an unreachable Razorpay must not hang a page
+WEBHOOK_MAX_AGE = timedelta(days=7)  # Razorpay retries a webhook for 24 hours; older signed events are replays
 API_ERRORS = (requests.RequestException, BadRequestError, GatewayError, ServerError)
 
 
@@ -53,6 +57,24 @@ def razorpay_order_id(payment):
     return Payment.objects.values_list("razorpay_order_id", flat=True).get(pk=payment.pk)  # another tab's, if first
 
 
+def checkout_options(order):
+    """What Razorpay Checkout (the payment page) or the mobile SDK (the API) needs to pay an online order. Raises
+    Unavailable."""
+    payment = order.payments.filter(method=Order.Method.RAZORPAY).first()
+    address = order.shipping_address
+    return {
+        "key": settings.RAZORPAY_KEY_ID,
+        "order_id": razorpay_order_id(payment),
+        "amount": paise(payment.amount),
+        "currency": INR,
+        "name": "ExamLeaf",
+        "description": f"Order {order.number}",
+        "prefill": {"name": address["name"], "email": order.email, "contact": address["phone"]},
+        "notes": {"order": order.number},
+        "theme": {"color": "#0b2a5b"},
+    }
+
+
 def confirm_return(payment, data):
     """Checkout's success callback (`data`: razorpay_order_id, razorpay_payment_id, razorpay_signature). Returns False
     if the signature is wrong. Otherwise the payment is authorized, then Razorpay is asked for it and it is recorded
@@ -85,9 +107,11 @@ def confirm_return(payment, data):
     return True
 
 
-def handle_webhook(body, signature):
+def handle_webhook(body, signature, event_id=""):
     """A Razorpay webhook. Returns False if the signature (HMAC of the raw body with the webhook secret) is wrong or
-    no secret is set. Events for unknown orders (another integration on the same account) are ignored."""
+    no secret is set. Each event is handled once, in one transaction with its record (WebhookEvent: its id and the hash
+    of the body, so a replay under another id is caught too); events older than WEBHOOK_MAX_AGE and events for unknown
+    orders (another integration on the same account) are acknowledged and ignored."""
     secret = settings.RAZORPAY_WEBHOOK_SECRET
     if not secret or not signature:
         return False
@@ -96,6 +120,24 @@ def handle_webhook(body, signature):
         event = json.loads(body)
     except SignatureVerificationError, UnicodeDecodeError, ValueError:
         return False
+    digest = hashlib.sha256(body).hexdigest()
+    created = event.get("created_at")
+    if isinstance(created, int) and created < time.time() - WEBHOOK_MAX_AGE.total_seconds():
+        logger.warning("Razorpay webhook %s from %s ignored: too old", event_id or digest, created)
+        return True
+    with transaction.atomic():  # the record goes with the changes: an event that fails is handled again on retry
+        try:
+            with transaction.atomic():
+                WebhookEvent.objects.create(
+                    event_id=event_id[:64] or digest, digest=digest, name=event.get("event", "")[:40]
+                )
+        except IntegrityError:
+            return True  # handled before
+        _dispatch(event)
+    return True
+
+
+def _dispatch(event):
     name, payload = event.get("event", ""), event.get("payload", {})
     if name in ("payment.captured", "order.paid", "payment.failed"):
         entity = payload["payment"]["entity"]
@@ -115,4 +157,3 @@ def handle_webhook(body, signature):
                 services.refund_processed(refund.pk, razorpay_refund_id=entity["id"])
             else:
                 services.refund_failed(refund.pk, (entity.get("error_description") or "refund failed"))
-    return True

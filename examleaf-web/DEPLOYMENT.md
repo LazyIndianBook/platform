@@ -70,7 +70,9 @@ docker compose ps                     # db, redis, web healthy; worker, beat, ca
 docker compose logs -f web caddy      # migrations, bootstrap_roles, gunicorn; Caddy obtaining the certificate
 ```
 
-The web container runs `migrate` and `bootstrap_roles` on every start, then gunicorn; to run them by hand:
+The web container runs `migrate` and `bootstrap_roles` on every start, then the readiness check
+(`manage.py health_check health_web --no-http`: database, cache, a write to the media volume), then gunicorn; if the
+check fails the container stops, its log names the failing part, and Docker starts it again. To run them by hand:
 `docker compose exec web python manage.py migrate && docker compose exec web python manage.py bootstrap_roles`.
 Worker and beat start once the web container is healthy (`/health/web/`: database, cache and storage).
 
@@ -165,7 +167,7 @@ the flows.
    Give the people who pack and ship the SALES role, and those who answer customers SUPPORT.
 7. **Try it** with Razorpay's test card or the UPI ID `success@razorpay`: an order is paid, the confirmation email
    arrives, the invoice appears on the order page; a failed payment (`failure@razorpay`) can be retried; a cancellation
-   is refunded; Mark packed, Mark shipped (a tracking number) and Mark delivered send their emails. Dashboard →
+   is refunded and its credit note appears next to the invoice; Mark packed, Mark shipped (a tracking number) and Mark delivered send their emails. Dashboard →
    Webhooks shows each delivery answered 200.
 
 ### Going live
@@ -174,12 +176,13 @@ the flows.
       in Shipping; the refund rules in Refunds checked against what the business wants.
 - [ ] Seller details in `.env` correct: they print on every invoice and cannot be changed afterwards.
 - [ ] Real prices, stock and ISBNs. Orders made in test mode stay in the admin; their invoices are in the test series
-      (`T/2026-27/…`, marked as not a tax document), so the real ones start at `EL/<year>/00001`.
+      (`T/2026-27/…`, credit notes `TC/2026-27/…`, marked as not a tax document), so the real ones start at
+      `EL/<year>/00001` and `CN/<year>/00001`.
 - [ ] Razorpay account activated. Switch the Dashboard to Live Mode, generate live keys and set `RAZORPAY_KEY_ID=rzp_live_…`
       and `RAZORPAY_KEY_SECRET`; create the same webhook again in Live Mode (webhooks are per mode) and set its
       secret as `RAZORPAY_WEBHOOK_SECRET`; `docker compose up -d`. The payment page no longer says "Test mode".
 - [ ] One real purchase of a cheap book, then cancel it: the refund appears in the Razorpay Dashboard (Refunds) and
       the money comes back to the card or UPI account.
 - [ ] `check --deploy` shows only W005 and W021; `/health/` is OK; Sentry receives errors; the `media` volume is backed
-      up (invoices).
+      up (invoices and credit notes).
 

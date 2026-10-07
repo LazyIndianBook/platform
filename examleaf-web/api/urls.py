@@ -9,7 +9,7 @@ from rest_framework_simplejwt.views import TokenVerifyView
 
 from examleaf.urls import ALL_CHECKS  # /health/'s checks (examleaf.urls is loaded first: it includes this file)
 
-from . import auth, views
+from . import auth, shop, views
 
 router = SimpleRouter()
 router.register("boards", views.BoardViewSet)
@@ -17,6 +17,11 @@ router.register("subjects", views.SubjectViewSet)
 router.register("books", views.BookViewSet)
 router.register("papers", views.PaperViewSet)
 router.register("attempts", views.AttemptViewSet, basename="attempt")
+router.register("products", shop.ProductViewSet)
+router.register("addresses", shop.AddressViewSet, basename="address")
+router.register("orders", shop.OrderViewSet, basename="order")
+cart = shop.CartViewSet.as_view  # one cart per account: its own routes, not a collection
+CART_LINE = {"put": "change", "patch": "change", "delete": "remove"}
 
 NO_AUTH = {"authentication_classes": []}  # an expired token left in the header must not stop these
 
@@ -40,5 +45,9 @@ urlpatterns = [
     path("me/deletion/", views.DeletionView.as_view(), name="me-deletion"),
     path("qr/<str:code>/", views.QrView.as_view(), name="qr"),
     path("health/", HealthCheckView.as_view(checks=ALL_CHECKS), name="health"),
+    path("cart/", cart({"get": "retrieve"}), name="cart"),
+    path("cart/items/", cart({"post": "add"}), name="cart-items"),
+    path("cart/items/<slug:product>/", cart(CART_LINE), name="cart-line"),
+    path("cart/coupon/", cart({"post": "apply_coupon", "delete": "remove_coupon"}), name="cart-coupon"),
     *router.urls,
 ]

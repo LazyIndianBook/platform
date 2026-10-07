@@ -18,5 +18,9 @@ urlpatterns = [
     path("account/orders/<str:number>/", views.order_detail, name="order"),
     path("account/orders/<str:number>/cancel/", views.order_cancel, name="order_cancel"),
     path("account/orders/<str:number>/invoice/", views.invoice_pdf, name="invoice"),
+    path("account/orders/<str:number>/credit-notes/<int:note>/", views.invoice_pdf, name="credit_note"),
     path("orders/lookup/", views.lookup, name="lookup"),
+    path("account/addresses/add/", views.AddressCreate.as_view(), name="address_add"),
+    path("account/addresses/<int:pk>/", views.AddressUpdate.as_view(), name="address_edit"),
+    path("account/addresses/<int:pk>/delete/", views.AddressDelete.as_view(), name="address_delete"),
 ]

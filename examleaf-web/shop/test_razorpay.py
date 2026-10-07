@@ -1,13 +1,16 @@
 """Razorpay: the return from Checkout (signature), the webhooks (signature, duplicates, order of arrival), the
 automatic refunds, and an unreachable Razorpay. The SDK's network calls are mocked (conftest.rzp)."""
 
+import time
+
 import pytest
 import requests
 from django.core import mail
 from django.urls import reverse
 
+from shop import payments
 from shop.factories import SECRET, ProductFactory, captured, make_order, post_webhook, sign
-from shop.models import Order, Payment, Refund
+from shop.models import Order, Payment, Refund, WebhookEvent
 from shop.services import cancel_order
 from shop.views import ORDERS_KEY
 
@@ -205,3 +208,27 @@ def test_razorpay_is_allowed_by_the_csp_on_the_payment_page_only(client, rzp, se
     assert "frame-src 'self' https://api.razorpay.com" in policy and "lumberjack.razorpay.com" in policy
     assert response.headers["Cross-Origin-Opener-Policy"] == "same-origin-allow-popups"
     assert "razorpay" not in client.get(reverse("shop:catalogue")).headers["Content-Security-Policy"]
+
+
+def test_each_webhook_is_handled_once_and_old_ones_are_refused(client, rzp, commit):
+    order = make_order((ProductFactory(), 1))
+    now = int(time.time())
+    old = now - int(payments.WEBHOOK_MAX_AGE.total_seconds()) - 60
+    assert post_webhook(client, "payment.captured", captured(order), created_at=old).status_code == 200  # ignored
+    order.refresh_from_db()
+    assert order.status == Order.Status.PENDING and not WebhookEvent.objects.exists()
+    with commit():
+        post_webhook(client, "payment.captured", captured(order), event_id="evt_1", created_at=now)
+        post_webhook(client, "order.paid", captured(order), event_id="evt_2", created_at=now)
+        for event_id in ["evt_1", "evt_forged"]:  # Razorpay's repeat; a replay of the signed body under another id
+            assert (
+                post_webhook(client, "payment.captured", captured(order), event_id=event_id, created_at=now).status_code
+                == 200
+            )
+    assert list(WebhookEvent.objects.values_list("event_id", "name")) == [
+        ("evt_1", "payment.captured"),
+        ("evt_2", "order.paid"),
+    ]
+    order.refresh_from_db()
+    assert order.status == Order.Status.PAID and len(mail.outbox) == 1
+    assert order.payments.get().raw_payload["event"] == "order.paid"  # the repeats were not handled again

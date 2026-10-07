@@ -223,6 +223,7 @@ def refund_processed(refund_id, razorpay_refund_id=None):
             order.mark_refunded()
             order.save()
         notify(order, "refunded", refund=refund)
+        transaction.on_commit(lambda: tasks.generate_credit_note.delay(refund.pk), robust=True)  # if invoiced
     return refund
 
 

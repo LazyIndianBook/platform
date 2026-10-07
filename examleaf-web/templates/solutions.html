@@ -43,11 +43,15 @@
 
 <section class="record-form" id="record">
   <h2>Record your marks</h2>
+  {% if form %}
   <p>Mark your answers against these solutions, then save your score to <a href="{% url 'record' %}">My record</a>.</p>
   <form method="post" action="{% url 'attempt_add' paper.code %}">
     {% csrf_token %}
     {{ form }}
     <button type="submit">Save to my record</button>
   </form>
+  {% else %}
+  <p>Mark your answers against these solutions. To keep your scores in My record, <a href="{% url 'account_login' %}?next={{ request.path|urlencode }}">log in</a> or <a href="{% url 'account_signup' %}?next={{ request.path|urlencode }}">register</a> (free).</p>
+  {% endif %}
 </section>
 {% endblock %}

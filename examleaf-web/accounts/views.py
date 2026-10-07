@@ -58,6 +58,42 @@ class TeacherRequestView(LoginRequiredMixin, SuccessMessageMixin, CreateView):
         return super().form_valid(form)
 
 
+def export_orders(user):
+    """The user's orders as kept (tax records), with their invoice and credit notes by number (the PDFs stay on the
+    order pages)."""
+    orders = user.orders.select_related("invoice").prefetch_related(
+        "items", "shipments", "refunds", "invoice__credit_notes"
+    )
+    return [
+        {
+            "number": order.number,
+            "created": order.created,
+            "status": order.status_label,
+            "placed_at": order.placed_at,
+            "email": order.email,
+            "shipping_address": order.shipping_address,
+            "payment_method": order.get_payment_method_display(),
+            **{name: str(getattr(order, name).amount) for name in ["subtotal", "discount", "shipping_fee", "total"]},
+            "coupon_code": order.coupon_code,
+            "items": [
+                {"title": item.title, "quantity": item.quantity, "unit_price": str(item.unit_price.amount)}
+                for item in order.items.all()
+            ],
+            "shipments": [
+                {"courier": s.courier, "tracking_number": s.tracking_number, "shipped_at": s.shipped_at}
+                for s in order.shipments.all()
+            ],
+            "refunds": [
+                {"amount": str(r.amount.amount), "status": r.status, "reason": r.reason, "created": r.created}
+                for r in order.refunds.all()
+            ],
+            "invoice": order.invoice.number if hasattr(order, "invoice") else None,
+            "credit_notes": [n.number for n in order.invoice.credit_notes.all()] if hasattr(order, "invoice") else [],
+        }
+        for order in orders
+    ]
+
+
 def export_user_data(user):
     """Everything kept about a user (Download my data; staff use it for a data request by letter, see RUNBOOK.md)."""
     return {
@@ -77,6 +113,8 @@ def export_user_data(user):
         "answer_sheets": list(user.answer_sheets.values("paper__code", "status", "image", "created")),
         "consents": list(user.consents.values("event", "purpose", "notice_version", "by_parent", "ip_hash", "created")),
         "deletion_requests": list(user.deletion_requests.values("status", "requested_at", "due_at", "closed_at")),
+        "addresses": [{**a.snapshot(), "is_default": a.is_default, "created": a.created} for a in user.addresses.all()],
+        "orders": export_orders(user),
     }
 
 
@@ -98,32 +136,32 @@ class DeleteAccountForm(forms.Form):
     )
 
 
-@login_required
-@reauthentication_required(allow_get=True)  # the page is shown; pressing Delete asks for the password
-def delete_account(request):
-    if request.user.pending_deletion:
-        return redirect("account")
-    form = DeleteAccountForm(request.POST or None)
-    if form.is_valid():
-        with transaction.atomic():
-            deletion = DeletionRequest.objects.create(user=request.user)
-            ConsentRecord.record(request, request.user, event=ConsentRecord.Event.WITHDRAWN)
-        day = date_format(timezone.localtime(deletion.due_at), "j F Y")
-        queue_text_email(
-            request.user.email,
-            "Your account will be deleted",
-            f"We have your request to delete your ExamLeaf account. It will be deleted on {day}.\n\n"
-            f'Changed your mind, or did not ask for this? Log in before then and press "Keep my '
-            f'account" on {settings.SITE_URL}{reverse("account")}',
-        )
-        messages.success(request, f"Your account will be deleted on {day}. Until then you can log in and cancel.")
-        return redirect("account")
-    return render(request, "account_delete.html", {"form": form})
+def deletion_day(deletion):
+    return date_format(timezone.localtime(deletion.due_at), "j F Y")
 
 
-@login_required
-@require_POST
-def cancel_deletion(request):
+def request_deletion(request):
+    """Delete my account, for the website and the API: the request (due after DeletionRequest.GRACE), the consent
+    withdrawn and the email. Returns (deletion, created); a request already waiting is returned as it is."""
+    user = request.user
+    if deletion := user.pending_deletion:
+        return deletion, False
+    with transaction.atomic():
+        deletion = DeletionRequest.objects.create(user=user)
+        ConsentRecord.record(request, user, event=ConsentRecord.Event.WITHDRAWN)
+    queue_text_email(
+        user.email,
+        "Your account will be deleted",
+        f"We have your request to delete your ExamLeaf account. It will be deleted on {deletion_day(deletion)}.\n\n"
+        f'Changed your mind, or did not ask for this? Log in before then and press "Keep my '
+        f'account" on {settings.SITE_URL}{reverse("account")}',
+    )
+    return deletion, True
+
+
+def keep_account(request):
+    """Cancel the waiting deletion, for the website and the API: consent given again and an email. Returns the
+    cancelled request, or None if none was waiting."""
     if deletion := request.user.pending_deletion:
         deletion.status, deletion.closed_at = DeletionRequest.Status.CANCELLED, timezone.now()
         deletion.save()
@@ -133,5 +171,26 @@ def cancel_deletion(request):
             "Your account will not be deleted",
             "The deletion of your ExamLeaf account has been cancelled. Your account stays as it was.",
         )
+    return deletion
+
+
+@login_required
+@reauthentication_required(allow_get=True)  # the page is shown; pressing Delete asks for the password
+def delete_account(request):
+    if request.user.pending_deletion:
+        return redirect("account")
+    form = DeleteAccountForm(request.POST or None)
+    if form.is_valid():
+        deletion, _ = request_deletion(request)
+        day = deletion_day(deletion)
+        messages.success(request, f"Your account will be deleted on {day}. Until then you can log in and cancel.")
+        return redirect("account")
+    return render(request, "account_delete.html", {"form": form})
+
+
+@login_required
+@require_POST
+def cancel_deletion(request):
+    if keep_account(request):
         messages.success(request, "Your account will not be deleted.")
     return redirect("account")

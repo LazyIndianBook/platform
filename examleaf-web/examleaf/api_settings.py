@@ -26,6 +26,7 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],  # public views say AllowAny
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],  # JSON only, no browsable API
     "DEFAULT_PARSER_CLASSES": ["rest_framework.parsers.JSONParser"],
+    "EXCEPTION_HANDLER": "api.views.exception_handler",  # DRF's, and a JSON 413 for a body over Django's limit
     "DEFAULT_VERSIONING_CLASS": "rest_framework.versioning.URLPathVersioning",
     "DEFAULT_VERSION": "v1",
     "ALLOWED_VERSIONS": ["v1"],
@@ -47,6 +48,8 @@ REST_FRAMEWORK = {
         "user": _env("API_THROTTLE_USER", default="600/minute"),
         # log-in, sign-up, email codes, passwords, data export and deletion; a classroom shares one address
         "dj_rest_auth": _env("API_THROTTLE_AUTH", default="30/minute"),
+        "order_lookup": _env("API_THROTTLE_ORDER_LOOKUP", default="30/hour"),  # guests' order lookup, per address
+        "payment": _env("API_THROTTLE_PAYMENT", default="30/minute"),  # starting and confirming payments (Razorpay)
     },
     "NUM_PROXIES": _env.int("PROXY_COUNT", default=0),  # the client address behind Caddy, as for axes
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
@@ -81,7 +84,7 @@ REST_AUTH = {
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "ExamLeaf API",
-    "DESCRIPTION": "Catalogue, solutions, attempts and accounts for the ExamLeaf app. Guide: API.md.",
+    "DESCRIPTION": "Catalogue, solutions, attempts, accounts and the shop for the ExamLeaf app. Guide: API.md.",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "SCHEMA_PATH_PREFIX": r"/api/v[0-9]+",
@@ -89,6 +92,10 @@ SPECTACULAR_SETTINGS = {
     "SWAGGER_UI_DIST": "SIDECAR",
     "SWAGGER_UI_FAVICON_HREF": "SIDECAR",
     "REDOC_DIST": "SIDECAR",
+    "ENUM_NAME_OVERRIDES": {  # two models have a "status" with choices
+        "OrderStatusEnum": "shop.models.Order.Status",
+        "DeletionStatusEnum": "accounts.models.DeletionRequest.Status",
+    },
 }
 
 # CORS, for browser clients on other origins only (the app and the site itself need none); /api/ only.

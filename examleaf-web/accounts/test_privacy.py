@@ -18,6 +18,8 @@ from accounts.models import ConsentRecord, DeletionRequest, TeacherProfile, User
 from accounts.tasks import purge_due_deletions
 from content.tests import make_paper
 from practice.models import Attempt
+from shop.factories import ADDRESS, ProductFactory, make_order
+from shop.models import Address, CreditNote, Invoice, Refund
 
 pytestmark = pytest.mark.django_db
 
@@ -39,6 +41,13 @@ def reauthenticate(client, response):
 
 
 def test_download_my_data_asks_for_the_password_and_gives_everything(client, student):
+    Address.objects.create(user=student, **{**ADDRESS, "phone": "+919864012345"}, is_default=True)
+    order = make_order((ProductFactory(title="Physics Sample Papers", price=299), 1), user=student, email=student.email)
+    invoice = Invoice.objects.create(order=order, number="EL/2026-27/00001", financial_year="2026-27", serial=1)
+    refund = Refund.objects.create(order=order, payment=order.payments.get(), amount=299, reason="Parcel refused.")
+    CreditNote.objects.create(
+        refund=refund, invoice=invoice, number="CN/2026-27/00001", financial_year="2026-27", serial=1
+    )
     response = reauthenticate(client, client.get(reverse("data_export")))
     response = client.get(response.url)
     assert response["Content-Disposition"].startswith('attachment; filename="examleaf-my-data-')
@@ -47,6 +56,13 @@ def test_download_my_data_asks_for_the_password_and_gives_everything(client, stu
     assert data["profile"]["email"] == "rahul@example.com" and data["profile"]["parent_name"] == "Anita Das"
     assert data["attempts"][0]["paper__code"] == "PHY-E01" and data["attempts"][0]["notes"] == "revise optics"
     assert data["consents"][0]["notice_version"] == "2026-10-08" and data["email_addresses"][0]["verified"]
+    address = data["addresses"][0]
+    assert (address["pin"], address["phone"], address["is_default"]) == ("781001", "+919864012345", True)
+    [exported] = data["orders"]
+    assert (exported["number"], exported["total"], exported["status"]) == (order.number, "299.00", "awaiting payment")
+    assert exported["items"] == [{"title": "Physics Sample Papers", "quantity": 1, "unit_price": "299.00"}]
+    assert exported["shipping_address"]["name"] == "Rahul Das" and exported["refunds"][0]["amount"] == "299.00"
+    assert (exported["invoice"], exported["credit_notes"]) == ("EL/2026-27/00001", ["CN/2026-27/00001"])  # numbers only
 
 
 def test_delete_my_account_waits_seven_days_and_can_be_cancelled(client, student):

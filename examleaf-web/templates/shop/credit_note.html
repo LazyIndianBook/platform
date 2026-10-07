@@ -1,0 +1,41 @@
+{% extends "shop/invoice.html" %}
+{% block reference %}<p>Against {{ invoice.number }} of {{ invoice.created|date:"j F Y" }} · order {{ order.number }}</p>
+<p>Reason: {{ note.refund.reason }}</p>{% endblock %}
+{% block body %}
+<table>
+  <thead>
+    <tr>
+      <th>#</th><th class="item">Item</th><th>HSN</th><th class="num">Qty</th><th class="num">Credited (₹)</th><th class="num">Taxable value (₹)</th>
+      {% if intra_state %}<th class="num">CGST</th><th class="num">SGST</th>{% else %}<th class="num">IGST</th>{% endif %}
+    </tr>
+  </thead>
+  <tbody>
+  {% for line in lines %}
+    <tr>
+      <td>{{ forloop.counter }}</td>
+      <td>{{ line.item.title }}</td>
+      <td>{{ line.item.hsn_code }}</td>
+      <td class="num">{{ line.item.quantity }}</td>
+      <td class="num">{{ line.value }}</td>
+      <td class="num">{{ line.taxable }}</td>
+      {% if intra_state %}
+      <td class="num">{{ line.half_rate|floatformat:2 }} %<br>{{ line.cgst }}</td>
+      <td class="num">{{ line.half_rate|floatformat:2 }} %<br>{{ line.sgst }}</td>
+      {% else %}
+      <td class="num">{{ line.item.gst_rate|floatformat:2 }} %<br>{{ line.igst }}</td>
+      {% endif %}
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<table class="totals">
+  <tr><th>Books</th><td class="num">₹{{ books_credit }}</td></tr>
+  <tr><th>Taxable value</th><td class="num">₹{{ taxable_total }}</td></tr>
+  <tr><th>GST</th><td class="num">₹{{ tax_total }}</td></tr>
+  {% if shipping_credit %}<tr><th>Shipping</th><td class="num">₹{{ shipping_credit }}</td></tr>{% endif %}
+  <tr class="grand"><th>Total credited</th><td class="num">₹{{ total_credit }}</td></tr>
+</table>
+
+<p class="note">Refunded to the way the order was paid. Prices include any tax. This document is computer generated and needs no signature.</p>
+{% endblock %}

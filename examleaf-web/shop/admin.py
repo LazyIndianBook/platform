@@ -16,6 +16,7 @@ from .forms import RefundForm, ShipForm
 from .models import (
     BundleItem,
     Coupon,
+    CreditNote,
     Invoice,
     Order,
     OrderItem,
@@ -200,12 +201,15 @@ class OrderAdmin(ExportMixin, SimpleHistoryAdmin):
     def delivery_address(self, order):
         return format_html_join("", "{}<br>", ((line,) for line in order.address_lines))
 
-    @admin.display(description="invoice")
+    @admin.display(description="invoice and credit notes")
     def invoice_link(self, order):
         invoice = getattr(order, "invoice", None)
-        if invoice and invoice.pdf:
-            return format_html('<a href="{}">{}</a>', reverse("shop:invoice", args=[order.number]), invoice.number)
-        return "—"
+        if not (invoice and invoice.pdf):
+            return "—"
+        notes = invoice.credit_notes.exclude(pdf="")
+        links = [(reverse("shop:invoice", args=[order.number]), invoice.number)]
+        links += [(reverse("shop:credit_note", args=[order.number, note.pk]), note.number) for note in notes]
+        return format_html_join(" · ", '<a href="{}">{}</a>', links)
 
     def _each(self, request, queryset, step, done):
         ok, refused = 0, []
@@ -338,3 +342,21 @@ class InvoiceAdmin(ReadOnlyAdmin):
         if not invoice.pdf:
             return "being made"
         return format_html('<a href="{}">download</a>', reverse("shop:invoice", args=[invoice.order.number]))
+
+
+@admin.register(CreditNote)
+class CreditNoteAdmin(ReadOnlyAdmin):
+    list_display = ["number", "invoice", "refund_amount", "created", "pdf_link"]
+    search_fields = ["number", "invoice__number", "invoice__order__number"]
+    list_select_related = ["invoice__order", "refund"]
+
+    @admin.display(description="amount")
+    def refund_amount(self, note):
+        return note.refund.amount
+
+    @admin.display(description="PDF")
+    def pdf_link(self, note):
+        if not note.pdf:
+            return "being made"
+        url = reverse("shop:credit_note", args=[note.invoice.order.number, note.pk])
+        return format_html('<a href="{}">download</a>', url)

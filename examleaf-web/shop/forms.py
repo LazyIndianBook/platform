@@ -35,6 +35,11 @@ class AddressForm(forms.ModelForm):
         self.fields["pin"].widget.attrs.update(inputmode="numeric", maxlength=7)
 
 
+class AddressBookForm(AddressForm):  # My account: the saved addresses
+    class Meta(AddressForm.Meta):
+        fields = [*Address.FIELDS, "is_default"]
+
+
 class CheckoutForm(forms.Form):
     email = forms.EmailField(
         label="Email address", help_text="For the confirmation, tracking and the invoice; no account needed."

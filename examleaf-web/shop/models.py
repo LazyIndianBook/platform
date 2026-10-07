@@ -269,6 +269,10 @@ class Address(TimeStampedModel):
     def snapshot(self):
         return {name: str(getattr(self, name)) for name in self.FIELDS}
 
+    @property
+    def lines(self):
+        return address_lines(self.snapshot())
+
 
 def address_lines(snapshot):
     """The lines of an address snapshot (Order.shipping_address), for pages, emails and the invoice."""
@@ -545,10 +549,25 @@ def financial_year(day):
     return f"{start}-{(start + 1) % 100:02d}"
 
 
+def next_number(model, prefix, test_prefix):
+    """The next number of an invoice or credit note: per financial year, at most 16 characters as GST requires
+    (EL/2026-27/00001). With Razorpay test keys a separate series (T before the year, `test_prefix` in the number), so
+    the real numbering starts at 00001 when the shop goes live. The unique constraint stops two taking one number."""
+    year = financial_year(timezone.localdate())
+    test = settings.RAZORPAY_KEY_ID.startswith("rzp_test_")
+    series = f"T{year}" if test else year
+    last = model.objects.filter(financial_year=series).order_by("-serial").values_list("serial", flat=True).first()
+    serial = (last or 0) + 1
+    return {
+        "financial_year": series,
+        "serial": serial,
+        "number": f"{test_prefix if test else prefix}/{year}/{serial:05d}",
+    }
+
+
 class Invoice(TimeStampedModel):
-    """The GST invoice (a bill of supply while every book is exempt). Numbers run per financial year, at most
-    16 characters as GST requires: EL/2026-27/00001. With Razorpay test keys they run in a separate series,
-    T/2026-27/00001, so the real numbering starts at 00001 when the shop goes live."""
+    """The GST invoice (a bill of supply while every book is exempt): EL/2026-27/00001, T/2026-27/00001 in the test
+    series (next_number)."""
 
     order = models.OneToOneField(Order, on_delete=models.PROTECT, related_name="invoice")
     number = models.CharField(max_length=16, unique=True)
@@ -569,16 +588,53 @@ class Invoice(TimeStampedModel):
 
     @classmethod
     def for_order(cls, order):
-        """The order's invoice, numbered now if it has none (the unique constraint stops two taking one number)."""
+        """The order's invoice, numbered now if it has none."""
         if invoice := cls.objects.filter(order=order).first():
             return invoice
-        year = financial_year(timezone.localdate())
-        test = settings.RAZORPAY_KEY_ID.startswith("rzp_test_")
-        series = f"T{year}" if test else year
-        last = cls.objects.filter(financial_year=series).order_by("-serial").values_list("serial", flat=True).first()
-        serial = (last or 0) + 1
-        number = f"{'T' if test else 'EL'}/{year}/{serial:05d}"
-        return cls.objects.create(order=order, financial_year=series, serial=serial, number=number)
+        return cls.objects.create(order=order, **next_number(cls, "EL", "T"))
+
+
+class CreditNote(TimeStampedModel):
+    """The credit note for a refund of an invoiced order (in full or in part): it reduces the invoice for GST. Its own
+    series: CN/2026-27/00001, TC/2026-27/00001 with test keys (next_number)."""
+
+    refund = models.OneToOneField(Refund, on_delete=models.PROTECT, related_name="credit_note")
+    invoice = models.ForeignKey(Invoice, on_delete=models.PROTECT, related_name="credit_notes")
+    number = models.CharField(max_length=16, unique=True)
+    financial_year = models.CharField(max_length=8, help_text="T before it: the test series.")
+    serial = models.PositiveIntegerField()
+    pdf = models.FileField(upload_to="credit-notes/", blank=True)
+
+    class Meta:
+        ordering = ["created"]
+        constraints = [models.UniqueConstraint(fields=["financial_year", "serial"], name="unique_credit_note_serial")]
+
+    def __str__(self):
+        return self.number
+
+    @property
+    def is_test(self):
+        return self.financial_year.startswith("T")
+
+    @classmethod
+    def for_refund(cls, refund, invoice):
+        if note := cls.objects.filter(refund=refund).first():
+            return note
+        return cls.objects.create(refund=refund, invoice=invoice, **next_number(cls, "CN", "TC"))
+
+
+class WebhookEvent(models.Model):
+    """A Razorpay webhook already handled: its event id (X-Razorpay-Event-Id) and the hash of its signed body, so that
+    a repeat, or a replay under another id, is acknowledged and ignored (payments.handle_webhook). Events older than
+    WEBHOOK_MAX_AGE are refused by their signed time, so rows are deleted after that (tasks.clean_up)."""
+
+    event_id = models.CharField(max_length=64, unique=True)
+    digest = models.CharField("SHA-256 of the body", max_length=64, unique=True)
+    name = models.CharField(max_length=40)
+    received_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    def __str__(self):
+        return self.event_id
 
 
 @receiver(post_save, sender=DeletionRequest)

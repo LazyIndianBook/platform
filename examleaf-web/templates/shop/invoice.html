@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>{{ title }} {{ invoice.number }}</title>
+<title>{{ title }} {{ document.number }}</title>
 <style>
   @page { size: A4; margin: 16mm 14mm; @bottom-center { content: "Page " counter(page) " of " counter(pages); font: 8pt "DejaVu Sans", sans-serif; color: #5d6675; } }
   body { font: 9.5pt/1.4 "DejaVu Sans", "Noto Sans", sans-serif; color: #1b2330; }
@@ -26,9 +26,9 @@
 <body>
 <div class="head">
   <div>
-    <h1>{{ title }}{% if invoice.is_test %} (test: not a tax document){% endif %}</h1>
-    <p><strong>{{ invoice.number }}</strong> · {{ invoice.created|date:"j F Y" }}</p>
-    <p>Order {{ order.number }}{% if order.placed_at %} of {{ order.placed_at|date:"j F Y" }}{% endif %} · {{ order.get_payment_method_display }}</p>
+    <h1>{{ title }}{% if document.is_test %} (test: not a tax document){% endif %}</h1>
+    <p><strong>{{ document.number }}</strong> · {{ document.created|date:"j F Y" }}</p>
+    {% block reference %}<p>Order {{ order.number }}{% if order.placed_at %} of {{ order.placed_at|date:"j F Y" }}{% endif %} · {{ order.get_payment_method_display }}</p>{% endblock %}
   </div>
   <div style="text-align: right">
     <p><strong>{{ seller.name }}</strong></p>
@@ -52,6 +52,7 @@
   </div>
 </div>
 
+{% block body %}
 <table>
   <thead>
     <tr>
@@ -93,5 +94,6 @@
 </table>
 
 <p class="note">{% if title == "Bill of supply" %}Printed books (HSN 4901) are exempt from GST: no tax is charged. {% endif %}Prices include any tax. This document is computer generated and needs no signature.</p>
+{% endblock %}
 </body>
 </html>
