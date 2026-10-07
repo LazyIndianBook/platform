@@ -128,3 +128,15 @@ table.steps td:last-child { background: var(--card); }
   .books { grid-template-columns: repeat(4, 1fr); }
   h1 { font-size: 2rem; }
 }
+
+/* my account */
+.details { display: grid; grid-template-columns: max-content 1fr; gap: .3rem 1rem; }
+.details dt { color: var(--muted); } .details dd { margin: 0; }
+.notice { background: #fdecea; border-left: 4px solid var(--error); padding: .2rem .9rem .8rem; border-radius: 4px; }
+/* three header links on a phone (My record, Account, Log out): keep each on one line */
+.site-header nav a, .site-header nav button.link { white-space: nowrap; }
+@media (max-width: 26rem) {
+  .site-header { padding: .2rem .6rem; flex-wrap: wrap; }  /* below ~340px the links go under the name */
+  .site-header nav { gap: .3rem; }
+  .site-header nav a:not(.button), .site-header nav button.link { padding: 0 .2rem; }
+}

@@ -1,5 +1,6 @@
 from allauth.account.forms import SignupForm as AllauthSignupForm
 from django import forms
+from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.urls import reverse
@@ -9,7 +10,8 @@ from phonenumber_field.phonenumber import to_python as to_phone
 
 from content.models import Board
 
-from .models import User, age_on
+from . import roles
+from .models import ConsentRecord, TeacherProfile, User, age_on
 
 PARENT_FIELDS = ("parent_name", "parent_contact")
 
@@ -25,12 +27,16 @@ class SignupForm(AllauthSignupForm):
     """allauth's signup form plus the student details. Parent fields are required (and kept) only under 18; the consent
     box is required for everyone (the parent ticks it for a student under 18) and its time is recorded."""
 
-    full_name = forms.CharField(max_length=120, label="Full name", widget=forms.TextInput(attrs={"autocomplete": "name"}))
+    full_name = forms.CharField(
+        max_length=120, label="Full name", widget=forms.TextInput(attrs={"autocomplete": "name"})
+    )
     class_level = forms.TypedChoiceField(choices=User.CLASS_CHOICES, coerce=int, initial=12, label="Class")
     board = forms.ModelChoiceField(queryset=Board.objects.all(), empty_label=None)
     district = forms.CharField(max_length=80, required=False, label="District (optional)")
     date_of_birth = forms.DateField(widget=forms.DateInput(attrs={"type": "date"}))
-    parent_name = forms.CharField(max_length=120, required=False, label="Parent's or guardian's name (if you are under 18)")
+    parent_name = forms.CharField(
+        max_length=120, required=False, label="Parent's or guardian's name (if you are under 18)"
+    )
     parent_contact = forms.CharField(
         max_length=120, required=False, label="Parent's or guardian's phone number or email (if you are under 18)"
     )
@@ -39,13 +45,25 @@ class SignupForm(AllauthSignupForm):
         label="I have read the privacy notice and I agree that ExamLeaf may keep these details so that I can use the "
         "free solutions. If I am under 18, my parent or guardian reads the notice and ticks this box.",
     )
-    field_order = ["full_name", "email", "password1", "password2", "class_level", "board", "district",
-                   "date_of_birth", "parent_name", "parent_contact", "consent"]
+    field_order = [
+        "full_name",
+        "email",
+        "password1",
+        "password2",
+        "class_level",
+        "board",
+        "district",
+        "date_of_birth",
+        "parent_name",
+        "parent_contact",
+        "consent",
+    ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["consent"].help_text = format_html(
-            '<a href="{}" target="_blank" rel="noopener">Read the privacy notice</a>', reverse("privacy"))
+            '<a href="{}" target="_blank" rel="noopener">Read the privacy notice</a>', reverse("privacy")
+        )
 
     def clean_date_of_birth(self):
         dob = self.cleaned_data["date_of_birth"]
@@ -75,8 +93,12 @@ class SignupForm(AllauthSignupForm):
                 if not data.get(name) and name not in self.errors:
                     self.add_error(name, "Required for a student under 18.")
         if not data.get("consent"):
-            self.add_error("consent", "A parent or guardian must tick this box for a student under 18." if minor
-                           else "Please tick this box to agree to the privacy notice.")
+            self.add_error(
+                "consent",
+                "A parent or guardian must tick this box for a student under 18."
+                if minor
+                else "Please tick this box to agree to the privacy notice.",
+            )
         return data
 
     def custom_signup(self, request, user):
@@ -87,3 +109,12 @@ class SignupForm(AllauthSignupForm):
             user.parent_name, user.parent_contact = data["parent_name"], data["parent_contact"]
         user.consent_at = timezone.now()
         user.save()
+        user.groups.add(Group.objects.get_or_create(name=roles.STUDENT)[0])
+        ConsentRecord.record(request, user, by_parent=user.is_minor)
+
+
+class TeacherRequestForm(forms.ModelForm):
+    class Meta:
+        model = TeacherProfile
+        fields = ["school_name", "district", "subject"]
+        labels = {"school_name": "School or college", "subject": "Subject you teach"}

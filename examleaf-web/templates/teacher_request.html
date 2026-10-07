@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block head_title %}Teacher access{% endblock %}
+{% block content %}
+<h1>Teacher access</h1>
+<p>Tell us where you teach. We check with the school, then your account is marked as a teacher's.</p>
+<form method="post" class="narrow">
+  {% csrf_token %}
+  {{ form }}
+  <button type="submit">Send</button>
+</form>
+<p><a href="{% url 'account' %}">Back to my account</a></p>
+{% endblock %}

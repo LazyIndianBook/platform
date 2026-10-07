@@ -1,0 +1,16 @@
+# TLS termination and reverse proxy. With DOMAIN=examleaf.in Caddy gets and renews a Let's Encrypt certificate by
+# itself (ports 80 and 443 must reach this machine); with DOMAIN=localhost it uses its own local certificate.
+{$DOMAIN} {
+	encode zstd gzip
+	# One ID per request, in Caddy's access log and in every Django log line for the request (django-guid).
+	request_header X-Request-ID {http.request.uuid}
+	request_body {
+		max_size 10MB
+	}
+	header -Server
+	reverse_proxy web:8000
+	log {
+		output stdout
+		format json
+	}
+}

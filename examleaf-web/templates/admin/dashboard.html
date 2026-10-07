@@ -1,0 +1,16 @@
+{% extends "admin/index.html" %}{% load dashboard %}
+{% block content %}
+{% dashboard_stats as stats %}
+<div class="module" id="dashboard">
+<table>
+  <caption>ExamLeaf at a glance</caption>
+  <thead><tr><th scope="col"></th><th scope="col">Today</th><th scope="col">Last 30 days</th></tr></thead>
+  <tbody>
+  {% for label, today, month in stats.rows %}<tr><th scope="row">{{ label }}</th><td>{{ today }}</td><td>{{ month }}</td></tr>{% endfor %}
+  </tbody>
+</table>
+<p>Waiting: <a href="{% url 'admin:accounts_teacherprofile_changelist' %}?verified__exact=0">{{ stats.teachers_waiting }} teacher request{{ stats.teachers_waiting|pluralize }}</a>
+ · <a href="{% url 'admin:accounts_deletionrequest_changelist' %}?status__exact=pending">{{ stats.deletions_waiting }} account deletion{{ stats.deletions_waiting|pluralize }}</a></p>
+</div>
+{{ block.super }}
+{% endblock %}

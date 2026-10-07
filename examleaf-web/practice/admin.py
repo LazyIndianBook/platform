@@ -8,8 +8,17 @@ from .models import AnswerSheetUpload, Attempt
 class AttemptResource(resources.ModelResource):  # CSV export
     class Meta:
         model = Attempt
-        fields = ("id", "user__email", "user__full_name", "paper__code", "date", "marks_obtained",
-                  "time_taken_minutes", "notes", "created")
+        fields = (
+            "id",
+            "user__email",
+            "user__full_name",
+            "paper__code",
+            "date",
+            "marks_obtained",
+            "time_taken_minutes",
+            "notes",
+            "created",
+        )
 
 
 @admin.register(Attempt)

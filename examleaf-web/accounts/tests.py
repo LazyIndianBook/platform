@@ -29,9 +29,16 @@ class SignupTests(TestCase):
         cache.clear()  # allauth's rate limits (e.g. one confirmation email per address per 3 minutes) live in the cache
 
     def signup(self, age, **extra):
-        data = {"full_name": "Rahul Das", "email": "rahul@example.com", "password1": "Brahmaputra-2027",
-                "password2": "Brahmaputra-2027", "class_level": 12, "board": self.board.pk,
-                "date_of_birth": birthday(age).isoformat(), **extra}
+        data = {
+            "full_name": "Rahul Das",
+            "email": "rahul@example.com",
+            "password1": "Brahmaputra-2027",
+            "password2": "Brahmaputra-2027",
+            "class_level": 12,
+            "board": self.board.pk,
+            "date_of_birth": birthday(age).isoformat(),
+            **extra,
+        }
         return self.client.post(reverse("account_signup"), data)
 
     def test_under_18_needs_parent_details_and_consent(self):
@@ -46,8 +53,9 @@ class SignupTests(TestCase):
         self.assertEqual(set(response.context["form"].errors), {"parent_contact"})
 
     def test_under_18_with_consent_verifies_email_and_returns_to_the_paper(self):
-        response = self.signup(16, parent_name="Anita Das", parent_contact="98640 12345", consent="on",
-                               next="/s/PHY-E01/")
+        response = self.signup(
+            16, parent_name="Anita Das", parent_contact="98640 12345", consent="on", next="/s/PHY-E01/"
+        )
         user = User.objects.get()
         self.assertTrue(user.is_minor)
         self.assertEqual((user.parent_name, user.parent_contact), ("Anita Das", "+919864012345"))
@@ -72,14 +80,17 @@ class SignupTests(TestCase):
         self.assertIsNotNone(user.consent_at)
 
     def test_signup_page_links_the_privacy_notice_next_to_the_box(self):
-        self.assertContains(self.client.get(reverse("account_signup")), f'<a href="{reverse("privacy")}" target="_blank"')
+        self.assertContains(
+            self.client.get(reverse("account_signup")), f'<a href="{reverse("privacy")}" target="_blank"'
+        )
 
     def test_register_url_redirects_to_signup_keeping_next(self):
         response = self.client.get("/account/register/?next=/s/PHY-E01/")
         self.assertRedirects(response, reverse("account_signup") + "?next=/s/PHY-E01/")
 
 
-@override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])  # fast: these tests log in many times
+# MD5 hashing is fast: these tests log in many times
+@override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
 class LoginSecurityTests(TestCase):
     @classmethod
     def setUpClass(cls):
@@ -92,7 +103,9 @@ class LoginSecurityTests(TestCase):
         cls.admin = User.objects.create_superuser("admin@example.com", "Brahmaputra-2027", full_name="Admin")
 
     def admin_login(self, email, password):
-        return self.client.post("/admin/login/?next=/admin/", {"username": email, "password": password, "next": "/admin/"})
+        return self.client.post(
+            "/admin/login/?next=/admin/", {"username": email, "password": password, "next": "/admin/"}
+        )
 
     def test_good_logins_are_not_recorded_only_failed_ones_are(self):
         self.assertEqual(self.admin_login("admin@example.com", "Brahmaputra-2027").status_code, 302)
@@ -111,4 +124,5 @@ class LoginSecurityTests(TestCase):
     def test_students_logging_in_with_allauth_are_counted_per_email(self):
         cache.clear()
         self.client.post(reverse("account_login"), {"login": "Student@Example.com", "password": "wrong"})
-        self.assertEqual(AccessAttempt.objects.get().username, "student@example.com")  # not None, which would lock by IP only
+        # the username is recorded (not None, which would lock by IP only)
+        self.assertEqual(AccessAttempt.objects.get().username, "student@example.com")

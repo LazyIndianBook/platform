@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block head_title %}My account{% endblock %}
+{% block content %}
+<h1>My account</h1>
+{% with deletion=user.pending_deletion %}{% if deletion %}
+<div class="notice">
+  <p><strong>Your account will be deleted on {{ deletion.due_at|date:"j F Y" }}.</strong> Until then you can keep it.</p>
+  <form method="post" action="{% url 'account_delete_cancel' %}">{% csrf_token %}<button type="submit">Keep my account</button></form>
+</div>
+{% endif %}{% endwith %}
+
+<dl class="details">
+  <dt>Name</dt><dd>{{ user.full_name }}</dd>
+  <dt>Email</dt><dd>{{ user.email }} · <a href="{% url 'account_email' %}">change</a></dd>
+  <dt>Password</dt><dd><a href="{% url 'account_change_password' %}">change</a></dd>
+  {% if user.class_level %}<dt>Class</dt><dd>{{ user.get_class_level_display }}{% if user.board %}, {{ user.board }}{% endif %}</dd>{% endif %}
+</dl>
+<p><a href="{% url 'record' %}">My record</a></p>
+
+<h2>Teacher access</h2>
+{% with profile=user.teacher_profile %}
+{% if profile.verified %}<p>You are a verified teacher at {{ profile.school_name }}.</p>
+{% elif profile %}<p>We are checking your request ({{ profile.school_name }}, {{ profile.subject }}).</p>
+{% else %}<p>Teach at a school or college? <a href="{% url 'teacher_request' %}">Ask for teacher access</a>.</p>{% endif %}
+{% endwith %}
+
+<h2>Your data</h2>
+<p>Under the <a href="{% url 'privacy' %}">Privacy Policy</a> you can see everything we keep about you, and delete your account.</p>
+<p><a class="button secondary" href="{% url 'data_export' %}">Download my data</a></p>
+{% if not user.pending_deletion %}<p><a href="{% url 'account_delete' %}">Delete my account</a></p>{% endif %}
+{% endblock %}

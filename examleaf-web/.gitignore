@@ -5,3 +5,8 @@ staticfiles/
 media/
 __pycache__/
 .dev-credentials.local
+backups/
+.coverage
+htmlcov/
+.pytest_cache/
+.ruff_cache/

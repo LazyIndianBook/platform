@@ -22,14 +22,32 @@ from .models import Board, Book, ClassLevel, Paper, Question, Solution, Subject
 def make_paper():
     """One small paper (PHY-E01) with one question and its solution."""
     board = Board.objects.create(name="Assam State School Education Board", short_name="ASSEB", state="Assam")
-    subject = Subject.objects.create(name="Physics", code="PHY", board=board, class_level=ClassLevel.objects.create(number=12))
+    subject = Subject.objects.create(
+        name="Physics", code="PHY", board=board, class_level=ClassLevel.objects.create(number=12)
+    )
     book = Book.objects.create(title="ExamLeaf Physics Sample Papers 2027", subject=subject, slug="physics-2027")
-    paper = Paper.objects.create(book=book, code="PHY-E01", tier="E", number=1, title="Physics Sample Paper E-01",
-                                 full_marks=70, pass_marks=21, time_text="3 hours")
-    question = Question.objects.create(paper=paper, order=1, label="2(c)", marks_text="2",
-                                       text_md="A cell of emf 6 V and internal resistance 1 Ω drives 11 Ω. Find the current.")
-    Solution.objects.create(question=question, body_md="| Step | Marks |\n|---|---|\n| $I = \\dfrac{\\varepsilon}{R+r}$ | 1 |\n"
-                                                        "| $I = 0.5$ A | 1 |\n\n**Final answer:** 0.5 A")
+    paper = Paper.objects.create(
+        book=book,
+        code="PHY-E01",
+        tier="E",
+        number=1,
+        title="Physics Sample Paper E-01",
+        full_marks=70,
+        pass_marks=21,
+        time_text="3 hours",
+    )
+    question = Question.objects.create(
+        paper=paper,
+        order=1,
+        label="2(c)",
+        marks_text="2",
+        text_md="A cell of emf 6 V and internal resistance 1 Ω drives 11 Ω. Find the current.",
+    )
+    Solution.objects.create(
+        question=question,
+        body_md="| Step | Marks |\n|---|---|\n| $I = \\dfrac{\\varepsilon}{R+r}$ | 1 |\n"
+        "| $I = 0.5$ A | 1 |\n\n**Final answer:** 0.5 A",
+    )
     return paper
 
 
@@ -51,7 +69,9 @@ class ImportTests(TestCase):
     def test_labels_and_tags(self):
         self.assertTrue(Question.objects.filter(paper__code="BIO-E01", label="Z3(b)").exists())
         self.assertTrue(Question.objects.get(paper__code="PHY-E01", label="3(a) OR").is_alternative)
-        self.assertIn("Ch 1: Electric Charges and Fields", Question.objects.get(paper__code="PHY-E01", label="1(a)").tags.names())
+        self.assertIn(
+            "Ch 1: Electric Charges and Fields", Question.objects.get(paper__code="PHY-E01", label="1(a)").tags.names()
+        )
 
     def test_reimport_changes_nothing(self):
         counts = import_subject(settings.BOOK_ROOT, "physics")["counts"]
@@ -60,8 +80,14 @@ class ImportTests(TestCase):
 
 class MarkdownTests(SimpleTestCase):
     def test_html_and_script_links_in_content_are_escaped(self):
-        for text in ["<script>alert(1)</script>", "<img src=x onerror=alert(1)>", "<b onmouseover=alert(1)>x</b>",
-                     "[x](javascript:alert(1))", "![x](javascript:alert(1))", "<javascript:alert(1)>"]:
+        for text in [
+            "<script>alert(1)</script>",
+            "<img src=x onerror=alert(1)>",
+            "<b onmouseover=alert(1)>x</b>",
+            "[x](javascript:alert(1))",
+            "![x](javascript:alert(1))",
+            "<javascript:alert(1)>",
+        ]:
             with self.subTest(text):
                 html = render(text)
                 self.assertNotRegex(html, r"<(script|img|b)\b|href=\"javascript|src=\"javascript")
@@ -74,8 +100,12 @@ class MarkdownTests(SimpleTestCase):
         self.assertIn('<table class="steps">', html)
 
     def test_a_quote_inside_maths_cannot_end_an_attribute(self):
-        for text in ['[a](http://x/ "$" onmouseover="alert(1)$")', '[a](http://x/$" onmouseover="alert(1)$)',
-                     '![a](http://x/$" onerror="alert(1)$)', "[a](http://x/ '$' onmouseover='alert(1)$')"]:
+        for text in [
+            '[a](http://x/ "$" onmouseover="alert(1)$")',
+            '[a](http://x/$" onmouseover="alert(1)$)',
+            '![a](http://x/$" onerror="alert(1)$)',
+            "[a](http://x/ '$' onmouseover='alert(1)$')",
+        ]:
             with self.subTest(text):
                 self.assertNotRegex(render(text), r"[\"'] ?on\w+=[\"']")
 
@@ -103,8 +133,10 @@ class PaperPageTests(TestCase):
         self.assertNotContains(response, "Final answer")
 
     def test_login_returns_to_the_paper(self):
-        response = self.client.post(reverse("account_login"), {
-            "login": "Student@Example.com", "password": "Brahmaputra-2027", "next": "/s/PHY-E01/"})
+        response = self.client.post(
+            reverse("account_login"),
+            {"login": "Student@Example.com", "password": "Brahmaputra-2027", "next": "/s/PHY-E01/"},
+        )
         self.assertRedirects(response, "/s/PHY-E01/")
 
     def test_student_sees_the_solutions(self):
@@ -143,19 +175,26 @@ class PaperPageTests(TestCase):
     def test_login_does_not_redirect_to_another_site(self):
         for url in ["https://evil.example/", "//evil.example/", "/\\evil.example", "javascript:alert(1)"]:
             with self.subTest(url):
-                response = self.client.post(reverse("account_login"), {
-                    "login": "student@example.com", "password": "Brahmaputra-2027", "next": url})
+                response = self.client.post(
+                    reverse("account_login"),
+                    {"login": "student@example.com", "password": "Brahmaputra-2027", "next": url},
+                )
                 self.assertRedirects(response, "/", fetch_redirect_response=False)
                 self.client.logout()
 
     def test_only_this_site_and_katex_are_allowed_to_serve_files_and_nothing_runs_inline(self):
         self.client.force_login(self.student)
         response = self.client.get("/s/PHY-E01/")
-        policy = response.headers.get("Content-Security-Policy") or response.headers["Content-Security-Policy-Report-Only"]
+        policy = (
+            response.headers.get("Content-Security-Policy") or response.headers["Content-Security-Policy-Report-Only"]
+        )
         self.assertIn(f"script-src 'self' {settings.KATEX_CDN};", policy)  # the folder, not all of jsDelivr
         self.assertIn("frame-ancestors 'none'", policy)
         page = response.content.decode()
-        self.assertEqual({u for u in re.findall(r'(?:src|href)="(https?://[^"]+)"', page) if not u.startswith(settings.KATEX_CDN)}, set())
+        self.assertEqual(
+            {u for u in re.findall(r'(?:src|href)="(https?://[^"]+)"', page) if not u.startswith(settings.KATEX_CDN)},
+            set(),
+        )
         self.assertNotRegex(page, r"\son[a-z]+=")  # an inline handler would need 'unsafe-inline' in script-src
 
 

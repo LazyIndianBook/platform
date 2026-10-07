@@ -75,12 +75,12 @@ class Paper(models.Model):
     def __str__(self):
         return self.code
 
+    def get_absolute_url(self):
+        return reverse("paper", args=[self.code])
+
     @property
     def short_code(self):  # E-01, as printed in the book
         return f"{self.tier}-{self.number:02d}"
-
-    def get_absolute_url(self):
-        return reverse("paper", args=[self.code])
 
     def landing_url(self):  # what the QR code printed on the paper encodes
         return settings.SITE_URL + self.get_absolute_url()

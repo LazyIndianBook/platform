@@ -1,0 +1,109 @@
+# The whole ExamLeaf stack on one machine: PostgreSQL 17, Redis 7, the Django site (gunicorn), the Celery worker and
+# beat, and Caddy for https. Settings come from .env (see .env.example); DEPLOYMENT.md walks through a first deployment.
+#   Production:  DOMAIN=examleaf.in   (Caddy gets a Let's Encrypt certificate)
+#   Development: DOMAIN=localhost     (Caddy's local certificate; `docker compose exec caddy caddy trust` once)
+
+x-app: &app
+  build: .
+  image: examleaf-web
+  restart: unless-stopped
+  env_file: .env
+  environment: &app-env
+    DATABASE_URL: postgres://examleaf:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/examleaf
+    CACHE_URL: redis://redis:6379/1
+    CELERY_BROKER_URL: redis://redis:6379/0
+    PROXY_COUNT: 1  # Caddy
+    BOOK_ROOT: /book
+  volumes:
+    - media:/app/media
+  depends_on:
+    db: {condition: service_healthy}
+    redis: {condition: service_healthy}
+  logging: &logging  # docker logs: JSON lines, rotated (50 MB per service)
+    driver: json-file
+    options: {max-size: 10m, max-file: "5"}
+
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: examleaf
+      POSTGRES_USER: examleaf
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "examleaf", "-d", "examleaf"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging: *logging
+
+  redis:  # Celery's queue (db 0, saved to disk so that queued emails survive a restart) and the cache (db 1)
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging: *logging
+
+  web:
+    <<: *app
+    # Migrations and the role groups are brought up to date on every start (one web container: no race).
+    command: >-
+      sh -c "python manage.py migrate --noinput && python manage.py bootstrap_roles
+      && exec gunicorn examleaf.wsgi --bind 0.0.0.0:8000 --max-requests 1000 --max-requests-jitter 100"
+    environment:
+      <<: *app-env
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+    volumes:
+      - media:/app/media
+      - ${BOOK_SOURCE:-..}/production:/book/production:ro  # the Markdown papers, for import_papers
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os, urllib.request as u; u.urlopen(u.Request('http://127.0.0.1:8000/health/web/', headers={'Host': os.environ['DOMAIN'], 'X-Forwarded-Proto': 'https', 'Accept': 'application/json'}), timeout=10)"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 60s
+
+  worker:
+    <<: *app
+    command: celery -A examleaf worker --loglevel INFO --concurrency 2
+    depends_on:
+      web: {condition: service_healthy}
+
+  beat:
+    <<: *app
+    command: celery -A examleaf beat --loglevel INFO
+    depends_on:
+      web: {condition: service_healthy}
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+    logging: *logging
+
+volumes:
+  pgdata:
+  redisdata:
+  media:
+  caddy_data:
+  caddy_config:

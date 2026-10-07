@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block head_title %}Delete my account{% endblock %}
+{% block content %}
+<h1>Delete my account</h1>
+<p>Your account, your record and your details (name, email, date of birth, parent's details) will be deleted seven days
+from now. Until then you can log in and keep your account. After that it cannot be undone.</p>
+<p>Want a copy first? <a href="{% url 'data_export' %}">Download my data</a>.</p>
+<form method="post" class="narrow">
+  {% csrf_token %}
+  {{ form }}
+  <button type="submit">Delete my account</button>
+</form>
+<p><a href="{% url 'account' %}">Back to my account</a></p>
+{% endblock %}

@@ -1,0 +1,12 @@
+.venv
+.env
+.dev-credentials.local
+db.sqlite3
+media
+staticfiles
+backups
+.coverage
+htmlcov
+**/__pycache__
+.pytest_cache
+.ruff_cache

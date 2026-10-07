@@ -6,6 +6,7 @@
 Parsing is done by production/build/book.py (parse_paper, parse_solutions, split_marks), loaded by path.
 Re-running updates changed records only, so simple-history keeps real edits, not import noise.
 """
+
 import importlib.util
 import json
 import re
@@ -72,10 +73,18 @@ def derive_questions(P, prefixes, split_marks):
             text, marks = split_marks(b["text"])
             for fig in b.get("figure", []):
                 text += f"\n\n*Figure:* {fig}"
-            out.append(dict(
-                label=label, part_label=part, group_label=group, text_md=text, marks_text=marks,
-                options_json=b.get("options", []), table_md="\n".join(b.get("table", [])), is_alternative=kind == "alt",
-            ))
+            out.append(
+                dict(
+                    label=label,
+                    part_label=part,
+                    group_label=group,
+                    text_md=text,
+                    marks_text=marks,
+                    options_json=b.get("options", []),
+                    table_md="\n".join(b.get("table", [])),
+                    is_alternative=kind == "alt",
+                )
+            )
     return out
 
 
@@ -126,32 +135,55 @@ def import_subject(root, subject):
 
     with transaction.atomic():
         board, _ = Board.objects.get_or_create(
-            short_name="ASSEB", defaults=dict(name="Assam State School Education Board", state="Assam"))
+            short_name="ASSEB", defaults=dict(name="Assam State School Education Board", state="Assam")
+        )
         level, _ = ClassLevel.objects.get_or_create(number=12)
         subj, _ = Subject.objects.update_or_create(
-            board=board, class_level=level, code=meta["code"], defaults=dict(name=meta["name"]))
-        book = upsert(Book, dict(slug=f"{subject}-{book_py.EXAM_YEAR}"), dict(
-            title=f"ExamLeaf {meta['name']} Sample Papers {book_py.EXAM_YEAR}", subject=subj,
-            edition=f"First edition, {book_py.YEAR}", cover=f"img/{subject}.png"), counts)
+            board=board, class_level=level, code=meta["code"], defaults=dict(name=meta["name"])
+        )
+        book = upsert(
+            Book,
+            dict(slug=f"{subject}-{book_py.EXAM_YEAR}"),
+            dict(
+                title=f"ExamLeaf {meta['name']} Sample Papers {book_py.EXAM_YEAR}",
+                subject=subj,
+                edition=f"First edition, {book_py.YEAR}",
+                cover=f"img/{subject}.png",
+            ),
+            counts,
+        )
 
         for path in sorted((subject_dir / "papers_md").glob(f"{meta['code']}-[EMH][0-9][0-9].md")):
             code = path.stem
             tier, number = code[-3], int(code[-2:])
             P = book_py.parse_paper(str(path))
             header = [h for h in P["header"] if "Full Marks" not in h and "Assam HS Final" not in h]
-            paper = upsert(Paper, dict(code=code), dict(
-                book=book, tier=tier, number=number, title=f"{meta['name']} Sample Paper {tier}-{number:02d}",
-                full_marks=fmt["full_marks"], pass_marks=fmt["pass_marks"], time_text=fmt["time"],
-                header_json=dict(lines=header, allotment=split_tables(P["allot"]))), counts)
+            paper = upsert(
+                Paper,
+                dict(code=code),
+                dict(
+                    book=book,
+                    tier=tier,
+                    number=number,
+                    title=f"{meta['name']} Sample Paper {tier}-{number:02d}",
+                    full_marks=fmt["full_marks"],
+                    pass_marks=fmt["pass_marks"],
+                    time_text=fmt["time"],
+                    header_json=dict(lines=header, allotment=split_tables(P["allot"])),
+                ),
+                counts,
+            )
             stats["papers"] += 1
 
             parsed = derive_questions(P, prefixes, book_py.split_marks)
             labels = [q.pop("label") for q in parsed]
             existing = {q.label: q for q in paper.questions.prefetch_related("tags")}
-            solutions = {s["label"]: "\n".join(s["lines"]).strip()
-                         for s in book_py.parse_solutions(str(path.with_name(code + "-solutions.md")))}
+            solutions = {
+                s["label"]: "\n".join(s["lines"]).strip()
+                for s in book_py.parse_solutions(str(path.with_name(code + "-solutions.md")))
+            }
             stats["unmatched"] += [f"{code} {label}" for label in solutions if label not in labels]
-            for order, (label, values) in enumerate(zip(labels, parsed), 1):
+            for order, (label, values) in enumerate(zip(labels, parsed, strict=True), 1):
                 q = upsert(Question, dict(paper=paper, label=label), dict(values, order=order), counts)
                 stats["questions"] += 1
                 if label in solutions:
@@ -188,7 +220,8 @@ class Command(BaseCommand):
                 f"{name}: {s['papers']} papers, {s['questions']} questions, {s['solutions']} solutions matched, "
                 f"{s['tagged']} tagged; records created {c['created']}, updated {c['updated']}, "
                 f"unchanged {c['unchanged']}; unmatched solution labels: {len(s['unmatched'])}; "
-                f"questions without a solution: {len(s['missing'])}")
+                f"questions without a solution: {len(s['missing'])}"
+            )
             for item in s["unmatched"]:
                 self.stdout.write(f"  unmatched solution: {item}")
             for item in s["missing"]:

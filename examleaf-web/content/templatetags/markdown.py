@@ -4,6 +4,7 @@ $…$ and $$…$$ maths is set aside before parsing and put back verbatim (HTML-
 land inside a link's href or title) for KaTeX in the browser, so Markdown never touches underscores, backslashes or
 pipes inside formulas.
 """
+
 import re
 from functools import lru_cache
 from html import escape
@@ -15,7 +16,8 @@ from markdown_it import MarkdownIt
 register = template.Library()
 MATH = re.compile(r"\$\$.+?\$\$|\$[^$\n]+\$", re.S)
 COMMENT = re.compile(r"<!--.*?-->", re.S)
-SLOT = re.compile("\ue000(\\d+)\ue001")  # private-use characters: cannot occur in the content, so no text can fake a slot
+# private-use characters: cannot occur in the content, so no text can fake a slot
+SLOT = re.compile("\ue000(\\d+)\ue001")
 NO_SLOT_CHARS = {0xE000: None, 0xE001: None}
 MARKERS = [  # solution lines that get their own style
     ("<p><strong>Final answer:</strong>", '<p class="final"><strong>Final answer:</strong>'),
@@ -27,7 +29,7 @@ MARKERS = [  # solution lines that get their own style
 def table_open(self, tokens, idx, options, env):
     """Wrap tables so they scroll sideways on a phone; a marking table (last column "Marks") gets class steps."""
     head = []
-    for token in tokens[idx + 1:]:
+    for token in tokens[idx + 1 :]:
         if token.type == "thead_close":
             break
         if token.type == "inline":
@@ -68,7 +70,9 @@ def markdown_inline(text):  # one line: no paragraphs or lists ("1. Answer any e
 
 
 if __name__ == "__main__":  # quick self-check: python content/templatetags/markdown.py
-    out = render("| Step | Marks |\n|---|---|\n| $\\mu = \\dfrac{|v_d|}{E}$, $a_1 * b_2$ | 1 |\n\n**Final answer:** $x<y$")
+    out = render(
+        "| Step | Marks |\n|---|---|\n| $\\mu = \\dfrac{|v_d|}{E}$, $a_1 * b_2$ | 1 |\n\n**Final answer:** $x<y$"
+    )
     assert '<table class="steps">' in out and "$\\mu = \\dfrac{|v_d|}{E}$" in out and "$a_1 * b_2$" in out, out
     assert render("1. Answer `1×8=8`", inline=True) == "1. Answer <code>1×8=8</code>"
     assert '<p class="final">' in out and "$x&lt;y$" in out and "<!--" not in render("<!-- note -->ok"), out

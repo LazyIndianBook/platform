@@ -14,6 +14,7 @@
   <nav>
     {% if user.is_authenticated %}
       <a href="{% url 'record' %}">My record</a>
+      <a href="{% url 'account' %}">Account</a>
       <form method="post" action="{% url 'account_logout' %}">{% csrf_token %}<button type="submit" class="link">Log out</button></form>
     {% else %}
       <a href="{% url 'account_login' %}">Log in</a>
@@ -24,7 +25,9 @@
 {% if messages %}<ul class="messages">{% for message in messages %}<li class="{{ message.tags }}">{{ message }}</li>{% endfor %}</ul>{% endif %}
 <main>{% block content %}{% endblock %}</main>
 <footer class="site-footer">
-  <a href="{% url 'about' %}">About</a> · <a href="{% url 'privacy' %}">Privacy</a> · © ExamLeaf LLP
+  <a href="{% url 'about' %}">About</a> · <a href="{% url 'contact' %}">Contact</a> · <a href="{% url 'privacy' %}">Privacy</a> ·
+  <a href="{% url 'terms' %}">Terms</a> · <a href="{% url 'refunds' %}">Refunds</a> · <a href="{% url 'shipping' %}">Shipping</a> ·
+  © ExamLeaf LLP
 </footer>
 {% block extra_body %}{% endblock %}
 </body>
