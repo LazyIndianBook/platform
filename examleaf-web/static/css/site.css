@@ -16,11 +16,14 @@ code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .9em; }
 .muted, small { color: var(--muted); }
 
 /* header, footer, messages */
-.site-header { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .6rem 1rem; background: var(--brand); color: #fff; }
+.site-header { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .2rem 1rem; background: var(--brand); color: #fff; }
 .brand { color: #fff; font-weight: 700; font-size: 1.3rem; text-decoration: none; letter-spacing: .02em; }
 .brand span { color: #8fd694; }
 .site-header nav { display: flex; align-items: center; gap: .9rem; }
 .site-header nav a, .site-header nav button.link { color: #fff; }
+/* tap targets: links in the header, footer and form help are at least 44px high (buttons already are, see below) */
+.brand, .site-header nav a:not(.button), .site-header nav button.link, .site-footer a, .helptext a { display: inline-flex; align-items: center; min-height: 44px; }
+.site-header nav a:not(.button), .site-header nav button.link, .site-footer a, .helptext a { padding: 0 .3rem; }
 .site-header form { margin: 0; }
 .site-footer { text-align: center; padding: 1.5rem 1rem; color: var(--muted); font-size: .9rem; border-top: 1px solid var(--line); }
 .messages { list-style: none; margin: .8rem auto 0; padding: 0 1rem; max-width: 48rem; }
@@ -30,7 +33,7 @@ code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .9em; }
 /* buttons and forms */
 .button, button { display: inline-block; font: inherit; font-weight: 600; padding: .65rem 1.2rem; border-radius: 8px; border: 2px solid var(--brand); background: var(--brand); color: #fff; text-decoration: none; cursor: pointer; min-height: 44px; }
 .button.secondary, button.secondary { background: transparent; color: var(--brand); }
-.button.small { padding: .3rem .8rem; min-height: 0; border-color: #fff; background: #fff; color: var(--brand); }
+.button.small { display: inline-flex; align-items: center; padding: 0 .8rem; border-color: #fff; background: #fff; color: var(--brand); }
 button.link { background: none; border: 0; padding: 0; min-height: 0; font-weight: 400; text-decoration: underline; }
 form p, form > div { margin: 0 0 1rem; }
 label { display: block; font-weight: 600; margin-bottom: .25rem; }
@@ -64,12 +67,12 @@ form.narrow, .record-form form { max-width: 26rem; }
 
 /* solutions page */
 .paperbar { position: sticky; top: 0; z-index: 5; margin: 0 -1rem; padding: .45rem 1rem; background: #eef3fb; border-bottom: 1px solid var(--line); font-size: .9rem; display: flex; gap: .4rem; flex-wrap: wrap; align-items: baseline; }
-.paperbar a { margin-left: auto; }
+.paperbar a { margin: -.7rem -.5rem -.7rem auto; padding: .7rem .5rem; }  /* 44px hit area in a 39px bar */
 .paper-head h1 { margin-top: .2rem; }
 .facts { display: flex; gap: 1.5rem; margin: .5rem 0; }
 .facts dt { font-size: .8rem; color: var(--muted); } .facts dd { margin: 0; font-weight: 700; }
 details { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: .5rem .8rem; font-size: .92rem; }
-summary { cursor: pointer; font-weight: 600; }
+summary { cursor: pointer; font-weight: 600; padding: .65rem 0; }
 h2.part { text-align: center; font-size: 1.1rem; margin-top: 2rem; padding: .5rem; background: var(--brand); color: #fff; border-radius: 6px; }
 .group { margin: 1.6rem 0 .4rem; font-weight: 700; }
 .group p { margin: 0; }
@@ -78,6 +81,7 @@ h2.part { text-align: center; font-size: 1.1rem; margin-top: 2rem; padding: .5re
 .q { display: flex; gap: .5rem; }
 .qno { flex: 0 0 auto; min-width: 2.2rem; font-weight: 700; color: var(--brand); }
 .qtext { flex: 1; min-width: 0; }
+.qtext, .solution { overflow-wrap: break-word; }
 .qtext > p:first-child { margin-top: 0; }
 .marks { text-align: right; font-weight: 700; margin: .2rem 0 0; }
 .options { list-style: none; padding: 0; margin: .4rem 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .2rem 1rem; }
@@ -99,10 +103,20 @@ table { border-collapse: collapse; width: 100%; font-size: .93rem; background: v
 th, td { border: 1px solid var(--line); padding: .4rem .55rem; text-align: left; vertical-align: top; }
 th { background: #f1f3f6; }
 table.steps td:last-child, table.steps th:last-child, td.num, th.num { text-align: right; white-space: nowrap; }
+table.steps td:last-child, table.steps th:last-child { position: sticky; right: 0; box-shadow: -1px 0 0 var(--line); }
+table.steps td:last-child { background: var(--card); }
 .katex-display { overflow-x: auto; overflow-y: hidden; }
+/* a formula wider than the screen (one unbreakable KaTeX unit, e.g. a long set in MAT-M02 1(b)) makes its question card
+   scroll sideways instead of widening the whole page; the card's padding keeps tall formula ink from adding a scrollbar */
+.question { overflow-x: auto; }
 
 /* my record */
 .record td:nth-child(-n+2) { white-space: nowrap; }
+.record td { vertical-align: middle; }
+.record td a { display: inline-flex; align-items: center; min-height: 44px; }
+/* the Edit column stays in view while the table scrolls sideways on a phone */
+.record td:last-child, .record th:last-child { position: sticky; right: 0; box-shadow: -1px 0 0 var(--line); }
+.record td:last-child { background: var(--card); }
 .filters { display: flex; gap: .5rem; flex-wrap: wrap; }
 .filters select { width: auto; flex: 1 1 9rem; }
 .averages { list-style: none; padding: 0; display: flex; gap: .6rem; flex-wrap: wrap; }

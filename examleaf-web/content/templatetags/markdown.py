@@ -1,7 +1,8 @@
 """{{ text|markdown }} — Markdown to HTML with markdown-it-py (tables on, raw HTML off).
 
-$…$ and $$…$$ maths is set aside before parsing and put back verbatim (HTML-escaped) for KaTeX in the browser,
-so Markdown never touches underscores, backslashes or pipes inside formulas.
+$…$ and $$…$$ maths is set aside before parsing and put back verbatim (HTML-escaped, quotes included, because it can
+land inside a link's href or title) for KaTeX in the browser, so Markdown never touches underscores, backslashes or
+pipes inside formulas.
 """
 import re
 from functools import lru_cache
@@ -14,6 +15,8 @@ from markdown_it import MarkdownIt
 register = template.Library()
 MATH = re.compile(r"\$\$.+?\$\$|\$[^$\n]+\$", re.S)
 COMMENT = re.compile(r"<!--.*?-->", re.S)
+SLOT = re.compile("\ue000(\\d+)\ue001")  # private-use characters: cannot occur in the content, so no text can fake a slot
+NO_SLOT_CHARS = {0xE000: None, 0xE001: None}
 MARKERS = [  # solution lines that get their own style
     ("<p><strong>Final answer:</strong>", '<p class="final"><strong>Final answer:</strong>'),
     ("<p><em>Also accepted:</em>", '<p class="also"><em>Also accepted:</em>'),
@@ -44,11 +47,11 @@ def render(text, inline=False):
 
     def stash(m):
         maths.append(m.group())
-        return f"MATHX{len(maths) - 1}X"
+        return f"\ue000{len(maths) - 1}\ue001"
 
-    source = MATH.sub(stash, COMMENT.sub("", text))
+    source = MATH.sub(stash, COMMENT.sub("", text).translate(NO_SLOT_CHARS))
     html = md.renderInline(source) if inline else md.render(source)
-    html = re.sub(r"MATHX(\d+)X", lambda m: escape(maths[int(m.group(1))], quote=False), html)
+    html = SLOT.sub(lambda m: escape(maths[int(m.group(1))]), html)
     for old, new in MARKERS:
         html = html.replace(old, new)
     return html

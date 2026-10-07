@@ -1,9 +1,11 @@
+import logging
 import re
 from datetime import date
 
+from axes.models import AccessAttempt, AccessLog
 from django.core import mail
 from django.core.cache import cache
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from content.models import Board
@@ -35,15 +37,16 @@ class SignupTests(TestCase):
     def test_under_18_needs_parent_details_and_consent(self):
         response = self.signup(16)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(set(response.context["form"].errors), {"parent_name", "parent_contact", "parent_consent"})
+        self.assertEqual(set(response.context["form"].errors), {"parent_name", "parent_contact", "consent"})
+        self.assertIn("parent or guardian", response.context["form"].errors["consent"][0])
         self.assertFalse(User.objects.exists())
 
     def test_under_18_parent_contact_must_be_a_phone_or_email(self):
-        response = self.signup(16, parent_name="Anita Das", parent_contact="12345", parent_consent="on")
+        response = self.signup(16, parent_name="Anita Das", parent_contact="12345", consent="on")
         self.assertEqual(set(response.context["form"].errors), {"parent_contact"})
 
     def test_under_18_with_consent_verifies_email_and_returns_to_the_paper(self):
-        response = self.signup(16, parent_name="Anita Das", parent_contact="98640 12345", parent_consent="on",
+        response = self.signup(16, parent_name="Anita Das", parent_contact="98640 12345", consent="on",
                                next="/s/PHY-E01/")
         user = User.objects.get()
         self.assertTrue(user.is_minor)
@@ -55,12 +58,57 @@ class SignupTests(TestCase):
         self.assertRedirects(response, "/s/PHY-E01/", fetch_redirect_response=False)
         self.assertTemplateUsed(self.client.get("/s/PHY-E01/"), "solutions.html")
 
+    def test_adult_must_agree_to_the_privacy_notice_too(self):
+        response = self.signup(19)
+        self.assertEqual(set(response.context["form"].errors), {"consent"})
+        self.assertIn("privacy notice", response.context["form"].errors["consent"][0])
+        self.assertFalse(User.objects.exists())
+
     def test_adult_needs_no_parent_and_keeps_none(self):
-        self.signup(19, parent_name="Ignored", parent_contact="ignored@example.com")
+        self.signup(19, consent="on", parent_name="Ignored", parent_contact="12345")  # not even validated
         user = User.objects.get()
         self.assertFalse(user.is_minor)
         self.assertEqual((user.parent_name, user.parent_contact), ("", ""))
+        self.assertIsNotNone(user.consent_at)
+
+    def test_signup_page_links_the_privacy_notice_next_to_the_box(self):
+        self.assertContains(self.client.get(reverse("account_signup")), f'<a href="{reverse("privacy")}" target="_blank"')
 
     def test_register_url_redirects_to_signup_keeping_next(self):
         response = self.client.get("/account/register/?next=/s/PHY-E01/")
         self.assertRedirects(response, reverse("account_signup") + "?next=/s/PHY-E01/")
+
+
+@override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])  # fast: these tests log in many times
+class LoginSecurityTests(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        logging.disable(logging.CRITICAL)  # axes logs every failure
+        cls.addClassCleanup(logging.disable, logging.NOTSET)
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.admin = User.objects.create_superuser("admin@example.com", "Brahmaputra-2027", full_name="Admin")
+
+    def admin_login(self, email, password):
+        return self.client.post("/admin/login/?next=/admin/", {"username": email, "password": password, "next": "/admin/"})
+
+    def test_good_logins_are_not_recorded_only_failed_ones_are(self):
+        self.assertEqual(self.admin_login("admin@example.com", "Brahmaputra-2027").status_code, 302)
+        self.assertEqual(AccessLog.objects.count(), 0)  # the privacy notice promises failed attempts only
+        self.admin_login("admin@example.com", "wrong")
+        self.assertEqual(AccessAttempt.objects.count(), 1)
+
+    def test_ten_failures_lock_the_account_even_for_the_right_password(self):
+        for _ in range(10):
+            response = self.admin_login("Admin@Example.com", "wrong")  # the e-mail is lowered: one account, one counter
+        self.assertEqual(response.status_code, 429)
+        response = self.admin_login("admin@example.com", "Brahmaputra-2027")
+        self.assertEqual(response.status_code, 429)
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_students_logging_in_with_allauth_are_counted_per_email(self):
+        cache.clear()
+        self.client.post(reverse("account_login"), {"login": "Student@Example.com", "password": "wrong"})
+        self.assertEqual(AccessAttempt.objects.get().username, "student@example.com")  # not None, which would lock by IP only

@@ -4,6 +4,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import environ
+from django.utils.csp import CSP
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
@@ -43,6 +44,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "django.middleware.csp.ContentSecurityPolicyMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -114,16 +116,39 @@ AXES_COOLOFF_TIME = timedelta(minutes=15)
 AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
 AXES_USERNAME_CALLABLE = "accounts.forms.axes_username"
 AXES_RESET_ON_SUCCESS = True
+AXES_DISABLE_ACCESS_LOG = True  # keep failed attempts only, as the privacy notice says: no IP/browser record of good logins
 
 PROXY_COUNT = env.int("PROXY_COUNT", default=0)
 if PROXY_COUNT:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     AXES_IPWARE_PROXY_COUNT = PROXY_COUNT
     AXES_IPWARE_META_PRECEDENCE_ORDER = ("HTTP_X_FORWARDED_FOR", "REMOTE_ADDR")
-if not DEBUG:
+if not DEBUG:  # secure by default; behind a proxy that already redirects, SECURE_SSL_REDIRECT=0 turns the redirect off
     SESSION_COOKIE_SECURE = CSRF_COOKIE_SECURE = True
-    SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=False)
-    SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=0)
+    SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=not TESTING)
+    SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=31536000)
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool("SECURE_HSTS_INCLUDE_SUBDOMAINS", default=False)
+    SECURE_HSTS_PRELOAD = env.bool("SECURE_HSTS_PRELOAD", default=False)
+
+# Content-Security-Policy: scripts, styles and fonts only from this site and from KaTeX on jsDelivr (the one third-party
+# file set the site loads; keep the version in step with templates/solutions.html). jsDelivr serves any npm package, so
+# only the KaTeX folder is allowed, not the host. 'unsafe-inline' is for styles only (a few style attributes in admin add-ons).
+KATEX_CDN = "https://cdn.jsdelivr.net/npm/katex@0.19.0/dist/"
+CONTENT_SECURITY_POLICY = {
+    "default-src": [CSP.SELF],
+    "script-src": [CSP.SELF, KATEX_CDN],
+    "style-src": [CSP.SELF, KATEX_CDN, CSP.UNSAFE_INLINE],
+    "font-src": [CSP.SELF, KATEX_CDN],
+    "img-src": [CSP.SELF, "data:"],
+    "object-src": [CSP.NONE],
+    "base-uri": [CSP.SELF],
+    "form-action": [CSP.SELF],
+    "frame-ancestors": [CSP.NONE],
+}
+if DEBUG:  # report-only in development: the debug toolbar needs inline scripts; the browser console still lists violations
+    SECURE_CSP_REPORT_ONLY = CONTENT_SECURITY_POLICY
+else:
+    SECURE_CSP = CONTENT_SECURITY_POLICY
 
 # Email: console in development; an ESP through django-anymail in production (ANYMAIL_* variables).
 EMAIL_BACKEND = env("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")

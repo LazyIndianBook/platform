@@ -1,5 +1,6 @@
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
+from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_control
 from django.views.generic import DetailView, ListView
 
@@ -23,6 +24,7 @@ class BookView(DetailView):
         return super().get_context_data(tiers=tiers, **kwargs)
 
 
+@method_decorator(cache_control(private=True), name="dispatch")  # one URL, two pages (landing / solutions) by login
 class PaperView(DetailView):
     """/s/<code>/, the address in the QR code: a register / log-in page for visitors, the solutions for students."""
 

@@ -50,7 +50,9 @@ every one with its solution and tags; 0 unmatched.
 - `/qr/<CODE>.png` — the QR image for a paper; it encodes `SITE_URL + /s/<CODE>/`.
 - `.venv/bin/python manage.py export_qr --out qr/` — all papers as `<CODE>.png` and `<CODE>.svg` (37 mm square in the SVG).
 
-Set `SITE_URL` to the real domain before exporting codes for print. `/s/phy-e01/` redirects to `/s/PHY-E01/`.
+Set `SITE_URL` to the real domain before exporting codes for print: `export_qr` refuses to write codes for `localhost`
+or a plain-http address (a printed book cannot be corrected), unless you pass `--force` for a test run.
+`/s/phy-e01/` redirects to `/s/PHY-E01/`.
 
 ## Pages
 
@@ -63,37 +65,51 @@ Set `SITE_URL` to the real domain before exporting codes for print. `/s/phy-e01/
 | `/account/record/` | My record: attempts, filter by subject and tier, average per tier; add from a solutions page, edit from here |
 | `/privacy/`, `/about/`, `/sitemap.xml`, `/admin/` | |
 
-Registration asks for full name, email, password, class, board, district (optional) and date of birth. Under 18 it
-also requires a parent's or guardian's name and phone or email and the parent's consent box; for adults no parent
-data is kept. The email address is confirmed with a code typed on the same page, then the student lands back on the
-paper whose QR code was scanned.
+Registration asks for full name, email, password, class, board, district (optional) and date of birth, and a consent
+box (agreement to the privacy notice, linked beside it) that everyone must tick; its time is stored in `consent_at`.
+Under 18 it also requires a parent's or guardian's name and phone or email, and the parent ticks the box; for adults no
+parent data is asked, validated or kept. The email address is confirmed with a code typed on the same page, then the
+student lands back on the paper whose QR code was scanned. The consent is self-declared: nothing verifies that the
+person who ticked it is the parent (see the notes under Production).
 
 ## Tests
 
 ```sh
-.venv/bin/python manage.py test              # 17 tests, about 25 s (imports all four subjects once)
+.venv/bin/python manage.py test              # 33 tests, about 30 s (imports all four subjects once)
 .venv/bin/python manage.py check
 .venv/bin/python manage.py makemigrations --check --dry-run
 ```
 
 They cover the import of the four subjects (30 papers each, every solution matched, re-import changes nothing), the QR
-landing redirect, the gated solutions page and log-in returning to it, the QR image, under-18 registration (missing
-parent details, bad parent contact, consent → emailed code → back on the paper), and recording and editing attempts.
+landing redirect, the gated solutions page and log-in returning to it (and never to another site), the QR image and
+the QR export guard, registration (under 18: missing parent details, bad parent contact, consent → emailed code → back
+on the paper; adults: consent required, no parent data kept), the Markdown renderer (HTML and attribute break-out in
+content, maths left for KaTeX), query counts of the solutions and My record pages, the Content-Security-Policy and
+private caching of the paper page, axes (lock-out after 10 failures, no log of good logins) and recording attempts.
 
 ## Production
 
 Set environment variables (see `.env.example`): `DEBUG=0`, `SECRET_KEY`, `ALLOWED_HOSTS`, `SITE_URL`
 (https), `DATABASE_URL` (e.g. `postgres://…`; psycopg is installed), `EMAIL_BACKEND` plus `ANYMAIL_*` for the email
 provider (django-anymail, e.g. `anymail.backends.brevo.EmailBackend` and `ANYMAIL_BREVO_API_KEY`),
-`DEFAULT_FROM_EMAIL`, `PROXY_COUNT` behind a load balancer, `SECURE_SSL_REDIRECT=1`, `SECURE_HSTS_SECONDS`, and
-`CACHE_URL` (e.g. Redis) when running several workers so that rate limits are shared.
+`DEFAULT_FROM_EMAIL`, `PROXY_COUNT` behind a load balancer (without it the site sees plain http behind the proxy and
+the HTTPS redirect loops), and `CACHE_URL` (e.g. Redis) when running several workers so that rate limits are shared.
+With `DEBUG=0` the session and CSRF cookies are `Secure`, `SECURE_SSL_REDIRECT` is on and HSTS is sent for a year
+(`SECURE_SSL_REDIRECT=0` / `SECURE_HSTS_SECONDS=…` change that; `SECURE_HSTS_INCLUDE_SUBDOMAINS` and `SECURE_HSTS_PRELOAD`
+stay off until you are sure of every subdomain, which is why `check --deploy` still prints W005 and W021).
+A Content-Security-Policy allows scripts, styles and fonts only from the site and from the KaTeX folder on jsDelivr
+(`KATEX_CDN` in `settings.py`; change it together with `templates/solutions.html`); in development it is report-only and
+the browser console lists violations. django-axes keeps only failed log-ins (address and browser, needed for the 15-minute
+lock-out); run `python manage.py axes_reset` from a daily cron job so that they do not pile up.
 
 ```sh
 python manage.py migrate && python manage.py collectstatic --noinput && python manage.py import_papers --all
 gunicorn examleaf.wsgi
 ```
 
-Static files are served by WhiteNoise (hashed and compressed). Uploaded files (answer-sheet photos, later) go to
+Static files are served by WhiteNoise (hashed and compressed). Upload size is not limited anywhere yet because no
+student upload exists; Django keeps the first 2.5 MB in memory, and the answer-sheet upload view must add a size check
+(and the reverse proxy a body limit) when it is built. Uploaded files (answer-sheet photos, later) go to
 `media/`, which is deliberately not served publicly; set `MEDIA_BUCKET` (and `MEDIA_ENDPOINT_URL`, `pip install
 boto3`) to keep them in a private S3-compatible bucket through django-storages.
 

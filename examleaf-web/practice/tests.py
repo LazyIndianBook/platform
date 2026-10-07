@@ -1,9 +1,12 @@
 from decimal import Decimal
 
+from django.db import connection
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 
 from accounts.models import User
+from content.models import Subject
 from content.tests import make_paper
 
 from .models import Attempt
@@ -48,3 +51,17 @@ class AttemptTests(TestCase):
         self.client.logout()
         response = self.client.get(reverse("record"))
         self.assertRedirects(response, reverse("account_login") + "?next=" + reverse("record"))
+
+    def test_my_record_queries_do_not_grow_with_the_number_of_subjects(self):
+        Attempt.objects.create(user=self.student, paper=self.paper, marks_obtained=40)
+
+        def queries():
+            with CaptureQueriesContext(connection) as context:
+                self.assertContains(self.client.get(reverse("record")), "PHY-E01")
+            return len(context)
+
+        before = queries()
+        subject = Subject.objects.get()
+        for code in ("CHE", "MAT", "BIO"):  # the subject filter prints "name (board, class)" for each of them
+            Subject.objects.create(name=code, code=code, board=subject.board, class_level=subject.class_level)
+        self.assertEqual(queries(), before)
