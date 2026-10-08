@@ -19,12 +19,15 @@ const linkClasses = cn(
   "max-nav:aria-[current=page]:pl-3 max-nav:aria-[current=page]:shadow-[inset_3px_0_0_var(--leaf-light)]",
 );
 
-function NavLink({ href, children, phoneOnly = false }: { href: string; children: string; phoneOnly?: boolean }) {
+type NavLinkProps = { href: string; children: string; phoneOnly?: boolean; current?: boolean };
+
+/** current: the link's section is open (Account on every account page); by default only its own page. */
+function NavLink({ href, children, phoneOnly = false, current }: NavLinkProps) {
   const pathname = usePathname();
   return (
     <Link
       href={href}
-      aria-current={pathname === href.split("?")[0] ? "page" : undefined}
+      aria-current={(current ?? pathname === href.split("?")[0]) ? "page" : undefined}
       className={cn(linkClasses, phoneOnly && "nav:hidden")}
     >
       <span>{children}</span>
@@ -52,8 +55,12 @@ function NavLinks({ signedIn }: { signedIn: boolean }) {
     return (
       <>
         <NavLink href="/shop/">Shop</NavLink>
-        <NavLink href="/account/record/">My record</NavLink>
-        <NavLink href="/account/">Account</NavLink>
+        <NavLink href="/account/record/" current={pathname.startsWith("/account/record/")}>
+          My record
+        </NavLink>
+        <NavLink href="/account/" current={/^\/account\/(?!record\/)/.test(pathname)}>
+          Account
+        </NavLink>
         <button
           type="button"
           className={linkClasses}

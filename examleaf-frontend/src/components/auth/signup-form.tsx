@@ -17,6 +17,7 @@ import { Select } from "@/components/ui/native-select";
 import { ApiError } from "@/lib/api/errors";
 import { auth, type SignupInput } from "@/lib/auth/headless";
 import { withNext } from "@/lib/auth/next-url";
+import { isMinor } from "@/lib/dates";
 
 import { AuthTitle } from "./auth-card";
 import { ErrorSummary } from "./error-summary";
@@ -24,6 +25,7 @@ import { Turnstile } from "./turnstile";
 import { fieldError, useAuthAction } from "./use-auth-action";
 
 export type BoardOption = { id: number; label: string };
+export { isMinor };
 
 const CONSENT =
   "I have read the privacy notice and I agree that ExamLeaf may keep these details so that I can use the free solutions. If I am under 18, my parent or guardian reads the notice and ticks this box.";
@@ -41,15 +43,6 @@ const LABELS: Record<string, string> = {
   parent_contact: "Parent's or guardian's contact",
   consent: "Consent",
 };
-
-/** Under 18 on the day, from a yyyy-mm-dd date (false while the date is incomplete). */
-export function isMinor(dateOfBirth: string, today = new Date()): boolean {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateOfBirth);
-  if (!match) return false;
-  const [year, month, day] = match.slice(1).map(Number);
-  const birthdayPassed = today.getMonth() + 1 > month || (today.getMonth() + 1 === month && today.getDate() >= day);
-  return today.getFullYear() - year - (birthdayPassed ? 0 : 1) < 18;
-}
 
 export function SignupForm({ next, boards }: { next: string | null; boards: BoardOption[] }) {
   const config = useConfig();

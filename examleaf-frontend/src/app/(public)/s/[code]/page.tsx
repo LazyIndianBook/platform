@@ -1,8 +1,9 @@
 // /s/<code>/: the address inside every printed QR code (any case; a wrong case redirects to the canonical code).
 // Signed in, or on a book's open sample, or while the solutions are open to everyone (config
 // solutions_require_login): the worked solutions, Markdown and maths drawn on the server (no maths script on the
-// phone), marks in the margin, marking tables, "Diagram expected" lines, print styles. Otherwise the register / log-in
-// wall that keeps this page as the destination.
+// phone), marks in the margin, marking tables, "Diagram expected" lines, print styles, and for a signed-in student the
+// form that saves their marks to My record (#record). Otherwise the register / log-in wall that keeps this page as the
+// destination.
 import "katex/dist/katex.min.css";
 import "./solutions.css";
 
@@ -12,6 +13,7 @@ import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { Fragment } from "react";
 
+import { MarksForm } from "@/components/account/marks-form";
 import { MarkdownBlock, MarkdownInline } from "@/components/solutions/markdown";
 import { Unavailable } from "@/components/site/unavailable";
 import { Accordion } from "@/components/ui/accordion";
@@ -281,9 +283,12 @@ export default async function PaperPage({ params }: Props) {
               </CardHeader>
               <CardContent>
                 {user ? (
-                  <p>
-                    Your scores and your average for each tier are in <Link href="/account/record/">My record</Link>.
-                  </p>
+                  <>
+                    <MarksForm paper={paper.code} fullMarks={paper.full_marks} />
+                    <p>
+                      Your scores and your average for each tier are in <Link href="/account/record/">My record</Link>.
+                    </p>
+                  </>
                 ) : (
                   <p>
                     To keep your scores in My record, <Link href={withNext("/account/login/", path)}>log in</Link> or{" "}

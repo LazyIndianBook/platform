@@ -107,10 +107,13 @@ EmptyState, Timeline, QrCard, SubmitButton) and the site's frame in `src/compone
 ## Add a route
 
 Server component by default: `src/app/(public)/<path>/page.tsx` (public), `(auth)` (sign-in pages, noindex) or
-`(account)` (signed-in pages; its layout redirects to log in). Export `metadata = pageMetadata({ title, path })`
-(`noindex: true` for private pages), fetch with `serverApi` + `publicFetch`/`personalFetch`, render
-`<Unavailable/>` when the API cannot answer and an `EmptyState` when there is nothing. Client components only for
-interaction. Paths end with `/`.
+`(account)/account/` (signed-in pages: its layout redirects to log in, marks them noindex and draws the account's
+navigation; their data through `src/lib/api/account.ts`, `settle()` sending an ended session to log in and back).
+Export `metadata = pageMetadata({ title, path })` (`noindex: true` for private pages), fetch with `serverApi` +
+`publicFetch`/`personalFetch`, render `<Unavailable/>` when the API cannot answer and an `EmptyState` when there is
+nothing. Client components only for interaction; account forms through `useAction()`
+(`src/components/account/use-action.ts`) and allauth's account endpoints through `account.*`
+(`src/lib/auth/account.ts`: a 401 goes to log in, or to type the password again, and back). Paths end with `/`.
 
 ## Security
 

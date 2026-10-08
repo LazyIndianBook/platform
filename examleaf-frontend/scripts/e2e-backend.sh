@@ -14,4 +14,4 @@ $PY manage.py import_papers --all
 $PY manage.py seed_shop
 # a fresh database has no open sample yet (content migration 0002 marks them only for papers that existed then)
 $PY manage.py shell -c "from content.models import Paper; Paper.objects.filter(code='PHY-E01').update(is_sample=True)"
-exec $PY manage.py runserver 8100 --noreload >"$LOG" 2>&1
+exec $PY manage.py runserver "${DJANGO_PORT:-8100}" --noreload >"$LOG" 2>&1

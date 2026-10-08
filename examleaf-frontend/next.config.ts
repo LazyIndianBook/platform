@@ -20,6 +20,8 @@ const nextConfig: NextConfig = {
   // everywhere else and passes Django's prefixes through untouched.
   skipTrailingSlashRedirect: true,
   poweredByHeader: false,
+  // a second `next dev` beside another in this directory (Next refuses two in one distDir): NEXT_DIST_DIR=.next/cache/b
+  ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
   // a new service-worker cache per build (public/sw.js)
   env: { NEXT_PUBLIC_RELEASE: process.env.NEXT_PUBLIC_RELEASE || String(Date.now()) },
   turbopack: {

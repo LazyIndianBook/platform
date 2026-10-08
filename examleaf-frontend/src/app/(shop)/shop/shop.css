@@ -1,0 +1,8 @@
+/* The catalogue's subject tabs (Tabs, radio-based): a checked subject hides the other subjects' products with CSS
+   alone; a browser without :has() shows every book, and products without a subject always show. */
+.shop-catalogue:has(input[name="subject"][value="PHY"]:checked) [data-subject]:not([data-subject="PHY"]),
+.shop-catalogue:has(input[name="subject"][value="CHE"]:checked) [data-subject]:not([data-subject="CHE"]),
+.shop-catalogue:has(input[name="subject"][value="MAT"]:checked) [data-subject]:not([data-subject="MAT"]),
+.shop-catalogue:has(input[name="subject"][value="BIO"]:checked) [data-subject]:not([data-subject="BIO"]) {
+  display: none;
+}

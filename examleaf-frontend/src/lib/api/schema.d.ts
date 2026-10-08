@@ -412,12 +412,18 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * @description The signed-in customer's cart, the same as on the website. Every answer is the whole cart; `?state=` adds the
-         *     shipping. Carts of visitors without an account stay on the website.
+         * @description The cart, the same as on the website: a signed-in customer's (confirmed email address), or a visitor's, held by
+         *     the session cookie (a browser on the site's origin; CSRF token on changes) or by X-Cart-Token (POST cart/). Every
+         *     answer is the whole cart; `?state=` adds the shipping.
          */
         get: operations["cart_retrieve"];
         put?: never;
-        post?: never;
+        /**
+         * @description A new, empty guest cart for a client without cookies, and its `token` (shown once): send it as X-Cart-Token
+         *     with every cart, shipping quote and checkout call, for 30 days. At log-in, sending it along once with the
+         *     account's credentials adds its books to the account's cart. Signed in: 400 (the account has its cart).
+         */
+        post: operations["cart_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -435,12 +441,14 @@ export interface paths {
         put?: never;
         /**
          * @description Use a coupon code (any case). Refused with one message whatever the reason (unknown, expired, used up, too
-         *     small a cart); limited per user (API_THROTTLE_COUPON).
+         *     small a cart); limited per user (API_THROTTLE_COUPON). A visitor, as on the website: Turnstile's token while
+         *     the bot check is on, and 10 codes an hour per client address, the website's included.
          */
         post: operations["cart_coupon_create"];
         /**
-         * @description The signed-in customer's cart, the same as on the website. Every answer is the whole cart; `?state=` adds the
-         *     shipping. Carts of visitors without an account stay on the website.
+         * @description The cart, the same as on the website: a signed-in customer's (confirmed email address), or a visitor's, held by
+         *     the session cookie (a browser on the site's origin; CSRF token on changes) or by X-Cart-Token (POST cart/). Every
+         *     answer is the whole cart; `?state=` adds the shipping.
          */
         delete: operations["cart_coupon_destroy"];
         options?: never;
@@ -477,8 +485,9 @@ export interface paths {
         put: operations["cart_items_update"];
         post?: never;
         /**
-         * @description The signed-in customer's cart, the same as on the website. Every answer is the whole cart; `?state=` adds the
-         *     shipping. Carts of visitors without an account stay on the website.
+         * @description The cart, the same as on the website: a signed-in customer's (confirmed email address), or a visitor's, held by
+         *     the session cookie (a browser on the site's origin; CSRF token on changes) or by X-Cart-Token (POST cart/). Every
+         *     answer is the whole cart; `?state=` adds the shipping.
          */
         delete: operations["cart_items_destroy"];
         options?: never;
@@ -577,6 +586,28 @@ export interface paths {
         get: operations["config_retrieve"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contact/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The contact form, as on the website's /contact/: the message is emailed to the support address (SUPPORT_EMAIL,
+         *     else SELLER_EMAIL) with Reply-To the sender, and nothing is stored. Turnstile's token while the bot check is on; 5
+         *     an hour per client address, the website's form included; a filled-in `website` (the honeypot) is thanked and
+         *     dropped. 503 while the support address is still a [placeholder].
+         */
+        post: operations["contact_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -977,12 +1008,18 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The signed-in customer's own orders (another customer's: 404), checkout, payment and cancellation. */
+        /**
+         * @description The signed-in customer's own orders (another customer's: 404), checkout (a visitor's too), payment and
+         *     cancellation.
+         */
         get: operations["orders_list"];
         put?: never;
         /**
-         * @description Checkout: an order from the cart at today's prices, to a saved address. Online: pending until paid
-         *     (payment/). Cash on delivery: placed at once and the cart emptied.
+         * @description Checkout: an order from the cart at today's prices. Signed in: to a saved address (`address`); online,
+         *     pending until paid (payment/), or cash on delivery, placed at once and the cart emptied. A visitor (guest
+         *     cart): with `email` and `shipping_address`, online only, and Turnstile's token while the bot check is on; the
+         *     answer is the order as its link shows it, with the link's `token` (shown here only): pay through
+         *     orders/t/<token>/payment/.
          */
         post: operations["orders_create"];
         delete?: never;
@@ -998,7 +1035,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The signed-in customer's own orders (another customer's: 404), checkout, payment and cancellation. */
+        /**
+         * @description The signed-in customer's own orders (another customer's: 404), checkout (a visitor's too), payment and
+         *     cancellation.
+         */
         get: operations["orders_retrieve"];
         put?: never;
         post?: never;
@@ -1135,6 +1175,101 @@ export interface paths {
         get: operations["orders_t_retrieve"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/t/{token}/cancel/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Cancel while pending or paid (`can_cancel`), as the link's page does; an online payment is refunded in full
+         *     (5–7 working days). Later: 400, see the Refund Policy.
+         */
+        post: operations["orders_t_cancel_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/t/{token}/credit-notes/{note}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A credit note PDF (for a refund of an invoiced order). */
+        get: operations["orders_t_credit_notes_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/t/{token}/invoice/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The invoice PDF (404 until it has been made, a few minutes after payment). */
+        get: operations["orders_t_invoice_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/t/{token}/payment/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Start paying online: the options of Razorpay's Checkout (checkout.js) or mobile SDK. 400 when `can_pay` is
+         *     false; 503 while Razorpay cannot be reached: try again.
+         */
+        post: operations["orders_t_payment_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/t/{token}/payment/confirm/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Checkout's success callback, checked (signature) and confirmed with Razorpay: the order, paid, and the
+         *     visitor's guest cart (session or X-Cart-Token) emptied; or still pending a few minutes until Razorpay's webhook
+         *     completes it (read orders/t/<token>/ again).
+         */
+        post: operations["orders_t_payment_confirm_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1375,6 +1510,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/shipping/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The delivery rates, as the website's checkout and Shipping Policy use them: a flat fee per group of states (a
+         *     rate without states: every state no other rate names), free from a value of books when the rate says so. No
+         *     weights. Cacheable for 5 minutes.
+         */
+        get: operations["shipping_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping/quote/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The checkout's delivery step: the fee to a PIN code (its state from the India Post directory, once loaded) or a
+         *     state, for `amount` or for the caller's cart (the account's, or a visitor's by the session or X-Cart-Token; courses
+         *     alone ship free), with the PIN code's states and districts to fill in the address. Rates are flat per state:
+         *     there is no weight.
+         */
+        get: operations["shipping_quote_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/subjects/": {
         parameters: {
             query?: never;
@@ -1579,6 +1757,34 @@ export interface components {
             /** Format: decimal */
             readonly total: string;
         };
+        /**
+         * @description The cart at today's prices (shop.cart.totals, as the website): `savings` are the coupon's and the automatic
+         *     offers' discounts, `discount` their sum.
+         */
+        CartStart: {
+            items: components["schemas"]["CartLine"][];
+            /** @description copies */
+            count: number;
+            readonly coupon: string | null;
+            /** @description why the coupon does not apply now */
+            coupon_problem: string | null;
+            /** Format: decimal */
+            readonly subtotal: string;
+            savings: components["schemas"]["Saving"][];
+            /** Format: decimal */
+            readonly discount: string;
+            /**
+             * Format: decimal
+             * @description null without ?state=
+             */
+            readonly shipping: string | null;
+            /** Format: decimal */
+            readonly total: string;
+            /** @description what stops an order: stock, sale */
+            problems: string[];
+            /** @description send it as X-Cart-Token; shown once, valid 30 days */
+            token: string;
+        };
         /** @description A category of the shop's tree: `depth` 1 at the top, `parent` the slug of the one above (null at the top). */
         Category: {
             slug: string;
@@ -1667,6 +1873,8 @@ export interface components {
             explanation: string;
             explanation_html: string;
         };
+        CheckedOut: components["schemas"]["Order"] | components["schemas"]["GuestOrder"];
+        CheckoutAnyRequest: components["schemas"]["CheckoutRequest"] | components["schemas"]["GuestCheckoutRequest"];
         /**
          * @description * `razorpay` - online (UPI, card, net banking)
          *     * `cod` - cash on delivery
@@ -1752,6 +1960,7 @@ export interface components {
         Config: {
             auth: components["schemas"]["AuthConfig"];
             shop: components["schemas"]["ShopConfig"];
+            shipping: components["schemas"]["ShippingConfig"];
             solutions_require_login: boolean;
             parental_consent: components["schemas"]["ParentalConsentEnum"];
             support: components["schemas"]["SupportConfig"];
@@ -1762,8 +1971,23 @@ export interface components {
          * @enum {string}
          */
         ContactEnum: "email" | "phone";
+        ContactRequest: {
+            name: string;
+            /**
+             * Format: email
+             * @description we reply to this address
+             */
+            email: string;
+            message: string;
+            /** @description the honeypot: a field people never see; send none */
+            website?: string;
+            /** @description Turnstile's token while the bot check is on */
+            turnstile?: string;
+        };
         CouponRequest: {
             code: string;
+            /** @description a visitor's: Turnstile's token while it is on */
+            turnstile?: string;
         };
         CreditNote: {
             number: string;
@@ -1849,6 +2073,70 @@ export interface components {
             /** @description Markdown. */
             back: string;
             readonly back_html: string;
+        };
+        /**
+         * @description A visitor's checkout (no account): the email address for the order's emails, the delivery address, online
+         *     payment (cash on delivery is for signed-in accounts with a confirmed email address) and the bot check.
+         */
+        GuestCheckoutRequest: {
+            /**
+             * Format: email
+             * @description the order's emails (confirmation, tracking, invoice) go there
+             */
+            email: string;
+            shipping_address: components["schemas"]["ShippingAddressRequest"];
+            /**
+             * @description razorpay
+             *
+             *     * `razorpay` - online (UPI, card, net banking)
+             *     * `cod` - cash on delivery
+             */
+            payment_method: components["schemas"]["CheckoutMethodEnum"];
+            /** @description Turnstile's token while the bot check is on */
+            turnstile?: string;
+        };
+        /** @description A guest's new order, as its link shows it, with the link's secret: the only time the API gives it. */
+        GuestOrder: {
+            readonly number: string | null;
+            /** Format: date-time */
+            readonly created: string;
+            /**
+             * Format: date-time
+             * @description Paid online, or placed with cash on delivery.
+             */
+            placed_at?: string | null;
+            status?: components["schemas"]["OrderStatusEnum"];
+            /** @description as the website shows it */
+            readonly status_label: string;
+            payment_method?: components["schemas"]["PaymentMethodEnum"];
+            /** Format: decimal */
+            readonly total: string;
+            readonly items: components["schemas"]["OrderItem"][];
+            /**
+             * Format: email
+             * @description The account's address, or the guest's.
+             */
+            email: string;
+            /** @description A copy of the address as it was when ordering. */
+            shipping_address: unknown;
+            /** Format: decimal */
+            readonly subtotal: string;
+            readonly savings: components["schemas"]["Saving"][];
+            /** Format: decimal */
+            readonly discount: string;
+            /** Format: decimal */
+            readonly shipping_fee: string;
+            coupon_code?: string;
+            readonly timeline: components["schemas"]["Timeline"][];
+            readonly shipments: components["schemas"]["Shipment"][];
+            readonly refunds: components["schemas"]["Refund"][];
+            readonly can_cancel: boolean;
+            readonly can_pay: boolean;
+            readonly invoice: components["schemas"]["Document"] | null;
+            readonly credit_notes: components["schemas"]["CreditNote"][];
+            readonly web_url: string;
+            /** @description for orders/t/<token>/ and its payment; also in the emails */
+            readonly token: string;
         };
         /** @description Serializer for JWT authentication. */
         JWT: {
@@ -1977,8 +2265,9 @@ export interface components {
             readonly line_total: string;
         };
         /**
-         * @description The order by the link in its emails, as the website's page shows it: its PDFs on the website's links (no account
-         *     needed), never payable here (`can_pay` false); cancelling stays on the website's page (`web_url`).
+         * @description The order by the link in its emails, as the website's page shows it: its PDFs by the link (no account needed);
+         *     `can_pay` for a guest's order awaiting payment (orders/t/<token>/payment/); an account's order is paid by its
+         *     owner, signed in.
          */
         OrderLink: {
             readonly number: string | null;
@@ -2764,6 +3053,83 @@ export interface components {
             shipped_at: string;
             /** Format: date-time */
             delivered_at: string | null;
+        };
+        Shipping: {
+            /**
+             * Format: decimal
+             * @description the lowest fee: "delivery from ₹40"
+             */
+            readonly fee_from: string | null;
+            /**
+             * Format: decimal
+             * @description the lowest value from which a rate ships free
+             */
+            readonly free_above: string | null;
+            rates: components["schemas"]["ShippingRate"][];
+        };
+        /** @description A guest's delivery address, typed at checkout: the rules of saved addresses (and of the website's form). */
+        ShippingAddressRequest: {
+            /** Full name */
+            name: string;
+            phone: string;
+            /** House and street */
+            line1: string;
+            /** Area or landmark */
+            line2?: string;
+            /** City, town or village */
+            city: string;
+            district: string;
+            state?: components["schemas"]["StateEnum"];
+            /** PIN code */
+            pin: string;
+        };
+        ShippingConfig: {
+            /**
+             * Format: decimal
+             * @description the lowest delivery fee: "from ₹40"
+             */
+            fee_from: string | null;
+            /**
+             * Format: decimal
+             * @description the lowest value that ships free
+             */
+            free_above: string | null;
+        };
+        ShippingQuote: {
+            pin: string | null;
+            /** @description the PIN's (a few lie in two); [] unknown */
+            states: string[];
+            /** @description the PIN's, to fill in the address */
+            districts: string[];
+            /** @description the fee's: ?state=, or the PIN's only one; null: ask */
+            state: string | null;
+            /**
+             * Format: decimal
+             * @description the books' value the fee is for: ?amount=, or the cart's after discounts
+             */
+            readonly amount: string;
+            /**
+             * Format: decimal
+             * @description null until the state is known
+             */
+            readonly fee: string | null;
+            /**
+             * Format: decimal
+             * @description the state's rate ships free from this value
+             */
+            readonly free_above: string | null;
+        };
+        ShippingRate: {
+            name: string;
+            /** @description two-letter codes; [] for every state no other rate names */
+            states: string[];
+            /** Format: decimal */
+            readonly fee: string;
+            /**
+             * Format: decimal
+             * @description books worth this much or more ship free
+             */
+            readonly free_above: string | null;
         };
         ShopConfig: {
             /** @description off: only staff change carts, check out and pay */
@@ -3587,7 +3953,10 @@ export interface operations {
                 /** @description two-letter state code (AS): adds the shipping for it */
                 state?: string;
             };
-            header?: never;
+            header?: {
+                /** @description a visitor's cart token (POST cart/), for clients without cookies */
+                "X-Cart-Token"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -3603,13 +3972,38 @@ export interface operations {
             };
         };
     };
+    cart_create: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description a visitor's cart token (POST cart/), for clients without cookies */
+                "X-Cart-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CartStart"];
+                };
+            };
+        };
+    };
     cart_coupon_create: {
         parameters: {
             query?: {
                 /** @description two-letter state code (AS): adds the shipping for it */
                 state?: string;
             };
-            header?: never;
+            header?: {
+                /** @description a visitor's cart token (POST cart/), for clients without cookies */
+                "X-Cart-Token"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -3635,7 +4029,10 @@ export interface operations {
                 /** @description two-letter state code (AS): adds the shipping for it */
                 state?: string;
             };
-            header?: never;
+            header?: {
+                /** @description a visitor's cart token (POST cart/), for clients without cookies */
+                "X-Cart-Token"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -3656,7 +4053,10 @@ export interface operations {
                 /** @description two-letter state code (AS): adds the shipping for it */
                 state?: string;
             };
-            header?: never;
+            header?: {
+                /** @description a visitor's cart token (POST cart/), for clients without cookies */
+                "X-Cart-Token"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -3682,7 +4082,10 @@ export interface operations {
                 /** @description two-letter state code (AS): adds the shipping for it */
                 state?: string;
             };
-            header?: never;
+            header?: {
+                /** @description a visitor's cart token (POST cart/), for clients without cookies */
+                "X-Cart-Token"?: string;
+            };
             path: {
                 /** @description the product's slug */
                 product: string;
@@ -3711,7 +4114,10 @@ export interface operations {
                 /** @description two-letter state code (AS): adds the shipping for it */
                 state?: string;
             };
-            header?: never;
+            header?: {
+                /** @description a visitor's cart token (POST cart/), for clients without cookies */
+                "X-Cart-Token"?: string;
+            };
             path: {
                 /** @description the product's slug */
                 product: string;
@@ -3735,7 +4141,10 @@ export interface operations {
                 /** @description two-letter state code (AS): adds the shipping for it */
                 state?: string;
             };
-            header?: never;
+            header?: {
+                /** @description a visitor's cart token (POST cart/), for clients without cookies */
+                "X-Cart-Token"?: string;
+            };
             path: {
                 /** @description the product's slug */
                 product: string;
@@ -3863,6 +4272,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Config"];
+                };
+            };
+        };
+    };
+    contact_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContactRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Detail"];
                 };
             };
         };
@@ -4516,13 +4948,16 @@ export interface operations {
     orders_create: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description a visitor's cart token (POST cart/), for clients without cookies */
+                "X-Cart-Token"?: string;
+            };
             path?: never;
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
-                "application/json": components["schemas"]["CheckoutRequest"];
+                "application/json": components["schemas"]["CheckoutAnyRequest"];
             };
         };
         responses: {
@@ -4531,7 +4966,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Order"];
+                    "application/json": components["schemas"]["CheckedOut"];
                 };
             };
         };
@@ -4701,6 +5136,120 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderLink"];
+                };
+            };
+        };
+    };
+    orders_t_cancel_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderLink"];
+                };
+            };
+        };
+    };
+    orders_t_credit_notes_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description the credit note's id (credit_notes[].url) */
+                note: number;
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+        };
+    };
+    orders_t_invoice_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+        };
+    };
+    orders_t_payment_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaymentStart"];
+                };
+            };
+        };
+    };
+    orders_t_payment_confirm_create: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description a visitor's cart token (POST cart/), for clients without cookies */
+                "X-Cart-Token"?: string;
+            };
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaymentConfirmRequest"];
+            };
+        };
         responses: {
             200: {
                 headers: {
@@ -5067,6 +5616,93 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QuoteSent"];
+                };
+            };
+        };
+    };
+    shipping_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Shipping"];
+                };
+            };
+        };
+    };
+    shipping_quote_retrieve: {
+        parameters: {
+            query?: {
+                /** @description books' value; default: the cart's */
+                amount?: string;
+                /** @description 6 digits: its state, from the PIN directory */
+                pin?: string;
+                /**
+                 * @description two-letter code, as typed
+                 *
+                 *     * `KA` - Karnataka
+                 *     * `AP` - Andhra Pradesh
+                 *     * `KL` - Kerala
+                 *     * `TN` - Tamil Nadu
+                 *     * `MH` - Maharashtra
+                 *     * `UP` - Uttar Pradesh
+                 *     * `GA` - Goa
+                 *     * `GJ` - Gujarat
+                 *     * `RJ` - Rajasthan
+                 *     * `HP` - Himachal Pradesh
+                 *     * `TG` - Telangana
+                 *     * `AR` - Arunachal Pradesh
+                 *     * `AS` - Assam
+                 *     * `BR` - Bihar
+                 *     * `CT` - Chhattisgarh
+                 *     * `HR` - Haryana
+                 *     * `JH` - Jharkhand
+                 *     * `MP` - Madhya Pradesh
+                 *     * `MN` - Manipur
+                 *     * `ML` - Meghalaya
+                 *     * `MZ` - Mizoram
+                 *     * `NL` - Nagaland
+                 *     * `OR` - Odisha
+                 *     * `PB` - Punjab
+                 *     * `SK` - Sikkim
+                 *     * `TR` - Tripura
+                 *     * `UT` - Uttarakhand
+                 *     * `WB` - West Bengal
+                 *     * `AN` - Andaman and Nicobar Islands
+                 *     * `CH` - Chandigarh
+                 *     * `DH` - Dadra and Nagar Haveli and Daman and Diu
+                 *     * `DL` - Delhi
+                 *     * `JK` - Jammu and Kashmir
+                 *     * `LD` - Lakshadweep
+                 *     * `LA` - Ladakh
+                 *     * `PY` - Puducherry
+                 */
+                state?: "KA" | "AP" | "KL" | "TN" | "MH" | "UP" | "GA" | "GJ" | "RJ" | "HP" | "TG" | "AR" | "AS" | "BR" | "CT" | "HR" | "JH" | "MP" | "MN" | "ML" | "MZ" | "NL" | "OR" | "PB" | "SK" | "TR" | "UT" | "WB" | "AN" | "CH" | "DH" | "DL" | "JK" | "LD" | "LA" | "PY";
+            };
+            header?: {
+                /** @description a visitor's cart token (POST cart/), for clients without cookies */
+                "X-Cart-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingQuote"];
                 };
             };
         };

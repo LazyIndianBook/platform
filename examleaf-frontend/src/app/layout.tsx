@@ -12,6 +12,7 @@ import { SiteHeader } from "@/components/site/site-header";
 import { Toaster } from "@/components/ui/toaster";
 import { getBooks, getCartCount } from "@/lib/api/catalogue";
 import { getConfig } from "@/lib/api/config";
+import { hasSessionCookie } from "@/lib/api/server";
 import { getSessionUser } from "@/lib/auth/session";
 import { DEFAULT_DESCRIPTION } from "@/lib/seo/metadata";
 import { SITE_URL, subjectOf } from "@/lib/site";
@@ -48,7 +49,8 @@ async function footerBooks() {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const [config, user, books] = await Promise.all([getConfig(), getSessionUser(), footerBooks()]);
-  const cartCount = user ? await getCartCount() : 0;
+  // an account's cart, or a visitor's guest cart (it lives in the session: no session cookie, no cart to ask about)
+  const cartCount = (await hasSessionCookie()) ? await getCartCount() : 0;
   return (
     <html lang="en" className={fontVariables}>
       <body>

@@ -27,15 +27,17 @@ export type Flow = { id: FlowId; is_pending?: boolean; types?: string[]; provide
 export type AuthUser = { id?: number; display: string; email?: string; phone?: string; has_usable_password: boolean };
 
 export type AuthResult = {
-  status: 200 | 401;
+  status: number; // 200 (202 for a new mobile number's code), or 401
   authenticated: boolean;
   user: AuthUser | null;
   flows: Flow[];
   pending: Flow | null;
   data: Record<string, unknown>;
+  meta?: Record<string, unknown>;
 };
 
-async function call(method: string, path: string, body?: unknown, headers: Record<string, string> = {}) {
+/** One request to allauth.headless: 2xx and 401 come back as an AuthResult, anything else is thrown as an ApiError. */
+export async function call(method: string, path: string, body?: unknown, headers: Record<string, string> = {}) {
   const token = readCookie("csrftoken");
   let response: Response;
   try {
@@ -58,16 +60,17 @@ async function call(method: string, path: string, body?: unknown, headers: Recor
     data?: Record<string, unknown>;
     meta?: { is_authenticated?: boolean };
   } | null;
-  if (response.status !== 200 && response.status !== 401) throw toApiError(response.status, json);
+  if (!response.ok && response.status !== 401) throw toApiError(response.status, json);
   const data = json?.data ?? {};
   const flows = (data.flows as Flow[] | undefined) ?? [];
   return {
-    status: response.status as 200 | 401,
+    status: response.status,
     authenticated: Boolean(json?.meta?.is_authenticated),
     user: (data.user as AuthUser | undefined) ?? null,
     flows,
     pending: flows.find((flow) => flow.is_pending) ?? null,
     data,
+    meta: json?.meta ?? {},
   } satisfies AuthResult;
 }
 
@@ -144,15 +147,16 @@ export type SignupInput = {
 };
 
 /** Google: a normal form POST (not fetch) to the headless redirect, which sends the browser on to Google and back
- *  to callbackPath, where the log-in page reads the session (allauth.headless "provider_redirect"). */
-export function startProviderLogin(provider: string, callbackPath: string) {
+ *  to callbackPath, where the log-in page reads the session (allauth.headless "provider_redirect"). Flow
+ *  "connect" adds Google to the signed-in account instead (Log-in and security). */
+export function startProviderLogin(provider: string, callbackPath: string, flow: "login" | "connect" = "login") {
   const form = document.createElement("form");
   form.method = "POST";
   form.action = `${AUTH_BASE}/auth/provider/redirect`;
   const fields = {
     provider,
     callback_url: callbackPath,
-    process: "login",
+    process: flow,
     csrfmiddlewaretoken: readCookie("csrftoken") ?? "",
   };
   for (const [name, value] of Object.entries(fields)) {

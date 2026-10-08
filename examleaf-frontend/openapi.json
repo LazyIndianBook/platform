@@ -1340,8 +1340,16 @@
         "/api/v1/cart/": {
             "get": {
                 "operationId": "cart_retrieve",
-                "description": "The signed-in customer's cart, the same as on the website. Every answer is the whole cart; `?state=` adds the\nshipping. Carts of visitors without an account stay on the website.",
+                "description": "The cart, the same as on the website: a signed-in customer's (confirmed email address), or a visitor's, held by\nthe session cookie (a browser on the site's origin; CSRF token on changes) or by X-Cart-Token (POST cart/). Every\nanswer is the whole cart; `?state=` adds the shipping.",
                 "parameters": [
+                    {
+                        "in": "header",
+                        "name": "X-Cart-Token",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "a visitor's cart token (POST cart/), for clients without cookies"
+                    },
                     {
                         "in": "query",
                         "name": "state",
@@ -1374,13 +1382,58 @@
                         "description": ""
                     }
                 }
+            },
+            "post": {
+                "operationId": "cart_create",
+                "description": "A new, empty guest cart for a client without cookies, and its `token` (shown once): send it as X-Cart-Token\nwith every cart, shipping quote and checkout call, for 30 days. At log-in, sending it along once with the\naccount's credentials adds its books to the account's cart. Signed in: 400 (the account has its cart).",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "X-Cart-Token",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "a visitor's cart token (POST cart/), for clients without cookies"
+                    }
+                ],
+                "tags": [
+                    "shop"
+                ],
+                "security": [
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CartStart"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
             }
         },
         "/api/v1/cart/coupon/": {
             "post": {
                 "operationId": "cart_coupon_create",
-                "description": "Use a coupon code (any case). Refused with one message whatever the reason (unknown, expired, used up, too\nsmall a cart); limited per user (API_THROTTLE_COUPON).",
+                "description": "Use a coupon code (any case). Refused with one message whatever the reason (unknown, expired, used up, too\nsmall a cart); limited per user (API_THROTTLE_COUPON). A visitor, as on the website: Turnstile's token while\nthe bot check is on, and 10 codes an hour per client address, the website's included.",
                 "parameters": [
+                    {
+                        "in": "header",
+                        "name": "X-Cart-Token",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "a visitor's cart token (POST cart/), for clients without cookies"
+                    },
                     {
                         "in": "query",
                         "name": "state",
@@ -1426,8 +1479,16 @@
             },
             "delete": {
                 "operationId": "cart_coupon_destroy",
-                "description": "The signed-in customer's cart, the same as on the website. Every answer is the whole cart; `?state=` adds the\nshipping. Carts of visitors without an account stay on the website.",
+                "description": "The cart, the same as on the website: a signed-in customer's (confirmed email address), or a visitor's, held by\nthe session cookie (a browser on the site's origin; CSRF token on changes) or by X-Cart-Token (POST cart/). Every\nanswer is the whole cart; `?state=` adds the shipping.",
                 "parameters": [
+                    {
+                        "in": "header",
+                        "name": "X-Cart-Token",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "a visitor's cart token (POST cart/), for clients without cookies"
+                    },
                     {
                         "in": "query",
                         "name": "state",
@@ -1460,6 +1521,14 @@
                 "operationId": "cart_items_create",
                 "description": "Add copies of a book (to those already in the cart), at most 20 in all.",
                 "parameters": [
+                    {
+                        "in": "header",
+                        "name": "X-Cart-Token",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "a visitor's cart token (POST cart/), for clients without cookies"
+                    },
                     {
                         "in": "query",
                         "name": "state",
@@ -1519,6 +1588,14 @@
                 "description": "Set the number of copies of a book in the cart (0 removes it).",
                 "parameters": [
                     {
+                        "in": "header",
+                        "name": "X-Cart-Token",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "a visitor's cart token (POST cart/), for clients without cookies"
+                    },
+                    {
                         "in": "path",
                         "name": "product",
                         "schema": {
@@ -1575,6 +1652,14 @@
                 "description": "Set the number of copies of a book in the cart (0 removes it).",
                 "parameters": [
                     {
+                        "in": "header",
+                        "name": "X-Cart-Token",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "a visitor's cart token (POST cart/), for clients without cookies"
+                    },
+                    {
                         "in": "path",
                         "name": "product",
                         "schema": {
@@ -1627,8 +1712,16 @@
             },
             "delete": {
                 "operationId": "cart_items_destroy",
-                "description": "The signed-in customer's cart, the same as on the website. Every answer is the whole cart; `?state=` adds the\nshipping. Carts of visitors without an account stay on the website.",
+                "description": "The cart, the same as on the website: a signed-in customer's (confirmed email address), or a visitor's, held by\nthe session cookie (a browser on the site's origin; CSRF token on changes) or by X-Cart-Token (POST cart/). Every\nanswer is the whole cart; `?state=` adds the shipping.",
                 "parameters": [
+                    {
+                        "in": "header",
+                        "name": "X-Cart-Token",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "a visitor's cart token (POST cart/), for clients without cookies"
+                    },
                     {
                         "in": "path",
                         "name": "product",
@@ -1882,6 +1975,10 @@
                                                 "cod_max_value": "1500.00",
                                                 "currency": "INR"
                                             },
+                                            "shipping": {
+                                                "fee_from": "40.00",
+                                                "free_above": "499.00"
+                                            },
                                             "solutions_require_login": true,
                                             "parental_consent": "verified",
                                             "support": {
@@ -1890,6 +1987,51 @@
                                             }
                                         }
                                     }
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/contact/": {
+            "post": {
+                "operationId": "contact_create",
+                "description": "The contact form, as on the website's /contact/: the message is emailed to the support address (SUPPORT_EMAIL,\nelse SELLER_EMAIL) with Reply-To the sender, and nothing is stored. Turnstile's token while the bot check is on; 5\nan hour per client address, the website's form included; a filled-in `website` (the honeypot) is thanked and\ndropped. 503 while the support address is still a [placeholder].",
+                "tags": [
+                    "contact"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ContactRequest"
+                            },
+                            "examples": {
+                                "AQuestion": {
+                                    "value": {
+                                        "name": "Rahul Das",
+                                        "email": "rahul@example.com",
+                                        "message": "Order EL-2026-000123 has not come yet.",
+                                        "turnstile": "0.Zx…"
+                                    },
+                                    "summary": "A question"
+                                }
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {}
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Detail"
                                 }
                             }
                         },
@@ -2986,7 +3128,7 @@
         "/api/v1/orders/": {
             "get": {
                 "operationId": "orders_list",
-                "description": "The signed-in customer's own orders (another customer's: 404), checkout, payment and cancellation.",
+                "description": "The signed-in customer's own orders (another customer's: 404), checkout (a visitor's too), payment and\ncancellation.",
                 "parameters": [
                     {
                         "name": "ordering",
@@ -3068,7 +3210,17 @@
             },
             "post": {
                 "operationId": "orders_create",
-                "description": "Checkout: an order from the cart at today's prices, to a saved address. Online: pending until paid\n(payment/). Cash on delivery: placed at once and the cart emptied.",
+                "description": "Checkout: an order from the cart at today's prices. Signed in: to a saved address (`address`); online,\npending until paid (payment/), or cash on delivery, placed at once and the cart emptied. A visitor (guest\ncart): with `email` and `shipping_address`, online only, and Turnstile's token while the bot check is on; the\nanswer is the order as its link shows it, with the link's `token` (shown here only): pay through\norders/t/<token>/payment/.",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "X-Cart-Token",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "a visitor's cart token (POST cart/), for clients without cookies"
+                    }
+                ],
                 "tags": [
                     "shop"
                 ],
@@ -3076,20 +3228,10 @@
                     "content": {
                         "application/json": {
                             "schema": {
-                                "$ref": "#/components/schemas/CheckoutRequest"
-                            },
-                            "examples": {
-                                "PayOnline": {
-                                    "value": {
-                                        "address": 12,
-                                        "payment_method": "razorpay"
-                                    },
-                                    "summary": "Pay online"
-                                }
+                                "$ref": "#/components/schemas/CheckoutAnyRequest"
                             }
                         }
-                    },
-                    "required": true
+                    }
                 },
                 "security": [
                     {
@@ -3104,7 +3246,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/Order"
+                                    "$ref": "#/components/schemas/CheckedOut"
                                 }
                             }
                         },
@@ -3116,7 +3258,7 @@
         "/api/v1/orders/{number}/": {
             "get": {
                 "operationId": "orders_retrieve",
-                "description": "The signed-in customer's own orders (another customer's: 404), checkout, payment and cancellation.",
+                "description": "The signed-in customer's own orders (another customer's: 404), checkout (a visitor's too), payment and\ncancellation.",
                 "parameters": [
                     {
                         "in": "path",
@@ -3438,6 +3580,215 @@
                 "tags": [
                     "shop"
                 ],
+                "security": [
+                    {}
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OrderLink"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/orders/t/{token}/cancel/": {
+            "post": {
+                "operationId": "orders_t_cancel_create",
+                "description": "Cancel while pending or paid (`can_cancel`), as the link's page does; an online payment is refunded in full\n(5–7 working days). Later: 400, see the Refund Policy.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "token",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "shop"
+                ],
+                "security": [
+                    {}
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/OrderLink"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/orders/t/{token}/credit-notes/{note}/": {
+            "get": {
+                "operationId": "orders_t_credit_notes_retrieve",
+                "description": "A credit note PDF (for a refund of an invoiced order).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "note",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "the credit note's id (credit_notes[].url)",
+                        "required": true
+                    },
+                    {
+                        "in": "path",
+                        "name": "token",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "shop"
+                ],
+                "security": [
+                    {}
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/pdf": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/orders/t/{token}/invoice/": {
+            "get": {
+                "operationId": "orders_t_invoice_retrieve",
+                "description": "The invoice PDF (404 until it has been made, a few minutes after payment).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "token",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "shop"
+                ],
+                "security": [
+                    {}
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/pdf": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/orders/t/{token}/payment/": {
+            "post": {
+                "operationId": "orders_t_payment_create",
+                "description": "Start paying online: the options of Razorpay's Checkout (checkout.js) or mobile SDK. 400 when `can_pay` is\nfalse; 503 while Razorpay cannot be reached: try again.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "token",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "shop"
+                ],
+                "security": [
+                    {}
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaymentStart"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/orders/t/{token}/payment/confirm/": {
+            "post": {
+                "operationId": "orders_t_payment_confirm_create",
+                "description": "Checkout's success callback, checked (signature) and confirmed with Razorpay: the order, paid, and the\nvisitor's guest cart (session or X-Cart-Token) emptied; or still pending a few minutes until Razorpay's webhook\ncompletes it (read orders/t/<token>/ again).",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "X-Cart-Token",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "a visitor's cart token (POST cart/), for clients without cookies"
+                    },
+                    {
+                        "in": "path",
+                        "name": "token",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "shop"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PaymentConfirmRequest"
+                            },
+                            "examples": {
+                                "TheSDK'sSuccessCallback": {
+                                    "value": {
+                                        "razorpay_order_id": "order_N5…",
+                                        "razorpay_payment_id": "pay_N5…",
+                                        "razorpay_signature": "9c1f…"
+                                    },
+                                    "summary": "The SDK's success callback"
+                                }
+                            }
+                        }
+                    },
+                    "required": true
+                },
                 "security": [
                     {}
                 ],
@@ -4231,6 +4582,137 @@
                 }
             }
         },
+        "/api/v1/shipping/": {
+            "get": {
+                "operationId": "shipping_retrieve",
+                "description": "The delivery rates, as the website's checkout and Shipping Policy use them: a flat fee per group of states (a\nrate without states: every state no other rate names), free from a value of books when the rate says so. No\nweights. Cacheable for 5 minutes.",
+                "tags": [
+                    "shipping"
+                ],
+                "security": [
+                    {}
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Shipping"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/shipping/quote/": {
+            "get": {
+                "operationId": "shipping_quote_retrieve",
+                "description": "The checkout's delivery step: the fee to a PIN code (its state from the India Post directory, once loaded) or a\nstate, for `amount` or for the caller's cart (the account's, or a visitor's by the session or X-Cart-Token; courses\nalone ship free), with the PIN code's states and districts to fill in the address. Rates are flat per state:\nthere is no weight.",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "X-Cart-Token",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "a visitor's cart token (POST cart/), for clients without cookies"
+                    },
+                    {
+                        "in": "query",
+                        "name": "amount",
+                        "schema": {
+                            "type": "string",
+                            "format": "decimal",
+                            "pattern": "^-?\\d{0,8}(?:\\.\\d{0,2})?$"
+                        },
+                        "description": "books' value; default: the cart's"
+                    },
+                    {
+                        "in": "query",
+                        "name": "pin",
+                        "schema": {
+                            "type": "string",
+                            "minLength": 1,
+                            "pattern": "^\\d{6}$"
+                        },
+                        "description": "6 digits: its state, from the PIN directory"
+                    },
+                    {
+                        "in": "query",
+                        "name": "state",
+                        "schema": {
+                            "enum": [
+                                "KA",
+                                "AP",
+                                "KL",
+                                "TN",
+                                "MH",
+                                "UP",
+                                "GA",
+                                "GJ",
+                                "RJ",
+                                "HP",
+                                "TG",
+                                "AR",
+                                "AS",
+                                "BR",
+                                "CT",
+                                "HR",
+                                "JH",
+                                "MP",
+                                "MN",
+                                "ML",
+                                "MZ",
+                                "NL",
+                                "OR",
+                                "PB",
+                                "SK",
+                                "TR",
+                                "UT",
+                                "WB",
+                                "AN",
+                                "CH",
+                                "DH",
+                                "DL",
+                                "JK",
+                                "LD",
+                                "LA",
+                                "PY"
+                            ],
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "description": "two-letter code, as typed\n\n* `KA` - Karnataka\n* `AP` - Andhra Pradesh\n* `KL` - Kerala\n* `TN` - Tamil Nadu\n* `MH` - Maharashtra\n* `UP` - Uttar Pradesh\n* `GA` - Goa\n* `GJ` - Gujarat\n* `RJ` - Rajasthan\n* `HP` - Himachal Pradesh\n* `TG` - Telangana\n* `AR` - Arunachal Pradesh\n* `AS` - Assam\n* `BR` - Bihar\n* `CT` - Chhattisgarh\n* `HR` - Haryana\n* `JH` - Jharkhand\n* `MP` - Madhya Pradesh\n* `MN` - Manipur\n* `ML` - Meghalaya\n* `MZ` - Mizoram\n* `NL` - Nagaland\n* `OR` - Odisha\n* `PB` - Punjab\n* `SK` - Sikkim\n* `TR` - Tripura\n* `UT` - Uttarakhand\n* `WB` - West Bengal\n* `AN` - Andaman and Nicobar Islands\n* `CH` - Chandigarh\n* `DH` - Dadra and Nagar Haveli and Daman and Diu\n* `DL` - Delhi\n* `JK` - Jammu and Kashmir\n* `LD` - Lakshadweep\n* `LA` - Ladakh\n* `PY` - Puducherry"
+                    }
+                ],
+                "tags": [
+                    "shipping"
+                ],
+                "security": [
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "cookieAuth": []
+                    },
+                    {}
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ShippingQuote"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
         "/api/v1/subjects/": {
             "get": {
                 "operationId": "subjects_list",
@@ -4898,6 +5380,88 @@
                     "total"
                 ]
             },
+            "CartStart": {
+                "type": "object",
+                "description": "The cart at today's prices (shop.cart.totals, as the website): `savings` are the coupon's and the automatic\noffers' discounts, `discount` their sum.",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/CartLine"
+                        }
+                    },
+                    "count": {
+                        "type": "integer",
+                        "description": "copies"
+                    },
+                    "coupon": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "coupon_problem": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "why the coupon does not apply now"
+                    },
+                    "subtotal": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,8}(?:\\.\\d{0,2})?$",
+                        "readOnly": true
+                    },
+                    "savings": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Saving"
+                        }
+                    },
+                    "discount": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,8}(?:\\.\\d{0,2})?$",
+                        "readOnly": true
+                    },
+                    "shipping": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,8}(?:\\.\\d{0,2})?$",
+                        "readOnly": true,
+                        "nullable": true,
+                        "description": "null without ?state="
+                    },
+                    "total": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,8}(?:\\.\\d{0,2})?$",
+                        "readOnly": true
+                    },
+                    "problems": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "what stops an order: stock, sale"
+                    },
+                    "token": {
+                        "type": "string",
+                        "description": "send it as X-Cart-Token; shown once, valid 30 days"
+                    }
+                },
+                "required": [
+                    "count",
+                    "coupon",
+                    "coupon_problem",
+                    "discount",
+                    "items",
+                    "problems",
+                    "savings",
+                    "shipping",
+                    "subtotal",
+                    "token",
+                    "total"
+                ]
+            },
             "Category": {
                 "type": "object",
                 "description": "A category of the shop's tree: `depth` 1 at the top, `parent` the slug of the one above (null at the top).",
@@ -5149,6 +5713,26 @@
                     "right_answer"
                 ]
             },
+            "CheckedOut": {
+                "oneOf": [
+                    {
+                        "$ref": "#/components/schemas/Order"
+                    },
+                    {
+                        "$ref": "#/components/schemas/GuestOrder"
+                    }
+                ]
+            },
+            "CheckoutAnyRequest": {
+                "oneOf": [
+                    {
+                        "$ref": "#/components/schemas/CheckoutRequest"
+                    },
+                    {
+                        "$ref": "#/components/schemas/GuestCheckoutRequest"
+                    }
+                ]
+            },
             "CheckoutMethodEnum": {
                 "enum": [
                     "razorpay",
@@ -5382,6 +5966,9 @@
                     "shop": {
                         "$ref": "#/components/schemas/ShopConfig"
                     },
+                    "shipping": {
+                        "$ref": "#/components/schemas/ShippingConfig"
+                    },
                     "solutions_require_login": {
                         "type": "boolean"
                     },
@@ -5395,6 +5982,7 @@
                 "required": [
                     "auth",
                     "parental_consent",
+                    "shipping",
                     "shop",
                     "solutions_require_login",
                     "support"
@@ -5408,6 +5996,42 @@
                 "type": "string",
                 "description": "* `email` - email\n* `phone` - phone"
             },
+            "ContactRequest": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "minLength": 1,
+                        "description": "we reply to this address"
+                    },
+                    "message": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                    },
+                    "website": {
+                        "type": "string",
+                        "writeOnly": true,
+                        "description": "the honeypot: a field people never see; send none"
+                    },
+                    "turnstile": {
+                        "type": "string",
+                        "writeOnly": true,
+                        "description": "Turnstile's token while the bot check is on"
+                    }
+                },
+                "required": [
+                    "email",
+                    "message",
+                    "name"
+                ]
+            },
             "CouponRequest": {
                 "type": "object",
                 "properties": {
@@ -5415,6 +6039,11 @@
                         "type": "string",
                         "minLength": 1,
                         "maxLength": 30
+                    },
+                    "turnstile": {
+                        "type": "string",
+                        "writeOnly": true,
+                        "description": "a visitor's: Turnstile's token while it is on"
                     }
                 },
                 "required": [
@@ -5643,6 +6272,199 @@
                     "front",
                     "front_html",
                     "id"
+                ]
+            },
+            "GuestCheckoutRequest": {
+                "type": "object",
+                "description": "A visitor's checkout (no account): the email address for the order's emails, the delivery address, online\npayment (cash on delivery is for signed-in accounts with a confirmed email address) and the bot check.",
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "minLength": 1,
+                        "description": "the order's emails (confirmation, tracking, invoice) go there"
+                    },
+                    "shipping_address": {
+                        "$ref": "#/components/schemas/ShippingAddressRequest"
+                    },
+                    "payment_method": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/CheckoutMethodEnum"
+                            }
+                        ],
+                        "description": "razorpay\n\n* `razorpay` - online (UPI, card, net banking)\n* `cod` - cash on delivery"
+                    },
+                    "turnstile": {
+                        "type": "string",
+                        "writeOnly": true,
+                        "description": "Turnstile's token while the bot check is on"
+                    }
+                },
+                "required": [
+                    "email",
+                    "payment_method",
+                    "shipping_address"
+                ]
+            },
+            "GuestOrder": {
+                "type": "object",
+                "description": "A guest's new order, as its link shows it, with the link's secret: the only time the API gives it.",
+                "properties": {
+                    "number": {
+                        "type": "string",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "created": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "placed_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true,
+                        "description": "Paid online, or placed with cash on delivery."
+                    },
+                    "status": {
+                        "$ref": "#/components/schemas/OrderStatusEnum"
+                    },
+                    "status_label": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "as the website shows it"
+                    },
+                    "payment_method": {
+                        "$ref": "#/components/schemas/PaymentMethodEnum"
+                    },
+                    "total": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,8}(?:\\.\\d{0,2})?$",
+                        "readOnly": true
+                    },
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/OrderItem"
+                        },
+                        "readOnly": true
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "description": "The account's address, or the guest's.",
+                        "maxLength": 254
+                    },
+                    "shipping_address": {
+                        "description": "A copy of the address as it was when ordering."
+                    },
+                    "subtotal": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,8}(?:\\.\\d{0,2})?$",
+                        "readOnly": true
+                    },
+                    "savings": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Saving"
+                        },
+                        "readOnly": true
+                    },
+                    "discount": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,8}(?:\\.\\d{0,2})?$",
+                        "readOnly": true
+                    },
+                    "shipping_fee": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,8}(?:\\.\\d{0,2})?$",
+                        "readOnly": true
+                    },
+                    "coupon_code": {
+                        "type": "string",
+                        "maxLength": 30
+                    },
+                    "timeline": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Timeline"
+                        },
+                        "readOnly": true
+                    },
+                    "shipments": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Shipment"
+                        },
+                        "readOnly": true
+                    },
+                    "refunds": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Refund"
+                        },
+                        "readOnly": true
+                    },
+                    "can_cancel": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "can_pay": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "invoice": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/Document"
+                            }
+                        ],
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "credit_notes": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/CreditNote"
+                        },
+                        "readOnly": true
+                    },
+                    "web_url": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "token": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "for orders/t/<token>/ and its payment; also in the emails"
+                    }
+                },
+                "required": [
+                    "can_cancel",
+                    "can_pay",
+                    "created",
+                    "credit_notes",
+                    "discount",
+                    "email",
+                    "invoice",
+                    "items",
+                    "number",
+                    "refunds",
+                    "savings",
+                    "shipments",
+                    "shipping_address",
+                    "shipping_fee",
+                    "status_label",
+                    "subtotal",
+                    "timeline",
+                    "token",
+                    "total",
+                    "web_url"
                 ]
             },
             "JWT": {
@@ -6049,7 +6871,7 @@
             },
             "OrderLink": {
                 "type": "object",
-                "description": "The order by the link in its emails, as the website's page shows it: its PDFs on the website's links (no account\nneeded), never payable here (`can_pay` false); cancelling stays on the website's page (`web_url`).",
+                "description": "The order by the link in its emails, as the website's page shows it: its PDFs by the link (no account needed);\n`can_pay` for a guest's order awaiting payment (orders/t/<token>/payment/); an account's order is paid by its\nowner, signed in.",
                 "properties": {
                     "number": {
                         "type": "string",
@@ -8140,6 +8962,213 @@
                     "shipped_at",
                     "tracking_number",
                     "tracking_url"
+                ]
+            },
+            "Shipping": {
+                "type": "object",
+                "properties": {
+                    "fee_from": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,8}(?:\\.\\d{0,2})?$",
+                        "readOnly": true,
+                        "nullable": true,
+                        "description": "the lowest fee: \"delivery from ₹40\""
+                    },
+                    "free_above": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,8}(?:\\.\\d{0,2})?$",
+                        "readOnly": true,
+                        "nullable": true,
+                        "description": "the lowest value from which a rate ships free"
+                    },
+                    "rates": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ShippingRate"
+                        }
+                    }
+                },
+                "required": [
+                    "fee_from",
+                    "free_above",
+                    "rates"
+                ]
+            },
+            "ShippingAddressRequest": {
+                "type": "object",
+                "description": "A guest's delivery address, typed at checkout: the rules of saved addresses (and of the website's form).",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "title": "Full name",
+                        "maxLength": 120
+                    },
+                    "phone": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "line1": {
+                        "type": "string",
+                        "minLength": 1,
+                        "title": "House and street",
+                        "maxLength": 200
+                    },
+                    "line2": {
+                        "type": "string",
+                        "title": "Area or landmark",
+                        "maxLength": 200
+                    },
+                    "city": {
+                        "type": "string",
+                        "minLength": 1,
+                        "title": "City, town or village",
+                        "maxLength": 80
+                    },
+                    "district": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                    },
+                    "state": {
+                        "$ref": "#/components/schemas/StateEnum"
+                    },
+                    "pin": {
+                        "type": "string",
+                        "minLength": 1,
+                        "title": "PIN code",
+                        "pattern": "^[1-9]\\d{5}$",
+                        "maxLength": 6
+                    }
+                },
+                "required": [
+                    "city",
+                    "district",
+                    "line1",
+                    "name",
+                    "phone",
+                    "pin"
+                ]
+            },
+            "ShippingConfig": {
+                "type": "object",
+                "properties": {
+                    "fee_from": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,8}(?:\\.\\d{0,2})?$",
+                        "nullable": true,
+                        "description": "the lowest delivery fee: \"from ₹40\""
+                    },
+                    "free_above": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,8}(?:\\.\\d{0,2})?$",
+                        "nullable": true,
+                        "description": "the lowest value that ships free"
+                    }
+                },
+                "required": [
+                    "fee_from",
+                    "free_above"
+                ]
+            },
+            "ShippingQuote": {
+                "type": "object",
+                "properties": {
+                    "pin": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "states": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "the PIN's (a few lie in two); [] unknown"
+                    },
+                    "districts": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "the PIN's, to fill in the address"
+                    },
+                    "state": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "the fee's: ?state=, or the PIN's only one; null: ask"
+                    },
+                    "amount": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,8}(?:\\.\\d{0,2})?$",
+                        "readOnly": true,
+                        "description": "the books' value the fee is for: ?amount=, or the cart's after discounts"
+                    },
+                    "fee": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,8}(?:\\.\\d{0,2})?$",
+                        "readOnly": true,
+                        "nullable": true,
+                        "description": "null until the state is known"
+                    },
+                    "free_above": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,8}(?:\\.\\d{0,2})?$",
+                        "readOnly": true,
+                        "nullable": true,
+                        "description": "the state's rate ships free from this value"
+                    }
+                },
+                "required": [
+                    "amount",
+                    "districts",
+                    "fee",
+                    "free_above",
+                    "pin",
+                    "state",
+                    "states"
+                ]
+            },
+            "ShippingRate": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "maxLength": 60
+                    },
+                    "states": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "two-letter codes; [] for every state no other rate names"
+                    },
+                    "fee": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,8}(?:\\.\\d{0,2})?$",
+                        "readOnly": true
+                    },
+                    "free_above": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,8}(?:\\.\\d{0,2})?$",
+                        "readOnly": true,
+                        "nullable": true,
+                        "description": "books worth this much or more ship free"
+                    }
+                },
+                "required": [
+                    "fee",
+                    "free_above",
+                    "name",
+                    "states"
                 ]
             },
             "ShopConfig": {
