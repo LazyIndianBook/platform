@@ -39,6 +39,9 @@
   gap: 0 12px;
   padding: 24px 0;
   border-bottom: 1px solid var(--border);
+  /* kept although axe calls it an unfocusable scroller (accessibility review F10, a false positive of
+     content-visibility: auto): without it axe misreads the KaTeX inside as dark text on the footer's navy */
+  overflow-x: auto;
   scroll-margin-top: 16px;
   content-visibility: auto;
   contain-intrinsic-size: auto 360px;
