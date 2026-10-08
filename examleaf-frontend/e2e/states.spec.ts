@@ -47,13 +47,13 @@ test.describe("the shop closed", () => {
 
   test("the books and prices stay; buying waits, and the cart says so", async ({ page }) => {
     await page.goto(`${closed.site}/shop/`);
-    await expect(page.getByText("Shop opens soon")).toBeVisible();
+    await expect(page.getByText("The shop is closed for now")).toBeVisible();
     await page.getByRole("link", { name: /ExamLeaf Physics Sample Papers 2027/ }).click();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("ExamLeaf Physics Sample Papers 2027");
-    await expect(page.getByText("Shop opens soon")).toBeVisible();
+    await expect(page.getByText("The shop is closed for now")).toBeVisible();
     await expect(page.getByRole("button", { name: "Add to cart" })).toHaveCount(0);
     await page.goto(`${closed.site}/cart/`);
-    await expect(page.getByText("Shop opens soon")).toBeVisible();
+    await expect(page.getByText("The shop is closed for now")).toBeVisible();
   });
 });
 
@@ -113,11 +113,12 @@ test.describe("cash on delivery, Turnstile, the contact form, a parent's consent
 
   test("cash on delivery shows its terms and places the order at once", async ({ page }) => {
     await logIn(page, open.site, shopper, "/checkout/");
+    await page.getByRole("button", { name: "Continue to delivery" }).click(); // the payment method is chosen on the Delivery step
     await page.getByRole("radio", { name: /Cash on delivery/ }).check();
     await expect(page.getByText(/For accounts with a confirmed email address, on orders up to ₹1,500/)).toBeVisible();
     await page.getByRole("button", { name: /Place the order: pay ₹[\d,.]+ on delivery/ }).click();
     await expect(page).toHaveURL(/\/checkout\/EL-[\d-]+\/done\/$/);
-    await expect(page.getByText("Order placed")).toBeVisible();
+    await expect(page.getByText("Your order is placed")).toBeVisible();
   });
 
   test("a student whose parent has not confirmed is told why a save is refused, and what to do", async ({ page }) => {
