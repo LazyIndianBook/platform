@@ -28,6 +28,7 @@ jobs:
         options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       SECRET_KEY: ci-only-not-secret-but-fifty-characters-long-as-settings-ask
+      LEARN_CODE_SECRET: ci-only-book-code-secret-not-for-production
       DATABASE_URL: postgres://examleaf:examleaf@localhost:5432/examleaf
     steps:
       - uses: actions/checkout@v5
@@ -54,7 +55,7 @@ jobs:
         run: docker build --tag examleaf-web:ci examleaf-web
       - name: Django and WeasyPrint load in the image
         run: |
-          docker run --rm -e SECRET_KEY=ci-only-not-secret-but-fifty-characters-long-as-settings-ask -e LEARN_CODE_SECRET=ci-only-not-secret -e DATABASE_URL=sqlite:////tmp/ci.sqlite3 -e EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend examleaf-web:ci python manage.py check --deploy --fail-level ERROR
+          docker run --rm -e SECRET_KEY=ci-only-not-secret-but-fifty-characters-long-as-settings-ask -e LEARN_CODE_SECRET=ci-only-not-secret -e DATABASE_URL=sqlite:////tmp/ci.sqlite3 -e EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend -e LEARN_CODE_SECRET=ci-only-book-code-secret examleaf-web:ci python manage.py check --deploy --fail-level ERROR
           docker run --rm examleaf-web:ci python -c "import weasyprint"
 
   dependency-audit:
@@ -87,6 +88,8 @@ jobs:
       DJANGO_DATABASE_URL: sqlite:////tmp/examleaf-e2e.sqlite3
       DJANGO_LOG: /tmp/examleaf-e2e-django.log
       SECRET_KEY: dev-ci-only-not-secret
+      LEARN_CODE_SECRET: ci-only-book-code-secret-not-for-production
+      DJANGO_PYTHON: python
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
