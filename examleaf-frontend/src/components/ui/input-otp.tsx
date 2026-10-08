@@ -52,7 +52,7 @@ function OtpInput({ name = "code", value, onChange, ...props }: OtpInputProps) {
             data-slot="otp-box"
             data-active={slot.isActive || undefined}
             className={cn(
-              "relative flex h-[54px] min-w-0 max-w-14 flex-1 items-center justify-center rounded-lg border-[1.5px] border-input bg-card nav:w-11 nav:max-w-none nav:flex-none",
+              "relative flex h-[54px] max-w-14 min-w-0 flex-1 items-center justify-center rounded-lg border-[1.5px] border-input bg-card nav:w-11 nav:max-w-none nav:flex-none",
               "font-mono text-2xl leading-none font-medium text-foreground",
               props["aria-invalid"] && "border-destructive shadow-[inset_0_0_0_0.5px_var(--destructive)]",
               "data-active:border-primary data-active:outline-2 data-active:outline-offset-2 data-active:outline-ring",
