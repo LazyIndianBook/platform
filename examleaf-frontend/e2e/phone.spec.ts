@@ -34,5 +34,5 @@ test("the home page and the shop fit 320 to 414 px, and Tab goes from Menu into 
   await page.getByRole("button", { name: "Menu" }).focus();
   await page.keyboard.press("Enter");
   await page.keyboard.press("Tab");
-  await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Shop" })).toBeFocused(); // F3
+  await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Books" })).toBeFocused(); // F3: the first link
 });
