@@ -21,3 +21,18 @@ test("a paper's solutions fit the phone", async ({ page }) => {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 });
+
+test("the home page and the shop fit 320 to 414 px, and Tab goes from Menu into the open menu", async ({ page }) => {
+  for (const width of [320, 360, 375, 414]) {
+    await page.setViewportSize({ width, height: 800 });
+    for (const path of ["/", "/shop/"]) {
+      await page.goto(path);
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+      expect(overflow, `${path} at ${width} px`).toBeLessThanOrEqual(0); // accessibility review F2, F5
+    }
+  }
+  await page.getByRole("button", { name: "Menu" }).focus();
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Shop" })).toBeFocused(); // F3
+});

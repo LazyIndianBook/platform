@@ -129,4 +129,4 @@ The frontend adds `/account/details/`, `/account/addresses/`, `/account/security
 
 ## Django-only routes that stay
 
-Behind Caddy's Django prefixes (`src/lib/site.ts` `DJANGO_PREFIXES`, the Caddyfile): the admin (`/admin/`), the webhooks (`/shop/webhooks/`, `/anymail/`), health (`/health/`), media (`/shop/media/`, the storage's signed URLs), the staff clip player and its files (`/learn/preview/`, `/learn/hls/`), the Google OAuth callback (`/account/google/`), the QR PNGs (`/qr/`), the static files (`/static/`), the APIs (`/api/v1/`, `/api/schema/`, `/api/docs/`, `/api/redoc/`, `/_allauth/`) and `/sitemap-django.xml`.
+Behind Caddy's Django prefixes (`src/lib/site.ts` `DJANGO_PREFIXES`, the Caddyfile): the admin (`/admin/`), the webhooks (`/shop/webhooks/`, `/anymail/`), health (`/health/`), media (`/shop/media/`, the storage's signed URLs), the staff clip player and its files (`/learn/preview/`, `/learn/hls/`), the Google OAuth callback (`/account/google/`), the QR PNGs (`/qr/`), the static files (`/static/`) and the APIs (`/api/v1/`, `/api/schema/`, `/api/docs/`, `/api/redoc/`, `/_allauth/`).

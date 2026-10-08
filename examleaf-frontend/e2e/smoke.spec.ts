@@ -33,6 +33,19 @@ test("pages carry a nonce CSP; personal ones are never stored, the others by the
   expect(await response.text()).toContain(`nonce="${nonce}"`);
 });
 
+test("an anonymous pay or done page is a real 307 to log in; webauthn's reauthenticate is not built (404)", async ({
+  request,
+}) => {
+  for (const step of ["pay", "done"]) {
+    const answer = await request.get(`/checkout/EL-2026-000001/${step}/`, { maxRedirects: 0 });
+    expect(answer.status()).toBe(307); // not a streamed 200 that redirects in script (parity review)
+    expect(answer.headers()["location"]).toContain(`/account/login/?next=%2Fcheckout%2FEL-2026-000001%2F${step}%2F`);
+  }
+  expect((await request.get("/account/2fa/webauthn/reauthenticate/", { maxRedirects: 0 })).status()).toBe(404);
+  const passkeys = await request.get("/account/2fa/webauthn/add/", { maxRedirects: 0 });
+  expect(passkeys.headers()["location"]).toContain("/account/security/#passkeys");
+});
+
 test("the app's manifest, and a service worker that keeps the offline page and static files, never a page", async ({
   page,
 }) => {

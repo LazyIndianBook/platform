@@ -29,7 +29,8 @@ const DJANGO_PAGES: [string, string][] = [
   ["/account/password/change/", "/account/security/#change-password"],
   ["/account/password/set/", "/account/security/#change-password"],
   ["/account/phone/:path*", "/account/security/#mobile-number"],
-  ["/account/2fa/webauthn/:path*", "/account/security/#passkeys"],
+  // not reauthenticate/: that page is not built and answers 404 (docs/design/parity-nextjs.md)
+  ["/account/2fa/webauthn/:path((?!reauthenticate).*)", "/account/security/#passkeys"],
   ["/account/2fa/totp/:path*", "/account/2fa/"],
   ["/account/2fa/recovery-codes/:path*", "/account/2fa/"],
   ["/account/data/", "/account/privacy/#data"],

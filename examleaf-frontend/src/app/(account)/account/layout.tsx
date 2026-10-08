@@ -15,7 +15,9 @@ export default async function AccountLayout({ children }: { children: React.Reac
     <section className="flex-1 pt-8 pb-(--section) max-nav:pt-5">
       <div className="container-site flex flex-wrap items-start gap-x-8 gap-y-5">
         <AccountNav />
-        <div className="flex min-w-0 flex-[999_1_600px] flex-col gap-6">{children}</div>
+        {/* at least a screen tall, placeholder and page alike: the footer stays below the first screen while the
+            page streams in, instead of jumping by a thousand pixels when it arrives (CLS 0.295: Lighthouse review L3) */}
+        <div className="flex min-h-svh min-w-0 flex-[999_1_600px] flex-col gap-6">{children}</div>
       </div>
     </section>
   );
