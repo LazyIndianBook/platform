@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { toast } from "@/components/ui/toaster";
 
-import { Turnstile } from "@/components/auth/turnstile";
+import { useTurnstile } from "@/components/auth/turnstile";
 import { useConfig } from "@/components/providers/config-provider";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -63,7 +63,6 @@ export function CartView({
 }) {
   const router = useRouter();
   const siteKey = useConfig()?.auth.turnstile_site_key ?? null;
-  const [turnstile, setTurnstile] = useState("");
   const [cart, setCart] = useState(initial);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
@@ -71,6 +70,7 @@ export function CartView({
   const [removing, setRemoving] = useState<Cart["items"][number] | null>(null);
   const [code, setCode] = useState("");
   const [codeError, setCodeError] = useState<string | null>(null);
+  const bot = useTurnstile(guest && cart.items.length && !cart.coupon ? siteKey : null, codeError);
   const list = useRef<HTMLUListElement>(null);
 
   const digitalOnly = cart.items.length > 0 && cart.items.every((line) => info[line.product]?.digital);
@@ -131,7 +131,7 @@ export function CartView({
       setCart(
         await personal(
           api.POST("/api/v1/cart/coupon/", {
-            body: { code: code.trim(), ...(guest && siteKey ? { turnstile } : {}) },
+            body: { code: code.trim(), ...(guest && siteKey ? { turnstile: bot.token } : {}) },
           }),
         ),
       );
@@ -287,14 +287,18 @@ export function CartView({
                   autoCapitalize="characters"
                 />
               </Field>
-              <Button type="submit" variant="secondary" busy={busy === "coupon"} className="mt-7 min-h-12">
-                Apply
+              {/* while the bot check runs, a short word: its whole sentence would squeeze the field out */}
+              <Button
+                type="submit"
+                variant="secondary"
+                busy={busy === "coupon" || bot.waiting}
+                className="mt-7 min-h-12"
+              >
+                {bot.waiting ? "Checking…" : "Apply"}
               </Button>
             </form>
           )}
-          {guest && siteKey && !cart.coupon ? (
-            <Turnstile siteKey={siteKey} onToken={setTurnstile} resetKey={codeError} />
-          ) : null}
+          {bot.widget}
           {cart.problems.length ? (
             // what stops the checkout is said above, line by line
             <Button type="button" variant="accent" size="lg" block disabled>

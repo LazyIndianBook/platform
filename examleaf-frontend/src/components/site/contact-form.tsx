@@ -6,7 +6,7 @@
 import { useState } from "react";
 
 import { ErrorSummary } from "@/components/auth/error-summary";
-import { Turnstile } from "@/components/auth/turnstile";
+import { CHECKING, useTurnstile } from "@/components/auth/turnstile";
 import { useConfig } from "@/components/providers/config-provider";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -19,9 +19,9 @@ const LABELS = { name: "Your name", email: "Email address", message: "Message", 
 export function ContactForm() {
   const siteKey = useConfig()?.auth.turnstile_site_key ?? null;
   const [values, setValues] = useState({ name: "", email: "", message: "", website: "" });
-  const [token, setToken] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
+  const bot = useTurnstile(siteKey, error);
   const [sent, setSent] = useState<string | null>(null);
   const edit = (name: keyof typeof values) => (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setValues((all) => ({ ...all, [name]: event.target.value }));
@@ -31,7 +31,7 @@ export function ContactForm() {
     setBusy(true);
     setError(null);
     try {
-      const body = { ...values, ...(siteKey ? { turnstile: token } : {}) };
+      const body = { ...values, ...(siteKey ? { turnstile: bot.token } : {}) };
       setSent((await unwrap(api.POST("/api/v1/contact/", { body }))).detail);
     } catch (caught) {
       setError(
@@ -71,9 +71,9 @@ export function ContactForm() {
         value={values.website}
         onChange={edit("website")}
       />
-      {siteKey ? <Turnstile siteKey={siteKey} onToken={setToken} resetKey={error} /> : null}
-      <Button type="submit" size="lg" className="self-start" busy={busy}>
-        Send the message
+      {bot.widget}
+      <Button type="submit" size="lg" className="self-start" busy={busy || bot.waiting}>
+        {bot.waiting ? CHECKING : "Send the message"}
       </Button>
     </form>
   );

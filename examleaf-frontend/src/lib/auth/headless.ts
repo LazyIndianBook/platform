@@ -2,7 +2,7 @@
 // every sign-in flow the website has (API.md, "Frontend integration guide", Flows 1 to 6).
 // An answer is 200 (signed in), or 401 with the flows still to do (one is_pending), or an ApiError (400 with the
 // fields' errors, 409, 410, 429). nextRoute() turns an answer into the page that comes next.
-import { readCookie } from "@/lib/api/client";
+import { ensureCsrfCookie, readCookie } from "@/lib/api/client";
 import { toApiError } from "@/lib/api/errors";
 
 import { safeNext, withNext } from "./next-url";
@@ -36,8 +36,11 @@ export type AuthResult = {
   meta?: Record<string, unknown>;
 };
 
-/** One request to allauth.headless: 2xx and 401 come back as an AuthResult, anything else is thrown as an ApiError. */
+/** One request to allauth.headless: 2xx and 401 come back as an AuthResult, anything else is thrown as an ApiError.
+ *  A change makes sure of Django's CSRF cookie first: on a slow first load the page's own session check, which sets
+ *  it, may still be on its way (a 403 otherwise). */
 export async function call(method: string, path: string, body?: unknown, headers: Record<string, string> = {}) {
+  if (method !== "GET") await ensureCsrfCookie();
   const token = readCookie("csrftoken");
   let response: Response;
   try {
@@ -149,7 +152,8 @@ export type SignupInput = {
 /** Google: a normal form POST (not fetch) to the headless redirect, which sends the browser on to Google and back
  *  to callbackPath, where the log-in page reads the session (allauth.headless "provider_redirect"). Flow
  *  "connect" adds Google to the signed-in account instead (Log-in and security). */
-export function startProviderLogin(provider: string, callbackPath: string, flow: "login" | "connect" = "login") {
+export async function startProviderLogin(provider: string, callbackPath: string, flow: "login" | "connect" = "login") {
+  await ensureCsrfCookie();
   const form = document.createElement("form");
   form.method = "POST";
   form.action = `${AUTH_BASE}/auth/provider/redirect`;

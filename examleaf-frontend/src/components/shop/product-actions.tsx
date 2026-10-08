@@ -17,11 +17,11 @@ import { SelectableCard } from "@/components/ui/choice";
 import { Field, FieldError } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/input";
 import { Price } from "@/components/ui/price";
-import { api, ApiError, personal } from "@/lib/api/client";
+import { api, ApiError, ensureCsrfCookie, personal } from "@/lib/api/client";
 import { withNext } from "@/lib/auth/next-url";
 
 import { CopiesStepper } from "./copies-stepper";
-import { copies, ensureCsrfCookie } from "./shop";
+import { copies } from "./shop";
 
 const failed = (caught: unknown) =>
   caught instanceof ApiError ? caught.message : "That did not work. Check your connection, then try again.";

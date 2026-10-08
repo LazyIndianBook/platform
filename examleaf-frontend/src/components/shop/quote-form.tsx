@@ -3,10 +3,10 @@
 // School and bulk orders (Django's shop/quote_request.html): the buyer's details, the copies of each book (printed
 // books only: a course opens in one account), the bot check while the server has one (config's Turnstile key), then
 // POST quotes/; staff email a quotation. The server validates everything and its words are shown.
-import { useCallback, useState } from "react";
+import { useState } from "react";
 
 import { ErrorSummary } from "@/components/auth/error-summary";
-import { Turnstile } from "@/components/auth/turnstile";
+import { CHECKING, useTurnstile } from "@/components/auth/turnstile";
 import { useConfig } from "@/components/providers/config-provider";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -46,11 +46,10 @@ export function QuoteForm({ books }: { books: { slug: string; title: string }[] 
   const siteKey = config?.auth.turnstile_site_key ?? null;
   const [values, setValues] = useState<Record<string, string>>({});
   const [counts, setCounts] = useState<Record<string, string>>({});
-  const [token, setToken] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
   const [sent, setSent] = useState<{ number: string; detail: string } | null>(null);
-  const onToken = useCallback((value: string) => setToken(value), []);
+  const bot = useTurnstile(siteKey, error);
 
   async function send(event: React.FormEvent) {
     event.preventDefault();
@@ -77,7 +76,7 @@ export function QuoteForm({ books }: { books: { slug: string; title: string }[] 
         delivery_pin: values.delivery_pin ?? "",
         note: values.note ?? "",
         items,
-        ...(siteKey ? { turnstile: token } : {}),
+        ...(siteKey ? { turnstile: bot.token } : {}),
       };
       setSent(await unwrap(api.POST("/api/v1/quotes/", { body })));
     } catch (caught) {
@@ -154,9 +153,9 @@ export function QuoteForm({ books }: { books: { slug: string; title: string }[] 
           onChange={(event) => setValues((all) => ({ ...all, note: event.target.value }))}
         />
       </Field>
-      {siteKey ? <Turnstile siteKey={siteKey} onToken={onToken} resetKey={error} /> : null}
-      <Button type="submit" size="lg" className="self-start" busy={busy}>
-        Ask for a quotation
+      {bot.widget}
+      <Button type="submit" size="lg" className="self-start" busy={busy || bot.waiting}>
+        {bot.waiting ? CHECKING : "Ask for a quotation"}
       </Button>
     </form>
   );

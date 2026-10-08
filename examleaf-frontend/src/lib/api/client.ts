@@ -15,6 +15,19 @@ export function readCookie(name: string): string | undefined {
     ?.slice(name.length + 1);
 }
 
+/**
+ * Before a visitor's first change (a log-in or a code request, a guest cart, a guest's checkout): Django's CSRF
+ * cookie, which allauth and the API need as X-CSRFToken with the session cookie; allauth.headless's config answer
+ * (200, public) sets it. A page's own first request may not have answered yet (a cold server, a slow network).
+ */
+export async function ensureCsrfCookie() {
+  if (typeof document === "undefined" || readCookie("csrftoken")) return;
+  await fetch(`${process.env.NEXT_PUBLIC_API_BASE ?? ""}/_allauth/browser/v1/config`, {
+    credentials: "same-origin",
+    cache: "no-store",
+  }).catch(() => undefined);
+}
+
 const SAFE = new Set(["GET", "HEAD", "OPTIONS"]);
 
 export const csrfMiddleware: Middleware = {

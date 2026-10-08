@@ -18,12 +18,13 @@ const password = "Unusual-e2e-pass-2026!";
 test.describe.configure({ mode: "serial" });
 test.setTimeout(60_000);
 
-/** Turnstile's widget, mocked: it hands its token over at once (the server checks it with the test secret). */
+/** Turnstile's widget, mocked: it hands its token over 2 s after it shows, as Cloudflare's takes a moment (the server
+ *  checks the token with the test secret). */
 async function mockTurnstile(page: Page) {
   await page.route("https://challenges.cloudflare.com/turnstile/v0/api.js*", (route) =>
     route.fulfill({
       contentType: "application/javascript",
-      body: `window.turnstile = { render(box, options) { setTimeout(() => options.callback("XXXX.DUMMY.TOKEN.XXXX")); return "w1"; }, reset() {} };`,
+      body: `window.turnstile = { render(box, options) { setTimeout(() => options.callback("XXXX.DUMMY.TOKEN.XXXX"), 2000); return "w1"; } };`,
     }),
   );
 }
@@ -77,14 +78,17 @@ test.describe("cash on delivery, Turnstile, the contact form, a parent's consent
     removePins();
   });
 
-  test("the contact form sends with the bot check's token", async ({ page }) => {
+  test("the contact form waits for the bot check's token, then sends it", async ({ page }) => {
     await mockTurnstile(page);
     await page.goto(`${open.site}/contact/`);
+    await expect(page.getByRole("button", { name: "Checking that you are not a robot…" })).toBeDisabled();
     await page.getByLabel(/^Your name\b/).fill("E2E Visitor");
     await page.getByLabel(/^Email address\b/).fill(`e2e-contact-${stamp}@example.com`);
     await page.getByLabel(/^Message\b/).fill("Is the Physics book in stock?");
+    const send = page.getByRole("button", { name: "Send the message" });
+    await expect(send).toBeEnabled({ timeout: 10_000 }); // the token has come
     const sent = page.waitForRequest((request) => request.url().endsWith("/api/v1/contact/"));
-    await page.getByRole("button", { name: "Send the message" }).click();
+    await send.click();
     expect((await sent).postDataJSON()).toMatchObject({ turnstile: "XXXX.DUMMY.TOKEN.XXXX" });
     // the server asks Cloudflare about the token first (5 s at most, then it lets the form through)
     await expect(page.getByText("Message sent")).toBeVisible({ timeout: 15_000 });

@@ -13,7 +13,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { ErrorSummary } from "@/components/auth/error-summary";
-import { Turnstile } from "@/components/auth/turnstile";
+import { CHECKING, useTurnstile } from "@/components/auth/turnstile";
 import { useConfig } from "@/components/providers/config-provider";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -23,12 +23,12 @@ import { SelectableCard, Switch } from "@/components/ui/choice";
 import { Field, FormGrid } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/native-select";
-import { api, ApiError, personal, unwrap } from "@/lib/api/client";
+import { api, ApiError, ensureCsrfCookie, personal, unwrap } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
 import { inr, inrShort } from "@/lib/format";
 
 import { OrderSummary, shippingText, type SummaryLine } from "./order-summary";
-import { addressLines, ensureCsrfCookie, type StateCode, stateName, STATES } from "./shop";
+import { addressLines, type StateCode, stateName, STATES } from "./shop";
 
 type Cart = components["schemas"]["Cart"];
 type Address = components["schemas"]["Address"];
@@ -94,7 +94,6 @@ export function CheckoutForm({
   const router = useRouter();
   const siteKey = useConfig()?.auth.turnstile_site_key ?? null;
   const [guestEmail, setGuestEmail] = useState("");
-  const [turnstile, setTurnstile] = useState("");
   const preferred = addresses.find((address) => address.is_default) ?? addresses[0];
   const [choice, setChoice] = useState(preferred ? String(preferred.id) : NEW);
   const [draft, setDraft] = useState<Draft>(EMPTY);
@@ -104,6 +103,7 @@ export function CheckoutForm({
   const [pin, setPin] = useState<{ note: string | null; districts: string[]; states: string[] }>(NO_PIN);
   const [error, setError] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
+  const bot = useTurnstile(guest ? siteKey : null, error);
 
   const chosen = addresses.find((address) => String(address.id) === choice);
   const state: StateCode | undefined = choice === NEW ? draft.state : chosen?.state;
@@ -163,7 +163,7 @@ export function CheckoutForm({
           email: guestEmail.trim(),
           shipping_address: draft,
           payment_method: "razorpay" as const,
-          ...(siteKey ? { turnstile } : {}),
+          ...(siteKey ? { turnstile: bot.token } : {}),
         };
         const order = await unwrap(api.POST("/api/v1/orders/", { body }));
         if (!("token" in order)) throw new ApiError(500, "server", "That did not work. Please try again.");
@@ -430,9 +430,11 @@ export function CheckoutForm({
                 </p>
               </Alert>
             ) : null}
-            {guest && siteKey ? <Turnstile siteKey={siteKey} onToken={setTurnstile} resetKey={error} /> : null}
-            <Button type="submit" variant="accent" size="lg" block busy={busy}>
-              {method === "cod" ? (
+            {bot.widget}
+            <Button type="submit" variant="accent" size="lg" block busy={busy || bot.waiting}>
+              {bot.waiting ? (
+                CHECKING
+              ) : method === "cod" ? (
                 <>
                   <Package aria-hidden="true" />
                   Place the order: pay {inr(shown.total)} on delivery

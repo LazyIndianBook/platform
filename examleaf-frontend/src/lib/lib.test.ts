@@ -1,9 +1,9 @@
 // The pure parts of the API, auth and security layers: what breaks quietly if it is wrong.
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { ApiError, toApiError, unwrap } from "./api/errors";
 import { pageInfo, pageParam } from "./api/pagination";
-import { type AuthResult, nextRoute } from "./auth/headless";
+import { auth, type AuthResult, nextRoute } from "./auth/headless";
 import { safeNext, withNext } from "./auth/next-url";
 import { decodeRequestOptions } from "./auth/webauthn";
 import { inr, inrShort } from "./format";
@@ -144,6 +144,26 @@ describe("nextRoute", () => {
       "/account/2fa/authenticate/",
     );
     expect(nextRoute(result({ pending: { id: "login_by_code", is_pending: true } }), null)).toBeNull();
+  });
+});
+
+describe("allauth.headless calls", () => {
+  it("get Django's CSRF cookie before the first change when the page's own session check has not set it yet", async () => {
+    const fetch = vi.fn(async (url: string) => {
+      if (url.endsWith("/config")) document.cookie = "csrftoken=t0k3n; path=/";
+      return Response.json({ data: { flows: [] }, meta: { is_authenticated: false } }, { status: 401 });
+    });
+    vi.stubGlobal("fetch", fetch);
+    await auth.requestCode({ email: "student@example.com" });
+    await auth.requestCode({ email: "student@example.com" });
+    vi.unstubAllGlobals();
+    document.cookie = "csrftoken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    expect(fetch.mock.calls.map(([url]) => url)).toEqual([
+      "/_allauth/browser/v1/config",
+      "/_allauth/browser/v1/auth/code/request",
+      "/_allauth/browser/v1/auth/code/request",
+    ]);
+    expect(fetch.mock.calls[1]).toMatchObject([expect.any(String), { headers: { "X-CSRFToken": "t0k3n" } }]);
   });
 });
 

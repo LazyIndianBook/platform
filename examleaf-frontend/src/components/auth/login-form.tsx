@@ -20,7 +20,7 @@ import { safeNext, withNext } from "@/lib/auth/next-url";
 
 import { AuthTitle } from "./auth-card";
 import { ErrorSummary } from "./error-summary";
-import { Turnstile } from "./turnstile";
+import { CHECKING, useTurnstile } from "./turnstile";
 import { fieldError, useAuthAction } from "./use-auth-action";
 
 const PROVIDER_ERRORS: Record<string, string> = {
@@ -44,8 +44,8 @@ export function LoginForm({ next, providerError }: { next: string | null; provid
   const [by, setBy] = useState<"phone" | "email">(sms ? "phone" : "email");
   const [sentTo, setSentTo] = useState("");
   const [code, setCode] = useState("");
-  const [turnstile, setTurnstile] = useState("");
   const { run, busy, error, setError } = useAuthAction(next);
+  const bot = useTurnstile(step === "start" ? siteKey : null, error);
   const passkey = useAuthAction(next); // its own busy state: the passkey prompt is not the code request
 
   useEffect(() => {
@@ -74,7 +74,7 @@ export function LoginForm({ next, providerError }: { next: string | null; provid
     event.preventDefault();
     const value = String(new FormData(event.currentTarget).get(by) ?? "").trim();
     const input = by === "phone" ? { phone: value } : { email: value };
-    const result = await run(() => auth.requestCode({ ...input, ...(siteKey ? { turnstile } : {}) }));
+    const result = await run(() => auth.requestCode({ ...input, ...(siteKey ? { turnstile: bot.token } : {}) }));
     if (result?.pending?.id === "login_by_code") {
       setSentTo(by === "phone" ? `+91 ${value}` : value);
       setCode("");
@@ -170,9 +170,9 @@ export function LoginForm({ next, providerError }: { next: string | null; provid
             <Input name="email" type="email" autoComplete="email" inputMode="email" />
           </Field>
         )}
-        {siteKey ? <Turnstile siteKey={siteKey} onToken={setTurnstile} resetKey={error} /> : null}
-        <Button type="submit" size="lg" block busy={busy}>
-          {by === "phone" ? "Text me a code" : "Email me a code"}
+        {bot.widget}
+        <Button type="submit" size="lg" block busy={busy || bot.waiting}>
+          {bot.waiting ? CHECKING : by === "phone" ? "Text me a code" : "Email me a code"}
         </Button>
       </form>
       <Or />

@@ -21,7 +21,7 @@ import { isMinor } from "@/lib/dates";
 
 import { AuthTitle } from "./auth-card";
 import { ErrorSummary } from "./error-summary";
-import { Turnstile } from "./turnstile";
+import { CHECKING, useTurnstile } from "./turnstile";
 import { fieldError, useAuthAction } from "./use-auth-action";
 
 export type BoardOption = { id: number; label: string };
@@ -47,12 +47,12 @@ export function SignupForm({ next, boards }: { next: string | null; boards: Boar
   const config = useConfig();
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [afterGoogle, setAfterGoogle] = useState(false);
-  const [turnstile, setTurnstile] = useState("");
   const { run, busy, error, setError } = useAuthAction(next);
   const minor = isMinor(dateOfBirth);
   const byLink = config?.parental_consent === "verified";
   const sms = Boolean(config?.auth.sms);
   const siteKey = config?.auth.turnstile_site_key ?? null;
+  const bot = useTurnstile(afterGoogle ? null : siteKey, error); // Google has checked the person
 
   useEffect(() => {
     auth
@@ -94,7 +94,7 @@ export function SignupForm({ next, boards }: { next: string | null; boards: Boar
       ...details,
       email: text("email"),
       password: String(form.get("password") ?? ""),
-      ...(siteKey ? { turnstile } : {}),
+      ...(siteKey ? { turnstile: bot.token } : {}),
     };
     await run(() => auth.signup(input));
   }
@@ -241,10 +241,10 @@ export function SignupForm({ next, boards }: { next: string | null; boards: Boar
             <FieldError id="consent-error">{fieldError(error, "consent")!.join(" ")}</FieldError>
           ) : null}
         </div>
-        {siteKey && !afterGoogle ? <Turnstile siteKey={siteKey} onToken={setTurnstile} resetKey={error} /> : null}
+        {bot.widget}
         <div className="flex flex-wrap items-center gap-3">
-          <Button type="submit" variant="accent" size="lg" busy={busy}>
-            Register
+          <Button type="submit" variant="accent" size="lg" busy={busy || bot.waiting}>
+            {bot.waiting ? CHECKING : "Register"}
           </Button>
           {!afterGoogle ? (
             <span className="text-small text-muted-foreground">We email you a code to confirm your address.</span>

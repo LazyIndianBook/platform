@@ -26,6 +26,13 @@ test("an account page sends a visitor to log in, and back to it afterwards", asy
 });
 
 test("log in by code, record marks, see them on My record, download my data, use a book code", async ({ page }) => {
+  // as on a cold server: the page's own session check, which brings Django's CSRF cookie, answers after the code
+  // request has gone (the request gets the cookie itself first)
+  await page.route(
+    "**/_allauth/browser/v1/auth/session",
+    (route) => setTimeout(() => route.continue().catch(() => undefined), 1500),
+    { times: 1 },
+  );
   await page.goto("/account/login/?next=/s/PHY-E02/");
   if (await page.locator("#phone").count()) await page.getByRole("button", { name: "Email me a code" }).last().click();
   await page.locator("#email").fill(email);

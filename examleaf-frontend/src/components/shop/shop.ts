@@ -231,17 +231,5 @@ export function cancelledMessage(number: string, refund?: string | null) {
   return `Order ${number} is cancelled.${back}`;
 }
 
-/**
- * Before a visitor's first change (a guest cart, a guest's checkout): Django's CSRF cookie, which the API needs as
- * X-CSRFToken with the session cookie; allauth.headless's config answer (200, public) sets it.
- */
-export async function ensureCsrfCookie() {
-  if (typeof document === "undefined" || /(?:^|; )csrftoken=/.test(document.cookie)) return;
-  await fetch(`${process.env.NEXT_PUBLIC_API_BASE ?? ""}/_allauth/browser/v1/config`, {
-    credentials: "same-origin",
-    cache: "no-store",
-  }).catch(() => undefined);
-}
-
 /** The path of an absolute URL the API built (invoice links): links stay on this origin. */
 export const pathOf = (url: string) => url.replace(/^https?:\/\/[^/]+/, "");
