@@ -1,10 +1,13 @@
 "use client";
 
-// The Contact page's form (Django's contact form): name, email address and message, the bot check while the server has
-// one, POST contact/. The server checks everything and its words are shown: a 429 after five an hour, a 503 while the
-// support address is not set up yet (the page offers no form then; a send that meets it says so).
+// The Contact page's form (Django's contact form): name, email address, an order number if there is one, the message,
+// the bot check while the server has one, POST contact/. The server checks everything and its words are shown: a
+// 503 while the support address is not set up yet (the page offers no form then; a send that meets it says so), and
+// over five messages an hour a 429, said with the time to try again (never retried by itself). The API has no order
+// field: an order number goes at the top of the message, where support reads it.
 import { useState } from "react";
 
+import { retryAt, secondsIn } from "@/app/(public)/retry-at";
 import { ErrorSummary } from "@/components/auth/error-summary";
 import { CHECKING, useTurnstile } from "@/components/auth/turnstile";
 import { useConfig } from "@/components/providers/config-provider";
@@ -16,9 +19,16 @@ import { api, ApiError, unwrap } from "@/lib/api/client";
 
 const LABELS = { name: "Your name", email: "Email address", message: "Message", turnstile: "Bot check" };
 
+/** A refusal in words: the 429 says only how many seconds are left. */
+function inWords(error: ApiError): ApiError {
+  if (error.status !== 429) return error;
+  const at = retryAt(secondsIn(error.message));
+  return new ApiError(429, error.code, `That is 5 messages this hour, the most we take. You can try again at ${at}.`);
+}
+
 export function ContactForm() {
   const siteKey = useConfig()?.auth.turnstile_site_key ?? null;
-  const [values, setValues] = useState({ name: "", email: "", message: "", website: "" });
+  const [values, setValues] = useState({ name: "", email: "", order: "", message: "", website: "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
   const bot = useTurnstile(siteKey, error);
@@ -28,14 +38,19 @@ export function ContactForm() {
 
   async function send(event: React.FormEvent) {
     event.preventDefault();
+    if (busy) return;
     setBusy(true);
     setError(null);
     try {
-      const body = { ...values, ...(siteKey ? { turnstile: bot.token } : {}) };
+      const { order, ...fields } = values;
+      const message = order.trim() ? `Order ${order.trim()}\n\n${fields.message}` : fields.message;
+      const body = { ...fields, message, ...(siteKey ? { turnstile: bot.token } : {}) };
       setSent((await unwrap(api.POST("/api/v1/contact/", { body }))).detail);
     } catch (caught) {
       setError(
-        caught instanceof ApiError ? caught : new ApiError(0, "unavailable", "That did not work. Please try again."),
+        caught instanceof ApiError
+          ? inWords(caught)
+          : new ApiError(0, "unavailable", "That did not work. Please try again."),
       );
     } finally {
       setBusy(false);
@@ -49,7 +64,7 @@ export function ContactForm() {
       </Alert>
     );
   return (
-    <form onSubmit={send} className="flex flex-col gap-4" noValidate>
+    <form onSubmit={send} className="flex flex-col gap-[18px]" noValidate>
       <ErrorSummary error={error} labels={LABELS} />
       <Field id="name" label={LABELS.name} required error={error?.fields.name}>
         <Input autoComplete="name" maxLength={80} value={values.name} onChange={edit("name")} />
@@ -57,8 +72,11 @@ export function ContactForm() {
       <Field id="email" label={LABELS.email} required help="We reply to this address." error={error?.fields.email}>
         <Input type="email" autoComplete="email" value={values.email} onChange={edit("email")} />
       </Field>
+      <Field id="order" label="Order number" optional help="Such as EL-2026-000123.">
+        <Input autoComplete="off" maxLength={40} className="font-mono" value={values.order} onChange={edit("order")} />
+      </Field>
       <Field id="message" label={LABELS.message} required help="Up to 2,000 characters." error={error?.fields.message}>
-        <Textarea rows={6} maxLength={2000} value={values.message} onChange={edit("message")} />
+        <Textarea rows={5} maxLength={2000} value={values.message} onChange={edit("message")} />
       </Field>
       {/* the honeypot: people never see it, bots fill it in */}
       <input
@@ -72,7 +90,7 @@ export function ContactForm() {
         onChange={edit("website")}
       />
       {bot.widget}
-      <Button type="submit" size="lg" className="self-start" busy={busy || bot.waiting}>
+      <Button type="submit" size="lg" block busy={busy || bot.waiting}>
         {bot.waiting ? CHECKING : "Send the message"}
       </Button>
     </form>

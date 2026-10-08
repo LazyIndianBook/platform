@@ -1,0 +1,213 @@
+/* The CMS pages (/privacy/ /terms/ /refunds/ /shipping/ /contact/), Direction A (ExamLeaf A - Public.dc.html,
+   "Legal" and "Contact"; Phone legal, Phone contact): the copy in the reading serif with "§" in the margin at each
+   section; "On this page" as a rail from 1100 px, a disclosure below it. The body sits 48 px from the red rule, so
+   the "§" hangs where the Sheet's own margin text starts. */
+.legal-body {
+  --pad: 48px;
+}
+.legal-prose h2 {
+  scroll-margin-top: 16px;
+}
+.legal-prose h2::before {
+  content: "§" / "";
+  color: var(--red-ink);
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+@media (min-width: 900px) {
+  .legal-body {
+    padding-left: var(--pad);
+  }
+  .legal-prose h2 {
+    position: relative;
+  }
+  .legal-prose h2::before {
+    position: absolute;
+    left: calc(var(--gutter) - var(--margin-col) - 3px - var(--pad));
+    font-size: 15px;
+  }
+}
+@media (max-width: 899.98px) {
+  .legal-prose h2::before {
+    margin-right: 8px;
+    font-size: 13px;
+    vertical-align: 0.15em;
+  }
+}
+
+/* the reading pages: the page and its rail */
+@media (min-width: 900px) {
+  .legal-sheet {
+    grid-template-columns: var(--margin-col) minmax(0, 1fr);
+  }
+  .legal-sheet > .sheet-marks {
+    display: none;
+  }
+  .legal-sheet > .sheet-body {
+    padding: 0 0 0 var(--pad);
+  }
+  .legal-main {
+    padding: 56px 48px var(--section) 0;
+  }
+}
+.legal-main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.legal-main > * {
+  margin: 0;
+}
+.legal-main > h1 {
+  margin-bottom: 20px;
+}
+.legal-rail {
+  display: none;
+}
+@media (min-width: 1100px) {
+  .legal-pages,
+  .legal-toc {
+    display: none;
+  }
+  .legal-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+  }
+  .legal-rail {
+    display: block;
+    padding: 56px 32px var(--section);
+    border-left: 1px solid var(--border);
+  }
+  .legal-rail-inner {
+    position: sticky;
+    top: 16px;
+  }
+}
+.legal-rail h2 {
+  margin: 0 0 8px;
+}
+.legal-rail ul {
+  margin: 0 0 28px;
+  padding: 0;
+  list-style: none;
+}
+.legal-rail li a {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--foreground);
+  font-size: 15px;
+  line-height: 1.35;
+  text-decoration: none;
+}
+.legal-rail .legal-others a {
+  border-bottom: 0;
+}
+.legal-rail li a:hover {
+  color: var(--red-ink);
+  text-decoration: underline;
+}
+
+/* phones: the pages to read as a row in the eyebrow's voice, the sections behind a disclosure */
+.legal-pages {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 14px;
+  font: 500 12px/1.4 var(--font-mono);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.legal-pages > * {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+.legal-pages a {
+  color: var(--muted-foreground);
+  text-decoration: none;
+}
+.legal-pages a:hover {
+  color: var(--red-ink);
+  text-decoration: underline;
+}
+.legal-pages [aria-current] {
+  color: var(--foreground);
+  font-weight: 600;
+}
+.legal-toc {
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  background: var(--card);
+}
+.legal-toc > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 0 14px;
+  font-size: 15px;
+  font-weight: 600;
+  list-style: none;
+  cursor: pointer;
+}
+.legal-toc > summary::-webkit-details-marker {
+  display: none;
+}
+.legal-toc > summary::after {
+  content: "+" / "";
+  color: var(--red-ink);
+  font-family: var(--font-mono);
+}
+.legal-toc[open] > summary::after {
+  content: "−" / "";
+}
+.legal-toc ul {
+  margin: 0;
+  padding: 0 14px 6px;
+  list-style: none;
+}
+.legal-toc a {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  border-top: 1px solid var(--border);
+  color: var(--foreground);
+  text-decoration: none;
+}
+
+/* Contact: the contacts and the copy beside the message form */
+.contact-form-card {
+  margin-top: 32px;
+  padding: 32px;
+  border: 1.5px solid var(--foreground);
+  background: var(--card);
+}
+.contact-text {
+  margin-top: 40px;
+}
+@media (min-width: 1100px) {
+  .contact-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    grid-template-rows: auto 1fr;
+    align-items: start;
+    column-gap: 64px;
+  }
+  .contact-grid > .contact-form-card {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    margin-top: 0;
+  }
+  .contact-grid > .contact-text {
+    grid-column: 1;
+    grid-row: 2;
+  }
+}
+@media (max-width: 899.98px) {
+  .contact-form-card {
+    padding: 20px 16px;
+  }
+}

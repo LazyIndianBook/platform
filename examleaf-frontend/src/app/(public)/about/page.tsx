@@ -1,6 +1,9 @@
 // About (Django's about.html): the publisher, what the books are, where the solutions are, how to use a paper.
+// Direction A (ExamLeaf A - Public.dc.html, "About"): a Sheet with "§" in the margin, the copy in the reading serif,
+// and the facts as a ruled list beside it.
 import Link from "next/link";
 
+import { Sheet } from "@/components/ui/band";
 import { getConfig } from "@/lib/api/config";
 import { breadcrumbJsonLd, JsonLd } from "@/lib/seo/json-ld";
 import { pageMetadata } from "@/lib/seo/metadata";
@@ -12,19 +15,32 @@ export const metadata = pageMetadata({
     "About ExamLeaf LLP, publisher of the ExamLeaf Sample Papers books for the Assam Board (ASSEB) Class 12 examination.",
 });
 
+const FACTS = [
+  ["Publisher", "ExamLeaf LLP, published by Bhaben Bhuyan"],
+  ["Books", "Physics, Chemistry, Mathematics, Biology · ASSEB Class 12"],
+  ["In each book", "30 papers: 10 Easy, 10 Medium, 10 Hard"],
+] as const;
+
 export default async function AboutPage() {
   const requireLogin = (await getConfig())?.solutions_require_login ?? true;
   return (
-    <section className="pt-7 pb-(--section)">
-      <div className="container-site">
-        <JsonLd
-          data={breadcrumbJsonLd([
-            { name: "Home", path: "/" },
-            { name: "About", path: "/about/" },
-          ])}
-        />
-        <article className="prose">
-          <h1>About ExamLeaf</h1>
+    <Sheet
+      margin="§"
+      className="max-nav:[&>.sheet-margin]:hidden"
+      bodyClassName="grid grid-cols-[minmax(0,1fr)_340px] items-start gap-16 max-[1100px]:grid-cols-1 max-[1100px]:gap-10 max-nav:pt-6"
+    >
+      <JsonLd
+        data={breadcrumbJsonLd([
+          { name: "Home", path: "/" },
+          { name: "About", path: "/about/" },
+        ])}
+      />
+      <article className="flex max-w-[40em] min-w-0 flex-col gap-[22px] max-nav:gap-4">
+        <h1 className="m-0 text-[clamp(38px,5vw,64px)] leading-none tracking-[-0.025em]">About ExamLeaf</h1>
+        <p className="m-0 font-head text-[clamp(21px,2.4vw,26px)] leading-[1.45] text-ink/85 italic">
+          The book is the exam hall; this site is the answer key.
+        </p>
+        <div className="prose text-[19px] max-nav:text-lg">
           <p>
             The ExamLeaf books are published by <strong>ExamLeaf LLP</strong>. Publisher: <strong>Bhaben Bhuyan</strong>
             . The registered address, the GSTIN and the ways to reach us are on the{" "}
@@ -55,8 +71,26 @@ export default async function AboutPage() {
             The papers are practice papers prepared by ExamLeaf. They are not question papers issued by ASSEB, and ASSEB
             has no connection with this publication.
           </p>
-        </article>
-      </div>
-    </section>
+        </div>
+      </article>
+      <aside aria-label="ExamLeaf in short" className="border-t-[1.5px] border-foreground">
+        <dl className="m-0">
+          {FACTS.map(([term, value]) => (
+            <div key={term} className="flex flex-col gap-1 border-b border-border py-4">
+              <dt className="label-mono text-xs uppercase">{term}</dt>
+              <dd className="m-0 text-[17px]">{value}</dd>
+            </div>
+          ))}
+        </dl>
+        <p className="m-0 flex flex-wrap gap-x-4 font-bold">
+          <Link href="/contact/" className="inline-flex min-h-11 items-center">
+            Contact us
+          </Link>
+          <Link href="/shop/" className="inline-flex min-h-11 items-center">
+            Buy the books
+          </Link>
+        </p>
+      </aside>
+    </Sheet>
   );
 }
