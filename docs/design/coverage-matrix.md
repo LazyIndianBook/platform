@@ -112,6 +112,18 @@ Dead ends, missing states and journeys that lose their context, found by reading
 
 Checked and found sound, so nobody needs to look again: `?next=` survives the QR wall, sign-up with the emailed code, the code log-in, the password log-in, the cart's and the checkout's Log in links, and the re-entry of the password before data export or deletion; a guest's cart joins the account's at log-in; every order state (pending, placed on delivery, paid, delivered, cancelled) renders on `/account/orders/<n>/`, `/orders/t/<token>/` and `/checkout/<n>/done/`; other people's orders, addresses and attempts answer 404; the 400, 403, 404, 429 and 500 pages are the site's own.
 
+### The Answer Script pass (9 October 2026)
+
+What the redesign branch (`design/answer-script`, `docs/design/answer-script-implementation.md`) did about the gaps:
+G2 and G18 (a reset's last page with Log in keeping `next`), G4 (`/account/inactive/` with why and Contact), G5
+(the expired parent's link names the student and links Contact), G6 (the app row with store links or a QR when config
+has them), G8 (empty blocks for a book or a paper with nothing), G9 (busy buttons that send once, everywhere), G10 (a
+filter that matches nothing says so, with Clear), G12 (PIN autofill says found, not found or two states), G13 (the
+subject tabs and kind chips set `?kind=`), G19 (the Find-your-order hint for `/orders/t/` links), G20 (Your papers on
+the order pages), G21 (the export summary before the download), G23 (the reset-done, inactive and Google-outcome
+pages in the site's words), G24 (the log-in page still leads with SMS when it is on, as the artboard draws it). G14
+is drawn honestly as request → checking → verified with no view of students; G16 and G17 stay backend decisions.
+
 ## 3. Coverage matrix
 
 ### 3.1 Site routes

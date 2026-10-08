@@ -5,6 +5,17 @@ commits are in `git log` (phase 4: abffe6f and e5abda5; phase 5 A and B with the
 and E: 4e30e59; the redesign's stage 2 so far: ba0b9dd). Details of each feature are in README.md; the numbers of the
 tests are those of `pytest` at the end of the phase.
 
+## The Answer Script redesign (9 October 2026)
+
+The frontend restyled to "Direction A, Answer Script" (`implementation/design/*.dc.html`; the report with the
+before and after screenshots, the test numbers and what is verified, unverified or blocked is
+`docs/design/answer-script-implementation.md`). Presentation only: no API contract, business rule, permission or
+entitlement changed. Backend: `GET config/` gains `web_course` (new setting `WEB_COURSE`, off by default), which
+switches on the revision course's pages on the website (`/revision/<subject>/<chapter>/`, its flash cards and quiz,
+`/account/learning/revise-again/`, all 404 while off); the HTML frame of every email, the order emails and the
+invoice, bill of supply, credit note and quotation PDFs carry the paper look, with every word, link and figure as
+before (one test assertion follows the code's new colour). 422 backend tests pass (7 skipped); Vitest 89 → 178.
+
 ## Phase 8F review fixes (8 October 2026)
 
 The fixes of the Next.js frontend review (`docs/design/audit-nextjs-security.md`, `-accessibility.md`,
