@@ -90,34 +90,72 @@ export default async function RevisionPage() {
         </p>
       </div>
 
-      <section aria-labelledby="course-title" className="rv-course">
-        <h2 id="course-title" className={asideTitle}>
-          Your course
-        </h2>
-        {!user ? (
-          <LogInToUse path={path} />
-        ) : (
-          <>
-            {entitlements instanceof ApiError ? (
-              refused ? (
-                <Alert variant="warning">
-                  <p>{entitlements.message}</p>
-                </Alert>
+      {/* desktops: the right column; phones: between the course's promise and its chapters */}
+      <div className="rv-aside">
+        <section aria-labelledby="course-title" className="rv-course">
+          <h2 id="course-title" className={asideTitle}>
+            Your course
+          </h2>
+          {!user ? (
+            <LogInToUse path={path} />
+          ) : (
+            <>
+              {entitlements instanceof ApiError ? (
+                refused ? (
+                  <Alert variant="warning">
+                    <p>{entitlements.message}</p>
+                  </Alert>
+                ) : (
+                  <Problem error={entitlements} what="What is open to you" retry={path} />
+                )
+              ) : entitlements?.results.length ? (
+                <EntitlementList entitlements={entitlements.results} today={dateInIndia()} />
               ) : (
-                <Problem error={entitlements} what="What is open to you" retry={path} />
-              )
-            ) : entitlements?.results.length ? (
-              <EntitlementList entitlements={entitlements.results} today={dateInIndia()} />
-            ) : (
-              <p className="m-0 text-[15px]">Nothing is open in your account yet, apart from the free clips.</p>
-            )}
-            {me?.consent_pending ? (
-              <ConsentPending what="you can watch the free clips but not use a book code" contact={me.parent_contact} />
-            ) : null}
-            <RedeemForm disabled={Boolean(me?.consent_pending)} />
-          </>
-        )}
-      </section>
+                <p className="m-0 text-[15px]">Nothing is open in your account yet, apart from the free clips.</p>
+              )}
+              {me?.consent_pending ? (
+                <ConsentPending
+                  what="you can watch the free clips but not use a book code"
+                  contact={me.parent_contact}
+                />
+              ) : null}
+              <RedeemForm disabled={Boolean(me?.consent_pending)} />
+            </>
+          )}
+        </section>
+        <section id="plan" aria-labelledby="plan-title" className="rv-plan scroll-mt-4">
+          <h2 id="plan-title" className={asideTitle}>
+            Plan to your exam
+          </h2>
+          <p className="m-0 text-[15px] leading-normal text-ink/85">
+            The clips you have not watched, day by day, the chapters worth the most marks first.
+          </p>
+          {user && !refused ? (
+            <>
+              <PlanPreview
+                examDate={learner?.exam_date ?? null}
+                minutesPerDay={learner?.minutes_per_day ?? 30}
+                subjects={subjects.map((subject) => ({ id: subject.id, name: subject.name }))}
+              />
+              <Link href="/account/learning/" className={goLink}>
+                See your plan in Learning →
+              </Link>
+            </>
+          ) : user ? null : (
+            <Link href={withNext("/account/login/", path)} className={goLink}>
+              Log in to plan your days →
+            </Link>
+          )}
+        </section>
+
+        <section id="app" aria-labelledby="app-title" className="rv-app scroll-mt-4">
+          <h2 id="app-title" className={asideTitle}>
+            Get the app
+          </h2>
+          <p className="m-0 text-[15px] text-ink/85">Log in there with the same email address as on this site.</p>
+          <AppLinks links={config?.app_links} qr />
+        </section>
+      </div>
 
       <div className="rv-chapters flex flex-col gap-4 [&>h2]:m-0 [&>p]:m-0">
         <h2 id="chapters" className="scroll-mt-4 text-[30px] leading-[1.15] max-nav:text-2xl">
@@ -229,40 +267,6 @@ export default async function RevisionPage() {
           <Link href="/shop/">shop</Link>, opens the whole subject for a year.
         </p>
       </div>
-
-      <section id="plan" aria-labelledby="plan-title" className="rv-plan scroll-mt-4">
-        <h2 id="plan-title" className={asideTitle}>
-          Plan to your exam
-        </h2>
-        <p className="m-0 text-[15px] leading-normal text-ink/85">
-          The clips you have not watched, day by day, the chapters worth the most marks first.
-        </p>
-        {user && !refused ? (
-          <>
-            <PlanPreview
-              examDate={learner?.exam_date ?? null}
-              minutesPerDay={learner?.minutes_per_day ?? 30}
-              subjects={subjects.map((subject) => ({ id: subject.id, name: subject.name }))}
-            />
-            <Link href="/account/learning/" className={goLink}>
-              See your plan in Learning →
-            </Link>
-          </>
-        ) : user ? null : (
-          <Link href={withNext("/account/login/", path)} className={goLink}>
-            Log in to plan your days →
-          </Link>
-        )}
-      </section>
-
-      <section id="app" aria-labelledby="app-title" className="rv-app scroll-mt-4">
-        <h2 id="app-title" className={asideTitle}>
-          Get the app
-        </h2>
-        <p className="m-0 text-[15px] text-ink/85">Log in there with the same email address as on this site.</p>
-        <AppLinks links={config?.app_links} qr />
-      </section>
-      <div className="rv-rest" aria-hidden="true" />
     </div>
   );
 }
