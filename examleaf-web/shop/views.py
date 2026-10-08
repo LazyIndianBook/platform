@@ -1,3 +1,4 @@
+import hashlib
 from functools import wraps
 
 from axes.helpers import get_client_ip_address
@@ -45,24 +46,39 @@ def allow_razorpay(response):
     return response
 
 
-def rate_limit(scope, limit, seconds):
-    """At most `limit` POSTs per client address in `seconds`, counted in Django's cache (Redis in production)."""
+def hits(scope, who, seconds):
+    """One more request of `who` (a client address, a hash) in `scope`, counted for `seconds` in Django's cache (Redis
+    in production). Returns the count, or None when it cannot be read (Redis down)."""
+    key = f"shop:rate:{scope}:{who}"
+    cache.add(key, 0, seconds)
+    try:
+        return cache.incr(key)
+    except ValueError:  # expired between add and incr
+        cache.set(key, 1, seconds)
+        return 1
+
+
+def too_many(request, seconds):
+    response = render(request, "429.html", status=429)
+    response["Retry-After"] = str(seconds)
+    return response
+
+
+def over_limit(request, scope, limit, seconds, while_down=False):
+    """Counts the request for its client address: True over `limit` in `seconds`, and while the count cannot be read
+    (Redis down), so the limit never just stops, unless `while_down` (Razorpay's webhooks must go on)."""
+    count = hits(scope, get_client_ip_address(request), seconds)
+    return (count is None and not while_down) or (count or 0) > limit
+
+
+def rate_limit(scope, limit, seconds, while_down=False):
+    """At most `limit` POSTs per client address in `seconds` (over_limit)."""
 
     def decorator(view):
         @wraps(view)
         def wrapped(request, *args, **kwargs):
-            if request.method == "POST":
-                key = f"shop:rate:{scope}:{get_client_ip_address(request)}"
-                cache.add(key, 0, seconds)
-                try:
-                    count = cache.incr(key)
-                except ValueError:  # expired between add and incr
-                    count = 1
-                    cache.set(key, count, seconds)
-                if (count or 0) > limit:  # None: the cache (Redis) is down; let the request through
-                    response = render(request, "429.html", status=429)
-                    response["Retry-After"] = str(seconds)
-                    return response
+            if request.method == "POST" and over_limit(request, scope, limit, seconds, while_down):
+                return too_many(request, seconds)
             return view(request, *args, **kwargs)
 
         return wrapped
@@ -70,12 +86,45 @@ def rate_limit(scope, limit, seconds):
     return decorator
 
 
+LOOKUPS_AN_HOUR = 10
+
+
+def lookup_allowed(number, email):
+    """Guests' order lookup (website and API), besides the limit per client address: at most LOOKUPS_AN_HOUR per email
+    address and per order number, whatever address they come from; none while the counts cannot be read."""
+    counts = [
+        hits(f"lookup-{kind}", hashlib.sha256(value.lower().encode()).hexdigest(), 3600)  # no email in the cache
+        for kind, value in (("email", email), ("number", number))
+    ]
+    return all(count is not None and count <= LOOKUPS_AN_HOUR for count in counts)
+
+
+def shop_is_open(request):
+    return settings.SHOP_OPEN or request.user.is_staff
+
+
+def shop_open(view):
+    """While SHOP_OPEN is off only staff reach the cart, checkout and payment; others land on the catalogue, which
+    says "Shop opens soon" (Razorpay's review on test keys: nobody else may "buy" with a test card)."""
+
+    @wraps(view)
+    def wrapped(request, *args, **kwargs):
+        if not shop_is_open(request):
+            return redirect("shop:catalogue")
+        return view(request, *args, **kwargs)
+
+    return wrapped
+
+
 def grant(request, order):
     request.session[ORDERS_KEY] = [*request.session.get(ORDERS_KEY, [])[-19:], order.number]
 
 
-def visible_order(request, number):
-    """The order, if this visitor may see it: their account's, or placed or looked up in this browser session."""
+def visible_order(request, number=None, token=None):
+    """The order, if this visitor may see it: by the link in its emails (`token`), or their account's, or placed in
+    this browser session."""
+    if token:
+        return get_object_or_404(Order, token=token)
     order = get_object_or_404(Order, number=number)
     mine = request.user.is_authenticated and order.user_id == request.user.pk
     if not mine and number not in request.session.get(ORDERS_KEY, []):
@@ -94,6 +143,9 @@ class CatalogueView(ListView):
     template_name = "shop/catalogue.html"
     queryset = Product.objects.filter(is_active=True).select_related("subject__board", "subject__class_level")
 
+    def get_context_data(self, **kwargs):
+        return {**super().get_context_data(**kwargs), "shop_open": shop_is_open(self.request)}
+
 
 class ProductView(DetailView):
     template_name = "shop/product.html"
@@ -101,6 +153,7 @@ class ProductView(DetailView):
 
     def get_context_data(self, **kwargs):
         product, context = self.object, super().get_context_data(**kwargs)
+        context["shop_open"] = shop_is_open(self.request)
         if product.book:
             papers = list(product.book.papers.filter(is_published=True))  # by code: E01 first
             context["tiers"] = [(label, sum(p.tier == tier for p in papers)) for tier, label in Paper.Tier.choices]
@@ -122,6 +175,7 @@ def product_media(request, name):
 
 
 @require_POST
+@shop_open
 def cart_add(request, product_id):
     product = get_object_or_404(Product, pk=product_id, is_active=True)
     if product.available < 1:
@@ -139,6 +193,7 @@ def cart_add(request, product_id):
 
 
 @never_cache
+@shop_open
 def cart_view(request):
     cart = get_cart(request)
     user = request.user if request.user.is_authenticated else None
@@ -157,13 +212,10 @@ def cart_view(request):
             cart.save(update_fields=["coupon", "modified"])
         elif action == "coupon" and coupon_form.is_valid():
             coupon = Coupon.objects.filter(code__iexact=coupon_form.cleaned_data["code"].strip()).first()
-            problem = (
-                coupon.problem(totals(cart).subtotal, user=user, email=user.email if user else "")
-                if coupon
-                else "This coupon code is not valid."
-            )
-            if problem:
-                messages.error(request, problem)
+            if over_limit(request, "coupon", 10, 3600):  # codes are not guessed
+                messages.error(request, "Too many codes tried: please try again in an hour.")
+            elif coupon is None or coupon.problem(totals(cart).subtotal, user=user, email=user.email if user else ""):
+                messages.error(request, services.COUPON_REFUSED)  # the same for every reason: nothing to learn
             else:
                 cart.coupon = coupon
                 cart.save(update_fields=["coupon", "modified"])
@@ -175,11 +227,16 @@ def cart_view(request):
 
 
 @never_cache
+@shop_open
+@rate_limit("checkout", 10, 600)  # orders hold stock (cash on delivery) and send emails
 def checkout(request):
     cart = get_cart(request)
     if cart is None or not cart.items.exists():
         messages.info(request, "Your cart is empty.")
         return redirect("shop:cart")
+    if request.user.is_authenticated and request.user.consent_pending:
+        messages.error(request, "Your parent or guardian has not confirmed your account yet: see My account.")
+        return redirect("account")
     user = request.user if request.user.is_authenticated else None
     form = CheckoutForm(request.POST or None, user=user)
     address_form = AddressForm(request.POST or None)
@@ -216,6 +273,8 @@ def checkout(request):
 
 
 @never_cache
+@shop_open
+@rate_limit("place", 10, 600)  # "place order" (cash on delivery)
 def pay(request, number):
     """Review and pay: Razorpay Checkout for online payment, or "place order" for cash on delivery."""
     order = visible_order(request, number)
@@ -241,6 +300,7 @@ def pay(request, number):
 
 
 @require_POST
+@shop_open
 def pay_verify(request, number):
     """Checkout's success handler posts here (the hidden form on the payment page)."""
     order = visible_order(request, number)
@@ -259,11 +319,13 @@ def pay_verify(request, number):
 
 
 @never_cache
-def order_detail(request, number, thanks=False):
-    order = visible_order(request, number)
+def order_detail(request, number=None, thanks=False, token=None):
+    """The order's page; by the link in its emails (`token`) it shows the order without paying, and its own links."""
+    order = visible_order(request, number, token)
     invoice = getattr(order, "invoice", None)
     context = {
         "order": order,
+        "token": token,
         "thanks": thanks,
         "items": order.items.all(),
         "shipments": order.shipments.all(),
@@ -285,16 +347,18 @@ class OrderListView(ListView):
 
 
 @require_POST
-def order_cancel(request, number):
-    order = visible_order(request, number)
+def order_cancel(request, number=None, token=None):
+    """Pending or paid orders only (can_cancel): once packed the Refund Policy applies."""
+    order = visible_order(request, number, token)
+    back = order.get_link_url() if token else order.get_absolute_url()
     if not order.can_cancel:
         messages.error(request, "This order can no longer be cancelled; see the Refund Policy.")
-        return redirect(order)
+        return redirect(back)
     try:
         order = services.cancel_order(order, "Cancelled by the customer.")
     except TransitionNotAllowed:  # changed meanwhile (e.g. packed by staff)
         messages.error(request, "This order can no longer be cancelled; see the Refund Policy.")
-        return redirect(order)
+        return redirect(back)
     refund = order.refunds.first()
     messages.success(
         request,
@@ -305,7 +369,7 @@ def order_cancel(request, number):
             else ""
         ),
     )
-    return redirect(order)
+    return redirect(back)
 
 
 def pdf_response(document):
@@ -317,34 +381,35 @@ def pdf_response(document):
 
 
 @never_cache
-def invoice_pdf(request, number, note=None):
+def invoice_pdf(request, number=None, note=None, token=None):
     """The invoice, or with `note` a credit note, of an order the visitor may see (or staff who may view them)."""
-    if request.user.has_perm("shop.view_creditnote" if note else "shop.view_invoice"):
+    if not token and request.user.has_perm("shop.view_creditnote" if note else "shop.view_invoice"):
         order = get_object_or_404(Order, number=number)
     else:
-        order = visible_order(request, number)
+        order = visible_order(request, number, token)
     if note:
         return pdf_response(CreditNote.objects.filter(invoice__order=order, pk=note).first())
     return pdf_response(getattr(order, "invoice", None))
 
 
 @never_cache
-@rate_limit("lookup", 10, 600)
+@rate_limit("lookup", LOOKUPS_AN_HOUR, 3600)
 def lookup(request):
-    """Guests find an order by its number and the email address used for it."""
+    """Guests ask for their order's link by its number and the email address used for it. The link goes to that
+    address, never to this browser, and the answer is the same whether an order matched or not."""
     form = LookupForm(request.POST or None)
     if form.is_valid():
         number, email = form.cleaned_data["number"].strip().upper(), form.cleaned_data["email"]
-        if order := Order.objects.filter(number=number, email__iexact=email).first():
-            grant(request, order)
-            return redirect(order)
-        form.add_error(None, "No order has this number and email address.")
+        if not lookup_allowed(number, email):
+            return too_many(request, 3600)
+        services.email_order_link(number, email)
+        return render(request, "shop/lookup.html", {"form": LookupForm(), "sent": services.LINK_SENT})
     return render(request, "shop/lookup.html", {"form": form})
 
 
 @csrf_exempt  # signed by Razorpay instead (X-Razorpay-Signature)
 @require_POST
-@rate_limit("webhook", 300, 60)
+@rate_limit("webhook", 300, 60, while_down=True)
 def razorpay_webhook(request):
     headers = request.headers
     if payments.handle_webhook(

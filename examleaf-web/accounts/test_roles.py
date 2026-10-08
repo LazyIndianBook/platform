@@ -43,7 +43,11 @@ def test_each_role_has_its_permissions_and_nothing_more():
 def test_admin_gets_every_permission_once_bootstrap_roles_has_run():
     # The migration can only give the permissions of the apps migrated before it; deploys run bootstrap_roles.
     call_command("bootstrap_roles", stdout=open("/dev/null", "w"))
-    assert Group.objects.get(name=roles.ADMIN).permissions.count() == Permission.objects.count()
+    superusers_only = Permission.objects.filter(content_type__app_label__in=roles.SUPERUSER_ONLY).exclude(
+        codename__startswith="view_"
+    )
+    expected = Permission.objects.count() - superusers_only.count()
+    assert Group.objects.get(name=roles.ADMIN).permissions.count() == expected
 
 
 def test_bootstrap_roles_is_idempotent_and_undoes_changes_made_elsewhere():

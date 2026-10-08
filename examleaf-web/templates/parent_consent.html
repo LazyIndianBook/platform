@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block head_title %}A parent's consent{% endblock %}
+{% block meta_description %}A parent or guardian confirms the ExamLeaf account of a student under 18.{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+<h1>A parent's consent</h1>
+{% if expired %}
+<p>This link has expired or is not valid any more. Your child can send a new one from their ExamLeaf account page
+(My account).</p>
+{% elif done %}
+<p>Thank you. {{ student.full_name }}'s account is confirmed: they can now save their marks and order books.</p>
+{% else %}
+<p><strong>{{ student.full_name }}</strong> ({{ student.email }}) has registered at ExamLeaf and gave your email address
+as their parent's or guardian's. ExamLeaf keeps their name, email address, class, board, district and date of birth,
+and the marks they save, so that they can use the free solutions of the ExamLeaf sample papers.</p>
+<p><a href="{% url 'privacy' %}" target="_blank" rel="noopener">Read the privacy notice</a>: what we keep, why, for how
+long, and how you can see, correct or delete it.</p>
+<form method="post">
+  {% csrf_token %}
+  <button type="submit">I am their parent or guardian, and I agree</button>
+</form>
+<p>If you do not agree, you need not do anything: the account cannot save marks or order books. To have it deleted,
+<a href="{% url 'contact' %}">write to us</a>.</p>
+{% endif %}
+{% endblock %}

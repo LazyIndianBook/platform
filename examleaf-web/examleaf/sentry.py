@@ -1,7 +1,8 @@
 """What an error report may carry to Sentry. send_default_pii=False (settings.py) keeps out cookies, the user and the
-client address; `before_send` then goes through the whole event (request body, query and headers, the local variables
-of every stack frame, breadcrumbs, extra) and replaces the values of secret or personal fields, and card numbers,
-Indian mobile numbers and email addresses inside any text, with "[Filtered]"."""
+client address, and include_local_variables=False the variables of the stack frames; `before_send` then goes through
+the whole event (request body, query and headers, breadcrumbs, extra) and replaces the values of secret or personal
+fields, and card numbers, Indian mobile numbers and email addresses inside any text, with "[Filtered]". An email's
+text ("body", "alternatives") and log messages ("message") are filtered whole: they can hold reset links and codes."""
 
 import re
 
@@ -9,7 +10,7 @@ FILTERED = "[Filtered]"
 KEYS = {  # field names, lower case, "-" read as "_" (headers)
     *["password", "password1", "password2", "new_password1", "new_password2", "old_password"],
     *["code", "verification_token", "refresh", "access", "token", "key", "authorization", "cookie"],
-    *["razorpay_signature", "x_razorpay_signature", "secret"],
+    *["razorpay_signature", "x_razorpay_signature", "secret", "body", "alternatives", "message"],
     *["email", "full_name", "parent_name", "date_of_birth", "shipping_address", "line1", "line2", "pin", "vpa"],
 }
 KEY_PARTS = ("card", "cvv", "phone", "mobile", "contact", "password", "secret")  # card_number, parent_contact, …

@@ -4,10 +4,11 @@
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
 {% block content %}
 <h1>Find your order</h1>
-<p>Ordered without an account? Type the order number from the confirmation email and the email address you used.</p>
+{% if sent %}<p class="notice-line">{{ sent }}</p>{% endif %}
+<p>Ordered without an account? Every email about your order has a link to it. Lost them? Type the order number and the email address you used: we email the link to that address.</p>
 <form method="post" class="narrow">{% csrf_token %}
   {{ form }}
-  <button type="submit">Show the order</button>
+  <button type="submit">Email me the link</button>
 </form>
 {% if user.is_authenticated %}<p>Orders placed while logged in are in <a href="{% url 'shop:orders' %}">My orders</a>.</p>{% endif %}
 {% endblock %}

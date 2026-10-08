@@ -1,3 +1,4 @@
+from allauth.account.utils import has_verified_email
 from django import forms
 from django.conf import settings
 from localflavor.in_.forms import INZipCodeField
@@ -64,8 +65,11 @@ class CheckoutForm(forms.Form):
                 del self.fields["saved_address"]
         else:
             del self.fields["saved_address"], self.fields["save_address"]
-        methods = [Order.Method.RAZORPAY, *([Order.Method.COD] if settings.SHOP_COD_ENABLED else [])]
+        cod = settings.SHOP_COD_ENABLED and user is not None and has_verified_email(user)
+        methods = [Order.Method.RAZORPAY, *([Order.Method.COD] if cod else [])]
         self.fields["payment_method"].choices = [(m.value, m.label[0].upper() + m.label[1:]) for m in methods]
+        if settings.SHOP_COD_ENABLED and not cod:
+            self.fields["payment_method"].help_text = "Cash on delivery: log in with a confirmed email address."
 
 
 class CouponForm(forms.Form):

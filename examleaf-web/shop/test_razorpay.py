@@ -52,7 +52,7 @@ def test_return_with_a_good_signature_pays_the_order_once(client, rzp, commit):
         assert post_webhook(client, "order.paid", captured(order)).status_code == 200
     product.refresh_from_db()
     assert product.stock == 3 and len(mail.outbox) == 1
-    assert order.payments.get().raw_payload["event"] == "order.paid"
+    assert order.payments.get().raw_payload == captured(order)  # the webhook's payment, allowed fields only
 
 
 def test_a_wrong_signature_is_refused(client, rzp):
@@ -68,7 +68,7 @@ def test_a_wrong_signature_is_refused(client, rzp):
 def test_webhooks_need_the_right_signature_and_a_secret(client, rzp, settings):
     order = make_order((ProductFactory(), 1))
     assert post_webhook(client, "payment.captured", captured(order), secret="guess").status_code == 400
-    settings.RAZORPAY_WEBHOOK_SECRET = ""
+    settings.RAZORPAY_WEBHOOK_SECRET_TEST = ""  # the test keys' webhook secret
     assert post_webhook(client, "payment.captured", captured(order), secret="").status_code == 400
     order.refresh_from_db()
     assert order.status == Order.Status.PENDING
@@ -230,5 +230,4 @@ def test_each_webhook_is_handled_once_and_old_ones_are_refused(client, rzp, comm
         ("evt_2", "order.paid"),
     ]
     order.refresh_from_db()
-    assert order.status == Order.Status.PAID and len(mail.outbox) == 1
-    assert order.payments.get().raw_payload["event"] == "order.paid"  # the repeats were not handled again
+    assert order.status == Order.Status.PAID and len(mail.outbox) == 1  # the repeats were not handled again

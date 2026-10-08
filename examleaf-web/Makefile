@@ -6,8 +6,8 @@ PY := .venv/bin/python
 help: ## list the tasks
 	@grep -E '^[a-z-]+:.*## ' Makefile | sed 's/:.*## /\t/'
 
-install: ## create .venv and install the pinned requirements
-	python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+install: ## create .venv and install the pinned requirements, with the test and lint tools
+	python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 
 run: ## development server, http://localhost:8000 (admin at /admin/)
 	$(PY) manage.py runserver

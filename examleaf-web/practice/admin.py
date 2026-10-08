@@ -1,6 +1,7 @@
 from django.contrib import admin
 from import_export import resources
-from import_export.admin import ExportMixin
+
+from ops.admin import LoggedExportMixin
 
 from .models import AnswerSheetUpload, Attempt
 
@@ -22,7 +23,7 @@ class AttemptResource(resources.ModelResource):  # CSV export
 
 
 @admin.register(Attempt)
-class AttemptAdmin(ExportMixin, admin.ModelAdmin):
+class AttemptAdmin(LoggedExportMixin, admin.ModelAdmin):
     resource_classes = [AttemptResource]
     list_display = ["user", "paper", "date", "marks_obtained", "time_taken_minutes"]
     list_filter = ["paper__book__subject", "paper__tier", "date"]

@@ -1,11 +1,14 @@
-# ExamLeaf web — every library pinned. Purposes are listed in README.md.
+# ExamLeaf web — every library the site runs on, pinned (the Docker image installs this file). Purposes are listed
+# in README.md. Tests, lint and the debug toolbar: requirements-dev.txt.
 Django==6.1.2
 django-environ==0.14.0
 whitenoise==6.12.0
 gunicorn==26.2.0
 psycopg[binary]==3.3.6
 django-allauth==65.19.7
+fido2==2.2.1  # allauth.mfa imports it (allauth's "mfa" extra); its other one, qrcode, is replaced by segno
 django-axes[ipware]==8.3.1
+pwned-passwords-django==5.2.0
 django-anymail==15.2
 django-model-utils==5.0.0
 django-simple-history==3.13.0
@@ -16,7 +19,6 @@ django-import-export==4.4.1
 django-filter==26.2
 django-qr-code==5.0.0
 django-storages[s3]==1.14.6
-django-debug-toolbar==8.0.0
 markdown-it-py==4.2.0
 pillow==12.3.0
 celery==5.6.3
@@ -32,16 +34,10 @@ django-guid==3.6.1
 django-health-check==4.8.0
 django-admin-interface==0.32.0
 
-# development and CI (tests, coverage, lint)
-pytest==9.1.1
-pytest-django==4.14.0
-pytest-cov==7.1.0
-factory_boy==3.3.3
-ruff==0.16.10
-
 # indirect dependencies, pinned for reproducible installs
 amqp==5.4.1
 annotated-types==0.8.0
+anyio==4.15.1
 asgiref==3.12.1
 billiard==4.3.1
 boto3==1.43.109
@@ -52,27 +48,26 @@ click==8.5.0
 click-didyoumean==0.3.1
 click-plugins==1.1.1.2
 click-repl==0.4.1
-coverage==7.16.2
+cryptography==50.0.2
 cron_descriptor==2.1.1
 diff-match-patch==20241021
 django-colorfield==0.14.0
 django-ipware==8.0.0
 django-timezone-field==7.2.2
 dnspython==2.8.0
-Faker==40.41.0
+h11==0.16.0
+httpcore==1.0.9
+httpx==0.28.1
 idna==3.20
-iniconfig==2.3.1
 jmespath==1.1.0
 kombu==5.6.2
 mdurl==0.1.2
 packaging==26.3
 phonenumberslite==9.0.40
-pluggy==1.6.0
 prompt_toolkit==3.0.53
 psycopg-binary==3.3.6
 pydantic==2.13.5
 pydantic_core==2.46.5
-Pygments==2.21.0
 python-crontab==3.4.0
 python-dateutil==2.9.0.post0
 python-ipware==4.1.1

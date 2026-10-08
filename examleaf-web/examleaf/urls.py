@@ -1,12 +1,12 @@
 from datetime import timedelta
 
+from allauth.account.decorators import secure_admin_login
 from django.conf import settings
 from django.contrib import admin
 from django.contrib.sitemaps import Sitemap
 from django.contrib.sitemaps.views import sitemap
 from django.urls import include, path, reverse
 from django.views.generic import RedirectView, TemplateView
-from health_check.views import HealthCheckView
 
 from accounts import views as accounts
 from content import views as content
@@ -16,7 +16,7 @@ from pages.views import PageView
 from practice import views as practice
 from shop.models import Product
 
-from .views import RobotsView
+from .views import HealthView, RobotsView
 
 
 class PageSitemap(Sitemap):
@@ -30,6 +30,8 @@ class PageSitemap(Sitemap):
 # /health/web/: what the web container needs (database, cache, file storage); docker-compose.yml's health check.
 # /health/: that plus the Celery workers when a broker is in use (with eager tasks there is no worker to ask); for an
 # uptime monitor. The container check leaves Celery out: the worker starts only once the web container is healthy.
+# From the internet Caddy answers 404 to both unless the X-Health-Token header matches (Caddyfile); results are kept
+# for 20 seconds (examleaf.views.HealthView).
 WEB_CHECKS = ["health_check.checks.Database", "health_check.checks.Cache", "health_check.checks.Storage"]
 
 
@@ -54,6 +56,9 @@ class ProductSitemap(Sitemap):
         return Product.objects.filter(is_active=True).order_by("id")
 
 
+# The admin's login is allauth's (H2): its per-account limit, email confirmation and the second factor apply.
+admin.site.login = secure_admin_login(admin.site.login)
+
 handler400 = "examleaf.views.bad_request"  # self-contained pages, and JSON under /api/
 handler500 = "examleaf.views.server_error"  # 403, 404 and CSRF failures use templates/403.html, 404.html, 403_csrf.html
 
@@ -71,6 +76,8 @@ urlpatterns = [
     path("account/data/", accounts.data_export, name="data_export"),
     path("account/delete/", accounts.delete_account, name="account_delete"),
     path("account/delete/cancel/", accounts.cancel_deletion, name="account_delete_cancel"),
+    path("account/parent-consent/", accounts.parent_consent_resend, name="parent_consent_resend"),
+    path("consent/<str:token>/", accounts.parent_consent, name="parent_consent"),  # the link emailed to a parent
     path("", include("shop.urls")),  # /shop/, /cart/, /checkout/, /account/orders/, /orders/lookup/ (shop/urls.py)
     path("account/", include("allauth.urls")),
     *[path(f"{slug}/", PageView.as_view(), {"slug": slug}, name=slug) for slug in PAGES],  # /privacy/, /terms/, …
@@ -78,8 +85,8 @@ urlpatterns = [
     path("robots.txt", RobotsView.as_view()),
     path("favicon.ico", RedirectView.as_view(url=settings.STATIC_URL + "img/favicon-32.png", permanent=True)),
     path("sitemap.xml", sitemap, {"sitemaps": {"pages": PageSitemap, "books": BookSitemap, "shop": ProductSitemap}}),
-    path("health/", HealthCheckView.as_view(checks=ALL_CHECKS), name="health"),
-    path("health/web/", HealthCheckView.as_view(checks=WEB_CHECKS), name="health_web"),
+    path("health/", HealthView.as_view(checks=ALL_CHECKS), name="health"),
+    path("health/web/", HealthView.as_view(checks=WEB_CHECKS), name="health_web"),
     path("api/", include("examleaf.api_urls")),  # REST API: api/, examleaf/api_urls.py
     path("admin/", admin.site.urls),
 ]

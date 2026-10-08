@@ -1,4 +1,5 @@
 import factory
+from allauth.mfa.totp.internal.auth import TOTP, generate_totp_secret
 
 from .models import User
 
@@ -14,3 +15,9 @@ class UserFactory(factory.django.DjangoModelFactory):
     full_name = factory.Faker("name", locale="en_IN")
     password = factory.django.Password(PASSWORD)
     class_level = 12
+
+    @factory.post_generation
+    def totp(user, create, extracted, **kwargs):
+        """Staff have an authenticator app, as the site requires (StaffMFAMiddleware); totp=False: one without."""
+        if create and user.is_staff and extracted is not False:
+            TOTP.activate(user, generate_totp_secret())

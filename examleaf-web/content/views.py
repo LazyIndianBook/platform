@@ -2,7 +2,7 @@ from django.conf import settings
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.utils.cache import patch_cache_control
-from django.views.decorators.cache import cache_control
+from django.views.decorators.cache import cache_page
 from django.views.generic import DetailView, ListView
 
 from practice.forms import AttemptForm
@@ -69,8 +69,8 @@ class PaperView(DetailView):
         return context
 
 
-@cache_control(max_age=86400)
+@cache_page(86400)  # a day, in the cache and in browsers: it never changes, and drawing it costs a little each time
 def qr_png(request, code):
-    """/qr/<code>.png: the QR code printed on the paper, for the printing side."""
-    paper = get_object_or_404(Paper, code__iexact=code)
+    """/qr/<code>.png: the QR code printed on the paper, for the printing side; published papers only (I3)."""
+    paper = get_object_or_404(Paper, code__iexact=code, is_published=True)
     return HttpResponse(paper.qr_image("png"), content_type="image/png")

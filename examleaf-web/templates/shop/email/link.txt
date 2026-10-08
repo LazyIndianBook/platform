@@ -1,0 +1,8 @@
+{% autoescape off %}Here is the link to your order {{ order.number }}, as asked on our website:
+
+{{ site_url }}{{ order.get_link_url }}
+
+It shows the order, its delivery and its invoice without an account. Keep it to yourself. If you did not ask for it,
+you can ignore this email: nothing has changed.
+
+ExamLeaf{% endautoescape %}

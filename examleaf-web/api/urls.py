@@ -3,11 +3,8 @@
 from dj_rest_auth import views as rest_auth
 from dj_rest_auth.jwt_auth import get_refresh_view
 from django.urls import path
-from health_check.views import HealthCheckView
 from rest_framework.routers import SimpleRouter
 from rest_framework_simplejwt.views import TokenVerifyView
-
-from examleaf.urls import ALL_CHECKS  # /health/'s checks (examleaf.urls is loaded first: it includes this file)
 
 from . import auth, shop, views
 
@@ -44,7 +41,6 @@ urlpatterns = [
     path("me/export/", views.DataExportView.as_view(), name="me-export"),
     path("me/deletion/", views.DeletionView.as_view(), name="me-deletion"),
     path("qr/<str:code>/", views.QrView.as_view(), name="qr"),
-    path("health/", HealthCheckView.as_view(checks=ALL_CHECKS), name="health"),
     path("cart/", cart({"get": "retrieve"}), name="cart"),
     path("cart/items/", cart({"post": "add"}), name="cart-items"),
     path("cart/items/<slug:product>/", cart(CART_LINE), name="cart-line"),

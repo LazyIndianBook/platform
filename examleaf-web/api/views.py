@@ -1,11 +1,14 @@
 """REST API v1: the public catalogue (cached), the solutions (signed in, email confirmed), the student's attempts, and
 the DPDP self-service of the profile (Download my data, Delete my account) with the website's own functions."""
 
+from functools import wraps
+
 import django_filters
 from allauth.account.utils import has_verified_email
 from django.conf import settings
 from django.core.exceptions import RequestDataTooBig
 from django.db.models import Prefetch
+from django.http import QueryDict
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 from drf_spectacular.types import OpenApiTypes
@@ -21,6 +24,7 @@ from content.views import cache_solutions
 from practice.forms import AttemptFilter
 from practice.models import Attempt
 
+from .auth import check_password
 from .serializers import (
     AttemptSerializer,
     BoardSerializer,
@@ -60,10 +64,33 @@ class CanReadSolutions(VerifiedEmail):
         return not settings.SOLUTIONS_REQUIRE_LOGIN or super().has_permission(request, view)
 
 
+def canonical_query(known):
+    """Keep only the query parameters in `known`, sorted, before cache_page makes its key from the address: `?x=1` …
+    `?x=n` then share the canonical address's entry instead of filling the cache with copies (L8)."""
+
+    def decorator(view):
+        @wraps(view)
+        def wrapped(request, *args, **kwargs):
+            django_request = request._request  # DRF's request wraps Django's
+            query = QueryDict(mutable=True)
+            for name in sorted(set(django_request.GET) & known):
+                query.setlist(name, django_request.GET.getlist(name))
+            django_request.GET, django_request.META["QUERY_STRING"] = query, query.urlencode()
+            return view(request, *args, **kwargs)
+
+        return wrapped
+
+    return decorator
+
+
 def cached(viewset):
-    """The catalogue is the same for everybody: list and detail pages are kept in the cache (Redis in production)."""
+    """The catalogue is the same for everybody: list and detail pages are kept in the cache (Redis in production),
+    one entry per address made of the parameters the viewset reads (pages, search, ordering, its filters)."""
+    filterset = getattr(viewset, "filterset_class", None)
+    filters = filterset.base_filters if filterset else getattr(viewset, "filterset_fields", [])
+    known = {"page", "page_size", "search", "ordering", "format", *filters}
     for name in ("list", "retrieve"):
-        viewset = method_decorator(cache_page(PUBLIC_CACHE), name=name)(viewset)
+        viewset = method_decorator([canonical_query(known), cache_page(PUBLIC_CACHE)], name=name)(viewset)
     return viewset
 
 
@@ -72,6 +99,7 @@ class BoardViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [permissions.AllowAny]
     queryset = Board.objects.order_by("id")
     serializer_class = BoardSerializer
+    ordering_fields = ["id", "name"]  # only these (I4): DRF would otherwise take any of the serializer's fields
 
 
 @cached
@@ -80,6 +108,7 @@ class SubjectViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Subject.objects.select_related("board", "class_level").order_by("id")
     serializer_class = SubjectSerializer
     filterset_fields = ["board"]
+    ordering_fields = ["id", "name"]
 
 
 @cached
@@ -161,8 +190,7 @@ class PasswordSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True, style={"input_type": "password"})
 
     def validate_password(self, value):
-        if not self.context["request"].user.check_password(value):
-            raise serializers.ValidationError("Incorrect password.")
+        check_password(self.context["request"], value)  # counted: 429 after five wrong ones in an hour (L6)
         return value
 
 

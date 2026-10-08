@@ -8,6 +8,14 @@
 		max_size 10MB
 	}
 	header -Server
+	# /health/ and /health/web/ answer only the uptime monitor, which sends the header X-Health-Token with the value of
+	# HEALTH_CHECK_TOKEN (.env; letters, digits, - and _). Everyone else gets 404, and nobody while it is unset. The
+	# web container's own health check calls 127.0.0.1:8000 directly, not through Caddy.
+	@health_denied {
+		path /health /health/*
+		not expression `"{$HEALTH_CHECK_TOKEN}" != "" && {http.request.header.X-Health-Token} == "{$HEALTH_CHECK_TOKEN}"`
+	}
+	respond @health_denied 404
 	reverse_proxy web:8000
 	log {
 		output stdout

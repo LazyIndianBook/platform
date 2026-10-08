@@ -85,7 +85,8 @@ def test_the_cart_belongs_to_a_confirmed_account_and_keeps_the_website_rules(api
     assert api.post("/api/v1/cart/items/", {"product": "gone"}).json() == {"product": [f"{sold_out} is out of stock."]}
     assert api.post("/api/v1/cart/items/", {"product": "nothing"}).status_code == 400
     assert api.patch("/api/v1/cart/items/physics/", {"quantity": 1}).json()["subtotal"] == "299.00"
-    assert api.post("/api/v1/cart/coupon/", {"code": "nope"}).json() == {"code": ["This coupon code is not valid."]}
+    refused = {"code": ["This code cannot be applied to this cart."]}  # whatever the reason
+    assert api.post("/api/v1/cart/coupon/", {"code": "nope"}).json() == refused
     cart = api.post("/api/v1/cart/coupon/?state=AS", {"code": "welcome10"}).json()
     assert (cart["coupon"], cart["discount"], cart["shipping"], cart["total"]) == (
         "WELCOME10",
@@ -203,16 +204,18 @@ def test_cash_on_delivery_is_placed_at_once_when_offered(api, settings, commit):
     assert not Cart.objects.filter(user=user).exists() and "confirmed" in mail.outbox[-1].subject
 
 
-def test_guests_look_up_an_order_by_number_and_email_with_a_limit(api, monkeypatch):
+def test_guests_ask_for_their_orders_link_by_email_with_a_limit(api, monkeypatch, commit):
     order = make_order((ProductFactory(), 1), email="guest@example.com")
     api.credentials(HTTP_AUTHORIZATION="Bearer expired.or.stale")  # ignored here, as on the log-in endpoints
-    found = api.post("/api/v1/orders/lookup/", {"number": order.number.lower(), "email": "GUEST@example.com"})
-    assert found.status_code == 200 and found.json()["total"] == str(order.total.amount)
-    wrong = api.post("/api/v1/orders/lookup/", {"number": order.number, "email": "other@example.com"})
-    assert wrong.status_code == 404 and wrong.json() == {"detail": "No order has this number and email address."}
+    with commit():
+        found = api.post("/api/v1/orders/lookup/", {"number": order.number.lower(), "email": "GUEST@example.com"})
+        wrong = api.post("/api/v1/orders/lookup/", {"number": order.number, "email": "other@example.com"})
+    sent = {"detail": "If an order matches, we have emailed you a link."}  # the same either way: nothing to learn
+    assert found.status_code == wrong.status_code == 200 and found.json() == wrong.json() == sent
+    assert [m.to for m in mail.outbox] == [["guest@example.com"]] and order.get_link_url() in mail.outbox[0].body
     monkeypatch.setitem(SimpleRateThrottle.THROTTLE_RATES, "order_lookup", "3/hour")
     tries = [api.post("/api/v1/orders/lookup/", {"number": order.number, "email": "x@example.com"}) for _ in range(2)]
-    assert [r.status_code for r in tries] == [404, 429] and int(tries[-1]["Retry-After"]) > 0  # 3 an hour, per address
+    assert [r.status_code for r in tries] == [200, 429] and int(tries[-1]["Retry-After"]) > 0  # 3 an hour, per address
     other = APIClient(REMOTE_ADDR="10.0.0.2")
     assert (
         other.post("/api/v1/orders/lookup/", {"number": order.number, "email": "guest@example.com"}).status_code == 200

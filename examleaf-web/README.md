@@ -17,7 +17,7 @@ secrets, data requests, email failures).
 
 ```sh
 cd examleaf-web
-make install                              # .venv with the pinned requirements
+make install                              # .venv with the pinned requirements and the test tools (requirements-dev.txt)
 cp .env.example .env                      # DEBUG=1, SQLite, console email, tasks inline; every variable is explained
 make migrate                              # migrate + bootstrap_roles (the role groups)
 .venv/bin/python manage.py import_papers --all
@@ -94,11 +94,12 @@ or a plain-http address (a printed book cannot be corrected), unless you pass `-
 | `/shop/`, `/shop/<slug>/` | the books on sale; a book's page (price, stock, what's inside, a sample paper, add to cart) |
 | `/cart/`, `/checkout/` | cart (copies, coupon); checkout (log in or a guest email, address, payment choice) |
 | `/checkout/<number>/pay/` | review and pay: Razorpay Checkout, or "place order" for cash on delivery; `…/done/` thanks |
-| `/account/orders/`, `/account/orders/<number>/` | My orders; an order's timeline, tracking, invoice and credit notes (`…/invoice/`, `…/credit-notes/<id>/`) and Cancel (also for guests who looked it up) |
-| `/orders/lookup/` | Find your order: number and email, for guests |
+| `/account/orders/`, `/account/orders/<number>/` | My orders; an order's timeline, tracking, invoice and credit notes (`…/invoice/`, `…/credit-notes/<id>/`) and Cancel (also in the browser session that placed it) |
+| `/orders/t/<token>/` | the link in every order email: the order read only, its PDFs (`…/invoice/`, `…/credit-notes/<id>/`) and Cancel while pending or paid |
+| `/orders/lookup/` | Find your order: number and email; a guest order's link is emailed to its address (never shown) |
 | `/shop/webhooks/razorpay/` | Razorpay's webhooks (signed) |
 | `/about/`, `/sitemap.xml`, `/robots.txt`, `/admin/` | `robots.txt` keeps crawlers out of the account, cart, checkout, admin and API pages; `/favicon.ico` redirects to the icon |
-| `/health/`, `/health/web/` | health checks (JSON with `Accept: application/json`); see Production |
+| `/health/`, `/health/web/` | health checks (JSON with `Accept: application/json`); through Caddy only with the `X-Health-Token` header; see Production |
 
 The top bar is one row at every width: on a phone the name, the cart (once it holds books) and a **Menu** button that
 opens the other links; the button is the label of a hidden checkbox (CSS only, no JavaScript, so the CSP stays as it
@@ -232,12 +233,16 @@ The printed books, sold online across India: `shop/` (models; `services.py`, eve
   ₹299, Solutions ₹249, bundle ₹499), ISBN blank, stock 0 without `--stock`. The Sample Papers and the bundle get the
   covers from `static/img/`; Solutions get none (those images are the Sample Papers' covers) until one is uploaded.
 - Razorpay (`.env`, DEPLOYMENT.md "Shop: Razorpay"): `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` (test keys
-  `rzp_test_…` until going live; the payment page then says "Test mode"), and `RAZORPAY_WEBHOOK_SECRET`, the secret of
-  the webhook for `https://<domain>/shop/webhooks/razorpay/` with the events `payment.captured`, `payment.failed`,
-  `order.paid`, `refund.processed`, `refund.failed`. Without keys the payment page says online payment is not set up;
-  without the secret every webhook is refused. In development the return from Checkout is enough to complete an order;
+  `rzp_test_…` until going live; the payment page then says "Test mode"), and `RAZORPAY_WEBHOOK_SECRET_TEST` and
+  `RAZORPAY_WEBHOOK_SECRET`, the secrets of the Test Mode and Live Mode webhooks for
+  `https://<domain>/shop/webhooks/razorpay/` with the events `payment.captured`, `payment.failed`, `order.paid`,
+  `refund.processed`, `refund.failed` (the one of the keys' mode is checked). Without keys the payment page says online
+  payment is not set up; without the secret every webhook is refused. Payments and orders record their keys' mode:
+  once live, test orders are marked TEST and change nothing (RUNBOOK.md "Test mode and live mode"). `SHOP_OPEN=0`
+  leaves the cart, checkout and payment to staff ("Shop opens soon"), for Razorpay's review. In development the return from Checkout is enough to complete an order;
   to try webhooks, expose the port (e.g. `ngrok http 8000`) and point a test-mode webhook at it.
-- `SHOP_COD_ENABLED=1` offers cash on delivery.
+- `SHOP_COD_ENABLED=1` offers cash on delivery, to accounts with a confirmed email address only: two orders on their
+  way per account, each worth at most `SHOP_COD_MAX_VALUE` rupees (1500).
 - The seller on invoices: `SELLER_LEGAL_NAME`, `SELLER_ADDRESS`, `SELLER_GSTIN` (empty: "not registered"),
   `SELLER_STATE` (two letters: same state as the buyer = CGST + SGST, otherwise IGST), `SELLER_STATE_CODE`,
   `SELLER_EMAIL`, `SELLER_PHONE`.
@@ -318,7 +323,7 @@ The printed books, sold online across India: `shop/` (models; `services.py`, eve
 ## Tests
 
 ```sh
-make test                                 # pytest: 188 tests, about 70 s (imports all four subjects once)
+make test                                 # pytest: 227 tests, about 80 s (imports all four subjects once)
 make cov                                  # the same with a coverage report (95 %)
 make lint                                 # ruff, as in CI
 make check                                # manage.py check and missing migrations
@@ -328,7 +333,9 @@ pytest with pytest-django runs the old Django `TestCase` classes and the newer p
 `accounts/factories.py`, factory_boy); `manage.py test` still runs the `TestCase` classes. CI
 (`.github/workflows/ci.yml` at the repository root) runs ruff, the migration check and the tests with coverage on
 PostgreSQL 17, and builds the Docker image (job `docker-build`: `docker build`, then Django and WeasyPrint must load
-in the image; nothing is pushed). Every test module passes on its own and in any order, on SQLite and PostgreSQL (no
+in the image; nothing is pushed), and job `dependency-audit` runs pip-audit on the pinned packages (reported, not yet
+blocking). The workflow can only read the repository (`permissions: contents: read`). Every test module passes on its
+own and in any order, on SQLite and PostgreSQL (no
 test relies on ids or on rows made by another); four tests run threads against PostgreSQL (the last copy, a coupon's
 last use, a webhook and the return page, two clicks on Add to cart, each at the very same instant) and are skipped on
 SQLite. They cover the import of the four subjects (30 papers each, every solution matched, re-import changes
@@ -372,7 +379,8 @@ change it together with `templates/solutions.html`); in development it is report
 log-ins (address and browser, for the 15-minute lock-out), and beat clears them daily. `/health/` checks the database,
 the cache, file storage and, when a broker is set, that a Celery worker answers; it returns 500 if one fails (for an
 uptime monitor). `/health/web/` leaves Celery out: it is the web container's own health check, which the worker waits
-for.
+for. Caddy answers both with 404 unless the request carries the `X-Health-Token` header with `HEALTH_CHECK_TOKEN`
+(the uptime monitor), and each process keeps the results for 20 seconds.
 Logs are JSON lines on stdout with `request_id` (from Caddy's `X-Request-ID`, also sent back in the response).
 Errors go to Sentry when `SENTRY_DSN` is set (scrubbed: see "Personal data"). Uploaded files (answer-sheet photos,
 later) go to `media/`, never served publicly, or to a private bucket with `MEDIA_BUCKET`; the upload view must check
@@ -452,7 +460,8 @@ Open: weight-based shipping.
 | whitenoise | serves static files, hashed and compressed, in production |
 | gunicorn | WSGI server for production |
 | psycopg[binary] | PostgreSQL driver (production database) |
-| django-allauth | registration, email login, email verification by code, email change with re-verification, re-authentication, password change and reset, built-in rate limits |
+| django-allauth | registration, email login, email verification by code, email change with re-verification, re-authentication, password change and reset, built-in rate limits; `allauth.mfa` (with fido2): an authenticator app (TOTP) and recovery codes, required for staff |
+| pwned-passwords-django (httpx) | refuses passwords found in data breaches (Pwned Passwords; only the first 5 characters of the password's SHA-1 are sent) |
 | django-axes (with django-ipware) | records failed logins and locks an account for 15 minutes after 10 failures from one address; its client-address logic also feeds the consent records |
 | django-anymail | sends email through a transactional email provider in production (console in development) |
 | celery | background tasks: emails, the daily purge, clean-ups |
@@ -479,10 +488,10 @@ Open: weight-based shipping.
 | django-filter | the subject/tier filter on My record and the API's list filters |
 | django-qr-code (segno) | generates the QR images (PNG for `/qr/<code>.png`, PNG and SVG for `export_qr`) |
 | django-storages[s3] (boto3) | optional private S3-compatible buckets for uploaded answer sheets and for database backups |
-| django-debug-toolbar | development only, when `DEBUG=1` |
+| django-debug-toolbar | development only, when `DEBUG=1` (requirements-dev.txt) |
 | markdown-it-py | Markdown (with tables) to HTML for questions, solutions and legal pages |
 | Pillow | image support for the answer-sheet `ImageField` |
-| pytest, pytest-django, pytest-cov, factory_boy | tests, coverage and test data (development and CI) |
+| pytest, pytest-django, pytest-cov, factory_boy | tests, coverage and test data (development and CI; requirements-dev.txt, not in the image) |
 | djangorestframework | the REST API (`api/`, API.md): views, serializers, versioning, pagination, throttles; the catalogue, solutions, attempts, accounts and the shop |
 | dj-rest-auth | the API's log-in, log-out, token refresh, password change and reset, user details |
 | djangorestframework-simplejwt | JWT access and refresh tokens for the app; rotation and blacklist |

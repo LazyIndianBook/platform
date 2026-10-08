@@ -346,8 +346,7 @@ def test_json_only_request_ids_json_404_and_health(api):
     assert api.post("/api/v1/auth/login/", {"email": "a@example.com"}, format="multipart").status_code == 415
     for url in ["/api/v1/nothing/", "/api/v2/boards/", "/api/v1/boards"]:
         assert api.get(url).json() == {"detail": "Not found."}
-    response = api.get("/api/v1/health/", HTTP_ACCEPT="application/json")
-    assert response.status_code == 200 and response.json()["Database(alias='default')"] == "OK"
+    assert api.get("/api/v1/health/").status_code == 404  # gone (H1): /health/ is for the uptime monitor only
     assert PeriodicTask.objects.filter(task="api.tasks.flush_expired_tokens", enabled=True).exists()  # daily clean-up
 
 

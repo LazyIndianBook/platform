@@ -12,12 +12,14 @@ RUN apt-get update \
         fonts-dejavu-core fonts-noto-core \
     && rm -rf /var/lib/apt/lists/*
 
+# What the site runs on only: the test and lint tools are in requirements-dev.txt.
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 COPY . .
-# Static files are collected into the image (hashed and compressed, served by WhiteNoise); the key is a build-time dummy.
-RUN SECRET_KEY=collectstatic-only python manage.py collectstatic --noinput \
+# Static files are collected into the image (hashed and compressed, served by WhiteNoise); the key is a build-time dummy
+# (50 characters at least, or settings.py refuses to start).
+RUN SECRET_KEY=build-time-dummy-for-collectstatic-only-not-used-at-run-time python manage.py collectstatic --noinput \
     && useradd --system --uid 1000 --no-create-home examleaf \
     && mkdir -p media && chown examleaf media
 USER examleaf

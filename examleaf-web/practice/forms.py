@@ -4,7 +4,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 
 from content.models import Paper, Subject
 
-from .models import NOTES_MAX_LENGTH, Attempt
+from .models import NOTES_MAX_LENGTH, Attempt, check_can_save
 
 
 class AttemptForm(forms.ModelForm):
@@ -25,6 +25,10 @@ class AttemptForm(forms.ModelForm):
         marks.label = f"Marks obtained (out of {paper.full_marks})"
         marks.widget.attrs.update(min=0, max=paper.full_marks, step="0.5", inputmode="decimal")
         marks.validators += [MinValueValidator(0), MaxValueValidator(paper.full_marks)]
+
+    def clean(self):
+        check_can_save(self.instance.user, self.paper, new=self.instance.pk is None)
+        return super().clean()
 
 
 class AttemptFilter(django_filters.FilterSet):

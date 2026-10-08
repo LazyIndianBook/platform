@@ -64,6 +64,13 @@ names and raw error strings (`str(result.error)`, for example a Redis host and p
 - Remove `/api/v1/health/`, or make it a database-only check.
 - Optionally cache the result for 15–30 s.
 
+**Status (2026-10-08):** fixed — Caddy answers `/health` and `/health/*` with 404 unless the header `X-Health-Token`
+equals `HEALTH_CHECK_TOKEN` (nobody gets through while it is unset); the container check calls `127.0.0.1:8000`
+directly. `/api/v1/health/` is removed. `examleaf.views.HealthView` keeps each path's results for 20 s per process (in
+memory, so that a Redis outage does not switch it off); the Celery ping already had `limit=1`. Open: docker-compose.yml
+must pass `HEALTH_CHECK_TOKEN` to the caddy service (snippet in DEPLOYMENT.md section 14); the Caddyfile could not be
+validated with a caddy binary here. Tests: `ops/test_security.py` (h1), `api/tests.py`.
+
 ### H2. Password-only staff accounts, and an admin log-in with no per-account limit
 
 **Where:** `examleaf/settings.py:41-43` (no `allauth.mfa`), `:150`; `examleaf/urls.py:69`; `accounts/roles.py:40-52`;
@@ -98,6 +105,15 @@ ASVS level 2 expects multi-factor authentication (AAL2). These accounts hold chi
   `admin.site.login = secure_admin_login(admin.site.login)` (`allauth.account.decorators`).
 - Give staff shorter sessions, e.g. `request.session.set_expiry(8 * 3600)` on a staff login.
 - Optionally allow `/admin/` only from known addresses in Caddy.
+
+**Status (2026-10-08):** fixed — `allauth.mfa` (TOTP and recovery codes; `fido2` pinned, the QR code drawn by segno in
+`accounts.adapter.MFAAdapter`; its pages use the site's layout). `examleaf.middleware.StaffMFAMiddleware` sends every
+`is_staff` user without an authenticator to the set-up (allauth's `account_*` and `mfa_*` pages and static files stay
+open). `admin.site.login = secure_admin_login(admin.site.login)`: allauth's log-in, its per-account limit and the code.
+Staff sessions end 8 hours after the log-in (`accounts.models.shorter_staff_sessions`, allauth's `user_logged_in`).
+RUNBOOK.md "Staff accounts" has the onboarding. Not done: the optional Caddy allowlist; the API's JWT log-in stays
+password-only for staff (it opens no admin page, only the user's own data). Tests: `accounts/test_security.py` (h2),
+`accounts/tests.py`.
 
 ---
 
@@ -170,6 +186,15 @@ They get the child's home address and mobile number, and can cancel the order, w
 - Optionally, a random order number (or random suffix) also stops the number from showing how many orders the shop
   has.
 
+**Status (2026-10-08):** fixed — each order has an unguessable `token` (`secrets.token_urlsafe(16)`, unique, left out
+of the history; migration 0007 fills the existing orders). Every order email links to `/orders/t/<token>/`: the order
+read-only (no payment), its invoice and credit notes, and cancelling while it is pending or paid. `/orders/lookup/`
+(website and API) no longer opens anything: for a guest order (`user__isnull=True`) matching the number and email it
+emails that link to the order's address, and it always answers "If an order matches, we have emailed you a link."
+Limits: 10 an hour per client address, per email address and per order number (hashed cache keys), and 429 while the
+count cannot be read. Random order numbers: open (not decided). Tests: `shop/test_security.py` (m2),
+`shop/test_orders.py`, `shop/test_api.py`.
+
 ### M3. Razorpay test mode and live mode are not separated
 
 **Where:** `shop/payments.py:36-37`; `shop/models.py:457-476, 552-565`; `shop/tasks.py:84-91`;
@@ -203,6 +228,15 @@ with the secret.
 - Use a different webhook secret per mode, and correct the `.env.example` advice.
 - Keep checkout staff-only (e.g. a `SHOP_OPEN` flag) while the shop runs on test keys.
 
+**Status (2026-10-08):** fixed — `livemode` on `Payment` and `Order` (migration 0006; set from the keys that create the
+Razorpay order; rows made before count as test). `record_capture`, the webhook dispatcher (payment and refund events)
+and `reconcile` ignore payments of the other mode (warning logged, webhook answered 200, nothing paid). Invoice and
+credit-note series follow the order's mode (`next_number(live=…)`, `check_seller(live)`), never the current key. With
+live keys, test-mode orders show TEST in the admin and cannot be packed or shipped (transition conditions). Webhooks are
+checked against `RAZORPAY_WEBHOOK_SECRET_TEST` or `RAZORPAY_WEBHOOK_SECRET`, by the keys' mode (`.env.example`
+corrected). `SHOP_OPEN=0` leaves the cart, checkout and payment (website, and the API's writes) to staff, with "Shop
+opens soon" on the catalogue. Tests: `shop/test_security.py` (m3).
+
 ### M4. Password-reset links and verification codes reach Sentry through stack-frame variables
 
 **Where:** `ops/tasks.py:11-19, 33-37`; `examleaf/sentry.py:9-15`; `examleaf/settings.py:285-293`.
@@ -230,6 +264,10 @@ link and take over that student's account.
 - Set `include_local_variables=False` in `sentry_sdk.init`. Request bodies are already scrubbed separately.
 - Add `"body"`, `"alternatives"` and `"message"` to `KEYS` as a second safeguard.
 - Optionally, queue only an identifier and render the email in the worker.
+
+**Status (2026-10-08):** fixed — `include_local_variables=False` in `sentry_sdk.init`; `body`, `alternatives` and
+`message` added to the scrubbed keys (a log message's own text now reaches Sentry as "[Filtered]"; the exception and
+its stack trace stay). Not done: the optional identifier-only queueing. Test: `ops/test_security.py` (m4).
 
 ### M5. Every staff role can bulk-export personal data, including minors' dates of birth and parent contacts
 
@@ -264,6 +302,25 @@ means the whole dataset leaks. This also contradicts the privacy notice ("staff 
 - Record each export in the admin log.
 - See L7 for escaping formulas in exports.
 
+**Status (2026-10-08):** fixed for users, consent records and attempts — `IMPORT_EXPORT_EXPORT_PERMISSION_CODE =
+"export"`; `accounts.export_user`, `accounts.export_consentrecord` and `practice.export_attempt` (Meta.permissions,
+migrations) are held by ADMIN only (SALES and SUPPORT have none); `UserResource` no longer has `date_of_birth` or
+`parent_contact`; every export writes an admin LogEntry ("Export of N users", `ops.admin.LoggedExportMixin`). Test:
+`accounts/test_security.py`.
+
+**For the shop (orders), to do in shop files:** with the setting above, `OrderAdmin`'s export already checks
+`shop.export_order`, which does not exist yet, so only superusers can export orders until it does.
+1. `shop/models.py`: `permissions = [("export_order", "Can export orders")]` in `Order.Meta`, then
+   `manage.py makemigrations shop`. ADMIN gets it from `bootstrap_roles` by itself; SALES does not (the monthly
+   settlement export in RUNBOOK.md becomes ADMIN's).
+2. `shop/admin.py`: `class OrderAdmin(LoggedExportMixin, SimpleHistoryAdmin)` with
+   `from ops.admin import LoggedExportMixin` instead of `ExportMixin`, so that order exports are logged too. Keep
+   import-export's own `has_export_permission` (do not override it).
+
+**Status (2026-10-08), shop part:** done as asked — `Order.Meta.permissions` has `export_order` (migration 0008) and
+`OrderAdmin` uses `LoggedExportMixin`; SALES now gets 403 on the orders export, ADMIN exports
+(`shop/test_admin.py`). RUNBOOK.md's monthly settlement export is ADMIN's.
+
 ### M6. Full Razorpay webhook payloads (UPI ID, phone, email, card details) kept for good and shown to staff
 
 **Where:** `shop/models.py:475-476`; `shop/services.py:138-143`; `shop/payments.py:146-148`;
@@ -293,6 +350,10 @@ database breach exposes the UPI IDs and phone numbers of children.
 - Clear existing payloads in a data migration.
 - If payloads must be kept for disputes, purge them after a set period (e.g. 180 days) in `clean_up`.
 
+**Status (2026-10-08):** fixed — a webhook keeps only `Payment.PAYLOAD_FIELDS` (the list above) of its payment entity;
+`PaymentAdmin` excludes `raw_payload`; migration 0005 strips the stored payloads to those fields; `clean_up` clears them
+180 days after the payment. Test: `shop/test_security.py` (m6).
+
 ### M7. Passwords can be guessed per account from many addresses through the API log-in
 
 **Where:** `examleaf/settings.py:150`; `api/auth.py:226-239`; `examleaf/api_settings.py:50`.
@@ -316,6 +377,12 @@ linearly.
   `get_adapter().authenticate(request, email=email, password=password)`.
 - Or add a DRF throttle keyed on the normalised email, e.g. 5 per 5 minutes.
 - Keep axes as it is; locking by username alone would make it easy to lock other people out.
+
+**Status (2026-10-08):** fixed — `LoginSerializer.authenticate` goes through allauth's adapter: 5 failed log-ins per
+account in 5 minutes from any address, rolled back on success, shared with the website. Also
+`ALLAUTH_TRUSTED_PROXY_COUNT = PROXY_COUNT`: behind Caddy allauth saw one address for everybody, so its per-address
+limits (10 failed log-ins a minute, 30 log-ins a minute) were limits for the whole site. Test:
+`api/test_security.py` (m7).
 
 ### M8. Cash on delivery (once enabled): anonymous orders hold stock and send emails with attacker-written text to any address
 
@@ -345,6 +412,13 @@ payment_method = (Order.Method.RAZORPAY,)  # services.py:309: only online orders
 - Rate-limit checkout and the place-order POST per client address and per account.
 - Expire cash-on-delivery orders that were created but never placed.
 
+**Status (2026-10-08):** fixed — cash on delivery only for signed-in accounts with a confirmed email address (checkout
+form and `create_order`), orders worth at most `SHOP_COD_MAX_VALUE` (₹1,500, shipping included), and at most two placed
+and not yet delivered per account (checked again, under a lock on the account, when placed). Checkout and place-order
+POSTs: 10 per 10 minutes per client address (the API's checkout shares the count), refused while the count cannot be
+read. Never-placed cash orders already expire after two days (QA pass). Open (not decided): a phone confirmed by OTP,
+limits per phone and PIN code. Test: `shop/test_security.py` (m8).
+
 ### M9. Children's data rests on self-declared age and parental consent
 
 **Where:** `accounts/forms.py:43-47, 95-101`; `RUNBOOK.md:70-71`.
@@ -367,6 +441,22 @@ data is processed. The current flow records a declaration, not a verification.
   the parent confirms.
 - Record how and when consent was verified in `ConsentRecord`.
 - Block checkout for minors without verified parental consent.
+
+**Status (2026-10-08):** fixed behind a switch — `PARENTAL_CONSENT_MODE`: `declared` (the default, as before) or
+`verified`. Verified: an under-18 sign-up needs a parent's email (not the student's own); the parent gets a signed link
+(`django.core.signing`, 7 days; it names the address, so a corrected address voids older links); until the parent
+presses "I agree" `User.consent_pending` is true: the account logs in and reads, attempts are refused (form and API).
+`ConsentRecord.method` and `verified_at` record how and when (migration 0006, in the data export and the admin). The
+student can send the link again, also to a corrected address, from My account (one every 10 minutes). DEPLOYMENT.md
+section 14 and RUNBOOK.md "Parental consent" give the switch and the May 2027 deadline. Test:
+`accounts/test_security.py` (m9).
+
+**For the shop (checkout), to do in shop files:** refuse checkout while `request.user.consent_pending`: in
+`shop/views.py` `checkout()`, after the empty-cart check, `if request.user.is_authenticated and
+request.user.consent_pending: messages.error(request, "Your parent or guardian has not confirmed your account yet: see
+My account."); return redirect("account")`; in `api/shop.py` `OrderViewSet.create`, first
+`if request.user.consent_pending: raise exceptions.PermissionDenied("A parent or guardian has not confirmed this
+account yet.")`. Until then a pending account can still order (only in verified mode).
 
 ### M10. Unpaid orders, sessions, off-site backups and logs are kept longer than the privacy notice says
 
@@ -397,6 +487,20 @@ find "$DIR" -name 'examleaf-*.dump' -mtime +"${KEEP:-30}" -delete  # backup.sh:1
 - Rotate logs by time, or correct the notice.
 - Plan the 8-year purge of invoiced orders.
 
+**Status (2026-10-08), shop part:** fixed — `clean_up` strips the name, phone, address lines and email address
+("deleted", history rows too; `services.forget_orders`) from orders never paid or placed, 30 days after they were
+cancelled; the town, district, state and PIN code stay. RUNBOOK.md "Purging old orders" gives the yearly manual step,
+with its query, for invoiced orders past eight years. Sessions, backups and logs were not part of the shop work. Test:
+`shop/test_security.py` (m10).
+
+**Status (2026-10-08), sessions, backups, logs:** fixed — `clearsessions` daily (`ops.tasks.clear_sessions`, beat
+03:45); `scripts/backup.sh` encrypts the uploaded copy with age when `BACKUP_AGE_RECIPIENT` is set (the local dumps stay
+plain for a quick restore); DEPLOYMENT.md section 9 gives the 30-day lifecycle rule for `database/` and the key
+handling, RUNBOOK.md the decryption. Logs: Docker can only rotate by size, so the Privacy Policy draft now says what is
+true (a fixed amount, overwritten; the days to be filled in) and DEPLOYMENT.md section 10 gives the journald driver for a
+hard limit. Open: the lifecycle rule and the age key are set up by hand; a database made before this keeps the old
+privacy text until it is edited in the admin (the draft only seeds new databases). Tests: `ops/test_security.py` (m10).
+
 ---
 
 ## Low
@@ -421,6 +525,10 @@ after an hour, sends the refund again.
 
 **Fix:** before calling, list the payment's refunds (`client().payment.fetch_multiple_refund(payment_id)`) and adopt
 the one whose `notes.refund_id` matches. Do not retry after a read timeout without that check.
+
+**Status (2026-10-08):** fixed — each try of `refund_payment` (Celery's retries and the clean-up's re-queue alike) first
+lists the payment's refunds (`fetch_multiple_refund`) and adopts the one whose `notes.refund_id` is this refund's id;
+only when there is none does it send a refund (with that note). Test: `shop/test_security.py` (l1).
 
 ### L2. The unpaid-order clean-up can cancel an order that was just paid, without telling the customer
 
@@ -455,6 +563,11 @@ depends on Razorpay's late-authorisation handling.
 **Fix:** if `entity["id"] != payment.razorpay_payment_id`, log an error and refund that payment, through its own
 `Payment` and `Refund` rows.
 
+**Status (2026-10-08):** fixed — such a payment is recorded as its own `Payment` (captured) and refunded in full through
+a `Refund` row and the refund task, once, with an error log line; the customer gets the refund email and the order stays
+paid by the first payment. `start_refund` now skips a payment whose refund is under way, so cancelling such an order
+refunds the first payment too. Test: `shop/test_security.py` (l3).
+
 ### L4. Coupon codes can be guessed
 
 **Where:** `shop/views.py:156-168`; `api/shop.py:260-272`; `shop/models.py:199-212`.
@@ -471,6 +584,10 @@ that becomes money.
 - Add a `coupon` throttle scope to `apply_coupon`.
 - Give one message for every unknown or unusable code.
 
+**Status (2026-10-08):** fixed — on the website, 10 coupon attempts an hour per client address (refused while the count
+cannot be read); the API's `apply_coupon` has the `coupon` throttle scope (10 an hour per user, `API_THROTTLE_COUPON`);
+every unknown or unusable code gets "This code cannot be applied to this cart." Test: `shop/test_security.py` (l4).
+
 ### L5. The API password reset can flood a student's inbox
 
 **Where:** `api/auth.py:248-250`; `examleaf/api_settings.py:50`.
@@ -485,6 +602,10 @@ sender's reputation suffer too.
 **Fix:** in `PasswordResetSerializer`, call
 `ratelimit.consume(request, action="reset_password", key=email.lower())` (`allauth.core.ratelimit`) before saving, or
 throttle on the email address.
+
+**Status (2026-10-08):** fixed — `PasswordResetSerializer.validate_email` consumes allauth's `reset_password` limit
+keyed on the lower-cased email (allauth's default: 5 a minute per address, 20 a minute per client), counted together
+with the website's form; over it the API answers 429. Test: `api/test_security.py` (l5).
 
 ### L6. The API's password checks are not limited like log-ins
 
@@ -504,6 +625,11 @@ minute they can make about 1.3 million password guesses, then change the passwor
 - Count failures with a per-user cache counter or allauth's `reauthenticate` limit.
 - After about 5 failures, blacklist the user's outstanding refresh tokens.
 
+**Status (2026-10-08):** fixed — `api.auth.check_password` (data export, deletion, password change) counts wrong
+passwords per user for an hour in the cache; the fifth blacklists every outstanding refresh token of the user and
+answers 429, and so does every check until the hour is over. Like the site's other counters it lets requests through
+while Redis is down. Test: `api/test_security.py` (l6).
+
 ### L7. Formula injection in admin CSV and XLSX exports
 
 **Where:** `accounts/admin.py:13-30`; `shop/admin.py:139-153`; `practice/admin.py:8-21`.
@@ -516,6 +642,10 @@ minute they can make about 1.3 million password guesses, then change the passwor
 orders XLSX, and a click sends the row's data to that site.
 
 **Fix:** set `IMPORT_EXPORT_ESCAPE_FORMULAE_ON_EXPORT = True`.
+
+**Status (2026-10-08):** fixed — set. django-import-export removes a leading `=` only: in a CSV opened by Excel a cell
+that starts with `+`, `-` or `@` is still read as a formula (open CSVs through Data → From Text, or use the XLSX export,
+where only `=` makes a formula). Test: `accounts/test_security.py` (m5, l7).
 
 ### L8. One Redis for both queue and cache, with no memory limit; cache keys follow any query string; rate limits stop when Redis is down
 
@@ -541,6 +671,25 @@ if (count or 0) > limit:  # None: the cache (Redis) is down; let the request thr
   instance at `noeviction`.
 - Cache only canonical URLs: drop unknown query parameters before caching.
 - Make the guest lookup refuse requests while its counter cannot be read.
+
+**Status (2026-10-08):** partly fixed — docker-compose.yml runs `redis-cache` (`--maxmemory 256mb --maxmemory-policy
+allkeys-lru`, not saved to disk) for `CACHE_URL`, and the queue's `redis` with `--maxmemory-policy noeviction`
+(settings.py and `.env.example` say so). The shop's limits (order lookup, checkout, place order, coupon codes) refuse
+while their count cannot be read; Razorpay's webhooks go on. Open: canonical cache keys for the public API lists, which
+are cached in `api/views.py` (`cached()`), the other builder's file: see the note below. Tests: `shop/test_security.py`
+(l8, m2).
+
+**For the other builder (api/views.py, ops/tests.py), from the shop work:**
+1. `cached()` in `api/views.py`: before `cache_page` computes its key, keep only the query parameters the viewset
+   knows (`page`, `page_size`, `search`, `ordering`, `format` and its `filterset_fields`), e.g. by rebuilding
+   `request.GET` and `QUERY_STRING` from them, so that `?x=1` … `?x=n` share the canonical URL's entry.
+2. `ops/tests.py::test_the_site_keeps_working_while_redis_is_down` asserts that the guest lookup goes through while
+   Redis is down (`== 200`, line 56). It now refuses: expect 429 (the decision for M2 and L8).
+
+**Status (2026-10-08), api part:** done — `cached()` in `api/views.py` keeps only the parameters a viewset reads
+(`page`, `page_size`, `search`, `ordering`, `format` and its filters), sorted, before `cache_page` makes its key (the
+view sees the same), so `?x=1` … `?x=n` share one entry; `ops/tests.py` expects the 429. Test:
+`api/test_security.py` (l8).
 
 ### L9. "Download my data" and account deletion miss some records
 
@@ -593,6 +742,13 @@ django-celery-beat @ https://github.com/celery/django-celery-beat/archive/e5e21d
 - Add `permissions: contents: read` to the workflow.
 - Add `pip-audit` to CI.
 
+**Status (2026-10-08):** partly fixed, as decided — `permissions: contents: read`; `requirements-dev.txt` (pytest,
+pytest-django, pytest-cov, factory_boy, Faker, ruff, coverage, django-debug-toolbar and their pins) split from
+`requirements.txt`, which the image installs alone (Makefile, CI, README; the toolbar loads only when installed); a
+`dependency-audit` CI job runs pip-audit with `continue-on-error: true`. Open: hash-locking, the git archive's
+`#sha256=`, images by digest and actions by SHA, listed as next steps in DEPLOYMENT.md section 14. Test:
+`ops/test_security.py` (l10).
+
 ### L11. Authentication strength below ASVS level 2
 
 **Where:** `examleaf/settings.py:123-128`; no `PASSWORD_RESET_TIMEOUT` or `SESSION_COOKIE_AGE` setting.
@@ -606,6 +762,12 @@ django-celery-beat @ https://github.com/celery/django-celery-beat/archive/e5e21d
 - A breached-password validator (Pwned Passwords k-anonymity).
 - `PASSWORD_RESET_TIMEOUT = 3600`.
 - Shorter staff sessions (see H2).
+
+**Status (2026-10-08):** fixed — minimum length 10 for everyone (not 12 for staff: they have a second factor now);
+pwned-passwords-django 5.2.0 (installs and works on Python 3.14 and Django 6.1; httpx and its dependencies pinned; when
+the service cannot be reached within a second Django's common-password list decides; httpx's request log is silenced,
+it named the hash prefix); `PASSWORD_RESET_TIMEOUT = 3600`; staff sessions 8 hours (H2). The tests never call the
+service (`conftest.py`). Test: `accounts/test_security.py` (l11).
 
 ### L12. Attempt notes and the number of attempts are unbounded
 
@@ -622,6 +784,10 @@ There is no length limit and no per-user cap. The API allows 600 requests a minu
 **Fix:** limit notes to about 2,000 characters in the form and serializer, and cap attempts per user and paper (or
 per day).
 
+**Status (2026-10-08):** fixed — notes: the 2,000-character limit was already in the form and the serializer, now
+tested; `practice.models.check_can_save`: at most 20 new attempts of one paper a day per student, in the form and the
+API (400 with the reason). Test: `api/test_security.py` (l12).
+
 ---
 
 ## Informational
@@ -630,15 +796,24 @@ per day).
   `SECRET_KEY=dev-only-change-me`. Copying the file without editing it (`DEPLOYMENT.md:43`) keeps both. Fail at start
   when `DEBUG` is on with non-local `ALLOWED_HOSTS`, or when the key starts with `dev-` or is shorter than 50
   characters.
+  **Status (2026-10-08):** fixed — settings.py ends with a SystemExit and the reason in both cases (local: `localhost`,
+  `127.0.0.1`, `[::1]`, `*.localhost`); the CI's and the Dockerfile's dummy keys are 50+ characters. Test:
+  `ops/test_security.py` (i1).
 - **I2. Public API schema and docs.** `/api/schema/`, `/api/docs/` and `/api/redoc/` are open
   (`examleaf/api_urls.py:14-16`). That is fine for a public app API. Otherwise set
   `SPECTACULAR_SETTINGS["SERVE_PERMISSIONS"]` to admin-only in production.
 - **I3. QR images.** `content/views.py:75` (`get_object_or_404(Paper, code__iexact=code)`) ignores `is_published`, so
   it confirms which unpublished paper codes exist, and it renders a new PNG on every call. Filter on
   `is_published=True` and cache the image.
+  **Status (2026-10-08):** fixed — published papers only, and `cache_page` for a day (also the browsers' max-age).
+  Test: `ops/test_security.py` (i3).
 - **I4. Ordering parameters.** `ProductViewSet`, `AddressViewSet`, `BoardViewSet` and `SubjectViewSet` set no
   `ordering_fields`, so DRF accepts any serializer field. A name like `?ordering=mrp__amount` may return a 500. No data
   is exposed. Set `ordering_fields` explicitly.
+  **Status (2026-10-08), shop part:** fixed — `ProductViewSet` sorts by `title` and `price` only, `AddressViewSet` by
+  `created` only; other names are ignored. Test: `shop/test_security.py` (i4).
+  **Status (2026-10-08), boards and subjects:** fixed — `ordering_fields = ["id", "name"]` on both. Test:
+  `api/test_security.py` (i4).
 - **I5. Keys and tokens.**
   - The breach recipe says to "rotate everything above" (`RUNBOOK.md:46`). The SECRET_KEY recipe it points to keeps
     the old key in `SECRET_KEY_FALLBACKS` (`:37-38`), which leaves a leaked key valid for sessions and reset links for
@@ -647,6 +822,9 @@ per day).
   - simplejwt does not detect reuse of a refresh token.
   - Consider a separate `SIGNING_KEY`, and blacklisting all of a user's tokens when a revoked refresh token is
     presented.
+  **Status (2026-10-08):** fixed — RUNBOOK.md's breach recipe rotates SECRET_KEY without a fallback, and the JWT key;
+  `JWT_SIGNING_KEY` (SECRET_KEY while unset) in api_settings.py, DEPLOYMENT.md and `.env.example`. Not done: detecting
+  the reuse of a revoked refresh token. Test: `ops/test_security.py` (i5).
 - **I6. Hardening.**
   - `style-src` allows `'unsafe-inline'` (`settings.py:177`).
   - There is no `Permissions-Policy` header.
@@ -655,11 +833,26 @@ per day).
   - WeasyPrint runs with its default URL fetcher and `base_url=BASE_DIR` (`invoices.py:110`). The templates escape
     their data, but a fetcher that refuses everything except local static files would keep a future template mistake
     from becoming a local-file or SSRF read.
+    **Status (2026-10-08), shop part:** fixed — the PDFs are rendered with `invoices.static_files_only()`: data: URLs
+    and files under `STATIC_ROOT` and `STATICFILES_DIRS` only (paths resolved, so `..` cannot leave them); anything
+    else raises and WeasyPrint leaves it out. Test: `shop/test_security.py` (i6).
+  **Status (2026-10-08), headers:** fixed — `Permissions-Policy: camera=(), microphone=(), geolocation=(),
+  payment=(self)` on every response (`examleaf.middleware.PermissionsPolicyMiddleware`). `style-src` keeps
+  `'unsafe-inline'`, now explained in settings.py: KaTeX draws each formula with style attributes, which hashes cannot
+  cover. Should a Payment Request flow inside Razorpay's iframe stop working, allow it with
+  `payment=(self "https://api.razorpay.com")`. SRI for checkout.js stays impossible (unversioned). Test:
+  `ops/test_security.py` (i6).
 - **I7. Periodic tasks are editable by the ADMIN role.** `ADMIN: ALL` (`roles.py:52`) includes the admin-editable
   django-celery-beat periodic tasks (`settings.py:214`). An ADMIN member can schedule any registered task with any
   arguments: `ops.tasks.send_email` to any address with any text, or `shop.tasks.generate_invoice` for an unpaid order
   (which uses up a real invoice number). Leave `django_celery_beat`, `django_celery_results` and
   `auth.change_permission` to superusers.
+  **Status (2026-10-08):** fixed — `roles.SUPERUSER_ONLY`: ADMIN gets every permission except the add, change and
+  delete ones of django_celery_beat, django_celery_results, auth (groups, permissions) and mfa (it may view them);
+  `bootstrap_roles`, run at every start, updates the existing group. The user admin also keeps `is_superuser`, `groups`
+  and `user_permissions` read-only for non-superusers, and only a superuser changes a superuser (password included):
+  otherwise ADMIN could make itself superuser. So only superusers give or take roles now. Tests:
+  `accounts/test_security.py` (i7), `accounts/test_roles.py`.
 
 ---
 

@@ -4,13 +4,14 @@ from django.contrib.auth import forms as auth_forms
 from django.contrib.auth.models import Group
 from django.utils import timezone
 from import_export import resources
-from import_export.admin import ExportMixin
+
+from ops.admin import LoggedExportMixin
 
 from . import roles
 from .models import ConsentRecord, DeletionRequest, TeacherProfile, User
 
 
-class UserResource(resources.ModelResource):  # CSV export (no password hashes)
+class UserResource(resources.ModelResource):  # CSV export: no password hashes, no dates of birth or parents' contacts
     class Meta:
         model = User
         fields = (
@@ -21,9 +22,7 @@ class UserResource(resources.ModelResource):  # CSV export (no password hashes)
             "class_level",
             "board__short_name",
             "district",
-            "date_of_birth",
             "parent_name",
-            "parent_contact",
             "consent_at",
             "created",
             "is_active",
@@ -64,7 +63,7 @@ def role_action(role, add):
 
 
 @admin.register(User)
-class UserAdmin(ExportMixin, auth_admin.UserAdmin):
+class UserAdmin(LoggedExportMixin, auth_admin.UserAdmin):
     resource_classes = [UserResource]
     form, add_form = UserChangeForm, UserCreationForm
     ordering = ["-created"]
@@ -90,6 +89,14 @@ class UserAdmin(ExportMixin, auth_admin.UserAdmin):
 
     def has_assign_roles_permission(self, request):  # roles carry permissions: only those who may edit groups
         return request.user.has_perm("auth.change_group")
+
+    def get_readonly_fields(self, request, obj=None):  # who may do what is for superusers to decide (I7)
+        fields = super().get_readonly_fields(request, obj)
+        return fields if request.user.is_superuser else [*fields, "is_superuser", "groups", "user_permissions"]
+
+    def has_change_permission(self, request, obj=None):  # and only a superuser changes a superuser (password too)
+        allowed = super().has_change_permission(request, obj)
+        return allowed and (request.user.is_superuser or not (obj and obj.is_superuser))
 
 
 @admin.register(TeacherProfile)
@@ -135,14 +142,17 @@ class ReadOnlyAdmin(admin.ModelAdmin):
 class ConsentRecordResource(resources.ModelResource):
     class Meta:
         model = ConsentRecord
-        fields = ("id", "user__email", "event", "purpose", "notice_version", "by_parent", "ip_hash", "created")
+        fields = (
+            *("id", "user__email", "event", "purpose", "notice_version", "by_parent", "method", "verified_at"),
+            *("ip_hash", "created"),
+        )
 
 
 @admin.register(ConsentRecord)
-class ConsentRecordAdmin(ExportMixin, ReadOnlyAdmin):
+class ConsentRecordAdmin(LoggedExportMixin, ReadOnlyAdmin):
     resource_classes = [ConsentRecordResource]
-    list_display = ["user", "event", "purpose", "notice_version", "by_parent", "created"]
-    list_filter = ["event", "by_parent", "notice_version", "created"]
+    list_display = ["user", "event", "purpose", "notice_version", "by_parent", "method", "created"]
+    list_filter = ["event", "by_parent", "method", "notice_version", "created"]
     list_select_related = ["user"]
     search_fields = ["user__email"]
     date_hierarchy = "created"

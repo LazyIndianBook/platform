@@ -10,7 +10,7 @@ x-app: &app
   env_file: .env
   environment: &app-env
     DATABASE_URL: postgres://examleaf:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/examleaf
-    CACHE_URL: redis://redis:6379/1
+    CACHE_URL: redis://redis-cache:6379/0
     CELERY_BROKER_URL: redis://redis:6379/0
     PROXY_COUNT: 1  # Caddy
     BOOK_ROOT: /book
@@ -19,6 +19,7 @@ x-app: &app
   depends_on:
     db: {condition: service_healthy}
     redis: {condition: service_healthy}
+    redis-cache: {condition: service_healthy}
   logging: &logging  # docker logs: JSON lines, rotated (50 MB per service)
     driver: json-file
     options: {max-size: 10m, max-file: "5"}
@@ -40,12 +41,23 @@ services:
       retries: 5
     logging: *logging
 
-  redis:  # Celery's queue (db 0, saved to disk so that queued emails survive a restart) and the cache (db 1)
+  redis:  # Celery's queue, saved to disk so that queued emails survive a restart; nothing in it is ever evicted
     image: redis:7-alpine
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
     volumes:
       - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging: *logging
+
+  redis-cache:  # the cache (rate limits, throttles, cached pages): at most 256 MB, the least used keys make room
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -96,6 +108,8 @@ services:
       - "443:443/udp"
     environment:
       DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+      # /health/ answers only requests carrying this token (the uptime monitor); see DEPLOYMENT.md.
+      HEALTH_CHECK_TOKEN: ${HEALTH_CHECK_TOKEN:?set HEALTH_CHECK_TOKEN in .env}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

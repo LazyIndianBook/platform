@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from allauth.account.decorators import reauthentication_required
 from django import forms
 from django.conf import settings
@@ -5,6 +7,8 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
+from django.core import signing
+from django.core.cache import cache
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import IntegrityError, transaction
 from django.http import JsonResponse
@@ -13,13 +17,13 @@ from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.utils.formats import date_format
 from django.views.decorators.cache import never_cache
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_http_methods, require_POST
 from django.views.generic import CreateView, TemplateView
 
 from ops.tasks import queue_text_email
 
 from .forms import TeacherRequestForm
-from .models import ConsentRecord, DeletionRequest, TeacherProfile
+from .models import ConsentRecord, DeletionRequest, TeacherProfile, User
 
 PROFILE_FIELDS = [
     "email",
@@ -135,7 +139,11 @@ def export_user_data(user):
             user.attempts.values("paper__code", "date", "marks_obtained", "time_taken_minutes", "notes", "created")
         ),
         "answer_sheets": list(user.answer_sheets.values("paper__code", "status", "image", "created")),
-        "consents": list(user.consents.values("event", "purpose", "notice_version", "by_parent", "ip_hash", "created")),
+        "consents": list(
+            user.consents.values(
+                "event", "purpose", "notice_version", "by_parent", "method", "verified_at", "ip_hash", "created"
+            )
+        ),
         "deletion_requests": list(user.deletion_requests.values("status", "requested_at", "due_at", "closed_at")),
         "addresses": [{**a.snapshot(), "is_default": a.is_default, "created": a.created} for a in user.addresses.all()],
         "cart": export_cart(user),
@@ -221,4 +229,64 @@ def delete_account(request):
 def cancel_deletion(request):
     if keep_account(request):
         messages.success(request, "Your account will not be deleted.")
+    return redirect("account")
+
+
+PARENT_LINK_SALT, PARENT_LINK_DAYS = "accounts.parent-consent", 7
+
+
+def send_parent_link(user):
+    """PARENTAL_CONSENT_MODE "verified" (M9): email the parent a signed link to confirm, valid PARENT_LINK_DAYS days.
+    The link names the parent's address, so one sent before the address was corrected stops working."""
+    token = signing.dumps({"user": user.pk, "to": user.parent_contact}, salt=PARENT_LINK_SALT)
+    queue_text_email(
+        user.parent_contact,
+        "Please confirm your child's account",
+        f"{user.full_name} has registered at ExamLeaf, for the free solutions of the ExamLeaf sample papers, and gave "
+        f"this address as their parent's or guardian's. The law asks for your consent before we keep the details of "
+        f"a student under 18. Read what we keep, and confirm, here (the link works for {PARENT_LINK_DAYS} days):\n\n"
+        f"{settings.SITE_URL}{reverse('parent_consent', args=[token])}\n\n"
+        f"If you do not agree, do nothing: the account cannot save marks or order books. To have it deleted, write "
+        f"to us: {settings.SITE_URL}{reverse('contact')}",
+    )
+
+
+@never_cache
+@require_http_methods(["GET", "POST"])
+def parent_consent(request, token):
+    """The emailed link (M9): the page says who registered and links the privacy notice; "I agree" records the
+    consent, verified by the link (ConsentRecord.Method.EMAIL_LINK, with the time)."""
+    try:
+        data = signing.loads(token, salt=PARENT_LINK_SALT, max_age=timedelta(days=PARENT_LINK_DAYS))
+        student = User.objects.get(pk=data["user"], parent_contact=data["to"], is_active=True)
+    except signing.BadSignature, User.DoesNotExist:
+        return render(request, "parent_consent.html", {"expired": True}, status=400)
+    done = not student.consent_pending
+    if request.method == "POST" and not done:
+        verified = {"method": ConsentRecord.Method.EMAIL_LINK, "verified_at": timezone.now()}
+        ConsentRecord.record(request, student, by_parent=True, **verified)
+        done = True
+    return render(request, "parent_consent.html", {"student": student, "done": done})
+
+
+class ParentEmailForm(forms.Form):
+    parent_email = forms.EmailField(label="Parent's or guardian's email")
+
+
+@login_required
+@require_POST
+def parent_consent_resend(request):
+    """While the parent's consent is pending: the link again, to the address on record or a corrected one (M9)."""
+    user, form = request.user, ParentEmailForm(request.POST)
+    if not user.consent_pending:
+        return redirect("account")
+    if not form.is_valid() or form.cleaned_data["parent_email"].lower() == user.email:
+        messages.error(request, "Enter your parent's or guardian's email address (not your own).")
+    elif not cache.add(f"accounts:parent-link:{user.pk}", 1, 600):
+        messages.error(request, "A link was sent a few minutes ago: wait ten minutes before asking for another.")
+    else:
+        user.parent_contact = form.cleaned_data["parent_email"].lower()
+        user.save(update_fields=["parent_contact"])
+        send_parent_link(user)
+        messages.success(request, f"We have emailed {user.parent_contact} a link to confirm.")
     return redirect("account")

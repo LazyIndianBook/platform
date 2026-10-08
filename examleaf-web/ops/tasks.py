@@ -50,3 +50,10 @@ def queue_text_email(to, subject, body):
 def reset_failed_logins():
     """Daily: forget django-axes' failed log-in records (address and browser) so that they do not pile up."""
     call_command("axes_reset")
+
+
+@shared_task
+def clear_sessions():
+    """Daily: delete expired sessions, and with them what they held (allauth's pending email codes and addresses,
+    guests' order numbers, the API's verification sessions) (M10)."""
+    call_command("clearsessions")

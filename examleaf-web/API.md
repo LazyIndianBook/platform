@@ -105,7 +105,6 @@ in it does no harm there.
 | `GET papers/<code>/solutions/` | signed in, email confirmed (anyone while solutions are open) | the questions in order, each with its solution |
 | `GET qr/<code>/` | anyone | a scanned code (any case) to its paper and `solutions_url` |
 | `GET POST attempts/`, `GET PUT PATCH DELETE attempts/<id>/` | signed in, email confirmed | the student's own record |
-| `GET health/` | anyone | the same checks as `/health/` (`?format=json`) |
 | `GET products/`, `products/<slug>/` | anyone | the books on sale: prices, pictures, a bundle's books, `in_stock` |
 | `GET cart/`, `POST cart/items/`, `PUT PATCH DELETE cart/items/<slug>/`, `POST DELETE cart/coupon/` | signed in, email confirmed | the account's cart (`?state=` adds the shipping) |
 | `GET POST addresses/`, `GET PUT PATCH DELETE addresses/<id>/` | signed in, email confirmed | saved delivery addresses |
@@ -158,7 +157,9 @@ When the site's solutions are open (`SOLUTIONS_REQUIRE_LOGIN=0`), `papers/<code>
 
 The website's shop, for the app: the same prices, stock, coupons, shipping rates, emails and order pages. Customer
 data (cart, addresses, orders) needs a signed-in account with a confirmed email address; another customer's address
-or order answers 404. Visitors without an account shop on the website: the API keeps no session carts.
+or order answers 404. Visitors without an account shop on the website: the API keeps no session carts. While the shop
+is closed (`SHOP_OPEN=0`, before the launch) changing the cart, checkout and payment answer 403
+`{"detail": "The shop opens soon."}` except for staff; products, the cart, addresses and orders can still be read.
 
 **Products** (public): `slug`, `title`, `kind` (`sample-papers`, `solutions`, `bundle`), `subject` (code), `book` (its
 slug in `books/`), `isbn`, `pages`, `description` (Markdown), `cover` and `images` (`url`, `alt`), `mrp`, `price`,
@@ -180,7 +181,8 @@ curl -X POST 'https://examleaf.in/api/v1/cart/coupon/?state=AS' -H "Authorizatio
   -H 'Content-Type: application/json' -d '{"code": "welcome10"}'
 # 200 {"items": [...], "count": 1, "coupon": "WELCOME10", "coupon_problem": null, "subtotal": "299.00",
 #      "discount": "29.90", "shipping": "40.00", "total": "309.10", "problems": []}
-# 400 {"code": ["This coupon has expired."]}
+# 400 {"code": ["This code cannot be applied to this cart."]}   whatever the reason: unknown, expired, used up, too
+#     small a cart; 10 codes an hour per user (429 after)
 ```
 
 **Addresses**: `name`, `phone` (a 10-digit Indian mobile number; answered as `+919864012345`), `line1`, `line2`,
@@ -188,8 +190,11 @@ curl -X POST 'https://examleaf.in/api/v1/cart/coupon/?state=AS' -H "Authorizatio
 
 **Checkout**: `POST orders/` with `address` (an id from `addresses/`) and `payment_method` (`razorpay`, or `cod` when
 the site offers cash on delivery) makes an order from the cart; the address is copied into it. An online order is
-`pending` until paid; a cash-on-delivery order is placed at once and the cart emptied. Refusals (empty cart, sold
-out, a coupon that no longer applies, cash on delivery not offered) are `400 {"non_field_errors": ["..."]}`.
+`pending` until paid; a cash-on-delivery order is placed at once and the cart emptied. Cash on delivery is for orders
+worth at most ₹1,500 (`SHOP_COD_MAX_VALUE`, shipping included), and at most two such orders on their way per account.
+Refusals (empty cart, sold out, a coupon that no longer applies, cash on delivery not offered or over those limits) are
+`400 {"non_field_errors": ["..."]}`. Checkouts are limited to 10 per 10 minutes per client address, the website's
+included (429).
 
 An order: `number`, `created`, `placed_at`, `status` (`pending`, `paid`, `packed`, `shipped`, `delivered`,
 `cancelled`, `refunded`), `status_label` (as the website shows it: "awaiting payment", "placed (pay on delivery)",
@@ -233,9 +238,18 @@ curl -X POST https://examleaf.in/api/v1/orders/EL-2026-000123/payment/confirm/ -
 (the `url`s in the order) answer `application/pdf` as a download whatever the `Accept` header; 404 (JSON) until the
 file exists. Each refund of an invoiced order gets a credit note.
 
-**Guests** (who ordered on the website without an account): `POST orders/lookup/` with `number` and `email` returns
-the order, or 404 `{"detail": "No order has this number and email address."}`; limited per client address (Rate
-limits). A guest's invoice is downloaded on the website.
+**Guests** (who ordered on the website without an account): `POST orders/lookup/` with `number` and `email` never
+returns the order. If a guest order has that number and email address, the link to it is emailed to that address;
+the answer is always `200 {"detail": "If an order matches, we have emailed you a link."}`. Orders of accounts are
+left out (their owners sign in). Limited to 10 an hour per client address (`API_THROTTLE_ORDER_LOOKUP`), and to 10 an
+hour per email address and per order number from any address; 429 also while the limits cannot be counted. (Changed
+in phase 4: the lookup used to return the order, or 404.)
+
+**The order's link** is on the website, not in the API: every email about an order carries
+`https://examleaf.in/orders/t/<token>/`, a secret of 22 characters per order. It shows the order without signing in
+(status, books, address, tracking, refunds; no payment), its PDFs (`/orders/t/<token>/invoice/`,
+`/orders/t/<token>/credit-notes/<id>/`) and, while the order is pending or paid, a cancel button
+(`POST /orders/t/<token>/cancel/`). The API does not give the token.
 
 ## Lists
 
@@ -253,7 +267,7 @@ DRF's standard format, always JSON:
 |---|---|
 | 400 | the fields' errors: `{"marks_obtained": ["Enter marks from 0 to 70."]}`; others (and the shop's rules) under `non_field_errors`; `{"detail": "Bad request."}` for a request Django refuses before the API sees it (a host name that is not served) |
 | 401 | `{"detail": "Authentication credentials were not provided."}`; a bad or expired token adds `"code": "token_not_valid"` |
-| 403 | `{"detail": "Confirm your email address first."}` (or another reason) |
+| 403 | `{"detail": "Confirm your email address first."}` (or another reason; `"The shop opens soon."` while the shop is closed) |
 | 404 | `{"detail": "No Paper matches the given query."}`, `{"detail": "Not found."}` |
 | 405, 406, 415 | `{"detail": "..."}` |
 | 413 | `{"detail": "The request body is too large."}` (over 1 MB, `DATA_UPLOAD_MAX_MEMORY_SIZE`) |
@@ -270,11 +284,27 @@ Counted in the cache (Redis in production), per client address for anonymous req
 | anonymous | 200 a minute | `API_THROTTLE_ANON` |
 | signed in | 600 a minute | `API_THROTTLE_USER` |
 | log-in, log-out, sign-up, codes, passwords, data export, deletion | 30 a minute | `API_THROTTLE_AUTH` |
-| guests' order lookup (`orders/lookup/`), per client address | 30 an hour | `API_THROTTLE_ORDER_LOOKUP` |
+| guests' order lookup (`orders/lookup/`), per client address | 10 an hour | `API_THROTTLE_ORDER_LOOKUP` |
 | starting and confirming payments (`orders/<number>/payment/…`) | 30 a minute | `API_THROTTLE_PAYMENT` |
+| coupon codes tried (`POST cart/coupon/`), per user | 10 an hour | `API_THROTTLE_COUPON` |
+| guests' order lookup, per email address and per order number (any address) | 10 an hour | fixed |
+| checkout (`POST orders/`), per client address, the website's included | 10 in 10 minutes | fixed |
+
+The last two are counted by the shop itself and refuse (429) while the cache cannot be read (Redis down); the others
+let requests through meanwhile.
 
 A whole classroom often shares one address: raise the limits rather than lower them. django-axes still locks an
 account for 15 minutes after 10 failed log-ins from one address, through the API too.
+
+Per account, whatever the address (the website's limits, counted together with it):
+- **log-in:** after 5 failed log-ins in 5 minutes, even the right password gets 400 "Too many failed login attempts.
+  Try again later." for the rest of those 5 minutes;
+- **password reset:** 5 emails a minute per email address (`auth/password/reset/` answers 429 above it);
+- **passwords of a signed-in user** (`auth/password/change/`, `me/export/`, `me/deletion/`): after 5 wrong ones in an
+  hour every refresh token of the user is revoked (the app must log in again once the access token expires) and these
+  answer 429 until the hour is over;
+- **attempts:** at most 20 new attempts of one paper a day (400 with the reason); notes at most 2,000 characters. While
+  a parent's consent is awaited (`PARENTAL_CONSENT_MODE=verified`, a student under 18) no attempt can be saved (400).
 
 ## CORS
 
@@ -292,7 +322,9 @@ least six months, announced in the app). `ALLOWED_VERSIONS` in `examleaf/api_set
 
 - Refresh tokens and their blacklist are kept in the database; `api.tasks.flush_expired_tokens` (celery beat, 04:30,
   editable in the admin under Periodic tasks) deletes the expired ones.
-- The tokens are signed with `SECRET_KEY`: rotating it logs every app out (and every website session).
+- The tokens are signed with `JWT_SIGNING_KEY`, or `SECRET_KEY` while it is unset: rotating it logs every app out.
+- There is no health endpoint under `/api/` (it was open to anyone); the uptime monitor uses `/health/`.
 - Tests: `api/tests.py` (sign-up rules, codes, tokens, gated solutions, attempts, data rights, query counts,
   limits, body size, CORS, schema validity) and `shop/test_api.py` (products, cart, addresses, checkout, payment and
-  a bad signature, cancellation, the PDFs, other customers' orders, cash on delivery, lookup and its limit). `manage.py spectacular --validate --fail-on-warn --file schema.yml` checks the schema.
+  a bad signature, cancellation, the PDFs, other customers' orders, cash on delivery, lookup and its limit) and
+  `shop/test_security.py` (the security review's shop fixes: order links, test and live mode, limits, refunds). `manage.py spectacular --validate --fail-on-warn --file schema.yml` checks the schema.

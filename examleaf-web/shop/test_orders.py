@@ -17,7 +17,15 @@ from razorpay.errors import BadRequestError
 from accounts.factories import PASSWORD, UserFactory
 from accounts.models import DeletionRequest
 from shop import invoices, payments, services, tasks
-from shop.factories import ADDRESS, ProductFactory, ShippingRateFactory, captured, make_order, post_webhook
+from shop.factories import (
+    ADDRESS,
+    ProductFactory,
+    ShippingRateFactory,
+    captured,
+    make_order,
+    post_webhook,
+    verified_user,
+)
 from shop.models import Address, BundleItem, Cart, CreditNote, Invoice, Order, Payment, Product, Refund, WebhookEvent
 
 pytestmark = pytest.mark.django_db
@@ -111,8 +119,9 @@ def test_a_bundle_sells_its_books_copies():
 def test_cash_on_delivery(client, settings, commit):
     settings.SHOP_COD_ENABLED = True
     product = ProductFactory(stock=2)
+    client.force_login(verified_user("rahul@example.com"))  # an account with a confirmed address (M8)
     client.post(reverse("shop:cart_add", args=[product.pk]))
-    client.post(reverse("shop:checkout"), {**GUEST, "payment_method": "cod"})
+    client.post(reverse("shop:checkout"), {**GUEST, "email": "", "payment_method": "cod"})
     order = Order.objects.get()
     with commit():
         response = client.post(reverse("shop:pay", args=[order.number]))
@@ -295,16 +304,26 @@ def test_refunds_of_invoiced_orders_get_credit_notes(client, rzp, commit, settin
     assert context["tax_total"] == Decimal("10.71")
 
 
-def test_guest_finds_an_order_by_number_and_email_only(client):
+def test_guest_gets_the_orders_link_by_email_never_in_the_browser(client, commit):
     order = make_order((ProductFactory(), 1), email="guest@example.com")
+    owned = make_order((ProductFactory(), 1), user=UserFactory(), email="owner@example.com")
     assert client.get(order.get_absolute_url()).status_code == 404  # another browser
-    response = client.post(reverse("shop:lookup"), {"number": order.number, "email": "other@example.com"})
-    assert "No order has this number" in response.content.decode()
-    response = client.post(reverse("shop:lookup"), {"number": order.number.lower(), "email": "GUEST@example.com"})
-    assert response.url == order.get_absolute_url() and client.get(response.url).status_code == 200
-    for _ in range(10):
+    with commit():
+        for number, email in [
+            (order.number, "other@example.com"),
+            (owned.number, "owner@example.com"),  # an account's order: its owner logs in
+            (order.number.lower(), "GUEST@example.com"),
+        ]:
+            response = client.post(reverse("shop:lookup"), {"number": number, "email": email})
+            assert "If an order matches, we have emailed you a link." in response.text and "781001" not in response.text
+    [sent] = mail.outbox  # the guest order only: owners of accounts log in
+    assert sent.to == ["guest@example.com"] and order.get_link_url() in sent.body
+    assert client.get(order.get_absolute_url()).status_code == 404  # the browser that asked got nothing
+    page = client.get(order.get_link_url())
+    assert page.status_code == 200 and "Rahul Das" in page.text and "Pay now" not in page.text  # read-only
+    for _ in range(8):
         response = client.post(reverse("shop:lookup"), {"number": "EL-2026-999999", "email": "x@example.com"})
-    assert response.status_code == 429
+    assert response.status_code == 429  # 10 an hour from one address
 
 
 def test_guest_cart_joins_the_account_cart_at_log_in(client):

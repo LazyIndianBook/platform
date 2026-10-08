@@ -102,23 +102,23 @@ class LoginSecurityTests(TestCase):
     def setUpTestData(cls):
         cls.admin = User.objects.create_superuser("admin@example.com", "Brahmaputra-2027", full_name="Admin")
 
-    def admin_login(self, email, password):
-        return self.client.post(
-            "/admin/login/?next=/admin/", {"username": email, "password": password, "next": "/admin/"}
-        )
+    def admin_login(self, email, password):  # the admin's login form is allauth's (SECURITY_REVIEW.md H2)
+        admin_form = self.client.get("/admin/login/?next=/admin/")
+        self.assertRedirects(admin_form, "/account/login/?next=%2Fadmin%2F", fetch_redirect_response=False)
+        return self.client.post(reverse("account_login"), {"login": email, "password": password, "next": "/admin/"})
 
     def test_good_logins_are_not_recorded_only_failed_ones_are(self):
         self.assertEqual(self.admin_login("admin@example.com", "Brahmaputra-2027").status_code, 302)
         self.assertEqual(AccessLog.objects.count(), 0)  # the privacy notice promises failed attempts only
+        self.client.logout()  # (the log-in waits for the emailed code: a new one starts)
         self.admin_login("admin@example.com", "wrong")
         self.assertEqual(AccessAttempt.objects.count(), 1)
 
-    def test_ten_failures_lock_the_account_even_for_the_right_password(self):
-        for _ in range(10):
-            response = self.admin_login("Admin@Example.com", "wrong")  # the e-mail is lowered: one account, one counter
-        self.assertEqual(response.status_code, 429)
+    def test_failures_lock_the_account_even_for_the_right_password(self):
+        for _ in range(5):  # allauth: 5 per account in 5 minutes, from any address; axes: 10 per address
+            self.admin_login("Admin@Example.com", "wrong")  # the e-mail is lowered: one account, one counter
         response = self.admin_login("admin@example.com", "Brahmaputra-2027")
-        self.assertEqual(response.status_code, 429)
+        self.assertContains(response, "Too many failed login attempts")
         self.assertNotIn("_auth_user_id", self.client.session)
 
     def test_students_logging_in_with_allauth_are_counted_per_email(self):

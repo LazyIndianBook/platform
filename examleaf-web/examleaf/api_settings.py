@@ -48,8 +48,9 @@ REST_FRAMEWORK = {
         "user": _env("API_THROTTLE_USER", default="600/minute"),
         # log-in, sign-up, email codes, passwords, data export and deletion; a classroom shares one address
         "dj_rest_auth": _env("API_THROTTLE_AUTH", default="30/minute"),
-        "order_lookup": _env("API_THROTTLE_ORDER_LOOKUP", default="30/hour"),  # guests' order lookup, per address
+        "order_lookup": _env("API_THROTTLE_ORDER_LOOKUP", default="10/hour"),  # guests' order lookup, per address
         "payment": _env("API_THROTTLE_PAYMENT", default="30/minute"),  # starting and confirming payments (Razorpay)
+        "coupon": _env("API_THROTTLE_COUPON", default="10/hour"),  # coupon codes tried, per user (not guessed)
     },
     "NUM_PROXIES": _env.int("PROXY_COUNT", default=0),  # the client address behind Caddy, as for axes
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
@@ -57,7 +58,8 @@ REST_FRAMEWORK = {
 }
 
 # JWT for the app. Each token carries a hash of the password hash: changing or resetting the password, or the account
-# deletion, ends every token at once. The signing key is SECRET_KEY: rotating it logs every app out (RUNBOOK.md).
+# deletion, ends every token at once. The signing key is JWT_SIGNING_KEY, or SECRET_KEY while that is unset (I5):
+# rotating it logs every app out (RUNBOOK.md).
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=_env.int("JWT_ACCESS_MINUTES", default=15)),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=_env.int("JWT_REFRESH_DAYS", default=30)),
@@ -66,6 +68,8 @@ SIMPLE_JWT = {
     "CHECK_REVOKE_TOKEN": True,
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
+if _jwt_signing_key := _env("JWT_SIGNING_KEY", default=""):
+    SIMPLE_JWT["SIGNING_KEY"] = _jwt_signing_key
 
 # dj-rest-auth: log-in, log-out, token refresh, password reset/change, user details (api/auth.py has the rest).
 REST_AUTH = {

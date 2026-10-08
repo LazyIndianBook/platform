@@ -5,6 +5,7 @@
 <section class="hero">
   <h1>Buy the books</h1>
   <p class="lead">Printed Sample Papers and Solutions books, delivered anywhere in India. Pay online with UPI, a card or net banking.</p>
+  {% if not shop_open %}<p class="notice-line">Shop opens soon: the books and their prices are here, orders open in a few days.</p>{% endif %}
 </section>
 <ul class="products">
   {% for product in object_list %}

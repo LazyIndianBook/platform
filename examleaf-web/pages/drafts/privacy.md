@@ -15,7 +15,7 @@ ExamLeaf LLP publishes the ExamLeaf books (publisher: Bhaben Bhuyan). Registered
 - **When you use the site:** the marks, dates, times taken and notes that you choose to save in My record.
 - **When you order printed books:** your name, delivery address, phone number and email address, the books ordered, the amount and the payment status. Payments are made through Razorpay; we never see or keep your card, UPI or bank details.
 - **For security:** failed log-in attempts, with the internet address and browser they came from, so that we can stop password guessing. They are deleted within a day.
-- **Server logs:** the pages requested, the time, the result and the internet address, to keep the site secure and to fix faults. They are deleted after [30] days.
+- **Server logs:** the pages requested, the time, the result and the internet address, to keep the site secure and to fix faults. A fixed amount is kept (50 MB for each part of the site); older entries are then overwritten, which at our traffic is after about [30] days.
 
 We ask for nothing else.
 
@@ -41,6 +41,7 @@ We use your details on the basis of your consent (given by a parent or guardian 
 These service providers handle your details only to run the site and deliver orders for us, under contract:
 
 - our hosting provider [name], which stores the site's data on servers in [India];
+- a backup storage provider [name, if used], which keeps encrypted copies of the database for [30] days;
 - an email service [name], which delivers the verification, password-reset and order emails;
 - Razorpay, which processes payments;
 - the courier or India Post, which receives the name, address and phone number on the parcel;
@@ -56,7 +57,7 @@ A student under 18 can register only with the consent of a parent or guardian, g
 
 - Your account details and record: while your account exists. When you delete your account (see below) your name, email address, phone number, date of birth, district, parent or guardian details, teacher details and notes are erased after a seven-day waiting period. Only the marks and dates of your saved attempts stay, with nothing that identifies you, as statistics on the papers.
 - Orders and invoices: for as long as tax and accounting law requires (currently up to eight years), even after the account is deleted.
-- Failed log-in attempts: up to a day. Server logs: [30] days. Backups: [30] days.
+- Failed log-in attempts: up to a day. Server logs: until they are overwritten, about [30] days (see above). Backups: [30] days, then deleted on our server and at our backup storage provider.
 
 ## Your rights
 

@@ -7,7 +7,9 @@ from collections import Counter
 from datetime import timedelta
 from decimal import Decimal
 
+from allauth.account.utils import has_verified_email
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import F
 from django.template.loader import render_to_string
@@ -18,7 +20,7 @@ from ops.tasks import queue_text_email
 
 from . import tasks
 from .cart import totals as cart_totals
-from .models import INR, Coupon, Order, OrderItem, Payment, Product, Refund, Shipment, paise
+from .models import INR, Coupon, Order, OrderItem, Payment, Product, Refund, Shipment, live_mode, paise
 
 logger = logging.getLogger(__name__)
 UNPAID_ORDERS_EXPIRE = timedelta(days=2)
@@ -47,6 +49,7 @@ SUBJECTS = {
     "delivered": "Order {} has been delivered",
     "cancelled": "Order {} cancelled",
     "refunded": "Refund for order {}",
+    "link": "Your link to order {}",
 }
 
 
@@ -58,6 +61,17 @@ def notify(order, kind, **context):
         queue_text_email(order.email, SUBJECTS[kind].format(order.number), body)
 
     transaction.on_commit(send, robust=True)
+
+
+LINK_SENT = "If an order matches, we have emailed you a link."
+COUPON_REFUSED = "This code cannot be applied to this cart."  # unknown, expired, used up or too small a cart alike
+
+
+def email_order_link(number, email):
+    """Guests' lookup: the link of the guest order with this number and email address (if there is one) is emailed to
+    that address. Orders of accounts are left out: their owners log in."""
+    if order := Order.objects.filter(number=number, email__iexact=email, user__isnull=True).first():
+        notify(order, "link")
 
 
 def _stock_needed(order):
@@ -103,11 +117,28 @@ def release_stock(order):
         order.stock_reserved = False
 
 
+COD_OPEN_ORDERS = 2  # placed with cash on delivery and not yet delivered, per account
+
+
+def cod_problem(user):
+    """Why this customer may not order with cash on delivery now, or None. A cash-on-delivery order holds stock and
+    sends a parcel before anything is paid: only accounts with a confirmed email address, COD_OPEN_ORDERS at a time."""
+    if user is None or not has_verified_email(user):
+        return "Cash on delivery is for accounts with a confirmed email address: log in, or pay online."
+    on_the_way = [Order.Status.PENDING, Order.Status.PACKED, Order.Status.SHIPPED]
+    placed = user.orders.filter(payment_method=Order.Method.COD, placed_at__isnull=False, status__in=on_the_way)
+    if placed.count() >= COD_OPEN_ORDERS:
+        return f"You have {COD_OPEN_ORDERS} cash-on-delivery orders on their way already: please pay this one online."
+    return None
+
+
 def create_order(cart, *, user, email, address, method):
     """A pending order made from the cart at today's prices, with its payment. `address` is an Address snapshot.
     Raises ShopError with what the customer must change first."""
     if method == Order.Method.COD and not settings.SHOP_COD_ENABLED:
         raise ShopError("Cash on delivery is not available.")
+    if method == Order.Method.COD and (problem := cod_problem(user)):
+        raise ShopError(problem)
     result = cart_totals(cart, state=address["state"], user=user, email=email)
     if not result.lines:
         raise ShopError("Your cart is empty.")
@@ -115,6 +146,9 @@ def create_order(cart, *, user, email, address, method):
         raise ShopError(" ".join(problems))
     if result.coupon_problem:
         raise ShopError(f"{result.coupon_problem} Remove the coupon to go on.")
+    if method == Order.Method.COD and result.total > settings.SHOP_COD_MAX_VALUE:
+        limit = f"₹{settings.SHOP_COD_MAX_VALUE:,}"
+        raise ShopError(f"Cash on delivery is for orders up to {limit}: please pay this one online.")
     with transaction.atomic():
         order = Order.objects.create(
             user=user,
@@ -127,6 +161,7 @@ def create_order(cart, *, user, email, address, method):
             total=result.total,
             coupon=result.coupon,
             coupon_code=result.coupon.code if result.coupon else "",
+            livemode=live_mode(),  # online: set again from the keys that make its Razorpay order (payments)
         )
         OrderItem.objects.bulk_create(
             OrderItem(
@@ -141,7 +176,7 @@ def create_order(cart, *, user, email, address, method):
             )
             for line in result.lines
         )
-        Payment.objects.create(order=order, method=method, amount=order.total)
+        Payment.objects.create(order=order, method=method, amount=order.total, livemode=order.livemode)
     return order
 
 
@@ -154,6 +189,9 @@ def place_cod(order):
     with transaction.atomic():
         order = _lock(order)
         if order.placed_at is None and order.is_cod and order.status == Order.Status.PENDING:
+            get_user_model().objects.select_for_update().filter(pk=order.user_id).first()  # one placement at a time
+            if problem := cod_problem(order.user):  # checked again: several orders may wait to be placed
+                raise ShopError(problem)
             claim_coupon(order)
             reserve_stock(order)
             order.placed_at = timezone.now()
@@ -162,11 +200,21 @@ def place_cod(order):
     return order
 
 
+def same_mode(payment, what):
+    """Whether the payment was made with keys of the mode (test or live) the site runs on now. Anything from the other
+    mode is logged and ignored: a test payment never pays, refunds or completes an order on the live site."""
+    if payment.livemode == live_mode():
+        return True
+    mode = "live" if payment.livemode else "test"
+    logger.warning("Razorpay %s for payment #%s (%s mode) ignored: the site's keys are not", what, payment.pk, mode)
+    return False
+
+
 def _lock_payment(entity, payload):
     payment = Payment.objects.select_for_update().get(razorpay_order_id=entity["order_id"])
-    if payload is not None:  # the last webhook, kept for staff; an update, so that a repeat adds no history
-        payment.raw_payload = payload
-        Payment.objects.filter(pk=payment.pk).update(raw_payload=payload)
+    if payload is not None:  # from a webhook: its payment's allowed fields; an update, so a repeat adds no history
+        payment.raw_payload = {name: entity[name] for name in Payment.PAYLOAD_FIELDS if name in entity}
+        Payment.objects.filter(pk=payment.pk).update(raw_payload=payment.raw_payload)
     return payment
 
 
@@ -177,7 +225,11 @@ def record_capture(entity, payload=None):
     refunded in full."""
     with transaction.atomic():
         payment = _lock_payment(entity, payload)
+        if not same_mode(payment, "capture"):
+            return payment.order
         if payment.status in (Payment.Status.CAPTURED, Payment.Status.REFUNDED):
+            if entity["id"] != payment.razorpay_payment_id:
+                _refund_second_payment(payment, entity)
             return payment.order
         payment.razorpay_payment_id = entity["id"]
         payment.capture()
@@ -207,6 +259,25 @@ def record_capture(entity, payload=None):
     return order
 
 
+def _refund_second_payment(first, entity):
+    """A captured payment of a Razorpay order that another payment has paid already (a late or repeated UPI payment):
+    recorded as a Payment of its own and refunded in full, once."""
+    if Payment.objects.filter(razorpay_payment_id=entity["id"]).exists():
+        return  # recorded before
+    order = first.order
+    logger.error("Razorpay payment %s is a second payment for order %s; refunding it", entity["id"], order.number)
+    second = Payment.objects.create(
+        order=order,
+        method=Order.Method.RAZORPAY,
+        amount=Decimal(entity["amount"]) / 100,
+        razorpay_payment_id=entity["id"],
+        livemode=first.livemode,
+    )
+    second.capture()
+    second.save()
+    start_refund(order, "Paid twice: the second payment is refunded.", payment=second)
+
+
 def record_failure(entity, payload=None):
     """A failed Razorpay payment attempt. The order stays pending: Checkout lets the customer try again."""
     with transaction.atomic():
@@ -220,7 +291,8 @@ def start_refund(order, reason, payment=None, by=None, amount=None):
     """Refund a captured online payment in full (or `amount` rupees: what Razorpay actually took), through Razorpay
     (tasks.refund_payment), unless a refund of it is already under way. Returns the Refund, or None when there is
     nothing to refund (unpaid, cash on delivery)."""
-    payment = payment or order.payments.filter(method=Order.Method.RAZORPAY, status=Payment.Status.CAPTURED).first()
+    captured = order.payments.filter(method=Order.Method.RAZORPAY, status=Payment.Status.CAPTURED)
+    payment = payment or captured.exclude(refunds__status__in=[Refund.Status.PENDING, Refund.Status.PROCESSED]).first()
     if (
         payment is None
         or payment.status != Payment.Status.CAPTURED
@@ -328,6 +400,23 @@ def refund_order(order, reason, by=None, amount=None):
         paid = order.payments.filter(status=Payment.Status.CAPTURED).first()
         amount = min(amount, paid.amount.amount) if amount and paid else None
         return start_refund(order, reason, by=by, amount=amount)
+
+
+DELETED = "deleted"
+FORGET_UNSOLD_AFTER = timedelta(days=30)  # after the cancellation of an order that was never paid or placed
+
+
+def forget_orders(orders):
+    """The customer's details leave these orders and their history: name, phone and address lines, and the email
+    address, become "deleted" (town, district, state and PIN code stay, for the books). The orders themselves stay.
+    Used by the daily clean-up for orders never paid or placed, and once a year by hand for invoiced orders past their
+    eight years (RUNBOOK.md). Returns how many."""
+    pks = list(orders.exclude(email=DELETED).values_list("pk", flat=True))
+    for order in Order.objects.filter(pk__in=pks).only("shipping_address"):
+        address = {**order.shipping_address, **dict.fromkeys(["name", "phone", "line1", "line2"], DELETED)}
+        Order.objects.filter(pk=order.pk).update(email=DELETED, shipping_address=address)
+    Order.history.filter(id__in=pks).update(email=DELETED)
+    return len(pks)
 
 
 def expire_unpaid_orders(reconcile=None):

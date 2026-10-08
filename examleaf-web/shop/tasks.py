@@ -9,7 +9,7 @@ from django.utils import timezone
 from razorpay.errors import BadRequestError, GatewayError, ServerError
 
 from . import invoices, payments, services
-from .models import Cart, CreditNote, Invoice, Order, Refund, WebhookEvent, paise
+from .models import Cart, CreditNote, Invoice, Order, Payment, Refund, WebhookEvent, paise
 
 
 @shared_task(
@@ -21,19 +21,25 @@ from .models import Cart, CreditNote, Invoice, Order, Refund, WebhookEvent, pais
 def refund_payment(refund_id):
     """Ask Razorpay to refund a payment in full. Razorpay unreachable or failing: retried for about four hours.
     Refused (a bad request): the refund is marked failed for staff (admin, Refunds). The row stays locked during the
-    call, so a task queued twice cannot refund twice."""
+    call, so a task queued twice cannot refund twice. Each try first asks Razorpay for the payment's refunds and adopts
+    the one that carries this refund's id in its notes: a refund made by a try whose answer was lost (a timeout) is
+    never sent again."""
     with transaction.atomic():
         refund = Refund.objects.select_for_update().select_related("payment", "order").get(pk=refund_id)
         if refund.status != Refund.Status.PENDING or refund.razorpay_refund_id:
             return
+        client, payment_id, ours = payments.client(), refund.payment.razorpay_payment_id, str(refund.pk)
+        made = client.payment.fetch_multiple_refund(payment_id, timeout=payments.TIMEOUT).get("items", [])
+        notes = [r["notes"] if isinstance(r.get("notes"), dict) else {} for r in made]  # Razorpay: [] when empty
+        result = next((r for r, n in zip(made, notes, strict=True) if n.get("refund_id") == ours), None)
         try:
-            result = payments.client().payment.refund(
-                refund.payment.razorpay_payment_id,
+            result = result or client.payment.refund(
+                payment_id,
                 {
                     "amount": paise(refund.amount),
                     "speed": "normal",
                     "receipt": f"refund-{refund.pk}",
-                    "notes": {"order": refund.order.number, "refund_id": str(refund.pk)},
+                    "notes": {"order": refund.order.number, "refund_id": ours},
                 },
                 timeout=payments.TIMEOUT,
             )
@@ -50,8 +56,9 @@ def refund_payment(refund_id):
 def generate_invoice(order_id):
     """The order's invoice: numbered on the first try, the PDF made with WeasyPrint. A failure is retried; the order
     page shows the invoice link once the file exists."""
-    invoices.check_seller()
-    invoice = Invoice.for_order(Order.objects.get(pk=order_id))
+    order = Order.objects.get(pk=order_id)
+    invoices.check_seller(order.livemode)
+    invoice = Invoice.for_order(order)
     if not invoice.pdf:
         invoice.pdf.save(f"{invoice.number.replace('/', '-')}.pdf", ContentFile(invoices.render_pdf(invoice)))
     refunded = Refund.objects.filter(order=order_id, status=Refund.Status.PROCESSED, credit_note=None)
@@ -67,7 +74,7 @@ def generate_credit_note(refund_id):
     invoice = Invoice.objects.filter(order=refund.order_id).first()
     if refund.status != Refund.Status.PROCESSED or invoice is None:
         return
-    invoices.check_seller()
+    invoices.check_seller(not invoice.is_test)
     note = CreditNote.for_refund(refund, invoice)
     if not note.pdf:
         note.pdf.save(f"{note.number.replace('/', '-')}.pdf", ContentFile(invoices.render_pdf(note)))
@@ -77,7 +84,9 @@ def generate_credit_note(refund_id):
 def clean_up():
     """Daily (celery beat): cancel orders left unpaid (after asking Razorpay if they were paid after all); queue again
     the refunds, invoices and credit notes whose task was lost (broker down when queued, retries used up); delete guest
-    carts untouched for 30 days and the record of webhooks too old to be accepted again."""
+    carts untouched for 30 days, the record of webhooks too old to be accepted again, what was kept of the webhooks
+    of payments older than Payment.PAYLOAD_DAYS, and the customer's details from orders never paid or placed, 30 days
+    after they were cancelled."""
     services.expire_unpaid_orders(reconcile=payments.reconcile)
     hour_ago = timezone.now() - timedelta(hours=1)
     lost_refunds = Refund.objects.filter(status=Refund.Status.PENDING, razorpay_refund_id=None, created__lt=hour_ago)
@@ -88,11 +97,17 @@ def clean_up():
         Order.objects.filter(status__in=[S.PAID, S.PACKED, S.SHIPPED, S.DELIVERED], modified__lt=hour_ago)
         .filter(Q(invoice__isnull=True) | Q(invoice__pdf=""))
         .exclude(payment_method=Order.Method.COD, status__in=[S.PAID, S.PACKED])  # cash on delivery: at dispatch
+        .exclude(email=services.DELETED)  # purged after eight years (RUNBOOK.md): their PDFs are gone for good
     )
     for pk in no_invoice.values_list("pk", flat=True):
         generate_invoice.delay(pk)
     no_note = Refund.objects.filter(status=Refund.Status.PROCESSED, order__invoice__isnull=False, modified__lt=hour_ago)
+    no_note = no_note.exclude(order__email=services.DELETED)
     for pk in no_note.filter(Q(credit_note=None) | Q(credit_note__pdf="")).values_list("pk", flat=True):
         generate_credit_note.delay(pk)
     Cart.objects.filter(user=None, modified__lt=timezone.now() - timedelta(days=30)).delete()
     WebhookEvent.objects.filter(received_at__lt=timezone.now() - payments.WEBHOOK_MAX_AGE).delete()
+    old_payments = Payment.objects.filter(created__lt=timezone.now() - timedelta(days=Payment.PAYLOAD_DAYS))
+    old_payments.filter(raw_payload__isnull=False).update(raw_payload=None)
+    unsold = Order.objects.filter(status=S.CANCELLED, placed_at=None)  # no sale: nothing for the tax records
+    services.forget_orders(unsold.filter(modified__lt=timezone.now() - services.FORGET_UNSOLD_AFTER))

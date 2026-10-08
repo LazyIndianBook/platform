@@ -10,11 +10,24 @@
   <form method="post" action="{% url 'account_delete_cancel' %}">{% csrf_token %}<button type="submit">Keep my account</button></form>
 </div>
 {% endif %}{% endwith %}
+{% if user.consent_pending %}
+<div class="notice">
+  <p><strong>Waiting for your parent's or guardian's consent.</strong> We have emailed them a link to confirm. Until
+  they do, you can read the solutions but not save marks or order books. Not arrived? Check the address and send it
+  again:</p>
+  <form method="post" action="{% url 'parent_consent_resend' %}">{% csrf_token %}
+    <label for="parent_email">Parent's or guardian's email</label>
+    <input type="email" name="parent_email" id="parent_email" required{% if "@" in user.parent_contact %} value="{{ user.parent_contact }}"{% endif %}>
+    <button type="submit">Send the link again</button>
+  </form>
+</div>
+{% endif %}
 
 <dl class="details">
   <dt>Name</dt><dd>{{ user.full_name }}</dd>
   <dt>Email</dt><dd>{{ user.email }} · <a href="{% url 'account_email' %}">change</a></dd>
   <dt>Password</dt><dd><a href="{% url 'account_change_password' %}">change</a></dd>
+  {% if user.is_staff %}<dt>Two-factor</dt><dd><a href="{% url 'mfa_index' %}">authenticator app and recovery codes</a></dd>{% endif %}
   {% if user.class_level %}<dt>Class</dt><dd>{{ user.get_class_level_display }}{% if user.board %}, {{ user.board }}{% endif %}</dd>{% endif %}
 </dl>
 <p><a href="{% url 'record' %}">My record</a> · <a href="{% url 'shop:orders' %}">My orders</a></p>

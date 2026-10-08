@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from allauth.account.models import EmailAddress
+from allauth.account.signals import user_logged_in
 from axes.helpers import get_client_ip_address
 from axes.models import AccessAttempt
 from django.conf import settings
@@ -8,6 +9,7 @@ from django.contrib.admin.models import LogEntry
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.contrib.contenttypes.models import ContentType
 from django.db import models, transaction
+from django.dispatch import receiver
 from django.utils import timezone
 from django.utils.crypto import salted_hmac
 from django.utils.functional import cached_property
@@ -17,6 +19,14 @@ from phonenumber_field.modelfields import PhoneNumberField
 from pages.models import Page
 
 from . import roles
+
+STAFF_SESSION = timedelta(hours=8)  # a member of staff's session lasts this long from the log-in (H2, L11)
+
+
+@receiver(user_logged_in)  # allauth's log-in (the website and the admin; not the API, which has no session)
+def shorter_staff_sessions(sender, request, user, **kwargs):
+    if user.is_staff:
+        request.session.set_expiry(STAFF_SESSION)
 
 
 def age_on(dob, today=None):
@@ -64,6 +74,9 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedModel):
     USERNAME_FIELD = EMAIL_FIELD = "email"
     REQUIRED_FIELDS = ["full_name"]
 
+    class Meta:
+        permissions = [("export_user", "Can export users")]  # the admin's CSV export (ADMIN role)
+
     def __str__(self):
         return self.email
 
@@ -85,6 +98,16 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedModel):
     is_sales = property(lambda self: self.has_role(roles.SALES))
     is_support = property(lambda self: self.has_role(roles.SUPPORT))
     is_admin = property(lambda self: self.is_superuser or self.has_role(roles.ADMIN))
+
+    @cached_property
+    def consent_pending(self):
+        """PARENTAL_CONSENT_MODE "verified": a student under 18 whose parent has not confirmed through the emailed link
+        yet. Such an account can log in and read, not save marks or order (M9)."""
+        return (
+            settings.PARENTAL_CONSENT_MODE == "verified"
+            and self.is_minor
+            and not self.consents.filter(event=ConsentRecord.Event.GIVEN, verified_at__isnull=False).exists()
+        )
 
     @property
     def pending_deletion(self):
@@ -120,27 +143,36 @@ class ConsentRecord(models.Model):
         GIVEN = "given", "given"
         WITHDRAWN = "withdrawn", "withdrawn"
 
+    class Method(models.TextChoices):
+        DECLARED = "declared", "ticked on the form"
+        EMAIL_LINK = "email_link", "confirmed through the link emailed to the parent"
+
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="consents")
     event = models.CharField(max_length=10, choices=Event.choices, default=Event.GIVEN)
     purpose = models.CharField(max_length=120, default="account and free solutions (privacy policy)")
     notice_version = models.CharField("privacy policy version", max_length=20)
     by_parent = models.BooleanField("by a parent or guardian", default=False)
+    method = models.CharField("how", max_length=10, choices=Method.choices, default=Method.DECLARED)
+    verified_at = models.DateTimeField("verified at", null=True, blank=True, help_text="When the parent confirmed.")
     ip_hash = models.CharField("address hash", max_length=64, blank=True)
     created = models.DateTimeField(default=timezone.now, db_index=True)
 
     class Meta:
         ordering = ["-created"]
+        permissions = [("export_consentrecord", "Can export consent records")]
 
     def __str__(self):
         return f"Consent {self.event} #{self.pk}"
 
     @classmethod
-    def record(cls, request, user, event=Event.GIVEN, by_parent=False):
+    def record(cls, request, user, event=Event.GIVEN, by_parent=False, method=Method.DECLARED, verified_at=None):
         ip = get_client_ip_address(request) or ""  # the client address as axes sees it (PROXY_COUNT aware)
         return cls.objects.create(
             user=user,
             event=event,
             by_parent=by_parent,
+            method=method,
+            verified_at=verified_at,
             notice_version=Page.objects.filter(slug="privacy").values_list("version", flat=True).first() or "",
             ip_hash=salted_hmac("accounts.ConsentRecord.ip", ip, algorithm="sha256").hexdigest() if ip else "",
         )

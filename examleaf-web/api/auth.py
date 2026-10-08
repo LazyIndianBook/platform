@@ -16,10 +16,12 @@ from allauth.account.internal.flows.email_verification import send_verification_
 from allauth.account.internal.flows.email_verification_by_code import EmailVerificationProcess
 from allauth.account.internal.flows.signup import complete_signup
 from allauth.account.utils import has_verified_email, user_pk_to_url_str
+from allauth.core import ratelimit
 from dj_rest_auth import serializers as rest_auth
 from dj_rest_auth.utils import jwt_encode
 from django.conf import settings
 from django.contrib.auth.signals import user_logged_in
+from django.core.cache import cache
 from django.urls import reverse
 from drf_spectacular.utils import OpenApiExample, extend_schema, extend_schema_serializer
 from rest_framework import exceptions, serializers, status
@@ -27,6 +29,7 @@ from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.settings import api_settings
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 
 from accounts.forms import SignupForm
 from accounts.models import User
@@ -229,6 +232,11 @@ class LoginSerializer(rest_auth.LoginSerializer):
 
     username = None
 
+    def authenticate(self, **credentials):
+        """Through allauth, as the website's log-in: its limit of failed log-ins per account (5 in 5 minutes, from any
+        address) applies to the app too (M7). Over it, the answer is the website's "Too many failed login attempts"."""
+        return get_adapter().authenticate(self.context["request"]._request, **credentials)
+
     def validate(self, attrs):
         attrs = super().validate(attrs)
         request, user = self.context["request"]._request, attrs["user"]
@@ -246,6 +254,12 @@ def reset_url(request, user, temp_key):
 
 
 class PasswordResetSerializer(rest_auth.PasswordResetSerializer):
+    def validate_email(self, value):
+        """allauth's limit of reset emails per address (5 a minute, website and app together; L5): 429 above it."""
+        if not ratelimit.consume(self.context["request"]._request, action="reset_password", key=value.lower()):
+            raise exceptions.Throttled()
+        return super().validate_email(value)
+
     def get_email_options(self):
         return {"url_generator": reset_url}
 
@@ -256,7 +270,35 @@ class PasswordResetConfirmSerializer(rest_auth.PasswordResetConfirmSerializer):
         get_adapter().send_notification_mail("account/email/password_reset", self.user)  # as the website does
 
 
+WRONG_PASSWORDS = 5  # in an hour, per user, in the API's password checks (L6)
+
+
+def check_password(request, password):
+    """The password checks of the app's signed-in requests (password change, data export, deletion). A stolen token
+    must not become a way to guess the password: after WRONG_PASSWORDS wrong ones in an hour every refresh token of
+    the user is blacklisted (the app has to log in again) and the checks answer 429 until the hour is over (L6)."""
+    user, key = request.user, f"api:wrong-passwords:{request.user.pk}"
+    if (cache.get(key) or 0) >= WRONG_PASSWORDS:
+        raise exceptions.Throttled(detail="Too many wrong passwords. Try again in an hour.")
+    if user.check_password(password):
+        return
+    cache.add(key, 0, 3600)
+    try:
+        wrong = cache.incr(key) or 0  # None: the cache (Redis) is down, nothing counted
+    except ValueError:  # expired in between
+        wrong = 0
+    if wrong >= WRONG_PASSWORDS:
+        tokens = OutstandingToken.objects.filter(user=user, blacklistedtoken__isnull=True)
+        BlacklistedToken.objects.bulk_create([BlacklistedToken(token=t) for t in tokens], ignore_conflicts=True)
+        raise exceptions.Throttled(detail="Too many wrong passwords. Try again in an hour.")
+    raise serializers.ValidationError("Incorrect password.")
+
+
 class PasswordChangeSerializer(rest_auth.PasswordChangeSerializer):
+    def validate_old_password(self, value):
+        check_password(self.context["request"], value)
+        return value
+
     def save(self):
         super().save()
         get_adapter().send_notification_mail("account/email/password_changed", self.user)

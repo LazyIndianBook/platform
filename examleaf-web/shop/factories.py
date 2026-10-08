@@ -4,7 +4,10 @@ import json
 from decimal import Decimal
 
 import factory
+from allauth.account.models import EmailAddress
 from django.urls import reverse
+
+from accounts.models import User
 
 from .cart import set_quantity
 from .models import Cart, Coupon, Payment, Product, ShippingRate, paise
@@ -61,11 +64,23 @@ def make_cart(*lines, coupon=None, user=None):
     return cart
 
 
+def verified_user(email):
+    """The account with this email address (made if there is none), its address confirmed."""
+    from accounts.factories import UserFactory
+
+    user = User.objects.filter(email__iexact=email).first() or UserFactory(email=email)
+    EmailAddress.objects.get_or_create(user=user, email=user.email, defaults={"verified": True, "primary": True})
+    return user
+
+
 def make_order(*lines, method="razorpay", email="rahul@example.com", user=None, coupon=None, **address):
-    """A pending order made through the checkout service; online ones get their Razorpay order id."""
+    """A pending order made through the checkout service; online ones get their Razorpay order id. Cash on delivery
+    needs an account with a confirmed email address: one is made for `email` when no `user` is given."""
     from .services import create_order
 
     cart = make_cart(*lines, coupon=coupon, user=user)
+    if method == "cod" and user is None:  # after the cart: one account may have several such orders made
+        user = verified_user(email)
     order = create_order(cart, user=user, email=email, address={**ADDRESS, **address}, method=method)
     if method == "razorpay":
         Payment.objects.filter(order=order).update(razorpay_order_id=f"order_{order.pk}")

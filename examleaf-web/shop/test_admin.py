@@ -105,12 +105,15 @@ def test_partial_refund_of_a_refused_parcel(client, paid, rzp, commit):
     assert paid.status == Order.Status.REFUNDED
 
 
-def test_export_has_one_row_per_order_with_the_address(client, paid):
+def test_export_has_one_row_per_order_with_the_address_for_the_admin_role_only(client, paid):
     data = OrderResource().export(Order.objects.all())
     row = dict(zip(data.headers, data[0], strict=True))
     assert row["number"] == paid.number and row["pin"] == "781001" and row["total"] == "299.00"
     assert row["books"].startswith("1 x Sample Papers") and data.xlsx[:2] == b"PK"  # XLSX is a zip
+    call_command("bootstrap_roles", stdout=StringIO())  # as every deploy does: ADMIN gets shop.export_order
     client.force_login(staff(roles.SALES))
+    assert client.get(reverse("admin:shop_order_export")).status_code == 403  # every customer's address: ADMIN only
+    client.force_login(staff(roles.ADMIN))
     page = client.get(reverse("admin:shop_order_export")).content.decode()
     assert "xlsx" in page.lower() and "csv" in page.lower()
 

@@ -6,5 +6,5 @@ Total  {{ order.total|inr }}{% if order.is_cod %} (pay on delivery){% endif %}
 Delivery to:
 {% for line in order.address_lines %}{{ line }}
 {% endfor %}
-Your order: {{ site_url }}{{ order.get_absolute_url }}{% if not order.user_id %}
-(Without an account, open {{ site_url }}{% url 'shop:lookup' %} with the order number and this email address.){% endif %}
+Your order: {{ site_url }}{{ order.get_link_url }}
+(This link opens the order without an account: keep it to yourself.)

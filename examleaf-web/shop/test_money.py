@@ -86,4 +86,4 @@ def test_coupon_code_is_case_insensitive_and_explains_refusals(client):
     )
     client.post(reverse("shop:cart"), {"action": "remove-coupon"})
     response = client.post(reverse("shop:cart"), {"action": "coupon", "code": "NOPE"}, follow=True)
-    assert "This coupon code is not valid." in response.content.decode() and not response.context["totals"].discount
+    assert "This code cannot be applied to this cart." in response.text and not response.context["totals"].discount

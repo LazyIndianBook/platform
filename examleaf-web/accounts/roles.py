@@ -15,6 +15,9 @@ STUDENT, TEACHER, CONTENT_EDITOR, SALES, SUPPORT, ADMIN = (
 )
 STAFF_ROLES = {CONTENT_EDITOR, SALES, SUPPORT, ADMIN}  # members need is_staff to open the admin
 ALL = "__all__"
+# Left to superusers; ADMIN may only view them (I7): the periodic tasks (any task, any arguments: an email to anyone, a
+# real invoice number used up) and their results, who may do what (groups, permissions) and the second factors.
+SUPERUSER_ONLY = ["django_celery_beat", "django_celery_results", "auth", "mfa"]
 
 
 def crud(app, models, actions=("view", "add", "change")):
@@ -49,7 +52,7 @@ ROLES = {
             ["view"],
         ),
     ],
-    ADMIN: ALL,
+    ADMIN: ALL,  # but SUPERUSER_ONLY
 }
 
 
@@ -60,7 +63,11 @@ def sync_roles(Group, Permission):
     for name, wanted in ROLES.items():
         group, _ = Group.objects.get_or_create(name=name)
         if wanted == ALL:
-            perms = list(Permission.objects.all())
+            perms = list(
+                Permission.objects.exclude(
+                    Q(content_type__app_label__in=SUPERUSER_ONLY) & ~Q(codename__startswith="view_")
+                )
+            )
         else:
             query = Q(pk__in=[])
             for perm in wanted:

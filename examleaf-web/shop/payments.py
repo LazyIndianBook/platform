@@ -18,7 +18,7 @@ from django_fsm import can_proceed
 from razorpay.errors import BadRequestError, GatewayError, ServerError, SignatureVerificationError
 
 from . import services
-from .models import INR, Order, Payment, Refund, WebhookEvent, paise
+from .models import INR, Order, Payment, Refund, WebhookEvent, live_mode, paise
 
 logger = logging.getLogger(__name__)
 TIMEOUT = 10  # seconds per Razorpay call: an unreachable Razorpay must not hang a page
@@ -35,7 +35,7 @@ def client():
 
 
 def test_mode():
-    return settings.RAZORPAY_KEY_ID.startswith("rzp_test_")
+    return not live_mode()
 
 
 def razorpay_order_id(payment):
@@ -54,7 +54,10 @@ def razorpay_order_id(payment):
     except API_ERRORS as error:
         logger.warning("Razorpay order for %s not created: %s", number, error)
         raise Unavailable("The payment service could not be reached.") from error
-    Payment.objects.filter(pk=payment.pk, razorpay_order_id=None).update(razorpay_order_id=data["id"])
+    live = live_mode()  # the mode of the keys that made the Razorpay order is the payment's, and its order's
+    first = Payment.objects.filter(pk=payment.pk, razorpay_order_id=None)
+    if first.update(razorpay_order_id=data["id"], livemode=live):
+        Order.objects.filter(pk=payment.order_id).update(livemode=live)
     return Payment.objects.values_list("razorpay_order_id", flat=True).get(pk=payment.pk)  # another tab's, if first
 
 
@@ -114,8 +117,8 @@ def reconcile(order):
     first. Returns True if the order has been paid, False if Razorpay has no payment for it, None if Razorpay could not
     be asked (nothing is known then)."""
     payment = order.payments.filter(method=Order.Method.RAZORPAY).exclude(razorpay_order_id=None).first()
-    if payment is None:
-        return False  # the customer never reached the payment page: Razorpay has no order for it
+    if payment is None or payment.livemode != live_mode():
+        return False  # never reached the payment page, or made with the other mode's keys: these keys see no payment
     try:
         for entity in client().order.payments(payment.razorpay_order_id, timeout=TIMEOUT).get("items", []):
             if entity.get("status") == "authorized" and entity.get("amount") == paise(payment.amount):
@@ -134,7 +137,7 @@ def handle_webhook(body, signature, event_id=""):
     no secret is set. Each event is handled once, in one transaction with its record (WebhookEvent: its id and the hash
     of the body, so a replay under another id is caught too); events older than WEBHOOK_MAX_AGE and events for unknown
     orders (another integration on the same account) are acknowledged and ignored."""
-    secret = settings.RAZORPAY_WEBHOOK_SECRET
+    secret = settings.RAZORPAY_WEBHOOK_SECRET if live_mode() else settings.RAZORPAY_WEBHOOK_SECRET_TEST
     if not secret or not signature:
         return False
     try:
@@ -163,7 +166,8 @@ def _dispatch(event):
     name, payload = event.get("event", ""), event.get("payload", {})
     if name in ("payment.captured", "order.paid", "payment.failed"):
         entity = payload["payment"]["entity"]
-        if Payment.objects.filter(razorpay_order_id=entity.get("order_id") or None).exists():
+        payment = Payment.objects.filter(razorpay_order_id=entity.get("order_id") or None).first()
+        if payment is not None and services.same_mode(payment, name):
             if name == "payment.failed":
                 services.record_failure(entity, payload=event)
             else:
@@ -177,7 +181,7 @@ def _dispatch(event):
         refund = Refund.objects.filter(ours).first()
         if refund is None and name == "refund.processed":
             payment = Payment.objects.filter(razorpay_payment_id=entity.get("payment_id") or None).first()
-            if payment is not None:  # made in the Razorpay dashboard, not here: recorded, so the order and books follow
+            if payment is not None and services.same_mode(payment, name):  # made in the Razorpay dashboard: recorded
                 refund = Refund.objects.create(
                     order=payment.order,
                     payment=payment,
@@ -185,7 +189,7 @@ def _dispatch(event):
                     reason="Refunded in the Razorpay dashboard.",
                     razorpay_refund_id=entity["id"],
                 )
-        if refund:
+        if refund and services.same_mode(refund.payment, name):
             if name == "refund.processed":
                 services.refund_processed(refund.pk, razorpay_refund_id=entity["id"])
             else:

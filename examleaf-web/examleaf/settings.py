@@ -2,6 +2,7 @@
 
 import sys
 from datetime import timedelta
+from importlib.util import find_spec
 from pathlib import Path
 
 import environ
@@ -18,6 +19,12 @@ DEBUG = env.bool("DEBUG", default=False)
 SECRET_KEY = env("SECRET_KEY")
 SECRET_KEY_FALLBACKS = env.list("SECRET_KEY_FALLBACKS", default=[])  # old keys while rotating (RUNBOOK.md)
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
+# .env.example's development values must never serve the internet (I1): refuse to start instead.
+LOCAL_HOSTS = {"localhost", "127.0.0.1", "[::1]"}
+if DEBUG and any(host not in LOCAL_HOSTS and not host.endswith(".localhost") for host in ALLOWED_HOSTS):
+    raise SystemExit(f"DEBUG=1 with ALLOWED_HOSTS={','.join(ALLOWED_HOSTS)}: set DEBUG=0 on a server (DEPLOYMENT.md).")
+if not DEBUG and (SECRET_KEY.startswith("dev-") or len(SECRET_KEY) < 50):
+    raise SystemExit("SECRET_KEY is the development one or shorter than 50 characters: make a new one (DEPLOYMENT.md).")
 SITE_URL = env("SITE_URL", default="http://localhost:8000").rstrip("/")  # base of the URLs inside the QR codes
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[SITE_URL])
 TESTING = sys.argv[1:2] == ["test"] or "pytest" in sys.modules  # manage.py test, or pytest
@@ -26,6 +33,12 @@ BOOK_ROOT = Path(env("BOOK_ROOT", default=str(BASE_DIR.parent)))
 # The solutions behind the QR codes (/s/<CODE>/ and the API): for signed-in students only (1), or open to everyone (0;
 # then only saving marks needs an account). README "Open or registered solutions" explains the trade-off.
 SOLUTIONS_REQUIRE_LOGIN = env.bool("SOLUTIONS_REQUIRE_LOGIN", default=True)
+# A parent's consent for a student under 18 (DPDP Act s. 9; M9): "declared", the parent ticks the box on the sign-up
+# form; "verified", the parent also confirms through a link emailed to them, and until then the account can read but
+# not save marks or order. The DPDP Rules, 2025 ask for verifiable consent from May 2027 (DEPLOYMENT.md, RUNBOOK.md).
+PARENTAL_CONSENT_MODE = env("PARENTAL_CONSENT_MODE", default="declared")
+if PARENTAL_CONSENT_MODE not in {"declared", "verified"}:
+    raise SystemExit(f'PARENTAL_CONSENT_MODE must be "declared" or "verified", not "{PARENTAL_CONSENT_MODE}".')
 
 INSTALLED_APPS = [
     "admin_interface",  # admin theme (before django.contrib.admin); ExamLeaf colours set in ops/migrations
@@ -40,6 +53,7 @@ INSTALLED_APPS = [
     "django.contrib.sitemaps",
     "allauth",
     "allauth.account",
+    "allauth.mfa",  # staff: an authenticator app (TOTP) and recovery codes
     "axes",
     "simple_history",
     "taggit",
@@ -64,6 +78,7 @@ MIDDLEWARE = [
     "django_guid.middleware.guid_middleware",  # request ID (X-Request-ID from the proxy, or new), in every log line
     "examleaf.middleware.NullByteMiddleware",  # %00 in an address: 404 (PostgreSQL would fail with a 500)
     "django.middleware.security.SecurityMiddleware",
+    "examleaf.middleware.PermissionsPolicyMiddleware",
     "django.middleware.csp.ContentSecurityPolicyMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -74,11 +89,12 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
+    "examleaf.middleware.StaffMFAMiddleware",  # staff must set up an authenticator app before anything else
     "simple_history.middleware.HistoryRequestMiddleware",
     "axes.middleware.AxesMiddleware",  # keep last
 ]
 
-DEBUG_TOOLBAR = DEBUG and not TESTING
+DEBUG_TOOLBAR = DEBUG and not TESTING and find_spec("debug_toolbar") is not None  # requirements-dev.txt
 if DEBUG_TOOLBAR:
     INSTALLED_APPS.append("debug_toolbar")
     MIDDLEWARE.insert(0, "debug_toolbar.middleware.DebugToolbarMiddleware")
@@ -107,9 +123,11 @@ DATABASES = {"default": env.db("DATABASE_URL", default=f"sqlite:///{BASE_DIR / '
 # sync workers serve one request at a time, so a pool would hold the same number of connections.
 DATABASES["default"]["CONN_MAX_AGE"] = env.int("CONN_MAX_AGE", default=60)
 DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
-# CACHE_URL=redis://… uses django-redis; without it, the local-memory cache (one per process). With Redis down every
-# cache call gives up within a second and counts as a miss (logged): pages keep working, rate limits and throttles
-# let requests through meanwhile (sessions and axes are in the database), and /health/ reports the cache.
+# CACHE_URL=redis://… uses django-redis; without it, the local-memory cache (one per process). A Redis of its own, not
+# Celery's queue (CELERY_BROKER_URL): docker-compose.yml's redis-cache, 256 MB, the least used keys evicted. With Redis
+# down every cache call gives up within a second and counts as a miss (logged): pages keep working, rate limits and
+# throttles let requests through meanwhile (sessions and axes are in the database) except the shop's own (order
+# lookup, checkout, place order, coupon codes), which refuse until it is back; /health/ reports the cache.
 CACHES = {"default": env.cache("CACHE_URL", default="locmemcache://")}
 REDIS_CACHE_OPTIONS = {"SOCKET_CONNECT_TIMEOUT": 1, "SOCKET_TIMEOUT": 1, "IGNORE_EXCEPTIONS": True}
 if CACHES["default"]["BACKEND"] == "django_redis.cache.RedisCache":
@@ -124,12 +142,16 @@ AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
     "allauth.account.auth_backends.AuthenticationBackend",
 ]
-AUTH_PASSWORD_VALIDATORS = [
+AUTH_PASSWORD_VALIDATORS = [  # L11: at least 10 characters, and none found in data breaches
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
-    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 10}},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+    # Pwned Passwords (haveibeenpwned.com): only the first 5 characters of the password's SHA-1 leave the server
+    # (k-anonymity). If the service cannot be reached within a second, the common-passwords list decides instead.
+    {"NAME": "pwned_passwords_django.validators.PwnedPasswordsValidator"},
 ]
+PASSWORD_RESET_TIMEOUT = 3600  # a reset link works for an hour (Django's default: 3 days)
 LOGIN_URL = "account_login"
 LOGIN_REDIRECT_URL = "home"
 
@@ -147,6 +169,11 @@ ACCOUNT_REAUTHENTICATION_REQUIRED = True  # password again (if not entered in th
 ACCOUNT_EMAIL_SUBJECT_PREFIX = "[ExamLeaf] "
 ACCOUNT_LOGOUT_REDIRECT_URL = "home"
 ACCOUNT_DEFAULT_HTTP_PROTOCOL = "https" if SITE_URL.startswith("https") else "http"
+# allauth.mfa (H2): every member of staff logs in with a code from an authenticator app (TOTP), or a recovery code; the
+# admin's own login form goes through allauth (urls.py). Staff sessions end 8 hours after the log-in (accounts.models).
+MFA_SUPPORTED_TYPES = ["totp", "recovery_codes"]
+MFA_TOTP_ISSUER = "ExamLeaf"
+MFA_ADAPTER = "accounts.adapter.MFAAdapter"
 
 # django-axes: lock an account for 15 minutes after 10 failed logins from one address.
 AXES_FAILURE_LIMIT = 10
@@ -160,6 +187,9 @@ AXES_DISABLE_ACCESS_LOG = True
 # Reverse proxy (Caddy in docker-compose.yml): PROXY_COUNT=1 trusts its X-Forwarded-Proto/-For headers.
 PROXY_COUNT = env.int("PROXY_COUNT", default=0)
 USE_X_FORWARDED_HOST = env.bool("USE_X_FORWARDED_HOST", default=False)
+# allauth's limits per address (log-in, reset, sign-up) must see the client too, not Caddy: one address for everybody
+# would turn ten failed log-ins a minute anywhere into a lock-out of the whole site (M7).
+ALLAUTH_TRUSTED_PROXY_COUNT = PROXY_COUNT
 if PROXY_COUNT:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     AXES_IPWARE_PROXY_COUNT = PROXY_COUNT
@@ -173,7 +203,9 @@ if not DEBUG:  # secure by default; behind a proxy that already redirects, SECUR
 
 # Content-Security-Policy: scripts, styles and fonts only from this site and from KaTeX on jsDelivr (the one third-party
 # file set the site loads; keep the version in step with templates/solutions.html). jsDelivr serves any npm package, so
-# only the KaTeX folder is allowed, not the host. 'unsafe-inline' is for styles only (admin add-ons' style attributes).
+# only the KaTeX folder is allowed, not the host. 'unsafe-inline' is for styles only, and stays (I6): KaTeX draws every
+# formula with style attributes (heights, offsets) and the admin add-ons use them too; hashes cannot cover attributes
+# that change with every formula. Scripts never get it.
 KATEX_CDN = "https://cdn.jsdelivr.net/npm/katex@0.19.0/dist/"
 CONTENT_SECURITY_POLICY = {
     "default-src": [CSP.SELF],
@@ -225,6 +257,7 @@ CELERY_BEAT_SCHEDULE = {  # written into the beat tables at start-up
         "schedule": crontab(hour=3, minute=0),
     },
     "reset-failed-logins": {"task": "ops.tasks.reset_failed_logins", "schedule": crontab(hour=3, minute=30)},
+    "clear-expired-sessions": {"task": "ops.tasks.clear_sessions", "schedule": crontab(hour=3, minute=45)},  # M10
     "shop-clean-up": {"task": "shop.tasks.clean_up", "schedule": crontab(hour=4, minute=30)},
 }
 
@@ -232,8 +265,16 @@ CELERY_BEAT_SCHEDULE = {  # written into the beat tables at start-up
 # and the seller's details printed on the invoices.
 RAZORPAY_KEY_ID = env("RAZORPAY_KEY_ID", default="")
 RAZORPAY_KEY_SECRET = env("RAZORPAY_KEY_SECRET", default="")
-RAZORPAY_WEBHOOK_SECRET = env("RAZORPAY_WEBHOOK_SECRET", default="")  # webhooks are refused while it is empty
+# The webhook secrets, one per Razorpay mode: the one of the keys' mode is checked; empty refuses every webhook.
+RAZORPAY_WEBHOOK_SECRET = env("RAZORPAY_WEBHOOK_SECRET", default="")  # live mode
+RAZORPAY_WEBHOOK_SECRET_TEST = env("RAZORPAY_WEBHOOK_SECRET_TEST", default="")  # test mode
+# 0: only staff reach the cart, checkout and payment (website and API); the catalogue says "Shop opens soon". For
+# Razorpay's activation review on test keys, when the shop must be public but nobody may "buy" with a test card.
+SHOP_OPEN = env.bool("SHOP_OPEN", default=True)
 SHOP_COD_ENABLED = env.bool("SHOP_COD_ENABLED", default=False)
+# Cash on delivery: only for accounts with a confirmed email address, two orders on their way at a time, each worth at
+# most this many rupees (shipping included).
+SHOP_COD_MAX_VALUE = env.int("SHOP_COD_MAX_VALUE", default=1500)
 SHOP_SELLER = {
     "name": env("SELLER_LEGAL_NAME", default="ExamLeaf LLP"),
     "address": env("SELLER_ADDRESS", default="[address], [city], Assam [PIN]"),
@@ -279,6 +320,7 @@ LOGGING = {
         "django_guid": {"level": "WARNING"},  # not a line per request saying that an ID was generated
         "weasyprint": {"level": "WARNING"},  # not a line per step of every invoice PDF
         "fontTools": {"level": "WARNING"},
+        "httpx": {"level": "WARNING"},  # not the Pwned Passwords requests: they name a prefix of a password's hash
     },
 }
 
@@ -294,6 +336,7 @@ if SENTRY_DSN := env("SENTRY_DSN", default=""):
         environment=env("SENTRY_ENVIRONMENT", default="production"),
         release=env("RELEASE", default=None),
         send_default_pii=False,
+        include_local_variables=False,  # stack frames' variables hold email texts: reset links and codes (M4)
         before_send=before_send,
         before_send_transaction=before_send,
         traces_sample_rate=env.float("SENTRY_TRACES_SAMPLE_RATE", default=0.0),
@@ -345,6 +388,10 @@ if env("BACKUP_BUCKET", default=""):  # scripts/backup.sh uploads database dumps
 from import_export.formats.base_formats import CSV  # noqa: E402
 
 EXPORT_FORMATS = [CSV]
+# Admin exports need the model's "export_…" permission (ADMIN role and superusers; accounts/roles.py), and a cell that
+# starts with "=" loses it, so that a name typed by a customer cannot become a spreadsheet formula (M5, L7).
+IMPORT_EXPORT_EXPORT_PERMISSION_CODE = "export"
+IMPORT_EXPORT_ESCAPE_FORMULAE_ON_EXPORT = True
 
 # REST API (api/, /api/v1/): DRF, JWT, OpenAPI, CORS and throttle settings are in examleaf/api_settings.py.
 from .api_settings import *  # noqa: E402, F403

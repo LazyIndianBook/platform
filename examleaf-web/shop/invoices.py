@@ -3,6 +3,9 @@ is a bill of supply until a taxed item is sold). Prices include tax: each line's
 share of the order's discount, divided by (1 + rate). Same state as the seller: CGST + SGST; another state: IGST."""
 
 from decimal import Decimal
+from pathlib import Path
+from urllib.parse import urlsplit
+from urllib.request import url2pathname
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -11,11 +14,11 @@ from django.template.loader import render_to_string
 from .models import STATES, CreditNote, address_lines, rupees
 
 
-def check_seller():
+def check_seller(live):
     """Invoices of the real series carry the seller's details for good (the numbers cannot be reissued): while one of
-    them is still a [placeholder] of the defaults, none is made (the task is retried; set SELLER_* in .env). Test keys
-    (their own series) and DEBUG are not held up."""
-    if settings.DEBUG or settings.RAZORPAY_KEY_ID.startswith("rzp_test_"):
+    them is still a [placeholder] of the defaults, none is made (the task is retried; set SELLER_* in .env). Documents
+    of test-mode orders (`live` False: their own series) and DEBUG are not held up."""
+    if settings.DEBUG or not live:
         return
     if missing := [name for name, value in settings.SHOP_SELLER.items() if "[" in str(value)]:
         raise ImproperlyConfigured(f"SELLER_* still holds placeholders for {', '.join(missing)}: see .env.example")
@@ -111,6 +114,27 @@ def credit_note_context(note):
     }
 
 
+def static_files_only():
+    """WeasyPrint's URL fetcher for the PDFs: data: URLs and files under the static folders, nothing else (no other
+    local file, no network), so that a mistake in a template can never put a server file or an internal URL into a
+    customer's invoice. A refused URL raises; WeasyPrint leaves that resource out."""
+    from weasyprint.urls import URLFetcher
+
+    roots = [Path(folder).resolve() for folder in [settings.STATIC_ROOT, *settings.STATICFILES_DIRS]]
+
+    class StaticFilesOnly(URLFetcher):
+        def fetch(self, url, headers=None):
+            if url.startswith("file:"):
+                path = Path(url2pathname(urlsplit(url).path)).resolve()
+                if any(path.is_relative_to(root) for root in roots):
+                    return super().fetch(url, headers)
+            elif url.startswith("data:"):
+                return super().fetch(url, headers)
+            raise ValueError(f"Not fetched for a PDF: {url[:100]}")
+
+    return StaticFilesOnly(allowed_protocols={"file", "data"})
+
+
 def render_pdf(document):
     """The PDF of an Invoice or a CreditNote."""
     from weasyprint import HTML  # imported here: it needs Pango, a system library (Dockerfile, README)
@@ -119,4 +143,4 @@ def render_pdf(document):
         html = render_to_string("shop/credit_note.html", credit_note_context(document))
     else:
         html = render_to_string("shop/invoice.html", context(document))
-    return HTML(string=html, base_url=str(settings.BASE_DIR)).write_pdf()
+    return HTML(string=html, base_url=str(settings.BASE_DIR), url_fetcher=static_files_only()).write_pdf()

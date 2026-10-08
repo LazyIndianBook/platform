@@ -10,7 +10,9 @@
     <p class="price big">{{ product.price|inr }}
       {% if product.mrp != product.price %}<s>{{ product.mrp|inr }}</s> <span class="save">{{ product.saving_percent }}% off</span>{% endif %}</p>
     {% with left=product.available %}
-    {% if left %}
+    {% if not shop_open %}
+      <p class="notice-line">Shop opens soon.</p>
+    {% elif left %}
       <form method="post" action="{% url 'shop:cart_add' product.pk %}" class="add-to-cart">{% csrf_token %}
         <label for="quantity">Copies</label>
         <input id="quantity" name="quantity" type="number" min="1" max="{{ left|stringformat:'d' }}" value="1" inputmode="numeric">

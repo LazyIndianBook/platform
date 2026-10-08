@@ -53,7 +53,7 @@ def test_the_site_keeps_working_while_redis_is_down(client, settings, monkeypatc
     make_paper()
     assert client.get("/api/v1/books/physics-2027/").status_code == 200  # cached page and throttles: a miss
     lookup = {"number": "EL-2026-999999", "email": "x@example.com"}
-    assert client.post(reverse("shop:lookup"), lookup).status_code == 200  # its rate limit lets it through
+    assert client.post(reverse("shop:lookup"), lookup).status_code == 429  # its limits refuse while uncounted (M2, L8)
     assert client.get(reverse("account_login")).status_code == 200
     user = (
         UserFactory()

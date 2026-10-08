@@ -4,6 +4,6 @@ Reason: {{ reason }}{% endif %}
 {% if refund %}The full amount, {{ refund.amount }}, is being refunded to the account, card or UPI ID you paid from. Refunds
 reach you within 5–7 working days; we email you when it is sent.{% else %}Nothing has been charged.{% endif %}
 
-Your order: {{ site_url }}{{ order.get_absolute_url }}
+Your order: {{ site_url }}{{ order.get_link_url }}
 
 ExamLeaf{% endautoescape %}

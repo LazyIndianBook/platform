@@ -1,5 +1,6 @@
 from allauth.account.forms import SignupForm as AllauthSignupForm
 from django import forms
+from django.conf import settings
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
@@ -65,6 +66,9 @@ class SignupForm(AllauthSignupForm):
         self.fields["consent"].help_text = format_html(
             '<a href="{}" target="_blank" rel="noopener">Read the privacy notice</a>', reverse("privacy")
         )
+        if settings.PARENTAL_CONSENT_MODE == "verified":  # M9: the parent confirms by email
+            label = "Parent's or guardian's email (if you are under 18): we email them a link to confirm"
+            self.fields["parent_contact"].label = label
 
     def clean_date_of_birth(self):
         dob = self.cleaned_data["date_of_birth"]
@@ -79,7 +83,11 @@ class SignupForm(AllauthSignupForm):
             return ""
         if "@" in value:
             validate_email(value)
+            if value.lower() == (self.cleaned_data.get("email") or "").lower():
+                raise ValidationError("Enter your parent's or guardian's email, not your own.")
             return value.lower()
+        if settings.PARENTAL_CONSENT_MODE == "verified":
+            raise ValidationError("Enter your parent's or guardian's email address: we email them a link to confirm.")
         phone = to_phone(value)  # PHONENUMBER_DEFAULT_REGION = "IN"
         if not (phone and phone.is_valid()):
             raise ValidationError("Enter a valid phone number or email address.")
@@ -118,6 +126,10 @@ class SignupForm(AllauthSignupForm):
         user.save()
         user.groups.add(Group.objects.get_or_create(name=roles.STUDENT)[0])
         ConsentRecord.record(request, user, by_parent=user.is_minor)
+        if user.consent_pending:  # PARENTAL_CONSENT_MODE "verified": the parent confirms through an emailed link
+            from .views import send_parent_link  # (views import this module)
+
+            send_parent_link(user)
 
 
 class TeacherRequestForm(forms.ModelForm):

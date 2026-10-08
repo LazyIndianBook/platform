@@ -6,6 +6,7 @@ run, and django-simple-history keeps every change (the customer's status timelin
 records (stock, refunds, emails) are in services.py."""
 
 import re
+import secrets
 from decimal import ROUND_HALF_UP, Decimal
 
 from django.conf import settings
@@ -42,6 +43,11 @@ def rupees(amount):
 def paise(money):
     """Razorpay's amounts: whole paise, as an int."""
     return int(rupees(money.amount if isinstance(money, Money) else money) * 100)
+
+
+def live_mode():
+    """Whether the site runs on Razorpay's live keys now (rzp_live_…; no keys counts as live: no test series)."""
+    return not settings.RAZORPAY_KEY_ID.startswith("rzp_test_")
 
 
 def validate_indian_mobile(number):
@@ -321,6 +327,10 @@ class CartItem(models.Model):
         return f"{self.quantity} × {self.product}"
 
 
+def order_token():
+    return secrets.token_urlsafe(16)
+
+
 class OrderQuerySet(models.QuerySet):
     def counted(self):
         """Orders that count as sales (and as coupon uses): paid, or placed with cash on delivery, and not undone."""
@@ -342,6 +352,8 @@ class Order(ConcurrentTransitionMixin, TimeStampedModel):
         COD = "cod", "cash on delivery"
 
     number = models.CharField(max_length=20, unique=True, null=True, editable=False)  # noqa: DJ001  null until saved
+    # The secret of the link in the order's emails (/orders/t/<token>/): it opens the order without an account.
+    token = models.CharField(max_length=32, unique=True, default=order_token, editable=False)
     user = models.ForeignKey(  # SET_NULL: orders are tax records and outlive accounts (deletion only anonymises)
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="orders"
     )
@@ -359,12 +371,16 @@ class Order(ConcurrentTransitionMixin, TimeStampedModel):
         null=True, blank=True, db_index=True, help_text="Paid online, or placed with cash on delivery."
     )
     stock_reserved = models.BooleanField(default=False, editable=False)
-    history = HistoricalRecords(excluded_fields=["shipping_address"])
+    livemode = models.BooleanField(
+        "live mode", default=False, editable=False, help_text="Made with live Razorpay keys (its payment's mode)."
+    )
+    history = HistoricalRecords(excluded_fields=["shipping_address", "token"])
 
     objects = OrderQuerySet.as_manager()
 
     class Meta:
         ordering = ["-created"]
+        permissions = [("export_order", "Can export orders")]  # the admin's CSV/XLSX export (ADMIN role)
 
     def __str__(self):
         return self.number or f"Order #{self.pk}"
@@ -377,6 +393,9 @@ class Order(ConcurrentTransitionMixin, TimeStampedModel):
 
     def get_absolute_url(self):
         return reverse("shop:order", args=[self.number])
+
+    def get_link_url(self):  # the emails' link, for guests and owners alike
+        return reverse("shop:order_link", args=[self.token])
 
     @property
     def is_cod(self):
@@ -396,8 +415,13 @@ class Order(ConcurrentTransitionMixin, TimeStampedModel):
     def can_cancel(self):  # by the customer; staff may also cancel a packed order (admin)
         return self.status in (self.Status.PENDING, self.Status.PAID)
 
+    @property
+    def is_test(self):
+        """Made with test keys while the site runs on live ones: marked TEST in the admin, never packed or shipped."""
+        return not self.livemode and live_mode()
+
     def ready_to_pack(self):
-        return self.status == self.Status.PAID or (self.is_cod and self.placed_at is not None)
+        return (self.status == self.Status.PAID or (self.is_cod and self.placed_at is not None)) and not self.is_test
 
     def timeline(self):
         """(status, time) for each change of status, from the order's history."""
@@ -417,7 +441,7 @@ class Order(ConcurrentTransitionMixin, TimeStampedModel):
     def pack(self):
         pass
 
-    @transition(status, source=Status.PACKED, target=Status.SHIPPED)
+    @transition(status, source=Status.PACKED, target=Status.SHIPPED, conditions=[lambda o: not o.is_test])
     def ship(self):
         pass
 
@@ -479,6 +503,13 @@ class Payment(ConcurrentTransitionMixin, TimeStampedModel):
     razorpay_signature = models.CharField(max_length=128, blank=True)
     status = FSMField(default=Status.CREATED, choices=Status.choices, protected=True)
     error = models.CharField(max_length=255, blank=True, help_text="Why the last attempt failed (from Razorpay).")
+    livemode = models.BooleanField(
+        "live mode", default=False, editable=False, help_text="Made with live Razorpay keys (the key of its order)."
+    )
+    # Of the last webhook's payment entity only these fields are kept (no email, phone, UPI ID, card or bank details),
+    # and only for PAYLOAD_DAYS (tasks.clean_up). Not shown in the admin.
+    PAYLOAD_FIELDS = "id order_id status method amount currency error_code error_description created_at".split()
+    PAYLOAD_DAYS = 180
     raw_payload = models.JSONField("last webhook", null=True, blank=True)
     history = HistoricalRecords(excluded_fields=["raw_payload"])
 
@@ -556,19 +587,19 @@ def financial_year(day):
     return f"{start}-{(start + 1) % 100:02d}"
 
 
-def next_number(model, prefix, test_prefix):
+def next_number(model, prefix, test_prefix, live):
     """The next number of an invoice or credit note: per financial year, at most 16 characters as GST requires
-    (EL/2026-27/00001). With Razorpay test keys a separate series (T before the year, `test_prefix` in the number), so
-    the real numbering starts at 00001 when the shop goes live. The unique constraint stops two taking one number."""
+    (EL/2026-27/00001). An order made with Razorpay test keys (`live` False: the mode of its payment, whatever keys the
+    site runs on now) has a separate series (T before the year, `test_prefix` in the number), so the real numbering
+    starts at 00001 when the shop goes live. The unique constraint stops two taking one number."""
     year = financial_year(timezone.localdate())
-    test = settings.RAZORPAY_KEY_ID.startswith("rzp_test_")
-    series = f"T{year}" if test else year
+    series = year if live else f"T{year}"
     last = model.objects.filter(financial_year=series).order_by("-serial").values_list("serial", flat=True).first()
     serial = (last or 0) + 1
     return {
         "financial_year": series,
         "serial": serial,
-        "number": f"{test_prefix if test else prefix}/{year}/{serial:05d}",
+        "number": f"{prefix if live else test_prefix}/{year}/{serial:05d}",
     }
 
 
@@ -598,7 +629,7 @@ class Invoice(TimeStampedModel):
         """The order's invoice, numbered now if it has none."""
         if invoice := cls.objects.filter(order=order).first():
             return invoice
-        return cls.objects.create(order=order, **next_number(cls, "EL", "T"))
+        return cls.objects.create(order=order, **next_number(cls, "EL", "T", live=order.livemode))
 
 
 class CreditNote(TimeStampedModel):
@@ -627,7 +658,8 @@ class CreditNote(TimeStampedModel):
     def for_refund(cls, refund, invoice):
         if note := cls.objects.filter(refund=refund).first():
             return note
-        return cls.objects.create(refund=refund, invoice=invoice, **next_number(cls, "CN", "TC"))
+        live = not invoice.is_test  # the note follows its invoice's series
+        return cls.objects.create(refund=refund, invoice=invoice, **next_number(cls, "CN", "TC", live=live))
 
 
 class WebhookEvent(models.Model):

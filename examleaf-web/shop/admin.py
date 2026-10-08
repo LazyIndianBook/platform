@@ -7,10 +7,11 @@ from django.urls import reverse
 from django.utils.html import format_html, format_html_join
 from django_fsm import TransitionNotAllowed
 from import_export import fields, resources
-from import_export.admin import ExportMixin
 from import_export.formats.base_formats import CSV, XLSX
 from localflavor.in_.in_states import STATE_CHOICES
 from simple_history.admin import SimpleHistoryAdmin
+
+from ops.admin import LoggedExportMixin
 
 from . import services
 from .forms import RefundForm, ShipForm
@@ -210,11 +211,11 @@ class OrderResource(resources.ModelResource):  # CSV / XLSX export: one row per 
 
 
 @admin.register(Order)
-class OrderAdmin(ExportMixin, SimpleHistoryAdmin):
+class OrderAdmin(LoggedExportMixin, SimpleHistoryAdmin):  # export: shop.export_order (ADMIN), logged
     resource_classes = [OrderResource]
     export_formats = [CSV, XLSX]
-    list_display = ["number", "created", "customer", "total", "payment_method", "status", "placed_at"]
-    list_filter = ["status", "payment_method", "placed_at", "created"]
+    list_display = ["order_number", "created", "customer", "total", "payment_method", "status", "placed_at"]
+    list_filter = ["status", "payment_method", "livemode", "placed_at", "created"]
     search_fields = [
         "number",
         "email",
@@ -224,8 +225,8 @@ class OrderAdmin(ExportMixin, SimpleHistoryAdmin):
     ]
     date_hierarchy = "created"
     readonly_fields = [
-        *["number", "status", "user", "email", "delivery_address", "subtotal", "discount", "shipping_fee", "total"],
-        *["coupon_code", "payment_method", "placed_at", "invoice_link", "created", "modified"],
+        *["order_number", "status", "user", "email", "delivery_address", "subtotal", "discount", "shipping_fee"],
+        *["total", "coupon_code", "payment_method", "livemode", "placed_at", "invoice_link", "created", "modified"],
     ]
     fields = readonly_fields
     inlines = [OrderItemInline, PaymentInline, ShipmentInline, RefundInline]
@@ -239,6 +240,12 @@ class OrderAdmin(ExportMixin, SimpleHistoryAdmin):
 
     def has_refund_permission(self, request):
         return request.user.has_perm("shop.add_refund")
+
+    @admin.display(description="number", ordering="number")
+    def order_number(self, order):
+        if order.is_test:  # made with test keys, the site now runs on live ones: never packed or shipped
+            return format_html("{} <strong>TEST</strong>", order.number)
+        return order.number
 
     @admin.display(description="customer")
     def customer(self, order):
@@ -265,7 +272,7 @@ class OrderAdmin(ExportMixin, SimpleHistoryAdmin):
                 step(order)
                 ok += 1
             except TransitionNotAllowed:
-                refused.append(f"{order} ({order.get_status_display()})")
+                refused.append(f"{order} ({'a test order' if order.is_test else order.get_status_display()})")
         if ok:
             self.message_user(request, f"{done}: {ok} order(s).", messages.SUCCESS)
         if refused:
@@ -299,12 +306,12 @@ class OrderAdmin(ExportMixin, SimpleHistoryAdmin):
             formset = formset_class(request.POST, prefix="ship")
             if formset.is_valid():
                 by_pk = {order.pk: order for order in orders}
-                rows = [row for row in formset.cleaned_data if row.get("order") in by_pk]
+                rows = {row["order"]: row for row in formset.cleaned_data if row.get("order") in by_pk}
                 self._each(
                     request,
-                    rows,
-                    lambda row: services.ship_order(
-                        by_pk[row["order"]], row["courier"], row["tracking_number"], row["tracking_url"]
+                    [by_pk[pk] for pk in rows],
+                    lambda o: services.ship_order(
+                        o, rows[o.pk]["courier"], rows[o.pk]["tracking_number"], rows[o.pk]["tracking_url"]
                     ),
                     "Shipped (customer emailed the tracking number)",
                 )
@@ -364,6 +371,7 @@ class ReadOnlyAdmin(admin.ModelAdmin):
 
 @admin.register(Payment)
 class PaymentAdmin(ReadOnlyAdmin):
+    exclude = ["raw_payload"]  # what Razorpay sent: for disputes, from the database only (180 days)
     list_display = ["order", "method", "amount", "status", "razorpay_order_id", "razorpay_payment_id", "created"]
     list_filter = ["status", "method", "created"]
     search_fields = ["order__number", "razorpay_order_id", "razorpay_payment_id"]

@@ -2,13 +2,22 @@ import socket
 
 import pytest
 from django.core.cache import cache
+from pwned_passwords_django import api as pwned_passwords
 
 from examleaf.celery import app as celery_app
+from examleaf.views import HealthView
 
 
 @pytest.fixture(autouse=True)
 def fresh_cache():
     cache.clear()  # allauth's rate limits and axes live in the cache
+    HealthView.results_by_path.clear()  # the health checks' results, kept 20 s in the process
+
+
+@pytest.fixture(autouse=True)
+def no_pwned_passwords_requests(monkeypatch):
+    """No password leaves for haveibeenpwned.com from the tests: none is found in a breach, unless a test says so."""
+    monkeypatch.setattr(pwned_passwords.default_client, "check_password", lambda password: 0)
 
 
 @pytest.fixture(autouse=True)

@@ -14,11 +14,8 @@ def pytest_configure(config):
 
 @pytest.fixture(autouse=True)
 def shop_settings(settings):
-    settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET, settings.RAZORPAY_WEBHOOK_SECRET = (
-        KEY,
-        SECRET,
-        WEBHOOK_SECRET,
-    )
+    settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET = KEY, SECRET  # test keys: test mode
+    settings.RAZORPAY_WEBHOOK_SECRET_TEST, settings.RAZORPAY_WEBHOOK_SECRET = WEBHOOK_SECRET, "live-webhook-secret"
 
 
 @pytest.fixture(autouse=True)
@@ -41,6 +38,7 @@ def rzp(monkeypatch):
     client = MagicMock()
     client.utility = razorpay.Client(auth=(KEY, SECRET)).utility
     client.order.create.side_effect = lambda data, **kw: {"id": f"order_{data['receipt']}", **data}
+    client.payment.fetch_multiple_refund.return_value = {"entity": "collection", "count": 0, "items": []}
     client.payment.refund.side_effect = lambda payment_id, data, **kw: {
         "id": f"rfnd_{data['notes']['refund_id']}",
         "status": "processed",

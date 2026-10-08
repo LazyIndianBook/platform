@@ -9,7 +9,7 @@ from rest_framework.reverse import reverse
 from accounts.models import User
 from content.models import Board, Book, Paper, Question, Solution, Subject
 from content.templatetags.markdown import render
-from practice.models import NOTES_MAX_LENGTH, Attempt
+from practice.models import NOTES_MAX_LENGTH, Attempt, check_can_save
 
 
 class BoardSerializer(serializers.ModelSerializer):
@@ -182,6 +182,7 @@ class AttemptSerializer(serializers.ModelSerializer):
         marks = attrs.get("marks_obtained", getattr(self.instance, "marks_obtained", None))
         if not 0 <= marks <= paper.full_marks:
             raise serializers.ValidationError({"marks_obtained": f"Enter marks from 0 to {paper.full_marks}."})
+        check_can_save(self.context["request"].user, paper, new=self.instance is None)  # 400 with the reason
         return attrs
 
 

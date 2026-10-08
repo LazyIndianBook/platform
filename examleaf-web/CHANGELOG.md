@@ -4,6 +4,76 @@ What changed in the ExamLeaf web platform, newest first, by phase. Phases 0 to 3
 8 October 2026); phase 4 is the QA pass, the working tree on top of phase 3b until it is committed. Details of each
 feature are in README.md; the numbers of the tests are those of `pytest` at the end of the phase.
 
+## Phase 4 security — shop (16 tests more, in `shop/test_security.py`)
+
+The shop's findings of SECURITY_REVIEW.md (8 October 2026); each finding there has its status line.
+
+- **Order links (M2).** Each order has an unguessable token, and every email about it links to `/orders/t/<token>/`:
+  the order read only, its invoice and credit notes, and a cancel button while it is pending or paid. "Find your
+  order" (website and API) no longer opens the order: for a guest order it emails that link to the order's address,
+  and it answers "If an order matches, we have emailed you a link." either way. 10 lookups an hour per client address,
+  per email address and per order number; refused while they cannot be counted. API: `POST orders/lookup/` no longer
+  returns the order.
+- **Test and live mode (M3).** Payments and orders record the mode of their Razorpay keys. Payments, webhooks and
+  refunds of the other mode change nothing; invoice and credit-note series follow the order's mode; once live, test
+  orders are marked TEST and cannot be packed or shipped. One webhook secret per mode (`RAZORPAY_WEBHOOK_SECRET_TEST`,
+  `RAZORPAY_WEBHOOK_SECRET`). `SHOP_OPEN=0` leaves buying to staff during Razorpay's review ("Shop opens soon").
+- **Webhook data (M6).** Only the payment's id, order, status, method, amount, currency, error and time are kept (the
+  stored payloads are stripped by a migration), not shown in the admin, and cleared after 180 days.
+- **Cash on delivery (M8).** Only for accounts with a confirmed email address, orders up to `SHOP_COD_MAX_VALUE`
+  (₹1,500) and two on their way per account. Checkout and place order: 10 per 10 minutes per client address.
+- **Retention (M10).** Orders never paid or placed lose the customer's details 30 days after they were cancelled; the
+  yearly purge of invoiced orders past eight years is in RUNBOOK.md.
+- **Refunds (L1, L3).** A retried refund first looks for the one Razorpay already made; a second payment captured for
+  a paid order is recorded and refunded by itself, and a cancellation still refunds the first one.
+- **Coupons (L4).** One answer for every code that cannot be used; 10 tries an hour per client address (website) and
+  per user (API, `API_THROTTLE_COUPON`).
+- **Redis (L8).** The cache has a Redis of its own (`redis-cache`: 256 MB, least used keys evicted); the queue's never
+  evicts. The shop's limits refuse while the cache cannot be read; Razorpay's webhooks go on.
+- **Hardening (I4, I6, M5).** Products and addresses sort only by the fields named; invoice PDFs fetch only static files
+  and data: URLs; the orders export needs `export_order` (ADMIN) and is logged.
+- Migrations `shop` 0005 to 0008. Open: canonical cache keys for the public API lists (`api/views.py`).
+
+## Phase 4 security — accounts, API and operations (23 tests more, 227 in all)
+
+The security review's other findings (SECURITY_REVIEW.md, each with its status line), one test or more each in
+`accounts/test_security.py`, `api/test_security.py` and `ops/test_security.py`.
+
+### Staff and roles
+
+- **Two-factor authentication for staff** (H2): `allauth.mfa`, an authenticator app with ten recovery codes; staff
+  without one are sent to set it up before anything else opens; the admin's log-in is allauth's (its per-account limit,
+  the code); staff sessions end 8 hours after the log-in. RUNBOOK.md "Staff accounts".
+- **ADMIN can no longer** edit periodic tasks, task results, groups, permissions or second factors, nor make anyone
+  superuser or change a superuser; only superusers give roles (I7).
+- **Admin exports** need an `export_…` permission (ADMIN only), leave out dates of birth and parents' contacts, are
+  written to the admin log, and escape a leading `=` (M5, L7).
+
+### Log-ins, passwords and the API
+
+- The API's log-in counts failures per account like the website (5 in 5 minutes); allauth now sees the client's address
+  behind Caddy instead of Caddy's (M7).
+- Password reset emails: 5 a minute per address, API and website together (L5); five wrong passwords in an hour on the
+  API's password checks revoke the user's refresh tokens and answer 429 (L6).
+- Passwords: 10 characters at least, none found in data breaches (Pwned Passwords); reset links last an hour (L11).
+- At most 20 new attempts of a paper a day; notes 2,000 characters (L12). Boards and subjects sort by id and name only
+  (I4); the public API's cache keys ignore unknown query parameters (L8).
+- `JWT_SIGNING_KEY`: the app's tokens can have their own key (I5).
+
+### Operations and privacy
+
+- `/health/` and `/health/web/` answer only the uptime monitor (Caddy, `X-Health-Token`) and keep their results 20 s;
+  `/api/v1/health/` is gone (H1).
+- Sentry gets no stack-frame variables and no email text (M4).
+- Verifiable parental consent behind `PARENTAL_CONSENT_MODE=verified`: a link emailed to the parent, the account
+  read-only until they agree, how and when recorded (M9); to switch before May 2027 (DEPLOYMENT.md section 14).
+- Expired sessions are deleted daily; uploaded backups can be encrypted with age, with a 30-day bucket rule; the
+  privacy draft says how logs are really kept (M10).
+- The site refuses to start with development settings on a server (I1); a Permissions-Policy header (I6); QR images
+  only for published papers, cached a day (I3).
+- CI: read-only permissions, a pip-audit job (not blocking yet); test and lint tools in `requirements-dev.txt`, not in
+  the image (L10).
+
 ## Phase 4: QA pass (60 tests more, 188 in all)
 
 Every flow of the site was walked on a development server (visitor, cart, log-in, both checkouts, cancellation, guest

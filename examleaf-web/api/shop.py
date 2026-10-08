@@ -3,6 +3,7 @@ cart, the saved addresses and the orders, paid with Razorpay's mobile SDK or cas
 lookup. Every step goes through shop.cart, shop.services and shop.payments, as on the website. The Razorpay webhook
 stays the website's (/shop/webhooks/razorpay/): it completes an order whatever the client did."""
 
+from django.conf import settings
 from django.db.models import Prefetch
 from django.urls import reverse as site_reverse
 from django.utils.cache import add_never_cache_headers
@@ -30,12 +31,23 @@ from shop.models import (
     Product,
     validate_indian_mobile,
 )
-from shop.views import pdf_response
+from shop.views import lookup_allowed, over_limit, pdf_response
 
 from .views import VerifiedEmail
 
 CUSTOMER = [permissions.IsAuthenticated, VerifiedEmail]
 NOT_PAYABLE = "This order is not waiting for an online payment."
+
+
+class ShopOpen(permissions.BasePermission):
+    """While SHOP_OPEN is off only staff change carts, check out and pay (shop.views.shop_open)."""
+
+    message = "The shop opens soon."
+
+    def has_permission(self, request, view):
+        return settings.SHOP_OPEN or request.method in permissions.SAFE_METHODS or request.user.is_staff
+
+
 NOT_CONFIRMED = (
     "We could not confirm this payment. If money was taken from your account, we confirm the order or refund it "
     "by ourselves within a few minutes."
@@ -155,6 +167,7 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
     lookup_field = "slug"
     filterset_fields = ["kind", "subject"]
     search_fields = ["title"]
+    ordering_fields = ["title", "price"]  # only these: any other name is ignored
 
 
 # Cart
@@ -207,7 +220,7 @@ class CartViewSet(viewsets.GenericViewSet):
     """The signed-in customer's cart, the same as on the website. Every answer is the whole cart; `?state=` adds the
     shipping. Carts of visitors without an account stay on the website."""
 
-    permission_classes = CUSTOMER
+    permission_classes = [*CUSTOMER, ShopOpen]
     serializer_class = CartSerializer
     pagination_class = None
     filter_backends = []
@@ -257,16 +270,20 @@ class CartViewSet(viewsets.GenericViewSet):
         item.delete()
         return self.answer(cart)
 
+    @property
+    def throttle_scope(self):  # coupon codes are not guessed: API_THROTTLE_COUPON
+        return "coupon" if getattr(self, "action", None) == "apply_coupon" else None
+
     @extend_schema(request=CouponSerializer, responses=CartSerializer, parameters=[STATE])
     def apply_coupon(self, request, **kwargs):
-        """Use a coupon code (any case); refused with the reason when it cannot be used on this cart."""
+        """Use a coupon code (any case). Refused with one message whatever the reason (unknown, expired, used up, too
+        small a cart); limited per user (API_THROTTLE_COUPON)."""
         data = CouponSerializer(data=request.data)
         data.is_valid(raise_exception=True)
         cart, user = get_cart(request, create=True), request.user
         coupon = Coupon.objects.filter(code__iexact=data.validated_data["code"].strip()).first()
-        problem = coupon.problem(totals(cart).subtotal, user=user, email=user.email) if coupon else None
-        if coupon is None or problem:
-            raise serializers.ValidationError({"code": [problem or "This coupon code is not valid."]})
+        if coupon is None or coupon.problem(totals(cart).subtotal, user=user, email=user.email):
+            raise serializers.ValidationError({"code": [services.COUPON_REFUSED]})
         cart.coupon = coupon
         cart.save(update_fields=["coupon", "modified"])
         return self.answer(cart)
@@ -299,6 +316,7 @@ class AddressViewSet(viewsets.ModelViewSet):
 
     serializer_class = AddressSerializer
     permission_classes = CUSTOMER
+    ordering_fields = ["created"]
 
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):  # schema generation has no user
@@ -468,6 +486,10 @@ class LookupSerializer(serializers.Serializer):
     email = serializers.EmailField(help_text="the address the order was placed with")
 
 
+class LinkSentSerializer(serializers.Serializer):
+    detail = serializers.CharField(help_text="always: " + services.LINK_SENT)
+
+
 PDF = {(200, "application/pdf"): OpenApiTypes.BINARY}
 NOTE = OpenApiParameter("note", int, OpenApiParameter.PATH, description="the credit note's id (credit_notes[].url)")
 
@@ -475,7 +497,7 @@ NOTE = OpenApiParameter("note", int, OpenApiParameter.PATH, description="the cre
 class OrderViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     """The signed-in customer's own orders (another customer's: 404), checkout, payment and cancellation."""
 
-    permission_classes = CUSTOMER
+    permission_classes = [*CUSTOMER, ShopOpen]
     throttle_scope = None  # the payment and lookup actions set theirs
     lookup_field = "number"
     filterset_fields = ["status"]
@@ -501,6 +523,10 @@ class OrderViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.Ge
     def create(self, request, *args, **kwargs):
         """Checkout: an order from the cart at today's prices, to a saved address. Online: pending until paid
         (payment/). Cash on delivery: placed at once and the cart emptied."""
+        if request.user.consent_pending:
+            raise exceptions.PermissionDenied("A parent or guardian has not confirmed this account yet.")
+        if over_limit(request, "checkout", 10, 600):  # shared with the website's checkout, per client address
+            raise exceptions.Throttled(wait=600)
         data = CheckoutSerializer(data=request.data, context={"request": request})
         data.is_valid(raise_exception=True)
         user, cart = request.user, get_cart(request)
@@ -524,7 +550,7 @@ class OrderViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.Ge
         return self.answer(order, status.HTTP_201_CREATED)
 
     @extend_schema(request=None, responses=OrderSerializer)
-    @action(detail=True, methods=["post"])
+    @action(detail=True, methods=["post"], permission_classes=CUSTOMER)  # also while the shop is closed
     def cancel(self, request, **kwargs):
         """Cancel while pending or paid; an online payment is refunded in full (5–7 working days)."""
         order = self.get_object()
@@ -584,7 +610,7 @@ class OrderViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.Ge
         add_never_cache_headers(response)
         return response
 
-    @extend_schema(request=LookupSerializer, responses=OrderSerializer)
+    @extend_schema(request=LookupSerializer, responses=LinkSentSerializer)
     @action(
         detail=False,
         methods=["post"],
@@ -593,11 +619,13 @@ class OrderViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.Ge
         throttle_scope="order_lookup",
     )
     def lookup(self, request, **kwargs):
-        """Guests: an order by its number and the email address it was placed with (rate-limited per address)."""
+        """Guests (who ordered on the website without an account): the link to an order is emailed to the address it
+        was placed with, never answered here; the answer is the same whether an order matched or not. Limited per
+        client address, per email address and per order number."""
         data = LookupSerializer(data=request.data)
         data.is_valid(raise_exception=True)
         number, email = data.validated_data["number"].strip().upper(), data.validated_data["email"]
-        order = Order.objects.filter(number=number, email__iexact=email).first()
-        if order is None:
-            raise exceptions.NotFound("No order has this number and email address.")
-        return self.answer(order)
+        if not lookup_allowed(number, email):
+            raise exceptions.Throttled(wait=3600)
+        services.email_order_link(number, email)
+        return Response({"detail": services.LINK_SENT})
