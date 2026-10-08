@@ -16,7 +16,8 @@ export default async function AccountLayout({ children }: { children: React.Reac
   return (
     <section className="flex-1 max-nav:border-l-[3px] max-nav:border-double max-nav:border-red-ink">
       <div className="container-site grid grid-cols-[minmax(0,1fr)] nav:grid-cols-[220px_minmax(0,1fr)]">
-        <div className="min-w-0 max-nav:-mx-(--gutter) max-nav:border-b max-nav:border-border max-nav:px-(--gutter) max-nav:pt-2.5 max-nav:pb-1 nav:pt-10 nav:pr-6">
+        {/* under 900 px the navigation draws its own row of chips over a hairline, edge to edge */}
+        <div className="min-w-0 nav:pt-10 nav:pr-6">
           <AccountNav />
         </div>
         {/* at least a screen tall, placeholder and page alike: the footer stays below the first screen while the
