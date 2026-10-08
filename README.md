@@ -18,3 +18,6 @@ Backend: `cd examleaf-web && python3.14 -m venv .venv && .venv/bin/pip install -
 One machine with Docker compose (`examleaf-web/docker-compose.yml`): PostgreSQL 17, two Redis instances, the Django web service, Celery worker, beat and media worker, the Next.js frontend, Caddy with automatic TLS routing the Django prefixes to the backend and every other path to the frontend. `examleaf-web/DEPLOYMENT.md` lists every setting and the accounts to open (Razorpay, MSG91 with DLT, Amazon SES, Google OAuth, Cloudflare R2, Firebase, Turnstile); `RUNBOOK.md` the operating procedures.
 
 Repository created on 8 October 2026 by splitting the platform paths, with their history, out of `LazyIndianBook/Class-12-Assam`.
+
+## Scope ahead
+ExamLeaf will publish for other state boards and the central boards, for every class and not only Class 12, and more than sample papers: guidebooks, question banks, quick revision books and the app-based revision course. The data model already treats board, class, subject and product kind as data (`Board`, `ClassLevel`, `Subject`, `Book`, `Product.kind`), so a new board or class is content, not code; the `kind` lists are the places to extend for new product types. Before the first print run of another board or class, agree a paper-code scheme that stays unique across them, because the printed QR codes resolve `/s/<code>/` by code alone.
