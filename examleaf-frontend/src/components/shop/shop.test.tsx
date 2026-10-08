@@ -15,6 +15,8 @@ import {
   cancelledMessage,
   checkoutSteps,
   copies,
+  documentIsPayPage,
+  loadRazorpay,
   openRazorpay,
   orderOutcome,
   orderTimeline,
@@ -253,5 +255,31 @@ describe("Razorpay's window", () => {
     (made.settings!.modal as { ondismiss: () => void }).ondismiss();
     expect(on.dismiss).toHaveBeenCalled();
     expect(on.success).not.toHaveBeenCalled();
+  });
+
+  it("loads checkout.js only when asked, once, with the page's nonce (security review S3)", async () => {
+    const script = () => document.querySelector<HTMLScriptElement>('script[src*="checkout.razorpay.com"]');
+    expect(script()).toBeNull();
+    const loading = loadRazorpay("n0nce");
+    expect(script()?.nonce).toBe("n0nce");
+    const { Razorpay } = fake();
+    Object.assign(window, { Razorpay });
+    script()!.dispatchEvent(new Event("load"));
+    expect(await loading).toBe(Razorpay);
+    expect(await loadRazorpay("n0nce")).toBe(Razorpay); // loaded: no second script
+    expect(document.querySelectorAll('script[src*="checkout.razorpay.com"]')).toHaveLength(1);
+    delete (window as { Razorpay?: unknown }).Razorpay;
+    script()!.remove();
+  });
+
+  it("knows whether the document began on a pay page, whose CSP alone lets Razorpay in (S2)", () => {
+    const entries = vi.spyOn(performance, "getEntriesByType");
+    entries.mockReturnValue([{ name: "https://examleaf.in/checkout/EL-2026-000003/pay/" } as PerformanceEntry]);
+    expect(documentIsPayPage()).toBe(true);
+    entries.mockReturnValue([{ name: "https://examleaf.in/checkout/t/tok-1/pay/" } as PerformanceEntry]);
+    expect(documentIsPayPage()).toBe(true);
+    entries.mockReturnValue([{ name: "https://examleaf.in/cart/" } as PerformanceEntry]);
+    expect(documentIsPayPage()).toBe(false); // reached by a client-side navigation: the page reloads once
+    entries.mockRestore();
   });
 });

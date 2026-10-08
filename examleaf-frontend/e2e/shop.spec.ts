@@ -112,6 +112,9 @@ test("checkout with the saved address leads to the pay page, which says honestly
   await expect(page).toHaveURL(/\/checkout\/(EL-[\d-]+)\/pay\/$/);
   number = /\/checkout\/(EL-[\d-]+)\/pay\//.exec(page.url())![1];
   await expect(page.locator('[aria-current="step"]')).toHaveText("3. Payment");
+  // its own document, whose CSP lets Razorpay in (security review S2), and nothing of Razorpay's before Pay (S3)
+  expect(await page.evaluate(() => performance.getEntriesByType("navigation")[0].name)).toBe(page.url());
+  await expect(page.locator('script[src*="checkout.razorpay.com"]')).toHaveCount(0);
   // no Razorpay keys in development or CI: the API answers 503 and the page says so, the order kept
   await expect(page.getByText("Online payment is not set up yet.")).toBeVisible();
   await expect(page.getByText("Your order is saved and nothing has been charged.")).toBeVisible();
@@ -125,6 +128,7 @@ test("Razorpay's answer is checked by the server, and a refused one is said in w
   await expect(page.getByText("Test mode")).toBeVisible();
   const pay = page.getByRole("button", { name: /^Pay ₹/ });
   await expect(pay).toBeEnabled();
+  await expect(page.locator('script[src*="checkout.razorpay.com"]')).toHaveCount(0); // loaded on the press only
   await pay.click();
   await expect(page.getByText("We could not confirm this payment")).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`/checkout/${number}/pay/$`)); // no success claimed

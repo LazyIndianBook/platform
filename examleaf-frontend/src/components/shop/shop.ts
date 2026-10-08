@@ -5,6 +5,7 @@ import type { Step } from "@/components/ui/stepper";
 import type { TimelineItem } from "@/components/ui/timeline";
 import type { components } from "@/lib/api/schema";
 import { inr } from "@/lib/format";
+import { RAZORPAY_ROUTES } from "@/lib/security/csp";
 
 type Schemas = components["schemas"];
 type Order = Schemas["Order"];
@@ -174,6 +175,36 @@ export function openRazorpay(
   const checkout = new Razorpay(settings);
   checkout.on("payment.failed", (response) => on.failure(paymentFailed(response.error?.description)));
   checkout.open();
+}
+
+/** Razorpay's checkout.js, inserted when Pay is pressed and not before (nothing of Razorpay's is fetched or stored
+ *  until then: security review S3), with the page's CSP nonce; a second press reuses it, a failed load is retried. */
+export function loadRazorpay(nonce: string): Promise<RazorpayConstructor> {
+  const loaded = () => (window as unknown as { Razorpay?: RazorpayConstructor }).Razorpay;
+  const ready = loaded();
+  if (ready) return Promise.resolve(ready);
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.nonce = nonce;
+    script.onload = () => {
+      const Razorpay = loaded();
+      if (Razorpay) resolve(Razorpay);
+      else reject(new Error("checkout.js loaded without Razorpay"));
+    };
+    script.onerror = () => {
+      script.remove();
+      reject(new Error("checkout.js did not load"));
+    };
+    document.head.append(script);
+  });
+}
+
+/** Whether this document was loaded as a pay page: only then does its CSP let Razorpay in (a policy belongs to the
+ *  document, so a pay page reached by a client-side navigation has the policy of the page the visit began on). */
+export function documentIsPayPage(): boolean {
+  const entry = performance.getEntriesByType?.("navigation")[0];
+  return !entry || RAZORPAY_ROUTES.test(new URL(entry.name).pathname);
 }
 
 /** An address as lines: the name, the street, the city and district, the state and PIN, the mobile number. */

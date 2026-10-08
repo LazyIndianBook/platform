@@ -220,13 +220,14 @@ export function OrderView({
               {order.placed_at ? ` · ordered ${formatDate(order.placed_at)}` : ""}
             </p>
             {order.can_pay && mode !== "thanks" ? (
-              <Link
+              // a plain link, a full load: the pay page's CSP lets Razorpay in (csp.ts, RAZORPAY_ROUTES)
+              <a
                 href={token ? `/checkout/t/${token}/pay/` : `/checkout/${number}/pay/`}
                 className={buttonVariants({ variant: "accent", block: true })}
               >
                 Pay now
                 <ArrowRight aria-hidden="true" />
-              </Link>
+              </a>
             ) : null}
             {order.invoice ? (
               <a

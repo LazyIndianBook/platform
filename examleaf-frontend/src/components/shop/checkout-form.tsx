@@ -167,7 +167,9 @@ export function CheckoutForm({
         };
         const order = await unwrap(api.POST("/api/v1/orders/", { body }));
         if (!("token" in order)) throw new ApiError(500, "server", "That did not work. Please try again.");
-        router.push(`/checkout/t/${order.token}/pay/`);
+        // a full load: the pay page's CSP lets Razorpay in, a client-side navigation would keep this page's (csp.ts)
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+        window.location.assign(`/checkout/t/${order.token}/pay/`);
         return;
       }
       let address = Number(choice);
@@ -184,7 +186,8 @@ export function CheckoutForm({
         router.push(`/checkout/${order.number}/done/`);
         router.refresh(); // the cart was emptied: the header's count
       } else {
-        router.push(`/checkout/${order.number}/pay/`);
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+        window.location.assign(`/checkout/${order.number}/pay/`); // a full load, as above
       }
     } catch (caught) {
       // nothing left behind: a refused order does not keep the address it just saved (a new try saves it again)

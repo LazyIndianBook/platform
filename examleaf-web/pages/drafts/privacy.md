@@ -42,6 +42,7 @@ We use your details on the basis of your consent (given by a parent or guardian 
 - No advertisements, no analytics or tracking scripts, no profiling. We do not track or monitor the behaviour of children, and we do not show them targeted advertising.
 - We do not sell your details or share them with anyone for marketing.
 - We use only the cookies the site needs to work: one that keeps you logged in and one that protects forms against misuse.
+- Only when you press Pay, Razorpay's payment window is loaded, and it keeps its own device and fraud-check identifiers in your browser (a cookie and local and session storage) to protect the payment.
 
 ## Who else handles it
 

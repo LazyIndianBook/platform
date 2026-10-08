@@ -1,15 +1,15 @@
 "use client";
 
 // The pay page's button (Django's shop/checkout.js): asks the API for this order's Razorpay options (POST
-// orders/<n>/payment/, or orders/t/<token>/payment/ for a guest's: the server makes Razorpay's order), loads
-// checkout.js with this page's CSP nonce, opens Razorpay's window, then posts its answer to …/payment/confirm/. The done page says what the API answered
-// (paid, still being confirmed, or not completed); this button never claims success itself. Busy until both the
-// options and the script are ready. Unavailable (503), not payable (400), a failed or refused payment: said in words,
-// the order kept and the cart with it.
+// orders/<n>/payment/, or orders/t/<token>/payment/ for a guest's: the server makes Razorpay's order); on Pay, loads
+// checkout.js with this page's CSP nonce (loadRazorpay: nothing of Razorpay's before the press), opens Razorpay's
+// window, then posts its answer to …/payment/confirm/. The done page says what the API answered (paid, still being
+// confirmed, or not completed); this button never claims success itself. Busy until the options are ready.
+// Unavailable (503), not payable (400), a failed or refused payment: said in words, the order kept and the cart with
+// it. A pay page that is not its own document reloads once first: only the pay page's CSP lets Razorpay in (S2).
 import { Lock, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import Script from "next/script";
 import { useEffect, useState } from "react";
 
 import { Alert } from "@/components/ui/alert";
@@ -17,7 +17,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { api, ApiError, personal } from "@/lib/api/client";
 import { inr } from "@/lib/format";
 
-import { openRazorpay, type PaymentStart, type RazorpayConstructor, type RazorpayResponse } from "./shop";
+import { documentIsPayPage, loadRazorpay, openRazorpay, type PaymentStart, type RazorpayResponse } from "./shop";
 
 type State =
   | { kind: "loading" }
@@ -39,11 +39,15 @@ export function PayButton({
 }) {
   const router = useRouter();
   const [state, setState] = useState<State>({ kind: "loading" });
-  const [script, setScript] = useState<"loading" | "ready" | "failed">("loading");
+  const [scriptFailed, setScriptFailed] = useState(false);
   const [paying, setPaying] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!documentIsPayPage()) {
+      window.location.reload(); // once: the reloaded document is this pay page, with Razorpay in its CSP
+      return;
+    }
     const controller = new AbortController();
     personal(
       token
@@ -89,12 +93,17 @@ export function PayButton({
     }
   }
 
-  function pay() {
-    if (state.kind !== "ready") return;
-    const Razorpay = (window as unknown as { Razorpay?: RazorpayConstructor }).Razorpay;
-    if (!Razorpay) return setScript("failed");
+  async function pay() {
+    if (state.kind !== "ready" || paying) return;
     setProblem(null);
+    setScriptFailed(false);
     setPaying(true);
+    const Razorpay = await loadRazorpay(nonce).catch(() => null);
+    if (!Razorpay) {
+      setScriptFailed(true);
+      setPaying(false);
+      return;
+    }
     openRazorpay(Razorpay, state.options, {
       success: (response) => void confirm(response),
       failure: (message) => {
@@ -131,24 +140,16 @@ export function PayButton({
     );
   }
 
-  const ready = state.kind === "ready" && script === "ready";
   return (
     <div className="flex flex-col gap-3 [&>*]:m-0">
-      <Script
-        src="https://checkout.razorpay.com/v1/checkout.js"
-        nonce={nonce}
-        strategy="afterInteractive"
-        onReady={() => setScript("ready")}
-        onError={() => setScript("failed")}
-      />
       {state.kind === "ready" && state.options.test_mode ? (
         <Alert variant="warning" title="Test mode">
           <p>No real money is taken. Use Razorpay&apos;s test card or UPI ID.</p>
         </Alert>
       ) : null}
-      {script === "failed" ? (
+      {scriptFailed ? (
         <Alert variant="error" role="alert">
-          <p>The payment window could not be loaded. Check your internet connection and reload this page.</p>
+          <p>The payment window could not be loaded. Check your internet connection, then press Pay again.</p>
         </Alert>
       ) : null}
       {problem ? (
@@ -156,15 +157,7 @@ export function PayButton({
           <p>{problem}</p>
         </Alert>
       ) : null}
-      <Button
-        type="button"
-        variant="accent"
-        size="lg"
-        block
-        busy={!ready || paying}
-        disabled={script === "failed"}
-        onClick={pay}
-      >
+      <Button type="button" variant="accent" size="lg" block busy={state.kind !== "ready" || paying} onClick={pay}>
         <Lock aria-hidden="true" />
         Pay {inr(total)}
       </Button>

@@ -1,6 +1,6 @@
 // The pay step (Django's shop/pay.html), for an account's order and a guest's (by its link's secret): the stepper at
 // Payment, the review (address and email: changing them means checking out again), the pay button (PayButton:
-// Razorpay through the API, with the request's CSP nonce, which lets Razorpay in under /checkout/ only), the summary.
+// Razorpay through the API, with the request's CSP nonce; only this page's CSP lets Razorpay in), the summary.
 import { Mail, MapPin } from "lucide-react";
 import { headers } from "next/headers";
 import Link from "next/link";

@@ -148,7 +148,7 @@ describe("nextRoute", () => {
 });
 
 describe("buildCsp", () => {
-  it("allows scripts by nonce only, Razorpay only on checkout, Turnstile only when on", () => {
+  it("allows scripts by nonce only, Razorpay only on the pay pages, Turnstile only when on", () => {
     const page = buildCsp({ nonce: "abc", pathname: "/" });
     expect(page).toContain("script-src 'self' 'nonce-abc' 'strict-dynamic'");
     expect(page).toContain("frame-ancestors 'none'");
@@ -164,6 +164,9 @@ describe("buildCsp", () => {
     expect(pay).toContain("https://checkout.razorpay.com");
     expect(pay).toContain("https://challenges.cloudflare.com");
     expect(pay).toContain("connect-src 'self' https://media.examleaf.in");
+    expect(buildCsp({ nonce: "n", pathname: "/checkout/t/tok-1/pay/" })).toContain("https://api.razorpay.com");
+    for (const pathname of ["/checkout/", "/checkout/12/done/", "/checkout/t/tok-1/done/", "/cart/"])
+      expect(buildCsp({ nonce: "n", pathname }), pathname).not.toContain("razorpay");
     expect(buildCsp({ nonce: "n", pathname: "/", https: true })).toContain("upgrade-insecure-requests");
   });
 });

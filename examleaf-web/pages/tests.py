@@ -68,5 +68,6 @@ def test_the_privacy_draft_names_what_the_code_keeps_and_for_how_long():
         "If you allow the app's daily reminder",
         "we send a link to that address or number",
         "KaTeX, which this site serves itself",
+        "Only when you press Pay, Razorpay's payment window is loaded",  # frontend review S3: what its script keeps
     ]:
         assert kind in text, kind

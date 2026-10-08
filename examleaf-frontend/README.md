@@ -42,7 +42,7 @@ LTS; Node 20 is past its end of life).
 | `NEXT_PUBLIC_SITE_URL`           | build   | the public address: canonical URLs, Open Graph, sitemap, the host sent to Django        |
 | `API_INTERNAL_BASE`              | runtime | Django for server components (`http://web:8000` in compose)                             |
 | `NEXT_PUBLIC_API_BASE`           | build   | the browser's API base; empty = same origin (always, behind Caddy)                      |
-| `NEXT_PUBLIC_RAZORPAY_KEY_ID`    | build   | 8B's pay page; Razorpay's hosts are in the CSP of `/checkout/*` only                    |
+| `NEXT_PUBLIC_RAZORPAY_KEY_ID`    | build   | 8B's pay page; Razorpay's hosts are in the CSP of the two pay pages only                |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | build   | Turnstile's hosts in the CSP (the widget's key itself comes from `GET /api/v1/config/`) |
 | `NEXT_PUBLIC_MEDIA_HOST`         | build   | the public media host (`media.examleaf.in`) for `img-src`/`connect-src`                 |
 
@@ -155,9 +155,12 @@ nothing. Client components only for interaction; account forms through `useActio
 ## Security
 
 `src/proxy.ts` (Next 16's name for `middleware.ts`) gives every page a fresh nonce and its Content-Security-Policy
-(`src/lib/security/csp.ts`: scripts by nonce with `'strict-dynamic'`, Razorpay only on `/checkout/*`, Turnstile only
-when its key is set, `frame-ancestors 'none'`, `form-action 'self' https://accounts.google.com`); `next.config.ts`
-adds the other headers Django sends. Every page reads the session, so every page is rendered per request; the
+(`src/lib/security/csp.ts`: scripts by nonce with `'strict-dynamic'`, Razorpay only on the pay pages
+`/checkout/<n>/pay/` and `/checkout/t/<token>/pay/`, Turnstile only when its key is set, `frame-ancestors 'none'`,
+`form-action 'self' https://accounts.google.com`); `next.config.ts` adds the other headers Django sends. A policy
+belongs to the document that was loaded, so the pay pages are always entered by a full load (the checkout form
+uses `location.assign`, the order page's Pay now is a plain `<a>`, and `PayButton` reloads once a pay page whose
+document began elsewhere); Razorpay's `checkout.js` is inserted only when Pay is pressed (`loadRazorpay`). Every page reads the session, so every page is rendered per request; the
 visitor's own pages are answered `private, no-cache, no-store`, the others `private, no-cache` ("Caching of pages"
 above). The service worker (`public/sw.js`) keeps only the offline page and the build's static files, never a page or
 anything under `/account/`, `/cart/`, `/checkout/`, `/orders/`, `/api/`, `/_allauth/`.

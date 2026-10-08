@@ -1,11 +1,13 @@
 // The Content-Security-Policy of every page (docs/examleaf-phase8-nextjs-plan.md, "Security"): scripts only with this
-// request's nonce ('strict-dynamic' lets them load their own chunks), Razorpay only on the checkout routes, Turnstile
+// request's nonce ('strict-dynamic' lets them load their own chunks), Razorpay only on the two pay pages, Turnstile
 // only when its site key is set, connections to this origin and the media host, no framing, no foreign forms except
 // Google's sign-in redirect. Styles allow 'unsafe-inline': KaTeX sets heights and offsets in style attributes, as on
 // the Django site (settings.py, I6); scripts never get it.
 
-/** Routes that load Razorpay's checkout.js (package 8B's pay page lives under /checkout/). */
-export const RAZORPAY_ROUTES = /^\/checkout\//;
+/** The pages that load Razorpay's checkout.js: an account's and a guest's pay step. A policy belongs to the document
+ *  that was loaded, so these pages are always entered by a full load (links are plain <a>, the checkout form uses
+ *  location.assign, and PayButton reloads a document that began elsewhere): security review S2. */
+export const RAZORPAY_ROUTES = /^\/checkout\/(t\/)?[^/]+\/pay\/$/;
 
 const RAZORPAY = {
   script: ["https://checkout.razorpay.com"],
