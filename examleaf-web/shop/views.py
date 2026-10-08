@@ -173,13 +173,16 @@ class CatalogueView(ListView):
 
     def get_queryset(self):
         products = self.products()
+        self.kinds = set(products.values_list("kind", flat=True))  # the page's kind links, when it holds several
         if (kind := self.request.GET.get("kind")) in Product.Kind.values:
             products = products.filter(kind=kind)
         return products.select_related(*self.related)
 
     def get_context_data(self, **kwargs):
         shelves, collections = Category.objects.get_root_nodes(), Collection.objects.filter(is_active=True)
-        context = {"shelves": shelves, "collections": collections}
+        kinds = [(value, label) for value, label in Product.Kind.choices if value in getattr(self, "kinds", ())]
+        context = {"shelves": shelves, "collections": collections, "kinds": kinds if len(kinds) > 1 else []}
+        context["kind"] = self.request.GET.get("kind", "")
         return {**super().get_context_data(**kwargs), "shop_open": shop_is_open(self.request), **context}
 
 
@@ -233,7 +236,7 @@ class ProductView(DetailView):
         if product.book:
             papers = list(product.book.papers.filter(is_published=True))  # by code: E01 first
             context["tiers"] = [(label, sum(p.tier == tier for p in papers)) for tier, label in Paper.Tier.choices]
-            context["sample_paper"] = papers[0] if papers else None
+            context["sample_paper"] = next((p for p in papers if p.is_sample), papers[0] if papers else None)
         context["bundle_items"] = product.bundle_items.select_related("product")
         context["reviews"] = product.reviews.filter(status=Review.Status.APPROVED)
         rating = context["reviews"].aggregate(average=Avg("rating"), count=Count("pk"))
@@ -254,10 +257,10 @@ class ProductView(DetailView):
 PUBLIC_FOLDERS = ("products/", "og/")  # the public storage's folders: pictures, their sizes, Open Graph images
 
 
-@cache_control(public=True, max_age=86400)
+@cache_control(public=True, max_age=31536000, immutable=True)  # a year: a new upload never reuses a name
 def product_media(request, name):
     """The public storage's files while it is MEDIA_ROOT (no buckets: settings.STORAGES). Private uploads share that
-    folder, so only PUBLIC_FOLDERS are sent, and no name that climbs out of them."""
+    folder, so only PUBLIC_FOLDERS are sent, and no name that climbs out of them. Cached as the bucket's are."""
     if not name.startswith(PUBLIC_FOLDERS) or ".." in name.split("/"):
         raise Http404
     try:
@@ -543,8 +546,11 @@ def pdf_response(document):
     """An Invoice's or a CreditNote's PDF as a download (404 until the file has been made)."""
     if document is None or not document.pdf:
         raise Http404
-    filename = f"ExamLeaf-{document.number.replace('/', '-')}.pdf"
-    return FileResponse(document.pdf.open("rb"), as_attachment=True, filename=filename)
+    try:
+        file = document.pdf.open("rb")
+    except OSError as error:  # the file deleted, or its storage unreachable: as if not made yet, not a server error
+        raise Http404 from error
+    return FileResponse(file, as_attachment=True, filename=f"ExamLeaf-{document.number.replace('/', '-')}.pdf")
 
 
 @never_cache

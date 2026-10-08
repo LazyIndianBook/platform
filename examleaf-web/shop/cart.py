@@ -119,6 +119,11 @@ class Totals:
         """Courses only: nothing to ship, so the pages say nothing of copies, shipping or delivery."""
         return bool(self.lines) and all(line.product.digital_only for line in self.lines)
 
+    @property
+    def has_digital(self):
+        """A course among the lines (alone or in a bundle): it opens in an account, so the checkout needs one."""
+        return any(line.product.has_digital for line in self.lines)
+
     def problems(self):
         """What stops this cart from being ordered: books taken off sale or short of stock."""
         found = []

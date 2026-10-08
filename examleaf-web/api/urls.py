@@ -6,7 +6,7 @@ from django.urls import path
 from rest_framework.routers import SimpleRouter
 from rest_framework_simplejwt.views import TokenVerifyView
 
-from . import auth, learn, shop, views
+from . import auth, learn, parent_link, shop, views
 
 router = SimpleRouter()
 router.register("boards", views.BoardViewSet)
@@ -51,6 +51,7 @@ urlpatterns = [
     path("me/deletion/", views.DeletionView.as_view(), name="me-deletion"),
     path("me/teacher/", views.TeacherView.as_view(), name="me-teacher"),
     path("me/parent-consent/", views.ParentConsentView.as_view(), name="me-parent-consent"),
+    path("parent-consent/<str:token>/", parent_link.ParentLinkView.as_view(), name="parent-link"),  # the parent's link
     path("config/", views.ConfigView.as_view(), name="config"),
     path("qr/<str:code>/", views.QrView.as_view(), name="qr"),
     path("orders/t/<slug:token>/", shop.OrderLinkView.as_view(), name="order-link"),  # the emails' link

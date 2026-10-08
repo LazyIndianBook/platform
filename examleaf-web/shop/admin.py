@@ -266,6 +266,24 @@ class ProductAdmin(ImportMixin, ExportActionMixin, LoggedExportMixin, admin.Mode
             obj.stock = Product.objects.values_list("stock", flat=True).get(pk=obj.pk)
         super().save_model(request, obj, form, change)
 
+    def change_view(self, request, object_id, form_url="", extra_context=None):
+        """A note while the worker is still making the pictures' AVIF and WebP sizes (django-pictures: the files it
+        will write are known, so a missing one means not done yet)."""
+        product = self.get_object(request, object_id) if request.method == "GET" else None
+        if product and not pictures_ready(product):
+            messages.info(
+                request,
+                "The pictures' smaller sizes are still being made: the shop shows the uploaded files until they are "
+                "ready, in a minute or two. If this note stays after a reload, save the product again.",
+            )
+        return super().change_view(request, object_id, form_url, extra_context)
+
+
+def pictures_ready(product):
+    """Whether every AVIF and WebP size of the product's cover and other pictures exists in its storage."""
+    files = [product.cover, *(picture.image for picture in product.images.all())]
+    return all(file.storage.exists(size.name) for file in files if file for size in file.get_picture_files_list())
+
 
 @admin.register(Category)
 class CategoryAdmin(ImportMixin, LoggedExportMixin, TreeAdmin):

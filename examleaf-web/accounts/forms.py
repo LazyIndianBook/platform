@@ -159,7 +159,16 @@ def axes_username(request, credentials=None):
 
 class SignupForm(AllauthSignupForm):
     """The website's sign-up: allauth's form on accounts.signup.StudentDetailsForm (the student details, the consent,
-    Turnstile), as every sign-up is (ACCOUNT_SIGNUP_FORM_CLASS)."""
+    Turnstile), as every sign-up is (ACCOUNT_SIGNUP_FORM_CLASS). allauth's own boxes say what they need."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        missing = {"email": "Enter your email address.", "password1": "Choose a password."}
+        for name, message in {**missing, "password2": "Type the password again."}.items():
+            if name in self.fields:
+                self.fields[name].error_messages["required"] = message
+        if "email" in self.fields:
+            self.fields["email"].error_messages["invalid"] = "Enter an email address, such as name@example.com."
 
 
 class SocialSignupForm(AllauthSocialSignupForm):

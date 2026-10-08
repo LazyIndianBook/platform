@@ -21,8 +21,8 @@ class BookAdmin(SimpleHistoryAdmin):
 
 @admin.register(Paper)
 class PaperAdmin(SimpleHistoryAdmin):
-    list_display = ["code", "book", "tier", "number", "full_marks", "is_published"]
-    list_filter = ["book__subject", "tier", "is_published"]
+    list_display = ["code", "book", "tier", "number", "full_marks", "is_published", "is_sample"]
+    list_filter = ["book__subject", "tier", "is_published", "is_sample"]
     list_editable = ["is_published"]
     search_fields = ["code", "title"]
 

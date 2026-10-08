@@ -41,6 +41,18 @@ class SignupTests(TestCase):
         }
         return self.client.post(reverse("account_signup"), data)
 
+    def test_an_empty_form_says_what_each_box_needs_and_links_to_it(self):
+        page = self.client.post(reverse("account_signup"), {}).content.decode()
+        for link in [
+            '<a href="#id_full_name">Full name: Enter your full name.</a>',
+            '<a href="#id_email">Email: Enter your email address.</a>',
+            '<a href="#id_password1">Password: Choose a password.</a>',
+            '<a href="#id_date_of_birth">Date of birth: Enter your date of birth.</a>',
+            '<a href="#id_consent">Please tick this box to agree to the privacy notice.</a>',  # its label is a sentence
+        ]:
+            self.assertIn(link, page)
+        self.assertNotIn("This field is required", page)
+
     def test_under_18_needs_parent_details_and_consent(self):
         response = self.signup(16)
         self.assertEqual(response.status_code, 200)
@@ -126,3 +138,38 @@ class LoginSecurityTests(TestCase):
         self.client.post(reverse("account_login"), {"login": "Student@Example.com", "password": "wrong"})
         # the username is recorded (not None, which would lock by IP only)
         self.assertEqual(AccessAttempt.objects.get().username, "student@example.com")
+
+
+class DeadEndTests(TestCase):
+    """The library's pages that ended a journey say what happened in the site's words, with a next step."""
+
+    def test_each_page_offers_a_way_on(self):
+        pages = {
+            "account_reset_password_done": ["Check your email", reverse("account_reset_password"), "Back to log in"],
+            "account_reset_password_from_key_done": ["Your password is changed", f'href="{reverse("account_login")}"'],
+            "account_inactive": ["This account is switched off", f'href="{reverse("contact")}">Contact us'],
+            "socialaccount_login_cancelled": ["You did not log in", "Log in another way"],
+            "socialaccount_login_error": ["Google could not log you in", reverse("account_request_login_code")],
+        }
+        for name, words in pages.items():
+            with self.subTest(name):
+                page = self.client.get(reverse(name))  # the Google error page answers 401
+                for text in words:
+                    self.assertContains(page, text, status_code=page.status_code)
+                self.assertNotContains(page, "Sign In", status_code=page.status_code)
+        old = self.client.get(reverse("account_reset_password_from_key", args=["1", "set-password"]), follow=True)
+        self.assertContains(old, "This link has expired")  # a used or old link: a new one, not "Bad Token"
+        self.assertContains(old, f'href="{reverse("account_reset_password")}">Email me a new link')
+
+    def test_the_password_asked_again_says_why_in_the_sites_words(self):
+        self.client.force_login(User.objects.create_user("rahul@example.com", "Brahmaputra-2027"))
+        page = self.client.get(reverse("account_reauthenticate"))
+        self.assertContains(page, "<h1>Enter your password again</h1>")
+        self.assertNotContains(page, "Confirm Access")
+
+    def test_the_email_and_passkey_pages_have_the_sites_headings(self):
+        self.client.force_login(User.objects.create_user("rahul@example.com", "Brahmaputra-2027"))
+        self.assertContains(self.client.get(reverse("account_email")), "Your email address")
+        page = self.client.get(reverse("mfa_list_webauthn"))
+        self.assertContains(page, "Passkeys and security keys", status_code=page.status_code)
+        self.assertNotContains(page, "Security Keys", status_code=page.status_code)

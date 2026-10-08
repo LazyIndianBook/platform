@@ -23,12 +23,27 @@ AUTOCOMPLETE = {
 class AddressForm(forms.ModelForm):
     """Indian address: state from the list, 6-digit PIN code ("781 001" accepted), 10-digit mobile number."""
 
-    pin = INZipCodeField(label="PIN code", error_messages={"invalid": "Enter the 6-digit PIN code."})
-    state = forms.ChoiceField(choices=sorted(STATE_CHOICES, key=lambda choice: choice[1]), initial="AS")
+    pin = INZipCodeField(
+        label="PIN code",
+        help_text="6 digits, such as 781001.",
+        error_messages={"required": "Enter the 6-digit PIN code.", "invalid": "Enter the 6-digit PIN code."},
+    )
+    state = forms.ChoiceField(
+        choices=sorted(STATE_CHOICES, key=lambda choice: choice[1]),
+        initial="AS",
+        error_messages={"required": "Choose the state.", "invalid_choice": "Choose the state from the list."},
+    )
 
     class Meta:
         model = Address
         fields = Address.FIELDS
+        error_messages = {  # what each box needs, rather than "This field is required."
+            "name": {"required": "Enter the name of the person who receives the parcel."},
+            "phone": {"required": "Enter a 10-digit mobile number for the courier."},
+            "line1": {"required": "Enter the house number and street."},
+            "city": {"required": "Enter the city, town or village."},
+            "district": {"required": "Enter the district."},
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -53,7 +68,9 @@ class AddressBookForm(AddressForm):  # My account: the saved addresses
 
 class CheckoutForm(forms.Form):
     email = forms.EmailField(
-        label="Email address", help_text="For the confirmation, tracking and the invoice; no account needed."
+        label="Email address",
+        help_text="For the confirmation, tracking and the invoice; no account needed.",
+        error_messages={"required": "Enter your email address: the order's emails go there."},
     )
     saved_address = forms.ModelChoiceField(
         label="Deliver to",
@@ -63,7 +80,12 @@ class CheckoutForm(forms.Form):
         empty_label="A new address (below)",
     )
     save_address = forms.BooleanField(label="Save this address in my account", required=False, initial=True)
-    payment_method = forms.ChoiceField(label="Payment", widget=forms.RadioSelect, initial=Order.Method.RAZORPAY)
+    payment_method = forms.ChoiceField(
+        label="Payment",
+        widget=forms.RadioSelect,
+        initial=Order.Method.RAZORPAY,
+        error_messages={"required": "Choose how to pay.", "invalid_choice": "Choose one of the ways to pay shown."},
+    )
 
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -87,8 +109,16 @@ class CouponForm(TurnstileMixin, forms.Form):  # the bot check while TURNSTILE i
 
 
 class LookupForm(forms.Form):
-    number = forms.CharField(label="Order number", max_length=20, widget=forms.TextInput({"placeholder": "EL-2026-…"}))
-    email = forms.EmailField(label="Email address used for the order")
+    number = forms.CharField(
+        label="Order number",
+        max_length=20,
+        widget=forms.TextInput({"placeholder": "EL-2026-…"}),
+        error_messages={"required": "Enter the order number from its email, such as EL-2026-000123."},
+    )
+    email = forms.EmailField(
+        label="Email address used for the order",
+        error_messages={"required": "Enter the email address you ordered with.", "invalid": "Enter an email address."},
+    )
 
 
 class ShipForm(forms.Form):  # admin: "mark shipped", one row per order

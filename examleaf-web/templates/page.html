@@ -4,12 +4,26 @@
 {% block main_class %}{% endblock %}
 {% block content %}
 <section class="section section-top">
-  <div class="container">
+  <div class="container stack">
     <article class="prose">
       <h1>{{ page.title }}</h1>
       {{ page.body_md|page_html }}
       <p class="muted">Version {{ page.version }} · last changed {{ page.updated|date:"j F Y" }}</p>
     </article>
+    {% if form %}
+    <form method="post" class="card narrow" aria-labelledby="write-title">{% csrf_token %}
+      <div class="card-header"><h2 id="write-title">Write to us</h2><p>We reply by email.</p></div>
+      <div class="card-body">
+        {% include "_form_errors.html" %}
+        {% for field in form %}{% if field.name != "turnstile" %}{% include "_field.html" %}{% endif %}{% endfor %}
+        <p hidden><label>Leave this empty <input name="website" tabindex="-1" autocomplete="off"></label></p>
+        {% if form.turnstile %}{% include "_field.html" with field=form.turnstile %}{% endif %}
+      </div>
+      <div class="card-footer"><button type="submit" class="btn btn-primary"><svg class="icon" aria-hidden="true"><use href="#icon-mail"/></svg><span>Send</span></button><p class="small muted">Nothing is stored here: your message reaches us as an email.</p></div>
+    </form>
+    {% elif page.slug == "contact" %}
+    <p class="muted">The contact form opens once our support address is set: <mark class="placeholder">[SUPPORT_EMAIL or SELLER_EMAIL]</mark>.</p>
+    {% endif %}
   </div>
 </section>
 {% endblock %}

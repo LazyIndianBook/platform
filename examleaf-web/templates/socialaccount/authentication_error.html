@@ -1,0 +1,8 @@
+{% extends "socialaccount/base_entrance.html" %}
+{# allauth's page with the site's words and a way on (docs/design/coverage-matrix.md, G23) #}
+{% block head_title %}Log-in failed{% endblock head_title %}
+{% block content %}
+<h1>Google could not log you in</h1>
+<p class="muted">Something went wrong between Google and ExamLeaf. Try again in a minute, or log in with a code we email you.</p>
+<div class="row"><a class="btn btn-primary" href="{% url 'account_login' %}">Back to log in</a><a class="btn btn-secondary" href="{% url 'account_request_login_code' %}">Email me a code</a></div>
+{% endblock content %}

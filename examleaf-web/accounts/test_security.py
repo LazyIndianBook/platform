@@ -151,15 +151,20 @@ def test_verified_mode_marks_wait_for_the_parents_emailed_consent(client, settin
     client.force_login(user)
     response = client.post(reverse("attempt_add", args=[paper.code]), {"date": "2026-10-01", "marks_obtained": "40"})
     assert "has not confirmed your account yet" in response.text and not Attempt.objects.exists()
+    solutions = client.get(paper.get_absolute_url()).text  # the reason instead of a form that cannot save
+    assert "marks can be saved once they have" in solutions and "Save to my record" not in solutions
     assert "Waiting for your parent" in client.get(reverse("account")).text
     client.post(reverse("parent_consent_resend"), {"parent_contact": "rahul@example.com"})  # not the student's own
     client.post(reverse("parent_consent_resend"), {"parent_contact": "father@example.com"})  # a corrected address
     parent, link = Client(), parent_link("father@example.com")
-    assert parent.get(first_link).status_code == 400  # the old address's link no longer works
+    replaced = parent.get(first_link)
+    assert replaced.status_code == 400 and "Ask your child to send a new one" in replaced.text  # the old address's
     later = time.time() + 8 * 86400
     with monkeypatch.context() as m:
         m.setattr(time, "time", lambda: later)
-        assert parent.get(link).status_code == 400  # 7 days
+        expired = parent.get(link)  # 7 days: a genuine link, so the page names the student and offers help
+        assert expired.status_code == 400 and "Ask Rahul to send a new one" in expired.text
+        assert f'<a href="{reverse("contact")}">Contact us</a>' in expired.text
     page = parent.get(link)
     assert (
         "Rahul Das" in page.text

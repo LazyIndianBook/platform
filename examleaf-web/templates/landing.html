@@ -17,6 +17,7 @@
         <a class="btn btn-accent btn-lg" href="{% url 'account_signup' %}?next={{ request.path|urlencode }}">Register</a>
         <a class="btn btn-secondary btn-lg" href="{% url 'account_login' %}?next={{ request.path|urlencode }}">Log in</a>
       </div>
+      {% with sample=paper.book.sample %}{% if sample and sample != paper %}<p>Not sure yet? <a href="{{ sample.get_absolute_url }}">Paper {{ sample.short_code }}</a> of this book is open to everyone: read its solutions without an account.</p>{% endif %}{% endwith %}
     </div></div>
   </div>
 </section>

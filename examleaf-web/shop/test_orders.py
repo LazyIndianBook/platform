@@ -15,7 +15,9 @@ from django_fsm import TransitionNotAllowed
 from razorpay.errors import BadRequestError
 
 from accounts.factories import PASSWORD, UserFactory
-from accounts.models import DeletionRequest
+from accounts.models import DeletionRequest, User
+from accounts.test_export_and_signup import signup
+from accounts.test_security import confirm_own_address
 from shop import invoices, payments, services, tasks
 from shop.factories import (
     ADDRESS,
@@ -51,6 +53,11 @@ def test_guest_checkout_checks_email_pin_and_mobile_then_makes_a_pending_order(c
         "pin": ["Enter the 6-digit PIN code."],
         "phone": ["Enter a 10-digit Indian mobile number."],
     }
+    empty = client.post(reverse("shop:checkout"), {"payment_method": "cod"}).text  # each problem named and linked
+    assert '<a href="#id_name">Full name: Enter the name of the person who receives the parcel.</a>' in empty
+    assert '<a href="#id_email">Email address: Enter your email address: the order&#x27;s emails go there.</a>' in empty
+    assert '<a href="#id_payment_method_0">Payment: Choose one of the ways to pay shown.</a>' in empty  # a radio group
+    assert 'href="#"' not in empty
     response = client.post(reverse("shop:checkout"), GUEST)
     order = Order.objects.get()
     assert response.url == reverse("shop:pay", args=[order.number])
@@ -265,6 +272,9 @@ def test_invoice_link_appears_once_the_pdf_exists(client, rzp, monkeypatch):
     assert "Download the invoice" in client.get(order.get_absolute_url()).content.decode()
     response = client.get(reverse("shop:invoice", args=[order.number]))
     assert response["Content-Type"] == "application/pdf" and Invoice.objects.count() == 1
+    invoice = Invoice.objects.get()
+    invoice.pdf.storage.delete(invoice.pdf.name)  # the file lost (or the storage down): a 404, not a server error
+    assert client.get(reverse("shop:invoice", args=[order.number])).status_code == 404
 
 
 def test_refunds_of_invoiced_orders_get_credit_notes(client, rzp, commit, settings, real_seller):
@@ -304,6 +314,13 @@ def test_refunds_of_invoiced_orders_get_credit_notes(client, rzp, commit, settin
     assert context["tax_total"] == Decimal("10.71")
 
 
+def test_the_order_lookup_says_what_it_needs(client):
+    page = client.post(reverse("shop:lookup"), {"number": "", "email": ""}).text  # as a browser sends it
+    assert "Order number: Enter the order number from its email, such as EL-2026-000123." in page
+    assert "Email address used for the order: Enter the email address you ordered with." in page
+    assert "This field is required" not in page
+
+
 def test_guest_gets_the_orders_link_by_email_never_in_the_browser(client, commit):
     order = make_order((ProductFactory(), 1), email="guest@example.com")
     owned = make_order((ProductFactory(), 1), user=UserFactory(), email="owner@example.com")
@@ -339,6 +356,21 @@ def test_guest_cart_joins_the_account_cart_at_log_in(client):
     cart = Cart.objects.get()
     assert cart.user == user and {i.product_id: i.quantity for i in cart.items.all()} == {mine.pk: 2, both.pk: 2}
     assert client.session["shop_cart_count"] == 4
+
+
+def test_guest_orders_join_the_account_of_their_address_once_it_is_confirmed(client):
+    order = make_order((ProductFactory(), 1), email="Guest@Example.com")  # as typed at the checkout
+    someone = make_order((ProductFactory(), 1), email="someone@example.com")
+    signup(client, "guest@example.com")
+    assert Order.objects.get(pk=order.pk).user is None  # not before the address is confirmed
+    confirm_own_address(client, "guest@example.com")
+    user = User.objects.get(email="guest@example.com")
+    assert list(user.orders.all()) == [order] and Order.objects.get(pk=someone.pk).user is None
+    assert order.number in client.get(reverse("shop:orders")).text  # My orders
+    later = make_order((ProductFactory(), 1), email="GUEST@example.com")  # bought again without logging in
+    client.logout()
+    client.post(reverse("account_login"), {"login": "guest@example.com", "password": "Brahmaputra-2027"})
+    assert Order.objects.get(pk=later.pk).user == user
 
 
 def test_address_book_on_my_account(client):

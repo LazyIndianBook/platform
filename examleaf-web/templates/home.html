@@ -17,7 +17,7 @@
       <p class="lead">Physics, Chemistry, Mathematics and Biology, in the board's pattern. Sit a paper, scan its QR code, and check every step with the marks it earns.</p>
       <div class="row hero-actions">
         <a class="btn btn-accent btn-lg" href="{% url 'shop:catalogue' %}"><span>Buy the books</span><svg class="icon" aria-hidden="true"><use href="#icon-arrow-right"/></svg></a>
-        <a class="btn btn-secondary btn-lg" href="{% url 'paper' 'PHY-M04' %}">See a sample paper</a>
+        {% if sample %}<a class="btn btn-secondary btn-lg" href="{{ sample.get_absolute_url }}">See a sample paper</a>{% endif %}
       </div>
       <ul class="trust">
         <li><svg class="icon" aria-hidden="true"><use href="#icon-file"/></svg>Board's pattern</li>

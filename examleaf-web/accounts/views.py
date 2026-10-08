@@ -3,6 +3,8 @@ import unicodedata
 from datetime import timedelta
 
 from allauth.account.decorators import reauthentication_required
+from allauth.headless.account import views as headless_views
+from allauth.headless.base.response import AuthenticationResponse
 from django import forms
 from django.conf import settings
 from django.contrib import messages
@@ -196,12 +198,46 @@ def export_user_data(user):
     }
 
 
+DATA_PARTS = {  # the parts of Download my data in words, for the page shown before the file
+    "profile": "Your details: name, email address, class, board, district, date of birth, a parent's details",
+    "email_addresses": "Email addresses",
+    "passkeys_and_authenticators": "Passkeys and authenticator apps",
+    "google_accounts": "Google accounts connected",
+    "teacher_profile": "Teacher access asked for",
+    "attempts": "Marks saved in My record",
+    "answer_sheets": "Answer sheets uploaded",
+    "consents": "Consents given",
+    "deletion_requests": "Requests to delete the account",
+    "addresses": "Saved addresses",
+    "cart": "Cart",
+    "orders": "Orders, with their payments, refunds and invoices",
+    "reviews": "Reviews",
+    "quote_requests": "School and bulk quotation requests",
+    "stock_alerts": "Requests to be emailed when a book is back",
+    "learning": "The revision course: settings, codes, progress, quiz answers, devices",
+    "sms": "SMS sent to you",
+    "email_suppressed": "Emails stopped after a bounce",
+}
+
+
+def how_many(value):
+    """The records in a part of the export: a list's length, the lists' total of a part made of lists, else 1 or 0."""
+    if isinstance(value, list):
+        return len(value)
+    if isinstance(value, dict) and any(isinstance(item, list) for item in value.values()):
+        return sum(how_many(item) for item in value.values())
+    return int(bool(value))
+
+
 @never_cache
 @login_required
 @reauthentication_required  # the password again unless it was entered in the last few minutes
 def data_export(request):
-    """Download my data, as one JSON file."""
+    """Download my data: a page that says what the file holds, part by part, then the JSON file (?download=1)."""
     data = export_user_data(request.user)
+    if "download" not in request.GET:
+        parts = [(label, how_many(data.get(key))) for key, label in DATA_PARTS.items()]
+        return render(request, "account_data.html", {"parts": parts})
     response = JsonResponse(data, encoder=DjangoJSONEncoder, json_dumps_params={"indent": 2, "ensure_ascii": False})
     response["Content-Disposition"] = f'attachment; filename="examleaf-my-data-{timezone.localdate()}.json"'
     return response
@@ -360,8 +396,13 @@ def parent_consent(request, token):
     try:
         student = User.objects.get(pk=base36_to_int(token.partition(".")[0]), is_active=True)
         parent_signer(student.parent_contact).unsign(token, max_age=timedelta(days=PARENT_LINK_DAYS))
-    except ValueError, signing.BadSignature, User.DoesNotExist:
-        return render(request, "parent_consent.html", {"expired": True}, status=400)
+    except (ValueError, signing.BadSignature, User.DoesNotExist) as error:
+        # a genuine link that is only too old names the student as its SMS does (shown_name), so that the parent knows
+        # whom to ask (G5)
+        name = shown_name(student.full_name) if isinstance(error, signing.SignatureExpired) else A_STUDENT
+        first_name = "" if name == A_STUDENT else name.split()[0][:30]
+        context = {"expired": True, "first_name": first_name, "days": PARENT_LINK_DAYS}
+        return render(request, "parent_consent.html", context, status=400)
     done = not student.consent_pending
     if request.method == "POST" and not done:
         method = ConsentRecord.Method.EMAIL_LINK if "@" in student.parent_contact else ConsentRecord.Method.SMS_LINK
@@ -401,3 +442,14 @@ def parent_consent_resend(request):
     else:
         messages.success(request, f"We have sent {user.parent_contact} a link to confirm.")
     return redirect("account")
+
+
+class ManagePhoneView(headless_views.ManagePhoneView):
+    """allauth.headless's /_allauth/<client>/v1/account/phone (the website's form: accounts.forms.ChangePhoneInput).
+    Signed out, a PUT, PATCH or DELETE gets allauth's 401, as a GET does, where allauth 65 failed with a server error
+    (its dispatch() leaves the user unset)."""
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_authenticated and request.method not in ("GET", "POST"):
+            return AuthenticationResponse(request)
+        return super().dispatch(request, *args, **kwargs)

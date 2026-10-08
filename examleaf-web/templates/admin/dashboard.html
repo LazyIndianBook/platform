@@ -25,7 +25,8 @@
 </table>
 <p>Waiting: <a href="{% url 'admin:accounts_teacherprofile_changelist' %}?verified__exact=0">{{ stats.teachers_waiting }} teacher request{{ stats.teachers_waiting|pluralize }}</a>
  · <a href="{% url 'admin:accounts_deletionrequest_changelist' %}?status__exact=pending">{{ stats.deletions_waiting }} account deletion{{ stats.deletions_waiting|pluralize }}</a>
-{% if stats.pages_unfinished %} · <a href="{% url 'admin:pages_page_changelist' %}">{{ stats.pages_unfinished }} legal page{{ stats.pages_unfinished|pluralize }} with [placeholders] to fill in</a>{% endif %}</p>
+{% if stats.pages_unfinished %} · <a href="{% url 'admin:pages_page_changelist' %}">{{ stats.pages_unfinished }} legal page{{ stats.pages_unfinished|pluralize }} with [placeholders] to fill in</a>{% endif %}
+{% if perms.learn.view_clip and stats.clips_failed %} · <a href="{% url 'admin:learn_clip_changelist' %}?processing__exact=failed">{{ stats.clips_failed }} clip{{ stats.clips_failed|pluralize }} failed to process</a>{% endif %}</p>
 </div>
 {{ block.super }}
 {% endblock %}

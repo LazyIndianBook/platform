@@ -25,6 +25,7 @@ def test_an_unknown_address_gets_the_branded_404_and_the_api_a_json_one(client):
     assert page.status_code == 404 and "We could not find that page" in page.text
     assert 'id="site-menu"' in page.text and 'content="noindex"' in page.text  # the site's header and menu
     assert "scan the QR code" in client.get("/s/NOPE-X99/").text  # a mistyped paper code: the way back
+    assert 'href="/orders/lookup/">find your order</a>' in client.get("/orders/t/old-link/").text  # an order's link
     api = client.get("/api/v1/no-such-endpoint/")
     assert api.status_code == 404 and api.json() == {"detail": "Not found."}
 

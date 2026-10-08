@@ -8,6 +8,7 @@ import time
 import pytest
 from allauth.mfa.totp.internal.auth import TOTP, format_hotp_value, generate_totp_secret, hotp_value
 from django.core import mail
+from django.test import Client
 from django.urls import reverse
 from rest_framework.test import APIClient
 
@@ -179,3 +180,13 @@ def test_the_app_adds_a_mobile_number_with_a_code_and_a_second_request_waits_a_m
     assert app.post("/auth/phone/verify", {"code": code}).status_code == 200
     user.refresh_from_db()
     assert (user.login_phone, user.login_phone_verified) == ("+919864012345", True)
+
+
+@pytest.mark.parametrize("client_name", ["app", "browser"])
+def test_signed_out_phone_changes_get_401_not_a_server_error(client_name):
+    """allauth 65 failed on these with a 500 (accounts.views.ManagePhoneView)."""
+    url, client = f"/_allauth/{client_name}/v1/account/phone", Client()
+    for method in ("put", "patch", "delete"):
+        response = getattr(client, method)(url, data="{}", content_type="application/json")
+        assert response.status_code == 401 and response.json()["meta"]["is_authenticated"] is False, method
+    assert client.get(url).status_code == 401  # as allauth answers a GET

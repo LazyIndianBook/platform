@@ -1,8 +1,11 @@
 {% autoescape off %}Your order {{ order.number }} has been delivered.
-
+{% for item in order.items.all %}{% with product=item.product %}{% if product.book %}
+{{ item.title }}: {{ site_url }}{{ product.book.get_absolute_url }}
+Scan the QR code on each paper for its solutions.
+{% endif %}{% if product.has_digital %}
+{{ item.title }}: the revision course, in the ExamLeaf app: {{ site_url }}{% url 'revision' %}
+{% endif %}{% endwith %}{% endfor %}
 Something wrong with a book (damaged, pages missing, not what you ordered)? Tell us as our Refund and Cancellation
 Policy explains and we replace it or refund it: {{ site_url }}{% url 'refunds' %}
-
-Every paper has a QR code: scan it after the paper to read its full solutions, free, at {{ site_url }}.
 
 ExamLeaf{% endautoescape %}

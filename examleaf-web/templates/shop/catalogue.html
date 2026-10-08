@@ -23,6 +23,7 @@
       {% if not shop_open %}<div class="alert alert-info" role="status"><svg class="icon" aria-hidden="true"><use href="#icon-info"/></svg><div><p class="alert-title">Shop opens soon</p><p>The books and their prices are here; orders open in a few days.</p></div></div>{% endif %}
       {% if shelves %}<nav class="shop-links" aria-label="Shelves"><span>Shelves</span><ul>{% for shelf in shelves %}<li><a href="{{ shelf.get_absolute_url }}">{{ shelf.name }}</a></li>{% endfor %}</ul></nav>{% endif %}
       {% if collections %}<nav class="shop-links" aria-label="Collections"><span>Collections</span><ul>{% for collection in collections %}<li><a href="{{ collection.get_absolute_url }}">{{ collection.name }}</a></li>{% endfor %}</ul></nav>{% endif %}
+      {% if kinds %}<nav class="shop-links" aria-label="Kinds of book"><span>Show</span><ul><li><a href="{{ request.path }}"{% if not kind %} aria-current="page"{% endif %}>All</a></li>{% for value, label in kinds %}<li><a href="?kind={{ value }}"{% if kind == value %} aria-current="page"{% endif %}>{{ label }}</a></li>{% endfor %}</ul></nav>{% endif %}
     </div>
 
     {% if object_list %}

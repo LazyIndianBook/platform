@@ -1,0 +1,8 @@
+{% extends "socialaccount/base_entrance.html" %}
+{# allauth's page with the site's words: Log in, not "sign in" (docs/design/coverage-matrix.md, G23) #}
+{% block head_title %}Log-in cancelled{% endblock head_title %}
+{% block content %}
+<h1>You did not log in</h1>
+<p class="muted">You came back from Google without logging in. Nothing has changed.</p>
+<div class="row"><a class="btn btn-primary" href="{% url 'account_login' %}">Log in another way</a></div>
+{% endblock content %}

@@ -23,6 +23,7 @@ class HomeView(ListView):
             offers=offers,
             same_price=not any(offer["from"] for offer in offers),
             shipping_rates=ShippingRate.objects.filter(is_active=True),  # the FAQ's delivery fees
+            sample=Paper.objects.filter(is_sample=True, is_published=True).order_by("book_id").first(),  # the hero's
             **kwargs,
         )
 
@@ -47,16 +48,18 @@ class BookView(DetailView):
     def get_context_data(self, **kwargs):
         papers = list(self.object.papers.filter(is_published=True))
         tiers = [(label, [p for p in papers if p.tier == tier]) for tier, label in Paper.Tier.choices]
-        return super().get_context_data(tiers=tiers, og={"title": self.object.title}, **kwargs)
+        sample = next((paper for paper in papers if paper.is_sample), None)
+        return super().get_context_data(tiers=tiers, sample=sample, og={"title": self.object.title}, **kwargs)
 
 
 OPEN_SOLUTIONS_MAX_AGE = 300  # seconds a shared cache may keep open solutions
 
 
-def cache_solutions(response, user):
+def cache_solutions(response, user, sample=False):
     """Private while the page depends on the log-in (landing or solutions; the record form's CSRF token). Open
-    solutions seen by a visitor are the same for everyone: public for a few minutes."""
-    if settings.SOLUTIONS_REQUIRE_LOGIN or user.is_authenticated:
+    solutions seen by a visitor (all of them with SOLUTIONS_REQUIRE_LOGIN=0, or a book's open sample) are the same for
+    everyone: public for a few minutes."""
+    if (settings.SOLUTIONS_REQUIRE_LOGIN and not sample) or user.is_authenticated:
         patch_cache_control(response, private=True)
     else:
         patch_cache_control(response, public=True, max_age=OPEN_SOLUTIONS_MAX_AGE)
@@ -65,7 +68,8 @@ def cache_solutions(response, user):
 
 class PaperView(DetailView):
     """/s/<code>/, the address in the QR code: the solutions, for signed-in students (a register / log-in page for
-    visitors) or for everyone (SOLUTIONS_REQUIRE_LOGIN=0); saving marks always needs an account."""
+    visitors), or for everyone on a book's open sample (Paper.is_sample) and with SOLUTIONS_REQUIRE_LOGIN=0; saving
+    marks always needs an account."""
 
     queryset = Paper.objects.filter(is_published=True).select_related("book__subject")
 
@@ -76,11 +80,12 @@ class PaperView(DetailView):
         self.object = self.get_object()
         if self.object.code != kwargs["code"]:  # /s/phy-e01/ -> /s/PHY-E01/
             return redirect(self.object, permanent=True)
-        return cache_solutions(self.render_to_response(self.get_context_data()), request.user)
+        response = self.render_to_response(self.get_context_data())
+        return cache_solutions(response, request.user, self.object.is_sample)
 
     @property
     def shows_solutions(self):
-        return self.request.user.is_authenticated or not settings.SOLUTIONS_REQUIRE_LOGIN
+        return self.request.user.is_authenticated or not settings.SOLUTIONS_REQUIRE_LOGIN or self.object.is_sample
 
     def get_template_names(self):
         return ["solutions.html" if self.shows_solutions else "landing.html"]
@@ -89,8 +94,8 @@ class PaperView(DetailView):
         context = super().get_context_data(**kwargs)
         if self.shows_solutions:
             context["questions"] = self.object.questions.select_related("solution")
-        if self.request.user.is_authenticated:
-            context["form"] = AttemptForm(paper=self.object)
+        if self.request.user.is_authenticated and not self.request.user.consent_pending:  # (saving needs consent)
+            context.setdefault("form", AttemptForm(paper=self.object))  # or the form with errors (AttemptCreate)
         return context
 
 

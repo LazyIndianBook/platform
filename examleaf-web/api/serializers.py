@@ -30,7 +30,7 @@ class SubjectSerializer(serializers.ModelSerializer):
 class PaperBriefSerializer(serializers.ModelSerializer):
     class Meta:
         model = Paper
-        fields = ["code", "tier", "number", "title", "is_published"]
+        fields = ["code", "tier", "number", "title", "is_published", "is_sample"]
 
 
 class BookSerializer(serializers.ModelSerializer):
@@ -72,6 +72,7 @@ class PaperSerializer(serializers.ModelSerializer):
             "time_text",
             "header",
             "is_published",
+            "is_sample",
             "web_url",
             "solutions_url",
         ]

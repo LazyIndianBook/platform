@@ -5,6 +5,50 @@ commits are in `git log` (phase 4: abffe6f and e5abda5; phase 5 A and B with the
 and E: 4e30e59; the redesign's stage 2 so far: ba0b9dd). Details of each feature are in README.md; the numbers of the
 tests are those of `pytest` at the end of the phase.
 
+## Phase 7 journeys (8 October 2026)
+
+The user-journey gaps of docs/design/coverage-matrix.md closed where they were contained; what needs a founder's
+decision or a missing feature is under its new "Open journeys" heading. 453 tests pass (7 skipped).
+
+- **A sample with no wall (G1):** `Paper.is_sample`, one per book (a constraint; the data migration ticks each book's
+  E-01; the admin's change form edits it): its solutions open without an account even with `SOLUTIONS_REQUIRE_LOGIN`
+  on, on the website and in the API (`is_sample` in the paper serializers), cached publicly for 5 minutes. The home
+  page's "See a sample paper", the book page, the product page and the wall of every other paper link to it.
+- **Log in where you were (G15):** the header's Log in and Register carry `?next=` for the page (on the log-in pages,
+  the `next` they were given), paths of this site only (`url_has_allowed_host_and_scheme` with no host allowed).
+- **Guest orders join the account (G16):** an address confirmed (allauth's `email_confirmed`) or a log-in with confirmed
+  addresses attaches the orders placed without an account under that address, any case, through `save` (history kept);
+  My orders lists them.
+- **From the order to the papers (G20):** the order's page and the delivered email link each book to its page ("Scan
+  the QR code on each paper for its solutions") and a course to `/revision/`.
+- **`/revision/` (G6):** the revision course on the website: what it is, each subject's chapters with the Board's marks
+  and past questions, the free clips, the app (store links still `[placeholders]`), the student's entitlements and a
+  book code form with the app's rules and limits (the same throttle counts as `api/v1/learn/redeem/`). My account,
+  the footer and the sitemap link it.
+- **Dead ends:** password reset sent, link expired, password changed (with Log in), account switched off, Google log-in
+  cancelled or failed, the password asked again, the email and passkey pages: the site's words and a next step (G2, G4,
+  G23). An expired parent's link names the student (as its SMS does) and offers Contact (G5). `/contact/` has a form that
+  emails `SUPPORT_EMAIL` (else `SELLER_EMAIL`; no form while it is a `[placeholder]`), with Turnstile, a honeypot and 5
+  an hour per address, storing nothing (G7). The 404 helps with an old order link (G19); a book without papers says so
+  (G8); a missing invoice file is a 404 (G25).
+- **Forms:** every form shows its button busy and is sent once (`site.js`, G9); a PIN code the directory lacks is said
+  in its help (G12); the marks form saves back to the paper's `#record` and shows its errors there (G11), and a student
+  whose parent has not confirmed sees why instead of a form (G17); My record names an empty filter with Show all (G10);
+  the shop and its shelves get kind links for `?kind=` (G13); Download my data first lists what the file holds (G21).
+  The address, sign-up, marks, checkout, lookup and contact forms say what each box needs, and every error summary
+  names its field and links to it (a radio group at its first button).
+- **Courses alone** are never called books, copies, shipping or delivery in the cart, checkout, order page and summary,
+  or on the product page (`totals.digital_only`, the new `totals.has_digital`, `order.is_digital`,
+  `product.digital_only`).
+- **Platform:** KaTeX 0.19.0 served from `static/katex/` with its fonts and licence (checked byte for byte against the
+  npm release; MAT-M02 draws its 397 formulas with no error), and jsDelivr gone from the CSP; 240 px covers for the
+  home page's phone stage (`build_covers` run again); the four Latin fonts preloaded; messages inline on phones under
+  600 px; product pictures cached for a year (`immutable`) and the product admin says while their sizes are made; a
+  failed clip on the admin dashboard; signed-out PUT, PATCH and DELETE on `/_allauth/*/v1/account/phone` get allauth's
+  401 instead of a server error; the privacy draft names the mobile number, the SMS log (90 days), reviews, stock
+  alerts, quotations, the course's data, reminder devices and the parent's link; the design tokens copied to
+  `docs/design/tokens.css`. The fonts were not re-subset: their originals have no tabular figures (Open journeys, T1).
+
 ## Phase 7 security (8 October 2026)
 
 SECURITY_REVIEW_PHASE5_6.md: the High and the five Medium findings fixed, the Low and informational ones fixed or

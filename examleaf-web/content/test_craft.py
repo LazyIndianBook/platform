@@ -12,6 +12,7 @@ from django.urls import reverse
 
 from accounts.factories import UserFactory
 from content.tests import make_paper
+from practice.models import Attempt
 from shop.factories import ProductFactory
 
 pytestmark = pytest.mark.django_db
@@ -50,10 +51,15 @@ def test_pages_have_one_h1_in_main_the_live_region_and_long_text(client):
 
 def test_empty_states_draw_their_picture_and_say_what_to_do(client):
     assert 'class="empty-art"' in client.get(reverse("shop:cart")).text
-    client.force_login(UserFactory())
+    user = UserFactory()
+    client.force_login(user)
     assert 'class="empty-art"' in client.get(reverse("shop:orders")).text
-    assert "Nothing recorded yet" in client.get(reverse("record")).text
-    assert "No saved marks match" in client.get(reverse("record") + "?tier=H").text  # a filter that finds nothing
+    assert "Nothing recorded yet" in client.get(reverse("record") + "?tier=H").text  # nothing saved at all
+    paper = make_paper()
+    Attempt.objects.create(user=user, paper=paper, marks_obtained=40)  # an Easy paper
+    page = client.get(reverse("record"), {"subject": paper.book.subject_id, "tier": "H"}).text  # finds nothing
+    assert "No Hard Physics papers saved yet" in page and "The filter shows Hard Physics papers only" in page
+    assert f'<a class="btn btn-primary" href="{reverse("record")}">Show all</a>' in page
 
 
 def test_a_field_error_is_described_even_without_help_text():
@@ -64,3 +70,17 @@ def test_a_field_error_is_described_even_without_help_text():
     assert not form.is_valid()
     html = render_to_string("_field.html", {"field": form["code"]})
     assert 'aria-describedby="id_code_error"' in html and 'id="id_code_error"' in html and 'aria-invalid="true"' in html
+
+
+def test_fonts_preload_messages_never_cover_a_control_and_forms_say_they_are_busy(client):
+    page = client.get("/").text
+    for font in ("poppins-700", "poppins-800", "hind-siliguri-400", "hind-siliguri-600"):  # audit-lighthouse.md P1
+        assert f'<link rel="preload" href="/static/fonts/{font}.woff2" as="font"' in page
+    assert "@media (max-width:600px){.toast{--rise:-8px;position:static" in (CSS / "site.css").read_text()
+    script = (Path(settings.BASE_DIR) / "static" / "js" / "site.js").read_text()
+    assert 'button.setAttribute("aria-busy", "true")' in script  # every form sent shows its button busy, once
+    assert "is not in our list: type the district and state" in script  # a PIN code the directory lacks
+    client.force_login(UserFactory())
+    form = client.get("/account/addresses/add/").text  # the help site.js writes the PIN's answer into
+    assert '<div class="field-help" id="id_pin_helptext">6 digits, such as 781001.</div>' in form
+    assert "data-pin-lookup" in form

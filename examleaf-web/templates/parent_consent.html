@@ -10,10 +10,12 @@
       <div class="card-header"><h1>A parent's consent</h1></div>
       <div class="card-body">
         {% if expired %}
-        <div class="alert alert-warning"><svg class="icon" aria-hidden="true"><use href="#icon-alert"/></svg><div><p>This link has expired or is not valid any more. Your child can send a new one from their ExamLeaf account page
-        (My account).</p></div></div>
+        <div class="alert alert-warning"><svg class="icon" aria-hidden="true"><use href="#icon-alert"/></svg><div><p class="alert-title">This link does not work any more</p><p>A link works for {{ days }} days, and only the latest one sent. Ask {% if first_name %}{{ first_name }}{% else %}your child{% endif %} to send a new one: on My account, they press Send the link again.</p></div></div>
+        <p>Cannot reach them? <a href="{% url 'contact' %}">Contact us</a> and we will help.</p>
+        <p class="muted">Are you the student? <a href="{% url 'account_login' %}?next={% url 'account' %}">Log in</a> and send the link again from My account.</p>
         {% elif done %}
         <div class="alert alert-success" role="status"><svg class="icon" aria-hidden="true"><use href="#icon-check-circle"/></svg><div><p>Thank you. {{ student.full_name }}'s account is confirmed: they can now save their marks and order books.</p></div></div>
+        <p class="muted">Nothing more to do: you can close this page. To see what we keep, read the <a href="{% url 'privacy' %}">privacy notice</a>; for anything else, <a href="{% url 'contact' %}">contact us</a>.</p>
         {% else %}
         <p><strong>{{ student.full_name }}</strong> ({{ student.email }}) has registered at ExamLeaf and gave your
 {% if "@" in student.parent_contact %}email address{% else %}mobile number{% endif %} as their parent's or guardian's. ExamLeaf keeps their name, email address, class, board, district and date of birth,

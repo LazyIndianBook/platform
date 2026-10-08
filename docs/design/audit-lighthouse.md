@@ -240,3 +240,5 @@ HTML reports of the kept run of each page, mobile unless the name says desktop. 
 | 404 | [mobile (Django debug page)](lighthouse/dev-notfound-mobile.html) | [mobile (the site's page)](lighthouse/prodlike-notfound-mobile.html) |
 
 To re-run: copy the tree, add a settings wrapper that removes `debug_toolbar` and sets `SECURE_CROSS_ORIGIN_OPENER_POLICY = None`, start `runserver --noreload` (and a `DEBUG=0` instance after `collectstatic` for the production-like pass), then `lighthouse <url> --chrome-flags=--headless=new --only-categories=performance,accessibility,best-practices,seo`, with `--preset=desktop` for desktop and `--ignore-status-code` for the 404. Not covered: orders and order detail, invoices, the `/learn/` player, the admin, emails, a real device or network.
+
+> Report files kept in `lighthouse/`: the production-like home (mobile and desktop) and the solutions page (mobile). The other 21 HTML reports were deleted after their numbers were copied into the tables above (19 MB → 2.9 MB); re-run `docs/design/audit-scripts/` to regenerate them.

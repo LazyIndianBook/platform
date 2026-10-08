@@ -58,7 +58,10 @@ def test_download_my_data_asks_for_the_password_and_gives_everything(client, stu
         refund=refund, invoice=invoice, number="CN/2026-27/00001", financial_year="2026-27", serial=1
     )
     response = reauthenticate(client, client.get(reverse("data_export")))
-    response = client.get(response.url)
+    page = client.get(response.url).text  # first what the file holds, in words
+    assert '<td>Saved addresses</td><td class="num">1</td>' in page and '<td>Reviews</td><td class="num">none' in page
+    assert '<a class="btn btn-primary" href="?download=1">' in page
+    response = client.get(reverse("data_export") + "?download=1")
     assert response["Content-Disposition"].startswith('attachment; filename="examleaf-my-data-')
     assert "no-cache" in response["Cache-Control"]
     data = json.loads(response.content)

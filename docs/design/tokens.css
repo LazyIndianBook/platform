@@ -60,6 +60,11 @@
   /* type */
   --font-head: Poppins, "Segoe UI", system-ui, sans-serif;
   --font-body: "Hind Siliguri", "Segoe UI", system-ui, sans-serif;
+  /* the type scale of the built site (craft pass, components.md 4a) */
+  --fs-display: clamp(36px, 4.6vw, 54px); --fs-h1: clamp(28px, 4vw, 44px); --fs-h1-card: clamp(28px, 3vw, 32px);
+  --fs-h2: clamp(26px, 3.2vw, 38px); --fs-title: clamp(22px, 2.4vw, 28px); --fs-card: 22px;
+  --fs-h3: 19px; --fs-h4: 17px; --fs-lead: 19px; --fs-body: 17px; --fs-small: 15px; --fs-caption: 14px;
+  --measure: 66ch; /* reading columns: solutions, legal pages, About, FAQ */
 
   /* layout */
   --container: 1120px; --gutter: clamp(16px, 4vw, 24px); --gap: 24px;
@@ -67,6 +72,9 @@
 
   /* motion: transform and opacity only */
   --t-press: 120ms; --t-hover: 200ms; --ease: cubic-bezier(.2, .7, .2, 1);
+  /* the timing scale and easings of motion.md, as the built site names them (craft pass, components.md 4a) */
+  --t-instant: 0ms; --t-fast: 150ms; --t-base: 220ms; --t-slow: 360ms;
+  --ease-enter: cubic-bezier(.2, .7, .2, 1); --ease-exit: cubic-bezier(.4, 0, 1, 1);
 }
 
 /* Full-bleed dark bands: header, hero, final call to action, footer. */

@@ -28,7 +28,7 @@ class AttemptTests(TestCase):
             reverse("attempt_add", args=["PHY-E01"]),
             {"date": "2026-10-01", "marks_obtained": "52.5", "time_taken_minutes": "170", "notes": "optics"},
         )
-        self.assertRedirects(response, reverse("record"))
+        self.assertRedirects(response, "/s/PHY-E01/#record", fetch_redirect_response=False)  # back to the paper
         attempt = Attempt.objects.get()
         self.assertEqual(
             (attempt.user, attempt.paper, attempt.marks_obtained), (self.student, self.paper, Decimal("52.5"))
@@ -37,11 +37,22 @@ class AttemptTests(TestCase):
         self.assertContains(record, "52.5/70")
         self.assertEqual(record.context["averages"], [("Easy", 1, 75)])
 
+    def test_an_empty_marks_form_says_what_it_needs(self):
+        page = self.client.post(reverse("attempt_add", args=["PHY-E01"]), {}).content.decode()
+        self.assertIn("Marks obtained (out of 70): Enter the marks you gave yourself.", page)
+        self.assertIn("Date: Enter the date you sat the paper.", page)
+        self.assertNotIn("This field is required", page)
+        url = reverse("attempt_add", args=["PHY-E01"])
+        page = self.client.post(url, {"date": "2026-10-01", "marks_obtained": "71"})
+        self.assertContains(page, "At most 70, the paper&#x27;s full marks.")
+
     def test_marks_cannot_exceed_full_marks(self):
         response = self.client.post(
             reverse("attempt_add", args=["PHY-E01"]), {"date": "2026-10-01", "marks_obtained": "71"}
         )
         self.assertIn("marks_obtained", response.context["form"].errors)
+        self.assertTemplateUsed(response, "solutions.html")  # the errors in the paper's record card, not elsewhere
+        self.assertContains(response, 'action="/account/record/add/PHY-E01/#record"')
         self.assertFalse(Attempt.objects.exists())
 
     def test_edit_own_attempt_only(self):

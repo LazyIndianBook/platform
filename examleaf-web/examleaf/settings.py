@@ -274,17 +274,14 @@ if not DEBUG:  # secure by default; behind a proxy that already redirects, SECUR
     SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool("SECURE_HSTS_INCLUDE_SUBDOMAINS", default=False)
     SECURE_HSTS_PRELOAD = env.bool("SECURE_HSTS_PRELOAD", default=False)
 
-# Content-Security-Policy: scripts, styles and fonts only from this site and from KaTeX on jsDelivr (the one third-party
-# file set the site loads; keep the version in step with templates/solutions.html). jsDelivr serves any npm package, so
-# only the KaTeX folder is allowed, not the host. 'unsafe-inline' is for styles only, and stays (I6): KaTeX draws every
-# formula with style attributes (heights, offsets) and the admin add-ons use them too; hashes cannot cover attributes
-# that change with every formula. Scripts never get it.
-KATEX_CDN = "https://cdn.jsdelivr.net/npm/katex@0.19.0/dist/"
+# Content-Security-Policy: scripts, styles and fonts only from this site (KaTeX too: static/katex/). 'unsafe-inline' is
+# for styles only, and stays (I6): KaTeX draws every formula with style attributes (heights, offsets) and the admin
+# add-ons use them too; hashes cannot cover attributes that change with every formula. Scripts never get it.
 CONTENT_SECURITY_POLICY = {
     "default-src": [CSP.SELF],
-    "script-src": [CSP.SELF, KATEX_CDN],
-    "style-src": [CSP.SELF, KATEX_CDN, CSP.UNSAFE_INLINE],
-    "font-src": [CSP.SELF, KATEX_CDN],
+    "script-src": [CSP.SELF],
+    "style-src": [CSP.SELF, CSP.UNSAFE_INLINE],
+    "font-src": [CSP.SELF],
     "img-src": [CSP.SELF, "data:"],
     "object-src": [CSP.NONE],
     "base-uri": [CSP.SELF],

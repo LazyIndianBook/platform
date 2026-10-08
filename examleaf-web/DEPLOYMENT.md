@@ -487,7 +487,7 @@ start them now. Each ends with values for `.env` (section 13 lists them). The co
 | **data.gov.in** | the PIN code directory (CSV, once a year) | 15 minutes | free sign-in; Government Open Data Licence – India (credit required) | "The PIN code directory" below | none (`import_pincodes`) | optional: without the table nothing is checked |
 
 No account is needed for: Let's Encrypt certificates (Caddy gets them itself), Pwned Passwords (the password check; only
-a hash prefix leaves the server), jsDelivr (the KaTeX files), passkeys, the tracking pages of Delhivery, Blue Dart,
+a hash prefix leaves the server), passkeys, the tracking pages of Delhivery, Blue Dart,
 Ekart and 17TRACK (links only), and the image build (the base images from Docker Hub, Debian and PyPI packages, and the
 django-celery-beat archive from GitHub).
 

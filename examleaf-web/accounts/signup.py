@@ -34,12 +34,26 @@ class StudentDetailsForm(forms.Form):
     would mean two codes in a row). Turnstile while it is on, except after Google (Google has checked the person)."""
 
     full_name = forms.CharField(
-        max_length=120, label="Full name", widget=forms.TextInput(attrs={"autocomplete": "name"})
+        max_length=120,
+        label="Full name",
+        widget=forms.TextInput(attrs={"autocomplete": "name"}),
+        error_messages={"required": "Enter your full name."},
     )
-    class_level = forms.TypedChoiceField(choices=User.CLASS_CHOICES, coerce=int, initial=12, label="Class")
-    board = forms.TypedChoiceField(choices=boards, coerce=int, label="Board")
+    class_level = forms.TypedChoiceField(
+        choices=User.CLASS_CHOICES,
+        coerce=int,
+        initial=12,
+        label="Class",
+        error_messages={"required": "Choose your class."},
+    )
+    board = forms.TypedChoiceField(
+        choices=boards, coerce=int, label="Board", error_messages={"required": "Choose your board."}
+    )
     district = forms.CharField(max_length=80, required=False, label="District (optional)")
-    date_of_birth = forms.DateField(widget=forms.DateInput(attrs={"type": "date"}))
+    date_of_birth = forms.DateField(
+        widget=forms.DateInput(attrs={"type": "date"}),
+        error_messages={"required": "Enter your date of birth.", "invalid": "Enter your date of birth."},
+    )
     parent_name = forms.CharField(
         max_length=120, required=False, label="Parent's or guardian's name (if you are under 18)"
     )

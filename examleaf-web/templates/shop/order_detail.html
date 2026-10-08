@@ -19,9 +19,9 @@
     {% if order.status == "cancelled" or order.status == "refunded" %}
     <div class="alert alert-warning" role="status"><svg class="icon" aria-hidden="true"><use href="#icon-alert"/></svg><div><p>Order <strong>{{ order.number }}</strong> was cancelled: the last copies sold, or a coupon ran out, while you were paying. Any money taken is refunded in full, and we email you when it is sent. Your cart is as you left it.</p></div></div>
     {% elif order.status == "pending" and not order.placed_at %}
-    <div class="alert alert-info" role="status"><svg class="icon" aria-hidden="true"><use href="#icon-clock"/></svg><div><p class="alert-title">We are confirming your payment</p><p>The bank is telling us. This page and your email show it in a few minutes; nothing more to do.</p></div></div>
+    <div class="alert alert-info" role="status"><svg class="icon" aria-hidden="true"><use href="#icon-clock"/></svg><div><p class="alert-title">We are confirming your payment</p><p>The bank is telling us. This page and your email show it in a few minutes; nothing more to do.{% if order.has_digital %} The course opens in your account as soon as the payment is confirmed.{% endif %}</p></div></div>
     {% else %}
-    <div class="alert alert-success" role="status"><svg class="icon" aria-hidden="true"><use href="#icon-check-circle"/></svg><div><p class="alert-title">{% if order.is_cod %}Order placed{% else %}Payment received{% endif %}</p><p>Order <strong>{{ order.number }}</strong> is placed. A confirmation is on its way to {{ order.email }}.</p></div></div>
+    <div class="alert alert-success" role="status"><svg class="icon" aria-hidden="true"><use href="#icon-check-circle"/></svg><div><p class="alert-title">{% if order.is_cod %}Order placed{% else %}Payment received{% endif %}</p><p>Order <strong>{{ order.number }}</strong> is placed. A confirmation is on its way to {{ order.email }}.{% if order.has_digital %} The course is open: log in to the ExamLeaf app with that address.{% endif %}</p></div></div>
     {% endif %}
     {% if not user.is_authenticated %}<p class="small muted">Every email about this order has a link that opens this page again (lost them? <a href="{% url 'shop:lookup' %}">Find your order</a>).</p>{% endif %}
     {% endif %}
@@ -50,19 +50,28 @@
             {% if order.can_cancel %}
             <form method="post" action="{% if token %}{% url 'shop:order_link_cancel' token %}{% else %}{% url 'shop:order_cancel' order.number %}{% endif %}" id="cancel-form" class="cancel-box">{% csrf_token %}
               <button type="submit" class="btn btn-secondary" data-dialog="cancel-dialog"><svg class="icon" aria-hidden="true"><use href="#icon-x"/></svg><span>Cancel the order</span></button>
-              <p class="small muted">You can cancel until it is packed. {% if order.status == "paid" %}The full amount is refunded to the account, card or UPI ID you paid from, within 5–7 working days.{% else %}Nothing has been charged.{% endif %}</p>
+              <p class="small muted">{% if order.is_digital %}You can cancel until you pay.{% else %}You can cancel until it is packed.{% endif %} {% if order.status == "paid" %}The full amount is refunded to the account, card or UPI ID you paid from, within 5–7 working days.{% else %}Nothing has been charged.{% endif %}</p>
             </form>
             {% endif %}
           </div>
         </div>
+        {% if order.placed_at and order.status != "cancelled" and order.status != "refunded" %}
+        <section class="card" aria-labelledby="papers-title">
+          <div class="card-header"><h2 id="papers-title">{% if order.is_digital %}Your course{% else %}Your papers{% endif %}</h2></div>
+          <div class="card-body">{% for item in items %}{% with product=item.product %}
+            {% if product.book %}<p class="note-line"><svg class="icon" aria-hidden="true"><use href="#icon-qr"/></svg><span><a href="{{ product.book.get_absolute_url }}">{{ item.title }}</a>. Scan the QR code on each paper for its solutions.</span></p>{% endif %}
+            {% if product.has_digital %}<p class="note-line"><svg class="icon" aria-hidden="true"><use href="#icon-phone"/></svg><span><a href="{% url 'revision' %}">{{ item.title }}</a>: the revision course, in the ExamLeaf app.</span></p>{% endif %}
+          {% endwith %}{% endfor %}</div>
+        </section>
+        {% endif %}
         {% if token %}<p class="note-line"><svg class="icon" aria-hidden="true"><use href="#icon-lock"/></svg><span>This page opens from the link in your emails, without an account: keep the link to yourself. Lost it? <a href="{% url 'shop:lookup' %}">Find your order</a>.</span></p>{% endif %}
       </div>
       <aside class="card summary-card" aria-labelledby="summary-title">
         <div class="card-header"><h2 id="summary-title">Order summary</h2></div>
         <div class="card-body">
           {% include "shop/order_summary.html" %}
-          <h3>Delivery to</h3>
-          <p class="address">{% for line in order.address_lines %}{{ line }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</p>
+          {% if not order.is_digital %}<h3>Delivery to</h3>
+          <p class="address">{% for line in order.address_lines %}{{ line }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</p>{% endif %}
           <p class="small muted">Payment: {{ order.get_payment_method_display }}{% if order.placed_at %} · ordered {{ order.placed_at|date:"j M Y" }}{% endif %}</p>
           {% if order.status == "pending" and not order.placed_at and not token %}<a class="btn btn-accent btn-block" href="{% url 'shop:pay' order.number %}"><svg class="icon" aria-hidden="true"><use href="#icon-lock"/></svg><span>Pay now</span></a>{% endif %}
           {% if invoice %}<a class="btn btn-secondary btn-block" href="{% if token %}{% url 'shop:order_link_invoice' token %}{% else %}{% url 'shop:invoice' order.number %}{% endif %}"><svg class="icon" aria-hidden="true"><use href="#icon-download"/></svg><span>Download the invoice</span></a>
@@ -78,7 +87,7 @@
     {% if order.can_cancel %}
     <dialog class="dialog" id="cancel-dialog" aria-labelledby="cancel-title">
       <div class="card-header"><h2 id="cancel-title">Cancel this order?</h2><form method="dialog"><button class="btn btn-ghost btn-icon" aria-label="Close"><svg class="icon" aria-hidden="true"><use href="#icon-x"/></svg></button></form></div>
-      <div class="card-body"><p>Order <strong>{{ order.number }}</strong> is cancelled and its books are not sent. {% if order.status == "paid" %}The full amount is refunded to the account, card or UPI ID you paid from.{% else %}Nothing has been charged.{% endif %}</p></div>
+      <div class="card-body"><p>Order <strong>{{ order.number }}</strong> is cancelled{% if not order.is_digital %} and its books are not sent{% endif %}. {% if order.status == "paid" %}The full amount is refunded to the account, card or UPI ID you paid from.{% else %}Nothing has been charged.{% endif %}</p></div>
       <div class="card-footer"><form method="dialog"><button class="btn btn-secondary" autofocus>Keep the order</button></form><button type="submit" form="cancel-form" class="btn btn-destructive">Cancel the order</button></div>
     </dialog>
     {% endif %}

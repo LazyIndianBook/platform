@@ -37,12 +37,12 @@
       </table>
     </div>
     {% else %}
-    {% if request.GET.subject or request.GET.tier %}
+    {% if filtered and saved_any %}
     <div class="empty">
       {% include "_empty_art.html" with art="results" %}
-      <h2>No saved marks match</h2>
-      <p>Nothing saved for this subject and tier yet. Choose another, or see every paper you saved.</p>
-      <a class="btn btn-primary" href="{% url 'record' %}">Show all my marks</a>
+      <h2>No {{ filtered }} saved yet</h2>
+      <p>The filter shows {{ filtered }} only. Choose another subject or tier, or show every paper you saved.</p>
+      <a class="btn btn-primary" href="{% url 'record' %}">Show all</a>
     </div>
     {% else %}
     <div class="empty">

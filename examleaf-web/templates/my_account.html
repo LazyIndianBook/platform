@@ -75,7 +75,7 @@
               <div><dt>Email</dt><dd>{{ user.email }} · <a href="{% url 'account_email' %}">change</a></dd></div>
               <div><dt>Password</dt><dd><a href="{% url 'account_change_password' %}">change</a></dd></div>
               {% if user.class_level %}<div><dt>Class</dt><dd>{{ user.get_class_level_display }}{% if user.board %}, {{ user.board }}{% endif %}</dd></div>{% endif %}
-              <div><dt>Revision course</dt><dd>{% if user.entitlements.exists %}Open in the ExamLeaf app: log in there with {{ user.email }}.{% else %}Short revision videos for the exam, in the ExamLeaf app: <a href="{% url 'shop:catalogue' %}">see the shop</a>.{% endif %}</dd></div>
+              <div><dt>Revision course</dt><dd>{% if user.entitlements.exists %}Open in the ExamLeaf app: log in there with {{ user.email }}. <a href="{% url 'revision' %}">What is open, and the app</a>{% else %}Short revision videos for every chapter, in the ExamLeaf app: <a href="{% url 'revision' %}">see the course, or use your book code</a>.{% endif %}</dd></div>
             </dl>
             <h3>Addresses</h3>
             {% for address in user.addresses.all %}

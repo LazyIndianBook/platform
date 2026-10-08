@@ -8,8 +8,8 @@ app's revision course. Now: Class 12, Assam board (ASSEB), Physics, Chemistry, M
 (E01–E10 Easy, M01–M10 Medium, H01–H10 Hard).
 
 Django 6.1 · Python 3.14 · server-rendered templates · hand-written CSS (`static/css/`), no build step · fonts and our
-own scripts served by the site; third-party scripts only for KaTeX (jsDelivr, on the solutions pages), Razorpay Checkout
-(the payment page) and Cloudflare Turnstile (where its keys are set) · no trackers, analytics or ads of our own ·
+own scripts served by the site, KaTeX too (`static/katex/`); third-party scripts only for Razorpay Checkout (the payment
+page) and Cloudflare Turnstile (where its keys are set) · no trackers, analytics or ads of our own ·
 PostgreSQL, Redis and Celery in production, none of them needed in development.
 
 Documents: [DEPLOYMENT.md](DEPLOYMENT.md) (first deployment on a VPS, every setting, the accounts to open),
@@ -640,8 +640,9 @@ separate project.
   offline page and the static files of the release (never a page, so nothing of an account outlives a log-out),
   registered from `static/js/site.js`.
 - **Fonts and scripts** come from the site: Poppins and Hind Siliguri (OFL, in `static/fonts/`), `static/js/`, hls.js
-  1.7.3 for the staff player (`static/learn/`, with its licence); KaTeX comes from jsDelivr, and the payment page loads
-  Razorpay's Checkout script (Turnstile's too, where its keys are set).
+  1.7.3 for the staff player (`static/learn/`, with its licence), KaTeX 0.19.0 with its fonts (`static/katex/`, with its
+  licence, byte for byte the npm release); the payment page loads Razorpay's Checkout script (Turnstile's too, where its
+  keys are set).
 - **Redesign.** Stage 1 (fonts, the stylesheet, the base layout, the public pages) is in; stage 2 (the account, allauth
   and shop templates, emails, PDFs, the admin theme, the staff player) is in progress (CHANGELOG.md).
 
@@ -738,9 +739,8 @@ See [DEPLOYMENT.md](DEPLOYMENT.md). Settings come from the environment (`.env.ex
 - **https and the CSP.** With `DEBUG=0` the session and CSRF cookies are `Secure`, `SECURE_SSL_REDIRECT` is on and HSTS
   is sent for a year; `SECURE_HSTS_INCLUDE_SUBDOMAINS` and `SECURE_HSTS_PRELOAD` stay off until every subdomain is on
   https, which is why `check --deploy` prints W005 and W021 (and nothing else with a real email backend). A
-  Content-Security-Policy allows scripts, styles and fonts only from the site and from the KaTeX folder on jsDelivr
-  (`KATEX_CDN` in `settings.py`; change it together with `templates/solutions.html`), and inline styles (KaTeX and the
-  admin need them) but never inline scripts; Razorpay's hosts only on the payment page; Cloudflare's Turnstile hosts and
+  Content-Security-Policy allows scripts, styles and fonts only from the site (KaTeX is in `static/katex/`), and inline
+  styles (KaTeX and the admin need them) but never inline scripts; Razorpay's hosts only on the payment page; Cloudflare's Turnstile hosts and
   Google's address for form posts only with their keys; the public media domain for images; the private bucket's own
   address only on the staff player and the clip admin pages (the video, the direct upload); in development it is
   report-only. django-axes keeps only failed log-ins (address and browser, for the 15-minute lock-out), and beat clears
@@ -910,7 +910,7 @@ Pinned in `requirements.txt` (what the Docker image installs) and `requirements-
 | ruff | lint and formatting (`pyproject.toml`) |
 | pytest, pytest-django, pytest-cov, factory_boy | tests, coverage and test data (development and CI; requirements-dev.txt, not in the image) |
 | django-debug-toolbar | development only, when `DEBUG=1` (requirements-dev.txt) |
-| KaTeX 0.19 (jsDelivr CDN, with SRI) | renders the `$…$` maths in the browser |
+| KaTeX 0.19.0 (vendored in `static/katex/` with its fonts and licence) | renders the `$…$` maths in the browser |
 | hls.js 1.7.3 (vendored in `static/learn/`) | plays the clips in the staff player |
 | Poppins, Hind Siliguri (in `static/fonts/`) | the site's fonts, subsets served by the site (SIL Open Font Licence) |
 | ffmpeg (a system package in the image) | makes the clips into HLS |

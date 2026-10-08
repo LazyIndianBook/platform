@@ -5,6 +5,7 @@ from pathlib import Path
 
 from allauth.account.models import EmailAddress
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.db import connection
@@ -132,6 +133,45 @@ class PaperPageTests(TestCase):
         self.assertContains(response, reverse("account_login") + "?next=/s/PHY-E01/")
         self.assertNotContains(response, "Final answer")
 
+    def test_a_books_open_sample_is_read_without_an_account_and_offered_everywhere(self):
+        other = Paper.objects.create(
+            book=self.paper.book, code="PHY-E02", tier="E", number=2, title="E-02", full_marks=70, pass_marks=21
+        )
+        self.paper.is_sample = True  # the data migration's choice: each book's E-01
+        self.paper.save()
+        page = self.client.get("/s/PHY-E01/")
+        self.assertTemplateUsed(page, "solutions.html")
+        self.assertContains(page, "Final answer")
+        self.assertNotContains(page, "Save to my record")  # saving marks still needs an account
+        self.assertEqual(sorted(page["Cache-Control"].split(", ")), ["max-age=300", "public"])
+        gate = self.client.get("/s/PHY-E02/")
+        self.assertTemplateUsed(gate, "landing.html")
+        self.assertContains(gate, 'Not sure yet? <a href="/s/PHY-E01/">Paper E-01</a> of this book is open to everyone')
+        self.assertContains(self.client.get("/books/physics-2027/"), 'Try <a href="/s/PHY-E01/">Paper E-01</a> first')
+        self.assertContains(self.client.get("/"), 'href="/s/PHY-E01/">See a sample paper</a>')
+        other.is_sample = True
+        with self.assertRaisesMessage(ValidationError, "Another paper of this book is its open sample"):
+            other.full_clean()  # one per book (the admin's form says so)
+
+    def test_a_book_without_published_papers_says_so_and_offers_the_others(self):
+        self.assertNotContains(self.client.get("/books/physics-2027/"), "The papers are on their way")
+        Paper.objects.update(is_published=False)
+        page = self.client.get("/books/physics-2027/")
+        self.assertContains(page, "The papers are on their way")
+        self.assertContains(page, 'href="/#books">Choose another book</a>')
+
+    def test_the_headers_log_in_and_register_come_back_to_this_page_of_this_site(self):
+        page = self.client.get("/books/physics-2027/?tab=1")
+        self.assertContains(page, 'href="/account/login/?next=/books/physics-2027/%3Ftab%3D1"')
+        self.assertContains(page, 'href="/account/signup/?next=/books/physics-2027/%3Ftab%3D1">Register</a>')
+        login = self.client.get("/account/login/?next=/s/PHY-E01/")  # the log-in pages pass their own `next` on
+        self.assertContains(login, 'href="/account/signup/?next=/s/PHY-E01/">Register</a>')
+        for elsewhere in ["//evil.example/", "https://evil.example/", "/\\evil.example"]:
+            with self.subTest(elsewhere):
+                login = self.client.get("/account/login/", {"next": elsewhere})
+                self.assertContains(login, 'href="/account/signup/">Register</a>')
+        self.assertContains(self.client.get("/"), 'href="/account/signup/">Register</a>')  # home: nothing to add
+
     def test_login_returns_to_the_paper(self):
         response = self.client.post(
             reverse("account_login"),
@@ -206,20 +246,23 @@ class PaperPageTests(TestCase):
                 self.assertRedirects(response, "/", fetch_redirect_response=False)
                 self.client.logout()
 
-    def test_only_this_site_and_katex_are_allowed_to_serve_files_and_nothing_runs_inline(self):
+    def test_only_this_site_serves_files_katex_included_and_nothing_runs_inline(self):
         self.client.force_login(self.student)
         response = self.client.get("/s/PHY-E01/")
         policy = (
             response.headers.get("Content-Security-Policy") or response.headers["Content-Security-Policy-Report-Only"]
         )
-        self.assertIn(f"script-src 'self' {settings.KATEX_CDN};", policy)  # the folder, not all of jsDelivr
+        for directive in ("script-src 'self';", "font-src 'self';", "style-src 'self' 'unsafe-inline';"):
+            self.assertIn(directive, policy)  # KaTeX is served from static/katex/, no other host
         self.assertIn("frame-ancestors 'none'", policy)
         page = response.content.decode()
+        self.assertIn('<script defer src="/static/katex/katex.min.js"></script>', page)
+        self.assertTrue(Path(settings.BASE_DIR, "static/katex/fonts/KaTeX_Main-Regular.woff2").exists())  # its fonts
         self.assertEqual(
             {
                 u
                 for u in re.findall(r'(?:src|href)="(https?://[^"]+)"', page)
-                if not u.startswith((settings.KATEX_CDN, settings.SITE_URL))  # SITE_URL: the canonical link
+                if not u.startswith(settings.SITE_URL)  # SITE_URL: the canonical link
             },
             set(),
         )

@@ -2,11 +2,11 @@
 {% block head_title %}{{ paper.book.subject.name }} Sample Paper {{ paper.short_code }}: solutions{% endblock %}
 {% block meta_description %}Worked solutions with the marking steps to ExamLeaf Sample Paper {{ paper.short_code }} ({{ paper.book.subject.name }}, {{ paper.get_tier_display }}), Assam Board Class 12.{% endblock %}
 {% block extra_head %}
-{# KaTeX's stylesheet is fetched early but applied at the end of the page (extra_body), so it never delays the first paint; static/js/math.js waits for it #}
-<link rel="preload" href="https://cdn.jsdelivr.net/npm/katex@0.19.0/dist/katex.min.css" as="style" integrity="sha256-1KtbjuFpibBwzbDqJL1q1I/I3xt4fygPKdOuT5WfLAA=" crossorigin="anonymous">
+{# KaTeX 0.19.0, served by this site (static/katex/, its licence beside it). Its stylesheet is fetched early but applied at the end of the page (extra_body), so it never delays the first paint; static/js/math.js waits for it #}
+<link rel="preload" href="{% static 'katex/katex.min.css' %}" as="style">
 <link rel="stylesheet" href="{% static 'css/print.css' %}" media="print">
-<script defer src="https://cdn.jsdelivr.net/npm/katex@0.19.0/dist/katex.min.js" integrity="sha256-EDpTdjzAM7uo0XW/Pwull8NQXJtnR90/LHvCpr/Miuc=" crossorigin="anonymous"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/katex@0.19.0/dist/contrib/auto-render.min.js" integrity="sha256-5TctGZvNrotN5x0PfOunKkuhJ3SifGCm8fd9A7MijuQ=" crossorigin="anonymous"></script>
+<script defer src="{% static 'katex/katex.min.js' %}"></script>
+<script defer src="{% static 'katex/contrib/auto-render.min.js' %}"></script>
 <script defer src="{% static 'js/math.js' %}"></script>
 {% endblock %}
 {% block main_class %}{% endblock %}
@@ -58,7 +58,7 @@
           {% if form %}<p>Mark your answers against these solutions, then save your score to <a href="{% url 'record' %}">My record</a>.</p>{% endif %}
         </div>
         {% if form %}
-        <form method="post" action="{% url 'attempt_add' paper.code %}">
+        <form method="post" action="{% url 'attempt_add' paper.code %}#record">
           {% csrf_token %}
           <div class="card-body">{% include "_form_errors.html" %}{% include "_required_note.html" %}<div class="form-grid">{% for field in form %}{% include "_field.html" %}{% endfor %}</div></div>
           <div class="card-footer">
@@ -66,6 +66,8 @@
             <a href="{% url 'record' %}">Open My record</a>
           </div>
         </form>
+        {% elif user.is_authenticated %}
+        <div class="card-body"><p>Mark your answers against these solutions. Your parent or guardian has not confirmed your account yet: marks can be saved once they have (<a href="{% url 'account' %}">see My account</a>).</p></div>
         {% else %}
         <div class="card-body"><p>Mark your answers against these solutions. To keep your scores in My record, <a href="{% url 'account_login' %}?next={{ request.path|urlencode }}">log in</a> or <a href="{% url 'account_signup' %}?next={{ request.path|urlencode }}">register</a> (free).</p></div>
         {% endif %}
@@ -85,4 +87,4 @@
   </div>
 </section>
 {% endblock %}
-{% block extra_body %}<link rel="stylesheet" id="katex-css" href="https://cdn.jsdelivr.net/npm/katex@0.19.0/dist/katex.min.css" integrity="sha256-1KtbjuFpibBwzbDqJL1q1I/I3xt4fygPKdOuT5WfLAA=" crossorigin="anonymous">{% endblock %}
+{% block extra_body %}<link rel="stylesheet" id="katex-css" href="{% static 'katex/katex.min.css' %}">{% endblock %}

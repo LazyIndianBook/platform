@@ -72,10 +72,13 @@ class VerifiedEmail(permissions.BasePermission):
 
 
 class CanReadSolutions(VerifiedEmail):
-    """Everyone while the solutions are open (SOLUTIONS_REQUIRE_LOGIN=0), as on the website; otherwise VerifiedEmail."""
+    """Everyone while the solutions are open (SOLUTIONS_REQUIRE_LOGIN=0) and on a book's open sample (Paper.is_sample),
+    as on the website; otherwise VerifiedEmail."""
 
     def has_permission(self, request, view):
-        return not settings.SOLUTIONS_REQUIRE_LOGIN or super().has_permission(request, view)
+        if not settings.SOLUTIONS_REQUIRE_LOGIN or super().has_permission(request, view):
+            return True
+        return Paper.objects.filter(code=view.kwargs.get("code"), is_sample=True, is_published=True).exists()
 
 
 def canonical_query(known):
@@ -165,8 +168,9 @@ class PaperViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=True, permission_classes=[CanReadSolutions], pagination_class=None, filter_backends=[])
     def solutions(self, request, *args, **kwargs):
         """The questions in paper order, each with its marking-scheme solution (Markdown and HTML)."""
-        questions = self.get_object().questions.select_related("solution")
-        return cache_solutions(Response(QuestionSerializer(questions, many=True).data), request.user)
+        paper = self.get_object()
+        questions = paper.questions.select_related("solution")
+        return cache_solutions(Response(QuestionSerializer(questions, many=True).data), request.user, paper.is_sample)
 
 
 class QrView(generics.RetrieveAPIView):

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block head_title %}Revision course{% endblock %}
+{% block meta_description %}The ExamLeaf revision course for the Assam Board (ASSEB) Class 12 examination: every chapter revised in short clips, flash cards and one-mark quiz questions, in the ExamLeaf app.{% endblock %}
+{% block main_class %}{% endblock %}
+{% block content %}
+<section class="section section-top">
+  <div class="container">
+    <nav class="breadcrumb" aria-label="Breadcrumb"><ol>
+      <li><a href="{% url 'home' %}">Home</a></li>
+      <li><svg class="icon" aria-hidden="true"><use href="#icon-chevron-right"/></svg><span aria-current="page">Revision course</span></li>
+    </ol></nav>
+    <div class="page-head">
+      <p class="eyebrow">In the ExamLeaf app · ASSEB Class 12</p>
+      <h1>Revision course</h1>
+      <p class="lead">Each chapter revised in 10 to 15 minutes: short clips on its concepts, formulas, shortcuts and the questions the Board likes to ask, then flash cards and one-mark quiz questions. The app plans what to watch each day until your exam, the chapters worth the most marks first.</p>
+    </div>
+    <div class="two-col">
+      <div class="main-col stack">
+        <h2>Chapters and their marks</h2>
+        <p class="muted">The marks the Board gives each chapter, and how many of its questions the Board has set in past papers.</p>
+        {% for subject, chapters in subjects %}
+        <details class="accordion"{% if forloop.first %} open{% endif %}>
+          <summary><span>{{ subject.name }} · {{ chapters|length }} chapters</span><svg class="icon" aria-hidden="true"><use href="#icon-chevron-down"/></svg></summary>
+          <div><div class="table-wrap"><table class="table">
+            <caption class="sr-only">{{ subject.name }}: each chapter's marks and past questions</caption>
+            <thead><tr><th scope="col" class="num">Ch.</th><th scope="col">Chapter</th><th scope="col" class="num">Marks</th><th scope="col" class="num">Past questions</th></tr></thead>
+            <tbody>{% for chapter in chapters %}
+              <tr><td class="num">{{ chapter.number }}</td><td>{{ chapter.title }}{% for clip in chapter.free_clips %}<br><span class="small muted">Free clip: {{ clip.title }}</span>{% endfor %}</td><td class="num">{{ chapter.weight|floatformat:"-1" }}</td><td class="num">{{ chapter.frequency }}</td></tr>{% endfor %}
+            </tbody>
+          </table></div></div>
+        </details>
+        {% empty %}
+        <div class="empty">{% include "_empty_art.html" with art="sheet" %}<h2>The chapters are being prepared</h2><p>The course opens subject by subject. The papers and their free solutions are ready now.</p><a class="btn btn-primary" href="{% url 'home' %}#books">Choose a book</a></div>
+        {% endfor %}
+        <h2>What is free</h2>
+        <p>{% if free_preview %}Log in to the app with your ExamLeaf account: the first clip of every chapter is free, and so are the flash cards of each subject's first chapter.{% if not has_free_clips %} The clips are being recorded; the chapters above show theirs as they arrive.{% endif %} {% endif %}A code printed in your ExamLeaf book, or the course bought in the <a href="{% url 'shop:catalogue' %}">shop</a>, opens the whole subject for {{ access_days }} days.</p>
+      </div>
+      <aside class="stack">
+        <section class="card" aria-labelledby="course-title">
+          <div class="card-header"><h2 id="course-title">Your course</h2></div>
+          {% if form %}
+          <div class="card-body">
+            {% if entitlements %}<dl class="dl-rows">{% for entitlement in entitlements %}<div><dt>{% if entitlement.subject %}{{ entitlement.subject.name }}{% else %}Every subject{% endif %}</dt><dd>{% if entitlement.valid_until and entitlement.valid_until < today %}Ended on {{ entitlement.valid_until|date:"j M Y" }}{% elif entitlement.valid_until %}Open until {{ entitlement.valid_until|date:"j M Y" }}{% else %}Open{% endif %} · from a {{ entitlement.get_source_display }}</dd></div>{% endfor %}</dl>
+            {% else %}<p>Nothing is open in your account yet{% if free_preview %}, apart from the free clips{% endif %}.</p>{% endif %}
+          </div>
+          <form method="post">{% csrf_token %}
+            <div class="card-body">{% include "_form_errors.html" %}{% include "_field.html" with field=form.code %}</div>
+            <div class="card-footer"><button type="submit" class="btn btn-primary"><svg class="icon" aria-hidden="true"><use href="#icon-key"/></svg><span>Use the code</span></button></div>
+          </form>
+          {% else %}
+          <div class="card-body"><p>Have a code printed in your book, or bought the course? <a href="{% url 'account_login' %}?next={{ request.path|urlencode }}">Log in</a> to use it, or <a href="{% url 'account_signup' %}?next={{ request.path|urlencode }}">register</a> (free).</p></div>
+          {% endif %}
+        </section>
+        <section class="card" aria-labelledby="app-title">
+          <div class="card-header"><h2 id="app-title">Get the app</h2><p>Log in there with the same email address as on this site.</p></div>
+          <div class="card-body">
+            <dl class="dl-rows">
+              <div><dt>Android</dt><dd><mark class="placeholder">[Google Play link]</mark></dd></div>
+              <div><dt>iPhone</dt><dd><mark class="placeholder">[App Store link]</mark></dd></div>
+            </dl>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </div>
+</section>
+{% endblock %}

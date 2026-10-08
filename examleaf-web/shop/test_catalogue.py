@@ -7,9 +7,11 @@ import types
 from decimal import Decimal
 
 import pytest
+from django.core import mail
 from django.core.exceptions import ValidationError
 from rest_framework.test import APIClient
 
+from content.tests import make_paper
 from shop import services
 from shop.factories import ProductFactory, ShippingRateFactory, captured, make_cart, make_order, verified_user
 from shop.models import (
@@ -60,6 +62,10 @@ def test_a_shelf_shows_its_sub_shelves_products_and_the_catalogue_its_top_shelve
     assert '<a href="/shop/category/books/">Books</a>' in client.get("/shop/").content.decode()
     assert client.get("/shop/category/nothing/").status_code == 404
     assert 'href="/shop/physics/"' not in client.get("/shop/category/class-12/?kind=solutions").content.decode()
+    ProductFactory(title="Physics Solutions", kind=Product.Kind.SOLUTIONS).categories.add(shelves["class-12"])
+    page = client.get("/shop/category/class-12/?kind=solutions").content.decode()  # the kind links set ?kind=
+    assert '<a href="/shop/category/class-12/">All</a>' in page and "Physics Solutions" in page
+    assert '<a href="?kind=solutions" aria-current="page">Solutions</a>' in page and "Physics Sample" not in page
 
 
 def test_a_collection_lists_its_products_in_the_staffs_order(client):
@@ -201,6 +207,28 @@ def test_a_course_page_says_it_opens_in_the_app_and_claims_no_book_or_shipping(c
     assert '"Book"' not in page and "shippingDetails" not in page and '"@type": "Product"' in page
 
 
+def test_a_course_alone_is_never_spoken_of_as_books_copies_shipping_or_delivery(course, rzp, commit, client):
+    page = client.get("/shop/physics-pass/").text
+    assert '<input type="hidden" name="quantity" value="1">' in page and '<label for="quantity">Copies' not in page
+    assert "About the course" in page and "delivered across India" not in page
+    client.post(f"/cart/add/{course.pk}/")
+    cart = client.get("/cart/").text
+    assert "The revision course is in your cart" in cart and "Total before shipping" not in cart
+    assert "The course opens in your ExamLeaf account" in cart and "No account needed" not in cart  # a guest
+    user = verified_user("rahul@example.com")
+    client.force_login(user)
+    client.post(f"/cart/add/{course.pk}/")
+    checkout = client.get("/checkout/").text
+    assert "Access is granted as soon as the payment is confirmed" in checkout and "free on books worth" not in checkout
+    assert "<dt>Course</dt>" in checkout and "Total before shipping" not in checkout
+    Cart.objects.filter(user=user).delete()
+    order = make_order((course, 1), user=user)
+    with commit():
+        services.record_capture(captured(order))
+    page = client.get(order.get_absolute_url()).text
+    assert "<dt>Course</dt>" in page and "<dt>Shipping</dt>" not in page and "Delivery to" not in page
+
+
 def test_paying_for_a_course_opens_it_and_delivers_an_order_of_digital_products_only(course, hooks, rzp, commit):
     granted = hooks.granted
     user, book = verified_user("rahul@example.com"), ProductFactory(stock=5)
@@ -218,6 +246,26 @@ def test_paying_for_a_course_opens_it_and_delivers_an_order_of_digital_products_
     assert granted[-1] == mixed and mixed.status == Order.Status.PAID  # the books still go by post
     book.refresh_from_db()
     assert book.stock == 3
+
+
+def test_the_order_and_its_delivered_email_lead_to_the_papers_and_the_course(course, rzp, commit, client, settings):
+    book = ProductFactory(title="Physics Sample Papers", stock=5, book=make_paper().book)
+    user = verified_user("rahul@example.com")
+    order = make_order((course, 1), (book, 1), user=user)
+    with commit():
+        services.record_capture(captured(order))
+    client.force_login(user)
+    page = client.get(order.get_absolute_url()).text
+    qr = "Scan the QR code on each paper for its solutions."
+    assert f'<a href="/books/physics-2027/">Physics Sample Papers</a>. {qr}' in page
+    assert '<a href="/revision/">Physics Revision Pass</a>: the revision course, in the ExamLeaf app.' in page
+    order = services.pack_order(Order.objects.get(pk=order.pk))
+    services.ship_order(order, "India Post", "EA1IN")
+    with commit():
+        services.deliver_order(order)
+    body, site = mail.outbox[-1].body, settings.SITE_URL
+    assert f"Physics Sample Papers: {site}/books/physics-2027/\n{qr}" in body
+    assert f"Physics Revision Pass: the revision course, in the ExamLeaf app: {site}/revision/" in body
 
 
 def test_a_refunded_or_cancelled_course_order_closes_the_course_and_a_bundle_sells_book_and_course(

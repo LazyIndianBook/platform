@@ -5,12 +5,12 @@ from PIL import Image
 from examleaf.images import app_icon, og_image
 
 COVERS = ["physics", "chemistry", "mathematics", "biology"]  # static/img/<name>.png, 480 px wide
-WIDTHS = [320, 480]
+WIDTHS = [240, 320, 480]  # 240: the home page's fanned covers on a phone (104 px wide, so 208 px on a 2x screen)
 FORMATS = {"avif": "AVIF", "webp": "WEBP"}
 
 
 def build_covers(folder):
-    """Each cover in AVIF and WebP, 320 and 480 px wide, next to its PNG: img/physics-320.avif, …"""
+    """Each cover in AVIF and WebP, 240, 320 and 480 px wide, next to its PNG: img/physics-240.avif, …"""
     for name in COVERS:
         with Image.open(folder / f"{name}.png") as image:
             image = image.convert("RGB")

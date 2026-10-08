@@ -66,7 +66,8 @@ def test_without_buckets_only_the_public_folders_are_served(client, settings):
     public_storage().save("products/cover.png", ContentFile(b"png"))
     public_storage().save("invoices/EL-1.pdf", ContentFile(b"%PDF"))
     assert public_storage().url("products/cover.png") == "/shop/media/products/cover.png"
-    assert client.get("/shop/media/products/cover.png").status_code == 200
+    response = client.get("/shop/media/products/cover.png")
+    assert response.status_code == 200 and response["Cache-Control"] == "public, max-age=31536000, immutable"
     for name in ["invoices/EL-1.pdf", "products/../invoices/EL-1.pdf", "products/missing.png"]:
         assert client.get(f"/shop/media/{name}").status_code == 404
 
@@ -86,11 +87,11 @@ def test_static_covers_have_avif_and_webp_sizes(tmp_path, settings):
     for name in COVERS:
         shutil.copy(settings.BASE_DIR / "static" / "img" / f"{name}.png", tmp_path)
     build_covers(tmp_path)
-    with Image.open(tmp_path / "physics-320.avif") as image:
-        assert image.size == (320, 452)
-    assert len(list(tmp_path.glob("*-[34][28]0.*"))) == 16
+    with Image.open(tmp_path / "physics-240.avif") as image:
+        assert image.size == (240, 339)  # the phone's fanned covers on the home page
+    assert len(list(tmp_path.glob("*-[234][248]0.*"))) == 24
     html = Template('{% load web %}{% static_cover "img/physics.png" "Cover" %}').render(Context())
-    srcset = "/static/img/physics-320.avif 320w, /static/img/physics-480.avif 480w"
+    srcset = "/static/img/physics-240.avif 240w, /static/img/physics-320.avif 320w, /static/img/physics-480.avif 480w"
     assert f'<source type="image/avif" srcset="{srcset}"' in html
     assert '<img src="/static/img/physics.png" alt="Cover"' in html
     assert "<source" not in Template('{% load web %}{% static_cover "img/favicon-32.png" %}').render(Context())
@@ -129,6 +130,16 @@ def test_a_picture_saved_while_the_broker_is_down_gets_its_sizes_made_in_the_req
         upload = ContentFile(public_storage().open(picture(size=(800, 1200))).read(), name="cover.png")
         product.cover.save("cover.png", upload)
     assert public_storage().exists(product.cover.name) and public_storage().exists("products/cover/2_3/400w.avif")
+
+
+def test_the_product_admin_says_while_the_picture_sizes_are_being_made(client, commit):
+    product = ProductFactory(cover=picture(size=(400, 600)))  # its sizes are queued for after the commit
+    client.force_login(UserFactory(is_staff=True, is_superuser=True))
+    url = f"/admin/shop/product/{product.pk}/change/"
+    assert "smaller sizes are still being made" in client.get(url).text
+    with commit():
+        product.cover.save_all()  # the sizes queued, then made (eager Celery in the tests)
+    assert "smaller sizes are still being made" not in client.get(url).text
 
 
 def test_each_product_gets_its_own_link_preview_picture(client, commit):

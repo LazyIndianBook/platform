@@ -671,3 +671,5 @@ label.option>input{margin-top:2px}
 .step:not(.step-current) .step-short{display:inline-flex}
 .featured>.card-body{padding:20px}
 }
+/* Small phones: the messages sit at the top of the page instead of over it, so they never hide a focused link or box */
+@media (max-width:600px){.toast{--rise:-8px;position:static;width:auto;margin:16px var(--gutter) 0}}

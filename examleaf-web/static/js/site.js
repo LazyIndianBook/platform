@@ -5,15 +5,24 @@ if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js"));
 }
 
-// The address form: a PIN code found in the directory fills in the district (if empty) and the state.
+// The address form: a PIN code found in the directory fills in the district (if empty) and the state; one it does not
+// hold is said in the field's help, so that the customer types them.
 document.querySelectorAll("input[data-pin-lookup]").forEach((input) => {
+  const help = document.getElementById(`${input.id}_helptext`);
+  const usual = help ? help.textContent : "";
+  if (help) help.setAttribute("aria-live", "polite");
   input.addEventListener("input", () => {
     const pin = input.value.replace(/\s/g, "");
+    if (help) help.textContent = usual;
     if (!/^[1-9]\d{5}$/.test(pin)) return;
     fetch(`/shop/pin/${pin}/`)
-      .then((response) => (response.ok ? response.json() : null))
+      .then((response) => (response.ok ? response.json() : response.status === 404 ? {} : null))
       .then((found) => {
-        if (!found) return;
+        if (!found) return;  // a server error: nothing to say
+        if (!found.pin) {
+          if (help) help.textContent = `${usual} ${pin} is not in our list: type the district and state.`;
+          return;
+        }
         const { district, state } = input.form.elements;
         if (district && !district.value && found.districts.length) district.value = found.districts[0];
         if (state && found.states.length === 1) state.value = found.states[0];
@@ -81,6 +90,35 @@ document.addEventListener("click", (event) => {
 
   // iOS Safari applies :active (the press feedback of buttons and tiles) only when the page listens to touches.
   document.addEventListener("touchstart", () => {}, {passive: true});
+
+  // A form sent shows its button busy (components.md, .btn [aria-busy]) and is not sent twice. The button is disabled
+  // only after the browser has read its name and value; it comes back with the page (Back), or after a while when
+  // the answer was a file and the page stayed.
+  const busy = new Map();  // form sent -> its button (which may sit outside it: form="…")
+  const ready = (form) => {
+    const button = busy.get(form);
+    busy.delete(form);
+    if (button) {
+      button.removeAttribute("aria-busy");
+      button.disabled = false;
+    }
+  };
+  document.addEventListener("submit", (event) => {
+    const form = event.target;
+    if (event.defaultPrevented || form.method === "dialog" || form.target === "_blank") return;
+    if (busy.has(form)) {
+      event.preventDefault();
+      return;
+    }
+    const button = event.submitter || form.querySelector("[type=submit]");
+    busy.set(form, button);
+    if (button) {
+      button.setAttribute("aria-busy", "true");
+      setTimeout(() => (button.disabled = true));
+    }
+    setTimeout(() => ready(form), 15000);
+  });
+  window.addEventListener("pageshow", () => [...busy.keys()].forEach(ready));
 
   // Cross-document view transitions (motion.md, d) are for moving between pages: none after a form is sent.
   let sending = false;

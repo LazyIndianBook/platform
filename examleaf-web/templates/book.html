@@ -17,6 +17,7 @@
         <h1>{{ book.title }}</h1>
         <p class="muted">{{ book.subject.board }} · {{ book.subject.class_level }}{% if book.edition %} · {{ book.edition }}{% endif %}</p>
         <p>The solutions to every paper are free{% if solutions_require_login %} for registered students{% endif %}. Scan the QR code printed on the paper, or choose it here.</p>
+        {% if sample and solutions_require_login %}<p>Try <a href="{{ sample.get_absolute_url }}">Paper {{ sample.short_code }}</a> first: its solutions are open to everyone, no account needed.</p>{% endif %}
         {% with first=tiers.0.1.0 easy=tiers.0.1|length medium=tiers.1.1|length hard=tiers.2.1|length %}{% if first %}
         <dl class="facts">
           <div><dt>papers</dt><dd>{{ easy|add:medium|add:hard }}</dd></div>
@@ -46,12 +47,15 @@
 
 <section class="section section-alt">
   <div class="container">
+    {% if not tiers.0.1 and not tiers.1.1 and not tiers.2.1 %}
+    <div class="empty">{% include "_empty_art.html" with art="sheet" %}<h2>The papers are on their way</h2><p>This book's papers are still being set. The other books are ready.</p><a class="btn btn-primary" href="{% url 'home' %}#books">Choose another book</a></div>
+    {% endif %}
     {% for label, papers in tiers %}{% if papers %}
     <div class="tier-block">
       {% with last=papers|last %}<div class="q-rule"><span>Q.{{ forloop.counter }}</span><span aria-hidden="true"></span><span>{{ papers.0.short_code }} to {{ last.short_code }}</span></div>{% endwith %}
       <div class="tier-head"><span class="badge badge-{{ label|lower }}">{{ label }}</span><h2>{{ label }} papers</h2></div>
       <div class="grid papers">
-        {% for paper in papers %}<a class="card card-interactive card-dense paper-link" href="{{ paper.get_absolute_url }}" aria-label="Paper {{ paper.short_code }}, {{ label }}: open the solutions"><span class="card-body"><span class="paper-code">{{ paper.short_code }}<svg class="icon" aria-hidden="true"><use href="#icon-arrow-right"/></svg></span><span class="paper-facts">{{ paper.full_marks }} marks · {{ paper.time_text }}</span></span></a>{% endfor %}
+        {% for paper in papers %}<a class="card card-interactive card-dense paper-link" href="{{ paper.get_absolute_url }}" aria-label="Paper {{ paper.short_code }}, {{ label }}: open the solutions{% if paper.is_sample and solutions_require_login %}, no account needed{% endif %}"><span class="card-body"><span class="paper-code">{{ paper.short_code }}<svg class="icon" aria-hidden="true"><use href="#icon-arrow-right"/></svg></span><span class="paper-facts">{{ paper.full_marks }} marks · {{ paper.time_text }}</span>{% if paper.is_sample and solutions_require_login %}<span class="paper-facts">Open to everyone</span>{% endif %}</span></a>{% endfor %}
       </div>
     </div>
     {% endif %}{% endfor %}

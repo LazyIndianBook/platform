@@ -17,6 +17,7 @@
           <div class="card-header"><div class="step-head"><span class="step-num" aria-hidden="true">1</span><h2>Address</h2></div></div>
           <div class="card-body">
             {% include "_required_note.html" %}
+            {% if totals.digital_only %}<p class="small muted">For the invoice: nothing is posted to it.</p>{% endif %}
             {% if form.email %}{% include "_field.html" with field=form.email %}{% endif %}
             {% if form.saved_address %}
             <fieldset class="choice options"><legend>{{ form.saved_address.label }}</legend>
@@ -31,6 +32,15 @@
           </div>
         </div>
         <div class="card">
+          {% if totals.digital_only %}
+          <div class="card-header"><div class="step-head"><span class="step-num" aria-hidden="true">2</span><h2>Access</h2></div></div>
+          <div class="card-body">
+            <div class="delivery"><svg class="icon" aria-hidden="true"><use href="#icon-phone"/></svg><div>
+              <p>Access is granted as soon as the payment is confirmed: the course opens in the ExamLeaf app for {{ user.email|default:"your account" }}. Nothing is posted.</p>
+              <p class="small muted">Cancellations and refunds: <a href="{% url 'refunds' %}">Refund and Cancellation Policy</a>.</p>
+            </div></div>
+          </div>
+          {% else %}
           <div class="card-header"><div class="step-head"><span class="step-num" aria-hidden="true">2</span><h2>Delivery</h2></div></div>
           <div class="card-body">
             <div class="delivery"><svg class="icon" aria-hidden="true"><use href="#icon-truck"/></svg><div>
@@ -38,6 +48,7 @@
               <p class="small muted">Charged from the state in your address. The total is shown on the next page, before you pay. Dispatch and delivery times: <a href="{% url 'shipping' %}">Shipping Policy</a>.</p>
             </div></div>
           </div>
+          {% endif %}
         </div>
         <div class="card">
           <div class="card-header"><div class="step-head"><span class="step-num" aria-hidden="true">3</span><h2>Payment</h2></div></div>
@@ -48,7 +59,7 @@
             {% if form.payment_method.errors %}<p class="field-error"><svg class="icon" aria-hidden="true"><use href="#icon-alert"/></svg><span>{{ form.payment_method.errors|join:" " }}</span></p>{% endif %}
             {% if form.payment_method.help_text %}<div class="alert alert-info"><svg class="icon" aria-hidden="true"><use href="#icon-info"/></svg><div><p class="alert-title">Cash on delivery</p><p>{{ form.payment_method.help_text }}</p></div></div>{% endif %}
             <button type="submit" class="btn btn-accent btn-lg btn-block"><span>Continue to payment</span><svg class="icon" aria-hidden="true"><use href="#icon-arrow-right"/></svg></button>
-            <p class="small muted">Nothing is charged yet: the next page shows the total with shipping, before you pay.</p>
+            <p class="small muted">Nothing is charged yet: the next page shows the total{% if not totals.digital_only %} with shipping{% endif %}, before you pay.</p>
           </div>
         </div>
       </div>
@@ -57,10 +68,11 @@
         <div class="card-body">
           <ul class="order-lines">{% for line in totals.lines %}<li>{% include "shop/_thumb.html" with product=line.product %}<span class="order-line-text"><span>{{ line.product }}</span><span class="muted">{{ line.quantity }} × {{ line.product.price|inr }}</span></span><span class="num">{{ line.total|inr }}</span></li>{% endfor %}</ul>
           <dl class="totals">
-            <div><dt>Books</dt><dd>{{ totals.subtotal|inr }}</dd></div>
+            <div><dt>{% if totals.digital_only %}Course{% else %}Books{% endif %}</dt><dd>{{ totals.subtotal|inr }}</dd></div>
             {% for saving in totals.savings %}<div><dt>{{ saving.label }}</dt><dd>−{{ saving.amount|inr }}</dd></div>{% endfor %}
-            <div class="muted"><dt>Shipping</dt><dd>on the next page</dd></div>
-            <div class="grand"><dt>Total before shipping</dt><dd>{{ totals.total|inr }}</dd></div>
+            {% if totals.digital_only %}<div class="grand"><dt>Total</dt><dd>{{ totals.total|inr }}</dd></div>
+            {% else %}<div class="muted"><dt>Shipping</dt><dd>on the next page</dd></div>
+            <div class="grand"><dt>Total before shipping</dt><dd>{{ totals.total|inr }}</dd></div>{% endif %}
           </dl>
           {% if user.is_authenticated %}<p class="small muted">Confirmation to {{ user.email }}.</p>{% endif %}
         </div>

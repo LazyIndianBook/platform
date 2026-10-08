@@ -66,7 +66,8 @@ def test_catalogue_is_public_with_published_papers_only(api, paper):
     assert (subject["code"], subject["board"], subject["class_level"]) == ("PHY", "ASSEB", 12)
     book = api.get("/api/v1/books/physics-2027/").json()
     assert book["subject"]["code"] == "PHY" and book["cover"] is None
-    assert book["papers"] == [{"code": "PHY-E01", "tier": "E", "number": 1, "title": paper.title, "is_published": True}]
+    brief = {"code": "PHY-E01", "tier": "E", "number": 1, "title": paper.title}
+    assert book["papers"] == [{**brief, "is_published": True, "is_sample": False}]
     data = api.get("/api/v1/papers/PHY-E01/").json()
     assert data["book"] == "physics-2027" and data["full_marks"] == 70 and data["web_url"].endswith("/s/PHY-E01/")
     assert data["solutions_url"] == "http://testserver/api/v1/papers/PHY-E01/solutions/"
@@ -116,6 +117,17 @@ def test_solutions_need_a_signed_in_student_with_a_confirmed_email(api, paper, d
     assert first["solution"]["markdown"].startswith("| Step | Marks |")
     assert '<table class="steps">' in first["solution"]["html"] and "$I = 0.5$" in first["solution"]["html"]
     assert questions[1]["is_alternative"] and questions[1]["solution"] is None
+
+
+def test_a_books_open_sample_needs_no_account(api, paper):
+    url = "/api/v1/papers/PHY-E01/solutions/"
+    assert api.get(url).status_code == 401
+    paper.is_sample = True
+    paper.save()
+    response = api.get(url)
+    assert response.status_code == 200 and response.json()[0]["label"] == "2(c)"
+    assert response["Cache-Control"] == "public, max-age=300"  # the same for every visitor
+    assert api.get("/api/v1/papers/PHY-E01/").json()["is_sample"] is True
 
 
 def emailed_code():

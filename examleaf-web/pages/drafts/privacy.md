@@ -9,11 +9,18 @@ ExamLeaf LLP publishes the ExamLeaf books (publisher: Bhaben Bhuyan). Registered
 ## What we keep
 
 - **When you register:** your full name, email address, password (stored only in a scrambled, one-way form that nobody can read back), class, board, district (if you give it) and date of birth.
-- **For a student under 18:** the name and the phone number or email address of a parent or guardian, who gives the consent by ticking the box on the registration form.
+- **For a student under 18:** the name and the phone number or email address of a parent or guardian, who gives the consent by ticking the box on the registration form. Where we ask the parent or guardian to confirm, we send a link to that address or number, and keep the time they confirmed.
 - **A record of the consent:** what was agreed to, the version of this policy, the time, whether a parent or guardian gave it, and a scrambled (hashed) form of the internet address it came from, so that we can show that consent was given.
 - **If you ask for teacher access:** your school's name, its district and the subject you teach.
 - **When you use the site:** the marks, dates, times taken and notes that you choose to save in My record.
 - **When you order printed books:** your name, delivery address, phone number and email address, the books ordered, the amount and the payment status. Payments are made through Razorpay; we never see or keep your card, UPI or bank details.
+- **If you add a mobile number:** the number you confirm on your account page, to log in with a code sent by SMS and, if you switch them on, to get order updates by SMS.
+- **For each SMS we send** (a log-in code, a parent's link, an order update): a scrambled (hashed) form of the number, its last four digits, what the message was for and whether it went, so that we can limit how many go to one number and answer questions about them. Never the whole number.
+- **If you review a book you bought:** your rating and what you write, shown on the book's page once we have read it.
+- **If you ask us to email you when a book is back in stock:** your account's email address and the book, until we have emailed you.
+- **If you ask for a school or bulk quotation:** the school's or shop's name, the contact person's name, email address and phone number, its GSTIN (if it has one), the delivery PIN code, the books and copies asked for, and the quotation we send.
+- **If you use the revision course in the app:** the clips you watched, your quiz answers and flash-card reviews, your course settings (exam date, minutes a day, reminders), the book codes you used and what they opened.
+- **If you allow the app's daily reminder:** an identifier of the app on your phone (given by Firebase Cloud Messaging), the kind of phone (Android or iPhone) and when the app was last used, so that the reminder reaches it.
 - **For security:** failed log-in attempts, with the internet address and browser they came from, so that we can stop password guessing. They are deleted within a day.
 - **Server logs:** the pages requested, the time, the result and the internet address, to keep the site secure and to fix faults. A fixed amount is kept (50 MB for each part of the site); older entries are then overwritten, which at our traffic is after about [30] days.
 
@@ -44,10 +51,12 @@ These service providers handle your details only to run the site and deliver ord
 - a backup storage provider [name, if used], which keeps encrypted copies of the database for [30] days;
 - an email service [name], which delivers the verification, password-reset and order emails;
 - Razorpay, which processes payments;
+- MSG91, which delivers our SMS (log-in codes, parents' links, order updates) to the numbers they are for;
+- Firebase Cloud Messaging (Google), which delivers the app's daily reminder to phones that allowed it;
 - the courier or India Post, which receives the name, address and phone number on the parcel;
 - an error-reporting service [name, if used], which receives technical details of errors on the site, without your name, email address or password.
 
-The mathematics on the solutions pages is drawn by KaTeX, which your browser loads from the jsDelivr network; that server sees your internet address, as with any web request, but receives none of your details.
+The mathematics on the solutions pages is drawn by KaTeX, which this site serves itself: no other server is asked for it.
 
 ## Students under 18
 
@@ -58,6 +67,9 @@ A student under 18 can register only with the consent of a parent or guardian, g
 - Your account details and record: while your account exists. When you delete your account (see below) your name, email address, phone number, date of birth, district, parent or guardian details, teacher details and notes are erased after a seven-day waiting period. Only the marks and dates of your saved attempts stay, with nothing that identifies you, as statistics on the papers.
 - Orders and invoices: for as long as tax and accounting law requires (currently up to eight years), even after the account is deleted.
 - Failed log-in attempts: up to a day. Server logs: until they are overwritten, about [30] days (see above). Backups: [30] days, then deleted on our server and at our backup storage provider.
+- The record of each SMS: 90 days. A request to email you when a book is back: until we have emailed you, and at most a year.
+- Reviews, revision-course progress, quiz answers, course settings and the app's reminder identifiers: while your account exists; they are deleted with it. A reminder identifier also goes when you log out of the app.
+- School and bulk quotation requests: [how long].
 
 ## Your rights
 

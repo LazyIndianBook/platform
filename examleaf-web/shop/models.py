@@ -11,13 +11,17 @@ from datetime import timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from urllib.parse import quote
 
+from allauth.account.models import EmailAddress
+from allauth.account.signals import email_confirmed
 from django.conf import settings
 from django.contrib.admin.models import LogEntry
+from django.contrib.auth.signals import user_logged_in
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.core.files.storage import storages
 from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
 from django.db import models, transaction
+from django.db.models.functions import Lower
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.urls import reverse
@@ -1281,3 +1285,24 @@ def forget_shop_details(sender, instance, **kwargs):
         ).update(object_repr=f"deleted address of account #{instance.user_id}")
         addresses.delete()
         Cart.objects.filter(user=instance.user_id).delete()
+
+
+def claim_guest_orders(user, emails):
+    """Orders placed without an account (or by staff for a customer without one) with one of these addresses, in any
+    case, join the account, so that My orders lists them. Only confirmed addresses are given: whoever confirmed one
+    reads its mail, the order emails included."""
+    emails = {email.lower() for email in emails}
+    for order in Order.objects.alias(address=Lower("email")).filter(user=None, address__in=emails) if emails else ():
+        order.user = user
+        order.save(update_fields=["user", "modified"])  # through save: the order's history records it
+
+
+@receiver(email_confirmed)  # the code of a sign-up or of a new address typed in
+def claim_orders_of_a_confirmed_address(sender, request, email_address, **kwargs):
+    if email_address.user_id:
+        claim_guest_orders(email_address.user, [email_address.email])
+
+
+@receiver(user_logged_in)  # every log-in (website, admin, API), for an account made before this existed
+def claim_orders_at_log_in(sender, request, user, **kwargs):
+    claim_guest_orders(user, EmailAddress.objects.filter(user=user, verified=True).values_list("email", flat=True))

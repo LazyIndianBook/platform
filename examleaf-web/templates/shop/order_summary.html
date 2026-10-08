@@ -1,8 +1,8 @@
 {% load shop %}{# An order's lines and totals, inside a summary card (pay page, order page). With: order. #}
 <ul class="order-lines">{% for item in order.items.all %}<li>{% include "shop/_thumb.html" with product=item.product %}<span class="order-line-text"><span>{{ item.title }}</span><span class="muted">{{ item.quantity }} × {{ item.unit_price|inr }}</span></span><span class="num">{{ item.line_total|inr }}</span></li>{% endfor %}</ul>
 <dl class="totals">
-  <div><dt>Books</dt><dd>{{ order.subtotal|inr }}</dd></div>
+  {% with digital=order.is_digital %}<div><dt>{% if digital %}Course{% else %}Books{% endif %}</dt><dd>{{ order.subtotal|inr }}</dd></div>
   {% for label, amount in order.savings %}<div><dt>{{ label }}</dt><dd>−{{ amount|inr }}</dd></div>{% endfor %}
-  <div><dt>Shipping</dt><dd>{% if order.shipping_fee.amount %}{{ order.shipping_fee|inr }}{% else %}free{% endif %}</dd></div>
+  {% if not digital %}<div><dt>Shipping</dt><dd>{% if order.shipping_fee.amount %}{{ order.shipping_fee|inr }}{% else %}free{% endif %}</dd></div>{% endif %}{% endwith %}
   <div class="grand"><dt>Total</dt><dd>{{ order.total|inr }}</dd></div>
 </dl>

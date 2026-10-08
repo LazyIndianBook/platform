@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import models
 from django.urls import reverse
+from django.utils.functional import cached_property
 from qr_code.qrcode.maker import make_qr_code_image
 from qr_code.qrcode.utils import QRCodeOptions
 from simple_history.models import HistoricalRecords
@@ -50,6 +51,11 @@ class Book(models.Model):
     def get_absolute_url(self):
         return reverse("book", args=[self.slug])
 
+    @cached_property
+    def sample(self):
+        """The paper whose solutions are open to everyone (Paper.is_sample), or None."""
+        return self.papers.filter(is_sample=True, is_published=True).first()
+
 
 class Paper(models.Model):
     class Tier(models.TextChoices):
@@ -67,10 +73,24 @@ class Paper(models.Model):
     time_text = models.CharField(max_length=40)
     header_json = models.JSONField(default=dict, blank=True, help_text="instruction lines and allotment tables")
     is_published = models.BooleanField(default=True)
+    is_sample = models.BooleanField(
+        "open sample",
+        default=False,
+        help_text="Its solutions open without an account, even when the others need one: the paper the home, book and "
+        "product pages offer as a sample. One per book.",
+    )
     history = HistoricalRecords()
 
     class Meta:
         ordering = ["book", "code"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["book"],
+                condition=models.Q(is_sample=True),
+                name="one_sample_per_book",
+                violation_error_message="Another paper of this book is its open sample: untick that one first.",
+            )
+        ]
 
     def __str__(self):
         return self.code

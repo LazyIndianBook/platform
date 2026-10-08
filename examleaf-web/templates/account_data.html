@@ -1,0 +1,20 @@
+{% extends "base_account.html" %}
+{% block head_title %}Your data{% endblock %}
+{% block meta_description %}What ExamLeaf keeps about you, before you download it.{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block main_class %}{% endblock %}
+{% block content %}
+<section class="section section-top">
+  <div class="container narrow stack">
+    <h1>Your data</h1>
+    <p class="lead">Everything ExamLeaf keeps about you goes into one file. This is what it holds today.</p>
+    <div class="table-wrap"><table class="table">
+      <caption class="sr-only">What the file holds</caption>
+      <thead><tr><th scope="col">Part</th><th scope="col" class="num">Records</th></tr></thead>
+      <tbody>{% for label, count in parts %}<tr><td>{{ label }}</td><td class="num">{% if count %}{{ count }}{% else %}none{% endif %}</td></tr>{% endfor %}</tbody>
+    </table></div>
+    <div class="row"><a class="btn btn-primary" href="?download=1"><svg class="icon" aria-hidden="true"><use href="#icon-download"/></svg><span>Download the file</span></a><a href="{% url 'account' %}">Back to My account</a></div>
+    <p class="small muted">The file is JSON: plain text that any text editor opens. What each part is for, and how long we keep it, is in the <a href="{% url 'privacy' %}">privacy notice</a>.</p>
+  </div>
+</section>
+{% endblock %}

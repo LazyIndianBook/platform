@@ -7,15 +7,15 @@
   <div class="container">
     <h1>Your cart</h1>
     {% if totals.lines %}
-    <p class="lead page-lead">{{ totals.count }} book{{ totals.count|pluralize }} in your cart.</p>
+    <p class="lead page-lead">{% if totals.digital_only %}The revision course is in your cart: it opens in your account as soon as the payment is confirmed.{% else %}{{ totals.count }} book{{ totals.count|pluralize }} in your cart.{% endif %}</p>
     <div class="two-col">
       <div class="main-col stack">
         <form method="post" action="{% url 'shop:cart' %}" id="cart-form" class="stack">{% csrf_token %}
           {# first in the form, so Enter in a Copies box updates the copies instead of pressing the first Remove #}
           <button type="submit" name="action" value="update" class="sr-only" tabindex="-1" aria-hidden="true">Update copies</button>
           <div class="table-wrap"><table class="table cart-table">
-            <caption class="sr-only">Books in your cart</caption>
-            <thead><tr><th scope="col">Book</th><th scope="col">Copies</th><th scope="col" class="num">Amount</th></tr></thead>
+            <caption class="sr-only">{% if totals.digital_only %}In your cart{% else %}Books in your cart{% endif %}</caption>
+            <thead><tr><th scope="col">{% if totals.digital_only %}Course{% else %}Book{% endif %}</th><th scope="col">{% if totals.digital_only %}Quantity{% else %}Copies{% endif %}</th><th scope="col" class="num">Amount</th></tr></thead>
             <tbody>
             {% for line in totals.lines %}
               <tr>
@@ -31,7 +31,7 @@
         {% for problem in totals.problems %}<div class="alert alert-warning" role="status"><svg class="icon" aria-hidden="true"><use href="#icon-alert"/></svg><div><p>{{ problem }}</p></div></div>{% endfor %}
         {% for line in totals.lines %}
         <dialog class="dialog" id="remove-{{ line.product.pk }}" aria-labelledby="remove-{{ line.product.pk }}-title">
-          <div class="card-header"><h2 id="remove-{{ line.product.pk }}-title">Remove this book?</h2><form method="dialog"><button class="btn btn-ghost btn-icon" aria-label="Close"><svg class="icon" aria-hidden="true"><use href="#icon-x"/></svg></button></form></div>
+          <div class="card-header"><h2 id="remove-{{ line.product.pk }}-title">{% if line.product.digital_only %}Remove this course?{% else %}Remove this book?{% endif %}</h2><form method="dialog"><button class="btn btn-ghost btn-icon" aria-label="Close"><svg class="icon" aria-hidden="true"><use href="#icon-x"/></svg></button></form></div>
           <div class="card-body"><p><strong>{{ line.product }}</strong> leaves your cart. You can add it again from the shop.</p></div>
           <div class="card-footer"><form method="dialog"><button class="btn btn-secondary" autofocus>Keep it</button></form><button type="submit" form="cart-form" name="remove" value="{{ line.product.pk }}" class="btn btn-destructive">Remove</button></div>
         </dialog>
@@ -41,10 +41,11 @@
         <div class="card-header"><h2 id="summary-title">Summary</h2></div>
         <div class="card-body">
           <dl class="totals">
-            <div><dt>Books</dt><dd>{{ totals.subtotal|inr }}</dd></div>
+            <div><dt>{% if totals.digital_only %}Course{% else %}Books{% endif %}</dt><dd>{{ totals.subtotal|inr }}</dd></div>
             {% for saving in totals.savings %}<div><dt>{{ saving.label }}</dt><dd>−{{ saving.amount|inr }}</dd></div>{% endfor %}
-            <div class="muted"><dt>Shipping</dt><dd>at checkout, from your state</dd></div>
-            <div class="grand"><dt>Total before shipping</dt><dd>{{ totals.total|inr }}</dd></div>
+            {% if totals.digital_only %}<div class="grand"><dt>Total</dt><dd>{{ totals.total|inr }}</dd></div>
+            {% else %}<div class="muted"><dt>Shipping</dt><dd>at checkout, from your state</dd></div>
+            <div class="grand"><dt>Total before shipping</dt><dd>{{ totals.total|inr }}</dd></div>{% endif %}
           </dl>
           {% if cart.coupon %}
           {% if totals.coupon_problem %}<div class="alert alert-warning" role="status"><svg class="icon" aria-hidden="true"><use href="#icon-alert"/></svg><div><p>Coupon {{ cart.coupon }}: {{ totals.coupon_problem }}</p></div></div>{% endif %}
@@ -59,7 +60,7 @@
         <div class="card-footer summary-actions">
           <a class="btn btn-accent btn-lg btn-block" href="{% url 'shop:checkout' %}"><span>Checkout</span><svg class="icon" aria-hidden="true"><use href="#icon-arrow-right"/></svg></a>
           <a class="link-go" href="{% url 'shop:catalogue' %}">Add more books</a>
-          {% if not user.is_authenticated %}<p class="small muted">No account needed. Have one? <a href="{% url 'account_login' %}?next={% url 'shop:checkout' %}">Log in</a> first to use your saved addresses.</p>{% endif %}
+          {% if user.is_authenticated %}{% elif totals.has_digital %}<p class="small muted">The course opens in your ExamLeaf account: <a href="{% url 'account_login' %}?next={% url 'shop:checkout' %}">log in</a> or <a href="{% url 'account_signup' %}?next={% url 'shop:checkout' %}">register</a> first.</p>{% else %}<p class="small muted">No account needed. Have one? <a href="{% url 'account_login' %}?next={% url 'shop:checkout' %}">Log in</a> first to use your saved addresses.</p>{% endif %}
         </div>
       </aside>
     </div>

@@ -204,7 +204,7 @@ def test_razorpay_is_allowed_by_the_csp_on_the_payment_page_only(client, rzp, se
     as_customer(client, order)
     response = client.get(reverse("shop:pay", args=[order.number]))
     policy = response.headers["Content-Security-Policy"]
-    assert "script-src 'self' https://cdn.jsdelivr.net/npm/katex@0.19.0/dist/ https://checkout.razorpay.com" in policy
+    assert "script-src 'self' https://checkout.razorpay.com" in policy
     assert "frame-src 'self' https://api.razorpay.com" in policy and "lumberjack.razorpay.com" in policy
     assert response.headers["Cross-Origin-Opener-Policy"] == "same-origin-allow-popups"
     assert "razorpay" not in client.get(reverse("shop:catalogue")).headers["Content-Security-Policy"]

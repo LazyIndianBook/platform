@@ -7,8 +7,11 @@
 <meta name="description" content="{% block meta_description %}ExamLeaf Sample Papers for the Assam Board (ASSEB) Class 12 examination: 30 practice papers in each book for Physics, Chemistry, Mathematics and Biology, with free worked solutions behind a QR code.{% endblock %}">
 <meta name="theme-color" content="#0b2a5b">
 {% block robots %}{% endblock %}
+{# the four Latin fonts every page uses, fetched with the stylesheet rather than after it (audit-lighthouse.md, P1) #}
 <link rel="preload" href="{% static 'fonts/poppins-800.woff2' %}" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="{% static 'fonts/poppins-700.woff2' %}" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="{% static 'fonts/hind-siliguri-400.woff2' %}" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="{% static 'fonts/hind-siliguri-600.woff2' %}" as="font" type="font/woff2" crossorigin>
 <link rel="icon" href="{% static 'img/favicon.svg' %}" type="image/svg+xml">
 <link rel="icon" href="{% static 'img/favicon-32.png' %}" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}">
@@ -35,8 +38,8 @@
       <form method="post" action="{% url 'account_logout' %}">{% csrf_token %}<button type="submit" class="nav-link"><span>Log out</span><svg class="icon" aria-hidden="true"><use href="#icon-chevron-right"/></svg></button></form>
       {% else %}
       <a class="nav-link nav-phone" href="{% url 'shop:lookup' %}"><span>Find your order</span><svg class="icon" aria-hidden="true"><use href="#icon-chevron-right"/></svg></a>
-      <a class="nav-link" href="{% url 'account_login' %}"{% if view == "account_login" %} aria-current="page"{% endif %}><span>Log in</span><svg class="icon" aria-hidden="true"><use href="#icon-chevron-right"/></svg></a>
-      <a class="btn btn-accent btn-sm" href="{% url 'account_signup' %}">Register</a>
+      <a class="nav-link" href="{% url 'account_login' %}{% if login_next %}?next={{ login_next|urlencode }}{% endif %}"{% if view == "account_login" %} aria-current="page"{% endif %}><span>Log in</span><svg class="icon" aria-hidden="true"><use href="#icon-chevron-right"/></svg></a>
+      <a class="btn btn-accent btn-sm" href="{% url 'account_signup' %}{% if login_next %}?next={{ login_next|urlencode }}{% endif %}">Register</a>
       {% endif %}
     {% endwith %}</nav>
   </div>
@@ -60,6 +63,7 @@
         <ul>
           {% for book in site_books %}<li><a href="{{ book.get_absolute_url }}">{{ book.subject.name }}</a></li>
           {% endfor %}
+          <li><a href="{% url 'revision' %}">Revision course</a></li>
         </ul>
       </div>
       <div class="footer-col">

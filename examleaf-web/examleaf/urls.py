@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 from allauth.account.decorators import secure_admin_login
-from allauth.headless.account.views import ManagePhoneView, RequestLoginCodeView
+from allauth.headless.account.views import RequestLoginCodeView
 from allauth.headless.constants import Client
 from django.conf import settings
 from django.contrib import admin
@@ -14,8 +14,9 @@ from accounts import views as accounts
 from accounts.forms import ChangePhoneInput, RequestLoginCodeInput
 from content import views as content
 from content.models import Book
+from learn import views as learn
 from pages.models import SLUGS as PAGES
-from pages.views import PageView
+from pages.views import ContactView, PageView
 from practice import views as practice
 from shop.models import Category, Collection, Product
 
@@ -24,7 +25,7 @@ from .views import HealthView, RobotsView, ServiceWorkerView, manifest
 
 class PageSitemap(Sitemap):
     def items(self):
-        return ["home", "about", "shop:catalogue", "shop:quote", *PAGES]
+        return ["home", "about", "revision", "shop:catalogue", "shop:quote", *PAGES]
 
     def location(self, item):
         return reverse(item)
@@ -101,11 +102,14 @@ urlpatterns = [
         for client in settings.HEADLESS_CLIENTS
         for route, view, form in [
             ("auth/code/request", RequestLoginCodeView, RequestLoginCodeInput),
-            ("account/phone", ManagePhoneView, ChangePhoneInput),
+            ("account/phone", accounts.ManagePhoneView, ChangePhoneInput),  # 401 signed out (allauth: 500)
         ]
     ],
     path("_allauth/", include("allauth.headless.urls")),
-    *[path(f"{slug}/", PageView.as_view(), {"slug": slug}, name=slug) for slug in PAGES],  # /privacy/, /terms/, …
+    *[  # /privacy/, /terms/, …; /contact/ with its form
+        path(f"{slug}/", (ContactView if slug == "contact" else PageView).as_view(), {"slug": slug}, name=slug)
+        for slug in PAGES
+    ],
     path("about/", TemplateView.as_view(template_name="about.html"), name="about"),
     path("robots.txt", RobotsView.as_view()),
     path("manifest.webmanifest", manifest, name="manifest"),  # the web app (PWA): examleaf/views.py
@@ -128,6 +132,7 @@ urlpatterns = [
     path("health/", HealthView.as_view(checks=ALL_CHECKS), name="health"),
     path("health/web/", HealthView.as_view(checks=WEB_CHECKS), name="health_web"),
     path("api/", include("examleaf.api_urls")),  # REST API: api/, examleaf/api_urls.py
+    path("revision/", learn.revision, name="revision"),  # the revision course's page (the course is in the app)
     path("learn/", include("learn.urls")),  # revision course: clip files behind signed links, staff preview
     path("admin/", admin.site.urls),
 ]

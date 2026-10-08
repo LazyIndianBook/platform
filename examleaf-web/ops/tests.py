@@ -108,7 +108,9 @@ def test_admin_dashboard_counts_the_clips_that_failed_to_process(client):
     make_course(chapters=1, clips=2)
     Clip.objects.filter(title="Clip 1.2").update(processing=Clip.Processing.FAILED)
     client.force_login(UserFactory(is_staff=True, is_superuser=True))
-    assert client.get(reverse("admin:index")).context["stats"]["clips_failed"] == 1
+    page = client.get(reverse("admin:index"))
+    assert page.context["stats"]["clips_failed"] == 1
+    assert '/admin/learn/clip/?processing__exact=failed">1 clip failed to process</a>' in page.text  # in Waiting
 
 
 def test_upload_backup_puts_the_dump_in_the_backups_storage(settings, tmp_path, capsys):

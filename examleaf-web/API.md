@@ -61,7 +61,7 @@ valid access token (or the website's session); **confirmed** also needs a confir
 | GET | `subjects/` (`?board=`), `subjects/<id>/` | anyone | the subjects |
 | GET | `books/`, `books/<slug>/` | anyone | books with their published papers |
 | GET | `papers/`, `papers/<code>/` | anyone | papers: marks, time, instructions, `web_url`, `solutions_url` |
-| GET | `papers/<code>/solutions/` | confirmed (anyone while solutions are open) | the questions in order, each with its solution |
+| GET | `papers/<code>/solutions/` | confirmed (anyone while solutions are open, and for a book's open sample) | the questions in order, each with its solution |
 | GET | `qr/<code>/` | anyone | a scanned code (any case) to its paper and `solutions_url` |
 | GET POST | `attempts/` | confirmed | the student's own record; POST saves an attempt |
 | GET PUT PATCH DELETE | `attempts/<id>/` | confirmed | one attempt |
@@ -313,10 +313,11 @@ the code from the scanned address and asks `qr/<code>/`.
 - **Boards**: `id`, `name`, `short_name`, `state`. **Subjects**: `id`, `name`, `code` (`PHY`, `CHE`, `MAT`, `BIO`),
   `board` (its short name), `class_level` (a number).
 - **Books**: `id`, `slug`, `title`, `edition`, `cover` (a picture URL, or null), `subject`, and `papers` (`code`, `tier`,
-  `number`, `title`, `is_published`).
+  `number`, `title`, `is_published`, `is_sample`).
 - **Papers** and **`qr/<code>/`**: `code`, `tier` (`E`, `M`, `H`), `number`, `title`, `book` (its slug), `subject` (its
   code), `full_marks`, `pass_marks`, `time_text`, `header` (the instruction lines and allotment tables), `is_published`,
-  `web_url` (the page the QR code opens) and `solutions_url`.
+  `is_sample` (the book's open sample: its solutions need no account), `web_url` (the page the QR code opens) and
+  `solutions_url`.
 
 ```sh
 curl https://examleaf.in/api/v1/books/physics-2027/
@@ -338,7 +339,8 @@ curl -H "Authorization: Bearer $ACCESS" https://examleaf.in/api/v1/papers/PHY-E0
 #                    "html": "<div class=\"table-scroll\"><table class=\"steps\">..."}}, ...]
 ```
 
-When the site's solutions are open (`SOLUTIONS_REQUIRE_LOGIN=0`), `papers/<code>/solutions/` answers everyone
+When the site's solutions are open (`SOLUTIONS_REQUIRE_LOGIN=0`), and always for a book's open sample (`is_sample`, one
+paper per book, E-01 unless staff choose another), `papers/<code>/solutions/` answers everyone
 (`Cache-Control: public, max-age=300` for a visitor who is not signed in, `private` for a signed-in user); saving
 attempts still needs an account. Otherwise it needs a signed-in student with a confirmed email address (401 without a
 token; 403 `{"detail": "Confirm your email address first."}` with an unconfirmed one).
