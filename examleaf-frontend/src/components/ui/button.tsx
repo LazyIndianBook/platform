@@ -1,5 +1,7 @@
 // .btn (components.md): 44 px tall (52 large), radius 10, Poppins 700; hover darkens 6 %, a 1 px press, the focus
-// ring; busy draws a spinner before the label and disables the button. asChild renders the styles on a <Link>.
+// ring; busy draws a spinner before the label and ignores presses, but is aria-disabled, not disabled: a disabled
+// button loses the keyboard focus, which then starts again at the top of the page (accessibility review F1).
+// asChild renders the styles on a <Link>.
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "cn";
 import { Slot } from "radix-ui";
@@ -50,18 +52,30 @@ function buttonVariants({ className, ...variants }: VariantProps<typeof buttonCv
 type ButtonProps = React.ComponentProps<"button"> &
   VariantProps<typeof buttonCva> & {
     asChild?: boolean;
-    /** A real wait (a request in flight): spinner, aria-busy, disabled. */
+    /** A real wait (a request in flight): spinner, aria-busy, aria-disabled; presses (a form's submit too) do nothing. */
     busy?: boolean;
   };
 
-function Button({ className, variant, size, block, asChild = false, busy = false, disabled, ...props }: ButtonProps) {
+function Button({
+  className,
+  variant,
+  size,
+  block,
+  asChild = false,
+  busy = false,
+  disabled,
+  onClick,
+  ...props
+}: ButtonProps) {
   const Comp = asChild ? Slot.Root : "button";
   return (
     <Comp
       data-slot="button"
       className={buttonVariants({ variant, size, block, className })}
       aria-busy={busy || undefined}
-      disabled={asChild ? undefined : disabled || busy}
+      aria-disabled={(busy && !disabled) || undefined}
+      disabled={asChild ? undefined : disabled}
+      onClick={busy ? (event: React.MouseEvent<HTMLButtonElement>) => event.preventDefault() : onClick}
       {...props}
     />
   );

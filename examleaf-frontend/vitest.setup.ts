@@ -14,14 +14,14 @@ vi.mock("next/navigation", () => ({
   notFound: vi.fn(),
 }));
 
-// jsdom has no matchMedia (the toaster asks whether it is on a phone); tests of server code run without a window
-if (typeof window !== "undefined")
-  Object.defineProperty(window, "matchMedia", {
-    writable: true,
-    value: (query: string) => ({
-      matches: false,
-      media: query,
-      addEventListener: () => undefined,
-      removeEventListener: () => undefined,
-    }),
-  });
+// jsdom's <dialog> has no showModal() or close(): enough of both for the dialog's tests
+if (typeof HTMLDialogElement !== "undefined" && !HTMLDialogElement.prototype.showModal) {
+  HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogElement) {
+    this.setAttribute("open", "");
+  };
+  HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement) {
+    if (!this.hasAttribute("open")) return;
+    this.removeAttribute("open");
+    this.dispatchEvent(new Event("close"));
+  };
+}

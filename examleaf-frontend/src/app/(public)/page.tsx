@@ -90,7 +90,9 @@ export default async function HomePage() {
       <JsonLd data={organizationJsonLd(config?.support.email)} />
 
       <NightBand className="bg-[radial-gradient(52%_60%_at_76%_50%,rgba(76,194,101,0.3),transparent_70%),linear-gradient(180deg,#0b2a5b_0,#07122b_260px)] pt-12 pb-18 max-nav:bg-[radial-gradient(70%_34%_at_50%_44%,rgba(76,194,101,0.3),transparent_70%),linear-gradient(180deg,#0b2a5b_0,#07122b_200px)] max-nav:pt-6 max-nav:pb-10">
-        <div className="container-site flex flex-wrap items-center gap-10 max-nav:flex-col max-nav:items-stretch max-nav:gap-5">
+        {/* one line below 900 px: in a wrapping column every item would stretch to the widest one, the cover fan,
+            and the page would scroll sideways at 320 px (accessibility review F5) */}
+        <div className="container-site flex flex-wrap items-center gap-10 max-nav:flex-col max-nav:flex-nowrap max-nav:items-stretch max-nav:gap-5">
           <div className="flex min-w-0 flex-[1_1_460px] flex-col gap-5 max-nav:contents [&>*]:m-0">
             <p className="text-[15px] leading-normal font-semibold text-muted-foreground">
               Assam Board (ASSEB) · Class 12 · for the 2027 exam
@@ -147,7 +149,7 @@ export default async function HomePage() {
               </li>
             </ul>
           </div>
-          <div className="min-w-0 flex-[1_1_420px] max-nav:order-1 max-nav:flex-none [&_.stage]:max-nav:pt-2 [&_.stage]:max-nav:pb-6">
+          <div className="min-w-0 flex-[1_1_420px] max-nav:order-1 max-nav:flex-none max-nav:overflow-x-clip [&_.stage]:max-nav:pt-2 [&_.stage]:max-nav:pb-6">
             <CoverStage
               books={books
                 .filter((book) => book.cover)

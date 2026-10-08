@@ -3,7 +3,7 @@
 // The account's short forms: Details (PATCH me/: name, class, board, district) and Teacher access (POST me/teacher/,
 // once). Each saves through the typed client, shows the API's errors beside their boxes, then reads the page again.
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toaster";
 
 import { ErrorSummary } from "@/components/auth/error-summary";
 import { fieldError } from "@/components/auth/use-auth-action";

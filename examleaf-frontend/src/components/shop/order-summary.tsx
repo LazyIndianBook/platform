@@ -57,9 +57,10 @@ export function OrderSummary({
       ) : null}
       <dl className={cn("m-0 flex flex-col gap-2", lines.length > 0 && "border-t border-border pt-4")}>
         {rows.map(([term, value]) => (
-          <div key={term} className="flex justify-between gap-4">
+          // wraps at 320 px ("Shipping: at checkout, from your state") instead of pushing the page sideways (F11)
+          <div key={term} className="flex flex-wrap justify-between gap-x-4">
             <dt>{term}</dt>
-            <dd className="num m-0">{value}</dd>
+            <dd className="num m-0 ml-auto">{value}</dd>
           </div>
         ))}
         <div className="mt-1 flex justify-between gap-4 border-t-2 border-foreground pt-3 font-head text-[19px] font-extrabold">

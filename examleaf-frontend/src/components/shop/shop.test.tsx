@@ -1,7 +1,7 @@
 // The shop's logic and islands (package 8B): prices with MRP and saving, the checkout's stepper states, the cart's
 // copies rule and its stepper (a step is sent at once, 0 asks first), an order's timeline and outcome, and
 // Razorpay's window around the API's options (its answer to the server, failures in words, closing sends nothing).
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -107,13 +107,30 @@ describe("the cart's copies stepper", () => {
       }) as never,
     );
     render(<CartView initial={cart} info={info} />);
-    await userEvent.click(screen.getByRole("button", { name: "One copy more of Physics Sample Papers" }));
+    const more = screen.getByRole("button", { name: "One copy more of Physics Sample Papers" });
+    await userEvent.click(more);
     expect(api.PATCH).toHaveBeenCalledWith("/api/v1/cart/items/{product}/", {
       params: { path: { product: "physics-sample-papers-2027" } },
       body: { quantity: 2 },
     });
     expect(await screen.findByDisplayValue("2")).toBeInTheDocument();
     expect(screen.getAllByText("₹598.00").length).toBeGreaterThan(0);
+    expect(more).toHaveFocus(); // the next Enter adds another (accessibility review F1)
+  });
+
+  it("gives focus to the list once a confirmed Remove has taken the line away", async () => {
+    vi.mocked(api.DELETE).mockReturnValue(answer({ ...(cart as object), items: [], count: 0 }) as never);
+    render(
+      <main>
+        <CartView initial={cart} info={info} />
+      </main>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Remove" }));
+    const dialog = screen.getByRole("dialog", { name: "Remove this book?" });
+    expect(within(dialog).getByRole("button", { name: "Keep it" })).toHaveFocus();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Remove" }));
+    const empty = await screen.findByText("Your cart is empty");
+    await waitFor(() => expect(empty).toHaveFocus()); // its heading, not the page's start
   });
 
   it("asks before 0 removes a book, and keeps it on Keep it", async () => {

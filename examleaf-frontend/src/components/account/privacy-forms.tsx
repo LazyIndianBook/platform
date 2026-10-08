@@ -8,8 +8,8 @@
 import { Download, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "@/components/ui/toaster";
 
 import { ErrorSummary } from "@/components/auth/error-summary";
 import { fieldError } from "@/components/auth/use-auth-action";
@@ -63,20 +63,38 @@ export function ParentResendForm({ contact, sms }: { contact: string; sms: boole
   );
 }
 
+// Asking for the deletion swaps its form for Keep my account, and keeping the account swaps them back, once the page
+// comes back from the server: the one that arrives takes the keyboard focus (accessibility review F1).
+let swapped = false;
+function useFocusOnSwap<T extends HTMLElement>(focus: (element: T) => void) {
+  const ref = useRef<T>(null);
+  useEffect(() => {
+    if (!swapped || !ref.current) return;
+    swapped = false;
+    focus(ref.current);
+  }, [focus]);
+  return ref;
+}
+const focusButton = (button: HTMLButtonElement) => button.focus();
+const focusFirstField = (form: HTMLFormElement) => form.querySelector("input")?.focus();
+
 export function KeepAccountButton() {
   const router = useRouter();
   const { run, busy, error } = useAction();
+  const button = useFocusOnSwap(focusButton);
   return (
     <>
       {error ? <p className="font-semibold text-destructive">{error.message}</p> : null}
       <div>
         <Button
+          ref={button}
           variant="secondary"
           size="sm"
           busy={busy}
           onClick={async () => {
             if (await run(() => personal(api.DELETE("/api/v1/me/deletion/")))) {
               toast.success("Your account stays. We have cancelled the deletion.");
+              swapped = true;
               router.refresh();
             }
           }}
@@ -194,6 +212,7 @@ const CONFIRM =
 export function DeleteAccountForm({ hasPassword }: { hasPassword: boolean }) {
   const router = useRouter();
   const { run, busy, error, setError } = useAction();
+  const swappedIn = useFocusOnSwap(focusFirstField);
   // the API's "password" is this form's delete_password box (Download my data has the other password box)
   const shown =
     error &&
@@ -207,6 +226,7 @@ export function DeleteAccountForm({ hasPassword }: { hasPassword: boolean }) {
       <ErrorSummary error={shown} labels={{ delete_password: "Your password", confirm: "Confirmation" }} />
       <LogInAgain error={error} />
       <form
+        ref={swappedIn}
         className="flex max-w-[34rem] flex-col gap-3"
         noValidate
         onSubmit={async (event) => {
@@ -221,6 +241,7 @@ export function DeleteAccountForm({ hasPassword }: { hasPassword: boolean }) {
           const body = hasPassword ? { password } : {};
           if (await run(() => personal(api.POST("/api/v1/me/deletion/", { body })))) {
             toast.success("Your account will be deleted in 7 days. Until then you can keep it.");
+            swapped = true;
             router.refresh();
           }
         }}

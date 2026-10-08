@@ -3,7 +3,9 @@
 // The header's menu drawer (components.md, .nav-toggle / .nav-menu): under 900 px the links fold behind a Menu button
 // and open as a full-width panel under the header; from 900 px they sit in the header row and the button is gone.
 // A disclosure, not a modal: aria-expanded follows the state; Escape closes it and puts focus back on Menu; a click
-// outside or a new page closes it. No focus trap, no scroll lock, no portal: nothing for a cheap phone to carry.
+// outside or a new page closes it. No focus trap, no scroll lock, no portal: nothing for a cheap phone to carry. The
+// button comes before the links in the page, so Tab from Menu goes into the open menu (accessibility review F3); the
+// panel is positioned under the header, so the order changes nothing on screen.
 import { cn } from "cn";
 import { Menu, X } from "lucide-react";
 import { usePathname } from "next/navigation";
@@ -33,20 +35,34 @@ function Drawer({ id, label, className, children }: DrawerProps) {
         toggle.current?.focus();
       }
     };
-    const onClick = (event: MouseEvent) => {
+    // a click outside, or Tab past the last link: closed, so the panel never covers the focused element
+    const onOutside = (event: Event) => {
       const target = event.target as Node;
       if (!panel.current?.contains(target) && !toggle.current?.contains(target)) setOpenOn(null);
     };
     document.addEventListener("keydown", onKey);
-    document.addEventListener("click", onClick);
+    document.addEventListener("click", onOutside);
+    document.addEventListener("focusin", onOutside);
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.removeEventListener("click", onClick);
+      document.removeEventListener("click", onOutside);
+      document.removeEventListener("focusin", onOutside);
     };
   }, [open]);
 
   return (
     <>
+      <button
+        ref={toggle}
+        type="button"
+        aria-expanded={open}
+        aria-controls={id}
+        onClick={() => setOpen(!open)}
+        className="inline-flex min-h-11 items-center gap-2 rounded-btn border-[1.5px] border-header-line px-3 font-head text-[15px] leading-none font-bold text-white max-[359.98px]:px-2.5 nav:hidden"
+      >
+        {open ? <X aria-hidden="true" className="size-[22px]" /> : <Menu aria-hidden="true" className="size-[22px]" />}
+        <span className="max-[359.98px]:sr-only">{open ? "Close" : label}</span>
+      </button>
       <nav
         ref={panel}
         id={id}
@@ -62,17 +78,6 @@ function Drawer({ id, label, className, children }: DrawerProps) {
       >
         {children}
       </nav>
-      <button
-        ref={toggle}
-        type="button"
-        aria-expanded={open}
-        aria-controls={id}
-        onClick={() => setOpen(!open)}
-        className="inline-flex min-h-11 items-center gap-2 rounded-btn border-[1.5px] border-header-line px-3 font-head text-[15px] leading-none font-bold text-white max-[359.98px]:px-2.5 nav:hidden"
-      >
-        {open ? <X aria-hidden="true" className="size-[22px]" /> : <Menu aria-hidden="true" className="size-[22px]" />}
-        <span className="max-[359.98px]:sr-only">{open ? "Close" : label}</span>
-      </button>
     </>
   );
 }

@@ -7,7 +7,7 @@
 import { CirclePlay, KeyRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toaster";
 
 import { useAction } from "@/components/account/use-action";
 import { ErrorSummary } from "@/components/auth/error-summary";

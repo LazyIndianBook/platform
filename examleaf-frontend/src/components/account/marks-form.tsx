@@ -7,7 +7,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toaster";
 
 import { ErrorSummary } from "@/components/auth/error-summary";
 import { fieldError } from "@/components/auth/use-auth-action";

@@ -464,6 +464,15 @@
       margin-left: -34px;
     }
   }
+  /* 400 % zoom (320 px): the fan fits the 288 px column instead of being clipped */
+  @media (max-width: 359.98px) {
+    .stage-cover {
+      width: 90px;
+    }
+    .stage-cover + .stage-cover {
+      margin-left: -30px;
+    }
+  }
 
   /* the subject tile: cover colours, 2 px ink outline, 4 px hard shadow, sticker press */
   .tile {
@@ -659,16 +668,6 @@
     color: var(--foreground);
     outline: 1px dashed var(--gold-text);
   }
-
-  /* toasts (sonner): top right under the header on desktop, at the bottom on phones */
-  [data-sonner-toaster] {
-    --width: min(400px, calc(100vw - 32px));
-  }
-  [data-sonner-toast][data-styled="true"] {
-    font: 400 16px/1.6 var(--font-body);
-    border-radius: var(--radius);
-    padding: 12px 16px;
-  }
 }
 
 /* Motion (motion.md): everything that moves lives here, so the default state is the final, readable one. */
@@ -717,23 +716,15 @@
       animation-range: entry 10% entry 60%;
     }
   }
-  /* toasts (f): in with a fade and 8 px, out faster and back the same way; none of sonner's 400 ms, height or shadow */
-  [data-sonner-toast][data-styled="true"] {
-    transition:
-      transform var(--t-base) var(--ease-enter),
-      opacity var(--t-base) var(--ease-enter);
+  /* toasts (f): in with a fade and 8 px, up from the bottom on a phone, down from the top right on a desktop; they
+     leave at once (src/components/ui/toaster.tsx) */
+  [data-toast] {
+    animation: el-rise var(--t-base) var(--ease-enter) both;
   }
-  [data-sonner-toast][data-y-position="top"]:not([data-mounted="true"]),
-  [data-sonner-toast][data-removed="true"][data-front="true"][data-swipe-out="false"][data-y-position="top"] {
-    --y: translateY(-8px);
-  }
-  [data-sonner-toast][data-y-position="bottom"]:not([data-mounted="true"]),
-  [data-sonner-toast][data-removed="true"][data-front="true"][data-swipe-out="false"][data-y-position="bottom"] {
-    --y: translateY(8px);
-  }
-  [data-sonner-toast][data-styled="true"][data-removed="true"] {
-    transition-duration: var(--t-fast);
-    transition-timing-function: var(--ease-exit);
+  @media (min-width: 900px) {
+    [data-toast] {
+      --rise: -8px;
+    }
   }
   /* view transitions (d): the morphs of src/components/ui/morph.tsx and the page around them */
   ::view-transition-group(*) {
@@ -769,7 +760,7 @@
 
 /* On a phone, a focused field never hides behind a toast: scrolling it into view leaves the toast's room free. */
 @media (max-width: 899.98px) {
-  html:has([data-sonner-toast]) {
+  html:has([data-toast]) {
     scroll-padding-bottom: 120px;
   }
 }

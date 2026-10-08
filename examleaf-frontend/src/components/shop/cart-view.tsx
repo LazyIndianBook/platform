@@ -8,8 +8,8 @@
 import { ArrowRight, Tag } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { toast } from "sonner";
+import { useRef, useState } from "react";
+import { toast } from "@/components/ui/toaster";
 
 import { Turnstile } from "@/components/auth/turnstile";
 import { useConfig } from "@/components/providers/config-provider";
@@ -33,6 +33,7 @@ import { api, ApiError, personal } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
 import { withNext } from "@/lib/auth/next-url";
 import { inr } from "@/lib/format";
+import { focusHere } from "@/lib/utils";
 
 import { CopiesStepper } from "./copies-stepper";
 import { OrderSummary } from "./order-summary";
@@ -70,6 +71,7 @@ export function CartView({
   const [removing, setRemoving] = useState<Cart["items"][number] | null>(null);
   const [code, setCode] = useState("");
   const [codeError, setCodeError] = useState<string | null>(null);
+  const list = useRef<HTMLUListElement>(null);
 
   const digitalOnly = cart.items.length > 0 && cart.items.every((line) => info[line.product]?.digital);
   const course = cart.items.some((line) => info[line.product]?.digital);
@@ -114,7 +116,10 @@ export function CartView({
       line.product,
       api.DELETE("/api/v1/cart/items/{product}/", { params: { path: { product: line.product } } }),
     );
-    if (done) toast.success(`${line.title} has left your cart.`);
+    if (!done) return;
+    toast.success(`${line.title} has left your cart.`);
+    // the line and its Remove button are gone: focus the list, or the empty cart's heading, not the page's start
+    requestAnimationFrame(() => focusHere(list.current ?? document.querySelector<HTMLElement>("main h2, main h1")));
   }
 
   async function applyCoupon(event: React.FormEvent) {
@@ -164,8 +169,10 @@ export function CartView({
             : `${cart.count} book${cart.count === 1 ? "" : "s"} in your cart. Copies and coupon can still change at checkout.`}
         </p>
         <ul
+          ref={list}
+          tabIndex={-1}
           aria-label={digitalOnly ? "In your cart" : "Books in your cart"}
-          className="m-0 list-none border-t border-border p-0"
+          className="m-0 list-none border-t border-border p-0 focus:outline-none"
         >
           {cart.items.map((line) => {
             const about = info[line.product];
@@ -189,8 +196,8 @@ export function CartView({
                     variant="ghost"
                     size="sm"
                     className="-ml-3"
-                    onClick={() => setRemoving(line)}
-                    disabled={busy !== null}
+                    onClick={() => busy === null && setRemoving(line)}
+                    aria-disabled={busy !== null || undefined}
                   >
                     Remove
                   </Button>
@@ -204,7 +211,7 @@ export function CartView({
                     aria-label={`Copies of ${line.title}`}
                     min={0}
                     value={draft ?? String(line.quantity)}
-                    disabled={busy !== null}
+                    busy={busy !== null}
                     onValue={(value, how) =>
                       how === "step" ? setCopies(line, value) : setDrafts((all) => ({ ...all, [line.product]: value }))
                     }

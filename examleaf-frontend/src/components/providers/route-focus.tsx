@@ -7,6 +7,8 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 
+import { focusHere } from "@/lib/utils";
+
 export function RouteFocus() {
   const pathname = usePathname();
   const previous = useRef(pathname);
@@ -15,10 +17,7 @@ export function RouteFocus() {
     previous.current = pathname;
     if (document.activeElement?.matches("input, select, textarea")) return;
     const main = document.getElementById("main");
-    const target = main?.querySelector<HTMLElement>("h1") ?? main;
-    if (!target) return;
-    if (!target.hasAttribute("tabindex")) target.setAttribute("tabindex", "-1");
-    target.focus({ preventScroll: true });
+    focusHere(main?.querySelector<HTMLElement>("h1") ?? main);
   }, [pathname]);
   return null;
 }

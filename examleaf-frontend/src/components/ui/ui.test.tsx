@@ -2,8 +2,8 @@
 // meet, and the states the spec asks for.
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { toast } from "sonner";
-import { describe, expect, it } from "vitest";
+import { act } from "react";
+import { describe, expect, it, vi } from "vitest";
 
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteHeader } from "@/components/site/site-header";
@@ -18,7 +18,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardLink, CardTitle } from "
 import { Checkbox, Radio, SelectableCard, Switch } from "./choice";
 import { CoverPicture, NoCover } from "./cover";
 import { CoverStage } from "./cover-stage";
-import { Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogTrigger } from "./dialog";
+import { Dialog, DialogBody, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTrigger } from "./dialog";
 import { Drawer } from "./drawer";
 import { EmptyState } from "./empty-state";
 import { Field, FieldLegend, FieldSet } from "./field";
@@ -34,22 +34,38 @@ import { SubjectTile } from "./subject-tile";
 import { Table, TableCell, TableHead } from "./table";
 import { Tabs } from "./tabs";
 import { Timeline } from "./timeline";
-import { Toaster } from "./toaster";
+import { toast, Toaster } from "./toaster";
 
 describe("Button", () => {
-  it("renders its variant and size, and a busy button is disabled and aria-busy", () => {
-    render(
+  it("renders its variant and size; busy, it ignores presses but keeps the focus (accessibility review F1)", async () => {
+    const press = vi.fn();
+    const { rerender } = render(
       <>
         <Button variant="accent" size="lg">
           Buy the books
         </Button>
-        <Button busy>Pay</Button>
+        <Button onClick={press}>Pay</Button>
       </>,
     );
     expect(screen.getByRole("button", { name: "Buy the books" })).toHaveClass("bg-accent", "min-h-[52px]");
     const pay = screen.getByRole("button", { name: "Pay" });
-    expect(pay).toBeDisabled();
+    pay.focus();
+    rerender(
+      <>
+        <Button variant="accent" size="lg">
+          Buy the books
+        </Button>
+        <Button onClick={press} busy>
+          Pay
+        </Button>
+      </>,
+    );
     expect(pay).toHaveAttribute("aria-busy", "true");
+    expect(pay).toHaveAttribute("aria-disabled", "true");
+    expect(pay).not.toBeDisabled();
+    expect(pay).toHaveFocus();
+    await userEvent.click(pay);
+    expect(press).not.toHaveBeenCalled();
   });
 
   it("styles a link as a button, the caller's classes winning", () => {
@@ -267,7 +283,7 @@ describe("Tabs, Accordion, Dialog, Drawer, Toaster", () => {
     expect(screen.getByText("Are the solutions really free?")).toBeInTheDocument();
   });
 
-  it("opens a dialog with its title from its trigger", async () => {
+  it("opens a dialog on its safe button and gives focus back to what opened it (accessibility review F6)", async () => {
     render(
       <Dialog>
         <DialogTrigger>Remove</DialogTrigger>
@@ -275,14 +291,21 @@ describe("Tabs, Accordion, Dialog, Drawer, Toaster", () => {
           <DialogHeader>Remove this book?</DialogHeader>
           <DialogBody>It leaves your cart.</DialogBody>
           <DialogFooter>
-            <Button autoFocus>Keep it</Button>
+            <DialogClose asChild>
+              <Button>Keep it</Button>
+            </DialogClose>
           </DialogFooter>
         </DialogContent>
       </Dialog>,
     );
-    await userEvent.click(screen.getByRole("button", { name: "Remove" }));
+    const opener = screen.getByRole("button", { name: "Remove" });
+    await userEvent.click(opener);
     const dialog = screen.getByRole("dialog", { name: "Remove this book?" });
     expect(within(dialog).getByRole("button", { name: "Close" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Keep it" })).toHaveFocus();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Keep it" }));
+    expect(dialog).not.toHaveAttribute("open");
+    expect(opener).toHaveFocus();
   });
 
   it("opens the menu drawer with aria-expanded and closes it with Escape, focus back on Menu", async () => {
@@ -301,12 +324,42 @@ describe("Tabs, Accordion, Dialog, Drawer, Toaster", () => {
     expect(screen.getByRole("button", { name: "Menu" })).toHaveFocus();
   });
 
-  it("shows a toast in a labelled region with a Dismiss button", async () => {
+  it("lets Tab go from Menu into the open menu, and closes it when focus leaves (accessibility review F3)", async () => {
+    render(
+      <>
+        <Drawer id="site-menu" label="Menu">
+          <a href="#shop">Shop</a>
+        </Drawer>
+        <a href="#main">Buy the books</a>
+      </>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Menu" }));
+    await userEvent.tab();
+    expect(screen.getByRole("link", { name: "Shop" })).toHaveFocus();
+    await userEvent.tab();
+    expect(screen.getByRole("link", { name: "Buy the books" })).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Menu" })).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("shows a toast for 6 s in a labelled live region, paused while hovered, dismissible (F4, F13)", async () => {
+    vi.useFakeTimers();
     render(<Toaster />);
-    toast.success("ExamLeaf Chemistry Sample Papers 2027 is in your cart.");
-    expect(await screen.findByText(/is in your cart/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Dismiss" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: /Messages/ })).toBeInTheDocument();
+    const region = screen.getByRole("region", { name: "Messages" });
+    expect(region).toHaveAttribute("aria-live", "polite"); // in the page before any message
+    act(() => toast.success("ExamLeaf Chemistry Sample Papers 2027 is in your cart."));
+    const message = screen.getByText(/is in your cart/);
+    act(() => vi.advanceTimersByTime(5000));
+    expect(message).toBeInTheDocument(); // at least 5 s
+    fireEvent.pointerEnter(message.closest("li")!);
+    act(() => vi.advanceTimersByTime(20000));
+    expect(message).toBeInTheDocument(); // held while the pointer is on it
+    fireEvent.pointerLeave(message.closest("li")!);
+    act(() => vi.advanceTimersByTime(6000));
+    expect(screen.queryByText(/is in your cart/)).toBeNull();
+    act(() => toast.success("Your details are saved."));
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(screen.queryByText("Your details are saved.")).toBeNull();
+    vi.useRealTimers();
   });
 });
 

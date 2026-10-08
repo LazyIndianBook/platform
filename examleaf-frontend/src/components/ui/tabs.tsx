@@ -1,5 +1,6 @@
 // .tabs: radio-based, so they filter with CSS alone (:has()); the row scrolls on a phone, never wraps; the checked
-// label is primary with a 3 px underline. Server component: no script.
+// label is primary with a 3 px underline. Server component: no script. min-w-0: a fieldset is as wide as its content
+// by default, which would push the page sideways instead of letting the row scroll (accessibility review F2).
 import { cn } from "cn";
 
 type TabsProps = {
@@ -12,7 +13,7 @@ type TabsProps = {
 
 function Tabs({ name, legend, options, value, className }: TabsProps) {
   return (
-    <fieldset className={cn("m-0 border-0 p-0", className)}>
+    <fieldset className={cn("m-0 min-w-0 border-0 p-0", className)}>
       <legend className="sr-only">{legend}</legend>
       <div className="flex gap-1 overflow-x-auto border-b border-border">
         {options.map((option) => (

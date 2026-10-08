@@ -217,7 +217,7 @@
   .skip-link,
   body > header,
   body > footer,
-  [data-sonner-toaster],
+  [data-toaster],
   .paper-page nav[aria-label="Breadcrumb"],
   .paper-page .paper-actions,
   .paper-page .rail,

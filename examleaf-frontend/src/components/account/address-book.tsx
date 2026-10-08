@@ -4,8 +4,8 @@
 // Change and Delete, and a new one (addresses/ in API v1; checkout saves them too). One form open at a time.
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { toast } from "sonner";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "@/components/ui/toaster";
 
 import { ErrorSummary } from "@/components/auth/error-summary";
 import { fieldError } from "@/components/auth/use-auth-action";
@@ -90,8 +90,12 @@ export function AddressBook({ addresses }: { addresses: Address[] }) {
 function AddressForm({ address, close, first = false }: { address?: Address; close: () => void; first?: boolean }) {
   const router = useRouter();
   const { run, busy, error } = useAction();
+  const form = useRef<HTMLFormElement>(null);
+  // opened by Add an address or Change: the keyboard goes to its first field, not the page's start (review F1)
+  useEffect(() => form.current?.querySelector<HTMLElement>("input, select, textarea")?.focus(), []);
   return (
     <form
+      ref={form}
       className="flex flex-col gap-4 rounded-lg border border-border bg-background p-4"
       noValidate
       onSubmit={async (event) => {
