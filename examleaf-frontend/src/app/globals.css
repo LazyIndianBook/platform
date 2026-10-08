@@ -396,6 +396,12 @@
     font: 600 15px/1.4 var(--font-mono);
     color: var(--red-ink);
   }
+  /* the margin's number sits 40 px in, in line with the header's wordmark (the artboards) */
+  @media (min-width: 900px) {
+    .sheet-margin {
+      padding-left: 40px;
+    }
+  }
   .sheet-body {
     min-width: 0;
     border-left: 3px double var(--red-ink);
