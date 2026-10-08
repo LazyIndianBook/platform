@@ -56,6 +56,46 @@ accounts, shop and learn; `learn/test_media.py` grew).
   grant controls (I6), headless code confirmations counted in the session only (I7), firebase-admin's size and a
   blocking pip-audit (I9), clip links as bearer links (I10).
 
+## QA pass of phases 5 and 6: every new flow walked (8 October 2026)
+
+Every flow that phases 5 and 6 added was walked with the Django test client, with `curl` and a script against a
+development server (sign-up, mobile number and codes by SMS and by email, the app's log-in by SMS, passkey pages,
+parental consent by SMS, SES bounces and a send that they block, pictures, JSON-LD, the web app files, PIN codes,
+tracking links, reviews, quotations, stock alerts, GSTR-1, the course API with and without access, book codes, the
+plan, digital products, offers, staff orders, payment links, offline payments, every admin page for each role) and on
+PostgreSQL 17, besides the unreliable cases (no ffmpeg, a corrupt or empty video, buckets that cannot be reached, Redis
+and the broker down, Turnstile and FCM unset or out of reach, two redemptions of a code at the same instant). The
+failures below were reproduced first; each has a test that fails without its fix. 439 tests, all passing on
+SQLite and on PostgreSQL (the thread tests and `test_a_real_ffmpeg_run` skip where they cannot run); `manage.py check
+--deploy` shows only W005 and W021 (with `LEARN_CODE_SECRET` set).
+
+### Fixed
+
+- **Orders:** the app's checkout accepted the staff-only payment method `offline` and made an order whose payment page
+  failed with a server error: checkout takes `razorpay` or `cod` (the service, the serializer and the OpenAPI schema).
+  A part refund (a goodwill amount, or a refused parcel refunded less its shipping) closed the course of an order with
+  a course in it: only a refund in full does (`services.refunded_in_full`). A bundle of courses only was "out of
+  stock", would have been charged shipping and left to be packed: it is a course (`Product.digital_only`, also
+  `Totals.digital_only` for the pages).
+- **Server errors:** `?attr_<text attribute>=%00` crashed on PostgreSQL; Google's three addresses answered 500 on a
+  server without its keys (now 404); a member of staff who may only view products (SUPPORT) got a 500 on a product's
+  page; a product picture saved while the broker was down ended in a 500 (its AVIF and WebP sizes are now made in the
+  request, as emails and SMS are sent); the reminder task's batches had no order (a failure on PostgreSQL).
+- **Privacy:** "Delete my account" now deletes the "email me when it is back" requests kept under the address; a student
+  under 18 whose parent has not confirmed (`PARENTAL_CONSENT_MODE=verified`) reads the course but saves nothing in it
+  (progress, quiz answers, card reviews, codes, settings, devices answer 403; taking a device off is allowed).
+- **Shop:** the school quotation form lists books only (a course opens in one account; pupils get book codes); a
+  quotation follows a book renamed since the request; the sitemap lists the shop page, the school-orders page, the
+  shelves and the collections.
+- **Admin:** the dashboard counts the clips that failed to process (`clips_failed`, for `templates/admin/dashboard.html`).
+  `import_chapter_insights` says what is wrong when `--root` is (an error message, not a traceback).
+
+### Added
+
+- Tests: `ops/test_no_server_errors.py` (every address of the site and of the API answers an empty request without a
+  server error, signed in or not: it finds the Google 500), a book code redeemed by two students, or twice by one, at the
+  same instant (PostgreSQL), and the regression tests of the list above, beside the tests they belong to.
+
 ## Phase 7: API contract (8 October 2026)
 
 18 tests more (`api/test_headless.py`, `api/test_contract.py`, `shop/test_api_contract.py`). Any frontend (the app, or

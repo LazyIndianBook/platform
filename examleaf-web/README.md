@@ -648,7 +648,7 @@ separate project.
 ## Tests
 
 ```sh
-make test                                 # pytest: NNN_TESTS tests (imports all four subjects once)
+make test                                 # pytest: 439 tests (imports all four subjects once)
 make cov                                  # the same with a coverage report
 make lint                                 # ruff, as in CI
 make check                                # manage.py check and missing migrations
