@@ -243,9 +243,17 @@
 }
 
 /* Control states (button.tsx). live: neither disabled nor aria-disabled, so hover and press apply; off: disabled, or
-   aria-disabled while not busy (a busy control keeps its colour and shows the spinner). */
+   aria-disabled while not busy (a busy control keeps its colour and shows the spinner). Plain selectors, no :is(), so
+   an old WebView still greys a disabled button. */
 @custom-variant live (&:not(:disabled):not([aria-disabled="true"]));
-@custom-variant off (&:is(:disabled, [aria-disabled="true"]):not([aria-busy="true"]));
+@custom-variant off {
+  &:disabled:not([aria-busy="true"]) {
+    @slot;
+  }
+  &[aria-disabled="true"]:not([aria-busy="true"]) {
+    @slot;
+  }
+}
 
 @utility container-site {
   width: 100%;
@@ -531,14 +539,18 @@
   /* choice controls (choice.tsx): the native checkbox, radio and switch drawn as the board draws them. 22 px boxes
      with the control border (ink on hover), navy when checked; the switch a 44×26 track, the control grey off (3:1
      on paper, unlike the board's paler grey) and navy on, its 20 px knob a gradient. Nothing animates. Disabled is
-     paper 2 with a pale border. In forced colours the browser draws its own (gradients would vanish there). */
-  input:is([data-slot="checkbox"], [data-slot="radio"], [data-slot="switch"]) {
+     paper 2 with a pale border. In forced colours the browser draws its own (gradients would vanish there). Plain
+     selectors, no :is(): a browser that drops a rule then keeps drawing the native control, not half of each. */
+  input[data-slot="checkbox"],
+  input[data-slot="radio"],
+  input[data-slot="switch"] {
     flex: none;
     margin: 0;
     appearance: none;
     cursor: pointer;
   }
-  input:is([data-slot="checkbox"], [data-slot="radio"]) {
+  input[data-slot="checkbox"],
+  input[data-slot="radio"] {
     width: 22px;
     height: 22px;
     border: 1.5px solid var(--input);
@@ -550,7 +562,8 @@
   input[data-slot="radio"] {
     border-radius: 50%;
   }
-  input:is([data-slot="checkbox"], [data-slot="radio"]):not(:checked, :disabled):hover {
+  input[data-slot="checkbox"]:not(:checked):not(:disabled):hover,
+  input[data-slot="radio"]:not(:checked):not(:disabled):hover {
     border-color: var(--foreground);
   }
   input[data-slot="checkbox"]:checked {
@@ -562,10 +575,12 @@
     border-color: var(--primary);
     background-image: radial-gradient(circle, var(--primary) 5.5px, transparent 6px);
   }
-  input:is([data-slot="checkbox"], [data-slot="radio"])[aria-invalid="true"] {
+  input[data-slot="checkbox"][aria-invalid="true"],
+  input[data-slot="radio"][aria-invalid="true"] {
     border-color: var(--destructive);
   }
-  input:is([data-slot="checkbox"], [data-slot="radio"]):disabled {
+  input[data-slot="checkbox"]:disabled,
+  input[data-slot="radio"]:disabled {
     cursor: not-allowed;
     border-color: #c9ccd2;
     background-color: var(--paper-2);
@@ -591,7 +606,9 @@
     background-color: #c9ccd2;
   }
   @media (forced-colors: active) {
-    input:is([data-slot="checkbox"], [data-slot="radio"], [data-slot="switch"]) {
+    input[data-slot="checkbox"],
+    input[data-slot="radio"],
+    input[data-slot="switch"] {
       appearance: auto;
     }
   }

@@ -40,9 +40,9 @@ const badgeCva = cva(
   },
 );
 
-/** The chip's classes, merged (a variant's padding replaces the base's), for a link drawn as a chip. */
-function badgeVariants(variants: VariantProps<typeof badgeCva> = {}) {
-  return cn(badgeCva(variants));
+/** The chip's classes, merged (a variant's padding replaces the base's, the caller's classes win last). */
+function badgeVariants({ className, ...variants }: VariantProps<typeof badgeCva> & { className?: string } = {}) {
+  return cn(badgeCva(variants), className);
 }
 
 const TIER_VARIANT = { E: "easy", M: "medium", H: "hard" } as const;
