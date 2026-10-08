@@ -120,6 +120,17 @@ def test_product_page_has_canonical_open_graph_and_product_json_ld(client):
     assert [c["name"] for c in crumbs["itemListElement"]] == ["Home", "Shop", "Physics </script><b>"]
 
 
+def test_a_picture_saved_while_the_broker_is_down_gets_its_sizes_made_in_the_request(broker, closed_port, commit):
+    """The product is saved, the member of staff sees no server error, and the sizes are there (the Celery processor
+    of django-pictures would have raised once the transaction was committed)."""
+    broker(f"redis://127.0.0.1:{closed_port}/0")
+    product = ProductFactory()
+    with commit():
+        upload = ContentFile(public_storage().open(picture(size=(800, 1200))).read(), name="cover.png")
+        product.cover.save("cover.png", upload)
+    assert public_storage().exists(product.cover.name) and public_storage().exists("products/cover/2_3/400w.avif")
+
+
 def test_each_product_gets_its_own_link_preview_picture(client, commit):
     with commit():
         product = ProductFactory(cover=picture(size=(400, 600)))

@@ -3,9 +3,15 @@ AVIF: not every crawler reads them), in a bundled font when static/fonts/og.ttf 
 app icons of the web app manifest."""
 
 import io
+import logging
 
 from django.contrib.staticfiles import finders
+from django.db import transaction
+from pictures.conf import app_settings as pictures_settings
+from pictures.tasks import process_picture_with_celery
 from PIL import Image, ImageDraw, ImageFont, ImageOps
+
+logger = logging.getLogger(__name__)
 
 NIGHT, NAVY, LEAF, PAPER = "#07122B", "#0B2A5B", "#4CC265", "#FFFFFF"
 OG_SIZE = (1200, 630)
@@ -64,3 +70,18 @@ def app_icon(size):
     buffer = io.BytesIO()
     icon.resize((size, size), Image.Resampling.LANCZOS).save(buffer, "PNG", optimize=True)
     return buffer.getvalue()
+
+
+def queue_picture_sizes(**work):
+    """settings.PICTURES["PROCESSOR"]: django-pictures' Celery processor, queued once the transaction is committed, but
+    with a broker that is down the AVIF and WebP sizes are made here and now (as emails and SMS are sent here), not a
+    server error for the member of staff whose upload has been saved already."""
+
+    def queue():
+        try:
+            process_picture_with_celery.apply_async(kwargs=work, queue=pictures_settings.QUEUE_NAME)
+        except process_picture_with_celery.OperationalError:
+            logger.exception("broker unavailable, making the picture sizes here")
+            process_picture_with_celery.run(**work)
+
+    transaction.on_commit(queue, robust=True)

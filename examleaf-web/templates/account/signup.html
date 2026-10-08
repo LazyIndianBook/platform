@@ -12,6 +12,7 @@ always without JavaScript). socialaccount/signup.html (after Google) extends thi
       <h1>Register</h1>
       <p class="muted">{% block lead %}Already registered? <a href="{{ login_url }}">Log in</a>. Registering is free.{% endblock %}</p>
       {% include "_form_errors.html" %}
+      {% include "_required_note.html" %}
       <form class="steps-form" method="post" action="{% block action %}{% url 'account_signup' %}{% endblock %}">
         {% csrf_token %}
         <fieldset>

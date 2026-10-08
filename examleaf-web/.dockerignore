@@ -10,3 +10,6 @@ htmlcov
 **/__pycache__
 .pytest_cache
 .ruff_cache
+# No JSON file is part of the site: a Firebase service account's key left here must never be baked into the image
+# (I9). Give FCM_SERVICE_ACCOUNT_JSON the JSON itself in .env, or mount the file at run time.
+**/*.json

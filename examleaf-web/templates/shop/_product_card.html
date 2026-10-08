@@ -1,8 +1,8 @@
-{% load pictures %}{# A product card (components.md, .card-interactive): the whole card is the one link to the product. With: product. data-subject feeds the catalogue's subject tabs. #}
+{% load pictures %}{# A product card (components.md, .card-interactive): the whole card is the one link to the product. With: product. data-subject feeds the catalogue's subject tabs. The cover's view-transition name (motion.md, d) pairs it with the product page's cover; one card per product on a page. #}
 <li{% if product.subject %} data-subject="{{ product.subject.name|lower }}"{% endif %}>
   <a class="card card-interactive product-card" href="{{ product.get_absolute_url }}">
     <div class="card-body">
-      <span class="cover pcover">{% if product.cover %}{% picture product.cover img_alt="" img_loading="lazy" ratio="2/3" s=6 m=4 l=3 %}{% else %}{% include "shop/no_cover.html" %}{% endif %}</span>
+      <span class="cover pcover{% if product.subject %} subject-{{ product.subject.name|lower }}{% endif %}" style="view-transition-name: cover-{{ product.pk }}">{% if product.cover %}{% picture product.cover img_alt="" img_loading="lazy" ratio="2/3" s=12 m=4 l=3 %}{% else %}{% include "shop/no_cover.html" %}{% endif %}</span>
       <span class="chips"><span class="badge badge-muted">{{ product.get_kind_display }}</span>{% if product.subject %}<span class="badge badge-{{ product.subject.name|lower }}">{{ product.subject.name }}</span>{% endif %}{% if not product.available %}<span class="badge badge-out">Out of stock</span>{% endif %}</span>
       <h3>{{ product.title }}</h3>
       {% include "shop/_price.html" %}

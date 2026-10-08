@@ -12,3 +12,7 @@ updates:
     directory: /  # .github/workflows
     schedule:
       interval: weekly
+  - package-ecosystem: docker  # the Dockerfile's python:3.14-slim, whose Debian brings FFmpeg (I9)
+    directory: /examleaf-web
+    schedule:
+      interval: weekly

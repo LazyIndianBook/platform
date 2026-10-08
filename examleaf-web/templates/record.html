@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% load widget_tweaks %}
+{% extends "base_account.html" %}{% load widget_tweaks %}
 {% block head_title %}My record{% endblock %}
 {% block meta_description %}The marks you saved for the ExamLeaf Sample Papers, with your average for each tier.{% endblock %}
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
@@ -37,12 +37,21 @@
       </table>
     </div>
     {% else %}
+    {% if request.GET.subject or request.GET.tier %}
     <div class="empty">
-      <svg class="icon icon-lg" aria-hidden="true"><use href="#icon-chart"/></svg>
+      {% include "_empty_art.html" with art="results" %}
+      <h2>No saved marks match</h2>
+      <p>Nothing saved for this subject and tier yet. Choose another, or see every paper you saved.</p>
+      <a class="btn btn-primary" href="{% url 'record' %}">Show all my marks</a>
+    </div>
+    {% else %}
+    <div class="empty">
+      {% include "_empty_art.html" with art="attempts" %}
       <h2>Nothing recorded yet</h2>
       <p>After you mark a paper against its solutions, save your score at the end of the solutions page.</p>
       <a class="btn btn-primary" href="{% url 'home' %}#books">Choose a book</a>
     </div>
+    {% endif %}
     {% endif %}
   </div>
 </section>

@@ -101,6 +101,16 @@ def test_admin_dashboard_counts_today_and_the_last_30_days(client):
     assert "1 teacher request<" in response.text and "ExamLeaf admin" in response.text
 
 
+def test_admin_dashboard_counts_the_clips_that_failed_to_process(client):
+    from learn.models import Clip
+    from learn.tests import make_course
+
+    make_course(chapters=1, clips=2)
+    Clip.objects.filter(title="Clip 1.2").update(processing=Clip.Processing.FAILED)
+    client.force_login(UserFactory(is_staff=True, is_superuser=True))
+    assert client.get(reverse("admin:index")).context["stats"]["clips_failed"] == 1
+
+
 def test_upload_backup_puts_the_dump_in_the_backups_storage(settings, tmp_path, capsys):
     from django.core.management import call_command
 

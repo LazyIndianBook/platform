@@ -27,6 +27,7 @@ from .cart import totals as cart_totals
 from .models import (
     INR,
     Coupon,
+    Offer,
     Order,
     OrderDiscount,
     OrderItem,
@@ -60,6 +61,11 @@ class OutOfStock(ShopError):
 class CouponUsedUp(ShopError):
     advice = "Please remove the coupon from your cart."
     while_paying = "the coupon was used up"
+
+
+class OfferUsedUp(ShopError):
+    advice = "Please check your cart again: an offer has ended."
+    while_paying = "an offer in the order was used up"
 
 
 SUBJECTS = {
@@ -147,6 +153,16 @@ def claim_coupon(order):
             raise CouponUsedUp(problem)
 
 
+def claim_offers(order):
+    """The usage limits of the order's automatic offers, checked again when it is placed, under a lock on each offer
+    (in id order), as claim_coupon does for the coupon (M4): orders awaiting payment do not count as uses, so every
+    order made before the first one is paid would otherwise keep the offer. Changes nothing; raises OfferUsedUp."""
+    ids = order.discount_lines.exclude(offer=None).values_list("offer_id", flat=True)
+    for offer in Offer.objects.select_for_update().filter(pk__in=ids).order_by("pk"):
+        if problem := offer.limit_problem(user=order.user, email=order.email):
+            raise OfferUsedUp(f"The offer “{offer.name}” is {problem}.")
+
+
 def release_stock(order):
     if order.stock_reserved:
         for pk, count in sorted(_stock_needed(order).items()):
@@ -209,6 +225,8 @@ def create_staff_order(lines, *, by, email, address, user=None, discount=0, ship
         raise ShopError(" ".join(problems))
     if user is None and any(line.product.has_digital for line in lines):
         raise ShopError("A course opens in an account: give the email address of the customer's account.")
+    if user is not None and user.consent_pending:  # as the website and the API refuse such a student's orders (L11)
+        raise ShopError("This student's parent has not confirmed the account yet: no order until they do.")
     return save_order(result, user=user, email=email, shipping_address=address, created_by=by)
 
 
@@ -260,6 +278,7 @@ def place_cod(order):
             if problem := cod_problem(order.user):  # checked again: several orders may wait to be placed
                 raise ShopError(problem)
             claim_coupon(order)
+            claim_offers(order)
             reserve_stock(order)
             order.placed_at = timezone.now()
             order.save()
@@ -311,7 +330,7 @@ def record_capture(entity, payload=None):
         else:
             try:
                 mark_paid(order)
-            except (OutOfStock, CouponUsedUp) as error:
+            except (OutOfStock, CouponUsedUp, OfferUsedUp) as error:
                 order.cancel()
                 order.save()
                 why = error.while_paying
@@ -321,10 +340,11 @@ def record_capture(entity, payload=None):
 
 
 def mark_paid(order):
-    """A pending order (locked) has been paid, online or offline: its coupon claimed and its copies taken (raising
-    CouponUsedUp or OutOfStock before anything changes), then paid, its digital products opened (and an order of
-    digital products only delivered at once), the customer emailed and the invoice queued."""
-    claim_coupon(order)  # first: it changes nothing, so a book sold out after it leaves no trace
+    """A pending order (locked) has been paid, online or offline: its coupon and offers claimed and its copies taken
+    (raising CouponUsedUp, OfferUsedUp or OutOfStock before anything changes), then paid, its digital products opened
+    (and an order of digital products only delivered at once), the customer emailed and the invoice queued."""
+    claim_coupon(order)  # first: they change nothing, so a book sold out after them leaves no trace
+    claim_offers(order)
     reserve_stock(order)
     order.pay()
     order.save()
@@ -372,7 +392,8 @@ def record_link_payment(link_id, entity, payload=None):
 def record_offline_payment(order, reference):
     """Staff record a payment received outside Razorpay (NEFT, IMPS or UPI to the bank account, e.g. for a school's
     quotation): a captured Payment with its reference (printed on the invoice), and the order paid (mark_paid).
-    Raises ShopError when the order is not waiting for a payment, OutOfStock or CouponUsedUp (nothing recorded)."""
+    Raises ShopError when the order is not waiting for a payment, OutOfStock, CouponUsedUp or OfferUsedUp (nothing
+    recorded)."""
     with transaction.atomic():
         order = _lock(order)
         if order.status != Order.Status.PENDING or order.placed_at or order.is_cod:
@@ -461,7 +482,9 @@ def refund_processed(refund_id, razorpay_refund_id=None):
 def refunded_in_full(order):
     """Whether the processed refunds of the order add up to what it cost (a refused parcel refunded less the shipping,
     or a goodwill part-refund, is not)."""
-    refunded = sum((refund.amount.amount for refund in order.refunds.filter(status=Refund.Status.PROCESSED)), Decimal(0))
+    refunded = sum(
+        (refund.amount.amount for refund in order.refunds.filter(status=Refund.Status.PROCESSED)), Decimal(0)
+    )
     return refunded >= order.total.amount
 
 

@@ -1,6 +1,8 @@
 """REST API v1 of the revision course (learn/; API.md "Revision course"). Chapters are public; a clip's links, the
 quiz, flash cards, progress, the plan, book codes and settings need a signed-in student with a confirmed address."""
 
+from datetime import timedelta
+
 from django.conf import settings
 from django.db.models import Count, Min, Q, Sum
 from django.utils import timezone
@@ -29,7 +31,28 @@ from learn.views import playback
 
 from .views import VerifiedEmail
 
-STUDENT = [permissions.IsAuthenticated, VerifiedEmail]
+# What one account may add (L8): quiz answers and card reviews a day (each is read again by revise-again), devices.
+ANSWERS_PER_DAY, DEVICES_PER_USER = 1000, 5
+
+
+def within_a_day(rows):
+    """At most ANSWERS_PER_DAY of these rows (the user's quiz answers or card reviews) in the last day (L8)."""
+    if rows.filter(created__gte=timezone.now() - timedelta(days=1)).count() >= ANSWERS_PER_DAY:
+        raise exceptions.Throttled(detail="That is a day's worth of answers: carry on tomorrow.")
+
+
+class ParentConfirmed(permissions.BasePermission):
+    """PARENTAL_CONSENT_MODE "verified" (M9): until a parent confirms, the account of a student under 18 can read but
+    saves nothing, as it saves no marks and orders no book: no progress, quiz answer, card review, code, setting or
+    device (taking a device off, at log-out, is always allowed)."""
+
+    message = "A parent or guardian has not confirmed this account yet."
+
+    def has_permission(self, request, view):
+        return request.method in (*permissions.SAFE_METHODS, "DELETE") or not request.user.consent_pending
+
+
+STUDENT = [permissions.IsAuthenticated, VerifiedEmail, ParentConfirmed]
 LOCKED = "Unlock this subject with the code printed in your book."
 READY = Q(revision__clips__processing=Clip.Processing.READY)
 
@@ -286,6 +309,7 @@ class QuizViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         given = self.get_serializer(data=request.data)
         given.is_valid(raise_exception=True)
         correct = item.is_right(given.validated_data["answer"])
+        within_a_day(request.user.quiz_attempts)
         QuizAttempt.objects.create(user=request.user, item=item, correct=correct)
         if item.kind == QuizItem.Kind.MCQ:
             right = item.options[int(item.answer) - 1]
@@ -335,6 +359,7 @@ class FlashCardViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         open_chapter(request.user, card.chapter_id, cards=True)
         given = self.get_serializer(data=request.data)
         given.is_valid(raise_exception=True)
+        within_a_day(request.user.card_reviews)
         CardReview.objects.create(user=request.user, card=card, known=given.validated_data["known"])
         return Response(status=status.HTTP_201_CREATED)
 
@@ -502,7 +527,7 @@ class DeviceView(generics.GenericAPIView):
     """The app's Firebase Cloud Messaging token, for the daily reminder: POST after log-in (and when Firebase gives a
     new one), DELETE at log-out. Deleted with the account."""
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, ParentConfirmed]
     serializer_class = DeviceSerializer
 
     @extend_schema(responses={201: DeviceSerializer})
@@ -513,6 +538,8 @@ class DeviceView(generics.GenericAPIView):
             token=given.validated_data["token"],
             defaults={"user": request.user, "platform": given.validated_data.get("platform", "")},
         )
+        newest = request.user.devices.order_by("-last_seen", "-pk").values_list("pk", flat=True)[:DEVICES_PER_USER]
+        request.user.devices.exclude(pk__in=list(newest)).delete()  # the newest few per account (L8)
         return Response(given.data, status=status.HTTP_201_CREATED)
 
     @extend_schema(responses={204: None})

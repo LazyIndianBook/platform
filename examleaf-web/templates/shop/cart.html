@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% load shop %}
+{% extends "shop/base_shop.html" %}{% load shop %}
 {% block head_title %}Your cart{% endblock %}
 {% block meta_description %}Your ExamLeaf cart: the books you chose, the copies of each, a coupon code and the way to checkout.{% endblock %}
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
@@ -33,7 +33,7 @@
         <dialog class="dialog" id="remove-{{ line.product.pk }}" aria-labelledby="remove-{{ line.product.pk }}-title">
           <div class="card-header"><h2 id="remove-{{ line.product.pk }}-title">Remove this book?</h2><form method="dialog"><button class="btn btn-ghost btn-icon" aria-label="Close"><svg class="icon" aria-hidden="true"><use href="#icon-x"/></svg></button></form></div>
           <div class="card-body"><p><strong>{{ line.product }}</strong> leaves your cart. You can add it again from the shop.</p></div>
-          <div class="card-footer"><form method="dialog"><button class="btn btn-secondary">Keep it</button></form><button type="submit" form="cart-form" name="remove" value="{{ line.product.pk }}" class="btn btn-destructive">Remove</button></div>
+          <div class="card-footer"><form method="dialog"><button class="btn btn-secondary" autofocus>Keep it</button></form><button type="submit" form="cart-form" name="remove" value="{{ line.product.pk }}" class="btn btn-destructive">Remove</button></div>
         </dialog>
         {% endfor %}
       </div>
@@ -64,7 +64,7 @@
       </aside>
     </div>
     {% else %}
-    <div class="empty"><svg class="icon icon-lg" aria-hidden="true"><use href="#icon-bag"/></svg><h2>Your cart is empty.</h2><p>Each subject has a Sample Papers book and a Solutions book, delivered anywhere in India.</p><a class="btn btn-primary" href="{% url 'shop:catalogue' %}">See the books</a></div>
+    <div class="empty">{% include "_empty_art.html" with art="cart" %}<h2>Your cart is empty</h2><p>Each subject has a Sample Papers book and a Solutions book, delivered anywhere in India.</p><a class="btn btn-primary" href="{% url 'shop:catalogue' %}">See the books</a></div>
     {% endif %}
   </div>
 </section>

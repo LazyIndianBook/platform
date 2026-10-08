@@ -114,6 +114,11 @@ class Totals:
     def count(self):
         return sum(line.quantity for line in self.lines)
 
+    @property
+    def digital_only(self):
+        """Courses only: nothing to ship, so the pages say nothing of copies, shipping or delivery."""
+        return bool(self.lines) and all(line.product.digital_only for line in self.lines)
+
     def problems(self):
         """What stops this cart from being ordered: books taken off sale or short of stock."""
         found = []
@@ -151,7 +156,7 @@ def price(lines, coupon=None, state=None, user=None, email="", staff_discount=0)
     if staff_discount:
         result.take("Discount", min(rupees(staff_discount), result.subtotal - result.discount), everything)
     if state:  # digital products alone ship nothing
-        physical = any(not line.product.is_digital for line in result.lines)
+        physical = any(not line.product.digital_only for line in result.lines)
         result.shipping = ShippingRate.fee_for(state, result.subtotal - result.discount) if physical else Decimal(0)
     return result
 

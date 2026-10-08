@@ -11,6 +11,7 @@ from django.utils import timezone
 from content.models import Paper
 
 from .models import CardReview, Chapter, Clip, FlashCard, Progress, QuizAttempt, QuizItem, Revision
+from .services import entitled_subjects, is_free_chapter
 
 # ponytail: aim at chapters worth 1.5 times the pass marks, as nobody scores every mark of a chapter they revised
 PASS_MARGIN = Decimal("1.5")
@@ -110,8 +111,10 @@ def due(answers, now):
 
 
 def revise_again(user, now=None):
-    """Quiz items and flash cards the student got wrong whose day has come, the longest waiting first."""
-    now = now or timezone.now()
+    """Quiz items and flash cards the student got wrong whose day has come, the longest waiting first; only of
+    published revisions the student may still open, as the quiz and the cards themselves (I5): not after the year of
+    access, nor once a revision is back in draft."""
+    now, entitled = now or timezone.now(), entitled_subjects(user)
     lists = {}
     for name, model, rows in [
         ("quiz_items", QuizItem, QuizAttempt.objects.filter(user=user).values_list("item", "created", "correct")),
@@ -121,6 +124,11 @@ def revise_again(user, now=None):
         for pk, created, right in rows.order_by("created", "pk"):
             answers[pk].append((created, right))
         when = {pk: at for pk, history in answers.items() if (at := due(history, now)) and at <= now}
-        items = model.objects.filter(pk__in=when).select_related("chapter")
+        published = model.objects.filter(pk__in=when, chapter__revision__status=Revision.Status.PUBLISHED)
+        items = [
+            item
+            for item in published.select_related("chapter")
+            if item.chapter.subject_id in entitled or model is FlashCard and is_free_chapter(item.chapter)
+        ]
         lists[name] = sorted(({"item": item, "due": when[item.pk]} for item in items), key=lambda row: row["due"])
     return lists

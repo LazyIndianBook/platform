@@ -74,7 +74,7 @@ def signup(client, email):
 
 def test_an_address_that_has_an_account_gets_the_same_answer_and_the_same_hashing_work(client, monkeypatch):
     hashed = []
-    monkeypatch.setattr("accounts.forms.make_password", lambda password: hashed.append(password))
+    monkeypatch.setattr("accounts.signup.make_password", lambda password: hashed.append(password))
     taken = UserFactory(email="taken@example.com")
     EmailAddress.objects.create(user=taken, email=taken.email, verified=True, primary=True)
     new = signup(client, "new@example.com")

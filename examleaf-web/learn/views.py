@@ -17,6 +17,7 @@ from django.views.decorators.http import require_safe
 
 from . import media
 from .models import Clip
+from .uploads import allow_storage
 
 SIGNER = signing.TimestampSigner(salt="learn.hls")
 NAMES = "|".join(name for name, *_ in media.RENDITIONS)
@@ -79,4 +80,6 @@ def preview(request, pk):
     clip = get_object_or_404(Clip.objects.select_related("revision__chapter"), pk=pk)
     ready = clip.processing == Clip.Processing.READY
     context = {**admin.site.each_context(request), "clip": clip, "title": f"Preview: {clip}"}
-    return render(request, "learn/preview.html", {**context, "playback": playback(clip, site="") if ready else None})
+    page = render(request, "learn/preview.html", {**context, "playback": playback(clip, site="") if ready else None})
+    # hls.js fetches the segments, and the poster loads, from the bucket the signed links redirect to (I3)
+    return allow_storage(page, media.storage(), "connect-src", "media-src", "img-src")

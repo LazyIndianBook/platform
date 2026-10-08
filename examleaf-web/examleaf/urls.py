@@ -1,6 +1,8 @@
 from datetime import timedelta
 
 from allauth.account.decorators import secure_admin_login
+from allauth.headless.account.views import ManagePhoneView, RequestLoginCodeView
+from allauth.headless.constants import Client
 from django.conf import settings
 from django.contrib import admin
 from django.contrib.sitemaps import Sitemap
@@ -9,19 +11,20 @@ from django.urls import include, path, reverse
 from django.views.generic import RedirectView, TemplateView
 
 from accounts import views as accounts
+from accounts.forms import ChangePhoneInput, RequestLoginCodeInput
 from content import views as content
 from content.models import Book
 from pages.models import SLUGS as PAGES
 from pages.views import PageView
 from practice import views as practice
-from shop.models import Product
+from shop.models import Category, Collection, Product
 
 from .views import HealthView, RobotsView, ServiceWorkerView, manifest
 
 
 class PageSitemap(Sitemap):
     def items(self):
-        return ["home", "about", *PAGES]
+        return ["home", "about", "shop:catalogue", "shop:quote", *PAGES]
 
     def location(self, item):
         return reverse(item)
@@ -56,6 +59,16 @@ class ProductSitemap(Sitemap):
         return Product.objects.filter(is_active=True).order_by("id")
 
 
+class CategorySitemap(Sitemap):  # the shop's shelves and collections have pages of their own (Phase 6 E)
+    def items(self):
+        return Category.objects.order_by("path")
+
+
+class CollectionSitemap(Sitemap):
+    def items(self):
+        return Collection.objects.filter(is_active=True).order_by("position", "pk")
+
+
 # The admin's login is allauth's (H2): its per-account limit, email confirmation and the second factor apply.
 admin.site.login = secure_admin_login(admin.site.login)
 
@@ -81,6 +94,17 @@ urlpatterns = [
     path("c/<str:token>/", accounts.parent_consent, name="parent_consent"),  # a parent's link (email or SMS): short
     path("", include("shop.urls")),  # /shop/, /cart/, /checkout/, /account/orders/, /orders/lookup/ (shop/urls.py)
     path("account/", include("allauth.urls")),
+    # allauth.headless: allauth's flows as JSON for the app and a decoupled web frontend (API.md "Frontend integration
+    # guide"); its code request and phone change take the website's forms (accounts/forms.py), the rest is allauth's.
+    *[
+        path(f"_allauth/{client}/v1/{route}", view.as_api_view(client=Client(client), input_class=form))
+        for client in settings.HEADLESS_CLIENTS
+        for route, view, form in [
+            ("auth/code/request", RequestLoginCodeView, RequestLoginCodeInput),
+            ("account/phone", ManagePhoneView, ChangePhoneInput),
+        ]
+    ],
+    path("_allauth/", include("allauth.headless.urls")),
     *[path(f"{slug}/", PageView.as_view(), {"slug": slug}, name=slug) for slug in PAGES],  # /privacy/, /terms/, …
     path("about/", TemplateView.as_view(template_name="about.html"), name="about"),
     path("robots.txt", RobotsView.as_view()),
@@ -88,7 +112,19 @@ urlpatterns = [
     path("sw.js", ServiceWorkerView.as_view(), name="sw"),
     path("offline/", TemplateView.as_view(template_name="offline.html"), name="offline"),
     path("favicon.ico", RedirectView.as_view(url=settings.STATIC_URL + "img/favicon-32.png", permanent=True)),
-    path("sitemap.xml", sitemap, {"sitemaps": {"pages": PageSitemap, "books": BookSitemap, "shop": ProductSitemap}}),
+    path(
+        "sitemap.xml",
+        sitemap,
+        {
+            "sitemaps": {
+                "pages": PageSitemap,
+                "books": BookSitemap,
+                "shop": ProductSitemap,
+                "shelves": CategorySitemap,
+                "collections": CollectionSitemap,
+            }
+        },
+    ),
     path("health/", HealthView.as_view(checks=ALL_CHECKS), name="health"),
     path("health/web/", HealthView.as_view(checks=WEB_CHECKS), name="health_web"),
     path("api/", include("examleaf.api_urls")),  # REST API: api/, examleaf/api_urls.py

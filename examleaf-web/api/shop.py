@@ -6,20 +6,29 @@ stays the website's (/shop/webhooks/razorpay/): it completes an order whatever t
 import django_filters
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.db.models import Prefetch, Q
+from django.db import IntegrityError, transaction
+from django.db.models import Avg, Count, Prefetch, Q
+from django.urls import reverse as django_reverse
 from django.utils.cache import add_never_cache_headers
 from django_fsm import TransitionNotAllowed
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_field
+from drf_spectacular.utils import (
+    OpenApiExample,
+    OpenApiParameter,
+    extend_schema,
+    extend_schema_field,
+    extend_schema_serializer,
+)
 from localflavor.in_.in_states import STATE_CHOICES
 from phonenumber_field.serializerfields import PhoneNumberField
-from rest_framework import exceptions, mixins, negotiation, permissions, serializers, status, viewsets
+from rest_framework import exceptions, generics, mixins, negotiation, permissions, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.reverse import reverse
 
 from shop import payments, services
 from shop.cart import get_cart, set_quantity, totals
+from shop.forms import QuoteRequestForm
 from shop.models import (
     Address,
     Attribute,
@@ -36,11 +45,13 @@ from shop.models import (
     OrderItem,
     PinCode,
     Product,
+    Review,
+    StockAlert,
     validate_indian_mobile,
 )
-from shop.views import lookup_allowed, over_limit, pdf_response
+from shop.views import QUOTE_SENT, lookup_allowed, over_limit, pdf_response
 
-from .views import VerifiedEmail, cached
+from .views import DetailSerializer, VerifiedEmail, cached
 
 CUSTOMER = [permissions.IsAuthenticated, VerifiedEmail]
 NOT_PAYABLE = "This order is not waiting for an online payment."
@@ -173,8 +184,9 @@ class ProductSerializer(serializers.ModelSerializer):
             return True
         if product.kind != Product.Kind.BUNDLE:
             return product.stock > 0
-        books = [item for item in product.bundle_items.all() if not item.product.is_digital]  # a course has no copies
-        return min((item.product.stock // item.quantity for item in books), default=0) > 0
+        items = list(product.bundle_items.all())
+        books = [item for item in items if not item.product.is_digital]  # a course has no copies
+        return not books and bool(items) or min((item.product.stock // item.quantity for item in books), default=0) > 0
 
     def get_related(self, product) -> list[str]:
         return [other.slug for other in product.related.all() if other.is_active]
@@ -199,16 +211,44 @@ class ProductFilter(django_filters.FilterSet):
         return queryset.filter(categories__in=Category.objects.get_tree(category))
 
 
-def attribute_match(code, value):
-    """Products whose attribute `code` holds `value` (compared as the attribute stores it: "2027.0" finds 2027)."""
+ATTRIBUTE_FILTERS = 5  # ?attr_<code>= parameters in one request, their attributes fetched in one query (L2)
+
+
+def attribute_match(attributes, value):
+    """Products whose attribute (one of `attributes`, those of one code) holds `value` (compared as the attribute
+    stores it: "2027.0" finds 2027)."""
     match = Q(pk__in=[])
-    for attribute in Attribute.objects.filter(code=code):
+    for attribute in attributes:
         try:
             normal = attribute.normalise(value)
         except ValidationError:
             continue
         match |= Q(attribute_values__attribute=attribute, attribute_values__value__iexact=normal)
     return match
+
+
+@extend_schema_serializer(
+    examples=[OpenApiExample("A review", value={"rating": 5, "text": "Every answer step by step."}, request_only=True)]
+)
+class ProductReviewSerializer(serializers.ModelSerializer):
+    """A buyer's review as the product page shows it: "Verified buyer", never a name (many buyers are minors)."""
+
+    rating = serializers.IntegerField(min_value=1, max_value=5)
+
+    class Meta:
+        model = Review
+        fields = ["rating", "text", "status", "created"]
+        read_only_fields = ["status", "created"]
+
+
+class ProductReviewsSerializer(serializers.Serializer):
+    average = serializers.DecimalField(max_digits=2, decimal_places=1, allow_null=True, help_text="of the approved")
+    count = serializers.IntegerField()
+    can_review = serializers.BooleanField(help_text="the signed-in user may write one (a delivered order of it)")
+    results = ProductReviewSerializer(many=True, help_text="the approved reviews, newest first")
+
+
+NOT_A_BUYER = "Reviews are from buyers whose order of this book has been delivered, one each."
 
 
 class ProductViewSet(viewsets.ReadOnlyModelViewSet):
@@ -236,11 +276,64 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
     ordering_fields = ["title", "price"]  # only these: any other name is ignored
 
     def get_queryset(self):
-        products = super().get_queryset()
-        for name, value in self.request.query_params.items():
-            if name.startswith("attr_"):
-                products = products.filter(attribute_match(name.removeprefix("attr_"), value))
+        products, params = super().get_queryset(), self.request.query_params.items()
+        wanted = [(name.removeprefix("attr_"), value) for name, value in params if name.startswith("attr_")]
+        if len(wanted) > ATTRIBUTE_FILTERS:
+            raise exceptions.ValidationError({"detail": f"At most {ATTRIBUTE_FILTERS} attr_ filters."})
+        by_code = {}
+        for attribute in Attribute.objects.filter(code__in=[code for code, _ in wanted]):
+            by_code.setdefault(attribute.code, []).append(attribute)
+        for code, value in wanted:
+            products = products.filter(attribute_match(by_code.get(code, []), value))
         return products.distinct()  # a product on two shelves of one branch is listed once
+
+    @extend_schema(methods=["GET"], responses=ProductReviewsSerializer)
+    @extend_schema(methods=["POST"], request=ProductReviewSerializer, responses={201: ProductReviewSerializer})
+    @action(detail=True, methods=["get", "post"], filter_backends=[], pagination_class=None)
+    def reviews(self, request, **kwargs):
+        """GET: the approved reviews, their average, and whether the signed-in user may write one. POST (signed in,
+        email confirmed): a review from a buyer whose order of the product was delivered, one each; it shows once staff
+        have read it (`status` pending). At most 5 an hour per client address, the website's included."""
+        product = self.get_object()
+        if request.method == "GET":
+            approved = product.reviews.filter(status=Review.Status.APPROVED)
+            data = approved.aggregate(average=Avg("rating"), count=Count("pk"))
+            data.update(can_review=Review.can_review(request.user, product), results=approved)
+            return Response(ProductReviewsSerializer(data).data)
+        if not VerifiedEmail().has_permission(request, self):
+            self.permission_denied(request, message=VerifiedEmail.message)
+        if over_limit(request, "review", 5, 3600):
+            raise exceptions.Throttled(wait=3600)
+        serializer = ProductReviewSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        if not Review.can_review(request.user, product):
+            raise exceptions.PermissionDenied(NOT_A_BUYER)
+        try:
+            with transaction.atomic():
+                serializer.save(product=product, user=request.user)
+        except IntegrityError as error:  # sent twice at once
+            raise exceptions.PermissionDenied(NOT_A_BUYER) from error
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @extend_schema(request=None, responses=DetailSerializer)
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="stock-alert",
+        filter_backends=[],
+        permission_classes=[permissions.IsAuthenticated],
+    )
+    def stock_alert(self, request, **kwargs):
+        """ "Email me when it is back", for a product out of stock: one email, to the signed-in user's own address (an
+        address given by a visitor could be anyone's: L3). The answer is the same whatever the stock. At most 10 an
+        hour per client address, the website's included."""
+        product = self.get_object()
+        if over_limit(request, "stock-alert", 10, 3600):
+            raise exceptions.Throttled(wait=3600)
+        email = request.user.email
+        if product.available < 1:
+            StockAlert.objects.get_or_create(email=email.lower(), product=product)
+        return Response({"detail": f"We will email {email} once, when {product} is back in stock."})
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -341,6 +434,11 @@ class CartSerializer(serializers.Serializer):
         return cart.coupon.code if cart and cart.coupon else None
 
 
+@extend_schema_serializer(
+    examples=[
+        OpenApiExample("Two copies", value={"product": "physics-sample-papers", "quantity": 2}, request_only=True)
+    ]
+)
 class CartItemSerializer(serializers.Serializer):
     product = serializers.SlugRelatedField(slug_field="slug", queryset=Product.objects.filter(is_active=True))
     quantity = serializers.IntegerField(min_value=1, max_value=CartItem.MAX_QUANTITY, default=1)
@@ -605,6 +703,9 @@ class OrderSerializer(OrderBriefSerializer):
         return self.context["request"].build_absolute_uri(order.get_absolute_url())
 
 
+@extend_schema_serializer(
+    examples=[OpenApiExample("Pay online", value={"address": 12, "payment_method": "razorpay"}, request_only=True)]
+)
 class CheckoutSerializer(serializers.Serializer):
     address = serializers.IntegerField(help_text="the id of one of the customer's addresses (addresses/)")
     payment_method = serializers.ChoiceField(choices=services.CUSTOMER_METHOD_CHOICES)
@@ -630,6 +731,15 @@ class PaymentStartSerializer(serializers.Serializer):
     test_mode = serializers.BooleanField()
 
 
+@extend_schema_serializer(
+    examples=[
+        OpenApiExample(
+            "The SDK's success callback",
+            value={"razorpay_order_id": "order_N5…", "razorpay_payment_id": "pay_N5…", "razorpay_signature": "9c1f…"},
+            request_only=True,
+        )
+    ]
+)
 class PaymentConfirmSerializer(serializers.Serializer):
     """What the SDK's success callback returns."""
 
@@ -638,6 +748,11 @@ class PaymentConfirmSerializer(serializers.Serializer):
     razorpay_signature = serializers.CharField()
 
 
+@extend_schema_serializer(
+    examples=[
+        OpenApiExample("A guest", value={"number": "EL-2026-000123", "email": "guest@example.com"}, request_only=True)
+    ]
+)
 class LookupSerializer(serializers.Serializer):
     number = serializers.CharField(max_length=20)
     email = serializers.EmailField(help_text="the address the order was placed with")
@@ -786,3 +901,116 @@ class OrderViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.Ge
             raise exceptions.Throttled(wait=3600)
         services.email_order_link(number, email)
         return Response({"detail": services.LINK_SENT})
+
+
+class OrderLinkSerializer(OrderSerializer):
+    """The order by the link in its emails, as the website's page shows it: its PDFs on the website's links (no account
+    needed), never payable here (`can_pay` false); cancelling stays on the website's page (`web_url`)."""
+
+    WEB_PDF = {"api:order-invoice": "shop:order_link_invoice", "api:order-credit-note": "shop:order_link_credit_note"}
+
+    def pdf_url(self, name, order, **kwargs):
+        path = django_reverse(self.WEB_PDF[name], kwargs={"token": order.token, **kwargs})
+        return self.context["request"].build_absolute_uri(path)
+
+    def get_can_pay(self, order) -> bool:
+        return False
+
+    def get_web_url(self, order) -> str:
+        return self.context["request"].build_absolute_uri(order.get_link_url())
+
+
+class OrderLinkView(generics.RetrieveAPIView):
+    """An order by the secret of the link in its emails (`https://<domain>/orders/t/<token>/`), without signing in, as
+    the website's page: status, books, address, tracking, refunds and the PDFs; read-only. Any order's link works,
+    a guest's or an account's. Never kept by a browser or a proxy."""
+
+    permission_classes = [permissions.AllowAny]
+    authentication_classes = []
+    serializer_class = OrderLinkSerializer
+    lookup_field = "token"
+    queryset = Order.objects.select_related("invoice").prefetch_related(
+        Prefetch("items", queryset=OrderItem.objects.select_related("product")), "shipments", "refunds"
+    )
+
+    def retrieve(self, request, *args, **kwargs):
+        response = super().retrieve(request, *args, **kwargs)
+        add_never_cache_headers(response)
+        return response
+
+
+class QuoteItemSerializer(serializers.Serializer):
+    product = serializers.SlugField(help_text="a product's slug (products/)")
+    quantity = serializers.IntegerField(min_value=1, max_value=10000)
+
+
+@extend_schema_serializer(
+    examples=[
+        OpenApiExample(
+            "A school",
+            request_only=True,
+            value={
+                "school": "Cotton Collegiate H.S. School",
+                "contact_name": "Anita Das",
+                "email": "office@example.com",
+                "phone": "98640 12345",
+                "gstin": "",
+                "delivery_pin": "781001",
+                "note": "Before 15 November, please.",
+                "items": [{"product": "physics-sample-papers", "quantity": 120}],
+                "turnstile": "0.Zx…",
+            },
+        )
+    ]
+)
+class QuoteSerializer(serializers.Serializer):
+    """The website's school-order form (/shop/school-orders/), which validates it: the same rules and the bot check."""
+
+    school = serializers.CharField(max_length=200)
+    contact_name = serializers.CharField(max_length=120)
+    email = serializers.EmailField()
+    phone = serializers.CharField(max_length=30, help_text="a 10-digit Indian mobile number, as typed")
+    gstin = serializers.CharField(max_length=20, required=False, allow_blank=True)
+    delivery_pin = serializers.CharField(max_length=7)
+    note = serializers.CharField(max_length=1000, required=False, allow_blank=True)
+    items = QuoteItemSerializer(many=True, allow_empty=False)
+    turnstile = serializers.CharField(
+        required=False, allow_blank=True, write_only=True, help_text="Turnstile's token while the bot check is on"
+    )
+
+    def validate(self, attrs):
+        slugs = [item["product"] for item in attrs["items"]]
+        products = {product.slug: product for product in Product.objects.filter(is_active=True, slug__in=slugs)}
+        if missing := [slug for slug in slugs if slug not in products]:
+            raise serializers.ValidationError({"items": [f"Not on sale: {', '.join(missing)}."]})
+        copies = {f"copies_{products[item['product']].pk}": item["quantity"] for item in attrs["items"]}
+        self.form = QuoteRequestForm(data={**attrs, **copies})
+        if not self.form.is_valid():
+            errors = {"non_field_errors" if name == "__all__" else name: e for name, e in self.form.errors.items()}
+            raise serializers.ValidationError(errors)
+        return attrs
+
+
+class QuoteSentSerializer(serializers.Serializer):
+    number = serializers.CharField(help_text="QT-2026-00012")
+    detail = serializers.CharField()
+
+
+class QuoteView(generics.GenericAPIView):
+    """School and bulk orders, the website's form: the buyer's details and the copies of each book; staff are emailed
+    and send a quotation. Turnstile's token (`turnstile`) while the bot check is on (config/). At most 5 an hour per
+    client address, the website's included."""
+
+    permission_classes = [permissions.AllowAny]
+    authentication_classes = []
+    serializer_class = QuoteSerializer
+
+    @extend_schema(responses={201: QuoteSentSerializer})
+    def post(self, request, *args, **kwargs):
+        if over_limit(request, "quote", 5, 3600):
+            raise exceptions.Throttled(wait=3600)
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        quote = serializer.form.save()
+        services.email_staff(f"Quotation asked for: {quote.school}", "shop/email/quote_request.txt", {"quote": quote})
+        return Response({"number": quote.number, "detail": QUOTE_SENT}, status=status.HTTP_201_CREATED)

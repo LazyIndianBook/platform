@@ -2,18 +2,105 @@
 
 The REST API behind the ExamLeaf app: the public catalogue (boards, subjects, books, papers), the solutions (for a
 signed-in student with a confirmed email address, as on the website, or for everyone while the site's solutions are
-open), the student's record of attempts, the account with its data rights (Download my data, Delete my account), and
-the shop (books, cart, addresses, orders, payment with Razorpay's mobile SDK, invoices). Code: `api/` (`shop.py` for
-the shop), settings: `examleaf/api_settings.py`, URLs: `api/urls.py` under `examleaf/api_urls.py`.
+open), the student's record of attempts, the account with its data rights (Download my data, Delete my account), the
+shop (books, categories, collections, cart, addresses, orders, payment with Razorpay's mobile SDK, invoices) and the
+revision course (chapters, clips, quiz, flash cards, a pass plan, book codes). Code: `api/` (`auth.py`, `views.py`,
+`serializers.py`, `shop.py`, `learn.py`), settings: `examleaf/api_settings.py`, URLs: `api/urls.py` under
+`examleaf/api_urls.py`.
+
+## Contents
+
+[Conventions](#conventions) · [Endpoints](#endpoints) · [Authentication](#authentication-from-the-app) ·
+[Frontend integration guide](#frontend-integration-guide) · [Profile and data rights](#profile-and-data-rights) ·
+[Catalogue and solutions](#catalogue-and-solutions) · [Attempts](#attempts) · [Store catalogue](#store-catalogue) ·
+[Shop](#shop) · [Revision course](#revision-course) · [Site](#site-configuration-and-legal-pages) · [Lists](#lists) ·
+[Errors](#errors) · [Rate limits](#rate-limits) · [CORS](#cors) · [Versioning](#versioning) · [Operations](#operations)
+
+## Conventions
 
 - Base URL: `https://<domain>/api/v1/`. Every path ends with `/`; a path without it answers 404 (no redirect).
-- JSON only, both ways (`Content-Type: application/json`); anything else gets 415 (request) or 406 (`Accept`).
-- Dates are ISO 8601, times with the Indian offset (`2026-10-15T10:00:00+05:30`); marks are decimal strings (`"52.5"`);
-  money is a decimal string in rupees (`"299.00"`), except Razorpay's own `amount`, an integer in paise.
+- JSON only, both ways (`Content-Type: application/json`); anything else gets 415 (request) or 406 (`Accept`). The PDF
+  downloads of the shop answer whatever `Accept` says.
+- Dates are ISO 8601, times with the Indian offset (`2026-10-15T10:00:00+05:30`), except `due` (revise-again) and
+  `access_expiration` and `refresh_expiration` (token refresh), which are UTC and end in `Z`; marks and other decimals
+  are strings (`"52.5"`); money is a decimal string in rupees (`"299.00"`), except Razorpay's own `amount`, an integer
+  in paise.
 - OpenAPI 3 schema: `/api/schema/` (YAML; `?format=json` for JSON). Swagger UI: `/api/docs/`. Redoc: `/api/redoc/`.
   Both pages are served by the site itself (drf-spectacular-sidecar), so the Content-Security-Policy stays strict.
 - `X-Request-ID`: send a UUID and it comes back in the response and in the server's log lines (otherwise the server
   makes one). Quote it when reporting a problem.
+- Examples use `curl`; the answer follows as `# status body`. `$ACCESS` is an access token.
+
+## Endpoints
+
+Paths are under `/api/v1/` except those of the last two rows. Who: **anyone** needs no sign-in; **signed in** needs a
+valid access token (or the website's session); **confirmed** also needs a confirmed email address. **Shop open**: while
+`SHOP_OPEN=0` (before the launch) changing the cart, checkout and payment answer 403
+`{"detail": "The shop opens soon."}` except for staff; reading stays possible.
+
+| Method | Path | Who | What |
+|---|---|---|---|
+| POST | `auth/registration/` | anyone | sign up; emails a code |
+| POST | `auth/registration/verify-email/` | anyone | the emailed code; answers with the tokens and the profile |
+| POST | `auth/phone/code/` | anyone | log in by SMS: asks for a code for a confirmed mobile number |
+| POST | `auth/phone/confirm/` | anyone | the texted code; answers with the tokens and the profile |
+| POST | `auth/login/` | anyone | email and password; answers with the tokens and the profile |
+| POST | `auth/logout/` | anyone | the refresh token, refused from then on |
+| POST | `auth/token/refresh/` | anyone | new access and refresh tokens |
+| POST | `auth/token/verify/` | anyone | check a token |
+| POST | `auth/password/reset/` | anyone | forgotten password: emails a link |
+| POST | `auth/password/reset/confirm/` | anyone | the new password, with the `uid` and `token` of that link |
+| POST | `auth/password/change/` | signed in | a new password |
+| POST | `auth/exchange/` | an allauth.headless app session (`X-Session-Token`) | the JWT pair and the profile, after a log-in through `/_allauth/app/v1/` |
+| GET PUT PATCH | `me/` | signed in | the profile; changeable: `full_name`, `phone`, `class_level`, `board`, `district`, `sms_updates` |
+| POST | `me/export/` | signed in | Download my data (`password`): everything kept about the user |
+| POST DELETE | `me/deletion/` | signed in | Delete my account (`password`), due in 7 days; DELETE cancels |
+| GET POST | `me/teacher/` | confirmed | teacher access: its status; ask for it (once) |
+| POST | `me/parent-consent/` | signed in | the parent's link to confirm, again (while `consent_pending`) |
+| GET | `boards/`, `boards/<id>/` | anyone | the boards |
+| GET | `subjects/` (`?board=`), `subjects/<id>/` | anyone | the subjects |
+| GET | `books/`, `books/<slug>/` | anyone | books with their published papers |
+| GET | `papers/`, `papers/<code>/` | anyone | papers: marks, time, instructions, `web_url`, `solutions_url` |
+| GET | `papers/<code>/solutions/` | confirmed (anyone while solutions are open) | the questions in order, each with its solution |
+| GET | `qr/<code>/` | anyone | a scanned code (any case) to its paper and `solutions_url` |
+| GET POST | `attempts/` | confirmed | the student's own record; POST saves an attempt |
+| GET PUT PATCH DELETE | `attempts/<id>/` | confirmed | one attempt |
+| GET | `products/`, `products/<slug>/` | anyone | the books and courses on sale: prices, pictures, a bundle's books, categories, attributes |
+| GET | `categories/`, `categories/<slug>/` | anyone | the shop's category tree, in tree order |
+| GET | `collections/`, `collections/<slug>/` | anyone | hand-picked lists of products, in the staff's order |
+| GET | `cart/` | confirmed | the account's cart (`?state=` adds the shipping) |
+| POST | `cart/items/` | confirmed, shop open | add copies of a book |
+| PUT PATCH DELETE | `cart/items/<slug>/` | confirmed, shop open | set the copies; remove the book |
+| POST DELETE | `cart/coupon/` | confirmed, shop open | use a coupon code; remove it |
+| GET POST | `addresses/` | confirmed | saved delivery addresses |
+| GET PUT PATCH DELETE | `addresses/<id>/` | confirmed | one address |
+| GET POST | `orders/` | confirmed; POST also shop open | the customer's orders; POST is the checkout |
+| GET | `orders/<number>/` | confirmed | one order |
+| POST | `orders/<number>/cancel/` | confirmed | cancel (an online payment is refunded); also while the shop is closed |
+| POST | `orders/<number>/payment/`, `orders/<number>/payment/confirm/` | confirmed, shop open | the options for Razorpay's SDK; its answer, checked |
+| GET | `orders/<number>/invoice/`, `orders/<number>/credit-notes/<id>/` | confirmed | PDF files, not JSON |
+| POST | `orders/lookup/` | anyone | a guest's order link, emailed by number and email |
+| GET | `orders/t/<token>/` | anyone with the link | the order of the link in its emails, read-only |
+| GET POST | `products/<slug>/reviews/` | anyone; POST confirmed buyers | approved reviews and their average; write one |
+| POST | `products/<slug>/stock-alert/` | signed in | "email me when it is back", to the account's address |
+| POST | `quotes/` | anyone | a school's or bookseller's request for a quotation |
+| GET | `learn/chapters/` (`?subject=`), `learn/chapters/<id>/` | anyone (flags for the signed-in user) | the revision course: chapters with Board marks, previous-year questions, what is open; one chapter with its clips |
+| GET | `learn/clips/<id>/` | confirmed | a clip's HLS and poster links (10 minutes), notes, questions |
+| POST | `learn/clips/<id>/progress/` | confirmed | how far it was watched |
+| GET | `learn/quiz/?chapter=` | confirmed | one-mark quiz items (no answers) |
+| POST | `learn/quiz/<id>/attempt/` | confirmed | an answer, checked on the server |
+| GET | `learn/flash-cards/?chapter=` | confirmed | flash cards |
+| POST | `learn/flash-cards/<id>/review/` | confirmed | "I knew it" or not |
+| GET | `learn/plan/` | confirmed | the day-by-day pass plan and the minimum to pass |
+| GET | `learn/revise-again/` | confirmed | wrong answers due again |
+| POST | `learn/redeem/` | confirmed | a book code |
+| GET | `learn/entitlements/` | confirmed | what the user may watch |
+| GET PUT PATCH | `learn/settings/` | confirmed | exam date, minutes a day, the daily reminder |
+| POST DELETE | `devices/` | signed in | the app's Firebase installation ID, for the reminder |
+| GET | `config/` | anyone | what the server has switched on: log-in methods, Turnstile, the shop, consent mode |
+| GET | `pages/`, `pages/<slug>/` | anyone | the legal pages: Markdown, the website's HTML, version, last change |
+| GET | `/api/schema/`, `/api/docs/`, `/api/redoc/` | anyone | the OpenAPI schema, Swagger UI, Redoc |
+| any | `/_allauth/app/v1/…`, `/_allauth/browser/v1/…` | anyone; the account and authenticator endpoints need the signed-in session | allauth.headless: log-in, sign-up, codes, passkeys, Google, second step, email, phone, password; its OpenAPI file `/_allauth/openapi.json` (and `.yaml`) |
 
 ## Authentication from the app
 
@@ -51,9 +138,12 @@ curl -X POST https://examleaf.in/api/v1/auth/registration/verify-email/ -H 'Cont
 # 200 {"access": "eyJ...", "refresh": "eyJ...", "user": {"id": 7, "email": "rahul@example.com", "roles": ["STUDENT"], ...}}
 ```
 
-**Log in** with email and password. If the address is not confirmed yet, the answer is
-`400 {"detail": "E-mail is not verified.", "verification_token": "..."}` and a new code is emailed (at most one every
-three minutes): show the code screen and continue with verify-email.
+**Log in** with email and password. A member of staff, and an account that has an authenticator app or a passkey, get no
+tokens from `auth/login/`, `auth/phone/confirm/` or `auth/registration/verify-email/`: 403
+`{"detail": "This account logs in with a second step (an authenticator app or a passkey): log in through /_allauth/app/v1/, which asks for it, then POST auth/exchange/ for the tokens."}`
+(see the Frontend integration guide). If the address is not confirmed yet, the answer is
+`400 {"detail": "E-mail is not verified.", "verification_token": "..."}` and a new code is emailed (at most one every 10
+seconds, 5 an hour and 10 a day per address; over that, 429): show the code screen and continue with verify-email.
 
 ```sh
 curl -X POST https://examleaf.in/api/v1/auth/login/ -H 'Content-Type: application/json' \
@@ -61,30 +151,34 @@ curl -X POST https://examleaf.in/api/v1/auth/login/ -H 'Content-Type: applicatio
 # 200 {"access": "eyJ...", "refresh": "eyJ...", "user": {...}}
 ```
 
-**Log in with a code by SMS** (no password), for a student who confirmed a mobile number on the website (My account:
-the app cannot add or confirm one). `auth/phone/code/` takes the number as people type it ("98640 12345",
-"+91 98640 12345", "098640 12345") and texts a 6-digit code if an account confirmed that number; every other Indian
-mobile number gets the same answer and no SMS. `auth/phone/confirm/` takes the token and the code and answers as a
-log-in. A wrong code is `400 {"code": [...]}`; three wrong codes, or 3 minutes, end the token:
-`400 {"verification_token": ["Expired. Ask for a new code."]}`. At most 3 codes an hour per number (however it is
-typed) and 5 a minute per client address: 429 above it. `404` while the server sends no SMS (`SMS_BACKEND` not set).
+**Log in with a code by SMS** (no password), for a student who confirmed a mobile number (on the website's My account,
+or through allauth.headless's `account/phone`: see the [Frontend integration guide](#frontend-integration-guide)).
+`auth/phone/code/` takes the number as people type it ("98640 12345", "+91 98640 12345", "098640 12345") and texts a
+6-digit code if an account confirmed that number; every other Indian mobile number gets the same answer and no SMS.
+`auth/phone/confirm/` takes the token and the code and answers as a log-in. A wrong code is `400 {"code": [...]}`; three
+wrong codes, or 3 minutes, end the token: `400 {"verification_token": ["Expired. Ask for a new code."]}`. At most 3
+codes an hour per number (however it is typed) and 30 an hour per client address: 429 above it. A number that has had
+its SMS for the hour or the day gets 429
+`{"detail": "Too many messages have gone to this number: try again tomorrow, or log in with your email."}` (see "Rate
+limits"). `404` while SMS are off (`SMS_BACKEND=console` on a server).
 
 ```sh
 curl -X POST https://examleaf.in/api/v1/auth/phone/code/ -H 'Content-Type: application/json' -d '{"phone": "98640 12345"}'
-# 200 {"detail": "Code sent by SMS.", "verification_token": "x8f2k1..."}
+# 200 {"detail": "If this number is on an account, we have texted it a code.", "verification_token": "x8f2k1..."}
 # 400 {"phone": ["Enter a 10-digit Indian mobile number."]}
 curl -X POST https://examleaf.in/api/v1/auth/phone/confirm/ -H 'Content-Type: application/json' \
   -d '{"verification_token": "x8f2k1...", "code": "483920"}'
 # 200 {"access": "eyJ...", "refresh": "eyJ...", "user": {...}}
 ```
 
-**Refresh** when a request answers 401 with `"code": "token_not_valid"` (or a little before the access token runs
-out). Every refresh returns a **new refresh token** and the old one stops working: always store the new one, and
-send one refresh at a time.
+**Refresh** when a request answers 401 with `"code": "token_not_valid"` (or a little before the access token runs out).
+A 401 with `"code": "password_changed"` or `"user_inactive"` means that the password was changed or the account closed:
+log in again, do not refresh. Every refresh returns a **new refresh token** and the old one stops working: always store
+the new one, and send one refresh at a time.
 
 ```sh
 curl -X POST https://examleaf.in/api/v1/auth/token/refresh/ -H 'Content-Type: application/json' -d '{"refresh": "eyJ..."}'
-# 200 {"access": "eyJ...", "refresh": "eyJ..."}      401: log in again
+# 200 {"access": "eyJ...", "refresh": "eyJ...", "access_expiration": "...Z", "refresh_expiration": "...Z"}      401: log in again
 ```
 
 **Log out** by sending the refresh token, which is then refused for good; forget both tokens in the app.
@@ -94,7 +188,7 @@ curl -X POST https://examleaf.in/api/v1/auth/logout/ -H 'Content-Type: applicati
 ```
 
 **Passwords.** `auth/password/change/` (signed in: `old_password`, `new_password1`, `new_password2`) and a password
-reset ends every token of the account, on every device: log in again afterwards. The owner is told by email, as on the
+reset end every token of the account, on every device: log in again afterwards. The owner is told by email, as on the
 website. `auth/password/reset/` (`email`) always answers 200 and emails a link to the website's "new password" page,
 `<SITE_URL>/account/password/reset/key/<uid>-<token>/`; an app that opens such links itself can post `uid`, `token`,
 `new_password1` and `new_password2` to `auth/password/reset/confirm/`. When an account deletion is carried out
@@ -103,45 +197,126 @@ website. `auth/password/reset/` (`email`) always answers 200 and emails a link t
 Log-in, log-out, sign-up, verify-email, the SMS code endpoints and password reset ignore the `Authorization` header,
 so an expired token left in it does no harm there.
 
-## Endpoints
+## Frontend integration guide
 
-| Method and path | Who | What |
+Any frontend (the app, or a web frontend of its own) can do what the website's pages do through these endpoints and
+allauth.headless; the server stays the authority for every rule (prices, stock, payments, permissions, what is open)
+and frontends show what it answers.
+
+**Feature flags.** Read `GET config/` at start-up: log-in methods, Google, passkeys, SMS, Turnstile's site key, the
+shop, cash on delivery, whether the solutions need an account, the parent's consent mode, the support contacts. Never
+hard-code one.
+
+**Authentication boundaries.**
+
+| Client | Signs in through | Then calls API v1 with |
 |---|---|---|
-| `POST auth/registration/` | anyone | sign up; emails a code |
-| `POST auth/registration/verify-email/` | anyone | the code; returns the tokens |
-| `POST auth/login/`, `auth/logout/` | anyone | tokens in, refresh token out |
-| `POST auth/token/refresh/`, `auth/token/verify/` | anyone | new tokens; check a token |
-| `POST auth/password/reset/`, `auth/password/reset/confirm/` | anyone | forgotten password |
-| `POST auth/password/change/` | signed in | new password |
-| `GET PUT PATCH me/` | signed in | profile; changeable: `full_name`, `phone`, `class_level`, `board`, `district` |
-| `POST me/export/` | signed in | Download my data (`password`): everything kept about the user |
-| `POST DELETE me/deletion/` | signed in | Delete my account (`password`), due in 7 days; DELETE cancels |
-| `GET boards/`, `boards/<id>/`, `subjects/` (`?board=`), `subjects/<id>/` | anyone | the boards and subjects |
-| `GET books/`, `books/<slug>/` | anyone | books with their papers (`code`, `tier`, `number`, `title`, `is_published`) |
-| `GET papers/`, `papers/<code>/` | anyone | paper details: marks, time, instructions, `web_url`, `solutions_url` |
-| `GET papers/<code>/solutions/` | signed in, email confirmed (anyone while solutions are open) | the questions in order, each with its solution |
-| `GET qr/<code>/` | anyone | a scanned code (any case) to its paper and `solutions_url` |
-| `GET POST attempts/`, `GET PUT PATCH DELETE attempts/<id>/` | signed in, email confirmed | the student's own record |
-| `GET products/`, `products/<slug>/` | anyone | the books on sale: prices, pictures, a bundle's books, `in_stock` |
-| `GET cart/`, `POST cart/items/`, `PUT PATCH DELETE cart/items/<slug>/`, `POST DELETE cart/coupon/` | signed in, email confirmed | the account's cart (`?state=` adds the shipping) |
-| `GET POST addresses/`, `GET PUT PATCH DELETE addresses/<id>/` | signed in, email confirmed | saved delivery addresses |
-| `GET POST orders/`, `GET orders/<number>/` | signed in, email confirmed | the customer's orders; POST is the checkout |
-| `POST orders/<number>/cancel/` | signed in, email confirmed | cancel (an online payment is refunded) |
-| `POST orders/<number>/payment/`, `orders/<number>/payment/confirm/` | signed in, email confirmed | options for Razorpay's SDK; its answer, checked |
-| `GET orders/<number>/invoice/`, `orders/<number>/credit-notes/<id>/` | signed in, email confirmed | PDF files, not JSON |
-| `POST orders/lookup/` | anyone | a guest's order by number and email |
-| `GET learn/chapters/` (`?subject=`), `learn/chapters/<id>/` | anyone (flags for the signed-in user) | the revision course: chapters with Board marks, previous-year questions, what is open; one chapter with its clips |
-| `GET learn/clips/<id>/`, `POST learn/clips/<id>/progress/` | signed in, email confirmed | a clip's HLS and poster links (10 minutes), notes, questions; how far it was watched |
-| `GET learn/quiz/?chapter=`, `POST learn/quiz/<id>/attempt/` | signed in, email confirmed | one-mark quiz items (no answers); an answer, checked |
-| `GET learn/flash-cards/?chapter=`, `POST learn/flash-cards/<id>/review/` | signed in, email confirmed | flash cards; "I knew it" or not |
-| `GET learn/plan/`, `GET learn/revise-again/` | signed in, email confirmed | the day-by-day pass plan and the minimum to pass; wrong answers due again |
-| `POST learn/redeem/`, `GET learn/entitlements/` | signed in, email confirmed | a book code; what the user may watch |
-| `GET PUT PATCH learn/settings/` | signed in, email confirmed | exam date, minutes a day, the daily reminder |
-| `POST DELETE devices/` | signed in | the app's Firebase installation ID, for the reminder |
+| The website's pages, or a web frontend on the same origin | `/_allauth/browser/v1/` (the session cookie; `X-CSRFToken` from the `csrftoken` cookie on every POST, PUT, PATCH, DELETE) | the same cookie and header |
+| The app | `/_allauth/app/v1/` (header `X-Session-Token`), then `POST auth/exchange/` once signed in | `Authorization: Bearer <access>`, refreshed with `auth/token/refresh/` |
+| The app, legacy-compatible | `auth/login/`, `auth/registration/`, `auth/phone/…` (dj-rest-auth, kept working) | the same Bearer tokens |
 
-Only published papers appear, as on the website. The email address, date of birth and parent details are read-only
-here (the email changes on the website, after a code; the others decide the consent rules). The QR codes in the books
-encode `<SITE_URL>/s/<CODE>/`: the app reads the code from the scanned address and asks `qr/<code>/`.
+The browser client is same-origin only: `/_allauth/` answers no CORS (only `/api/` does, for Bearer tokens). The app
+client sends no cookie and no CSRF token. allauth.headless's own OpenAPI file is `/_allauth/openapi.json` (or `.yaml`);
+its answers are `{"status": 200, "data": {...}, "meta": {...}}`, and a `401` lists in `data.flows` what comes next
+(`"is_pending": true` marks the step due). Keep any `meta.session_token` an answer carries (it changes at log-in) and
+send it as `X-Session-Token`; `410` means the session is gone: start again. `auth/exchange/` answers like a log-in
+(`access`, `refresh`, `user`); without a finished log-in (a code or a second step still due), 401; a member of staff
+without an authenticator app, 403. The session stays (allauth's account endpoints need it): at log-out
+`DELETE /_allauth/app/v1/auth/session` and `POST auth/logout/` with the refresh token.
+
+**Flows** (the app's paths; the browser's are the same under `/_allauth/browser/v1/`, with the cookie instead):
+
+1. *Code by email:* `POST auth/code/request {"email"}` → 401, `login_by_code` pending →
+   `POST auth/code/confirm {"code"}` → 200 → `POST /api/v1/auth/exchange/`.
+2. *Phone* (`config/` `sms`): the same with `{"phone": "98640 12345"}` (any Indian format) and the texted code. Adding or
+   changing the number (signed in): `POST account/phone {"phone"}` → 202 and an SMS → `POST auth/phone/verify {"code"}`.
+   A number is never taken at sign-up.
+3. *Passkey:* `GET auth/webauthn/login` → `data.request_options` (the challenge; relying party: the host of SITE_URL,
+   `examleaf.in`) → the platform's passkey API → `POST auth/webauthn/login {"credential"}` → exchange. Passkeys are added
+   through `account/authenticators/webauthn`; an app needs its association with the domain (Android `assetlinks.json`,
+   iOS web credentials).
+4. *Google* (`config/` `google`): the app posts a Google ID token issued for the server's client ID,
+   `POST auth/provider/token {"provider": "google", "process": "login", "token": {"client_id": "<GOOGLE_CLIENT_ID>", "id_token": "..."}}`;
+   a browser posts the form `auth/provider/redirect` (`provider`, `callback_url`, `process`). A new student then gets
+   `provider_signup` pending: `POST auth/provider/signup` with the student details (6).
+5. *Second step* (staff, and anyone with an authenticator app): `POST auth/login {"email", "password"}` → 401,
+   `mfa_authenticate` pending → `POST auth/2fa/authenticate {"code"}` (the app's code or a recovery code) → exchange.
+   Staff without an app set one up first: `GET account/authenticators/totp` (404 with `meta.secret`, `meta.totp_url`)
+   → `POST account/authenticators/totp {"code"}`.
+6. *Sign-up:* `POST auth/signup` with `email`, `password`, `full_name`, `class_level`, `board` (an id), `date_of_birth`,
+   `consent` and, under 18, `parent_name` and `parent_contact`: the website's rules, consent record and emails → 401,
+   `verify_email` pending → `POST auth/email/verify {"key": "<the emailed code>"}` → exchange.
+
+**Turnstile.** While `config/` gives a site key, send the widget's token as `turnstile` with `auth/signup`,
+`auth/code/request` and `quotes/` (400 without it). The legacy endpoints do not ask for it.
+
+**Errors, pages, limits.** API v1 errors are DRF's ([Errors](#errors)); allauth.headless's are
+`{"status": 400, "errors": [{"message", "code", "param"}]}`. Lists are paginated ([Lists](#lists)). Over a limit the
+answer is 429. DRF's limits, checkout, order lookup, reviews, back-in-stock alerts, quotations and the parent's link
+send `Retry-After` in seconds; allauth's (codes, password reset, wrong passwords) answer `{"detail": "..."}` without it,
+and allauth.headless answers `{"status": 429}` without it ([Rate limits](#rate-limits)).
+
+**Caching.** The public catalogue (boards, subjects, books, papers, categories, collections, legal pages) is cached on
+the server for 15 minutes and answers `Cache-Control: max-age=900`, to signed-in callers too; `config/` answers
+`public, max-age=300`; open solutions answer `public, max-age=300` to a visitor who is not signed in and `private` to a
+signed-in user. The other answers of a signed-in session, `orders/t/<token>/` and everything under `/_allauth/` answer
+`Cache-Control: max-age=0, no-cache, no-store, must-revalidate, private`: never keep them.
+
+## Profile and data rights
+
+`me/` is the signed-in user: `id`, `email`, `full_name`, `phone`, `class_level`, `board` (an id), `district`,
+`date_of_birth`, `parent_name`, `parent_contact`, `consent_at`, `roles` (a list of names, `["STUDENT"]`) and
+`deletion_due_at` (set while a deletion waits). Changeable: `full_name`, `phone`, `class_level`, `board`, `district`
+(and `sms_updates`, below).
+The email address, date of birth and parent details are read-only here (the email changes after a code, on the website
+or through allauth.headless's `account/email`; the others decide the consent rules).
+
+`me/export/` is Download my data: the website's JSON file (profile, addresses, attempts, orders, consent records, the
+course's data and the rest; README.md "Personal data"). `me/deletion/` is Delete my account. Both ask for the password,
+as the website does; five wrong ones in an hour end the user's refresh tokens and answer 429 (see "Rate limits").
+
+```sh
+curl -X POST https://examleaf.in/api/v1/me/deletion/ -H "Authorization: Bearer $ACCESS" -H 'Content-Type: application/json' \
+  -d '{"password": "Brahmaputra-2027"}'
+# 201 {"status": "pending", "requested_at": "...", "due_at": "..."}      200 with the same body if one already waits
+curl -X DELETE https://examleaf.in/api/v1/me/deletion/ -H "Authorization: Bearer $ACCESS"
+# 204      404 {"detail": "No account deletion is waiting."}
+```
+
+`me/` also has `consent_pending` (true while a parent's confirmation is awaited, `PARENTAL_CONSENT_MODE=verified`),
+`login_phone` and `login_phone_verified` (the mobile number for log-in by SMS; read-only here, it changes through
+allauth.headless's `account/phone` with a code) and `sms_updates` (order updates by SMS, changeable; true only with a
+confirmed number: `400 {"sms_updates": ["Confirm a mobile number first: the updates go to it."]}`).
+
+**Teacher access** (`me/teacher/`, as on My account): `POST` asks for it once with `school_name`, `district` and
+`subject` (201; again: 400); `GET` answers the request with `verified` and `verified_at` (404 until asked). Staff check
+with the school; a verified teacher gets the `TEACHER` role in `me/`.
+
+**A parent's link, again** (`me/parent-consent/`, while `consent_pending`): `parent_contact`, the one on record or a
+corrected email address or mobile number (not the student's own), gets a new link to confirm; one link per ten minutes
+(429), 404 when no consent is awaited.
+
+```sh
+curl -X POST https://examleaf.in/api/v1/me/teacher/ -H "Authorization: Bearer $ACCESS" -H 'Content-Type: application/json' \
+  -d '{"school_name": "Cotton Collegiate H.S. School", "district": "Kamrup Metro", "subject": "Physics"}'
+# 201 {"school_name": "Cotton Collegiate H.S. School", ..., "verified": false, "verified_at": null, "created": "..."}
+curl -X POST https://examleaf.in/api/v1/me/parent-consent/ -H "Authorization: Bearer $ACCESS" \
+  -H 'Content-Type: application/json' -d '{"parent_contact": "anita@example.com"}'
+# 200 {"detail": "We have sent anita@example.com a link to confirm."}      429 within ten minutes of the last one
+```
+
+## Catalogue and solutions
+
+Only published papers appear, as on the website. The QR codes in the books encode `<SITE_URL>/s/<CODE>/`: the app reads
+the code from the scanned address and asks `qr/<code>/`.
+
+- **Boards**: `id`, `name`, `short_name`, `state`. **Subjects**: `id`, `name`, `code` (`PHY`, `CHE`, `MAT`, `BIO`),
+  `board` (its short name), `class_level` (a number).
+- **Books**: `id`, `slug`, `title`, `edition`, `cover` (a picture URL, or null), `subject`, and `papers` (`code`, `tier`,
+  `number`, `title`, `is_published`).
+- **Papers** and **`qr/<code>/`**: `code`, `tier` (`E`, `M`, `H`), `number`, `title`, `book` (its slug), `subject` (its
+  code), `full_marks`, `pass_marks`, `time_text`, `header` (the instruction lines and allotment tables), `is_published`,
+  `web_url` (the page the QR code opens) and `solutions_url`.
 
 ```sh
 curl https://examleaf.in/api/v1/books/physics-2027/
@@ -149,105 +324,149 @@ curl 'https://examleaf.in/api/v1/papers/?subject=1&tier=H&ordering=number'
 curl -H "Authorization: Bearer $ACCESS" https://examleaf.in/api/v1/papers/PHY-E01/solutions/
 ```
 
-A question of `solutions/` (Markdown with `$…$` maths; `solution.html` is rendered by the site, with the maths left
-for KaTeX; `is_alternative` marks the OR choice of the question before it; `number` is what the book prints):
+`papers/<code>/solutions/` answers a plain list (not paginated) of the paper's questions in order. A question has
+Markdown with `$…$` maths; `solution.html` is rendered by the site, with the maths left for KaTeX; `is_alternative`
+marks the OR choice of the question before it; `number` is what the book prints:
 
-```json
-{"order": 17, "label": "2(b)", "number": "2(b)", "part_label": "",
- "group_label": "2. Answer any ten questions from the following as directed : `2×10=20`", "is_alternative": false,
- "text": "Give reason why the potential energy of a system of two positive point charges is always positive.",
- "table": "", "options": [], "marks": "2",
- "solution": {"markdown": "| Step | Marks |\n|---|---|\n| The charges repel each other, ... | 1 |\n...",
-              "html": "<div class=\"table-scroll\"><table class=\"steps\">..."}}
+```sh
+curl -H "Authorization: Bearer $ACCESS" https://examleaf.in/api/v1/papers/PHY-E01/solutions/
+# 200 [{"order": 17, "label": "2(b)", "number": "2(b)", "part_label": "",
+#       "group_label": "2. Answer any ten questions from the following as directed : `2×10=20`", "is_alternative": false,
+#       "text": "Give reason why the potential energy of a system of two positive point charges is always positive.",
+#       "table": "", "options": [], "marks": "2",
+#       "solution": {"markdown": "| Step | Marks |\n|---|---|\n| The charges repel each other, ... | 1 |\n...",
+#                    "html": "<div class=\"table-scroll\"><table class=\"steps\">..."}}, ...]
 ```
 
-Attempts: `paper` (code, published papers only), `marks_obtained` (0 to the paper's full marks, halves allowed),
-`date` (default today), `time_taken_minutes`, `notes`; the answer adds `subject`, `tier`, `full_marks`, `percent`.
-The paper of an attempt cannot change. Filters: `?subject=<id>&tier=E|M|H`.
+When the site's solutions are open (`SOLUTIONS_REQUIRE_LOGIN=0`), `papers/<code>/solutions/` answers everyone
+(`Cache-Control: public, max-age=300` for a visitor who is not signed in, `private` for a signed-in user); saving
+attempts still needs an account. Otherwise it needs a signed-in student with a confirmed email address (401 without a
+token; 403 `{"detail": "Confirm your email address first."}` with an unconfirmed one).
+
+## Attempts
+
+A student's own marks for a published paper: `paper` (its code), `marks_obtained` (0 to the paper's full marks, one
+decimal place), `date` (default today), `time_taken_minutes`, `notes` (at most 2,000 characters); the answer adds `id`,
+`subject`, `tier`, `full_marks`, `percent`, `created` and `modified`. The paper of an attempt cannot change. Filters:
+`?subject=<id>&tier=E|M|H`; ordering by `date`, `marks_obtained`, `created`. At most 20 new attempts of one paper a day
+(400 with the reason). While a parent's consent is awaited (`PARENTAL_CONSENT_MODE=verified`, a student under 18) no
+attempt can be saved (400). Teachers cannot see their students' attempts yet: nothing links a student to a teacher (see
+the TODO in `api/views.py`).
 
 ```sh
 curl -X POST https://examleaf.in/api/v1/attempts/ -H "Authorization: Bearer $ACCESS" -H 'Content-Type: application/json' \
   -d '{"paper": "PHY-E01", "marks_obtained": "52.5", "time_taken_minutes": 170, "notes": "revise optics"}'
-curl -X POST https://examleaf.in/api/v1/me/deletion/ -H "Authorization: Bearer $ACCESS" -H 'Content-Type: application/json' \
-  -d '{"password": "Brahmaputra-2027"}'
-# 201 {"status": "pending", "requested_at": "...", "due_at": "..."}
+# 201 {"id": 31, "paper": "PHY-E01", "subject": "PHY", "tier": "E", "date": "2026-10-08", "marks_obtained": "52.5",
+#      "full_marks": 70, "percent": 75, "time_taken_minutes": 170, "notes": "revise optics", ...}
+# 400 {"marks_obtained": ["Enter marks from 0 to 70."]}
 ```
 
-Teachers cannot see their students' attempts yet: nothing links a student to a teacher (see the TODO in `api/views.py`).
+## Store catalogue
 
-When the site's solutions are open (`SOLUTIONS_REQUIRE_LOGIN=0`), `papers/<code>/solutions/` answers everyone, with
-`Cache-Control: public, max-age=300`; saving attempts still needs an account.
+The shop's catalogue, public and read-only. The picture URLs are the uploaded originals: on the media domain
+(`https://media.examleaf.in/products/…`, cached a year, a new upload gets a new name) once the site uses its buckets,
+under `https://examleaf.in/shop/media/products/…` before; the website shows AVIF and WebP sizes of them.
+
+- **Products**: `slug`, `title`, `kind` (`sample-papers`, `solutions`, `bundle`, `digital`), `subject` (code), `book` (its
+  slug in `books/`), `isbn`, `pages`, `description` (Markdown), `cover` and `images` (`url`, `alt`), `mrp`, `price`,
+  `saving_percent`, `gst_rate`, `hsn_code`, `in_stock` (whether copies can be ordered; a bundle needs each of its
+  books; always true for a digital product and for a bundle of digital products only; the number of copies is not given), `bundle_items` (`product`, `title`,
+  `quantity`), `categories` (slugs), `attributes` (`code`, `name`, `value`: what the product's type defines, e.g.
+  edition year, language, board), `related` (slugs of the products shown with it) and `web_url`.
+- **Categories**: `slug`, `name`, `description` (Markdown), `depth` (1 at the top), `parent` (the slug of the category
+  above it, null at the top), `web_url`.
+- **Collections**: `slug`, `name`, `description`, `products` (slugs, in order; products off sale left out), `web_url`.
+
+Filters on `products/`: `?kind=`, `?subject=<id>`, `?search=` (title), `?ordering=title|price`, `?category=<slug>` (its
+sub-categories included), `?collection=<slug>`, and `?attr_<code>=<value>` for any attribute, several combined with AND
+(at most five in a request: 400). Values are compared as the attribute keeps them: numbers as numbers
+(`?attr_year=2027.0` finds 2027), text and choices in any case, yes/no attributes as `yes`/`no` (`true`, `false`, `1`,
+`0` too). An unknown attribute, or a value of the wrong kind, finds nothing. Categories and collections are cached for
+15 minutes, as the books are.
+
+```sh
+curl 'https://examleaf.in/api/v1/products/?category=class-12&attr_language=Assamese&attr_year=2027'
+curl https://examleaf.in/api/v1/categories/
+# 200 {"count": 4, ..., "results": [{"slug": "books", "name": "Books", "description": "", "depth": 1, "parent": null,
+#      "web_url": "https://examleaf.in/shop/category/books/"}, {"slug": "class-12", ..., "depth": 2, "parent": "books"}, ...]}
+```
+
+**Digital products** (`kind` `digital`: a revision pass, alone or in a bundle with a book) have no stock and ship
+nothing: the cart keeps one of each (quantity 1); a cart of digital products only (a bundle of digital products counts
+too) has no shipping; cash on delivery answers 400
+(`"Cash on delivery is for printed books: please pay online for the course."`). Once paid, the course opens in the
+buyer's account (`GET learn/entitlements/`) and an order of digital products only reads "delivered" at once; cancelling
+it, or a full refund, closes the course again.
 
 ## Shop
 
-The website's shop, for the app: the same prices, stock, coupons, shipping rates, emails and order pages. Customer
-data (cart, addresses, orders) needs a signed-in account with a confirmed email address; another customer's address
-or order answers 404. Visitors without an account shop on the website: the API keeps no session carts. While the shop
-is closed (`SHOP_OPEN=0`, before the launch) changing the cart, checkout and payment answer 403
-`{"detail": "The shop opens soon."}` except for staff; products, the cart, addresses and orders can still be read.
+The website's shop, for the app: the same prices, stock, coupons, offers, shipping rates, emails and order pages.
+Customer data (cart, addresses, orders) needs a signed-in account with a confirmed email address; another customer's
+address or order answers 404. Visitors without an account shop on the website: the API keeps no session carts. While the
+shop is closed (`SHOP_OPEN=0`) the endpoints that change the cart, check out or pay answer 403 (see "Endpoints");
+products, the cart, addresses and orders can still be read, and an order can still be cancelled.
 
-**Products** (public): `slug`, `title`, `kind` (`sample-papers`, `solutions`, `bundle`), `subject` (code), `book` (its
-slug in `books/`), `isbn`, `pages`, `description` (Markdown), `cover` and `images` (`url`, `alt`), `mrp`, `price`,
-`saving_percent`, `gst_rate`, `hsn_code`, `in_stock` (whether copies can be ordered; a bundle needs each of its
-books; the number of copies is not given), `bundle_items` (`product`, `title`, `quantity`), `web_url`. Filters:
-`?kind=`, `?subject=<id>`, `?search=`. The picture URLs are the uploaded originals: on the media domain
-(`https://media.examleaf.in/products/…`, cached a year, a new upload gets a new name) once the site uses its buckets,
-under `https://examleaf.in/shop/media/products/…` before; the website shows AVIF and WebP sizes of them (phase 5 B).
-
-**Cart**: every answer is the whole cart at today's prices: `items` (`product`, `title`, `price`, `quantity`,
-`total`), `count`, `coupon`, `coupon_problem` (why the coupon does not apply now), `subtotal`, `discount`, `shipping`
+**Cart**: every answer is the whole cart at today's prices: `items` (`product`, `title`, `price`, `quantity`, `total`),
+`count`, `coupon`, `coupon_problem` (why the coupon does not apply now), `subtotal`, `savings`, `discount`, `shipping`
 (null unless `?state=AS`, a two-letter state code, is given), `total`, `problems` (books off sale or short of stock,
-which stop the checkout).
+which stop the checkout). `savings` is a list of `{"label", "amount"}`: the coupon ("Coupon WELCOME10") and each
+automatic offer by its name ("Board 2027 offer"), and "Discount" on orders made by staff; `discount` is their sum.
+Offers apply by themselves, after the coupon (no code to type), as soon as they apply.
 
 ```sh
 curl -X POST https://examleaf.in/api/v1/cart/items/ -H "Authorization: Bearer $ACCESS" -H 'Content-Type: application/json' \
-  -d '{"product": "physics-sample-papers", "quantity": 2}'    # adds 2 copies (at most 20 of a book)
-curl -X PATCH https://examleaf.in/api/v1/cart/items/physics-sample-papers/ -H "Authorization: Bearer $ACCESS" \
+  -d '{"product": "physics-sample-papers-2027", "quantity": 2}'    # adds 2 copies (at most 20 of a book)
+curl -X PATCH https://examleaf.in/api/v1/cart/items/physics-sample-papers-2027/ -H "Authorization: Bearer $ACCESS" \
   -H 'Content-Type: application/json' -d '{"quantity": 1}'   # sets the copies; 0, or DELETE, removes the book
 curl -X POST 'https://examleaf.in/api/v1/cart/coupon/?state=AS' -H "Authorization: Bearer $ACCESS" \
   -H 'Content-Type: application/json' -d '{"code": "welcome10"}'
-# 200 {"items": [...], "count": 1, "coupon": "WELCOME10", "coupon_problem": null, "subtotal": "299.00",
-#      "discount": "29.90", "shipping": "40.00", "total": "309.10", "problems": []}
+# 200 {"items": [...], "count": 3, "coupon": "WELCOME10", "coupon_problem": null, "subtotal": "897.00",
+#      "savings": [{"label": "Coupon WELCOME10", "amount": "89.70"}, {"label": "Board 2027 offer", "amount": "80.73"}],
+#      "discount": "170.43", "shipping": "0.00", "total": "726.57", "problems": []}
 # 400 {"code": ["This code cannot be applied to this cart."]}   whatever the reason: unknown, expired, used up, too
 #     small a cart; 10 codes an hour per user (429 after)
 ```
 
-**Addresses**: `name`, `phone` (a 10-digit Indian mobile number; answered as `+919864012345`), `line1`, `line2`,
-`city`, `district`, `state` (two-letter code, `AS`), `pin` (6 digits), `is_default` (one address at most). Once the
-India Post directory is loaded, the state must be the PIN code's (`400 {"state": ["PIN code 781001 is in Assam."]}`;
-PIN codes missing from the directory are not checked; phase 5 B). To fill in the district and state from a PIN code,
-the app may call the website's `GET https://examleaf.in/shop/pin/781001/` (no log-in; `200 {"pin": "781001", "states":
-["AS"], "districts": ["Kamrup Metro"]}`, 404 when unknown; cached a day); a few PIN codes lie in two states.
+**Addresses**: `id`, `name`, `phone` (a 10-digit Indian mobile number; answered as `+919864012345`), `line1`, `line2`,
+`city`, `district`, `state` (two-letter code, `AS`), `pin` (6 digits), `is_default` (one address at most), `created`,
+`modified`. Once the India Post directory is loaded, the state must be the PIN code's
+(`400 {"state": ["PIN code 781001 is in Assam."]}`; PIN codes missing from the directory are not checked). To fill in
+the district and state from a PIN code, the app may call the website's `GET https://examleaf.in/shop/pin/781001/` (no
+log-in; `200 {"pin": "781001", "states": ["AS"], "districts": ["Kamrup Metro"]}`, 404 when unknown; cached a day by
+browsers); a few PIN codes lie in two states.
 
 **Checkout**: `POST orders/` with `address` (an id from `addresses/`) and `payment_method` (`razorpay`, or `cod` when
 the site offers cash on delivery) makes an order from the cart; the address is copied into it. An online order is
 `pending` until paid; a cash-on-delivery order is placed at once and the cart emptied. Cash on delivery is for orders
 worth at most ₹1,500 (`SHOP_COD_MAX_VALUE`, shipping included), and at most two such orders on their way per account.
 Refusals (empty cart, sold out, a coupon that no longer applies, cash on delivery not offered or over those limits) are
-`400 {"non_field_errors": ["..."]}`. Checkouts are limited to 10 per 10 minutes per client address, the website's
-included (429).
+`400 {"non_field_errors": ["..."]}`; an account whose parent has not yet
+confirmed it (`PARENTAL_CONSENT_MODE=verified`) gets 403. Checkouts are limited to 10 per 10 minutes per client
+address, the website's included (429).
 
-An order: `number`, `created`, `placed_at`, `status` (`pending`, `paid`, `packed`, `shipped`, `delivered`,
-`cancelled`, `refunded`), `status_label` (as the website shows it: "awaiting payment", "placed (pay on delivery)",
-...), `payment_method`, `email`, `shipping_address`, `items` (`product`, `title`, `hsn_code`, `gst_rate`, `mrp`,
-`unit_price`, `quantity`, `line_total`), `subtotal`, `discount`, `shipping_fee`, `total`, `coupon_code`, `timeline`
-(`status`, `at`), `shipments` (`courier`, `tracking_number`, `tracking_url`, `shipped_at`, `delivered_at`), `refunds`
-(`amount`, `status`, `reason`, `created`, `processed_at`), `can_cancel`, `can_pay`, `invoice` (`number`, `created`,
-`url`; null until the PDF exists), `credit_notes` (the same with `amount`), `web_url`. The list (`orders/`, newest
-first, `?status=`) gives `number`, `created`, `placed_at`, `status`, `status_label`, `payment_method`, `total` and the
-`items` as text.
+An order: `number`, `created`, `placed_at`, `status` (`pending`, `paid`, `packed`, `shipped`, `delivered`, `cancelled`,
+`refunded`), `status_label` (as the website shows it: "awaiting payment", "placed (pay on delivery)", ...),
+`payment_method` (`razorpay`, `cod`, or `offline`: a bank transfer or UPI payment that staff recorded, for school
+orders), `total`, `items` (`product`, `title`, `hsn_code`, `gst_rate`, `mrp`, `unit_price`, `quantity`, `line_total`),
+`email`, `shipping_address` (an object of strings: `name`, `phone` as `+919864012345`, `line1`, `line2`, `city`,
+`district`, `state`, `pin`), `subtotal`, `savings` (as in the cart), `discount`, `shipping_fee`, `coupon_code`,
+`timeline` (`status`, the label the website shows: "ordered", then "paid", "packed", …; `at`), `shipments` (`courier`,
+`tracking_number`, `tracking_url`, `shipped_at`, `delivered_at`), `refunds` (`amount`, `status`, `reason`, `created`,
+`processed_at`), `can_cancel`, `can_pay`, `invoice` (`number`, `created`, `url`; null until the PDF exists),
+`credit_notes` (the same with `amount`), `web_url`. The list (`orders/`, newest first, `?status=`) gives only `number`,
+`created`, `placed_at`, `status`, `status_label`, `payment_method`, `total` and the `items` as text.
 
 **Paying** with Razorpay's mobile SDK (Android `com.razorpay:checkout`, iOS `razorpay-pod`):
 
 1. `POST orders/<number>/payment/` returns the SDK's options: `key`, `order_id` (Razorpay's order, the same on every
    call), `amount` (paise), `currency`, `name`, `description`, `prefill`, `notes`, `theme`, and `test_mode`. 503:
    Razorpay cannot be reached, try again later; 400 when the order is not waiting for an online payment (`can_pay`
-   is false).
+   is false) or its coupon has been used up meanwhile.
 2. Open the SDK with those options. On success it returns `razorpay_order_id`, `razorpay_payment_id` and
    `razorpay_signature`: `POST` them to `orders/<number>/payment/confirm/`. The answer is the order, `paid` (and the
    cart is emptied), or still `pending` for a few minutes when Razorpay could not be asked: Razorpay's webhook to the
-   site completes it, so read `orders/<number>/` again. A wrong signature: `400 {"non_field_errors": ["We could not
-   confirm this payment. ..."]}`.
+   site completes it, so read `orders/<number>/` again. A wrong signature:
+   `400 {"non_field_errors": ["We could not confirm this payment. ..."]}`.
 3. When the SDK reports a failure or the customer closes it, send nothing: the order stays pending and can be paid
    again from step 1. Online orders left unpaid for two days are cancelled.
 
@@ -260,6 +479,7 @@ curl -X POST https://examleaf.in/api/v1/orders/EL-2026-000123/payment/ -H "Autho
 curl -X POST https://examleaf.in/api/v1/orders/EL-2026-000123/payment/confirm/ -H "Authorization: Bearer $ACCESS" \
   -H 'Content-Type: application/json' \
   -d '{"razorpay_order_id": "order_N5...", "razorpay_payment_id": "pay_N5...", "razorpay_signature": "9c1f..."}'
+# 200 {"number": "EL-2026-000123", "status": "paid", ...}
 ```
 
 **Cancel**: `POST orders/<number>/cancel/` while `can_cancel` (pending or paid); an online payment is refunded in full
@@ -273,14 +493,44 @@ file exists. Each refund of an invoiced order gets a credit note.
 returns the order. If a guest order has that number and email address, the link to it is emailed to that address;
 the answer is always `200 {"detail": "If an order matches, we have emailed you a link."}`. Orders of accounts are
 left out (their owners sign in). Limited to 10 an hour per client address (`API_THROTTLE_ORDER_LOOKUP`), and to 10 an
-hour per email address and per order number from any address; 429 also while the limits cannot be counted. (Changed
-in phase 4: the lookup used to return the order, or 404.)
+hour per email address and per order number from any address; 429 also while the limits cannot be counted.
 
-**The order's link** is on the website, not in the API: every email about an order carries
-`https://examleaf.in/orders/t/<token>/`, a secret of 22 characters per order. It shows the order without signing in
-(status, books, address, tracking, refunds; no payment), its PDFs (`/orders/t/<token>/invoice/`,
-`/orders/t/<token>/credit-notes/<id>/`) and, while the order is pending or paid, a cancel button
-(`POST /orders/t/<token>/cancel/`). The API does not give the token.
+**The order's link**: every email about an order carries `https://examleaf.in/orders/t/<token>/`, a secret of 22
+characters per order. The website's page shows the order without signing in (status, books, address, tracking,
+refunds; no payment), its PDFs (`/orders/t/<token>/invoice/`, `/orders/t/<token>/credit-notes/<id>/`) and, while the
+order is pending or paid, a cancel button (`POST /orders/t/<token>/cancel/`). An app that opens such links reads the
+same through `GET orders/t/<token>/` (no sign-in; an `Authorization` header is ignored): the order as `orders/<number>/`
+gives it, with `invoice.url` and `credit_notes[].url` on the website's link (no account needed), `can_pay` false and
+`web_url` the link itself; read-only (cancelling stays on the website's page), never cached. The API never gives a
+token: it comes from the email.
+
+**Reviews** (`products/<slug>/reviews/`): `GET` (anyone) answers the approved reviews, newest first (`rating`, `text`,
+`status`, `created`; "Verified buyer", never a name), their `average` (one decimal, null without reviews), `count` and
+`can_review` (the signed-in user may write one). `POST` (confirmed) with `rating` (1 to 5) and `text` (optional, 1,000
+characters at most): only from a buyer whose order of the product was delivered, one each (403 otherwise); it shows
+once staff have read it (`"status": "pending"`).
+
+**Back in stock** (`products/<slug>/stock-alert/`): `POST` (signed in, no body) asks for one email, to the account's own
+address, when a product out of stock has copies again; the answer is the same whatever the stock. A visitor's address is
+not taken: it could be anyone's.
+
+**School and bulk orders** (`quotes/`, the website's form at `/shop/school-orders/`): `school`, `contact_name`, `email`,
+`phone` (a 10-digit Indian mobile number), `gstin` (optional), `delivery_pin`, `note` (optional) and `items`
+(`[{"product": "<slug>", "quantity": 120}]`, books on sale: courses, and bundles with a course, are left out), with
+`turnstile` while the bot check is on. Staff are emailed and send a quotation; the answer is
+`201 {"number": "QT-2026-00012", "detail": "Thank you: we will email you a quotation."}`.
+
+```sh
+curl https://examleaf.in/api/v1/products/physics-sample-papers-2027/reviews/
+# 200 {"average": "4.5", "count": 2, "can_review": false, "results": [{"rating": 5, "text": "...", "status": "approved", ...}]}
+curl -X POST https://examleaf.in/api/v1/products/physics-sample-papers-2027/reviews/ -H "Authorization: Bearer $ACCESS" \
+  -H 'Content-Type: application/json' -d '{"rating": 5, "text": "Every answer step by step."}'
+# 201 {"rating": 5, "text": "Every answer step by step.", "status": "pending", "created": "..."}
+curl -X POST https://examleaf.in/api/v1/products/chemistry-sample-papers-2027/stock-alert/ -H "Authorization: Bearer $ACCESS"
+# 200 {"detail": "We will email rahul@example.com once, when ExamLeaf Chemistry Sample Papers 2027 is back in stock."}
+curl https://examleaf.in/api/v1/orders/t/q3k9w0d8m2xYz7AbC1dE4f/
+# 200 {"number": "EL-2026-000123", "status": "shipped", ..., "can_pay": false, "web_url": "https://examleaf.in/orders/t/q3k9.../"}
+```
 
 ## Revision course
 
@@ -288,11 +538,20 @@ Short revision videos per chapter (10 to 15 minutes in clips of a few minutes: c
 question patterns, common mistakes, previous-year questions), flash cards and a one-mark quiz, for the app only. Code:
 `learn/` (models, ffmpeg, plan) and `api/learn.py`.
 
-**What is open.** A subject opens with the code printed in the book (`learn/redeem/`), by buying the course in the
-shop (a digital product, opened when paid) or by a staff grant; each lasts a year (`LEARN_ACCESS_DAYS`) unless staff
-set otherwise. Free for everyone signed in (`LEARN_FREE_PREVIEW`): the first clip of every revision and the flash
-cards of each subject's first chapter. Anything else answers `403 {"detail": "Unlock this subject with the code
-printed in your book."}`; chapters and clip lists say beforehand (`entitled`, `free`, `locked`, `free_cards`).
+**What is open.** A subject opens with the code printed in the book (`learn/redeem/`), by buying the course in the shop
+(a digital product, opened when paid) or by a staff grant; a code or a purchase lasts a year (`LEARN_ACCESS_DAYS`), a
+grant until the day staff set (or with no end), and staff accounts have every subject open. Free for everyone signed in
+(`LEARN_FREE_PREVIEW`): the first clip of every revision, any clip an editor marked as a free preview, and the flash
+cards of each subject's first chapter; the quiz is not free. These endpoints need a confirmed email address, not only a
+sign-in. While a parent's confirmation is awaited (`consent_pending`, `PARENTAL_CONSENT_MODE=verified`, a student under
+18) everything that saves something (progress, quiz answers, card reviews, a book code, settings, a device) answers 403
+`{"detail": "A parent or guardian has not confirmed this account yet."}`; reading, and taking a device off, still work.
+Anything else answers `403 {"detail": "Unlock this subject with the code printed in your book."}`; chapters and clip
+lists say beforehand (`entitled`, `free`, `locked`, `free_cards`).
+
+`learn/chapters/` lists the chapters that have a published revision (public; `entitled`, `free_cards` and `progress`
+describe the signed-in user, and `progress` is null signed out); `?subject=<id>` narrows them, `?ordering=` sorts by
+`number`, `weight` or `frequency`.
 
 ```sh
 curl 'https://examleaf.in/api/v1/learn/chapters/?subject=1'
@@ -309,29 +568,32 @@ curl https://examleaf.in/api/v1/learn/chapters/3/
 number of questions the Board asked on it in past papers. `kind`: `concept`, `trick`, `shortcut`, `formula`,
 `pattern`, `mistake`, `pyq`.
 
-**Playing a clip.** `learn/clips/<id>/` gives `hls_url` (the HLS master playlist: 480×854 at about 700 kbps and
-720×1280 at about 1.5 Mbps, AAC sound, 4-second segments; give it to ExoPlayer/Media3 or AVPlayer as it is),
-`poster_url` and `expires_at`. The links work for 10 minutes; a clip started within them plays to the end. On a 403
-from a link, ask for the clip again. Also `notes` and `notes_html` (Markdown and HTML, `$…$` maths for KaTeX),
-`questions` (the Board-style questions it prepares for: `paper`, `label`, `web_url`), `seconds_watched`, `completed`.
-Send progress now and then and at the end; `completed` once true stays true.
+**Playing a clip.** `learn/clips/<id>/` gives `hls_url` (the HLS master playlist: 480×854 at about 700 kbps and 720×1280
+at about 1.5 Mbps, AAC sound, 4-second segments; give it to ExoPlayer/Media3 or AVPlayer as it is), `poster_url` and
+`expires_at`. The links work for 10 minutes (with `LEARN_PUBLIC_VIDEO=1` and a bucket they never expire and `expires_at`
+is null); a clip started within them plays to the end. On a 403 from a link, ask for the clip again. Also `notes` and
+`notes_html` (Markdown and HTML, `$…$` maths for KaTeX), `questions` (the Board-style questions it prepares for:
+`paper`, `label`, `web_url`), `seconds_watched`, `completed`. Send progress now and then and at the end; `completed`
+once true stays true.
 
 ```sh
 curl https://examleaf.in/api/v1/learn/clips/41/ -H "Authorization: Bearer $ACCESS"
-# 200 {"id": 41, "chapter": 3, "title": "...", "kind": "concept", "duration": 140, "notes": "...", "notes_html": "...",
-#      "questions": [{"paper": "PHY-E01", "label": "1(a)", "web_url": "https://examleaf.in/s/PHY-E01/"}],
-#      "hls_url": "https://examleaf.in/learn/hls/MTI:1v2Lk.../master.m3u8", "poster_url": ".../poster.jpg",
+# 200 {"id": 41, "chapter": 3, "order": 1, "title": "...", "kind": "concept", "duration": 140, "notes": "...",
+#      "notes_html": "...", "questions": [{"paper": "PHY-E01", "label": "1(a)", "web_url": "https://examleaf.in/s/PHY-E01/"}],
+#      "hls_url": "https://examleaf.in/learn/hls/NDE:1v2Lk.../master.m3u8", "poster_url": ".../poster.jpg",
 #      "expires_at": "2026-10-15T10:10:00+05:30", "seconds_watched": 0, "completed": false}
 curl -X POST https://examleaf.in/api/v1/learn/clips/41/progress/ -H "Authorization: Bearer $ACCESS" \
   -H 'Content-Type: application/json' -d '{"seconds_watched": 140, "completed": true}'
 # 200 {"seconds_watched": 140, "completed": true}
 ```
 
-**Quiz and flash cards** are listed per chapter (`?chapter=<id>` is required: 400 without it). Quiz items carry
-`kind` (`mcq`, `true_false`, `fill_blank`), `text`, `text_html` and `options` (multiple choice), never the answer. An
-answer is checked on the server: the option's number from 1, `true`/`false`, or the word(s) of the blank (case,
-punctuation and a leading "the" do not matter). Every answer is kept for the plan and revise-again. Flash cards:
-`front`, `back` (and their `_html`); after turning one over, send whether the student knew it.
+**Quiz and flash cards** are listed per chapter (`?chapter=<id>` is required: 400 without it). Quiz items carry `id`,
+`chapter`, `kind` (`mcq`, `true_false`, `fill_blank`), `text`, `text_html` and `options` (multiple choice), never the
+answer. An answer is checked on the server: the option's number from 1, `true`/`false`, or the word(s) of the blank
+(case, punctuation and a leading "a", "an" or "the" do not matter). Every answer is kept for the plan and revise-again;
+an account keeps at most 1,000 quiz answers and 1,000 card reviews a day (429
+`{"detail": "That is a day's worth of answers: carry on tomorrow."}`). Flash cards: `id`, `chapter`, `order`, `front`,
+`back` (and their `_html`); after turning one over, send whether the student knew it.
 
 ```sh
 curl 'https://examleaf.in/api/v1/learn/quiz/?chapter=3' -H "Authorization: Bearer $ACCESS"
@@ -343,13 +605,13 @@ curl -X POST https://examleaf.in/api/v1/learn/flash-cards/12/review/ -H "Authori
 # 201
 ```
 
-**The pass plan** (`learn/plan/`): from today until the day before the exam, the clips not yet watched, packed into
-days of the student's minutes (a clip longer than that gets a day of its own). Chapters come by priority: Board marks
-× previous-year questions (at least 1) × (1 + the share of the student's wrong quiz answers in the chapter), so weak
+**The pass plan** (`learn/plan/`): from today until the day before the exam, the clips not yet watched, packed into days
+of the student's minutes (a clip longer than that gets a day of its own). Chapters come by priority: Board marks ×
+previous-year questions (at least 1) × (1 + the share of the student's wrong quiz answers in the chapter), so weak
 chapters move up. Parameters: `exam_date` and `minutes` (10 to 300) override the saved settings; `subject` (repeat it
-for several) defaults to the subjects open to the student, or all. `not_scheduled` lists chapters that did not fit.
-`minimum_to_pass` gives per subject the chapters with the most marks per minute of video until they are worth 1.5
-times the pass marks, each with its clips of the quickest kinds (`pyq`, `formula`, `shortcut`, `trick`). 400 without
+for several) defaults to the subjects open to the student, or all. `not_scheduled` lists the ids of chapters that did
+not fit. `minimum_to_pass` gives per subject the chapters with the most marks per minute of video until they are worth
+1.5 times the pass marks, each with its clips of the quickest kinds (`pyq`, `formula`, `shortcut`, `trick`). 400 without
 an exam date after today.
 
 ```sh
@@ -363,33 +625,66 @@ curl 'https://examleaf.in/api/v1/learn/plan/?exam_date=2027-02-20&minutes=30' -H
 #          "clips": [...]}, ...]}]}
 ```
 
-**Revise again** (`learn/revise-again/`): the quiz items and flash cards the student got wrong, due again 1 day after
-the wrong answer, then 3 and 7 days after each right one (a wrong one starts again at 1 day); after the third right
-answer they leave the list. Each has the item's fields and `due`, the longest waiting first:
-`{"quiz_items": [...], "flash_cards": [...]}`.
+**Revise again** (`learn/revise-again/`): the quiz items and flash cards (of published revisions the student may still
+open) the student got wrong, due again 1 day after the wrong answer, then 3 and 7 days after each right one (a wrong one
+starts again at 1 day); after the third right answer they leave the list. Each has the item's fields and `due` (UTC,
+ending in `Z`), the longest waiting first: `{"quiz_items": [...], "flash_cards": [...]}`.
 
-**Book codes** (`learn/redeem/`, `{"code": "7KQM-3XPA-9TRW"}`, any case, spaces or dashes) answer the entitlement
-(`id`, `subject`, `subject_name`, `source`, `valid_until`, `created`; `subject` null: every subject). A code works
-once; the same student sending it again gets the same answer. Refusals are `400 {"code": ["..."]}` (not 12 letters
-and digits, not valid, used already). At most 5 tries an hour per user and per client address (429).
-`learn/entitlements/` lists them all, expired ones too.
+**Book codes** (`learn/redeem/`, `{"code": "7KQM-3XPA-9TRW"}`, any case, spaces or dashes) answer the entitlement (`id`,
+`subject`, `subject_name`, `source` (`book_code`, `purchase` or `grant`), `valid_until` (a date; null: no end),
+`created`; `subject` null: every subject). A code works once; the same student sending it again gets the same answer.
+Refusals are `400 {"code": ["..."]}` (not 12 letters and digits, not valid, used already). At most 5 tries an hour per
+user and per client address (429). `learn/entitlements/` lists them all, newest first, expired ones too.
 
 **Settings** (`learn/settings/`): `exam_date` (null until set), `minutes_per_day` (10 to 300, default 30),
 `reminders` (the daily reminder at 18:00, off until turned on).
 
-**Devices** (`devices/`): after log-in, and whenever Firebase gives a new one, `POST {"token": "<Firebase installation
-ID>", "platform": "android"}` (or `ios`): the ID of `FirebaseInstallations.getId()`, which Firebase Cloud Messaging
-addresses messages to (firebase-admin 7.7 sends to it; the old registration tokens are deprecated). An ID registered
-by another account moves to this one (a shared phone). At log-out `DELETE` with `{"token": "..."}` (204). Reminders
-are sent only while the server has `FCM_SERVICE_ACCOUNT_JSON`; IDs Firebase no longer knows are dropped.
+**Devices** (`devices/`): after log-in, and whenever Firebase gives a new one,
+`POST {"token": "<Firebase installation ID>", "platform": "android"}` (or `ios`): the ID of
+`FirebaseInstallations.getId()`, which Firebase Cloud Messaging addresses messages to (firebase-admin 7.7 sends to it;
+the old registration tokens are deprecated). An ID registered by another account moves to this one (a shared phone); an
+account keeps its 5 newest devices. At log-out `DELETE` with `{"token": "..."}` (204). Reminders are sent only while the
+server has `FCM_SERVICE_ACCOUNT_JSON`; IDs Firebase no longer knows are dropped.
+
+## Site configuration and legal pages
+
+`config/` (anyone, `Cache-Control: public, max-age=300`) is what this server has switched on, for frontends to follow
+rather than hard-code: `auth` (`login_methods`, `login_by_code`, `sms`, `google`, `passkeys`, `turnstile_site_key`,
+null while the bot check is off), `shop` (`open`, `cod`, `cod_max_value`, `currency`), `solutions_require_login`,
+`parental_consent` (`declared` or `verified`) and `support` (`email`, `phone`: null while the seller's details still
+hold a `[placeholder]`). allauth.headless's `/_allauth/<client>/v1/config` adds allauth's own view (the providers, the
+authenticator types).
+
+`pages/` and `pages/<slug>/` (anyone; cached 15 minutes) are the legal and policy pages, `privacy`, `terms`, `refunds`,
+`shipping` and `contact`: `slug`, `title`, `version` (consent records keep the privacy notice's), `updated` (the last
+change, as in the page's history), `markdown`, `html` (the website's rendering; a `[placeholder]` still to fill in is
+marked `<mark class="placeholder">`) and `web_url`.
+
+```sh
+curl https://examleaf.in/api/v1/config/
+# 200 {"auth": {"login_methods": ["email", "phone"], "login_by_code": true, "sms": true, "google": true, "passkeys": true,
+#      "turnstile_site_key": "0x4AAAAAAA..."}, "shop": {"open": true, "cod": true, "cod_max_value": "1500.00",
+#      "currency": "INR"}, "solutions_require_login": true, "parental_consent": "verified",
+#      "support": {"email": "help@examleaf.in", "phone": null}}
+curl https://examleaf.in/api/v1/pages/privacy/
+# 200 {"slug": "privacy", "title": "Privacy Policy", "version": "2026-10-08", "updated": "...", "markdown": "...",
+#      "html": "<h2>...", "web_url": "https://examleaf.in/privacy/"}
+```
 
 ## Lists
 
-Lists are paginated: `{"count": 120, "next": "<url>", "previous": null, "results": [...]}`, 50 a page,
-`?page=2`, `?page_size=` up to 200. `?search=` searches books (title, subject) and papers (code, title);
-`?ordering=` sorts (`-number` for descending): papers by `code`, `number`, `tier`; books by `id`, `title`; attempts by
-`date`, `marks_obtained`, `created`. Filters: papers `?book=<slug>&subject=<id>&tier=`, books `?subject=<id>`,
-subjects `?board=<id>`. The catalogue is cached on the server for 15 minutes.
+Lists are paginated: `{"count": 120, "next": "<url>", "previous": null, "results": [...]}`, 50 a page, `?page=2`,
+`?page_size=` up to 200. This holds for every list endpoint (boards, subjects, books, papers, attempts, products,
+categories, collections, addresses, orders, the course's chapters, quiz items, flash cards and entitlements); `pages/`
+is a paginated list too (ordering `slug`, `title`); `papers/<code>/solutions/`, the plan, revise-again and a product's
+reviews (`{average, count, can_review, results}`) are not paginated. `?search=` searches books (title, subject), papers
+(code, title) and products (title); `?ordering=` sorts (`-number` for descending): papers by `code`, `number`, `tier`;
+books by `id`, `title`; boards and subjects by `id`, `name`; attempts by `date`, `marks_obtained`, `created`; products
+by `title`, `price`; chapters by `number`, `weight`, `frequency`; orders and addresses by `created`. Filters: papers
+`?book=<slug>&subject=<id>&tier=`, books `?subject=<id>`, subjects `?board=<id>`, products
+`?kind=&subject=<id>&category=&collection=&attr_<code>=`, attempts `?subject=<id>&tier=`, orders `?status=`, chapters
+`?subject=<id>`. The catalogue (boards, subjects, books, papers, categories, collections) is cached on the server for 15
+minutes.
 
 ## Errors
 
@@ -398,14 +693,14 @@ DRF's standard format, always JSON:
 | Status | Body |
 |---|---|
 | 400 | the fields' errors: `{"marks_obtained": ["Enter marks from 0 to 70."]}`; others (and the shop's rules) under `non_field_errors`; `{"detail": "Bad request."}` for a request Django refuses before the API sees it (a host name that is not served) |
-| 401 | `{"detail": "Authentication credentials were not provided."}`; a bad or expired token adds `"code": "token_not_valid"` |
-| 403 | `{"detail": "Confirm your email address first."}` (or another reason; `"The shop opens soon."` while the shop is closed) |
+| 401 | `{"detail": "Authentication credentials were not provided."}`; a bad or expired token: `{"detail": "Given token not valid for any token type", "code": "token_not_valid", "messages": [...]}` (refresh it); `"code": "password_changed"` or `"user_inactive"` (the password was changed, the account closed: log in again) |
+| 403 | `{"detail": "Confirm your email address first."}` (or another reason; `"The shop opens soon."` while the shop is closed; `"Unlock this subject with the code printed in your book."` for a locked course; `"A parent or guardian has not confirmed this account yet."` for what the course saves while `consent_pending`) |
 | 404 | `{"detail": "No Paper matches the given query."}`, `{"detail": "Not found."}` |
 | 405, 406, 415 | `{"detail": "..."}` |
 | 413 | `{"detail": "The request body is too large."}` (over 1 MB, `DATA_UPLOAD_MAX_MEMORY_SIZE`) |
-| 429 | `{"detail": "Request was throttled. Expected available in 38 seconds."}` with a `Retry-After` header |
+| 429 | `{"detail": "..."}`: DRF's limits say "Request was throttled. Expected available in 38 seconds." and carry a `Retry-After` header; allauth's (codes, password reset, wrong passwords) have their own text and no `Retry-After`; allauth.headless answers `{"status": 429}` |
 | 500 | `{"detail": "Server error."}`; reported to Sentry, with the request ID in `X-Request-ID` (the site's own pages show an error page) |
-| 503 | `{"detail": "The payment service could not be reached."}` (Razorpay, `orders/<number>/payment/`): try again |
+| 503 | `{"detail": "The payment service could not be reached."}` (or "Online payment is not set up yet."), from `orders/<number>/payment/`: try again |
 
 ## Rate limits
 
@@ -415,27 +710,45 @@ Counted in the cache (Redis in production), per client address for anonymous req
 |---|---|---|
 | anonymous | 200 a minute | `API_THROTTLE_ANON` |
 | signed in | 600 a minute | `API_THROTTLE_USER` |
-| log-in, log-out, sign-up, codes, passwords, data export, deletion | 30 a minute | `API_THROTTLE_AUTH` |
+| log-in, log-out, sign-up, codes (`verify-email`, `phone/code`, `phone/confirm`), passwords, data export, deletion | 30 a minute | `API_THROTTLE_AUTH` |
 | guests' order lookup (`orders/lookup/`), per client address | 10 an hour | `API_THROTTLE_ORDER_LOOKUP` |
 | starting and confirming payments (`orders/<number>/payment/…`) | 30 a minute | `API_THROTTLE_PAYMENT` |
 | coupon codes tried (`POST cart/coupon/`), per user | 10 an hour | `API_THROTTLE_COUPON` |
-| book codes tried (`POST learn/redeem/`), per user / per client address | 5 an hour each | `API_THROTTLE_LEARN_REDEEM`, `API_THROTTLE_LEARN_REDEEM_ADDRESS` |
-| quiz answers (`POST learn/quiz/<id>/attempt/`), per user | 600 an hour | `API_THROTTLE_LEARN_QUIZ` |
+| book codes tried (`POST learn/redeem/`), per user (`learn_redeem`) and per client address (`learn_redeem_address`) | 5 an hour each | `API_THROTTLE_LEARN_REDEEM`, `API_THROTTLE_LEARN_REDEEM_ADDRESS` |
+| quiz answers (`POST learn/quiz/<id>/attempt/`), per user (`learn_quiz`) | 600 an hour | `API_THROTTLE_LEARN_QUIZ` |
 | guests' order lookup, per email address and per order number (any address) | 10 an hour | fixed |
 | checkout (`POST orders/`), per client address, the website's included | 10 in 10 minutes | fixed |
+| reviews (`POST products/<slug>/reviews/`), per client address, the website's included | 5 an hour | fixed |
+| back-in-stock alerts (`POST products/<slug>/stock-alert/`), per client address, the website's included | 10 an hour | fixed |
+| quotation requests (`POST quotes/`), per client address, the website's included | 5 an hour | fixed |
 
-The last two are counted by the shop itself and refuse (429) while the cache cannot be read (Redis down); the others
-let requests through meanwhile.
+The last five are counted by the shop itself and refuse (429) while the cache cannot be read (Redis down); the others
+let requests through meanwhile. `auth/exchange/`, `me/parent-consent/` count in the log-in scope (`API_THROTTLE_AUTH`).
+allauth.headless (`/_allauth/`) has allauth's limits only, the website's (`ACCOUNT_RATE_LIMITS` and the per-account
+ones below): its answers over them are 429 too.
 
-A whole classroom often shares one address: raise the limits rather than lower them. django-axes still locks an
+A whole classroom often shares one address: raise the limits rather than lower them (above all
+`API_THROTTLE_LEARN_REDEEM_ADDRESS` before a teacher has a class redeem their codes together). django-axes still locks an
 account for 15 minutes after 10 failed log-ins from one address, through the API too.
 
-Per account, whatever the address (the website's limits, counted together with it):
-- **log-in:** after 5 failed log-ins in 5 minutes, even the right password gets 400 "Too many failed login attempts.
-  Try again later." for the rest of those 5 minutes;
-- **password reset:** 5 emails a minute per email address (`auth/password/reset/` answers 429 above it);
-- **SMS codes** (`auth/phone/code/`): 3 an hour per number and 5 a minute per client address (429 above it), and the
-  site sends at most `SMS_DAILY_CAP` SMS a day in all (counted in the database, so also while Redis is down);
+The website's limits, counted together with it:
+
+- **log-in:** after 5 failed log-ins of one account in 5 minutes, or 10 failed log-ins in a minute from one client
+  address (whatever the accounts), even the right password gets 400 "Too many failed login attempts. Try again later."
+  until the window has passed;
+- **password reset:** 5 emails a minute per email address and 20 requests a minute per client address
+  (`auth/password/reset/` answers 429 above them);
+- **codes by email** (sign-up, log-in): 3 log-in codes an hour per address and 30 an hour per client address; an address
+  gets a confirmation code at most every 10 seconds, 5 an hour and 10 a day (429 above them);
+- **codes by SMS** (`auth/phone/code/`): 3 an hour per number and 30 an hour per client address (429 above it); a texted
+  code is tried 3 times and lasts 3 minutes. Whatever the kind, one number gets at most 5 SMS an hour and 10 a day and
+  one account 20 a day, and the day's `SMS_DAILY_CAP` is shared out between log-in codes (70 %), order updates (30 %)
+  and parents' links (10 %). A code over a limit is not sent: 429
+  `{"detail": "Too many messages have gone to this number: try again tomorrow, or log in with your email."}`. The caps
+  are counted in the database, so also while Redis is down;
+- **tries of a code** (every emailed or texted code): 3 per code and 15 minutes, counted in the cache so that requests
+  sent together cannot get more, and 60 an hour per client address (a classroom shares that one); over them
+  `400 {"code": ["Too many tries for this code: ask for a new one."]}`;
 - **passwords of a signed-in user** (`auth/password/change/`, `me/export/`, `me/deletion/`): after 5 wrong ones in an
   hour every refresh token of the user is revoked (the app must log in again once the access token expires) and these
   answer 429 until the hour is over;
@@ -445,7 +758,8 @@ Per account, whatever the address (the website's limits, counted together with i
 ## CORS
 
 None is needed by the app or the website. A web client on another origin must be listed in `CORS_ALLOWED_ORIGINS`;
-only `/api/` answers CORS requests, without cookies (send the access token).
+only `/api/` answers CORS requests, without cookies (send the access token). allauth.headless's browser client is for
+the site's own origin: `/_allauth/` answers no CORS request; an app client needs none (no browser).
 
 ## Versioning
 
@@ -456,59 +770,21 @@ least six months, announced in the app). `ALLOWED_VERSIONS` in `examleaf/api_set
 
 ## Operations
 
-- Refresh tokens and their blacklist are kept in the database; `api.tasks.flush_expired_tokens` (celery beat, 04:30,
-  editable in the admin under Periodic tasks) deletes the expired ones.
+- Refresh tokens and their blacklist are kept in the database; `api.tasks.flush_expired_tokens` (celery beat, 04:30; the
+  entry was made by the migration `api/migrations/0001_flush_expired_tokens_daily.py` and is editable in the admin under
+  Periodic tasks) deletes the expired ones.
 - The tokens are signed with `JWT_SIGNING_KEY`, or `SECRET_KEY` while it is unset: rotating it logs every app out.
 - There is no health endpoint under `/api/` (it was open to anyone); the uptime monitor uses `/health/`.
-- Tests: `api/tests.py` (sign-up rules, codes, tokens, gated solutions, attempts, data rights, query counts,
-  limits, body size, CORS, schema validity) and `shop/test_api.py` (products, cart, addresses, checkout, payment and
-  a bad signature, cancellation, the PDFs, other customers' orders, cash on delivery, lookup and its limit) and
-  `shop/test_security.py` (the security review's shop fixes: order links, test and live mode, limits, refunds), and
-  `learn/test_api.py` (the revision course: locks and free previews, signed links, progress, quiz, cards, plan, codes
-  and their limits, devices, reminders). `manage.py spectacular --validate --fail-on-warn --file schema.yml` checks the schema.
-
-## Store: categories, collections, attributes, offers and digital products (phase 6 E)
-
-| Method and path | Who | What |
-|---|---|---|
-| `GET categories/`, `categories/<slug>/` | anyone | the shop's category tree, in tree order |
-| `GET collections/`, `collections/<slug>/` | anyone | hand-picked lists of products, in the staff's order |
-
-**Categories**: `slug`, `name`, `description` (Markdown), `depth` (1 at the top), `parent` (the slug of the category
-above it, null at the top), `web_url`. **Collections**: `slug`, `name`, `description`, `products` (slugs, in order;
-products off sale left out), `web_url`. Both are cached for 15 minutes, as the books are.
-
-**Products** also have `categories` (slugs), `attributes` (`code`, `name`, `value`: what their product type defines,
-e.g. edition year, language, board) and `related` (slugs of the products shown with it). Filters besides `?kind=`,
-`?subject=` and `?search=`: `?category=<slug>` (its sub-categories included), `?collection=<slug>`, and
-`?attr_<code>=<value>` for any attribute, several combined with AND. Values are compared as the attribute keeps them:
-numbers as numbers (`?attr_year=2027.0` finds 2027), text and choices in any case, yes/no attributes as `yes`/`no`
-(`true`, `false`, `1`, `0` too). An unknown attribute, or a value of the wrong kind, finds nothing.
-
-```sh
-curl 'https://examleaf.in/api/v1/products/?category=class-12&attr_language=Assamese&attr_year=2027'
-curl https://examleaf.in/api/v1/categories/
-# 200 {"count": 4, ..., "results": [{"slug": "books", "name": "Books", "description": "", "depth": 1, "parent": null,
-#      "web_url": "https://examleaf.in/shop/category/books/"}, {"slug": "class-12", ..., "depth": 2, "parent": "books"}, ...]}
-```
-
-**Digital products** (`kind` `digital`: a revision pass, alone or in a bundle with a book): `in_stock` is always true;
-the cart keeps one of each (quantity 1); a cart of digital products only has no shipping; cash on delivery answers 400
-(`"Cash on delivery is for printed books: please pay online for the course."`). Once paid, the course opens in the
-buyer's account (`GET learn/entitlements/`) and an order of digital products only reads "delivered" at once;
-cancelling it, or a full refund, closes the course again.
-
-**Savings**: the cart and each order have `savings`, a list of `{"label", "amount"}`: the coupon ("Coupon
-WELCOME10"), each automatic offer by its name ("Board 2027 offer"), and "Discount" on orders made by staff; `discount`
-is their sum. Offers apply by themselves, after the coupon (no code to type); the cart answers with them as soon as
-they apply. An order's `payment_method` may also be `offline` (a bank transfer or UPI payment that staff recorded,
-for school orders).
-
-```json
-{"items": [...], "count": 3, "coupon": "WELCOME10", "coupon_problem": null, "subtotal": "897.00",
- "savings": [{"label": "Coupon WELCOME10", "amount": "89.70"}, {"label": "Board 2027 offer", "amount": "80.73"}],
- "discount": "170.43", "shipping": "0.00", "total": "726.57", "problems": []}
-```
-
-Tests: `shop/test_catalogue.py` (categories, collections, attributes and their filters, digital products and the
-course hooks) and `shop/test_offers.py` (offers, the savings in the cart's answer).
+- Tests: `api/tests.py`, `api/test_phone.py` and `api/test_security.py` (sign-up rules, codes, tokens, gated solutions,
+  attempts, data rights, query counts, limits, body size, CORS, schema validity), `shop/test_api.py` (products, cart,
+  addresses, checkout, payment and a bad signature, cancellation, the PDFs, other customers' orders, cash on delivery,
+  lookup and its limit), `shop/test_catalogue.py` and `shop/test_offers.py` (categories, collections, attributes and their
+  filters, digital products, offers in the cart's answer), `shop/test_security.py` (order links, test and live mode,
+  limits, refunds) and `learn/test_api.py` (locks and free previews, signed links, progress, quiz, cards, plan, codes
+  and their limits, devices, reminders), `api/test_headless.py` (allauth.headless: codes by email and SMS to the JWT
+  pair, a mobile number added with its code, the second step and staff without an authenticator, a passkey's
+  challenge, Google listed only with its keys,
+  sign-up with the student details, the website's links in emails), `api/test_contract.py` (config, legal pages,
+  teacher access, a parent's link, SMS updates) and `shop/test_api_contract.py` (reviews, back in stock, quotations,
+  the order's link). `manage.py spectacular --validate --fail-on-warn --file schema.yml` checks the schema; the
+  operations are tagged by area (`api/schema.py`).

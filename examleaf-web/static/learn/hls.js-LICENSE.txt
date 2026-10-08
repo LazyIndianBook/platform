@@ -1,6 +1,9 @@
 hls.js 1.7.3 (https://github.com/video-dev/hls.js), dist/hls.min.js from the npm package
 https://registry.npmjs.org/hls.js/-/hls.js-1.7.3.tgz (sha1 79a3338dd2e78fe63fc2ba6cfebdf5e34495537a),
 with its last line (the source map comment) removed. Licence below.
+Checked on 8 October 2026 (SECURITY_REVIEW_PHASE5_6.md I8): hls.min.js here is 619,656 bytes, SHA-256 (base64)
+3kn1owhPc8nj5OKZnW54n46lr/ASDSlWMey5vxSAs+o=; the release's file is 619,692 bytes,
+oS5+4c1kpp3NsxQVfkXa/LpwW/sLFEC3k1yyZdN0Qj4= (jsDelivr). Check an update the same way before replacing it.
 
 Copyright (c) 2017 Dailymotion (http://www.dailymotion.com)
 

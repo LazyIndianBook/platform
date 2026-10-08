@@ -8,7 +8,7 @@ records (stock, refunds, emails) are in services.py."""
 import re
 import secrets
 from datetime import timedelta
-from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal
 from urllib.parse import quote
 
 from django.conf import settings
@@ -192,6 +192,15 @@ class Product(TimeStampedModel):
             return any(item.product.is_digital for item in self.bundle_items.select_related("product"))
         return self.is_digital
 
+    @property
+    def digital_only(self):
+        """Nothing to ship or to pack: a digital product, or a bundle of digital products only (a pass for every
+        subject sold as a bundle of four)."""
+        if self.kind == self.Kind.BUNDLE:
+            items = [item.product.is_digital for item in self.bundle_items.select_related("product")]
+            return bool(items) and all(items)
+        return self.is_digital
+
     def stock_lines(self, quantity):
         """{product id: copies} that selling `quantity` of this product takes from stock (digital ones have none)."""
         if self.kind == self.Kind.BUNDLE:
@@ -203,7 +212,7 @@ class Product(TimeStampedModel):
 
     @property
     def available(self):
-        if self.is_digital:  # one per order: it opens the course for the buyer's account
+        if self.digital_only:  # one per order: it opens the course for the buyer's account
             return 1
         if self.kind == self.Kind.BUNDLE:
             items = [item for item in self.bundle_items.select_related("product") if not item.product.is_digital]
@@ -367,9 +376,10 @@ class Attribute(models.Model):
         if self.kind == self.Kind.NUMBER:
             try:
                 number = Decimal(value)
-            except InvalidOperation:
+            except ArithmeticError:  # InvalidOperation, and an exponent too large to hold
                 number = None
-            if number is None or not number.is_finite():
+            # 1e999999999 would overflow normalize() (a 500), and 1e999999 become a million digits (L2)
+            if number is None or not number.is_finite() or abs(number.adjusted()) > 12:
                 raise ValidationError("Enter a number.")
             return format(number.normalize(), "f")
         if self.kind == self.Kind.BOOLEAN:
@@ -382,6 +392,8 @@ class Attribute(models.Model):
             if (match := next((c for c in listed if c.lower() == value.lower()), None)) is None:
                 raise ValidationError(f"Choose one of: {', '.join(listed)}.")
             return match
+        if "\x00" in value:  # the API's ?attr_<code>= filter takes any text; PostgreSQL refuses a NUL byte (a 500)
+            raise ValidationError("Remove the null character.")
         return value
 
 
@@ -550,10 +562,9 @@ class Offer(TimeStampedModel):
 
     def limit_problem(self, user=None, email=""):
         """Why the offer's usage limits stop this customer now, or None. Orders count once placed (paid, or cash on
-        delivery placed) and not undone."""
-        # ponytail: checked when the order is made, not again under a lock when it is placed (as coupons are): a few
-        # orders paid at the same moment may pass a limit; an automatic offer is ours to give, so that is acceptable
-        used = Order.objects.counted().filter(discount_lines__offer=self)
+        delivery placed) and not undone. Checked when the order is made and again, under a lock on the offer, when it
+        is placed (services.claim_offers, as coupons are: M4)."""
+        used = Order.objects.counted().filter(discount_lines__offer=self).distinct()
         if self.max_uses is not None and used.count() >= self.max_uses:
             return "used up"
         if self.max_uses_per_customer is not None and (user or email):
@@ -791,7 +802,7 @@ class Order(ConcurrentTransitionMixin, TimeStampedModel):
     @property
     def is_digital(self):
         """Only digital products: nothing to pack or ship, delivered once paid (services.mark_paid)."""
-        return not self.items.exclude(product__kind=Product.Kind.DIGITAL).exists()
+        return all(item.product.digital_only for item in self.items.select_related("product"))
 
     @property
     def has_digital(self):

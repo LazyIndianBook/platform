@@ -38,3 +38,63 @@ document.addEventListener("click", (event) => {
   event.preventDefault();
   dialog.showModal();
 });
+
+{  // a block: these names stay out of the global scope that every script of the page shares
+  // Toasts (docs/design/motion.md, f): read once into the polite live region #announce, which screen readers announce
+  // (text present at load is not), and dismissed with an exit animation: the <details> closes when the animation ends,
+  // or at once without one (reduced motion), so repeated clicks change nothing. Escape dismisses them all. Without this
+  // file the <details> simply closes.
+  const toasts = [...document.querySelectorAll(".toast-item")];
+  if (toasts.length) {
+    setTimeout(() => (document.getElementById("announce").textContent = toasts.map((t) => t.textContent.trim()).join(" ")), 400);
+  }
+  const dismiss = (toast) => {
+    toast.dataset.leaving = "";
+    Promise.allSettled(toast.getAnimations().map((animation) => animation.finished)).then(() => (toast.open = false));
+  };
+  document.addEventListener("click", (event) => {
+    const summary = event.target.closest(".toast-item > summary");
+    if (!summary) return;
+    event.preventDefault();
+    dismiss(summary.parentElement);
+  });
+
+  // The menu and the subject tabs are a checkbox and radios (no JavaScript needed): Enter works them too, as Space
+  // does. Escape closes the open menu (focus back on Menu), or else dismisses the toasts.
+  const menu = document.getElementById("nav-check");
+  if (menu) {
+    const expanded = () => menu.setAttribute("aria-expanded", String(menu.checked));
+    menu.addEventListener("change", expanded);
+    expanded();
+  }
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && event.target.matches(".nav-check, .tabs input")) {
+      event.preventDefault();
+      event.target.click();
+    } else if (event.key === "Escape" && menu && menu.checked) {
+      menu.click();
+      menu.focus();
+    } else if (event.key === "Escape") {
+      document.querySelectorAll(".toast-item[open]:not([data-leaving])").forEach(dismiss);
+    }
+  });
+
+  // iOS Safari applies :active (the press feedback of buttons and tiles) only when the page listens to touches.
+  document.addEventListener("touchstart", () => {}, {passive: true});
+
+  // Cross-document view transitions (motion.md, d) are for moving between pages: none after a form is sent.
+  let sending = false;
+  document.addEventListener("submit", (event) => (sending = event.target.method !== "dialog"));
+  window.addEventListener("pageshow", () => (sending = false));
+  window.addEventListener("pageswap", (event) => sending && event.viewTransition && event.viewTransition.skipTransition());
+
+  // Printing a solutions page prints its instructions too: closed accordions open for the print, then close again.
+  window.addEventListener("beforeprint", () => document.querySelectorAll("details.accordion:not([open])").forEach((d) => {
+    d.open = true;
+    d.dataset.printed = "";
+  }));
+  window.addEventListener("afterprint", () => document.querySelectorAll("details[data-printed]").forEach((d) => {
+    d.open = false;
+    delete d.dataset.printed;
+  }));
+}

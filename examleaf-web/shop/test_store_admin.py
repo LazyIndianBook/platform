@@ -99,6 +99,17 @@ def test_the_dashboard_shows_sales_by_day_best_sellers_low_stock_and_what_waits(
     assert "Running out" in page and "1 review to read" in page and "1 quotation request" in page
 
 
+def test_a_role_that_may_only_look_opens_the_product_page(client):
+    """SUPPORT may view products, not change them: its page has no form fields (the stock field's hidden initial value
+    made it a server error)."""
+    product = ProductFactory(title="Physics", stock=3)
+    support = staff(roles.SUPPORT)
+    assert support.has_perm("shop.view_product") and not support.has_perm("shop.change_product")
+    client.force_login(support)
+    page = client.get(reverse("admin:shop_product_change", args=[product.pk]))
+    assert page.status_code == 200 and "Physics" in page.content.decode()
+
+
 def test_roles_give_the_catalogue_and_course_to_editors_and_the_orders_to_sales(client):
     editor, sales, support = staff(roles.CONTENT_EDITOR), staff(roles.SALES), staff(roles.SUPPORT)
     assert editor.has_perms(["shop.change_product", "shop.add_category", "shop.delete_attribute", "learn.add_clip"])

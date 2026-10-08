@@ -6,6 +6,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.views import redirect_to_login
 from django.contrib.messages.views import SuccessMessageMixin
 from django.core.cache import cache
 from django.db import IntegrityError, transaction
@@ -14,7 +15,7 @@ from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils.decorators import method_decorator
-from django.views.decorators.cache import cache_control, cache_page, never_cache
+from django.views.decorators.cache import cache_control, never_cache
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
@@ -32,7 +33,6 @@ from .forms import (
     LookupForm,
     QuoteRequestForm,
     ReviewForm,
-    StockAlertForm,
 )
 from .models import (
     Category,
@@ -269,17 +269,14 @@ def product_media(request, name):
 @require_POST
 @rate_limit("stock-alert", 10, 3600)
 def stock_alert(request, slug):
-    """The "email me when it is back" button (StockAlert): to the account's address, or the one a visitor gives. A
-    filled-in "website" field is the honeypot."""
+    """The "email me when it is back" button (StockAlert), for signed-in accounts, to their own address: an address a
+    visitor types could be anyone's, emailed at the reprint without having asked (L3). A filled-in "website" field is
+    the honeypot."""
     product = get_object_or_404(Product, slug=slug, is_active=True)
-    form = StockAlertForm(request.POST)
-    if request.user.is_authenticated:
-        email = request.user.email
-    elif form.is_valid():
-        email = form.cleaned_data["email"]
-    else:
-        messages.error(request, "Enter a valid email address.")
-        return redirect(product)
+    if not request.user.is_authenticated:
+        messages.info(request, "Log in, then press the button again: we email your account's address.")
+        return redirect_to_login(product.get_absolute_url())
+    email = request.user.email
     if not request.POST.get("website") and product.available < 1:
         StockAlert.objects.get_or_create(email=email.lower(), product=product)
     messages.success(request, f"We will email {email} once, when {product} is back in stock.")
@@ -332,10 +329,11 @@ def review(request, slug):
     return redirect(f"{product.get_absolute_url()}#reviews")
 
 
-@cache_page(86400)  # public data: a day in the cache and in browsers (only answers 200 are kept)
+@cache_control(public=True, max_age=86400)  # public data: a day in browsers
 def pin_lookup(request, pin):
     """The address form's autofill (static/js/site.js): the state(s) and districts of a PIN code in the directory
-    (manage.py import_pincodes)."""
+    (manage.py import_pincodes). A primary-key read: not kept in the server's cache, where `?x=1` … `?x=n` would each
+    have stored a copy for a day beside the rate-limit counters (L9)."""
     if entry := PinCode.objects.filter(pin=pin).first():
         return JsonResponse({"pin": entry.pin, "states": entry.states, "districts": entry.districts})
     return JsonResponse({"detail": "Not in the PIN code directory."}, status=404)

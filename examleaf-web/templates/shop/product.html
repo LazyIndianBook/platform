@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% load shop markdown pictures %}
+{% extends "shop/base_shop.html" %}{% load shop markdown pictures %}
 {% block head_title %}{{ product.seo_title|default:product.title }}{% endblock %}
 {% block meta_description %}{% if product.seo_description %}{{ product.seo_description }}{% else %}{{ product.title }}{% if product.subject %} for the {{ product.subject.board }} {{ product.subject.class_level }} examination{% endif %}: {{ product.price|inr }}, delivered across India.{% endif %}{% endblock %}
 {% block main_class %}shop-page{% endblock %}
@@ -7,7 +7,7 @@
   <div class="container">
     <nav class="breadcrumb" aria-label="Breadcrumb"><ol><li><a href="{% url 'shop:catalogue' %}">Shop</a><svg class="icon" aria-hidden="true"><use href="#icon-chevron-right"/></svg></li>{% if product.book %}<li><a href="{{ product.book.get_absolute_url }}">{{ product.subject.name }}</a><svg class="icon" aria-hidden="true"><use href="#icon-chevron-right"/></svg></li><li><span aria-current="page">{{ product.get_kind_display }}</span></li>{% else %}<li><span aria-current="page">{{ product.title }}</span></li>{% endif %}</ol></nav>
     <div class="product-hero">
-      <div class="product-cover"><span class="cover pcover">{% if product.cover %}{% picture product.cover img_alt="Cover of "|add:product.title img_fetchpriority="high" ratio="2/3" s=6 m=4 l=4 %}{% else %}{% include "shop/no_cover.html" %}{% endif %}</span></div>
+      <div class="product-cover"><span class="cover pcover{% if product.subject %} subject-{{ product.subject.name|lower }}{% endif %}" style="view-transition-name: cover-{{ product.pk }}">{% if product.cover %}{% picture product.cover img_alt="Cover of "|add:product.title img_fetchpriority="high" ratio="2/3" s=8 m=4 l=4 %}{% else %}{% include "shop/no_cover.html" %}{% endif %}</span></div>
       <div class="product-buy">
         <div class="chips"><span class="badge badge-muted">{{ product.get_kind_display }}</span>{% if product.subject %}<span class="badge badge-{{ product.subject.name|lower }}">{{ product.subject.name }}</span>{% endif %}</div>
         {% if product.subject %}<p class="eyebrow">{{ product.subject.board }} · {{ product.subject.class_level }}</p>{% endif %}
@@ -28,7 +28,7 @@
         {% else %}
         <div class="alert alert-warning" role="status"><svg class="icon" aria-hidden="true"><use href="#icon-alert"/></svg><div><p class="alert-title">Out of stock for now</p><p>We email you once, when it is back. Nothing else is sent to that address.</p></div></div>
         <form method="post" action="{% url 'shop:stock_alert' product.slug %}" class="buy-row">{% csrf_token %}
-          {% if not user.is_authenticated %}<div class="field"><label for="alert-email">Email me once when it is back</label><input id="alert-email" class="input" name="email" type="email" autocomplete="email" required></div>{% endif %}
+          {% if not user.is_authenticated %}<p class="field-help">Log in first: we email the address of your account.</p>{% endif %}
           <p hidden><label>Leave this empty <input name="website" tabindex="-1" autocomplete="off"></label></p>
           <button type="submit" class="btn btn-secondary"><svg class="icon" aria-hidden="true"><use href="#icon-mail"/></svg><span>Email me when it is back</span></button>
         </form>

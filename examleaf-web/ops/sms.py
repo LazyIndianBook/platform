@@ -6,11 +6,12 @@ kinds, their variables and the DLT templates registered for them are in RUNBOOK.
     order_placed     {"var1": order number}
     order_shipped    {"var1": order number, "var2": courier and tracking number}
     order_delivered  {"var1": order number}
-    parent_consent   {"var1": the student's first name, "var2": the consent link's token}
+    parent_consent   {"var1": the student's first name, or "a student", "var2": the consent link's token}
 
 A DLT variable holds at most 30 characters."""
 
 import logging
+import math
 from datetime import timedelta
 
 import httpx
@@ -24,6 +25,35 @@ from .models import SmsLog
 logger = logging.getLogger(__name__)
 MSG91 = "https://control.msg91.com/api/v5/"
 KEEP = timedelta(days=90)  # SmsLog rows
+# Limits before SMS_DAILY_CAP (M2), every kind together: per number over the last hour and day, per account over the
+# last day. Then each purpose's share of the day's cap (since midnight, India), so that consent links or order updates
+# cannot use up the log-in codes' share, nor the codes theirs. SMS_DAILY_CAP stays the last line (send_sms).
+PER_NUMBER = [(timedelta(hours=1), 5, "an hour"), (timedelta(days=1), 10, "a day")]
+PER_ACCOUNT_DAY = 20
+SHARES = {"otp": 0.7, "parent_consent": 0.1, "order": 0.3}
+
+
+def purpose(kind):
+    return "order" if kind.startswith("order_") else kind
+
+
+def midnight(now):
+    return timezone.localtime(now).replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def refusal(log):
+    """Why the SMS of this SmsLog row (just made, so counted) may not go, or "" (M2)."""
+    now, counted = timezone.now(), SmsLog.objects.exclude(status=SmsLog.Status.CAPPED)
+    for window, most, span in PER_NUMBER:
+        if counted.filter(phone_hash=log.phone_hash, created__gt=now - window).count() > most:
+            return f"{most} to one number in {span}"
+    if log.user_id and counted.filter(user=log.user_id, created__gt=now - timedelta(days=1)).count() > PER_ACCOUNT_DAY:
+        return f"{PER_ACCOUNT_DAY} for one account in a day"
+    share = math.ceil(settings.SMS_DAILY_CAP * SHARES[purpose(log.kind)])
+    kinds = [kind for kind in settings.SMS_KINDS if purpose(kind) == purpose(log.kind)]
+    if counted.filter(kind__in=kinds, created__gte=midnight(now)).count() > share:
+        return f"the day's share of {purpose(log.kind)} SMS ({share})"
+    return ""
 
 
 class SmsRefused(Exception):
@@ -64,40 +94,55 @@ BACKENDS = {"console": console, "msg91": msg91}
 
 
 @shared_task(autoretry_for=(httpx.TransportError,), retry_backoff=10, max_retries=3)
-def send_sms(kind, phone, variables):
-    """Send one SMS, unless SMS_DAILY_CAP were sent since midnight (India) already: SMS cost money, and the cache-based
-    limits let everything through while Redis is down. A network failure is tried again 3 times; a refusal is logged
-    as an error (Sentry), not retried. Returns nothing: Celery logs return values."""
+def send_sms(kind, phone, variables, log_id=None):
+    """Send one SMS (its SmsLog row made by queue_sms), unless SMS_DAILY_CAP were sent since midnight (India) already:
+    the last line, whatever the other limits let through (SMS cost money). A network failure is tried again 3 times; a
+    refusal is logged as an error (Sentry), not retried. Returns nothing: Celery logs return values."""
     now = timezone.now()
-    midnight = timezone.localtime(now).replace(hour=0, minute=0, second=0, microsecond=0)
-    log = SmsLog(kind=kind, phone_hash=phone_hash(phone), phone_last4=phone[-4:])
-    if SmsLog.objects.filter(created__gte=midnight, status=SmsLog.Status.SENT).count() >= settings.SMS_DAILY_CAP:
+    log = SmsLog.objects.filter(pk=log_id).first() or SmsLog(
+        kind=kind, phone_hash=phone_hash(phone), phone_last4=phone[-4:]
+    )
+    if SmsLog.objects.filter(created__gte=midnight(now), status=SmsLog.Status.SENT).count() >= settings.SMS_DAILY_CAP:
         log.status = SmsLog.Status.CAPPED
         logger.error("SMS_DAILY_CAP reached: an SMS (%s) was not sent", kind)
     else:
         try:
             log.provider_id = BACKENDS[settings.SMS_BACKEND](kind, phone, variables)
             log.status = SmsLog.Status.SENT
-        except SmsRefused as refusal:
+        except SmsRefused as error:
             log.status = SmsLog.Status.FAILED
-            logger.error("SMS (%s) refused: %s", kind, refusal)
+            logger.error("SMS (%s) refused: %s", kind, error)
     log.save()
     SmsLog.objects.filter(created__lt=now - KEEP).delete()  # ponytail: purged here; a beat task if SMS grow
 
 
-def queue_sms(kind, phone, variables):
-    """Hand an SMS to the worker; if the broker cannot be reached, send it here and now (as ops.tasks.queue_email).
-    Nothing goes out while SMS are off (settings.SMS_ENABLED: a server without a real backend)."""
+def queue_sms(kind, phone, variables, user=None):
+    """Hand an SMS to the worker, within the limits per number, account and purpose (refusal, M2); if the broker cannot
+    be reached, send it here and now (as ops.tasks.queue_email). Returns whether it went on its way: False while SMS
+    are off (settings.SMS_ENABLED: a server without a real backend) or when a limit stops it, and then the page must
+    not say that it was sent. The row is written first, so that requests at the same moment count each other."""
     if not settings.SMS_ENABLED:
-        return
+        return False
+    log = SmsLog.objects.create(
+        kind=kind,
+        phone_hash=phone_hash(phone),
+        phone_last4=phone[-4:],
+        user=user if getattr(user, "pk", None) else None,
+        status=SmsLog.Status.QUEUED,
+    )
+    if reason := refusal(log):
+        SmsLog.objects.filter(pk=log.pk).update(status=SmsLog.Status.CAPPED)
+        logger.warning("SMS (%s) not sent: %s", kind, reason)
+        return False
     try:
-        send_sms.delay(kind, phone, variables)
+        send_sms.delay(kind, phone, variables, log.pk)
     except send_sms.OperationalError:
         logger.exception("broker unavailable, sending the SMS synchronously")
         try:
-            send_sms.run(kind, phone, variables)
+            send_sms.run(kind, phone, variables, log.pk)
         except Exception:
             logger.exception("the SMS could not be sent here either; dropped")
+    return True
 
 
 ORDER_SMS = {"confirmation": "order_placed", "shipped": "order_shipped", "delivered": "order_delivered"}
@@ -113,4 +158,4 @@ def send_order_sms(order, kind):
     variables = {"var1": order.number}
     if kind == "shipped" and (shipment := order.shipments.first()):  # the latest
         variables["var2"] = f"{shipment.courier} {shipment.tracking_number}"[:30]
-    queue_sms(ORDER_SMS[kind], user.login_phone, variables)
+    queue_sms(ORDER_SMS[kind], user.login_phone, variables, user=user)

@@ -59,7 +59,7 @@ def product_jsonld(product, rating=None):
             "hasMerchantReturnPolicy": {**RETURN_POLICY, "merchantReturnLink": absolute(reverse("refunds"))},
         },
     }
-    if product.is_digital:  # a course in the app: not a book, nothing shipped
+    if product.digital_only:  # a course in the app: not a book, nothing shipped
         data["@type"] = "Product"
         del data["bookFormat"], data["offers"]["shippingDetails"]
     if product.isbn:

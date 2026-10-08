@@ -1,0 +1,60 @@
+/* home.css: the home page only (templates/home.html links it after site.css): hero, bento, how it works, offers, FAQ, the
+   final call to action. Same rules as site.css, one per line. */
+.section-head{margin-bottom:32px}
+.section-head>h2{margin-bottom:12px}
+.section-head>p{margin:0}
+.cta-band{padding-block:var(--section);border-bottom:1px solid var(--night-line)}
+.cta-band h2{margin:0 0 8px}
+.cta-band p{margin:0;color:var(--muted-foreground)}
+.stage-cover{flex:none;width:min(30vw,172px);z-index:2}
+.stage-cover::before{content:"";position:absolute;inset:0;z-index:1;border-radius:inherit;pointer-events:none;opacity:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.5) 2.5%,rgba(255,255,255,.1) 6%,transparent 11%)}
+.stage-cover + .stage-cover{margin-left:max(-56px,-10vw)}
+.stage-cover:nth-child(1){transform:rotate(-8deg) translateY(14px);z-index:1}
+.stage-cover:nth-child(2){transform:rotate(-3deg)}
+.stage-cover:nth-child(3){transform:rotate(3deg);z-index:3}
+.stage-cover:nth-child(4){transform:rotate(8deg) translateY(14px)}
+.hero-grid{display:flex;flex-wrap:wrap;align-items:center;gap:40px}
+.hero-copy{flex:1 1 460px;min-width:0;display:flex;flex-direction:column;gap:20px}
+.hero-copy>*{margin:0}
+.hero-eyebrow{font-weight:600;font-size:15px;line-height:1.5;color:var(--muted-foreground)}
+.hero-count{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px}
+.hero-count>div{flex:1 1 180px;min-width:0;display:flex;flex-direction:column;gap:10px}
+.hero-count-label{font:700 22px/1.3 var(--font-head);text-wrap:balance}
+.hero-actions{margin-top:8px}
+.bento{display:flex;flex-wrap:wrap;gap:var(--gap)}
+.bento-big{flex:1 1 400px}
+.bento-big .tier-bar{margin-top:auto}
+.bento-grid{flex:1 1 400px;display:grid;gap:var(--gap);grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr))}
+.bento-grid h3,.bento-big h3{margin:0}
+.bento-grid p,.bento-big p{color:var(--muted-foreground)}
+.tier-list{margin:0;padding:0;list-style:none}
+.tier-list li{display:flex;flex-wrap:wrap;align-items:center;gap:2px 12px;padding:10px 0;border-bottom:1px solid var(--border);font-size:var(--fs-small);color:var(--muted-foreground)}
+.tier-range{font:700 var(--fs-small)/1.4 var(--font-head);color:var(--foreground)}
+.tier-bar{display:flex;gap:4px;height:10px}
+.tier-bar span{flex:1;border-radius:var(--radius-pill)}
+.tier-bar span:nth-child(1){background:var(--easy)}
+.tier-bar span:nth-child(2){background:var(--medium)}
+.tier-bar span:nth-child(3){background:var(--hard)}
+.trust-strip{margin-top:var(--gap)}
+.how-steps{flex:1 1 360px;min-width:0;display:flex;flex-direction:column;gap:24px;margin:0;padding:0;list-style:none}
+.how-steps li{display:grid;grid-template-columns:40px 1fr;gap:16px}
+.how-steps .step-no{display:flex;align-items:center;justify-content:center;width:40px;height:40px;border:2px solid var(--primary);border-radius:50%;font:800 17px/1 var(--font-head);color:var(--primary)}
+.how-steps strong{display:block;font:700 19px/1.3 var(--font-head);color:var(--heading)}
+.how-steps p{margin:4px 0 0;color:var(--muted-foreground)}
+.how-demo{flex:1 1 440px;min-width:0;display:flex;flex-direction:column;gap:16px}
+.excerpt-q{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px}
+.excerpt-q>:first-child{font:800 17px/1.7 var(--font-head);color:var(--primary)}
+.excerpt-q>:last-child{font-weight:600;color:var(--muted-foreground)}
+.faq{max-width:var(--measure)}
+@media (max-width:899.98px){
+.hero-grid{flex-direction:column;align-items:stretch;gap:20px}
+.hero-copy{display:contents}
+.hero-copy>*{order:2}
+.hero-copy>:nth-child(-n+2){order:0}
+.stage-cover{width:104px}
+.stage-cover + .stage-cover{margin-left:-34px}
+.tiles-strip{grid-auto-flow:column;grid-auto-columns:80%;grid-template-columns:none;overflow-x:auto;scroll-snap-type:x mandatory;margin-inline:calc(-1 * var(--gutter));padding:4px var(--gutter) 12px;scroll-padding-inline:var(--gutter)}
+.tiles-strip>*{scroll-snap-align:start}
+}
+.price-from{font-weight:600;font-size:15px;color:var(--muted-foreground)}
+.offers-go{margin-top:32px}

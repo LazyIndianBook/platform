@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% load shop %}
+{% extends "shop/base_shop.html" %}{% load shop %}
 {% block head_title %}My orders{% endblock %}
 {% block meta_description %}The ExamLeaf orders you placed while logged in, with their status.{% endblock %}
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
@@ -24,7 +24,7 @@
       </tbody>
     </table></div>
     {% else %}
-    <div class="empty"><svg class="icon icon-lg" aria-hidden="true"><use href="#icon-package"/></svg><h2>No orders yet</h2><p>Orders you place while logged in show here, with their status and invoice.</p><a class="btn btn-primary" href="{% url 'shop:catalogue' %}">See the books</a></div>
+    <div class="empty">{% include "_empty_art.html" with art="orders" %}<h2>No orders yet</h2><p>Orders you place while logged in show here, with their status and invoice.</p><a class="btn btn-primary" href="{% url 'shop:catalogue' %}">See the books</a><p>or <a href="{% url 'shop:lookup' %}">find an order placed without logging in</a></p></div>
     {% endif %}
   </div>
 </section>

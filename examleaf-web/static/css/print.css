@@ -1,0 +1,34 @@
+/* Printing a solutions page (templates/solutions.html links this file with media="print", so it never delays the screen):
+   the paper's header with its code and marks, the instructions, every question with its marks and solution; no site
+   around them. Each question group starts a new page. site.js opens the closed accordions for the print. */
+@page { margin: 14mm 14mm 16mm; }
+body { display: block; background: #FFFFFF; color: #000000; font-size: 11pt; line-height: 1.5; }
+.skip-link, .nav, .footer, .toast, .breadcrumb, .paper-actions, .rail, .record-card, .seal, .solution-label .icon,
+details.accordion > summary .icon { display: none !important; }
+.section { padding: 0; }
+.container { max-width: none; padding: 0; }
+.two-col { display: block; }
+a { color: inherit; text-decoration: none; }
+
+/* the header: code, subject, tier and marks in ink, no navy fill */
+.qr-card { display: block; padding: 0 0 8pt; border-bottom: 2pt solid #000000; border-radius: 0; background: none; box-shadow: none; color: #000000; }
+.qr-card .badge { height: auto; padding: 1pt 6pt; border: 1px solid #000000; background: none; color: #000000; }
+.qr-eyebrow, .qr-facts dt { color: #000000; }
+.qr-title { margin: 4pt 0; color: #000000; font-size: 20pt; }
+.qr-facts dd { color: #000000; font-size: 13pt; }
+details.accordion { border: 0; }
+details.accordion > summary { min-height: 0; padding: 8pt 0 4pt; color: #000000; }
+
+/* the questions: a new page for each group (a part's first group stays under its part heading) */
+.part, .group, .qno, .solution-label { color: #000000; }
+.part, .group { break-after: avoid; }
+.group { border-bottom-color: #000000; }
+.group ~ .group, .main-col > .part ~ .part { break-before: page; }
+.part + .group { break-before: auto; }
+article.question { content-visibility: visible; grid-template-columns: 26pt minmax(0, 1fr) auto; padding: 8pt 0; overflow: visible; }
+.qtext { max-width: none; }
+.qtext > *, .solution > *, table, blockquote, .final { break-inside: avoid; }
+.solution { padding: 6pt 8pt; border-color: #999999; background: none; }
+.final, .also, blockquote { border: 1px solid #999999; background: none; }
+.table-wrap, .table-scroll, .katex-display { overflow: visible; }
+th, table.steps th:last-child, table.steps td:last-child { position: static; background: none; box-shadow: none; }

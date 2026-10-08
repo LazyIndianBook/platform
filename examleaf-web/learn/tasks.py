@@ -68,20 +68,17 @@ def reminder(learner, today):
 @shared_task
 def send_reminders():
     """Daily (celery beat): the revision reminder, through Firebase Cloud Messaging (HTTP v1, firebase-admin), to the
-    devices of students who turned it on in the app. Nothing without FCM_SERVICE_ACCOUNT_JSON. Tokens that Firebase
-    no longer knows (the app was removed) are deleted. Returns the number sent."""
+    devices of students who turned it on in the app, 500 at a time by id (never all of them in memory: L8). Nothing
+    without FCM_SERVICE_ACCOUNT_JSON. Tokens that Firebase no longer knows (the app was removed) or refuses as not
+    tokens at all are deleted. Returns the number sent."""
     if not settings.FCM_SERVICE_ACCOUNT_JSON:
         return 0
-    from firebase_admin import messaging
+    from firebase_admin import exceptions, messaging
 
-    today, sent = timezone.localdate(), 0
-    devices = list(  # in id order: the batches of 500 are the same on every database
-        Device.objects.filter(user__learner__reminders=True, user__is_active=True)
-        .select_related("user__learner")
-        .order_by("pk")
-    )
-    for start in range(0, len(devices), 500):  # send_each takes at most 500
-        batch = devices[start : start + 500]
+    today, sent, total, last = timezone.localdate(), 0, 0, 0
+    devices = Device.objects.filter(user__learner__reminders=True, user__is_active=True).select_related("user__learner")
+    while batch := list(devices.filter(pk__gt=last).order_by("pk")[:500]):  # send_each takes at most 500
+        last, total = batch[-1].pk, total + len(batch)
         notes = [
             messaging.Message(
                 fid=device.token,  # FCM's installation ID (firebase-admin 7.7 deprecates token=)
@@ -92,9 +89,9 @@ def send_reminders():
             for device in batch
         ]
         answers = messaging.send_each(notes, app=firebase()).responses
-        gone = (messaging.UnregisteredError, messaging.SenderIdMismatchError)
+        gone = (messaging.UnregisteredError, messaging.SenderIdMismatchError, exceptions.InvalidArgumentError)
         unknown = [d.pk for d, a in zip(batch, answers, strict=True) if isinstance(a.exception, gone)]
         Device.objects.filter(pk__in=unknown).delete()
         sent += sum(answer.success for answer in answers)
-    logger.info("revision reminders sent: %s of %s", sent, len(devices))
+    logger.info("revision reminders sent: %s of %s", sent, total)
     return sent

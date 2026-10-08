@@ -7,12 +7,12 @@
 <section class="section section-top">
   <div class="container">
     <div class="empty">
-      <svg class="icon icon-lg icon-64" aria-hidden="true"><use href="#icon-missing"/></svg>
+      {% include "_empty_art.html" %}
       <p class="eyebrow">Error 404</p>
       <h1>We could not find that page</h1>
       <p>The address may have a typing mistake, or the page has moved.</p>
       {% if request_path|slice:":3" == "/s/" %}<p class="empty-note">Looking for the solutions to a paper? Choose your book below and open the paper from there, or scan the QR code on the paper again.</p>{% endif %}
-      <a class="btn btn-primary btn-lg" href="{% url 'home' %}"><svg class="icon" aria-hidden="true"><use href="#icon-book"/></svg><span>The books</span></a>
+      <a class="btn btn-primary btn-lg" href="{% url 'home' %}"><svg class="icon" aria-hidden="true"><use href="#icon-book"/></svg><span>See the books</span></a>
       <p>or <a href="{% url 'shop:catalogue' %}">open the shop</a></p>
     </div>
     {% if site_books %}

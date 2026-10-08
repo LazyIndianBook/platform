@@ -2,6 +2,7 @@ from email.utils import parseaddr
 
 from anymail.exceptions import AnymailCancelSend
 from anymail.signals import pre_send, tracking
+from django.conf import settings
 from django.db import models
 from django.dispatch import receiver
 
@@ -58,18 +59,23 @@ def skip_suppressed(sender, message, esp_name, **kwargs):
 
 
 class SmsLog(models.Model):
-    """One SMS asked for (ops.sms): sent, refused by the provider, or held back by the daily cap. The number is kept as
-    a keyed hash (to count, and to find a number's messages when asked) and its last four digits (for support), never
-    whole. Rows older than 90 days are deleted as new SMS go out."""
+    """One SMS asked for (ops.sms): queued, sent, refused by the provider, or held back by a limit (per number, per
+    account, per purpose, the daily cap). The number is kept as a keyed hash (to count, and to find a number's messages
+    when asked) and its last four digits (for support), never whole; the account it was for, to count and for Download
+    my data (deleted with the account). Rows older than 90 days are deleted as new SMS go out."""
 
     class Status(models.TextChoices):
+        QUEUED = "queued", "queued"
         SENT = "sent", "sent"
         FAILED = "failed", "refused by the provider"
-        CAPPED = "capped", "not sent: daily cap reached"
+        CAPPED = "capped", "not sent: a limit was reached"
 
     kind = models.CharField(max_length=20)
     phone_hash = models.CharField("number (hashed)", max_length=64, db_index=True)
     phone_last4 = models.CharField("last 4 digits", max_length=4)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name="sms_messages"
+    )
     status = models.CharField(max_length=10, choices=Status.choices)
     provider_id = models.CharField("provider's request id", max_length=100, blank=True)
     created = models.DateTimeField(auto_now_add=True, db_index=True)

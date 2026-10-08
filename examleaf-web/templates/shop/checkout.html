@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% load shop web widget_tweaks %}
+{% extends "shop/base_shop.html" %}{% load shop web widget_tweaks %}
 {% block head_title %}Checkout{% endblock %}
 {% block meta_description %}Enter your delivery address and choose how to pay for your ExamLeaf order.{% endblock %}
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
@@ -16,6 +16,7 @@
         <div class="card">
           <div class="card-header"><div class="step-head"><span class="step-num" aria-hidden="true">1</span><h2>Address</h2></div></div>
           <div class="card-body">
+            {% include "_required_note.html" %}
             {% if form.email %}{% include "_field.html" with field=form.email %}{% endif %}
             {% if form.saved_address %}
             <fieldset class="choice options"><legend>{{ form.saved_address.label }}</legend>

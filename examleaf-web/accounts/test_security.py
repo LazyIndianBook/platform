@@ -73,9 +73,11 @@ def test_periodic_tasks_and_who_may_do_what_are_left_to_superusers(client):  # I
 def test_staff_must_set_up_an_authenticator_app_before_anything_else(client):  # H2
     staff = UserFactory(is_staff=True, is_superuser=True, totp=False)
     client.force_login(staff)
-    for url in [reverse("admin:index"), reverse("account"), "/api/v1/me/"]:
+    for url in [reverse("admin:index"), reverse("account")]:
         response = client.get(url)
         assert (response.status_code, response["Location"]) == (302, reverse("mfa_activate_totp")), url
+    response = client.get("/api/v1/me/")  # the API answers in JSON
+    assert (response.status_code, response.json()["code"]) == (403, "mfa_setup_required")
     client.post(reverse("account_reauthenticate"), {"password": PASSWORD})  # the set-up asks for the password again
     page = client.get(reverse("mfa_activate_totp"))
     assert page.status_code == 200 and 'src="data:image/svg+xml;base64,' in page.text  # the QR code (segno)
@@ -126,6 +128,14 @@ def parent_link(to):
     return re.search(r"/c/[^/\s]+/", body).group()
 
 
+def confirm_own_address(client, email="rahul@example.com"):
+    """The code emailed to the student at the sign-up, typed where the website asks for it (the parent's link goes
+    only after this: SECURITY_REVIEW_PHASE5_6.md M3)."""
+    [body] = [m.body for m in mail.outbox if m.to == [email]][-1:]
+    code = re.search(r"^(\d{6})$", body, re.M).group(1)
+    return client.post(reverse("account_email_verification_sent"), {"code": code})
+
+
 def test_verified_mode_marks_wait_for_the_parents_emailed_consent(client, settings, monkeypatch):  # M9
     settings.PARENTAL_CONSENT_MODE = "verified"
     paper = make_paper()
@@ -135,6 +145,8 @@ def test_verified_mode_marks_wait_for_the_parents_emailed_consent(client, settin
     sign_up(client, parent_contact="Anita@Example.com")
     user = User.objects.get()
     assert user.consent_pending and ConsentRecord.objects.get().method == ConsentRecord.Method.DECLARED
+    assert not [m for m in mail.outbox if m.to == ["anita@example.com"]]  # not before the student's own address
+    confirm_own_address(client)
     first_link = parent_link("anita@example.com")
     client.force_login(user)
     response = client.post(reverse("attempt_add", args=[paper.code]), {"date": "2026-10-01", "marks_obtained": "40"})

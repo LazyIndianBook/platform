@@ -20,17 +20,21 @@ from .tests import make_course
 pytestmark = pytest.mark.django_db
 
 
-def fake_ffmpeg(audio=True, fail=None):
-    """subprocess.run as ffprobe and ffmpeg would answer, writing the files ffmpeg would write."""
+def fake_ffmpeg(audio="aac", fail=None, video="h264", container="mov,mp4,m4a,3gp,3g2,mj2", calls=None):
+    """subprocess.run as ffprobe and ffmpeg would answer (codecs and container as ffprobe names them; audio=None: no
+    sound), writing the files ffmpeg would write; `calls` collects the commands."""
 
     def run(args, **kwargs):
+        if calls is not None:
+            calls.append(args)
         if args[0] == fail:
             return subprocess.CompletedProcess(args, 1, "", "lots of output\nInvalid data found when processing input")
         if args[0] == "ffprobe":
-            streams = [{"codec_type": "video"}, *([{"codec_type": "audio"}] if audio else [])]
-            return subprocess.CompletedProcess(
-                args, 0, json.dumps({"streams": streams, "format": {"duration": "61.6"}})
-            )
+            streams = [{"codec_type": "video", "codec_name": video}]
+            streams += [{"codec_type": "audio", "codec_name": audio}] if audio else []
+            streams += [{"codec_type": "data", "codec_name": "none"}]  # an iPhone's metadata track: never decoded
+            info = {"streams": streams, "format": {"format_name": container, "duration": "61.6"}}
+            return subprocess.CompletedProcess(args, 0, json.dumps(info))
         if "-master_pl_name" in args:
             out = Path(args[-1]).parent.parent
             (out / "master.m3u8").write_text("#EXTM3U\n480p/index.m3u8\n720p/index.m3u8\n")
@@ -58,7 +62,17 @@ def test_the_command_makes_two_vertical_renditions_with_sound():
         assert part in args
     assert "v:0,a:0,name:480p v:1,a:1,name:720p" in args and "-hls_playlist_type vod" in args
     assert "0:a:0" not in " ".join(media.hls_command("in.mp4", "out", audio=False))
-    assert media.poster_command("in.mp4", "p.jpg", 61)[4:6] == ["-ss", "1"]
+    poster = media.poster_command("in.mp4", "p.jpg", 61)
+    assert poster[poster.index("-ss") + 1] == "1"
+
+
+def test_ffmpeg_opens_local_mp4_and_matroska_files_with_the_expected_decoders_only():
+    """M5: whatever the file claims to be: no network or playlist, no other demuxer or decoder, 2 threads, no stdin."""
+    for command in [media.hls_command("in.mp4", "out", audio=True), media.poster_command("in.mp4", "p.jpg", 61)]:
+        before_input = " ".join(command[: command.index("-i")])
+        assert "-nostdin" in before_input and "-hide_banner" in before_input and "-threads 2" in before_input
+        assert "-protocol_whitelist file -format_whitelist matroska,mov -codec_whitelist h264,hevc," in before_input
+        assert "-threads 2" in " ".join(command[command.index("-i") :])  # the encoders too
 
 
 def test_a_processed_clip_is_ready_and_a_new_run_replaces_its_files(
@@ -96,6 +110,46 @@ def test_a_bad_video_fails_with_the_end_of_ffmpegs_messages(clip, monkeypatch, d
         call_command("reprocess_clips", stdout=open("/dev/null", "w"))  # by default: the failed ones
     clip.refresh_from_db()
     assert clip.processing == "ready" and clip.processing_error == ""
+
+
+@pytest.mark.parametrize(
+    "probed, refused",
+    [
+        ({"container": "avi"}, "container: avi"),
+        ({"container": "hls"}, "container: hls"),
+        ({"video": "prores"}, "video: prores"),
+        ({"audio": "pcm_s16le"}, "audio: pcm_s16le"),
+    ],
+)
+def test_ffprobe_must_find_a_clip_before_ffmpeg_decodes_anything(
+    clip, monkeypatch, django_capture_on_commit_callbacks, probed, refused
+):
+    """M5: the container and codecs ffprobe reports are checked; anything else fails the clip, and ffmpeg never runs."""
+    calls = []
+    monkeypatch.setattr(media.subprocess, "run", fake_ffmpeg(calls=calls, **probed))
+    with django_capture_on_commit_callbacks(execute=True):
+        queue_processing(clip)
+    clip.refresh_from_db()
+    assert clip.processing == "failed" and clip.processing_error.startswith("Not a video we take")
+    assert refused in clip.processing_error and [args[0] for args in calls] == ["ffprobe"]
+    assert "-protocol_whitelist" in calls[0] and "-codec_whitelist" in calls[0]
+
+
+def test_a_file_too_large_or_not_a_video_by_name_is_not_even_fetched(
+    clip, monkeypatch, settings, django_capture_on_commit_callbacks
+):
+    calls = []
+    monkeypatch.setattr(media.subprocess, "run", fake_ffmpeg(calls=calls))
+    settings.LEARN_MAX_UPLOAD_MB = 0  # the clip's 5 bytes are over it
+    with django_capture_on_commit_callbacks(execute=True):
+        queue_processing(clip)
+    clip.refresh_from_db()
+    assert clip.processing == "failed" and "LEARN_MAX_UPLOAD_MB" in clip.processing_error and calls == []
+    settings.LEARN_MAX_UPLOAD_MB = 500
+    Clip.objects.filter(pk=clip.pk).update(source="learn/sources/" + "c" * 32 + ".m3u8")
+    with django_capture_on_commit_callbacks(execute=True):
+        queue_processing(Clip.objects.get(pk=clip.pk))
+    assert Clip.objects.get(pk=clip.pk).processing_error.startswith("Not a video we take") and calls == []
 
 
 def test_storage_trouble_is_tried_again_then_fails(clip, monkeypatch):

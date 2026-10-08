@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "shop/base_shop.html" %}
 {% block head_title %}School and bulk orders{% endblock %}
 {% block meta_description %}Schools, coaching centres and booksellers: ask for a quotation for ExamLeaf books in bulk, delivered anywhere in India.{% endblock %}
 {% block content %}
@@ -9,6 +9,7 @@
     <form method="post" class="card">{% csrf_token %}
       <div class="card-body">
         {% include "_form_errors.html" %}
+        {% include "_required_note.html" %}
         <div class="form-grid">{% for field in form %}{% if field.name != "turnstile" and field.name|slice:":7" != "copies_" %}{% include "_field.html" %}{% endif %}{% endfor %}</div>
         <fieldset class="copies"><legend>Copies of each book</legend>
           <div class="form-grid">{% for field in form %}{% if field.name|slice:":7" == "copies_" %}{% include "_field.html" %}{% endif %}{% endfor %}</div>

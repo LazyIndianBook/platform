@@ -1,11 +1,24 @@
 # TLS termination and reverse proxy. With DOMAIN=examleaf.in Caddy gets and renews a Let's Encrypt certificate by
 # itself (ports 80 and 443 must reach this machine); with DOMAIN=localhost it uses its own local certificate.
+{
+	servers {
+		# A client has 10 seconds for its request's headers and 5 minutes for its body (a photo from a slow phone):
+		# what it sends slowly waits here, in Caddy, not in gunicorn (request_buffers below).
+		timeouts {
+			read_header 10s
+			read_body 5m
+		}
+	}
+}
+
 {$DOMAIN} {
 	encode zstd gzip
 	# One ID per request, in Caddy's access log and in every Django log line for the request (django-guid).
 	request_header X-Request-ID {http.request.uuid}
-	# Clip videos for the revision course are uploaded through the admin (LEARN_MAX_UPLOAD_MB, default 500); every other
-	# request body stays at 10 MB. gunicorn's worker timeout is raised to match (GUNICORN_CMD_ARGS in docker-compose.yml).
+	# Every request body stays at 10 MB, except on the clip and revision admin pages: 500 MB there is the development
+	# fallback for clip videos (no bucket: the file comes with the form, LEARN_MAX_UPLOAD_MB). In production the editor's
+	# browser sends the video straight to the bucket (learn/uploads.py) and the form carries only its name (H1); Django
+	# refuses a body that large from anyone but signed-in staff (learn.uploads.LargeBodyGuard).
 	@clip_upload path /admin/learn/clip/* /admin/learn/revision/*
 	request_body @clip_upload {
 		max_size 500MB
@@ -23,7 +36,11 @@
 		not expression `"{$HEALTH_CHECK_TOKEN}" != "" && {http.request.header.X-Health-Token} == "{$HEALTH_CHECK_TOKEN}"`
 	}
 	respond @health_denied 404
-	reverse_proxy web:8000
+	reverse_proxy web:8000 {
+		# The whole body (up to 10 MB) is read here before gunicorn sees the request: a client that sends it slowly
+		# holds a Caddy connection, never one of gunicorn's threads (H1).
+		request_buffers 10MB
+	}
 	log {
 		output stdout
 		format json

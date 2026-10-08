@@ -1,6 +1,7 @@
 import csv
 import sys
 
+from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
 from content.models import Subject
@@ -20,6 +21,8 @@ class Command(BaseCommand):
         parser.add_argument("--out", help="CSV file (default: stdout)")
 
     def handle(self, subject, count, batch, out, **options):
+        if not settings.LEARN_CODE_SECRET:  # printed codes match only the key they were made with (L7)
+            raise CommandError("Set LEARN_CODE_SECRET first (DEPLOYMENT.md): codes printed without it stay unkeyed.")
         if not 1 <= count <= 100_000:
             raise CommandError("Make between 1 and 100000 codes at a time.")
         subj = None

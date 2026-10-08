@@ -8,7 +8,7 @@ from django.test import Client
 from django.urls import reverse
 
 from accounts.models import ConsentRecord, User
-from accounts.test_security import sign_up
+from accounts.test_security import confirm_own_address, sign_up
 from content.tests import make_paper
 
 pytestmark = pytest.mark.django_db
@@ -26,6 +26,8 @@ def test_a_parents_mobile_number_gets_the_link_by_sms(client, settings, capsys):
     sign_up(client, parent_contact="98640 12345")
     student = User.objects.get()
     assert student.parent_contact == "+919864012345" and student.consent_pending
+    assert texted_token(capsys) == []  # not before the student has confirmed their own address (M3)
+    confirm_own_address(client)
     [token] = texted_token(capsys)
     assert len(token) <= 30 and re.fullmatch(r"[\w.-]+", token)
     parent = Client()
@@ -40,6 +42,7 @@ def test_a_corrected_number_voids_the_first_link_and_sms_off_means_email_only(cl
     settings.PARENTAL_CONSENT_MODE = "verified"
     make_paper()
     sign_up(client, parent_contact="98640 12345")
+    confirm_own_address(client)
     [first] = texted_token(capsys)
     client.force_login(User.objects.get())
     client.post(reverse("parent_consent_resend"), {"parent_contact": "98641 12345"})

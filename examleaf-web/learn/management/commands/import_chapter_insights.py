@@ -42,6 +42,8 @@ class Command(BaseCommand):
     def handle(self, root, subject, **options):
         for name in subject or SUBJECTS:
             folder = Path(root) / "production" / name
+            if not (folder / "format.json").exists():
+                raise CommandError(f"{folder / 'format.json'} not found: --root (BOOK_ROOT) is the book repository.")
             fmt = json.loads((folder / "format.json").read_text())
             subj = Subject.objects.filter(code=fmt["code"], board__short_name="ASSEB", class_level__number=12).first()
             if subj is None:

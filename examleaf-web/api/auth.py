@@ -11,7 +11,7 @@ allauth.socialaccount), so they are not used.
 from importlib import import_module
 
 from allauth.account.adapter import get_adapter
-from allauth.account.forms import ConfirmEmailVerificationCodeForm, RequestLoginCodeForm
+from allauth.account.forms import RequestLoginCodeForm
 from allauth.account.internal.flows.email_verification import send_verification_email_for_user
 from allauth.account.internal.flows.email_verification_by_code import EmailVerificationProcess
 from allauth.account.internal.flows.login_by_code import LoginCodeVerificationProcess
@@ -20,23 +20,27 @@ from allauth.account.stages import LoginByCodeStage, LoginStageController
 from allauth.account.utils import has_verified_email, user_pk_to_url_str
 from allauth.core import ratelimit
 from allauth.core.internal.cryptokit import compare_user_code
+from allauth.headless.contrib.rest_framework.authentication import XSessionTokenAuthentication
+from allauth.mfa.utils import is_mfa_enabled
 from dj_rest_auth import serializers as rest_auth
 from dj_rest_auth.utils import jwt_encode
 from django.conf import settings
 from django.contrib.auth.signals import user_logged_in
 from django.core.cache import cache
 from django.urls import reverse
+from drf_spectacular.extensions import OpenApiAuthenticationExtension
 from drf_spectacular.utils import OpenApiExample, extend_schema, extend_schema_serializer
 from rest_framework import exceptions, serializers, status
 from rest_framework.generics import GenericAPIView
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.settings import api_settings
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 
-from accounts.forms import SignupForm
+from accounts.forms import NO_TRIES_LEFT, ConfirmEmailVerificationCodeForm, SignupForm, spend_try
 from accounts.models import User
 from content.models import Board
+from examleaf.middleware import MFA_SETUP, needs_mfa_setup
 
 from .serializers import ProfileSerializer
 
@@ -46,9 +50,11 @@ TOKENS = {"access": "eyJhbGciOiJIUzI1NiIsâ€¦", "refresh": "eyJhbGciOiJIUzI1NiIsâ
 
 def email_code(request, send, detail="Verification e-mail sent."):
     """Run `send` (an allauth flow that emails or texts a code and keeps it in the session) in a new session, never in
-    a site session a browser may have sent; save it and hand over its key. No cookie is set: the app holds the key."""
+    a site session a browser may have sent; save it and hand over its key. No cookie is set: the app holds the key.
+    It lasts 15 minutes, the longest a code does (L9), not Django's two weeks."""
     request.session = SessionStore()
     send()
+    request.session.set_expiry(900)
     request.session.save()
     request.session.modified = False
     return {"detail": detail, "verification_token": request.session.session_key}
@@ -220,12 +226,65 @@ class VerifyEmailView(GenericAPIView):
         return signed_in(self, django_request, user)
 
 
+SECOND_STEP = (
+    "This account logs in with a second step (an authenticator app or a passkey): log in through /_allauth/app/v1/, "
+    "which asks for it, then POST auth/exchange/ for the tokens."
+)
+
+
+def one_step_allowed(user):
+    """A password or a code alone gives no tokens to staff, nor to an account with a second step (L4): the website
+    asks for it (allauth's MFA stage), and so does allauth.headless, whose session auth/exchange/ turns into tokens."""
+    if user.is_staff or is_mfa_enabled(user):
+        raise exceptions.PermissionDenied(SECOND_STEP)
+
+
 def signed_in(view, request, user):
     """The log-in answer: Django's log-in signal and the JWT pair with the user's details."""
+    one_step_allowed(user)
     logged_in(request, user)
+    return token_pair(view, user)
+
+
+def token_pair(view, user):
     access, refresh = jwt_encode(user)
     data = {"user": user, "access": access, "refresh": refresh}
     return Response(JWTSerializer(data, context=view.get_serializer_context()).data)
+
+
+class SessionTokenAuthentication(XSessionTokenAuthentication):
+    """allauth.headless's app session (the X-Session-Token header), for auth/exchange/ only."""
+
+    def authenticate_header(self, request):
+        return "X-Session-Token"  # 401 rather than 403 without a valid token
+
+
+class SessionTokenScheme(OpenApiAuthenticationExtension):
+    target_class = SessionTokenAuthentication
+    name = "sessionToken"
+
+    def get_security_definition(self, auto_schema):
+        return {"type": "apiKey", "in": "header", "name": "X-Session-Token"}
+
+
+class ExchangeView(GenericAPIView):
+    """The JWT pair for an app signed in through allauth.headless (/_allauth/app/v1/: a code by email or SMS, a
+    passkey, Google, a password with a second step): send the session token of its answers as X-Session-Token. The
+    session stays, for allauth's account endpoints (email, phone, passkeys, password): at log-out end both, DELETE
+    /_allauth/app/v1/auth/session and POST auth/logout/ with the refresh token. 401: no session token, an expired one,
+    or a log-in not finished (a second step or a code still due); 403: a member of staff without an authenticator app
+    (set it up through /_allauth/app/v1/account/authenticators/totp first)."""
+
+    authentication_classes = [SessionTokenAuthentication]
+    permission_classes = [IsAuthenticated]
+    serializer_class = JWTSerializer
+    throttle_scope = "dj_rest_auth"
+
+    @extend_schema(request=None, responses={200: JWTSerializer})
+    def post(self, request, *args, **kwargs):
+        if needs_mfa_setup(request.user):
+            raise exceptions.PermissionDenied(MFA_SETUP)
+        return token_pair(self, request.user)  # allauth sent the log-in signal when the session signed in
 
 
 @extend_schema_serializer(
@@ -238,7 +297,8 @@ class PhoneCodeSerializer(serializers.Serializer):
 class PhoneCodeView(GenericAPIView):
     """Log in with a code by SMS: a 6-digit code goes to the number if an account confirmed it on the website (My
     account); the answer is the same for any Indian mobile number. Send the code with the verification_token to
-    phone/confirm/. 429: three codes an hour per number."""
+    phone/confirm/. 429: three codes an hour per number or 30 per client address, or the number's SMS limits (5 an
+    hour, 10 a day: then no code was sent, and the answer says so)."""
 
     permission_classes = [AllowAny]
     serializer_class = PhoneCodeSerializer
@@ -262,7 +322,8 @@ class PhoneCodeView(GenericAPIView):
                 request=django_request, user=form._user, phone=form.cleaned_data["phone"]
             )
 
-        return Response(email_code(django_request, send, detail="Code sent by SMS."))
+        detail = "If this number is on an account, we have texted it a code."  # sent: a refusal is a 429 (M2)
+        return Response(email_code(django_request, send, detail=detail))
 
 
 @extend_schema_serializer(
@@ -296,6 +357,8 @@ class PhoneConfirmView(GenericAPIView):
         if not process:
             raise serializers.ValidationError({"verification_token": ["Expired. Ask for a new code."]})
         user = process.user  # None for a number no account confirmed
+        if not spend_try(django_request, process.code):  # three tries per code, also for requests sent together (I7)
+            raise serializers.ValidationError({"code": [NO_TRIES_LEFT]})
         if not (
             user
             and user.is_active
@@ -330,6 +393,7 @@ class LoginSerializer(rest_auth.LoginSerializer):
     def validate(self, attrs):
         attrs = super().validate(attrs)
         request, user = self.context["request"]._request, attrs["user"]
+        one_step_allowed(user)
         if not has_verified_email(user, user.email):  # dj-rest-auth checks this only with its registration app
             data = email_code(request, lambda: send_verification_email_for_user(request, user))
             raise EmailNotVerified(data | {"detail": EmailNotVerified.default_detail})

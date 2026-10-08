@@ -5,6 +5,7 @@ static/learn/preview.js (it fills #clip-levels, #clip-pick and #clip-error). #}
 {% block head_title %}Preview: {{ clip.title }}{% endblock %}
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
 {% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/staff.css' %}">
 <script src="{% static 'learn/hls.min.js' %}" defer></script>
 <script src="{% static 'learn/preview.js' %}" defer></script>
 {% endblock %}

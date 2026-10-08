@@ -55,7 +55,7 @@ def queue_email(msg):
     if msg.content_subtype == "plain" and not any(mimetype == "text/html" for _, mimetype in alternatives):
         alternatives.append((html_alternative(msg.subject, msg.body), "text/html"))
     message = {
-        "subject": msg.subject,
+        "subject": " ".join(msg.subject.split()),  # a line break typed into a form would make Django refuse it (I2)
         "body": msg.body,
         "from_email": msg.from_email,
         "to": msg.to,

@@ -177,7 +177,8 @@ class QuoteRequestForm(TurnstileMixin, forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["phone"].widget.attrs.update(inputmode="tel", placeholder="98640 12345")
         self.fields["phone"].error_messages["invalid"] = "Enter a 10-digit Indian mobile number."
-        self.products = list(Product.objects.filter(is_active=True))
+        # books only: a course opens in one account (one per order), so a school's pupils get book codes instead
+        self.products = [product for product in Product.objects.filter(is_active=True) if not product.has_digital]
         for product in self.products:
             self.fields[f"copies_{product.pk}"] = forms.IntegerField(
                 label=f"Copies of {product.title}", min_value=0, max_value=10000, required=False
@@ -196,7 +197,3 @@ class QuoteRequestForm(TurnstileMixin, forms.ModelForm):
         if not self.instance.items:
             raise forms.ValidationError("Enter the number of copies of at least one book.")
         return data
-
-
-class StockAlertForm(forms.Form):  # the page of a product out of stock, for visitors without an account
-    email = forms.EmailField(label="Email address")

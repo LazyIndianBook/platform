@@ -6,7 +6,7 @@ from django.apps import apps
 from django.contrib import admin, messages
 from django.contrib.admin.helpers import ActionForm
 from django.contrib.auth import get_user_model
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.files.uploadedfile import UploadedFile
 from django.db.models import Q
 from django.forms import formset_factory
@@ -113,7 +113,8 @@ class ProductForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # the page carries the stock it was opened with, so that saving it can tell whether stock was edited
-        self.fields["stock"].show_hidden_initial = True
+        if "stock" in self.fields:  # a view-only user's page has no form fields
+            self.fields["stock"].show_hidden_initial = True
 
     def clean_cover(self):
         return small_picture(self.cleaned_data["cover"])
@@ -163,6 +164,17 @@ class CategoryResource(resources.ModelResource):
         model = Category
         import_id_fields = ["slug"]
         fields = ["slug", "name", "description", "parent"]
+
+    def validate_instance(self, instance, import_validation_errors=None, validate_unique=True):
+        """The model's own checks of what a row sets (a slug with a space or a slash would break the shop's links:
+        I4); the tree's fields are set when the row's category is placed (do_instance_save)."""
+        errors = dict(import_validation_errors or {})
+        try:
+            instance.full_clean(exclude=[*errors, "path", "depth", "numchild"], validate_unique=validate_unique)
+        except ValidationError as error:
+            errors = error.update_error_dict(errors)
+        if errors:
+            raise ValidationError(errors)
 
     def get_export_queryset(self, request):
         return Category.objects.order_by("path")

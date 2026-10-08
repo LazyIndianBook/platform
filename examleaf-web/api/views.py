@@ -4,25 +4,34 @@ the DPDP self-service of the profile (Download my data, Delete my account) with 
 from functools import wraps
 
 import django_filters
+from allauth.account import app_settings as account_settings
 from allauth.account.utils import has_verified_email
+from allauth.core.exceptions import ImmediateHttpResponse
+from allauth.socialaccount.adapter import get_adapter as get_social_adapter
 from django.conf import settings
 from django.core.exceptions import RequestDataTooBig
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import IntegrityError, transaction
 from django.db.models import Prefetch
 from django.http import QueryDict
+from django.utils.cache import patch_cache_control
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiExample, extend_schema, extend_schema_serializer, inline_serializer
 from rest_framework import exceptions, generics, permissions, serializers, status, views, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from accounts.models import DeletionRequest
-from accounts.views import export_user_data, keep_account, request_deletion
+from accounts.models import DeletionRequest, TeacherProfile
+from accounts.views import export_user_data, keep_account, request_deletion, resend_parent_link
 from content.models import Board, Book, Paper, Subject
 from content.views import cache_solutions
+from pages.models import Page
+from pages.templatetags.pages import page_html
 from practice.forms import AttemptFilter
 from practice.models import Attempt
+from shop.models import INR
 
 from .auth import check_password
 from .serializers import (
@@ -44,8 +53,13 @@ class PayloadTooLarge(exceptions.APIException):
 
 
 def exception_handler(exc, context):
-    """DRF's error format, also for a JSON body over DATA_UPLOAD_MAX_MEMORY_SIZE (Django would answer an HTML 400)."""
-    return views.exception_handler(PayloadTooLarge() if isinstance(exc, RequestDataTooBig) else exc, context)
+    """DRF's error format, also for a JSON body over DATA_UPLOAD_MAX_MEMORY_SIZE (Django would answer an HTML 400) and
+    for allauth's 429 (an HTML page): a code or SMS refused by its limits (accounts.adapter.TooManyCodes, M1, M2)."""
+    if isinstance(exc, RequestDataTooBig):
+        exc = PayloadTooLarge()
+    elif isinstance(exc, ImmediateHttpResponse) and exc.response.status_code == status.HTTP_429_TOO_MANY_REQUESTS:
+        exc = exceptions.Throttled(detail=getattr(exc, "detail", None) or "Too many requests: try again later.")
+    return views.exception_handler(exc, context)
 
 
 class VerifiedEmail(permissions.BasePermission):
@@ -233,3 +247,208 @@ class DeletionView(generics.GenericAPIView):
         if not keep_account(request):
             raise exceptions.NotFound("No account deletion is waiting.")
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class DetailSerializer(serializers.Serializer):
+    detail = serializers.CharField()
+
+
+@extend_schema_serializer(
+    examples=[
+        OpenApiExample(
+            "Asked",
+            value={"school_name": "Cotton Collegiate H.S. School", "district": "Kamrup Metro", "subject": "Physics"},
+            request_only=True,
+        )
+    ]
+)
+class TeacherSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TeacherProfile
+        fields = ["school_name", "district", "subject", "verified", "verified_at", "created"]
+        read_only_fields = ["verified", "verified_at", "created"]
+
+
+class TeacherView(generics.GenericAPIView):
+    """Teacher access, as on My account: GET the request and whether staff have verified it (404 until there is one);
+    POST asks for it, once per account. Staff check with the school; a verified teacher gets the TEACHER role (roles
+    in me/)."""
+
+    serializer_class = TeacherSerializer
+    permission_classes = [permissions.IsAuthenticated, VerifiedEmail]
+
+    def get(self, request, *args, **kwargs):
+        profile = generics.get_object_or_404(TeacherProfile, user=request.user)
+        return Response(self.get_serializer(profile).data)
+
+    @extend_schema(responses={201: TeacherSerializer})
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            with transaction.atomic():
+                serializer.save(user=request.user)
+        except IntegrityError as error:  # one request per account (a double tap included): its status is in GET
+            raise serializers.ValidationError({"non_field_errors": ["You have asked for teacher access."]}) from error
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+
+@extend_schema_serializer(
+    examples=[OpenApiExample("A corrected number", value={"parent_contact": "98640 12345"}, request_only=True)]
+)
+class ParentContactSerializer(serializers.Serializer):
+    parent_contact = serializers.CharField(
+        max_length=120, help_text="the parent's or guardian's email address or mobile number: the one on record, or new"
+    )
+
+
+class ParentConsentView(generics.GenericAPIView):
+    """PARENTAL_CONSENT_MODE "verified", while a parent has not confirmed (`consent_pending` in me/): the link to
+    confirm, again, to the contact on record or a corrected one, as on My account. 404 when no consent is awaited; 429
+    within ten minutes of the last link."""
+
+    serializer_class = ParentContactSerializer
+    throttle_scope = "dj_rest_auth"
+
+    @extend_schema(responses={200: DetailSerializer})
+    def post(self, request, *args, **kwargs):
+        data = self.get_serializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        user = request.user
+        if not user.consent_pending:
+            raise exceptions.NotFound("No parent's consent is awaited.")
+        try:
+            resend_parent_link(user, data.validated_data["parent_contact"])
+        except DjangoValidationError as error:
+            if error.code == "too_soon":
+                raise exceptions.Throttled(wait=600, detail=error.message) from error
+            raise serializers.ValidationError({"parent_contact": [error.message]}) from error
+        return Response({"detail": f"We have sent {user.parent_contact} a link to confirm."})
+
+
+CONFIG = inline_serializer(
+    "Config",
+    {
+        "auth": inline_serializer(
+            "AuthConfig",
+            {
+                "login_methods": serializers.ListField(child=serializers.CharField(), help_text='"email", "phone"'),
+                "login_by_code": serializers.BooleanField(help_text="a code by email (or SMS) instead of a password"),
+                "sms": serializers.BooleanField(help_text="SMS on: log-in by phone, a mobile number on the account"),
+                "google": serializers.BooleanField(help_text="Continue with Google"),
+                "passkeys": serializers.BooleanField(help_text="log-in with a passkey"),
+                "turnstile_site_key": serializers.CharField(
+                    allow_null=True, help_text="Cloudflare Turnstile's, while the bot check is on; send its token"
+                ),
+            },
+        ),
+        "shop": inline_serializer(
+            "ShopConfig",
+            {
+                "open": serializers.BooleanField(help_text="off: only staff change carts, check out and pay"),
+                "cod": serializers.BooleanField(help_text="cash on delivery offered"),
+                "cod_max_value": serializers.DecimalField(
+                    max_digits=10, decimal_places=2, help_text="the most an order may be worth, shipping included"
+                ),
+                "currency": serializers.CharField(),
+            },
+        ),
+        "solutions_require_login": serializers.BooleanField(),
+        "parental_consent": serializers.ChoiceField(choices=["declared", "verified"]),
+        "support": inline_serializer(
+            "SupportConfig",
+            {
+                "email": serializers.EmailField(allow_null=True, help_text="null until the real one is set"),
+                "phone": serializers.CharField(allow_null=True, help_text="null until the real one is set"),
+            },
+        ),
+    },
+)
+
+
+class ConfigView(generics.GenericAPIView):
+    """What this server has switched on, so that a frontend never hard-codes a feature flag: the ways to log in
+    (allauth.headless's /_allauth/<client>/v1/config has allauth's own view of them), the bot check, the shop, whether
+    the solutions need an account, the parent's consent mode, and the support contacts (null while the seller's details
+    still hold a [placeholder]). Public, cacheable for 5 minutes."""
+
+    permission_classes = [permissions.AllowAny]
+    authentication_classes = []
+
+    @extend_schema(
+        responses=CONFIG,
+        examples=[
+            OpenApiExample(
+                "Production",
+                response_only=True,
+                value={
+                    "auth": {
+                        "login_methods": ["email", "phone"],
+                        "login_by_code": True,
+                        "sms": True,
+                        "google": True,
+                        "passkeys": True,
+                        "turnstile_site_key": "0x4AAAAAAA…",
+                    },
+                    "shop": {"open": True, "cod": True, "cod_max_value": "1500.00", "currency": "INR"},
+                    "solutions_require_login": True,
+                    "parental_consent": "verified",
+                    "support": {"email": "help@examleaf.in", "phone": None},
+                },
+            )
+        ],
+    )
+    def get(self, request, *args, **kwargs):
+        seller, providers = settings.SHOP_SELLER, get_social_adapter().list_providers(request._request)
+        response = Response(
+            {
+                "auth": {
+                    "login_methods": sorted(account_settings.LOGIN_METHODS),
+                    "login_by_code": account_settings.LOGIN_BY_CODE_ENABLED,
+                    "sms": settings.SMS_ENABLED,
+                    "google": any(provider.id == "google" for provider in providers),
+                    "passkeys": settings.MFA_PASSKEY_LOGIN_ENABLED,
+                    "turnstile_site_key": settings.TURNSTILE_SITE_KEY if settings.TURNSTILE else None,
+                },
+                "shop": {
+                    "open": settings.SHOP_OPEN,
+                    "cod": settings.SHOP_COD_ENABLED,
+                    "cod_max_value": f"{settings.SHOP_COD_MAX_VALUE:.2f}",
+                    "currency": INR,
+                },
+                "solutions_require_login": settings.SOLUTIONS_REQUIRE_LOGIN,
+                "parental_consent": settings.PARENTAL_CONSENT_MODE,
+                "support": {key: None if "[" in seller[key] else seller[key] or None for key in ("email", "phone")},
+            }
+        )
+        patch_cache_control(response, public=True, max_age=300)
+        return response
+
+
+class PageSerializer(serializers.ModelSerializer):
+    markdown = serializers.CharField(source="body_md")
+    html = serializers.SerializerMethodField(help_text='as the website shows it; a [placeholder] is <mark class="…">')
+    updated = serializers.DateTimeField(read_only=True, help_text="when the text last changed (its latest history)")
+    web_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Page
+        fields = ["slug", "title", "version", "updated", "markdown", "html", "web_url"]
+
+    def get_html(self, page) -> str:
+        return page_html(page.body_md)
+
+    def get_web_url(self, page) -> str:
+        return self.context["request"].build_absolute_uri(page.get_absolute_url())
+
+
+@cached
+class PageViewSet(viewsets.ReadOnlyModelViewSet):
+    """The legal and policy pages (privacy, terms, refunds, shipping, contact) as the website shows them: Markdown and
+    HTML, the version (consent records keep the privacy notice's) and when the text last changed. Cached 15 minutes."""
+
+    permission_classes = [permissions.AllowAny]
+    queryset = Page.objects.all()
+    serializer_class = PageSerializer
+    lookup_field = "slug"
+    ordering_fields = ["slug", "title"]

@@ -1,3 +1,5 @@
+import re
+import unicodedata
 from datetime import timedelta
 
 from allauth.account.decorators import reauthentication_required
@@ -9,18 +11,21 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.core import signing
 from django.core.cache import cache
+from django.core.exceptions import ValidationError
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import IntegrityError, transaction
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
+from django.utils.crypto import salted_hmac
 from django.utils.formats import date_format
 from django.utils.http import base36_to_int, int_to_base36
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods, require_POST
 from django.views.generic import CreateView, TemplateView
 
+from ops.models import EmailSuppression
 from ops.sms import queue_sms
 from ops.tasks import queue_text_email
 
@@ -75,7 +80,7 @@ def export_orders(user):
     """The user's orders as kept (tax records), with their invoice and credit notes by number (the PDFs stay on the
     order pages)."""
     orders = user.orders.select_related("invoice").prefetch_related(
-        "items", "shipments", "refunds", "payments", "invoice__credit_notes"
+        "items", "shipments", "refunds", "payments", "notes", "invoice__credit_notes"
     )
     return [
         {
@@ -100,6 +105,7 @@ def export_orders(user):
                 {"amount": str(r.amount.amount), "status": r.status, "reason": r.reason, "created": r.created}
                 for r in order.refunds.all()
             ],
+            "staff_notes": [{"text": note.text, "created": note.created} for note in order.notes.all()],  # L10
             "payments": [
                 {
                     "method": p.get_method_display(),
@@ -182,6 +188,11 @@ def export_user_data(user):
         "orders": export_orders(user),
         **export_shop_requests(user),
         "learning": export_course(user),
+        # L10: the texts sent to the account (no numbers), and whether the address gets no more email (bounces)
+        "sms": list(user.sms_messages.values("kind", "status", "phone_last4", "created")),
+        "email_suppressed": EmailSuppression.objects.filter(email__iexact=user.email)
+        .values("reason", "created")
+        .first(),
     }
 
 
@@ -293,24 +304,52 @@ def parent_signer(contact):
     return ShortSigner(salt=f"{PARENT_LINK_SALT}:{contact}", sep=".")
 
 
+A_STUDENT, PARENT_LINKS_PER_DAY = "a student", 3
+NAME_WORDS = re.compile(r"[^ .-]+(?:-[^ .-]+)*\.?(?: [^ .-]+(?:-[^ .-]+)*\.?)*")
+
+
+def shown_name(full_name):
+    """The student's name as the parent's email and SMS may carry it (M3): letters of any script with their marks,
+    single spaces, a hyphen inside a word and a dot at the end of one ("A. K. Das"), at most 60 characters; anything
+    else (a web address, digits, a sign) is "a student". The rest of the messages is fixed text."""
+    name = " ".join(str(full_name).split())
+    letters = all(unicodedata.category(char)[0] in "LM" or char in " .-" for char in name)
+    return name if 0 < len(name) <= 60 and letters and NAME_WORDS.fullmatch(name) else A_STUDENT
+
+
+def parent_link_allowed(contact):
+    """At most PARENT_LINKS_PER_DAY links a day to one parent's address or number, whichever accounts ask (M3)."""
+    key = "accounts:parent-links:" + salted_hmac(PARENT_LINK_SALT, contact, algorithm="sha256").hexdigest()
+    cache.add(key, 0, 24 * 3600)
+    try:
+        return (cache.incr(key) or 0) <= PARENT_LINKS_PER_DAY  # 0: the cache is down; the SMS limits still hold
+    except ValueError:  # expired in between
+        return True
+
+
 def send_parent_link(user):
     """PARENTAL_CONSENT_MODE "verified" (M9): the parent gets a signed link to confirm, valid PARENT_LINK_DAYS days, by
     email, or by SMS when the contact is a mobile number. Who receives it is not proof of parenthood (DPDP rules: the
-    SMS, like the email, only reaches the contact the student gave; RUNBOOK.md "Parental consent")."""
-    token = parent_signer(user.parent_contact).sign(int_to_base36(user.pk))
+    SMS, like the email, only reaches the contact the student gave; RUNBOOK.md "Parental consent"). Sent once the
+    student has confirmed their own address (accounts.models), then on My account; fixed text with the student's
+    name only as shown_name allows (M3). Returns whether it went (a limit may stop it: M2, M3)."""
+    if not parent_link_allowed(user.parent_contact):
+        return False
+    token, name = parent_signer(user.parent_contact).sign(int_to_base36(user.pk)), shown_name(user.full_name)
     if "@" not in user.parent_contact:
-        queue_sms("parent_consent", user.parent_contact, {"var1": user.full_name.split()[0][:30], "var2": token})
-        return
+        variables = {"var1": A_STUDENT if name == A_STUDENT else name.split()[0][:30], "var2": token}
+        return queue_sms("parent_consent", user.parent_contact, variables, user=user)
     queue_text_email(
         user.parent_contact,
         "Please confirm your child's account",
-        f"{user.full_name} has registered at ExamLeaf, for the free solutions of the ExamLeaf sample papers, and gave "
-        f"this address as their parent's or guardian's. The law asks for your consent before we keep the details of "
-        f"a student under 18. Read what we keep, and confirm, here (the link works for {PARENT_LINK_DAYS} days):\n\n"
-        f"{settings.SITE_URL}{reverse('parent_consent', args=[token])}\n\n"
+        f"{name[0].upper()}{name[1:]} has registered at ExamLeaf, for the free solutions of the ExamLeaf sample "
+        f"papers, and gave this address as their parent's or guardian's. The law asks for your consent before we keep "
+        f"the details of a student under 18. Read what we keep, and confirm, here (the link works for "
+        f"{PARENT_LINK_DAYS} days):\n\n{settings.SITE_URL}{reverse('parent_consent', args=[token])}\n\n"
         f"If you do not agree, do nothing: the account cannot save marks or order books. To have it deleted, write "
         f"to us: {settings.SITE_URL}{reverse('contact')}",
     )
+    return True
 
 
 @never_cache
@@ -331,20 +370,34 @@ def parent_consent(request, token):
     return render(request, "parent_consent.html", {"student": student, "done": done})
 
 
+def resend_parent_link(user, value):
+    """While the parent's consent is pending (M9), for the website and the API: the link again, to the contact on
+    record or a corrected one. ValidationError: not a contact (or the student's own), or a link went less than ten
+    minutes ago (code "too_soon"), or a limit stopped it (code "not_sent": never reported as sent, M2)."""
+    contact = parent_link_contact(value)
+    if not contact or contact in (user.email, user.login_phone):
+        raise ValidationError("Enter your parent's or guardian's email address or mobile number (not your own).")
+    if not cache.add(f"accounts:parent-link:{user.pk}", 1, 600):
+        message = "A link was sent a few minutes ago: wait ten minutes before asking for another."
+        raise ValidationError(message, code="too_soon")
+    user.parent_contact = contact
+    user.save(update_fields=["parent_contact"])
+    if not send_parent_link(user):
+        message = "The link was not sent: that address or number has had several today. Try again tomorrow."
+        raise ValidationError(message, code="not_sent")
+
+
 @login_required
 @require_POST
 def parent_consent_resend(request):
     """While the parent's consent is pending: the link again, to the contact on record or a corrected one (M9)."""
-    user, contact = request.user, parent_link_contact(request.POST.get("parent_contact"))
+    user = request.user
     if not user.consent_pending:
         return redirect("account")
-    if not contact or contact in (user.email, user.login_phone):
-        messages.error(request, "Enter your parent's or guardian's email address or mobile number (not your own).")
-    elif not cache.add(f"accounts:parent-link:{user.pk}", 1, 600):
-        messages.error(request, "A link was sent a few minutes ago: wait ten minutes before asking for another.")
+    try:
+        resend_parent_link(user, request.POST.get("parent_contact"))
+    except ValidationError as error:
+        messages.error(request, error.message)
     else:
-        user.parent_contact = contact
-        user.save(update_fields=["parent_contact"])
-        send_parent_link(user)
         messages.success(request, f"We have sent {user.parent_contact} a link to confirm.")
     return redirect("account")

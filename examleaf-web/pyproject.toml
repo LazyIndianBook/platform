@@ -10,8 +10,6 @@ filterwarnings = [
     # taggit and simple_history (admin pages) call Django APIs that are deprecated for 2028; nothing to fix here
     "ignore:SQLCompiler.quote_name_unless_alias:django.utils.deprecation.RemovedInDjango2028Warning",
     "ignore:Calling select_related:django.utils.deprecation.RemovedInDjango2028Warning",
-    # django-pictures' Celery processor, removed when Django 5.2 support ends (2028): settings.PICTURES
-    "ignore:The picture processor 'celery_process_picture' is deprecated:PendingDeprecationWarning",
 ]
 
 [tool.coverage.run]

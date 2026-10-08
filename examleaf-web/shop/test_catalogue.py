@@ -75,6 +75,16 @@ def test_a_collection_lists_its_products_in_the_staffs_order(client):
     assert client.get("/shop/collection/essentials/").status_code == 404
 
 
+def test_the_sitemap_lists_the_shop_its_shelves_and_collections(client):
+    tree()
+    Collection.objects.create(name="Essentials", slug="essentials")
+    Collection.objects.create(name="Hidden", slug="hidden", is_active=False)
+    sitemap = client.get("/sitemap.xml").text
+    for path in ["/shop/", "/shop/school-orders/", "/shop/category/science/", "/shop/collection/essentials/"]:
+        assert f"<loc>http://testserver{path}</loc>" in sitemap, path
+    assert "/shop/collection/hidden/" not in sitemap
+
+
 def test_a_renamed_product_redirects_from_its_old_address_and_slugs_of_shop_pages_are_refused(client):
     product = ProductFactory(slug="physics-2026")
     product.slug = "physics-2027"
@@ -145,6 +155,12 @@ def test_the_api_lists_categories_and_collections_and_filters_products_by_them_a
     data = api.get("/api/v1/products/physics/").json()
     assert data["categories"] == ["science"]
     assert {(a["code"], a["value"]) for a in data["attributes"]} == {("year", "2027"), ("language", "Assamese")}
+    note = Attribute.objects.create(product_type=kind, name="Note", code="note")  # text: any value reaches the query
+    AttributeValue.objects.create(product=physics, attribute=note, value="x' OR '1'='1")
+    assert slugs("attr_note=x' OR '1'='1") == ["physics"] and slugs("attr_note=%27 OR 1=1 --") == []
+    assert slugs("attr_note=a%00b") == []  # PostgreSQL refuses a NUL byte in a query: this was a 500 there
+    with pytest.raises(ValidationError, match="null character"):
+        note.normalise("a\x00b")
 
 
 @pytest.fixture
@@ -234,6 +250,29 @@ def test_a_refunded_or_cancelled_course_order_closes_the_course_and_a_bundle_sel
         services.cancel_order(paid, "Cancelled by the customer.")
     book.refresh_from_db()
     assert hooks.revoked[-1] == paid and book.stock == 5
+
+
+def test_a_bundle_of_digital_products_only_is_a_course_too(course, hooks, rzp, commit):
+    """A pass for two subjects sold as a bundle of two courses: no copies to count, no shipping, nothing to pack."""
+    ShippingRateFactory(free_above=None)
+    other = ProductFactory(title="Chemistry Revision Pass", slug="chemistry-pass", kind=Product.Kind.DIGITAL, stock=0)
+    both = ProductFactory(slug="both-passes", kind=Product.Kind.BUNDLE, stock=0)
+    BundleItem.objects.create(bundle=both, product=course)
+    BundleItem.objects.create(bundle=both, product=other)
+    assert both.digital_only and both.has_digital and both.available == 1 and not ProductFactory().digital_only
+    assert services.cart_totals(make_cart((both, 1)), state="AS").shipping == 0
+    assert services.cart_totals(make_cart((both, 1), user=verified_user("a@example.com"))).digital_only
+    assert not services.cart_totals(
+        make_cart((both, 1), (ProductFactory(), 1), user=verified_user("b@example.com"))
+    ).digital_only
+    assert not services.cart_totals(None).digital_only
+    page = APIClient().get("/api/v1/products/both-passes/").json()
+    assert page["in_stock"] is True
+    order = make_order((both, 1), user=verified_user("rahul@example.com"))
+    with commit():
+        services.record_capture(captured(order))
+    order.refresh_from_db()
+    assert order.is_digital and order.status == Order.Status.DELIVERED and hooks.granted == [order]
 
 
 def test_a_part_refund_leaves_the_course_open(course, hooks, rzp, commit):

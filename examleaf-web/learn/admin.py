@@ -1,8 +1,11 @@
 from django.contrib import admin, messages
+from django.core.exceptions import PermissionDenied
 from django.db.models import Count
-from django.urls import reverse
+from django.http import HttpResponseNotAllowed
+from django.urls import path, reverse
 from django.utils.html import format_html
 
+from . import uploads
 from .models import (
     CODE_LENGTH,
     BookCode,
@@ -60,14 +63,24 @@ class ChapterAdmin(admin.ModelAdmin):
 
 class ClipInline(admin.TabularInline):
     model = Clip
-    fields = ["order", "title", "kind", "source", "is_free_preview", "processing", "duration", preview]
+    form = uploads.ClipForm
+    fields = ["order", "title", "kind", "source", "source_key", "is_free_preview", "processing", "duration", preview]
     readonly_fields = ["processing", "duration", preview]
     extra = 0
     show_change_link = True
 
 
+class UploadsToStorage:
+    """The clip pages send videos straight to the bucket (uploads.py, H1): its origin joins their CSP's connect-src."""
+
+    def changeform_view(self, request, *args, **kwargs):
+        return uploads.allow_storage(
+            super().changeform_view(request, *args, **kwargs), uploads.private(), "connect-src"
+        )
+
+
 @admin.register(Revision)
-class RevisionAdmin(admin.ModelAdmin):
+class RevisionAdmin(UploadsToStorage, admin.ModelAdmin):
     list_display = ["title", "chapter", "status", "clip_count", "order"]
     list_editable = ["order"]
     list_filter = ["status", "chapter__subject"]
@@ -101,12 +114,13 @@ class RevisionAdmin(admin.ModelAdmin):
             from .tasks import queue_processing
 
             for clip_form in formset.forms:
-                if "source" in clip_form.changed_data and clip_form.instance.source:
+                if uploads.video_changed(clip_form):
                     queue_processing(clip_form.instance)
 
 
 @admin.register(Clip)
-class ClipAdmin(admin.ModelAdmin):
+class ClipAdmin(UploadsToStorage, admin.ModelAdmin):
+    form = uploads.ClipForm
     list_display = ["title", "revision", "order", "kind", "processing", "duration", "is_free_preview", preview]
     list_filter = ["processing", "kind", "revision__chapter__subject"]
     search_fields = ["title", "revision__title"]
@@ -117,9 +131,21 @@ class ClipAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         return super().get_queryset(request).select_related("revision")
 
+    def get_urls(self):
+        upload = path("upload-url/", self.admin_site.admin_view(self.upload_url), name="learn_clip_upload_url")
+        return [upload, *super().get_urls()]
+
+    def upload_url(self, request):
+        """The signed PUT link for a video sent straight to the bucket (uploads.upload_url)."""
+        if request.method != "POST":
+            return HttpResponseNotAllowed(["POST"])
+        if not (self.has_add_permission(request) or self.has_change_permission(request)):
+            raise PermissionDenied
+        return uploads.upload_url(request)
+
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
-        if "source" in form.changed_data and obj.source:
+        if uploads.video_changed(form):
             from .tasks import queue_processing
 
             queue_processing(obj)

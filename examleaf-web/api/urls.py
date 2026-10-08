@@ -13,6 +13,7 @@ router.register("boards", views.BoardViewSet)
 router.register("subjects", views.SubjectViewSet)
 router.register("books", views.BookViewSet)
 router.register("papers", views.PaperViewSet)
+router.register("pages", views.PageViewSet)  # the legal pages
 router.register("attempts", views.AttemptViewSet, basename="attempt")
 router.register("products", shop.ProductViewSet)
 router.register("addresses", shop.AddressViewSet, basename="address")
@@ -32,6 +33,7 @@ urlpatterns = [
     path("auth/registration/verify-email/", auth.VerifyEmailView.as_view(**NO_AUTH), name="verify-email"),
     path("auth/phone/code/", auth.PhoneCodeView.as_view(**NO_AUTH), name="phone-code"),
     path("auth/phone/confirm/", auth.PhoneConfirmView.as_view(**NO_AUTH), name="phone-confirm"),
+    path("auth/exchange/", auth.ExchangeView.as_view(), name="exchange"),  # allauth.headless's app session to JWT
     # dj-rest-auth (its urls.py, listed here to drop the authentication where it gets in the way)
     path("auth/login/", rest_auth.LoginView.as_view(**NO_AUTH), name="rest_login"),
     path("auth/logout/", rest_auth.LogoutView.as_view(**NO_AUTH), name="rest_logout"),
@@ -47,7 +49,12 @@ urlpatterns = [
     path("me/", rest_auth.UserDetailsView.as_view(), name="me"),
     path("me/export/", views.DataExportView.as_view(), name="me-export"),
     path("me/deletion/", views.DeletionView.as_view(), name="me-deletion"),
+    path("me/teacher/", views.TeacherView.as_view(), name="me-teacher"),
+    path("me/parent-consent/", views.ParentConsentView.as_view(), name="me-parent-consent"),
+    path("config/", views.ConfigView.as_view(), name="config"),
     path("qr/<str:code>/", views.QrView.as_view(), name="qr"),
+    path("orders/t/<slug:token>/", shop.OrderLinkView.as_view(), name="order-link"),  # the emails' link
+    path("quotes/", shop.QuoteView.as_view(), name="quotes"),  # school and bulk orders
     path("cart/", cart({"get": "retrieve"}), name="cart"),
     path("cart/items/", cart({"post": "add"}), name="cart-items"),
     path("cart/items/<slug:product>/", cart(CART_LINE), name="cart-line"),

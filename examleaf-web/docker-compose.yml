@@ -3,10 +3,42 @@
 #   Production:  DOMAIN=examleaf.in   (Caddy gets a Let's Encrypt certificate)
 #   Development: DOMAIN=localhost     (Caddy's local certificate; `docker compose exec caddy caddy trust` once)
 
-x-app: &app
+x-image: &image  # the site's image, as every service but the media worker runs it (x-app) and as that one does
   build: .
   image: examleaf-web
   restart: unless-stopped
+  volumes:
+    - media:/app/media
+  logging: &logging  # docker logs: JSON lines, rotated (50 MB per service)
+    driver: json-file
+    options: {max-size: 10m, max-file: "5"}
+
+# The media worker's environment (M5): it runs FFmpeg on videos that come from outside, so it gets the database, the
+# queue, the buckets and SECRET_KEY, and none of the other secrets (Razorpay, MSG91, email, Google, Sentry, Firebase):
+# no env_file. A name without a value is read from .env, and left unset when .env has none.
+x-media-env: &media-env
+  DATABASE_URL: postgres://examleaf:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/examleaf
+  CELERY_BROKER_URL: redis://redis:6379/0
+  AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+  AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+  SECRET_KEY:
+  MEDIA_BUCKET:
+  PUBLIC_MEDIA_BUCKET:
+  PUBLIC_MEDIA_DOMAIN:
+  S3_ENDPOINT_URL:
+  S3_REGION:
+  S3_ACCESS_KEY_ID:
+  S3_SECRET_ACCESS_KEY:
+  PUBLIC_S3_ENDPOINT_URL:
+  PUBLIC_S3_REGION:
+  PUBLIC_S3_ACCESS_KEY_ID:
+  PUBLIC_S3_SECRET_ACCESS_KEY:
+  LEARN_PUBLIC_VIDEO:
+  LEARN_MAX_UPLOAD_MB:
+  LOG_LEVEL:
+
+x-app: &app
+  <<: *image
   env_file: .env
   environment: &app-env
     DATABASE_URL: postgres://examleaf:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/examleaf
@@ -16,15 +48,10 @@ x-app: &app
     BOOK_ROOT: /book
     AWS_REQUEST_CHECKSUM_CALCULATION: when_required  # boto3 with Cloudflare R2 (settings.py, "Two S3-compatible buckets")
     AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
-  volumes:
-    - media:/app/media
   depends_on:
     db: {condition: service_healthy}
     redis: {condition: service_healthy}
     redis-cache: {condition: service_healthy}
-  logging: &logging  # docker logs: JSON lines, rotated (50 MB per service)
-    driver: json-file
-    options: {max-size: 10m, max-file: "5"}
 
 services:
   db:
@@ -77,8 +104,9 @@ services:
       && python manage.py health_check health_web --no-http
       && exec gunicorn examleaf.wsgi --bind 0.0.0.0:8000 --max-requests 1000 --max-requests-jitter 100"
     environment:
-      # Clip uploads in the admin are read inside the request: a 10-minute worker timeout (gunicorn reads this variable).
-      GUNICORN_CMD_ARGS: ${GUNICORN_CMD_ARGS:---timeout 600}
+      # Threads (H1): a slow request holds one of a worker's 8 threads, not the whole process; 60 s before a silent
+      # worker is restarted. Clip videos never come through here in production: the browser sends them to the bucket.
+      GUNICORN_CMD_ARGS: ${GUNICORN_CMD_ARGS:---worker-class gthread --threads 8 --timeout 60}
       <<: *app-env
       DOMAIN: ${DOMAIN:?set DOMAIN in .env}
     volumes:
@@ -104,10 +132,13 @@ services:
       web: {condition: service_healthy}
 
   media-worker:  # ffmpeg for the revision course's clips (queue "media", learn/tasks.py): one video at a time
-    <<: *app
+    <<: *image
+    environment: *media-env  # its own, small environment (M5): not .env
     command: celery -A examleaf worker --queues media --hostname media@%h --loglevel INFO --concurrency 1
     depends_on:
       web: {condition: service_healthy}
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
 
   caddy:
     image: caddy:2

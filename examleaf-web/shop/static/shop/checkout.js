@@ -5,6 +5,7 @@
   var error = document.getElementById("pay-error");
   var form = document.getElementById("razorpay-form");
   var options = JSON.parse(document.getElementById("razorpay-options").textContent);
+  button.removeAttribute("aria-busy"); // the page renders it busy while Razorpay's script loads
   if (typeof Razorpay === "undefined") {
     error.textContent = "The payment window could not be loaded. Check your internet connection and reload this page.";
     error.hidden = false;
@@ -14,7 +15,9 @@
     form.razorpay_payment_id.value = response.razorpay_payment_id;
     form.razorpay_order_id.value = response.razorpay_order_id;
     form.razorpay_signature.value = response.razorpay_signature;
-    form.submit();
+    button.disabled = true; // busy again while the server checks the payment
+    button.setAttribute("aria-busy", "true");
+    form.requestSubmit ? form.requestSubmit() : form.submit(); // requestSubmit: a "submit" event, so no page transition
   };
   var checkout = new Razorpay(options);
   checkout.on("payment.failed", function (response) {

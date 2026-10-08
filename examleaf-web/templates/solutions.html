@@ -2,7 +2,9 @@
 {% block head_title %}{{ paper.book.subject.name }} Sample Paper {{ paper.short_code }}: solutions{% endblock %}
 {% block meta_description %}Worked solutions with the marking steps to ExamLeaf Sample Paper {{ paper.short_code }} ({{ paper.book.subject.name }}, {{ paper.get_tier_display }}), Assam Board Class 12.{% endblock %}
 {% block extra_head %}
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.19.0/dist/katex.min.css" integrity="sha256-1KtbjuFpibBwzbDqJL1q1I/I3xt4fygPKdOuT5WfLAA=" crossorigin="anonymous">
+{# KaTeX's stylesheet is fetched early but applied at the end of the page (extra_body), so it never delays the first paint; static/js/math.js waits for it #}
+<link rel="preload" href="https://cdn.jsdelivr.net/npm/katex@0.19.0/dist/katex.min.css" as="style" integrity="sha256-1KtbjuFpibBwzbDqJL1q1I/I3xt4fygPKdOuT5WfLAA=" crossorigin="anonymous">
+<link rel="stylesheet" href="{% static 'css/print.css' %}" media="print">
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.19.0/dist/katex.min.js" integrity="sha256-EDpTdjzAM7uo0XW/Pwull8NQXJtnR90/LHvCpr/Miuc=" crossorigin="anonymous"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.19.0/dist/contrib/auto-render.min.js" integrity="sha256-5TctGZvNrotN5x0PfOunKkuhJ3SifGCm8fd9A7MijuQ=" crossorigin="anonymous"></script>
 <script defer src="{% static 'js/math.js' %}"></script>
@@ -46,6 +48,8 @@
           {% if q.marks_text %}<p class="marks">[{{ q.marks_text }}]</p>{% endif %}
           {% if q.solution %}<div class="solution"><p class="solution-label"><svg class="icon" aria-hidden="true"><use href="#icon-check-circle"/></svg>Solution</p>{{ q.solution.body_md|markdown }}</div>{% endif %}
         </article>
+      {% empty %}
+        <div class="empty">{% include "_empty_art.html" with art="sheet" %}<h2>The solutions are on their way</h2><p>This paper's worked solutions are still being set. The other {{ paper.book.subject.name }} papers are ready.</p><a class="btn btn-primary" href="{{ paper.book.get_absolute_url }}">All {{ paper.book.subject.name }} papers</a></div>
       {% endfor %}
 
       <div class="card record-card" id="record">
@@ -56,7 +60,7 @@
         {% if form %}
         <form method="post" action="{% url 'attempt_add' paper.code %}">
           {% csrf_token %}
-          <div class="card-body"><div class="form-grid">{{ form }}</div></div>
+          <div class="card-body">{% include "_form_errors.html" %}{% include "_required_note.html" %}<div class="form-grid">{% for field in form %}{% include "_field.html" %}{% endfor %}</div></div>
           <div class="card-footer">
             <button type="submit" class="btn btn-primary"><svg class="icon" aria-hidden="true"><use href="#icon-check"/></svg><span>Save to my record</span></button>
             <a href="{% url 'record' %}">Open My record</a>
@@ -81,3 +85,4 @@
   </div>
 </section>
 {% endblock %}
+{% block extra_body %}<link rel="stylesheet" id="katex-css" href="https://cdn.jsdelivr.net/npm/katex@0.19.0/dist/katex.min.css" integrity="sha256-1KtbjuFpibBwzbDqJL1q1I/I3xt4fygPKdOuT5WfLAA=" crossorigin="anonymous">{% endblock %}

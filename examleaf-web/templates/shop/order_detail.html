@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% load shop %}
+{% extends "shop/base_shop.html" %}{% load shop %}
 {% block head_title %}Order {{ order.number }}{% endblock %}
 {% block meta_description %}The status, delivery and invoice of your ExamLeaf order.{% endblock %}
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
@@ -79,7 +79,7 @@
     <dialog class="dialog" id="cancel-dialog" aria-labelledby="cancel-title">
       <div class="card-header"><h2 id="cancel-title">Cancel this order?</h2><form method="dialog"><button class="btn btn-ghost btn-icon" aria-label="Close"><svg class="icon" aria-hidden="true"><use href="#icon-x"/></svg></button></form></div>
       <div class="card-body"><p>Order <strong>{{ order.number }}</strong> is cancelled and its books are not sent. {% if order.status == "paid" %}The full amount is refunded to the account, card or UPI ID you paid from.{% else %}Nothing has been charged.{% endif %}</p></div>
-      <div class="card-footer"><form method="dialog"><button class="btn btn-secondary">Keep the order</button></form><button type="submit" form="cancel-form" class="btn btn-destructive">Cancel the order</button></div>
+      <div class="card-footer"><form method="dialog"><button class="btn btn-secondary" autofocus>Keep the order</button></form><button type="submit" form="cancel-form" class="btn btn-destructive">Cancel the order</button></div>
     </dialog>
     {% endif %}
   </div>

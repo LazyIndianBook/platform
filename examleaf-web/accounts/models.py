@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 from allauth.account.models import EmailAddress
-from allauth.account.signals import user_logged_in
+from allauth.account.signals import email_confirmed, user_logged_in, user_signed_up
 from axes.helpers import get_client_ip_address
 from axes.models import AccessAttempt
 from django.conf import settings
@@ -27,6 +27,28 @@ STAFF_SESSION = timedelta(hours=8)  # a member of staff's session lasts this lon
 def shorter_staff_sessions(sender, request, user, **kwargs):
     if user.is_staff:
         request.session.set_expiry(STAFF_SESSION)
+
+
+# PARENTAL_CONSENT_MODE "verified": the parent's link (accounts.views.send_parent_link) goes once the student has
+# confirmed their own address, never from an anonymous sign-up (M3), whichever way the account was made (website, app,
+# Google). After that only from My account, with its limits (accounts.views.resend_parent_link).
+@receiver(email_confirmed)
+def parent_link_once_confirmed(sender, request, email_address, **kwargs):
+    if email_address.user_id and email_address.user.consent_pending:
+        from .views import send_parent_link  # (views import this module)
+
+        send_parent_link(email_address.user)
+
+
+@receiver(user_signed_up)
+def parent_link_after_google(sender, request, user, **kwargs):
+    """After Google the address is confirmed at the sign-up: no email_confirmed follows."""
+    from allauth.account.utils import has_verified_email
+
+    if user.consent_pending and has_verified_email(user):
+        from .views import send_parent_link
+
+        send_parent_link(user)
 
 
 def age_on(dob, today=None):
@@ -229,7 +251,9 @@ class DeletionRequest(models.Model):
         user, email = self.user, self.user.email
         with transaction.atomic():
             from practice.models import AnswerSheetUpload, Attempt  # (practice does not import accounts)
+            from shop.models import StockAlert  # (shop imports this module)
 
+            StockAlert.objects.filter(email__iexact=email).delete()  # "email me when it is back": kept by address only
             sheets = list(user.answer_sheets.all())
             for model, pks in [  # admin history rows name these objects (the user's email is in their text)
                 (User, [user.pk]),
@@ -244,7 +268,9 @@ class DeletionRequest(models.Model):
             EmailAddress.objects.filter(user=user).delete()
             user.authenticator_set.all().delete()  # passkeys, authenticator apps
             user.socialaccount_set.all().delete()  # Google sign-in and the profile Google sent
-            AccessAttempt.objects.filter(username=email).delete()
+            # failed log-ins by address or by mobile number (axes), and the SMS log (number hash, last digits; L10)
+            AccessAttempt.objects.filter(username__in=[email, user.login_phone or email]).delete()
+            user.sms_messages.all().delete()
             user.attempts.update(notes="")
             user.answer_sheets.all().delete()
             user.consents.update(ip_hash="")

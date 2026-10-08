@@ -5,7 +5,7 @@ import json
 from decimal import Decimal
 
 import pytest
-from django.core.management import call_command
+from django.core.management import CommandError, call_command
 
 from content.models import Question, Solution
 from content.tests import make_paper
@@ -47,6 +47,11 @@ def one_mark(paper, label, text, answer, options=(), chapter="Ch 1: Electric Cha
     question.tags.add(chapter)
     Solution.objects.create(question=question, body_md=f"**Ans.** {answer} *(1)*")
     return question
+
+
+def test_a_wrong_book_root_is_said_in_words(tmp_path):
+    with pytest.raises(CommandError, match=r"format\.json not found: --root \(BOOK_ROOT\)"):
+        call_command("import_chapter_insights", root=str(tmp_path), stdout=io.StringIO())
 
 
 def test_quiz_items_from_one_mark_questions():

@@ -10,6 +10,7 @@ from rest_framework.throttling import SimpleRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from accounts.factories import UserFactory
+from shop import services
 from shop.factories import (
     ADDRESS,
     KEY,
@@ -22,7 +23,6 @@ from shop.factories import (
     picture,
     sign,
 )
-from shop import services
 from shop.models import Address, BundleItem, Cart, CreditNote, Order, Payment, Product, ProductImage
 
 pytestmark = [
@@ -174,7 +174,7 @@ def test_checkout_payment_through_the_sdk_and_cancellation(api, rzp, commit):
 
 
 def test_checkout_takes_online_payment_or_cash_on_delivery_only(api, rzp):
-    """"offline" is a method staff record (services.record_offline_payment): chosen by a customer it made an order
+    """ "offline" is a method staff record (services.record_offline_payment): chosen by a customer it made an order
     whose payment page failed with a server error."""
     ProductFactory(slug="physics", price=299, stock=5)
     customer(api)

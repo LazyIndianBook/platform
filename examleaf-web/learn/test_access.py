@@ -5,12 +5,13 @@ import io
 from datetime import timedelta
 
 import pytest
-from django.core.management import call_command
+from django.core.management import CommandError, call_command
 from django.urls import reverse
 from django.utils import timezone
 
 from accounts.factories import UserFactory
 from shop.factories import ProductFactory, make_order
+from shop.test_robustness import at_once, postgres_only, real_commits
 
 from .models import BookCode, Chapter, Clip, Entitlement
 from .services import (
@@ -19,6 +20,7 @@ from .services import (
     grant_for_order,
     is_free_chapter,
     is_free_clip,
+    make_codes,
     redeem,
     revoke_for_order,
 )
@@ -51,9 +53,12 @@ def test_free_previews(settings):
     assert not is_free_clip(first) and not is_free_chapter(one)
 
 
-def test_book_codes_are_kept_hashed_and_redeemed_once(tmp_path):
+def test_book_codes_are_kept_hashed_and_redeemed_once(tmp_path, settings):
     physics = make_course(chapters=1)
     out = tmp_path / "codes.csv"
+    with pytest.raises(CommandError, match="LEARN_CODE_SECRET"):  # never printed under the key in the source (L7)
+        call_command("make_book_codes", "phy", 3, batch="PHY-2027-1", out=str(out), stderr=io.StringIO())
+    settings.LEARN_CODE_SECRET = "a-test-key-for-the-book-codes"
     call_command("make_book_codes", "phy", 3, batch="PHY-2027-1", out=str(out), stderr=io.StringIO())
     rows = list(csv.DictReader(out.open()))
     assert [row["subject"] for row in rows] == ["PHY"] * 3 and BookCode.objects.count() == 3
@@ -71,7 +76,39 @@ def test_book_codes_are_kept_hashed_and_redeemed_once(tmp_path):
     assert not other.entitlements.exists()
 
 
-def test_staff_find_a_code_in_the_admin_by_typing_it(client, tmp_path):
+def redeeming(user, code):
+    """What a request does: the entitlement, or the reason it was refused."""
+
+    def job():
+        try:
+            return redeem(user, code)
+        except CodeError as refusal:
+            return str(refusal)
+
+    return job
+
+
+@postgres_only
+@real_commits
+def test_a_code_redeemed_by_two_students_at_once_opens_one_course_only():
+    [code] = make_codes(make_course(chapters=1), 1, "PHY-1")
+    first, second = UserFactory(), UserFactory()
+    results = at_once(redeeming(first, code), redeeming(second, code))
+    assert sorted(type(r).__name__ for r in results) == ["Entitlement", "str"] and "used already" in str(results)
+    assert Entitlement.objects.count() == 1 and BookCode.objects.get().redeemed_by_id in (first.pk, second.pk)
+
+
+@postgres_only
+@real_commits
+def test_a_code_sent_twice_by_one_student_at_once_opens_one_course():
+    [code] = make_codes(make_course(chapters=1), 1, "PHY-1")
+    student = UserFactory()
+    first, second = at_once(redeeming(student, code), redeeming(student, code))
+    assert first == second and Entitlement.objects.count() == 1
+
+
+def test_staff_find_a_code_in_the_admin_by_typing_it(client, tmp_path, settings):
+    settings.LEARN_CODE_SECRET = "a-test-key-for-the-book-codes"
     make_course(chapters=1)
     out = tmp_path / "codes.csv"
     call_command("make_book_codes", "ALL", 2, batch="ALL-1", out=str(out), stderr=io.StringIO())

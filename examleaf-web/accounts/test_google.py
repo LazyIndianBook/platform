@@ -25,6 +25,13 @@ def test_google_is_offered_only_when_its_keys_are_set(client, settings):
     assert "/account/google/login/" in client.get(reverse("account_login")).text
 
 
+def test_googles_urls_without_its_keys_are_not_found_and_with_them_work(client, settings):
+    for url in ["/account/google/login/", "/account/google/login/callback/", "/account/google/login/token/"]:
+        assert client.get(url).status_code == 404, url  # allauth raised SocialApp.DoesNotExist: a server error
+    settings.SOCIALACCOUNT_PROVIDERS = GOOGLE
+    assert client.get("/account/google/login/").status_code == 200  # the "continue with Google" page
+
+
 def test_after_google_a_new_student_gives_the_student_details(client, settings, rf):
     settings.SOCIALACCOUNT_PROVIDERS = GOOGLE
     make_paper()  # a board

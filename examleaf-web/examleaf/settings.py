@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     "allauth.mfa",  # staff: an authenticator app (TOTP) and recovery codes; everyone: passkeys
     "allauth.socialaccount",  # Google sign-in, listed only when GOOGLE_CLIENT_ID and _SECRET are set
     "allauth.socialaccount.providers.google",
+    "allauth.headless",  # allauth's flows as JSON, for the app and a decoupled web frontend: /_allauth/ (API.md)
     "axes",
     "simple_history",
     "taggit",
@@ -124,8 +125,8 @@ TEMPLATES = [
 ]
 
 DATABASES = {"default": env.db("DATABASE_URL", default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}")}
-# Persistent connections (one per gunicorn worker or Celery process, checked before reuse) rather than a pool: the
-# sync workers serve one request at a time, so a pool would hold the same number of connections.
+# Persistent connections (one per gunicorn thread or Celery process, checked before reuse) rather than a pool: each
+# thread serves one request at a time, so a pool would hold the same number of connections (3 workers x 8 threads).
 DATABASES["default"]["CONN_MAX_AGE"] = env.int("CONN_MAX_AGE", default=60)
 DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
 # CACHE_URL=redis://… uses django-redis; without it, the local-memory cache (one per process). A Redis of its own, not
@@ -179,15 +180,26 @@ ACCOUNT_USER_MODEL_USERNAME_FIELD = None
 ACCOUNT_LOGIN_METHODS = {"email", "phone"} if SMS_ENABLED else {"email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", *(["phone"] if SMS_ENABLED else []), "password1*", "password2*"]
 ACCOUNT_LOGIN_BY_CODE_ENABLED = True  # "Log in with a code": emailed, or texted to a confirmed number
-ACCOUNT_LOGIN_BY_CODE_SUPPORTS_RESEND = True
+# No "send a new code" on the log-in code page: allauth 65.19 answers it with a server error for a number no account
+# has (a way to tell which numbers are registered), and each is one more SMS. The form gives a new code (limits below).
+ACCOUNT_LOGIN_BY_CODE_SUPPORTS_RESEND = False
 ACCOUNT_PHONE_VERIFICATION_SUPPORTS_RESEND = True
 ACCOUNT_PHONE_VERIFICATION_TIMEOUT = 300
 ALLAUTH_USER_CODE_FORMAT = {"length": 6, "numeric": True, "dashed": False}  # every code, emailed or texted: 483920
-# SMS cost money: 3 code requests an hour per number or address, one phone confirmation a minute per number.
+# A code is one of a million: guessing is held back by the tries per code (three, then a new code is needed) and by
+# how many codes an address or number gets (M1). SMS cost money; ops.sms adds its own limits per number (M2).
+ACCOUNT_EMAIL_VERIFICATION_BY_CODE_MAX_ATTEMPTS = ACCOUNT_LOGIN_BY_CODE_MAX_ATTEMPTS = 3
+ACCOUNT_PHONE_VERIFICATION_MAX_ATTEMPTS = 3
+# allauth keeps one history per action and kind of key (ip, key, user): two rates of one kind in one action would share
+# it, the shorter window cutting the longer one short. A second window is therefore an action of its own.
 ACCOUNT_RATE_LIMITS = {
-    "request_login_code": "5/m/ip,3/h/key",
-    "verify_phone": "1/60s/key,10/h/ip",
+    "request_login_code": "30/h/ip,3/h/key",  # log-in codes: 3 an hour per address or number, 30 per client address
+    "verify_phone": "1/60s/key,10/h/ip",  # a phone confirmation code: one a minute per number
     "change_phone": "3/h/user",
+    "confirm_email": "1/10s/key",  # allauth's own: an email confirmation code at most every 10 seconds per address
+    "email_code_hour": "5/h/key",  # and these two (accounts.adapter): at most 5 an hour and 10 a day per address
+    "email_code_day": "10/d/key",
+    "code_try": "60/h/ip,3/15m/key",  # tries of one code, counted in the cache as well (accounts.forms.spend_try)
 }
 ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 ACCOUNT_EMAIL_VERIFICATION_BY_CODE_ENABLED = True
@@ -195,7 +207,14 @@ ACCOUNT_FORMS = {
     "signup": "accounts.forms.SignupForm",
     "request_login_code": "accounts.forms.RequestLoginCodeForm",
     "change_phone": "accounts.forms.ChangePhoneForm",
+    # three tries per code counted in the cache too (I7): allauth's count in the session lags behind parallel requests
+    "confirm_login_code": "accounts.forms.ConfirmLoginCodeForm",
+    "confirm_email_verification_code": "accounts.forms.ConfirmEmailVerificationCodeForm",
+    "verify_phone": "accounts.forms.VerifyPhoneForm",
 }
+# Every sign-up form is built on this one (the website's, after Google, and allauth.headless's for the app and the
+# browser): the student details, the consent and its record, the STUDENT role, no phone at sign-up, Turnstile.
+ACCOUNT_SIGNUP_FORM_CLASS = "accounts.signup.StudentDetailsForm"
 ACCOUNT_ADAPTER = "accounts.adapter.AccountAdapter"  # sends allauth's emails through a Celery task
 ACCOUNT_CHANGE_EMAIL = True  # one address: a new one replaces it only once its emailed code is confirmed
 ACCOUNT_EMAIL_NOTIFICATIONS = True  # the old address is told of email and password changes
@@ -213,6 +232,21 @@ MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN = DEBUG
 MFA_FORMS = {"add_webauthn": "accounts.forms.AddPasskeyForm"}
 MFA_TOTP_ISSUER = "ExamLeaf"
 MFA_ADAPTER = "accounts.adapter.MFAAdapter"
+# allauth.headless (API.md "Frontend integration guide"): allauth's flows as JSON at /_allauth/browser/v1/ (the session
+# cookie and the CSRF token; same origin only: CORS stays on /api/) and /_allauth/app/v1/ (the X-Session-Token header;
+# POST /api/v1/auth/exchange/ then gives the JWT pair), beside the website's pages. Their emails link to the website's
+# pages, whichever client asked (no confirmation link: addresses are confirmed by code). The OpenAPI files are
+# /_allauth/openapi.yaml and .json; no HTML page (allauth's loads Redoc from a CDN, which the CSP refuses).
+HEADLESS_ONLY = False
+HEADLESS_CLIENTS = ("app", "browser")
+HEADLESS_FRONTEND_URLS = {
+    "account_reset_password": f"{SITE_URL}/account/password/reset/",
+    "account_reset_password_from_key": f"{SITE_URL}/account/password/reset/key/{{key}}/",
+    "account_signup": f"{SITE_URL}/account/signup/",
+    "socialaccount_login_error": f"{SITE_URL}/account/3rdparty/login/error/",
+}
+HEADLESS_SERVE_SPECIFICATION = True
+HEADLESS_SPECIFICATION_TEMPLATE_NAME = None
 
 # django-axes: lock an account for 15 minutes after 10 failed logins from one address.
 AXES_FAILURE_LIMIT = 10
@@ -266,6 +300,7 @@ CONTENT_SECURITY_POLICY = {
 GOOGLE_CLIENT_ID = env("GOOGLE_CLIENT_ID", default="")
 GOOGLE_CLIENT_SECRET = env("GOOGLE_CLIENT_SECRET", default="")
 SOCIALACCOUNT_AUTO_SIGNUP = False
+SOCIALACCOUNT_ADAPTER = "accounts.adapter.SocialAccountAdapter"  # Google's URLs are 404 without its keys
 SOCIALACCOUNT_FORMS = {"signup": "accounts.forms.SocialSignupForm"}
 SOCIALACCOUNT_PROVIDERS = {"google": {"SCOPE": ["profile", "email"], "OAUTH_PKCE_ENABLED": True}}
 if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
@@ -369,7 +404,7 @@ PICTURES = {
     "CONTAINER_WIDTH": 1200,
     "PIXEL_DENSITIES": [1, 2],
     "QUEUE_NAME": "celery",
-    "PROCESSOR": "pictures.tasks.celery_process_picture",
+    "PROCESSOR": "examleaf.images.queue_picture_sizes",  # the Celery task, with a fallback (examleaf/images.py)
     "USE_PLACEHOLDERS": False,
 }
 
@@ -478,7 +513,7 @@ if env("MEDIA_BUCKET", default=""):
         "OPTIONS": {**_s3, "bucket_name": env("MEDIA_BUCKET"), "querystring_auth": True, "querystring_expire": 300},
     }
     STORAGES["public"] = {
-        "BACKEND": "storages.backends.s3.S3Storage",
+        "BACKEND": "examleaf.storage.PublicS3Storage",  # S3Storage that keeps its key out of the picture tasks (L12)
         "OPTIONS": {
             **_public_s3,
             "bucket_name": env("PUBLIC_MEDIA_BUCKET"),
@@ -533,15 +568,14 @@ LEARN_CODE_SECRET = env("LEARN_CODE_SECRET", default="")
 FCM_SERVICE_ACCOUNT_JSON = env("FCM_SERVICE_ACCOUNT_JSON", default="")
 CELERY_TASK_ROUTES = {"learn.tasks.process_clip": {"queue": "media"}}
 CELERY_BEAT_SCHEDULE["learn-reminders"] = {"task": "learn.tasks.send_reminders", "schedule": crontab(hour=18, minute=0)}
-# The staff player (hls.js: media from blob: URLs) and, with buckets, the storage hosts its requests are sent on to.
-_media_origins = []
-if env("MEDIA_BUCKET", default=""):
-    _host = (_s3["endpoint_url"] or f"https://s3.{_s3['region_name']}.amazonaws.com").split("://")[-1].rstrip("/")
-    _media_origins = [f"https://{_host}", f"https://*.{_host}"]
-    if LEARN_PUBLIC_VIDEO:
-        _media_origins.append(f"https://{env('PUBLIC_MEDIA_DOMAIN')}")
-    CONTENT_SECURITY_POLICY["connect-src"] = [CSP.SELF, *_media_origins]
-CONTENT_SECURITY_POLICY["media-src"] = [CSP.SELF, "blob:", *_media_origins]
+# The staff player (hls.js: media from blob: URLs). The bucket's own origin is added on the pages that need it only, as
+# their storage's links name it (learn.uploads.allow_storage: the staff player, the clip pages that upload to it; I3).
+CONTENT_SECURITY_POLICY["media-src"] = [CSP.SELF, "blob:"]
+# Clip videos go from the editor's browser straight to the bucket (H1, learn/uploads.py); without one they come with
+# the form, and only signed-in staff may send a body that large to the clip pages (Caddy lets 500 MB through there).
+MIDDLEWARE.insert(
+    MIDDLEWARE.index("django.contrib.auth.middleware.AuthenticationMiddleware") + 1, "learn.uploads.LargeBodyGuard"
+)
 
 # Store (Phase 6 E): the category tree (django-treebeard: its admin templates), and imports of products and categories
 # only with the model's "import_…" permission (ADMIN), as exports (M5).

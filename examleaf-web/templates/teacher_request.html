@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "base_account.html" %}
 {% block head_title %}Teacher access{% endblock %}
 {% block meta_description %}Ask for teacher access to ExamLeaf by telling us where you teach.{% endblock %}
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
@@ -13,7 +13,7 @@
       </div>
       <form method="post">
         {% csrf_token %}
-        <div class="card-body">{% include "_form_errors.html" %}{% for field in form %}{% include "_field.html" %}{% endfor %}</div>
+        <div class="card-body">{% include "_form_errors.html" %}{% include "_required_note.html" %}{% for field in form %}{% include "_field.html" %}{% endfor %}</div>
         <div class="card-footer">
           <button type="submit" class="btn btn-primary">Send</button>
           <a href="{% url 'account' %}">Back to my account</a>

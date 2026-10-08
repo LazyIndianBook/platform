@@ -53,7 +53,7 @@ REST_FRAMEWORK = {
         "coupon": _env("API_THROTTLE_COUPON", default="10/hour"),  # coupon codes tried, per user (not guessed)
     },
     "NUM_PROXIES": _env.int("PROXY_COUNT", default=0),  # the client address behind Caddy, as for axes
-    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_SCHEMA_CLASS": "api.schema.AutoSchema",  # drf-spectacular's, its operations tagged by area
     "TEST_REQUEST_DEFAULT_FORMAT": "json",
 }
 
@@ -92,6 +92,22 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "SCHEMA_PATH_PREFIX": r"/api/v[0-9]+",
+    "TAGS": [  # the areas of api.schema.AREAS, in this order
+        {
+            "name": "auth",
+            "description": "Log-in, sign-up, codes, tokens and passwords; auth/exchange/ turns an allauth.headless "
+            "app session (/_allauth/app/v1/; its OpenAPI file: /_allauth/openapi.json) into the JWT pair.",
+        },
+        {
+            "name": "account",
+            "description": "The signed-in user: profile, data rights, teacher access, a parent's consent, devices.",
+        },
+        {"name": "catalogue", "description": "Boards, subjects, books, papers and their solutions; scanned QR codes."},
+        {"name": "record", "description": "The student's own attempts (My record)."},
+        {"name": "shop", "description": "Products, reviews, cart, addresses, orders and payment, school quotations."},
+        {"name": "learn", "description": "The revision course: chapters, clips, quiz, flash cards, the plan."},
+        {"name": "site", "description": "What the server has switched on, and the legal pages."},
+    ],
     "COMPONENT_SPLIT_REQUEST": True,
     "SWAGGER_UI_DIST": "SIDECAR",
     "SWAGGER_UI_FAVICON_HREF": "SIDECAR",

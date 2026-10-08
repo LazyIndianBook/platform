@@ -14,6 +14,8 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 from rest_framework.throttling import SimpleRateThrottle
 
+from accounts.models import ConsentRecord
+from api.learn import ParentConfirmed
 from api.tests import sign_in, student
 
 from .models import Chapter, Clip, Device, Entitlement, FlashCard, Learner, QuizAttempt, QuizItem, Revision
@@ -154,6 +156,7 @@ def test_the_plan_and_what_to_revise_again(api, course):
     assert api.get(url("plan/"), {"exam_date": timezone.localdate().isoformat()}).status_code == 400
 
     item = QuizItem.objects.get(chapter__number=1)
+    Entitlement.objects.create(user=user)  # revise-again lists what the student may open (I5)
     QuizAttempt.objects.create(user=user, item=item, correct=False, created=timezone.now() - timedelta(days=2))
     again = api.get(url("revise-again/")).json()
     assert [i["id"] for i in again["quiz_items"]] == [item.pk] and again["flash_cards"] == []
@@ -175,6 +178,30 @@ def test_book_codes_are_redeemed_once_and_tries_are_limited(api, course):
 
     sign_in(api, student())  # another student at the same address: the address has had its five
     assert api.post(url("redeem/"), {"code": code}).status_code == 429
+
+
+def test_a_student_under_18_whose_parent_has_not_confirmed_reads_the_course_and_saves_nothing(api, course, settings):
+    """PARENTAL_CONSENT_MODE "verified": read-only until the parent agrees (as for marks and orders)."""
+    settings.PARENTAL_CONSENT_MODE = "verified"
+    user = sign_in(api, student(date_of_birth=timezone.localdate() - timedelta(days=16 * 366)))
+    Entitlement.objects.create(user=user, subject=course)
+    clip, item, card = Clip.objects.first(), QuizItem.objects.first(), FlashCard.objects.first()
+    assert api.get(url(f"clips/{clip.pk}/")).status_code == 200 and api.get(url("plan/")).status_code == 400
+    writes = [
+        (url(f"clips/{clip.pk}/progress/"), {"seconds_watched": 5}),
+        (url(f"quiz/{item.pk}/attempt/"), {"answer": "true"}),
+        (url(f"flash-cards/{card.pk}/review/"), {"known": True}),
+        (url("redeem/"), {"code": "ABCD-EFGH-JKLM"}),
+        ("/api/v1/devices/", {"token": "tok-1"}),
+    ]
+    for address, body in writes:
+        answer = api.post(address, body)
+        assert (answer.status_code, answer.json()["detail"]) == (403, ParentConfirmed.message), address
+    assert api.patch(url("settings/"), {"minutes_per_day": 20}).status_code == 403
+    assert api.get(url("settings/")).status_code == 200
+    assert api.delete("/api/v1/devices/", {"token": "tok-1"}).status_code == 204  # at log-out
+    ConsentRecord.objects.create(user=user, notice_version="1", by_parent=True, verified_at=timezone.now())
+    assert api.post(url(f"quiz/{item.pk}/attempt/"), {"answer": "true"}).status_code == 200
 
 
 def test_devices_and_the_daily_reminder(api, course, settings):

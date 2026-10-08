@@ -6,4 +6,4 @@ class LearnConfig(AppConfig):
     verbose_name = "Revision course"
 
     def ready(self):
-        from . import signals  # noqa: F401  account deletion, clip files
+        from . import checks, signals  # noqa: F401  LEARN_CODE_SECRET; account deletion, clip files

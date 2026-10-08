@@ -11,7 +11,7 @@
       <li><svg class="icon" aria-hidden="true"><use href="#icon-chevron-right"/></svg><span aria-current="page">{{ book.subject.name }}</span></li>
     </ol></nav>
     <div class="book-hero">
-      {% if book.cover %}<div class="cover book-cover subject-{{ key }}">{% static_cover book.cover "Cover of "|add:book.title "(min-width: 900px) 260px, 160px" %}</div>{% endif %}
+      {% if book.cover %}<div class="cover book-cover subject-{{ key }}">{% static_cover book.cover "Cover of "|add:book.title "(min-width: 900px) 260px, 160px" fetchpriority="high" %}</div>{% endif %}
       <div class="book-info">
         <div class="chips"><span class="badge badge-{{ key }}">{{ book.subject.name }}</span><span class="badge badge-muted">Sample Papers</span></div>
         <h1>{{ book.title }}</h1>

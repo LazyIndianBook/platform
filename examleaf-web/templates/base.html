@@ -13,6 +13,7 @@
 <link rel="icon" href="{% static 'img/favicon-32.png' %}" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}">
 <link rel="stylesheet" href="{% static 'css/site.css' %}">
+{% block area_css %}{% endblock %}
 {% include "_head_meta.html" %}
 {% block extra_head %}{% endblock %}
 </head>
@@ -40,10 +41,13 @@
     {% endwith %}</nav>
   </div>
 </header>
-{% if messages %}<ul class="toast" aria-live="polite">{% for message in messages %}
+<main id="main" tabindex="-1" class="{% block main_class %}{% endblock %}">
+{# Django messages as toasts (motion.md, f); site.js reads them once into the polite live region #announce, which is on every page so that screen readers notice the change #}
+{% if messages %}<ul class="toast" aria-label="Messages">{% for message in messages %}
   <li><details class="toast-item {{ message.tags }}" open><summary class="btn btn-ghost btn-icon" aria-label="Dismiss"><svg class="icon" aria-hidden="true"><use href="#icon-x"/></svg></summary><svg class="icon" aria-hidden="true"><use href="#icon-{% if 'error' in message.tags or 'warning' in message.tags %}alert{% elif 'success' in message.tags %}check-circle{% else %}info{% endif %}"/></svg><p>{{ message }}</p></details></li>
 {% endfor %}</ul>{% endif %}
-<main id="main" class="{% block main_class %}{% endblock %}">{% block content %}{% endblock %}</main>
+<p id="announce" class="sr-only" role="status"></p>
+{% block content %}{% endblock %}</main>
 <footer class="footer band band-night">
   <div class="container">
     <div class="footer-top">

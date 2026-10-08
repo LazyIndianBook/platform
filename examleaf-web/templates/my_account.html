@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% load shop web %}
+{% extends "base_account.html" %}{% load shop web %}
 {% block head_title %}My account{% endblock %}
 {% block meta_description %}Your ExamLeaf account: your details, saved addresses, teacher access and your data.{% endblock %}
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
@@ -42,10 +42,10 @@
         <section class="card" id="record" aria-labelledby="record-title">
           <div class="card-header"><h2 id="record-title">My record</h2><p>The marks you saved for each paper, with your average for each tier.</p></div>
           <div class="card-body">
+            {% if record.latest %}
             <ul class="tier-avgs" aria-label="Average for each tier">{% for label, count, average in record.averages %}
               <li class="tier-avg"><span class="badge badge-{{ label|lower }}">{{ label }}</span><span class="tier-avg-value">{% if average is None %}–{% else %}{{ average }}%{% endif %}</span><span class="muted">{% if count %}average of {{ count }} paper{{ count|pluralize }}{% else %}No {{ label }} paper saved yet{% endif %}</span></li>{% endfor %}
             </ul>
-            {% if record.latest %}
             <div class="table-wrap"><table class="table record-table">
               <caption class="sr-only">Your latest saved marks</caption>
               <thead><tr><th scope="col">Paper</th><th scope="col" class="num">Date</th><th scope="col" class="num">Marks</th><th scope="col" class="num">Time</th><th scope="col">What to revise</th><th scope="col"><span class="sr-only">Edit</span></th></tr></thead>
@@ -53,7 +53,7 @@
                 <tr><td><a href="{{ attempt.paper.get_absolute_url }}">{{ attempt.paper.code }}</a></td><td class="num">{{ attempt.date|date:"j M Y" }}</td><td class="num">{{ attempt.marks_obtained|floatformat:"-1" }}/{{ attempt.paper.full_marks }}</td><td class="num">{% if attempt.time_taken_minutes %}{{ attempt.time_taken_minutes }} min{% endif %}</td><td>{{ attempt.notes|linebreaksbr }}</td><td><a href="{% url 'attempt_edit' attempt.pk %}">Edit</a></td></tr>{% endfor %}
               </tbody>
             </table></div>
-            {% else %}<p class="muted">Nothing saved yet. After you mark a paper against its solutions, save your score at the end of the solutions page.</p>{% endif %}
+            {% else %}<div class="empty">{% include "_empty_art.html" with art="attempts" %}<p>Nothing saved yet. After you mark a paper against its solutions, save your score at the end of the solutions page.</p></div>{% endif %}
           </div>
           <div class="card-footer"><a class="link-go" href="{% url 'record' %}">{% if record.count > record.latest|length %}All {{ record.count }} papers, with filters{% else %}Open My record{% endif %} <svg class="icon" aria-hidden="true"><use href="#icon-arrow-right"/></svg></a></div>
         </section>
@@ -62,7 +62,7 @@
           <div class="card-header"><h2 id="orders-title">My orders</h2></div>
           <div class="card-body">{% for order in user.orders.all|slice:":3" %}
             <div class="order-row"><a class="order-number" href="{{ order.get_absolute_url }}">{{ order.number }}</a><span class="muted">{{ order.placed_at|default:order.created|date:"j M Y" }}</span><span class="num">{{ order.total|inr }}</span><span class="badge badge-muted">{{ order.get_status_display }}</span><a class="link-go" href="{{ order.get_absolute_url }}">View <svg class="icon" aria-hidden="true"><use href="#icon-chevron-right"/></svg></a></div>{% empty %}
-            <p class="muted">No orders yet. The books are in the <a href="{% url 'shop:catalogue' %}">shop</a>.</p>{% endfor %}
+            <div class="empty">{% include "_empty_art.html" with art="orders" %}<p>No orders yet. The books are in the <a href="{% url 'shop:catalogue' %}">shop</a>.</p></div>{% endfor %}
           </div>
           <div class="card-footer"><a class="link-go" href="{% url 'shop:orders' %}">All my orders <svg class="icon" aria-hidden="true"><use href="#icon-arrow-right"/></svg></a></div>
         </section>

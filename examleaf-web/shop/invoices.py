@@ -11,7 +11,7 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.template.loader import render_to_string
 
-from .models import STATES, CreditNote, PinCode, Product, QuoteRequest, address_lines, rupees
+from .models import STATES, CreditNote, PinCode, Product, QuoteRequest, SlugHistory, address_lines, rupees
 
 
 def check_seller(live):
@@ -120,7 +120,10 @@ def credit_note_context(note):
 def quotation_context(quote):
     """A school's quotation: today's prices of the books asked for, the staff's discount and shipping."""
     seller = settings.SHOP_SELLER
-    products = Product.objects.in_bulk([item["product"] for item in quote.items], field_name="slug")
+    slugs = [item["product"] for item in quote.items]
+    products = Product.objects.in_bulk(slugs, field_name="slug")
+    for old in SlugHistory.objects.filter(slug__in=set(slugs) - products.keys()).select_related("product"):
+        products[old.slug] = old.product  # renamed since the request: quoted all the same
     lines = [
         {"product": product, "quantity": item["quantity"], "amount": product.price.amount * item["quantity"]}
         for item in quote.items

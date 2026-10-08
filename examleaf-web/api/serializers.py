@@ -196,6 +196,9 @@ class ProfileSerializer(serializers.ModelSerializer):
     deletion_due_at = serializers.DateTimeField(
         source="pending_deletion.due_at", read_only=True, allow_null=True, help_text="set while a deletion waits"
     )
+    consent_pending = serializers.BooleanField(
+        read_only=True, help_text="a parent has not confirmed yet (me/parent-consent/ sends the link again)"
+    )
 
     class Meta:
         model = User
@@ -211,10 +214,23 @@ class ProfileSerializer(serializers.ModelSerializer):
             "parent_name",
             "parent_contact",
             "consent_at",
+            "consent_pending",
             "roles",
             "deletion_due_at",
+            "login_phone",
+            "login_phone_verified",
+            "sms_updates",
         ]
-        read_only_fields = ["email", "date_of_birth", "parent_name", "parent_contact", "consent_at"]
+        read_only_fields = [
+            *["email", "date_of_birth", "parent_name", "parent_contact", "consent_at"],
+            *["login_phone", "login_phone_verified"],  # changed through allauth.headless (account/phone), with a code
+        ]
+        extra_kwargs = {"sms_updates": {"help_text": "order updates by SMS; only with a confirmed mobile number"}}
 
     def get_roles(self, user) -> list[str]:
         return sorted(user.role_names)
+
+    def validate_sms_updates(self, value):
+        if value and not self.instance.login_phone_verified:
+            raise serializers.ValidationError("Confirm a mobile number first: the updates go to it.")
+        return value

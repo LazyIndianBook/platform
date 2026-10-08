@@ -105,7 +105,9 @@ def test_schools_ask_for_a_quotation_and_staff_are_emailed(client, commit):
     sales = UserFactory(email="sales@examleaf.in", is_staff=True)
     sales.groups.set([Group.objects.get(name=roles.SALES)])
     url = reverse("shop:quote")
-    assert "Copies of Physics Sample Papers" in client.get(url).content.decode()
+    course = ProductFactory(slug="pass", title="Physics Revision Pass", kind=Product.Kind.DIGITAL, stock=0)
+    form = client.get(url).content.decode()
+    assert "Copies of Physics Sample Papers" in form and f"copies_{course.pk}" not in form  # courses go by book code
     page = client.post(url, {**QUOTE, "gstin": "27AAPFU0939F1ZX", f"copies_{physics.pk}": 0}).content.decode()
     assert "Enter a valid 15-character GSTIN" in page and "at least one book" in page
     client.post(url, {**QUOTE, f"copies_{physics.pk}": 40, "website": "spam"})  # the honeypot
@@ -118,6 +120,17 @@ def test_schools_ask_for_a_quotation_and_staff_are_emailed(client, commit):
     assert quote.items == [{"product": "physics", "title": "Physics Sample Papers", "quantity": 40}]
     assert mail.outbox[-1].to == ["sales@examleaf.in"] and "40 x Physics Sample Papers" in mail.outbox[-1].body
     assert f"/admin/shop/quoterequest/{quote.pk}/change/" in mail.outbox[-1].body
+
+
+def test_a_quotation_follows_a_product_renamed_since_the_request():
+    product = ProductFactory(slug="physics-2026", price=299)
+    product.slug = "physics-2027"
+    product.save()
+    quote = QuoteRequest.objects.create(
+        **{**QUOTE, "gstin": "", "phone": "+919864012345", "delivery_pin": "781001"},
+        items=[{"product": "physics-2026", "title": "Physics", "quantity": 40}],
+    )
+    assert [line["product"] for line in invoices.quotation_context(quote)["lines"]] == [product]
 
 
 def test_staff_make_a_quotation_pdf_valid_15_days(client):
@@ -167,11 +180,14 @@ def test_stock_alerts_email_once_when_the_book_is_back(client, settings):
     page = client.get(product.get_absolute_url()).content.decode()
     assert "Email me when it is back" in page
     url = reverse("shop:stock_alert", args=["physics"])
-    client.post(url, {"email": "Rahul@Example.com"})
-    client.post(url, {"email": "rahul@example.com"})  # once per address
-    client.post(url, {"email": "bot@example.com", "website": "spam"})  # the honeypot
+    response = client.post(url, {"email": "stranger@example.com"})  # visitors log in first (L3)
+    assert response["Location"].startswith(reverse("account_login")) and not StockAlert.objects.exists()
     client.force_login(verified_user("member@example.com"))
+    client.post(url, {"email": "ignored@example.com", "website": "spam"})  # the honeypot
     client.post(url, {"email": "ignored@example.com"})  # an account: its own address
+    client.force_login(verified_user("Rahul@Example.com"))
+    client.post(url)
+    client.post(url)  # once per address
     assert sorted(StockAlert.objects.values_list("email", flat=True)) == ["member@example.com", "rahul@example.com"]
     tasks.send_stock_alerts()
     assert not mail.outbox  # still out of stock

@@ -1,4 +1,4 @@
-{% extends "base.html" %}{% load markdown pictures %}
+{% extends "shop/base_shop.html" %}{% load markdown pictures %}
 {% block head_title %}{% if heading %}{{ heading }}: ExamLeaf shop{% else %}Shop: printed books{% endif %}{% endblock %}
 {% block meta_description %}{% if heading %}{{ heading }}: ExamLeaf books for the Assam Board (ASSEB) Class 12 examination, delivered across India.{% else %}Buy ExamLeaf Sample Papers and Solutions books for the Assam Board (ASSEB) Class 12 examination, delivered across India.{% endif %}{% endblock %}
 {% block main_class %}catalogue{% endblock %}
@@ -37,7 +37,7 @@
     </div></fieldset>
     {% for product in object_list %}{% if product.kind == "bundle" %}
     <div class="card featured"{% if product.subject %} data-subject="{{ product.subject.name|lower }}"{% endif %}><div class="card-body">
-      <div class="fan" aria-hidden="true">{% for item in product.bundle_items.all|slice:":2" %}<span class="cover pcover">{% if item.product.cover %}{% picture item.product.cover img_alt="" img_loading="lazy" ratio="2/3" s=4 m=2 l=2 %}{% else %}{% include "shop/no_cover.html" with product=item.product %}{% endif %}</span>{% empty %}<span class="cover pcover">{% if product.cover %}{% picture product.cover img_alt="" img_loading="lazy" ratio="2/3" s=4 m=2 l=2 %}{% else %}{% include "shop/no_cover.html" %}{% endif %}</span>{% endfor %}</div>
+      <div class="fan" aria-hidden="true">{% for item in product.bundle_items.all|slice:":2" %}<span class="cover pcover">{% if item.product.cover and forloop.first %}{% picture item.product.cover img_alt="" img_fetchpriority="high" ratio="2/3" s=5 m=2 l=2 %}{% elif item.product.cover %}{% picture item.product.cover img_alt="" img_loading="lazy" ratio="2/3" s=5 m=2 l=2 %}{% else %}{% include "shop/no_cover.html" with product=item.product %}{% endif %}</span>{% empty %}<span class="cover pcover">{% if product.cover %}{% picture product.cover img_alt="" img_fetchpriority="high" ratio="2/3" s=5 m=2 l=2 %}{% else %}{% include "shop/no_cover.html" %}{% endif %}</span>{% endfor %}</div>
       <div class="featured-text">
         <div class="chips">{% if product.mrp != product.price %}<span class="badge badge-gold">Best value</span>{% endif %}<span class="badge badge-muted">{{ product.get_kind_display }}</span>{% if product.subject %}<span class="badge badge-{{ product.subject.name|lower }}">{{ product.subject.name }}</span>{% endif %}</div>
         <h2>{{ product.title }}</h2>
@@ -55,7 +55,7 @@
       {% for product in object_list %}{% if heading or product.kind != "bundle" %}{% include "shop/_product_card.html" %}{% endif %}{% endfor %}
     </ul>
     {% else %}
-    <div class="empty"><svg class="icon icon-lg" aria-hidden="true"><use href="#icon-book"/></svg><h2>No books here yet</h2><p>The books are being prepared. Please come back soon.</p>{% if heading %}<a class="btn btn-primary" href="{% url 'shop:catalogue' %}">All books</a>{% endif %}</div>
+    <div class="empty">{% include "_empty_art.html" with art="results" %}<h2>No books here yet</h2><p>The books are being prepared. Please come back soon.</p>{% if heading %}<a class="btn btn-primary" href="{% url 'shop:catalogue' %}">All books</a>{% endif %}</div>
     {% endif %}
     <p class="shop-foot">Ordered without an account? <a href="{% url 'shop:lookup' %}">Find your order</a>. For a school or a bookshop: <a href="{% url 'shop:quote' %}">school and bulk orders</a>.</p>
   </div>

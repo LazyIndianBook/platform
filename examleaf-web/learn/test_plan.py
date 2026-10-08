@@ -6,7 +6,7 @@ import pytest
 
 from accounts.factories import UserFactory
 
-from .models import CardReview, Chapter, Clip, FlashCard, Progress, QuizAttempt, QuizItem
+from .models import CardReview, Chapter, Clip, Entitlement, FlashCard, Progress, QuizAttempt, QuizItem
 from .plan import build, revise_again
 from .tests import make_course
 
@@ -55,6 +55,7 @@ def test_the_minimum_to_pass_takes_the_most_marks_per_minute_first():
 def test_wrong_answers_come_back_after_1_3_and_7_days():
     make_course(chapters=1)
     user, item, card = UserFactory(), QuizItem.objects.get(), FlashCard.objects.get()
+    Entitlement.objects.create(user=user)  # the quiz is for those who may open the course (I5)
     start = datetime(2027, 1, 1, 9, 0).astimezone()
 
     def listed(at):

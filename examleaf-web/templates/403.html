@@ -12,7 +12,7 @@
       <h1>You are not allowed to open this page</h1>
       {% if user.is_authenticated %}
       <p>Your account does not have access to it. If you think it should, write to us from the <a href="{% url 'contact' %}">Contact</a> page.</p>
-      <a class="btn btn-primary btn-lg" href="{% url 'home' %}"><svg class="icon" aria-hidden="true"><use href="#icon-book"/></svg><span>The books</span></a>
+      <a class="btn btn-primary btn-lg" href="{% url 'home' %}"><svg class="icon" aria-hidden="true"><use href="#icon-book"/></svg><span>See the books</span></a>
       {% else %}
       <p>Log in with the account that has access to it.</p>
       <a class="btn btn-primary btn-lg" href="{% url 'account_login' %}">Log in</a>

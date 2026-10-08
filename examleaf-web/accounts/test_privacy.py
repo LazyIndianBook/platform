@@ -19,7 +19,7 @@ from accounts.tasks import purge_due_deletions
 from content.tests import make_paper
 from practice.models import Attempt
 from shop.factories import ADDRESS, ProductFactory, make_order
-from shop.models import Address, CreditNote, Invoice, Refund
+from shop.models import Address, CreditNote, Invoice, Refund, StockAlert
 
 pytestmark = pytest.mark.django_db
 
@@ -32,6 +32,15 @@ def student(client):
     Attempt.objects.create(user=user, paper=make_paper(), marks_obtained=52, notes="revise optics")
     client.force_login(user)
     return user
+
+
+def test_deleting_the_account_deletes_the_stock_alerts_kept_under_its_email(student):
+    """Download my data lists them, so the deletion must remove them: they are kept by address, not by account."""
+    product = ProductFactory(stock=0)
+    StockAlert.objects.create(email="Rahul@Example.com", product=product)
+    StockAlert.objects.create(email="other@example.com", product=product)
+    DeletionRequest.objects.create(user=student).complete()
+    assert list(StockAlert.objects.values_list("email", flat=True)) == ["other@example.com"]
 
 
 def reauthenticate(client, response):

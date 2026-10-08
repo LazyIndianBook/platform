@@ -1,13 +1,102 @@
 # Changelog
 
-What changed in the ExamLeaf web platform, newest first, by phase. Phases 0 to 3b are the repository's commits (all of
-8 October 2026); phase 4 is the QA pass, the working tree on top of phase 3b until it is committed. Details of each
-feature are in README.md; the numbers of the tests are those of `pytest` at the end of the phase.
+What changed in the ExamLeaf web platform, newest first, by phase. Every phase below was built on 8 October 2026; the
+commits are in `git log` (phase 4: abffe6f and e5abda5; phase 5 A and B with the redesign's stage 1: f8e4e5f; phase 6 D
+and E: 4e30e59; the redesign's stage 2 so far: ba0b9dd). Details of each feature are in README.md; the numbers of the
+tests are those of `pytest` at the end of the phase.
 
-## Phase 6 E — store flexibility (26 tests more, in `shop/`)
+## Phase 7 security (8 October 2026)
 
-Work package E of `docs/examleaf-phase6-plan.md`; its Status section has a line per item. Our shop grows the ideas
-of django-oscar and Saleor that matter for a publisher (neither is installed).
+SECURITY_REVIEW_PHASE5_6.md: the High and the five Medium findings fixed, the Low and informational ones fixed or
+decided; each has its status under it. 53 tests more (`learn/test_uploads.py`, `accounts/test_codes.py`,
+`ops/test_sms_limits.py`, `accounts/test_parent_link.py`, `shop/test_offer_limits.py` and `test_review_lows.py` in
+accounts, shop and learn; `learn/test_media.py` grew).
+
+- **Slow requests (H1):** gunicorn runs threads (`--worker-class gthread --threads 8 --timeout 60`; it was a 10-minute
+  timeout on sync workers). Caddy reads a body (up to 10 MB) before gunicorn sees it, and gives a client 10 seconds for
+  its headers and 5 minutes for its body. Clip videos go from the editor's browser straight to the private bucket on a
+  PUT link signed for 15 minutes with their size and type (`learn/uploads.py`, `static/learn/upload.js`), and the form
+  carries only their signed name; without a bucket (development) they still come with the form, Caddy's 500 MB on the
+  clip pages stays for that, and only signed-in staff may send such a body there (`LargeBodyGuard`).
+- **Codes (M1, I7):** three tries per code, now also counted in the cache under a lock (parallel requests read the same
+  count in the session); 5 email confirmation codes an hour and 10 a day per address, as actions of their own: allauth
+  keeps one history per action and kind of key, so the review's `1/10s/key,10/d/key` would have capped nothing. Log-in
+  codes: 3 an hour per address or number and 30 per client address; no "send a new code" on the log-in code page
+  (allauth answered it with a server error for an unknown number). The API answers a refused code with a JSON 429.
+- **SMS (M2):** limits in the SMS log before the daily cap: 5 an hour and 10 a day per number, 20 a day per account, and
+  each purpose its share of the day (codes 70 %, order updates 30 %, parents' links 10 %). A refused SMS is never
+  reported as sent: 429 "Too many messages have gone to this number…" (website and API), and the parent's link says it
+  was not sent. The SMS log keeps the account (for the limits, Download my data and the deletion).
+- **Parents' links (M3):** sent once the student has confirmed their own address (or at once after Google), never from
+  an anonymous sign-up; fixed text, with the student's name only when it is plain letters (otherwise "a student"); at
+  most 3 links a day to one address or number.
+- **Offers (M4):** their usage limits are checked again under a lock when an order is paid or placed, as coupons are
+  (`OfferUsedUp`: cancelled and refunded at capture, refused for cash on delivery and offline payments).
+- **ffmpeg (M5):** a clip must be mp4/mov/m4v/webm/mkv with H.264, HEVC, VP9 or AV1 and AAC, Opus or MP3, checked by
+  name and size before it is fetched and by ffprobe before ffmpeg decodes it; ffprobe and ffmpeg open local files only,
+  those two demuxers and the decoders of those codecs, with two threads. The media worker has an environment of its own
+  (`x-media-env`: the database, the queue, the buckets and `SECRET_KEY`), drops every capability and cannot gain any.
+- **Smaller:** attribute filters refuse huge numbers and take 5 at most (L2); back-in-stock alerts for signed-in accounts
+  only, to their own address (L3); API log-ins with a password or a code alone refused for staff and accounts with a
+  second step (L4); staff cannot log in with a passkey alone (L5); a mobile number added or moved is emailed to both
+  accounts (L6); a server does not start without `LEARN_CODE_SECRET`, nor does `make_book_codes` run (L7); 5 devices and
+  1,000 quiz answers or card reviews a day per account, reminders sent 500 at a time by id, tokens Firebase calls invalid
+  deleted (L8); the API's code sessions last 15 minutes and the PIN lookup is no longer kept in the server's cache (L9);
+  deletion takes the SMS log and failed phone log-ins, Download my data has the SMS log, the email suppression and staff
+  notes (L10); no staff order for a student whose parent has not confirmed (L11); the public bucket's storage keeps its
+  key out of the picture tasks (L12); Turnstile is checked first and sent the client's address (I1); email subjects lose
+  line breaks (I2); category imports check each slug (I4); revise-again lists only what the student may still open
+  (I5); hls.js's hashes next to its licence (I8); Dependabot watches the Docker base image and no `.json` file reaches
+  the image (I9).
+- **To do before the next deployment:** set `LEARN_CODE_SECRET` in `.env` (the web container stops at `migrate`
+  without it); add PUT to the private bucket's CORS rule (DEPLOYMENT.md section 17); for the reminders, a Firebase
+  service account with the "Firebase Cloud Messaging API Admin" role only; a key for the public bucket alone in
+  `PUBLIC_S3_*`.
+- Open (decided in the review): refunds of offline payments (L11), Turnstile's hostname check (I1), staff discount and
+  grant controls (I6), headless code confirmations counted in the session only (I7), firebase-admin's size and a
+  blocking pip-audit (I9), clip links as bearer links (I10).
+
+## Phase 7: API contract (8 October 2026)
+
+18 tests more (`api/test_headless.py`, `api/test_contract.py`, `shop/test_api_contract.py`). Any frontend (the app, or
+a web frontend of its own) can now do through documented JSON what the website's pages do; the server keeps every rule.
+
+- **allauth.headless** at `/_allauth/` (clients `app` and `browser`; the website's pages stay): codes by email or SMS,
+  passwords, passkeys, Google, the second step, sign-up, email, phone and password changes; its OpenAPI file at
+  `/_allauth/openapi.json`. `POST /api/v1/auth/exchange/` turns an app's session token (`X-Session-Token`) into the JWT
+  pair, so API v1 keeps its Bearer tokens; dj-rest-auth's endpoints stay, legacy-compatible. Emails link to the
+  website's pages whichever client asked (`HEADLESS_FRONTEND_URLS`).
+- **The site's rules hold there too:** every sign-up form is built on `accounts.signup.StudentDetailsForm`
+  (`ACCOUNT_SIGNUP_FORM_CLASS`: the student details, the consent record, the STUDENT role, the parent's link, no phone
+  at sign-up, Turnstile; after Google too); headless's code request and phone change take the website's forms
+  (Turnstile; "wait a minute" rather than a server error); staff without an authenticator app get a JSON 403 from
+  `/api/` with a session (it was a redirect) and from the exchange, while `/_allauth/` stays open for the set-up; no
+  `/_allauth/` answer is cached.
+- **New in API v1:** `me/teacher/`, `me/parent-consent/`, `me/` fields `consent_pending`, `login_phone`,
+  `login_phone_verified` and `sms_updates`; `products/<slug>/reviews/` and `products/<slug>/stock-alert/`, `quotes/`
+  (Turnstile while it is on), `orders/t/<token>/` (the emails' link, read-only), `config/` (what is switched on) and
+  `pages/` (the legal pages).
+- **OpenAPI:** operations tagged by area (auth, account, catalogue, record, shop, learn, site; `api/schema.py`) and
+  examples on the main requests; `spectacular --validate --fail-on-warn` clean. API.md has the new endpoints and a
+  "Frontend integration guide"; DEPLOYMENT.md section 20 the settings. JSON clients send Turnstile's token as
+  `turnstile` (the widget's own field still works).
+- Open: guest checkout through the API (it keeps no session carts: guests buy on the website); the app's passkey
+  association files (`/.well-known/`); a teacher's view of their students.
+
+## Website redesign (8 October 2026): stage 1 done, stage 2 in progress
+
+Work package C of `../docs/examleaf-phase5-plan.md`, from the design canvas (`../docs/design/direction.md`,
+`components.md`, `tokens.css`).
+
+- **Stage 1** (commit f8e4e5f): self-hosted subset fonts (Poppins and Hind Siliguri), one stylesheet
+  (`static/css/site.css`), the base layout and the public pages.
+- **Stage 2** restyles the shop, account and allauth templates, the emails and the staff player. In progress; its first
+  part is in commit ba0b9dd.
+
+## Phase 6 E: store flexibility (8 October 2026)
+
+26 tests more, in `shop/`. Work package E of `../docs/examleaf-phase6-plan.md`; its Status section has a line per item.
+Our shop grows the ideas of django-oscar and Saleor that matter for a publisher (neither is installed).
 
 - **Catalogue:** a category tree (django-treebeard, drag and drop in the admin), products on several shelves, category
   pages `/shop/category/<slug>/` with their sub-shelves' products, collections in the staff's order
@@ -37,10 +126,10 @@ of django-oscar and Saleor that matter for a publisher (neither is installed).
   `bootstrap_roles`).
 - **Download my data** adds reviews, quotation requests, stock alerts and the course's data.
 
-## Phase 6 D — revision course (35 tests more, in `learn/`)
+## Phase 6 D: revision course (8 October 2026)
 
-Work package D of `docs/examleaf-phase6-plan.md`; its Status section has a line per item. A new app, `learn`, for the
-mobile app's short-video revision (the app itself is a separate project).
+35 tests more, in `learn/`. Work package D of `../docs/examleaf-phase6-plan.md`; its Status section has a line per item.
+A new app, `learn`, for the mobile app's short-video revision (the app itself is a separate project).
 
 - **Content:** chapters (subject, number, Board marks, previous-year questions, must-do note), one revision per
   chapter (target 10 to 15 minutes, draft or published, order), clips (order, kind: concept, trick, shortcut, formula,
@@ -57,11 +146,11 @@ mobile app's short-video revision (the app itself is a separate project).
 - **Data:** `manage.py import_chapter_insights` (marks per chapter from `format.json`, question counts from `pyq/`;
   51 chapters, 70/70/80/70 marks) and `manage.py build_quiz_items` (664 quiz items from the one-mark questions whose
   options and answer parse unambiguously; the rest counted and skipped).
-- **Access:** entitlements per subject or all (book code, purchase, staff grant; a year by default); book codes of 12
-  characters without 0/O/1/I, kept as a keyed hash (`LEARN_CODE_SECRET`), redeemed once, 5 tries an hour per user and
-  per address, logged; `manage.py make_book_codes` writes the printer's CSV; `learn.services.grant_for_order` and
-  `revoke_for_order` for the shop's digital products. Free: the first clip of every revision and the first chapter's
-  flash cards (`LEARN_FREE_PREVIEW`).
+- **Access:** entitlements per subject or all (book code, purchase, staff grant; a code or a purchase lasts a year);
+  book codes of 12 characters without 0/O/1/I, kept as a keyed hash (`LEARN_CODE_SECRET`), redeemed once, 5 tries an
+  hour per user and per address, logged; `manage.py make_book_codes` writes the printer's CSV;
+  `learn.services.grant_for_order` and `revoke_for_order` for the shop's digital products. Free: the first clip of every
+  revision and the first chapter's flash cards (`LEARN_FREE_PREVIEW`).
 - **Pass plan:** chapters by Board marks × past-paper questions × (1 + share of wrong quiz answers), unwatched clips
   packed into the student's minutes a day until the exam, the minimum to pass (most marks per minute up to 1.5 times
   the pass marks); revise-again with wrong answers back after 1, 3 and 7 days.
@@ -75,9 +164,9 @@ mobile app's short-video revision (the app itself is a separate project).
 - **Staff player:** `/learn/preview/<clip>/` with hls.js 1.7.3 served by the site (`static/learn/`, its licence beside
   it); CSP `media-src 'self' blob:` and, with buckets, the bucket hosts.
 
-## Phase 5 B — storage, media, shop and web platform (21 tests more)
+## Phase 5 B: storage, media, shop and web platform (8 October 2026)
 
-Work package B of `docs/examleaf-phase5-plan.md`; its Status section has a line per item.
+21 tests more. Work package B of `../docs/examleaf-phase5-plan.md`; its Status section has a line per item.
 
 - **Two buckets** (Cloudflare R2; DEPLOYMENT.md sections 15 and 17): a private one for invoices, credit notes,
   quotations and answer sheets, reached by links signed for 5 minutes, and a public one for product pictures on
@@ -109,12 +198,14 @@ Work package B of `docs/examleaf-phase5-plan.md`; its Status section has a line 
 - **Order SMS** go out from the shop's notifications through `ops.sms.send_order_sms` (phase 5 A).
 - **Supply chain:** Dependabot (pip and GitHub Actions, weekly); DEPLOYMENT.md notes Jazzband's wind-down.
 - Upgrading: `MEDIA_ENDPOINT_URL` is gone (`S3_ENDPOINT_URL`), and `MEDIA_BUCKET` now needs `PUBLIC_MEDIA_BUCKET` and
-  `PUBLIC_MEDIA_DOMAIN`; product picture URLs change with the buckets (API.md); SALES needs permissions for reviews and
-  school orders in `accounts/roles.py` (not yet given).
+  `PUBLIC_MEDIA_DOMAIN`; product picture URLs change with the buckets (API.md). The first migration records the size of
+  every product picture and queues its AVIF and WebP sizes for the worker: until the worker has made them (seconds), a
+  product page may show no cover. Beat gets two new schedules (stock alerts hourly, the low-stock email daily). SALES
+  got its permissions for reviews, quotations and stock alerts in Phase 6 E (`accounts/roles.py`).
 
-## Phase 5 A — sign-in and communications (32 tests more)
+## Phase 5 A: sign-in and communications (8 October 2026)
 
-Work package A of `docs/examleaf-phase5-plan.md`; its Status section has a line per item.
+32 tests more. Work package A of `../docs/examleaf-phase5-plan.md`; its Status section has a line per item.
 
 - **Phone log-in.** A student adds a mobile number on My account (never at sign-up) and confirms it with an SMS code;
   then it logs in with the password or a code by SMS ("Log in with a code", email or number). Numbers are taken as
@@ -128,7 +219,7 @@ Work package A of `docs/examleaf-phase5-plan.md`; its Status section has a line 
   details after Google (one form mixin with the sign-up form); PKCE; `form-action` allows Google only then.
 - **App API:** `POST auth/phone/code/` and `auth/phone/confirm/` (API.md): log-in by SMS code, the same JWT pair.
 - **SMS gateway** (`ops/sms.py`): one Celery task, `console` or `msg91` (OTP and Flow APIs), retries on network
-  errors, an SMS log without whole numbers (Admin → Operations), at most `SMS_DAILY_CAP` a day counted in the
+  errors, an SMS log without whole numbers (Admin → Ops), at most `SMS_DAILY_CAP` a day counted in the
   database. Order SMS (placed, shipped, delivered) for students who ask for them on My account, through
   `ops.sms.send_order_sms(order, kind)`.
 - **Parental consent by SMS** (`verified` mode): a parent's Indian mobile number gets the link by SMS; links are now
@@ -138,12 +229,14 @@ Work package A of `docs/examleaf-phase5-plan.md`; its Status section has a line 
   again).
 - **Cloudflare Turnstile** on sign-up and code requests when its keys are set (fails open, logged).
 - Data export and account deletion include the new data (log-in number, passkeys, Google accounts); Sentry filters SMS
-  variables; DEPLOYMENT.md sections 15 and 16, RUNBOOK.md "SMS", "Phone numbers and passkeys", "Email bounces and
+  variables; DEPLOYMENT.md sections 13, 15 and 16, RUNBOOK.md "SMS", "Phone numbers and passkeys", "Email bounces and
   complaints".
+- Upgrading: `migrate` adds the SMS log, the email suppression list and the Google tables; `bootstrap_roles` gives SUPPORT
+  the right to view the SMS log and to delete suppressions (both run on every deploy).
 
-## Phase 4 security — shop (16 tests more, in `shop/test_security.py`)
+## Phase 4 security, shop (8 October 2026)
 
-The shop's findings of SECURITY_REVIEW.md (8 October 2026); each finding there has its status line.
+16 tests more, in `shop/test_security.py`. The shop's findings of SECURITY_REVIEW.md; each finding there has its status line.
 
 - **Order links (M2).** Each order has an unguessable token, and every email about it links to `/orders/t/<token>/`:
   the order read only, its invoice and credit notes, and a cancel button while it is pending or paid. "Find your
@@ -169,12 +262,12 @@ The shop's findings of SECURITY_REVIEW.md (8 October 2026); each finding there h
   evicts. The shop's limits refuse while the cache cannot be read; Razorpay's webhooks go on.
 - **Hardening (I4, I6, M5).** Products and addresses sort only by the fields named; invoice PDFs fetch only static files
   and data: URLs; the orders export needs `export_order` (ADMIN) and is logged.
-- Migrations `shop` 0005 to 0008. Open: canonical cache keys for the public API lists (`api/views.py`).
+- Migrations `shop` 0005 to 0008.
 
-## Phase 4 security — accounts, API and operations (23 tests more, 227 in all)
+## Phase 4 security, accounts, API and operations (8 October 2026)
 
-The security review's other findings (SECURITY_REVIEW.md, each with its status line), one test or more each in
-`accounts/test_security.py`, `api/test_security.py` and `ops/test_security.py`.
+23 tests more, 227 in all. The security review's other findings (SECURITY_REVIEW.md, each with its status line), one
+test or more each in `accounts/test_security.py`, `api/test_security.py` and `ops/test_security.py`.
 
 ### Staff and roles
 
@@ -211,11 +304,11 @@ The security review's other findings (SECURITY_REVIEW.md, each with its status l
 - CI: read-only permissions, a pip-audit job (not blocking yet); test and lint tools in `requirements-dev.txt`, not in
   the image (L10).
 
-## Phase 4: QA pass (60 tests more, 188 in all)
+## Phase 4: QA pass (8 October 2026)
 
-Every flow of the site was walked on a development server (visitor, cart, log-in, both checkouts, cancellation, guest
-lookup, registration under 18, data export, deletion, teacher access, every admin page, every API endpoint and error),
-the failures below were reproduced first, and each fix has a test that fails without it.
+60 tests more, 188 in all. Every flow of the site was walked on a development server (visitor, cart, log-in, both
+checkouts, cancellation, guest lookup, registration under 18, data export, deletion, teacher access, every admin page,
+every API endpoint and error), the failures below were reproduced first, and each fix has a test that fails without it.
 
 ### Fixed: money and orders
 
@@ -290,7 +383,7 @@ the failures below were reproduced first, and each fix has a test that fails wit
 - Docs: environment variable reference in DEPLOYMENT.md, the shop in RUNBOOK.md (a stuck payment, refund disputes,
   reconciling settlements, a missing invoice, coupons and stock), API.md matched to the routes, this file.
 
-## Phase 3b: shop on the API, credit notes, privacy of the shop
+## Phase 3b: shop on the API, credit notes, privacy of the shop (8 October 2026)
 
 Shop REST endpoints (products, cart, addresses, orders, payment through Razorpay's mobile SDK, cancellation, invoice
 and credit note PDFs, guests' lookup); credit notes (own number series, GST reversed per line); orders in Download my
@@ -298,13 +391,13 @@ data; Sentry scrubbing of secrets and personal data; the `SOLUTIONS_REQUIRE_LOGI
 solutions); webhook replay protection; a readiness check before gunicorn starts; the CI builds the Docker image; tests
 isolated so that they pass in any order on SQLite and PostgreSQL. 128 tests.
 
-## Phase 3: REST API v1
+## Phase 3: REST API v1 (8 October 2026)
 
 DRF with dj-rest-auth and JWT (short access token, rotated and blacklisted refresh token, ended by a password change),
 sign-up and the email code on the website's own form and rules, drf-spectacular schema with Swagger UI and Redoc served
 by the site, CORS for listed origins on `/api/` only, throttles counted in the cache, API.md.
 
-## Phase 2: the shop
+## Phase 2: the shop (8 October 2026)
 
 Catalogue and product pages; the cart (a guest's joins the account's at log-in); checkout with Indian address checks
 and saved addresses; Razorpay payments and signed webhooks; cash on delivery; the order and payment state machines
@@ -312,14 +405,14 @@ with a customer timeline; stock under row locks; coupons; shipping rates by stat
 (also partial); GST invoices as PDFs (bill of supply while every book is exempt); order management in the admin (pack,
 ship, deliver, cancel, refund, export); Refund and Shipping policy pages; SALES and SUPPORT roles.
 
-## Phase 1: production
+## Phase 1: production (8 October 2026)
 
 PostgreSQL, Redis cache and Celery with beat; Sentry and JSON logs with request IDs; roles and permissions; teacher
 access requests and their verification; DPDP self-service (Download my data, Delete my account with seven days to
 change one's mind, consent records); legal pages with history; the branded admin with its dashboard; the Docker and
 Caddy stack; backups; CI; DEPLOYMENT.md and RUNBOOK.md.
 
-## Phase 0: the site
+## Phase 0: the site (8 October 2026)
 
 Books, papers, questions and solutions imported from the Markdown of the four subjects (30 papers each); the QR code
 of every paper opening its solutions; registration with parental consent under 18 and an emailed code; My record of

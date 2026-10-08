@@ -12,7 +12,7 @@ The spec the Django builder implements. Drawn on the Design canvas (https://clau
 | Section rhythm | `.section { padding-block: var(--section) }`: 96 px on desktop, 64 px on phones. A page that opens with a breadcrumb or a form starts 24–32 px under the header (48–64 px for a centred form) and ends at 96. Sections alternate `--background` and `--secondary`; never two `--secondary` in a row. Dark bands only for the header, hero, final call to action and footer. |
 | Gutters | 24 px (`--gap`) between cards and columns. In forms, 16 px between rows and 20 px between columns. 16 px between paper links and between a dense list's items, 12 px between buttons, 8 px between chips. |
 | Grids | Intrinsic, no breakpoints: `grid-template-columns: repeat(auto-fit, minmax(min(N, 100%), 1fr))`. N = 240 (subject tiles, product cards: 4 columns at 1120), 280 (offer cards: 3), 180 (paper links: 5), 190 (stat cards: 5), 260 (address form: 2), 220 (record form: 3), 160 (tier averages: 3). Every grid falls to one column at 358 px. |
-| Two columns | A flex-wrap row: main `flex: 999 1 600px; min-width: 0`, aside `flex: 1 1 300px` (rails, summaries; 340 for order summaries), gap 32. The aside drops under main on phones. The Account side nav comes first in the DOM, so it lands on top. Never sticky. |
+| Two columns | A flex-wrap row: main `flex: 999 1 600px; min-width: 0`, aside `flex: 1 1 300px` (rails, summaries; 340 for order summaries), gap 32. The aside drops under main on phones. The Account side nav comes first in the DOM, so it lands on top (as a row of chips under 900 px). Never sticky, except the solutions rail, whose card sticks 16 px from the top beside a long paper. |
 | Hero | Flex-wrap row, gap 40: copy `flex: 1 1 460px`, `.stage` `flex: 1 1 420px`. Padding 48/72 px desktop, 24/40 phone. On phones the stage sits between the H1 and the numeral (HomePhone). |
 | Real breakpoints | 900 px (`.nav-menu` folds behind `.nav-toggle`; the word "Cart" hides) and 768 px (`.buybar` shows below it). Everything else is intrinsic. |
 | Type | Headings Poppins, body Hind Siliguri 17/1.7. Hero H1 `clamp(36px, 4.6vw, 54px)/1.08` 800 (34 px on phone); page H1 `clamp(30px, 4vw, 44px)/1.15` 800 (32 px on the login and register cards, 28 px on phone screens); H2 `clamp(26px, 3.2vw, 38px)/1.2` 800 (card titles 20–24 px); H3 17–21 px 700/1.3; lead 19 px; small 15 px; caption 14 px; labels 600 16/1.4. Bangla/Assamese text: no letter-spacing, no uppercase, line-height at least 1.7. `text-wrap: balance` on headings, `pretty` on paragraphs. |
@@ -45,7 +45,7 @@ The spec the Django builder implements. Drawn on the Design canvas (https://clau
   - `:active`: `translate: 0 1px`.
   - `:focus-visible`: the ring.
   - `:disabled`: opacity .55, `cursor: not-allowed`.
-  - `[aria-busy="true"]`: the label stays and a 16 px `.spinner` (2 px `currentColor` ring with one transparent side) shows before it. The button is also `disabled`. The spinner turns only inside the motion wrapper.
+  - `[aria-busy="true"]`: the label stays and a 16 px `.spinner` (2 px `currentColor` ring with one transparent side) shows before it. The button is also `disabled`. The spinner is the button's `::before` (no extra markup) and turns only inside the motion wrapper. Busy is for real waits only: the pay button until Razorpay's window has loaded and while the payment is checked (motion.md, g).
 - Icon-only buttons (dismiss, close): 44×44, transparent, 22 px icon, `aria-label` required.
 - Phone: the hero, checkout and login actions become `.btn-block`; button rows wrap with gap 12.
 
@@ -132,12 +132,14 @@ The spec the Django builder implements. Drawn on the Design canvas (https://clau
 
 ### `.toast` region (Django messages)
 ```html
-<ul class="toast" aria-live="polite"><li class="success"><svg class="icon">check-circle</svg><p>ExamLeaf Chemistry Sample Papers 2027 is in your cart.</p><button class="btn btn-ghost btn-sm" aria-label="Dismiss">x</button></li></ul>
+<main id="main" tabindex="-1"><ul class="toast" aria-label="Messages"><li><details class="toast-item success" open><summary class="btn btn-ghost btn-icon" aria-label="Dismiss">x</summary><svg class="icon">check-circle</svg><p>ExamLeaf Chemistry Sample Papers 2027 is in your cart.</p></details></li></ul>
+<p id="announce" class="sr-only" role="status"></p> …</main>
 ```
 - Region: fixed under the header at the top right (top 80 = header + 16, right = the gutter), width `min(400px, 100% - 32px)`, gap 8, `z-index` 40.
 - Each message: `--card`, 1 px `--border`, radius 12, `--shadow-card`, padding 12 4 12 16. A 22 px icon in the alert colour of its tag (`message.tags` gives success/info/warning/error), text 16/1.6, and a 44 px dismiss button.
-- No auto-dismiss: it stays until dismissed or the next page.
-- Phone: the region moves to the bottom (left/right 16, bottom 16). When a `.buybar` is on screen it sits above it.
+- No auto-dismiss: it stays until dismissed or the next page. Dismiss closes its `<details>` (works without JavaScript); with site.js it leaves with the exit animation first, and Escape dismisses every toast.
+- Screen readers: text present at load is not announced, so site.js copies the messages once into `#announce` (a polite `role="status"` region on every page, inside `<main>`).
+- Phone: the region moves to the bottom (left/right 16, bottom 16); it enters from below.
 
 ### `dialog.dialog`
 ```html
@@ -177,7 +179,7 @@ The spec the Django builder implements. Drawn on the Design canvas (https://clau
 - Uses: Home FAQ, Solutions "Instructions and allotment of marks", the phone checkout's "Order summary · ₹718.20".
 
 ### `.skeleton`
-`<span class="skeleton" aria-hidden="true">`: a block, radius 6, `--border` fill, lines 10–14 px tall. Its width is set where it sits. It pulses opacity 1 → .55 (1.2 s, alternate) inside the motion wrapper; there is no shimmer. The slot keeps its final size; images reserve theirs with `aspect-ratio: 480/678` and a subject base fill. Drawn as the invoice slot on Order status, next to "The invoice will appear here in a few minutes."
+`<span class="skeleton" aria-hidden="true">`: a block, radius 6, `--border` fill, lines 10–14 px tall. Its width is set where it sits. It is still: no pulse and no shimmer, because the page does not refresh itself (motion.md). The slot keeps its final size; images reserve theirs with `aspect-ratio: 480/678` and a subject base fill. Drawn as the invoice slot on Order status, next to "The invoice will appear here in a few minutes."
 
 ### `.table-wrap > table.table`
 - `.table-wrap`: `overflow-x: auto`, 1 px `--border`, radius 12, `--card`.
@@ -222,7 +224,7 @@ The spec the Django builder implements. Drawn on the Design canvas (https://clau
   - Pill: 24 tall, padding 0 10, pill-colour fill, base-colour text, Poppins 700 12.
   - Name: Poppins 800 28/1.15.
   - Meta: Hind 600 15/1.5 in the pill colour (7.6–9.1:1).
-  - "Open the papers": 600 16 with a 20 px arrow, at the bottom (`margin-top: auto`), max-width 58 %.
+  - "Open the papers": 600 16 with a 20 px arrow that wraps with the last word, at the bottom (`margin-top: auto`), max-width 58 %.
   - Cover: 112 px wide, absolute at right −14 / bottom −34, rotated 8°, `--shadow-cover`, `alt=""`.
 - Sticker press: `:active` moves the tile 3 px right and down and drops the hard shadow; the move takes 120 ms in the motion wrapper. Focus gives the ring. No hover tilt.
 - Phone: the Home page puts the four tiles in a scroll-snap strip: `grid-auto-flow: column; grid-auto-columns: 80%; overflow-x: auto; scroll-snap-type: x mandatory`. The strip bleeds to the screen edges and the next tile peeks in. Elsewhere (404) the grid falls to one column.
@@ -254,7 +256,7 @@ The spec the Django builder implements. Drawn on the Design canvas (https://clau
 ### `.marker`
 - Static (drawn): `<mark class="marker">the solutions free</mark>`. The fill is a highlighter stroke made with a hard-stop gradient, `linear-gradient(180deg, transparent 50%, #FFE27A 50% 92%, transparent 92%)`, with padding 0 2px and the colour inherited (ink or navy, never on night). One per view, three words or fewer, one line.
 - Drawn on entry: add `data-draw`. Inside the motion wrapper and `@supports (animation-timeline: view())`, a `::after` scales 0 → 1 from the left (tokens.css).
-- Home stays static: its two effects are the cover lift and the sticker press.
+- Home draws its one marker (Q.1) on entry; it never wraps (`white-space: nowrap`), so the stroke stays on one line.
 
 ### `.price` → `.price-now` `.price-mrp` `.price-save`
 ```html
@@ -334,10 +336,7 @@ The spec the Django builder implements. Drawn on the Design canvas (https://clau
 - `.no-cover` (the existing `shop/no_cover.html`): for books without a cover image (the Solutions books today).
   - Box: `aspect-ratio: 480/678`, radius 6, subject base fill, padding 16, `--shadow-cover`, `aria-hidden`.
   - Inside: "Exam" + "Leaf" (Poppins 800 15), the subject name (Poppins 800 24), a kind pill ("Solutions", pill colour), and "Class 12 · 2027" (600 14, pill colour).
-- `.buybar` (R7): the pay or add bar on phones under 768 px.
-  - Box: `position: sticky; bottom: 0`, `--card` fill, 1 px `--border` top rule, shadow `0 -8px 24px rgba(11,42,91,.08)`, padding 12 16 `calc(14px + env(safe-area-inset-bottom))`.
-  - Contents: a `.btn-accent.btn-lg.btn-block` ("Pay ₹718.20", lock icon), then a 14 px muted line.
-  - Add `scroll-padding-bottom` to the page so a focused field never hides under it.
+- `.buybar` (R7) was drawn but no page uses it; its rules were removed in the craft pass. Bring them back with the first page that needs a bar fixed to the bottom of a phone (and `scroll-padding-bottom` with it).
 - Solutions page parts (the existing `solutions.html` class names):
   - `.group`: H2 grid `48px 1fr auto`, Poppins 700 18, with a 2 px `--primary` bottom rule. The marks ("2×10 = 20") are Hind 600 16, nowrap, in the right margin.
   - `article.question`: grid `48px minmax(0,1fr) auto`, gap 0 12, padding 24 0, 1 px bottom rule. `.qno` is Poppins 800 17 `--primary` (empty on an "Or" alternative), `.qtext` is 17/1.7, and `.marks` "[2]" is 600 16 muted in the right margin. `.options` is an unbulleted list of "(i) …".
@@ -404,10 +403,26 @@ The spec the Django builder implements. Drawn on the Design canvas (https://clau
   - Tracking and cancel lines, the sign-off, and a `--secondary` footer.
   - Fonts fall back to Segoe UI / Helvetica / Arial.
 
-## 4. Motion (all inside the wrapper in tokens.css)
-- At most two effects per view. Home: the cover lift and the sticker press. Book and Catalogue: the card lift and the view transition.
-- View transitions pair across pages: the Home tile and the Book cover share `book-<subject>`; a catalogue card's cover and the Product cover share `cover-<subject>`. Each name is unique on its page. The root crossfades out in 140 ms and in over 220 ms.
+## 4. Motion: docs/design/motion.md
+- The timing scale (0 / 150 / 220 / 360 ms), the easings, the sequencing and interruption rules and the seven signature interactions are in `motion.md`; the tokens and the wrapper are at the top of site.css.
+- At most two effects per view. Home: the cover lift and the sticker press (the marker draws further down). Book and Catalogue: the card lift and the view transition.
+- View transitions pair across pages: the Home tile and the Book cover share `book-<subject>`; a product card's cover and the Product page cover share `cover-<product id>` (a `style` attribute: two products of one subject sit on the catalogue). Each name is unique on its page. The page cross-fades over 360 ms; none after a form is sent.
 - Nothing hides the LCP element, and nothing animates width, height, position, shadow or blur. Press feedback (`translate` on `:active`) and the chevron state work with reduced motion too.
+
+## 4a. Craft pass (2026-10-08): what the built site does beyond the drawings
+- Stylesheets: `site.css` (every page, about 51 KB), then `home.css` (home.html), `shop.css` (templates/shop/base_shop.html) or `account.css` (templates/base_account.html, allauth/layouts/base.html) with the rules only those pages use, so no page loads 60 KB of CSS (content/test_craft.py checks it); each is render-blocking, as the CSP allows no `onload` swap. `print.css` (`media="print"`, solutions page) and `staff.css` (clip preview) load only there. site.css is written one rule per line without optional spaces; the explanations live in these docs.
+- Tokens added to site.css (copy them to tokens.css): `--t-instant` `--t-fast` `--t-base` `--t-slow`, `--ease-enter` `--ease-exit` (motion.md); the type scale `--fs-display` `--fs-h1` `--fs-h1-card` `--fs-h2` `--fs-title` `--fs-card` `--fs-h3` `--fs-h4` `--fs-lead` `--fs-body` `--fs-small` `--fs-caption`; `--measure: 66ch`. The unused whole-site `[data-theme="dark"]` block was removed: dark stays on the bands.
+- Type: card titles are `--fs-card` (22) everywhere, section sub-heads `--fs-title`; reading columns (solutions, legal pages, About, FAQ) are at most `--measure`; `p, li, dd, figcaption` wrap `pretty`, h1–h4 `balance`; Hind Siliguri sits in the heading stack so Assamese names and titles get its Bengali glyphs; `:lang(as)`/`:lang(bn)` text gets line-height 1.8 (headings 1.45), no tracking, no uppercase. Tables use `tabular-nums` (the subset fonts carry no `tnum` yet: re-subset with `--layout-features+=tnum`).
+- Empty states draw one of `templates/_empty_art.html` (`sheet`, `cart`, `orders`, `attempts`, `results`, and the 404's `missing`): 64 viewBox, 1.75 stroke, one marker-yellow highlight; only pages that show an empty state carry the drawing. Inside a card (My account) the empty state is a compact row.
+- Forms: `_required_note.html` explains the red star once at the top of the longer forms; `_field.html` points `aria-describedby` at the error even without help text; the marks forms use `_field.html` too. Controls: hover darkens the border, `:user-invalid` turns it red when the student leaves a wrong field, `:disabled` is grey.
+- Keyboard: the menu checkbox is in the tab order only under 900 px; Enter works the menu and the subject tabs as Space does; Escape closes the menu (focus back on Menu) or dismisses the toasts. Dialogs open on their safe button (`autofocus` on "Keep it" / "Keep the order"). The skip link lands on `<main tabindex="-1">`.
+- Home: each stage cover is the link to its book (hover, focus and tap lift it and light its spine); the bento's big card ends with the three tiers (E-01 to E-10 …) instead of repeated chips.
+- Solutions: the question text and the solution's paragraphs keep `--measure`; the rail's card is sticky beside the paper; each question is `content-visibility: auto`; KaTeX draws a question as it nears the screen (static/js/math.js) and its stylesheet is applied at the end of the page; printing gives the paper header, the instructions, every question with its marks and solution, a new page per question group.
+- Account: on phones the side nav is a row of chips; the tier averages show once a mark is saved.
+- Pay: the pay button is busy until Razorpay's window has loaded.
+- Cart on phones (under 600 px): each line stacks (book, then copies and amount) instead of a table scrolled sideways; the copies buttons keep their place while hidden, so nothing shifts when site.js shows them.
+- Header at 320 px: Menu shows its icon only (the checkbox keeps the name; `aria-expanded` follows it) and the wordmark steps down to 20 px.
+- allauth's passkey scripts load with `defer` (templates/mfa/webauthn/snippets/scripts.html).
 
 ## 5. Canvas-only levers
 The artboards have three Tweaks: accent colour (#1A6E30 / #1A5FB4 / #8A6508), dark bands on/off, and density (comfortable 96/24 vs compact 64/16). They are for comparing options. The built site uses the defaults above: leaf accent, night bands, comfortable density.

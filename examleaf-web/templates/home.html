@@ -1,4 +1,5 @@
-{% extends "base.html" %}{% load web %}
+{% extends "base.html" %}{% load static web %}
+{% block area_css %}<link rel="stylesheet" href="{% static 'css/home.css' %}">{% endblock %}
 {% block main_class %}{% endblock %}
 {% block content %}
 <section class="band band-night hero">
@@ -25,7 +26,8 @@
         <li><svg class="icon" aria-hidden="true"><use href="#icon-truck"/></svg>Delivered across India</li>
       </ul>
     </div>
-    {% if object_list %}<div class="stage">{% for book in object_list %}{% if book.cover %}<span class="cover stage-cover">{% if forloop.first %}{% static_cover book.cover "Cover of "|add:book.title "(min-width: 900px) 172px, 104px" fetchpriority="high" %}{% else %}{% static_cover book.cover "Cover of "|add:book.title "(min-width: 900px) 172px, 104px" loading="lazy" %}{% endif %}</span>{% endif %}{% endfor %}</div>{% endif %}
+    {# the cover stage (motion.md, a): each cover is the link to its book, and lifts on hover, focus and tap #}
+    {% if object_list %}<div class="stage">{% for book in object_list %}{% if book.cover %}<a class="cover stage-cover" href="{{ book.get_absolute_url }}">{% if forloop.first %}{% static_cover book.cover book.title "(min-width: 900px) 172px, 104px" fetchpriority="high" %}{% else %}{% static_cover book.cover book.title "(min-width: 900px) 172px, 104px" loading="lazy" %}{% endif %}</a>{% endif %}{% endfor %}</div>{% endif %}
   </div>
 </section>
 
@@ -33,7 +35,7 @@
   <div class="container">
     <div class="section-head">
       <div class="q-rule"><span>Q.1</span><span aria-hidden="true"></span><span>What's inside</span></div>
-      <h2>Everything you need to practise, and <mark class="marker">the solutions free</mark></h2>
+      <h2>Everything you need to practise, and <mark class="marker" data-draw>the solutions free</mark></h2>
       <p class="lead">Each subject has two books: Sample Papers, and Solutions printed for working without a phone.</p>
     </div>
     <div class="bento">
@@ -42,7 +44,11 @@
         <h3>full papers in every book</h3>
         <p>In the board's pattern, each with its time and marks. Start with the Easy ten, finish with the Hard ten.</p>
         <div class="tier-bar" aria-hidden="true"><span></span><span></span><span></span></div>
-        <div class="chips"><span class="badge badge-easy">10 Easy</span><span class="badge badge-medium">10 Medium</span><span class="badge badge-hard">10 Hard</span></div>
+        <ul class="tier-list">
+          <li><span class="badge badge-easy">10 Easy</span><span class="tier-range">E-01 to E-10</span><span>build your basics</span></li>
+          <li><span class="badge badge-medium">10 Medium</span><span class="tier-range">M-01 to M-10</span><span>strengthen your preparation</span></li>
+          <li><span class="badge badge-hard">10 Hard</span><span class="tier-range">H-01 to H-10</span><span>challenge like a topper</span></li>
+        </ul>
       </div></div>
       <div class="bento-grid">
         <div class="card"><div class="card-body"><span class="feature-icon"><svg class="icon" aria-hidden="true"><use href="#icon-qr"/></svg></span><h3>A QR code on every paper</h3><p>Scan it and that paper's worked solutions open on this site, free.</p></div></div>
