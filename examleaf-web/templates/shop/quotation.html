@@ -10,7 +10,7 @@
     <tr>
       <td>{{ forloop.counter }}</td>
       <td>{{ line.product.title }}</td>
-      <td>{{ line.product.hsn_code }}</td>
+      <td class="code">{{ line.product.hsn_code }}</td>
       <td class="num">{{ line.product.gst_rate|floatformat:2 }} %</td>
       <td class="num">{{ line.quantity }}</td>
       <td class="num">{{ line.product.price.amount }}</td>

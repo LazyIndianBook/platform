@@ -4,51 +4,68 @@
 <meta charset="utf-8">
 <title>{{ title }} {{ document.number }}</title>
 <style>
-  /* WeasyPrint (shop/invoices.py): the site's own fonts from static/fonts (base_url is the project folder; the URL
-     fetcher allows the static folders only), the token colours of site.css. DejaVu and Noto (Dockerfile) catch any
-     letter the subsets lack, such as a customer's name in another script. */
-  @font-face { font-family: "Poppins"; font-weight: 700; src: url("static/fonts/poppins-700.woff2") format("woff2"); }
-  @font-face { font-family: "Poppins"; font-weight: 800; src: url("static/fonts/poppins-800.woff2") format("woff2"); }
+  /* WeasyPrint (shop/invoices.py), drawn in ExamLeaf A - Gaps and edge pages "GST invoice": white paper, the wordmark in
+     a serif, labels, codes and amounts in a mono, hairlines in the paper's tone, the one red thing a double rule under
+     the head. The fonts are the system ones the Docker image has (DejaVu, Noto: also the rupee sign and any script a
+     customer's name is typed in) after the site's own where installed; Hind Siliguri, from static/fonts (base_url is
+     the project folder; the URL fetcher allows the static folders only), is the text face and covers Bengali and
+     Assamese in every stack. */
   @font-face { font-family: "Hind Siliguri"; font-weight: 400; src: url("static/fonts/hind-siliguri-400.woff2") format("woff2"); }
   @font-face { font-family: "Hind Siliguri"; font-weight: 600; src: url("static/fonts/hind-siliguri-600.woff2") format("woff2"); }
   @font-face { font-family: "Hind Siliguri"; font-weight: 400; src: url("static/fonts/hind-siliguri-400-bengali.woff2") format("woff2"); unicode-range: U+0980-09FE, U+200C-200D, U+25CC; }
   @font-face { font-family: "Hind Siliguri"; font-weight: 600; src: url("static/fonts/hind-siliguri-600-bengali.woff2") format("woff2"); unicode-range: U+0980-09FE, U+200C-200D, U+25CC; }
-  @page { size: A4; margin: 16mm 14mm; @bottom-center { content: "Page " counter(page) " of " counter(pages); font: 8pt "Hind Siliguri", "DejaVu Sans", sans-serif; color: #5d6675; } }
-  body { font: 9.5pt/1.45 "Hind Siliguri", "DejaVu Sans", "Noto Sans", sans-serif; color: #1b2330; }
-  h1, th, .brand, .grand { font-family: Poppins, "DejaVu Sans", sans-serif; }
-  .brand { margin: 0 0 3mm; font-weight: 800; font-size: 13pt; line-height: 1; color: #0b2a5b; }
-  .brand span { color: #1a6e30; }
-  h1 { font-size: 16pt; font-weight: 800; line-height: 1.2; margin: 0 0 1.5mm; color: #0b2a5b; }
-  strong { font-weight: 600; }
-  .head { display: flex; justify-content: space-between; gap: 8mm; border-bottom: 2px solid #0b2a5b; padding-bottom: 3mm; }
-  .parties { display: flex; gap: 8mm; margin: 4mm 0; }
-  .parties > div { flex: 1; }
-  .label { font-size: 8pt; font-weight: 600; color: #5d6675; margin: 0 0 1mm; }
+  @page { size: A4; margin: 16mm 14mm 18mm; @bottom-center { content: "Page " counter(page) " of " counter(pages); font: 7pt "IBM Plex Mono", "DejaVu Sans Mono", "Noto Sans Mono", Menlo, "Courier New", monospace; color: #5b6170; } }
+  :root {
+    --ink: #1d2230; --muted: #5b6170; --hair: #dcd4c4;
+    --serif: "Source Serif 4", Georgia, "DejaVu Serif", "Noto Serif", serif;
+    --mono: "IBM Plex Mono", "DejaVu Sans Mono", "Noto Sans Mono", Menlo, "Courier New", "Hind Siliguri", monospace;
+  }
+  body { font: 9pt/1.45 "Public Sans", "Hind Siliguri", "DejaVu Sans", "Noto Sans", sans-serif; color: var(--ink); }
   p { margin: 0; }
-  table { width: 100%; border-collapse: collapse; margin-top: 3mm; }
-  th, td { border-bottom: 1px solid #d9dde3; padding: 1.6mm 2mm; vertical-align: top; }
-  th { background: #f4efe3; font-size: 8pt; font-weight: 700; text-align: left; }
-  .num { text-align: right; white-space: nowrap; }
-  .item { width: 32%; }
-  .totals { width: 55%; margin-left: auto; }
-  .totals th { background: none; font-family: "Hind Siliguri", "DejaVu Sans", sans-serif; font-size: 9.5pt; font-weight: 600; }
-  .grand th, .grand td { font-family: Poppins, "DejaVu Sans", sans-serif; font-size: 10.5pt; font-weight: 800; border-top: 2px solid #1b2330; border-bottom: 0; }
-  .note { margin-top: 5mm; font-size: 8.5pt; color: #5d6675; }
+  strong { font-weight: 600; }
+  .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8mm; padding-bottom: 4mm; border-bottom: 3px double #b3342a; }
+  .brand { margin: 0 0 3mm; font: 700 20pt/1 var(--serif); }
+  .brand span { color: #1a6e30; }
+  .seller { font-size: 8.5pt; line-height: 1.5; color: var(--muted); }
+  .seller strong { color: var(--ink); }
+  .head > div { flex: 1; }
+  .doc { text-align: right; }
+  h1 { margin: 0 0 1.5mm; font: 600 13pt/1.25 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; }
+  .doc p { font: 500 8.5pt/1.5 var(--mono); color: var(--muted); }
+  .parties { display: flex; gap: 8mm; margin: 5mm 0 0; font-size: 8.5pt; }
+  .parties > div { flex: 1; }
+  .label { margin: 0 0 1mm; font: 500 7.5pt/1.2 var(--mono); letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; margin-top: 4mm; font-size: 8.5pt; }
+  th, td { padding: 1.8mm 2mm; vertical-align: top; border-bottom: 1px solid var(--hair); }
+  tr { break-inside: avoid; }
+  th:first-child, td:first-child { padding-left: 0; }
+  th:last-child, td:last-child { padding-right: 0; }
+  thead th { border-top: 1.5px solid var(--ink); border-bottom: 1px solid var(--ink); vertical-align: bottom; font: 500 6.5pt/1.25 var(--mono); letter-spacing: 0.04em; text-transform: uppercase; text-align: left; color: var(--muted); }
+  .num { text-align: right; white-space: nowrap; font-family: var(--mono); }
+  thead .num { text-align: right; }
+  .code { font-family: var(--mono); }
+  .item { width: 30%; }
+  .totals { width: 58%; margin-left: auto; font-size: 9pt; }
+  .totals th { font-weight: 400; text-align: left; }
+  .grand th, .grand td { padding-top: 2.4mm; border-top: 1.5px solid var(--ink); border-bottom: 0; font-size: 10pt; font-weight: 700; }
+  .note { margin-top: 5mm; font-size: 8pt; color: var(--muted); }
 </style>
 </head>
 <body>
 <div class="head">
   <div>
     <p class="brand">Exam<span>Leaf</span></p>
+    <div class="seller">
+      <p><strong>{{ seller.name }}</strong></p>
+      <p>{{ seller.address }}</p>
+      <p>GSTIN: <span class="code">{{ seller.gstin|default:"not registered" }}</span> · State: {{ seller_state }} ({{ seller.state_code }})</p>
+      <p>{{ seller.email }} · {{ seller.phone }}</p>
+    </div>
+  </div>
+  <div class="doc">
     <h1>{{ title }}{% if document.is_test %} (test: not a tax document){% endif %}</h1>
     <p><strong>{{ document.number }}</strong> · {{ document.created|date:"j F Y" }}</p>
     {% block reference %}<p>Order {{ order.number }}{% if order.placed_at %} of {{ order.placed_at|date:"j F Y" }}{% endif %} · {{ order.get_payment_method_display }}{% if order.payment_reference %}, reference {{ order.payment_reference }}{% endif %}</p>{% endblock %}
-  </div>
-  <div style="text-align: right">
-    <p><strong>{{ seller.name }}</strong></p>
-    <p>{{ seller.address }}</p>
-    <p>GSTIN: {{ seller.gstin|default:"not registered" }} · State: {{ seller_state }} ({{ seller.state_code }})</p>
-    <p>{{ seller.email }} · {{ seller.phone }}</p>
   </div>
 </div>
 
@@ -81,7 +98,7 @@
     <tr>
       <td>{{ forloop.counter }}</td>
       <td>{{ line.item.title }}</td>
-      <td>{{ line.item.hsn_code }}</td>
+      <td class="code">{{ line.item.hsn_code }}</td>
       <td class="num">{{ line.item.quantity }}</td>
       <td class="num">{{ line.item.unit_price.amount }}</td>
       <td class="num">{{ line.discount }}</td>
