@@ -1,8 +1,7 @@
-// /account/addresses/: the saved delivery addresses (Django's my_account.html #details and shop/address_form.html):
-// GET addresses/, then the address book's island to add, change and delete them.
+// /account/addresses/: the saved delivery addresses (Account artboard "Details and addresses", Phone "Phone addresses
+// and security"): GET addresses/, then the address book's island to add, change, make default and delete them.
 import { AddressBook } from "@/components/account/address-book";
 import { ConsentPending, PageHead, Problem } from "@/components/account/parts";
-import { Card, CardContent } from "@/components/ui/card";
 import { getMe, settle } from "@/lib/api/account";
 import { ApiError, unwrap } from "@/lib/api/errors";
 import { personalFetch, serverApi } from "@/lib/api/server";
@@ -21,26 +20,19 @@ export default async function AddressesPage() {
     ),
     settle(getMe(), path),
   ]);
-  const head = <PageHead title="Addresses" lead="Where your books go. Checkout lists them, the default one first." />;
   if (list instanceof ApiError) {
     return (
       <>
-        {head}
+        <PageHead title="Addresses" />
         <Problem error={list} what="Your addresses" retry={path} />
       </>
     );
   }
   return (
-    <>
-      {head}
+    <AddressBook addresses={list.results}>
       {!(me instanceof ApiError) && me.consent_pending ? (
-        <ConsentPending what="you can save addresses but not order books" />
+        <ConsentPending what="you can save addresses but not order books" contact={me.parent_contact} />
       ) : null}
-      <Card>
-        <CardContent>
-          <AddressBook addresses={list.results} />
-        </CardContent>
-      </Card>
-    </>
+    </AddressBook>
   );
 }

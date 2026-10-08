@@ -1,13 +1,11 @@
-// /account/teacher/: Teacher access (Django's teacher_request.html and the line on My account): ask once (POST
-// me/teacher/) with the school, district and subject; then the request's state from GET me/teacher/ (404 until asked).
+// /account/teacher/: Teacher access (Gaps "Teacher access fixed", Phone "Phone privacy and teacher"): ask once (POST
+// me/teacher/) with the school, district and subject; then the request's state from GET me/teacher/ (404 until asked):
+// being checked, or verified. Nothing more: there is no view of students (G14).
 import { PageHead, Problem } from "@/components/account/parts";
-import { TeacherForm } from "@/components/account/profile-forms";
-import { Alert } from "@/components/ui/alert";
-import { Card, CardContent } from "@/components/ui/card";
-import { settle } from "@/lib/api/account";
+import { TeacherAccess } from "@/components/account/profile-forms";
+import { getSubjects, settle } from "@/lib/api/account";
 import { ApiError, unwrap } from "@/lib/api/errors";
 import { personalFetch, serverApi } from "@/lib/api/server";
-import { formatDate } from "@/lib/dates";
 import { pageMetadata } from "@/lib/seo/metadata";
 
 export const metadata = pageMetadata({
@@ -19,7 +17,10 @@ export const metadata = pageMetadata({
 
 export default async function TeacherPage() {
   const path = "/account/teacher/";
-  const teacher = await settle(unwrap(serverApi.GET("/api/v1/me/teacher/", await personalFetch())), path);
+  const [teacher, subjects] = await Promise.all([
+    settle(unwrap(serverApi.GET("/api/v1/me/teacher/", await personalFetch())), path),
+    getSubjects().catch(() => []),
+  ]);
   const asked = !(teacher instanceof ApiError);
   const head = (
     <PageHead
@@ -42,28 +43,12 @@ export default async function TeacherPage() {
   return (
     <>
       {head}
-      <Card>
-        <CardContent>
-          {!asked ? (
-            <TeacherForm />
-          ) : teacher.verified ? (
-            <Alert variant="success" title="You are a verified teacher">
-              <p>
-                At {teacher.school_name}, {teacher.district}
-                {teacher.verified_at ? `, since ${formatDate(teacher.verified_at, "long")}` : ""}.
-              </p>
-            </Alert>
-          ) : (
-            <Alert variant="info" title="We are checking your request">
-              <p>
-                {teacher.school_name}, {teacher.district} ({teacher.subject}), asked on{" "}
-                {formatDate(teacher.created, "long")}. Once we have checked with your school, this page shows you as a
-                verified teacher.
-              </p>
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
+      <div className="max-w-[30rem]">
+        <TeacherAccess
+          request={teacher instanceof ApiError ? null : teacher}
+          subjects={[...new Set(subjects.map((subject) => subject.name))]}
+        />
+      </div>
     </>
   );
 }
