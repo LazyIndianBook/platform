@@ -14,7 +14,7 @@ import { ApiError } from "@/lib/api/errors";
 
 import { AddressBook } from "./address-book";
 import { MarksForm, validateMarks } from "./marks-form";
-import { maskContact } from "./parts";
+import { ConsentPending, maskContact } from "./parts";
 import { DataExport, DeleteAccountForm, throttled } from "./privacy-forms";
 import { TeacherAccess } from "./profile-forms";
 import { recordHref, RecordNoMatch } from "./record";
@@ -337,6 +337,19 @@ describe("Where you are logged in", () => {
     expect(throttled(bare)?.message).toBe("Request was throttled. Try again in about 2 minutes.");
     const other = new ApiError(400, "invalid", "Enter an email address.");
     expect(throttled(other)).toBe(other);
+  });
+
+  it("says a parent's consent is awaited as the shop and the course expect, and more on the account's pages", () => {
+    const { rerender } = render(<ConsentPending what="you cannot place an order" />);
+    expect(screen.getByText("Waiting for your parent's or guardian's consent")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Send them the link again" })).toHaveAttribute("href", "/account/privacy/");
+    expect(screen.getAllByRole("link")).toHaveLength(1);
+    rerender(<ConsentPending what="you can read the solutions" contact="parent@example.com" />);
+    expect(screen.getByText(/We sent the consent link to p•••@example.com\./)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Change their email" })).toHaveAttribute(
+      "href",
+      "/account/privacy/#consent",
+    );
   });
 
   it("masks a parent's contact in a notice", () => {

@@ -105,8 +105,9 @@ export function maskContact(contact: string): string {
 }
 
 /** While a parent's confirmation is awaited the API refuses what an account saves: say so before the student tries,
- *  and where the link goes again (Consent and your data, which can also change their address); `action` sends it
- *  from here instead. */
+ *  and where the link goes again (Consent and your data). With `what` alone it reads as it always has (the shop and
+ *  the course use it so); the account's pages add the contact the link went to (masked) and Change their email
+ *  (States "Consent pending"), and My account's `action` sends the link from there. */
 export function ConsentPending({
   what,
   contact,
@@ -116,17 +117,26 @@ export function ConsentPending({
   contact?: string;
   action?: React.ReactNode;
 }) {
+  const change = contact ? (
+    <Link href="/account/privacy/#consent">{contact.includes("@") ? "Change their email" : "Change their number"}</Link>
+  ) : null;
   return (
-    <Alert variant="warning" title="Waiting for your parent">
+    <Alert variant="warning" title="Waiting for your parent's or guardian's consent">
       <p>
         {contact ? `We sent the consent link to ${maskContact(contact)}. ` : ""}Until they confirm your account, {what}.
+        {action ? null : (
+          <>
+            {" "}
+            <Link href="/account/privacy/">Send them the link again</Link>.
+          </>
+        )}
       </p>
-      <p className="flex flex-wrap items-center gap-x-4 font-bold">
-        {action ?? <Link href="/account/privacy/#consent">Send the link again</Link>}
-        <Link href="/account/privacy/#consent">
-          {contact && !contact.includes("@") ? "Change their number" : "Change their email"}
-        </Link>
-      </p>
+      {action || change ? (
+        <p className="flex flex-wrap items-center gap-x-4 font-bold">
+          {action}
+          {change}
+        </p>
+      ) : null}
     </Alert>
   );
 }

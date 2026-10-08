@@ -44,8 +44,7 @@ export function HlsVideo({ clip, reload }: { clip: Clip; reload: () => void }) {
   }, [clip.hls_url]);
 
   return (
-    <figure className="m-0 flex flex-col items-start gap-2">
-      {/* the clips are vertical (480×854, 720×1280): a phone's shape, at most 70 % of the screen's height */}
+    <figure className="m-0 flex flex-col gap-2">
       <video
         ref={video}
         controls
@@ -54,9 +53,9 @@ export function HlsVideo({ clip, reload }: { clip: Clip; reload: () => void }) {
         poster={clip.poster_url}
         aria-label={clip.title}
         onError={() => setFailed(true)}
-        className="block aspect-[9/16] h-[min(70vh,560px)] w-auto max-w-full rounded-lg bg-night"
+        className="aspect-[9/16] max-h-[70vh] w-auto max-w-full rounded-lg bg-night"
       />
-      <figcaption className="text-sm text-muted-foreground">{clip.title}</figcaption>
+      <figcaption className="text-[15px] text-muted-foreground">{clip.title}</figcaption>
       {failed ? (
         // the links work for 10 minutes (API.md, "Playing a clip"): a fresh one is the cure for an old page
         <div role="alert" className="flex flex-wrap items-center gap-2 text-[15px]">
