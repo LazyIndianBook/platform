@@ -623,13 +623,35 @@ describe("Site pieces", () => {
 
   it("keeps the header on one row with the cart count spoken and the menu button", () => {
     render(<SiteHeader signedIn={false} cartCount={2} />);
-    expect(screen.getByRole("link", { name: "Cart, 2 books" })).toHaveAttribute("href", "/cart/");
+    // the cart is in the header row on a phone and after the links' divider on desktop (CSS shows one of the two)
+    const carts = screen.getAllByRole("link", { name: "Cart, 2 books" });
+    expect(carts).toHaveLength(2);
+    for (const cart of carts) expect(cart).toHaveAttribute("href", "/cart/");
     expect(screen.getByRole("button", { name: "Menu" })).toHaveAttribute("aria-controls", "site-menu");
-    // the current page is kept as the destination of Log in (coverage matrix G15)
-    expect(screen.getByRole("link", { name: "Log in" })).toHaveAttribute(
+    // the current page is kept as the destination of Log in (coverage matrix G15): the header's link on desktop, the
+    // drawer's outline button under Register on a phone
+    const logins = screen.getAllByRole("link", { name: "Log in" });
+    expect(logins).toHaveLength(2);
+    for (const login of logins)
+      expect(login).toHaveAttribute("href", "/account/login/?next=%2Fbooks%2Fphysics-2027%2F");
+    const menu = within(screen.getByRole("navigation", { name: "Main" }));
+    expect(menu.getByRole("link", { name: "About" })).toHaveAttribute("href", "/about/");
+    expect(menu.getByRole("link", { name: "Contact" })).toHaveAttribute("href", "/contact/");
+    expect(menu.getByRole("link", { name: "Register" })).toHaveAttribute(
       "href",
-      "/account/login/?next=%2Fbooks%2Fphysics-2027%2F",
+      "/account/signup/?next=%2Fbooks%2Fphysics-2027%2F",
     );
+  });
+
+  it("draws the Menu toggle in ink on paper and says Close while the drawer is open", async () => {
+    render(<SiteHeader signedIn cartCount={0} />);
+    const toggle = screen.getByRole("button", { name: "Menu" });
+    expect(toggle).toHaveClass("text-foreground", "border-foreground", "bg-transparent", "min-h-11");
+    expect(toggle.className).not.toMatch(/text-white/);
+    await userEvent.click(toggle);
+    expect(screen.getByRole("button", { name: "Close" })).toHaveClass("text-foreground");
+    expect(screen.queryByRole("link", { name: /^Cart/ })).toBeNull(); // an empty cart is not shown
+    expect(screen.getByRole("button", { name: "Log out" })).toBeInTheDocument();
   });
 
   it("lists the books and the shop links in the footer", () => {

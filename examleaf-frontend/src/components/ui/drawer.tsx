@@ -1,13 +1,15 @@
 "use client";
 
-// The header's menu drawer (components.md, .nav-toggle / .nav-menu): under 900 px the links fold behind a Menu button
-// and open as a full-width panel under the header; from 900 px they sit in the header row and the button is gone.
-// A disclosure, not a modal: aria-expanded follows the state; Escape closes it and puts focus back on Menu; a click
-// outside or a new page closes it. No focus trap, no scroll lock, no portal: nothing for a cheap phone to carry. The
-// button comes before the links in the page, so Tab from Menu goes into the open menu (accessibility review F3); the
-// panel is positioned under the header, so the order changes nothing on screen.
+// The header's menu drawer, Direction A ("A Phone Header", "Phone menu"): under 900 px the links fold behind a Menu
+// button and open as one full-height paper sheet under the header (an ink rule on top, the links in 56 px rows, the
+// current page marked by a red rule, Register as the navy button at the bottom: NavLinks draws the rows); from 900 px
+// they sit in the header row and the button is gone. The button is ink on paper in every state (outline, 44 px; paper 2
+// on hover, 1 px press, the focus ring) and says Close while open. A disclosure, not a modal: aria-expanded follows the
+// state; Escape closes it and puts focus back on Menu; a click outside, Tab past the last link or a new page closes it,
+// so the sheet never covers the focused element. No focus trap, no scroll lock, no portal: nothing for a cheap phone to
+// carry. The button comes before the links in the page, so Tab from Menu goes into the open menu (accessibility review
+// F3); the sheet is positioned under the header, so the order changes nothing on screen.
 import { cn } from "cn";
-import { Menu, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import * as React from "react";
 
@@ -58,10 +60,13 @@ function Drawer({ id, label, className, children }: DrawerProps) {
         aria-expanded={open}
         aria-controls={id}
         onClick={() => setOpen(!open)}
-        className="inline-flex min-h-11 items-center gap-2 rounded-btn border-[1.5px] border-header-line px-3 font-head text-[15px] leading-none font-bold text-white max-[359.98px]:px-2.5 nav:hidden"
+        className={cn(
+          "inline-flex min-h-11 shrink-0 cursor-pointer items-center rounded-btn border-[1.5px] border-foreground bg-transparent px-3.5",
+          "font-body text-[15px] leading-none font-bold text-foreground select-none hover:bg-secondary active:translate-y-px active:bg-secondary-hover",
+          "motion-safe:transition-[translate] motion-safe:duration-150 motion-safe:ease-enter max-[359.98px]:px-2.5 nav:hidden",
+        )}
       >
-        {open ? <X aria-hidden="true" className="size-[22px]" /> : <Menu aria-hidden="true" className="size-[22px]" />}
-        <span className="max-[359.98px]:sr-only">{open ? "Close" : label}</span>
+        {open ? "Close" : label}
       </button>
       <nav
         ref={panel}
@@ -70,8 +75,8 @@ function Drawer({ id, label, className, children }: DrawerProps) {
         data-open={open || undefined}
         className={cn(
           "items-center gap-1 nav:flex",
-          "max-nav:absolute max-nav:inset-x-0 max-nav:top-full max-nav:hidden max-nav:flex-col max-nav:items-stretch max-nav:gap-0",
-          "max-nav:border-t max-nav:border-header-line max-nav:bg-navy max-nav:px-(--gutter) max-nav:pt-2 max-nav:pb-5 max-nav:shadow-menu",
+          "max-nav:absolute max-nav:inset-x-0 max-nav:top-full max-nav:hidden max-nav:min-h-[calc(100dvh-60px)] max-nav:flex-col max-nav:items-stretch max-nav:gap-0",
+          "max-nav:border-t-[1.5px] max-nav:border-foreground max-nav:bg-background max-nav:px-(--gutter) max-nav:pt-2 max-nav:pb-7",
           "max-nav:data-open:flex",
           className,
         )}

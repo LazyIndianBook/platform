@@ -1,8 +1,9 @@
 "use client";
 
-// The account's own navigation, Direction A: a quiet list in the left margin on desktop (red dot on the current
-// page), a row of chips that scrolls sideways under 900 px. The current chip is brought into the row's view with
-// scrollLeft (no scrollIntoView, which can also scroll the page). Links unchanged.
+// The account's own navigation, Direction A ("A Account Nav", "Phone account"): a quiet list in the left margin on
+// desktop (15 px 600 over soft hairlines, a red dot on the current page), a row of 14 px chips over a hairline that
+// scrolls sideways under 900 px (the current chip in an ink box on white; chips stay 44 px tall). The current chip is
+// brought into the row's view with scrollLeft (no scrollIntoView, which can also scroll the page). Links unchanged.
 import { cn } from "cn";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -43,7 +44,7 @@ export function AccountNav() {
         ref={list}
         className={cn(
           "m-0 flex list-none flex-col p-0",
-          "max-nav:-mx-(--gutter) max-nav:flex-row max-nav:gap-2 max-nav:overflow-x-auto max-nav:px-(--gutter) max-nav:pt-0.5 max-nav:pb-1.5",
+          "max-nav:-mx-(--gutter) max-nav:flex-row max-nav:gap-2 max-nav:overflow-x-auto max-nav:border-b max-nav:border-border max-nav:px-(--gutter) max-nav:py-2.5",
         )}
       >
         {LINKS.map((link) => (
@@ -54,7 +55,7 @@ export function AccountNav() {
               className={cn(
                 "group flex min-h-11 items-center gap-2.5 border-b border-rule-soft text-[15px] font-semibold text-foreground no-underline hover:text-red-ink hover:no-underline",
                 "aria-[current=page]:font-bold",
-                "max-nav:rounded-[3px] max-nav:border max-nav:border-input max-nav:px-3 max-nav:whitespace-nowrap max-nav:aria-[current=page]:border-[1.5px] max-nav:aria-[current=page]:border-foreground max-nav:aria-[current=page]:bg-card",
+                "max-nav:rounded-[3px] max-nav:border max-nav:border-input max-nav:px-3 max-nav:text-sm max-nav:whitespace-nowrap max-nav:aria-[current=page]:border-[1.5px] max-nav:aria-[current=page]:border-foreground max-nav:aria-[current=page]:bg-card",
               )}
             >
               <span
