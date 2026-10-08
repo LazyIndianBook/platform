@@ -1,5 +1,0 @@
-{% load i18n static %}{# allauth's passkey scripts (same files, same order) with defer, so they no longer hold up the page (Lighthouse P5); account/js/onload.js still starts the forms on DOMContentLoaded, which waits for deferred scripts. #}
-<noscript>{% translate "This functionality requires JavaScript." %}</noscript>
-<script src="{% static 'mfa/js/webauthn-json.js' %}" defer></script>
-<script src="{% static 'mfa/js/webauthn.js' %}" defer></script>
-<script src="{% static 'account/js/onload.js' %}" defer></script>

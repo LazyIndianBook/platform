@@ -1,8 +1,0 @@
-{% load web %}{# A subject tile (docs/design/components.md, .tile). With: key (physics, chemistry, mathematics, biology), name, url, marks, time, cover (a static path). #}
-<a class="tile tile-{{ key }}" href="{{ url }}">
-  <span class="pill">30 papers</span>
-  <span class="tile-name">{{ name }}</span>
-  <span class="tile-meta">10 Easy · 10 Medium · 10 Hard{% if marks %}<br>{{ marks }} marks · {{ time }}{% endif %}</span>
-  <span class="tile-go">Open the papers <svg class="icon" aria-hidden="true"><use href="#icon-arrow-right"/></svg></span>
-  {% if cover %}{% static_cover cover "" "112px" loading="lazy" %}{% endif %}
-</a>

@@ -1,8 +1,9 @@
 # First deployment
 
 The whole stack runs on one Linux server with Docker: PostgreSQL 17, two Redis 7 (the Celery queue and the cache), the
-site (gunicorn), the Celery worker, a second worker for the revision course's videos, beat, and Caddy, which serves
-https and renews the certificate by itself. A 2 vCPU / 4 GB machine is plenty to start: e.g. Hetzner CX22, a
+Django backend (gunicorn: the API, sign-in, the admin), the website (`frontend`, the Next.js server of
+`../examleaf-frontend/`), the Celery worker, a second worker for the revision course's videos, beat, and Caddy, which
+serves https, renews the certificate by itself and sends Django's paths to `web` and every other path to the website. A 2 vCPU / 4 GB machine is plenty to start: e.g. Hetzner CX22, a
 DigitalOcean 4 GB droplet, or an Indian provider (E2E Networks, AWS or Azure in Mumbai) if the data should stay in
 India, as the Privacy Policy draft says ("servers in [India]": fill in what you choose).
 
@@ -83,7 +84,7 @@ are set by docker-compose.yml.
 
 ```sh
 docker compose up -d --build
-docker compose ps                     # db, redis, redis-cache, web healthy; worker, media-worker, beat, caddy running
+docker compose ps                     # db, redis, redis-cache, web, frontend healthy; worker, media-worker, beat, caddy running
 docker compose logs -f web caddy      # migrations, bootstrap_roles, gunicorn; Caddy obtaining the certificate
 ```
 
@@ -526,10 +527,11 @@ In the Google Cloud console (console.cloud.google.com), with the company's Googl
 5. Clients → Create client → Web application. Authorised JavaScript origin `https://examleaf.in`; authorised redirect
    URI `https://examleaf.in/account/google/login/callback/` (and `http://localhost:8000/account/google/login/callback/`
    for development).
-6. `.env`: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`; `docker compose up -d`. The log-in page then offers Google
-   (with PKCE; the CSP's `form-action` allows `accounts.google.com`). A new student fills in the student details after
-   Google (class, board, date of birth, parent, consent); an address that already has an account logs in as before
-   and can connect Google afterwards at `/account/3rdparty/`.
+6. `.env`: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`; `docker compose up -d`. The website's log-in page then offers
+   Google (with PKCE, through `/_allauth/browser/v1/auth/provider/redirect`; Google comes back to Django's callback
+   above, which returns to the website). A new student fills in the student details after Google (class, board, date
+   of birth, parent, consent); an address that already has an account logs in as before and can connect Google
+   afterwards on the website's Security page (`/account/security/`).
 7. For the app (section 20): also create an Android client (package name, SHA-1 of the signing certificate) and an iOS
    client (bundle ID) in the same project. The app asks Google for an ID token issued for the web client
    (`GOOGLE_CLIENT_ID`, its "server client ID") and posts it to `/_allauth/app/v1/auth/provider/token`; the server
@@ -567,8 +569,9 @@ bounces, spam complaints and blocked or invalid addresses.
 
 Cloudflare dashboard → Turnstile → Add widget: hostname `examleaf.in`, mode Managed. `.env`: `TURNSTILE_SITE_KEY`,
 `TURNSTILE_SECRET_KEY`. Sign-up, "Log in with a code", the coupon form and the quotation form then ask for the check
-(the app's allauth.headless sign-up and code request and `quotes/` take the token as `turnstile`, API.md "Turnstile";
-the older `auth/registration/` and `auth/phone/code/` do not); the CSP allows `challenges.cloudflare.com` only then. If
+(the website's and the app's allauth.headless sign-up and code request, `cart/coupon/` and `quotes/` take the token as
+`turnstile`, API.md "Turnstile"; the older `auth/registration/` and `auth/phone/code/` do not); the website shows the
+widget (its CSP allows `challenges.cloudflare.com` only then). If
 Cloudflare cannot be reached within 5 seconds the form goes through and the log says so.
 
 ### Cloudflare R2 and the media domain (an hour, once the domain's DNS is on Cloudflare)
@@ -675,23 +678,15 @@ bucket needs a CORS rule (R2 → bucket → Settings → CORS policy):
 player needs none of this.
 
 **Pictures.** Covers and pictures uploaded in the admin are saved with AVIF and WebP sizes (django-pictures, on the
-worker's default queue); pages use `<picture>` with the original as the fallback. The four static covers of the home
-and book pages (`static/img/<subject>.png`) have committed AVIF and WebP copies at 320 and 480 px;
-`python manage.py build_covers` remakes them, the default link-preview picture `static/img/og-default.jpg` and the app
-icons after a cover changes. A picture over 2 MB is refused in the admin.
+worker's default queue); the API gives them to the website's `<picture>` with the original as the fallback. The four
+static book covers (`static/img/<subject>.png`, which the website shows) have committed AVIF and WebP copies at 320 and
+480 px; `python manage.py build_covers` remakes them and the default link-preview picture `static/img/og-default.jpg`
+after a cover changes. A picture over 2 MB is refused in the admin.
 
-**Link previews and search engines.** Every page has a canonical link and Open Graph tags
-(`templates/_head_meta.html`); a product's link-preview picture (its cover and title, 1200x630) is made by the worker
-whenever the product is saved and stored in the public storage. Product pages carry JSON-LD (Product and Book with price,
-stock, shipping and returns; breadcrumbs; the rating once approved reviews exist) and the home page the publisher's
-(Organization, with the `SELLER_*` details once they are real). Check one product with Google's Rich Results Test after
-going live; the return policy in `shop/seo.py` follows the Refund Policy (7 days, damaged or wrong books) and must change
-with it.
-
-**Web app.** `/manifest.webmanifest`, the service worker `/sw.js` and the offline page `/offline/` need no setting. The
-worker keeps only the offline page and the static files of the release (never a page, so nothing of an account outlives
-a log-out); Chrome and Android offer "Install app", iPhones add it from Share → Add to Home Screen. Check Chrome
-DevTools → Application after the first deployment (manifest without errors, worker activated, no CSP report).
+**Link previews, search engines and the web app** are the website's (`../examleaf-frontend/`, its README): its tags,
+JSON-LD, `sitemap.xml`, `robots.txt`, manifest and service worker. Django gives it a product's link-preview picture (its
+cover and title, 1200x630, made by the worker whenever the product is saved and stored in the public storage) and the
+product's search-engine title and description through the API.
 
 ## 18. Revision course
 
@@ -773,12 +768,12 @@ What the store needs beyond section 12:
 
 ## 20. Frontends: allauth.headless and the API contract
 
-The app, and any web frontend of its own, sign in through allauth.headless at `/_allauth/` beside the website's pages,
-then use API v1 (API.md, "Frontend integration guide"). The settings are in `examleaf/settings.py`, not in `.env`:
+The website and the app sign in through allauth.headless at `/_allauth/`, then use API v1 (API.md, "Frontend
+integration guide"). The settings are in `examleaf/settings.py`, not in `.env`:
 
 | Setting | Value | Why |
 |---|---|---|
-| `HEADLESS_ONLY` | `False` | the website's pages stay |
+| `HEADLESS_ONLY` | `True` | allauth serves no page: the website's sign-in pages are the frontend's; only Google's callback (`/account/google/login/callback/`) stays Django's |
 | `HEADLESS_CLIENTS` | `("app", "browser")` | `/_allauth/app/v1/` (header `X-Session-Token`; `POST /api/v1/auth/exchange/` turns the session into the API's JWT pair) and `/_allauth/browser/v1/` (the session cookie and the CSRF token, same origin only: CORS stays on `/api/`) |
 | `HEADLESS_FRONTEND_URLS` | the website's pages under `SITE_URL`, which the Next.js frontend serves at the same paths | emails link to them whichever client asked: the new-password page, sign-up; a Google log-in that failed without its own `callback_url` lands on `/account/login/?error=…` (addresses are confirmed by code: no link) |
 | `HEADLESS_SERVE_SPECIFICATION` | `True` | allauth's OpenAPI file at `/_allauth/openapi.json` and `.yaml`; no HTML page (`HEADLESS_SPECIFICATION_TEMPLATE_NAME = None`: allauth's loads Redoc from a CDN, which the CSP refuses) |
@@ -787,16 +782,20 @@ then use API v1 (API.md, "Frontend integration guide"). The settings are in `exa
 Everything else follows the settings already set: the log-in methods, SMS, Google, passkeys, Turnstile, allauth's rate
 limits, the SMS cap, and staff's authenticator app (StaffMFAMiddleware; a member of staff without one gets 403 from
 `auth/exchange/` and from `/api/` with the session, and sets one up through `/_allauth/…/account/authenticators/totp`).
-Caddy passes `/_allauth/` on like any page; every answer there is `Cache-Control: private, no-store`.
+Caddy passes `/_allauth/` on to Django; every answer there is `Cache-Control: private, no-store`. The website's log-in,
+code, email-confirmation and phone-confirmation steps keep the site's rules there (`examleaf/urls.py`: numbers as people
+type them, three tries per code counted in the cache), and the admin sends a signed-out visitor to the website's log-in
+(`LOGIN_URL`), a member of staff without an authenticator app to its `/account/2fa/`.
 
-**The Next.js frontend** (`examleaf-frontend/`) shares the site's origin: Caddy sends Django's prefixes (`/api/`,
-`/_allauth/`, `/admin/`, `/static/`, `/shop/webhooks/`, `/shop/media/`, `/qr/`, `/health/` …) to `web` and the other
-paths to the frontend, so the browser calls the API and allauth.headless on its own origin with the session and CSRF
+**The website** (`examleaf-frontend/`) shares the site's origin: Caddy sends Django's prefixes (`/api/`,
+`/_allauth/`, `/admin/`, `/static/`, `/shop/webhooks/`, `/shop/media/`, `/qr/`, `/health/` …) to `web` and every other
+path to the website (`PAGES_UPSTREAM`, `frontend:3000` by default: Django has no pages of its own since the clean-up of
+8 October 2026), so the browser calls the API and allauth.headless on its own origin with the session and CSRF
 cookies (a visitor's guest cart included: API.md, "Guests"). Nothing changes in `.env`: `SITE_URL` stays the domain
 (every email links there, and the frontend serves the same paths), `CSRF_TRUSTED_ORIGINS` defaults to it, compose sets
 `USE_X_FORWARDED_HOST=1` on `web` for the frontend's server-side calls, and `CORS_ALLOWED_ORIGINS` stays empty: CORS
 is for other origins, and there are none. In development run Django for the frontend on port 8100 with the frontend's
-origin in place of the domain (README.md, "The Next.js frontend in development").
+origin in place of the domain (README.md, "The website (Next.js) in development").
 
 After a deploy: `curl -s https://examleaf.in/_allauth/app/v1/config` answers 200 (Google among the providers only with
 `GOOGLE_*` set) and `curl -s https://examleaf.in/api/v1/config/` shows what section 16 switched on.

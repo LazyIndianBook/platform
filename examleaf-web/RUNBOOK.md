@@ -70,7 +70,8 @@ Change the value in `.env`, then `docker compose up -d` (it recreates the contai
   webhook URL), so change both at the same moment. Events that arrive between are refused; Razorpay sends a webhook
   again for 24 hours, and `dj reconcile_payments` finds payments that were missed.
 - **HEALTH_CHECK_TOKEN:** change it in `.env` and in the uptime monitor's header.
-- **Staff passwords:** each person changes theirs at `/account/password/change/`; take roles away from people who left
+- **Staff passwords:** each person changes theirs on the website's Security page (`/account/security/`); take roles
+  away from people who left
   (Users → "Take away role …", and untick Active).
 - **JWT_SIGNING_KEY** (the app's tokens; SECRET_KEY while unset): a new value logs every app out at once; the website's
   sessions stay.
@@ -90,16 +91,16 @@ Every member of staff logs in with a password and a second factor: a code from a
 
 1. **New member of staff.** A superuser makes the account (admin → Users → Add, or the person registers on the site)
    and gives the role (Users → action "Give role …"; only superusers can).
-2. **First log-in** at `/admin/` (it opens the site's log-in): email and password, then the code emailed to them the
-   first time, which confirms the address. The site then asks for an authenticator app before anything else opens: scan
-   the QR code with Google Authenticator, Microsoft Authenticator, Aegis or 2FAS, type the 6-digit code, and the ten
-   recovery codes appear. A passkey (My account) does instead of the app, as the step after the password: staff cannot
-   log in with a passkey alone.
+2. **First log-in** at `/admin/` (it opens the website's log-in): email and password, then the code emailed to them the
+   first time, which confirms the address. The admin then sends them to the website's `/account/2fa/` before anything
+   else opens: scan the QR code with Google Authenticator, Microsoft Authenticator, Aegis or 2FAS, type the 6-digit
+   code, and the ten recovery codes appear. A passkey (the website's Security page) does instead of the app, as the
+   step after the password: staff cannot log in with a passkey alone.
 3. **Recovery codes are kept offline:** download or write them down and keep them away from the phone (on paper in a
    safe place, or in a password manager). Each works once, instead of the app's code.
-4. **Later log-ins:** password, then the app's code (or a recovery code, or the passkey). My account → "Two-factor"
+4. **Later log-ins:** password, then the app's code (or a recovery code, or the passkey). The website's `/account/2fa/`
    shows how many recovery codes are left and makes new ones (the old ones then stop working).
-5. **Lost phone:** log in with a recovery code, then set the app up again (My account → Two-factor → deactivate,
+5. **Lost phone:** log in with a recovery code, then set the app up again (`/account/2fa/`: deactivate, then
    activate). No recovery code either: a superuser checks who is asking (by phone or in person) and deletes the
    person's authenticator (admin → MFA → Authenticators); the next log-in asks for a new one. A superuser locked out
    alike:

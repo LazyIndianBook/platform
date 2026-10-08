@@ -25,6 +25,7 @@ from accounts.factories import PASSWORD, UserFactory
 from accounts.models import STAFF_SESSION, ConsentRecord, User
 from accounts.test_roles import member
 from accounts.tests import birthday
+from api.test_headless import BROWSER, pending
 from content.models import Board
 from content.tests import make_paper
 from practice.models import Attempt
@@ -70,37 +71,36 @@ def test_periodic_tasks_and_who_may_do_what_are_left_to_superusers(client):  # I
     assert client.get(reverse("admin:auth_user_password_change", args=[superuser.pk])).status_code == 403
 
 
-def test_staff_must_set_up_an_authenticator_app_before_anything_else(client):  # H2
+def test_staff_must_set_up_an_authenticator_app_before_anything_else(client, settings):  # H2
     staff = UserFactory(is_staff=True, is_superuser=True, totp=False)
     client.force_login(staff)
-    for url in [reverse("admin:index"), reverse("account")]:
+    for url in [reverse("admin:index"), reverse("learn:preview", args=[1])]:
         response = client.get(url)
-        assert (response.status_code, response["Location"]) == (302, reverse("mfa_activate_totp")), url
+        assert (response.status_code, response["Location"]) == (302, f"{settings.SITE_URL}/account/2fa/"), url
     response = client.get("/api/v1/me/")  # the API answers in JSON
     assert (response.status_code, response.json()["code"]) == (403, "mfa_setup_required")
-    client.post(reverse("account_reauthenticate"), {"password": PASSWORD})  # the set-up asks for the password again
-    page = client.get(reverse("mfa_activate_totp"))
-    assert page.status_code == 200 and 'src="data:image/svg+xml;base64,' in page.text  # the QR code (segno)
-    assert client.get("/static/css/site.css").status_code != 302  # static files are not held back
+    setup = client.get(BROWSER + "/account/authenticators/totp")  # the website's set-up: open, with its secret
+    assert setup.status_code == 404 and setup.json()["meta"]["secret"]
+    assert client.get("/static/css/staff.css").status_code != 302  # static files are not held back
     TOTP.activate(staff, generate_totp_secret())
     assert client.get(reverse("admin:index")).status_code == 200
     client.force_login(UserFactory())  # students are not asked
-    assert client.get(reverse("account")).status_code == 200
+    assert client.get("/api/v1/me/").status_code == 200
 
 
-def test_the_admin_login_is_allauths_with_the_code_and_staff_sessions_last_8_hours(client, settings):  # H2
+def test_the_admin_login_is_the_websites_with_the_code_and_staff_sessions_last_8_hours(client, settings):  # H2
     settings.MFA_TOTP_TOLERANCE = 1  # a code of the previous or next 30 seconds too: no failure at a boundary
     staff, secret = UserFactory(is_staff=True, totp=False), generate_totp_secret()
     EmailAddress.objects.create(user=staff, email=staff.email, verified=True, primary=True)
     TOTP.activate(staff, secret)
     response = client.get(reverse("admin:login"), {"next": "/admin/"})
-    assert response["Location"] == reverse("account_login") + "?next=%2Fadmin%2F"
-    response = client.post(reverse("account_login"), {"login": staff.email, "password": PASSWORD, "next": "/admin/"})
-    assert response["Location"] == reverse("mfa_authenticate")  # the password alone is not enough
+    assert response["Location"] == settings.LOGIN_URL + "?next=%2Fadmin%2F"  # the website's log-in page
+    response = client.post(BROWSER + "/auth/login", {"email": staff.email, "password": PASSWORD}, "application/json")
+    assert response.status_code == 401 and pending(response) == ["mfa_authenticate"]  # the password is not enough
     assert "_auth_user_id" not in client.session
     code = format_hotp_value(hotp_value(secret, int(time.time()) // 30))
-    response = client.post(reverse("mfa_authenticate"), {"code": code})
-    assert response["Location"] == "/admin/" and client.get("/admin/").status_code == 200
+    response = client.post(BROWSER + "/auth/2fa/authenticate", {"code": code}, "application/json")
+    assert response.status_code == 200 and client.get("/admin/").status_code == 200
     assert STAFF_SESSION.total_seconds() - 60 < client.session.get_expiry_age() <= STAFF_SESSION.total_seconds()
 
 
@@ -115,17 +115,28 @@ def test_passwords_need_10_characters_and_no_breach_and_reset_links_last_an_hour
 
 
 def sign_up(client, **fields):
+    """The website's sign-up (allauth.headless, the browser client): a student of 16 with a parent's details."""
     data = {
-        **{"full_name": "Rahul Das", "email": "rahul@example.com", "password1": PASSWORD, "password2": PASSWORD},
+        **{"full_name": "Rahul Das", "email": "rahul@example.com", "password": PASSWORD},
         **{"class_level": 12, "board": Board.objects.get().pk, "date_of_birth": birthday(16).isoformat()},
-        **{"parent_name": "Anita Das", "consent": "on", **fields},
+        **{"parent_name": "Anita Das", "consent": True, **fields},
     }
-    return client.post(reverse("account_signup"), data)
+    return client.post(BROWSER + "/auth/signup", data, "application/json")
+
+
+def errors(response):
+    return {error["param"] for error in response.json()["errors"]}
 
 
 def parent_link(to):
+    """The website's page in the parent's email, /c/<token>/."""
     [body] = [m.body for m in mail.outbox if m.to == [to]][-1:]
     return re.search(r"/c/[^/\s]+/", body).group()
+
+
+def api_link(page):
+    """What the website's page /c/<token>/ asks the API (api/parent_link.py)."""
+    return page.replace("/c/", "/api/v1/parent-consent/", 1)
 
 
 def confirm_own_address(client, email="rahul@example.com"):
@@ -133,46 +144,40 @@ def confirm_own_address(client, email="rahul@example.com"):
     only after this: SECURITY_REVIEW_PHASE5_6.md M3)."""
     [body] = [m.body for m in mail.outbox if m.to == [email]][-1:]
     code = re.search(r"^(\d{6})$", body, re.M).group(1)
-    return client.post(reverse("account_email_verification_sent"), {"code": code})
+    return client.post(BROWSER + "/auth/email/verify", {"key": code}, "application/json")
 
 
 def test_verified_mode_marks_wait_for_the_parents_emailed_consent(client, settings, monkeypatch):  # M9
     settings.PARENTAL_CONSENT_MODE = "verified"
     paper = make_paper()
-    assert (
-        "parent_contact" in sign_up(client, parent_contact="+44 20 7946 0958").context["form"].errors
-    )  # no link to a landline or a number abroad (SMS to an Indian mobile: accounts/test_parent_sms.py)
+    refused = sign_up(client, parent_contact="+44 20 7946 0958")
+    assert errors(refused) == {"parent_contact"}  # no link to a landline or a number abroad (SMS: test_parent_sms.py)
     sign_up(client, parent_contact="Anita@Example.com")
     user = User.objects.get()
     assert user.consent_pending and ConsentRecord.objects.get().method == ConsentRecord.Method.DECLARED
     assert not [m for m in mail.outbox if m.to == ["anita@example.com"]]  # not before the student's own address
-    confirm_own_address(client)
+    assert confirm_own_address(client).status_code == 200  # and the student is logged in
     first_link = parent_link("anita@example.com")
-    client.force_login(user)
-    response = client.post(reverse("attempt_add", args=[paper.code]), {"date": "2026-10-01", "marks_obtained": "40"})
+    attempt = {"paper": paper.code, "date": "2026-10-01", "marks_obtained": "40"}
+    response = client.post("/api/v1/attempts/", attempt, "application/json")
     assert "has not confirmed your account yet" in response.text and not Attempt.objects.exists()
-    solutions = client.get(paper.get_absolute_url()).text  # the reason instead of a form that cannot save
-    assert "marks can be saved once they have" in solutions and "Save to my record" not in solutions
-    assert "Waiting for your parent" in client.get(reverse("account")).text
-    client.post(reverse("parent_consent_resend"), {"parent_contact": "rahul@example.com"})  # not the student's own
-    client.post(reverse("parent_consent_resend"), {"parent_contact": "father@example.com"})  # a corrected address
+    assert client.get("/api/v1/me/").json()["consent_pending"] is True  # My account: "Waiting for your parent"
+    resend = "/api/v1/me/parent-consent/"
+    assert client.post(resend, {"parent_contact": "rahul@example.com"}, "application/json").status_code == 400
+    client.post(resend, {"parent_contact": "father@example.com"}, "application/json")  # a corrected address
     parent, link = Client(), parent_link("father@example.com")
-    replaced = parent.get(first_link)
-    assert replaced.status_code == 400 and "Ask your child to send a new one" in replaced.text  # the old address's
+    replaced = parent.get(api_link(first_link))
+    assert replaced.status_code == 400 and replaced.json()["status"] == "expired"  # the old address's
     later = time.time() + 8 * 86400
     with monkeypatch.context() as m:
         m.setattr(time, "time", lambda: later)
-        expired = parent.get(link)  # 7 days: a genuine link, so the page names the student and offers help
-        assert expired.status_code == 400 and "Ask Rahul to send a new one" in expired.text
-        assert f'<a href="{reverse("contact")}">Contact us</a>' in expired.text
-    page = parent.get(link)
-    assert (
-        "Rahul Das" in page.text
-        and "I agree" in page.text
-        and not ConsentRecord.objects.filter(by_parent=True, verified_at__isnull=False).exists()
-    )
-    assert "account is confirmed" in parent.post(link).text
+        expired = parent.get(api_link(link))  # 7 days: a genuine link, so the page names the student
+        assert expired.status_code == 400 and expired.json()["first_name"] == "Rahul"
+    page = parent.get(api_link(link)).json()
+    assert (page["status"], page["student_name"]) == ("pending", "Rahul Das")
+    assert not ConsentRecord.objects.filter(by_parent=True, verified_at__isnull=False).exists()
+    assert parent.post(api_link(link)).json()["status"] == "confirmed"  # "I agree"
     record = ConsentRecord.objects.get(method=ConsentRecord.Method.EMAIL_LINK)
     assert record.by_parent and record.verified_at and not User.objects.get().consent_pending
-    response = client.post(reverse("attempt_add", args=[paper.code]), {"date": "2026-10-01", "marks_obtained": "40"})
-    assert response.status_code == 302 and Attempt.objects.exists()
+    response = client.post("/api/v1/attempts/", attempt, "application/json")
+    assert response.status_code == 201 and Attempt.objects.exists()

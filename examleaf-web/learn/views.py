@@ -1,28 +1,22 @@
-"""A clip's HLS files behind a signed link (the app's player and the staff player), the staff preview page, and the
-course's page on the website (/revision/)."""
+"""A clip's HLS files behind a signed link (the app's player and the staff player), and the staff preview page."""
 
 import re
 from datetime import timedelta
 
-from allauth.account.utils import has_verified_email
-from django import forms
 from django.conf import settings
-from django.contrib import admin, messages
+from django.contrib import admin
 from django.contrib.admin.views.decorators import staff_member_required
-from django.contrib.auth.views import redirect_to_login
 from django.core import signing
 from django.core.exceptions import PermissionDenied
 from django.core.files.storage import FileSystemStorage
 from django.http import FileResponse, Http404, HttpResponse, HttpResponseForbidden, HttpResponseRedirect
-from django.shortcuts import get_object_or_404, redirect, render
+from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 from django.utils import timezone
-from django.utils.formats import date_format
-from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_safe
 
 from . import media, services
-from .models import Chapter, Clip, Revision
+from .models import Clip, Revision
 from .uploads import allow_storage
 
 SIGNER = signing.TimestampSigner(salt="learn.hls")
@@ -91,27 +85,6 @@ def preview(request, pk):
     return allow_storage(page, media.storage(), "connect-src", "media-src", "img-src")
 
 
-class CodeForm(forms.Form):
-    code = forms.CharField(
-        label="Book code",
-        max_length=40,
-        help_text="Printed in your ExamLeaf book, like 7KQM-3XPA-9TRW.",
-        error_messages={"required": "Type the code printed in your book."},
-        widget=forms.TextInput(attrs={"autocomplete": "off", "autocapitalize": "characters", "spellcheck": "false"}),
-    )
-
-
-def code_try_allowed(request):
-    """One more book code tried, within the app's limits (api.learn.RedeemView: learn_redeem an hour per account and
-    learn_redeem_address per client address), counted together with the app's tries."""
-    from rest_framework.throttling import ScopedRateThrottle
-
-    from api.learn import PerAddress, RedeemView  # (api.learn imports this module)
-
-    view = RedeemView()
-    return all(throttle.allow_request(request, view) for throttle in (ScopedRateThrottle(), PerAddress()))
-
-
 def free_clips():
     """{chapter id: its free clips that are ready to play}: the first clip of each published revision and any marked
     as a free preview, while LEARN_FREE_PREVIEW is on (services.is_free_clip, as the app shows them)."""
@@ -122,53 +95,3 @@ def free_clips():
         if clip.processing == Clip.Processing.READY and services.is_free_clip(clip, first=first):
             free.setdefault(clip.revision.chapter_id, []).append(clip)
     return free
-
-
-def redeem(request, form):
-    """The code of the form, with the app's rules (api.learn.STUDENT): a confirmed address, a parent's consent where
-    it is needed. Returns the success message, or None with the reason on the form."""
-    user = request.user
-    try:
-        if not has_verified_email(user):
-            raise services.CodeError("Confirm your email address first, with the code we emailed you.")
-        if user.consent_pending:
-            raise services.CodeError("Your parent or guardian has not confirmed your account yet: see My account.")
-        entitlement = services.redeem(user, form.cleaned_data["code"])
-    except services.CodeError as error:
-        form.add_error("code", str(error))
-        return None
-    if entitlement is None:  # the student's own code, whose entitlement staff removed
-        return "You have used this code already."
-    what = entitlement.subject.name if entitlement.subject else "Every subject"
-    return f"Code accepted. {what} is open in the app until {date_format(entitlement.valid_until, 'j F Y')}."
-
-
-@never_cache  # it shows the student's own course and the form's CSRF token
-def revision(request):
-    """/revision/: the revision course on the website (the course itself is in the app): what it is, each subject's
-    chapters with the Board's marks, the free clips, how to get the app; for a signed-in student, what is open and the
-    book code form."""
-    user, form = request.user, None
-    if not user.is_authenticated and request.method == "POST":
-        return redirect_to_login(reverse("revision"))
-    if user.is_authenticated:
-        form = CodeForm(request.POST or None)
-        if request.method == "POST" and not code_try_allowed(request):
-            return render(request, "429.html", status=429)
-        if request.method == "POST" and form.is_valid() and (message := redeem(request, form)):
-            messages.success(request, message)
-            return redirect("revision")
-    free, subjects = free_clips(), {}
-    for chapter in Chapter.objects.select_related("subject").order_by("subject_id", "number"):
-        chapter.free_clips = free.get(chapter.pk, [])
-        subjects.setdefault(chapter.subject, []).append(chapter)
-    context = {
-        "subjects": subjects.items(),
-        "has_free_clips": bool(free),
-        "free_preview": settings.LEARN_FREE_PREVIEW,
-        "access_days": settings.LEARN_ACCESS_DAYS,
-        "form": form,
-        "entitlements": user.entitlements.select_related("subject") if user.is_authenticated else None,
-        "today": timezone.localdate(),
-    }
-    return render(request, "learn/revision.html", context)

@@ -154,8 +154,8 @@ services:
       DOMAIN: ${DOMAIN:?set DOMAIN in .env}
       # /health/ answers only requests carrying this token (the uptime monitor); see DEPLOYMENT.md.
       HEALTH_CHECK_TOKEN: ${HEALTH_CHECK_TOKEN:?set HEALTH_CHECK_TOKEN in .env}
-      # who answers the pages (Caddyfile): web:8000 (Django) until the switch to frontend:3000 (Phase 8)
-      PAGES_UPSTREAM: ${PAGES_UPSTREAM:-web:8000}
+      # who answers the website's pages (Caddyfile): the Next.js frontend; Django keeps only its own paths
+      PAGES_UPSTREAM: ${PAGES_UPSTREAM:-frontend:3000}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

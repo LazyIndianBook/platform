@@ -22,6 +22,38 @@ A Learning page in the account (examleaf-frontend `/account/learning/`) and the 
 - Tests: `learn/test_dashboard.py` (a student with an open subject, watching and answers; one with nothing; a free
   clip watched and a locked next clip; a student waiting for a parent's consent).
 
+## Phase 8: Django pages removed (8 October 2026)
+
+The Next.js frontend (`../examleaf-frontend/`) serves the website at the same addresses
+(`../docs/design/parity-nextjs.md`), so Django's own pages are gone, as the plan's last step and the founder decided.
+406 tests pass (7 skipped), from 467: the page tests went, the rules they checked are tested through the API and
+allauth.headless instead.
+
+- **Removed:** 41 page views and 57 URL patterns (home, books, `/s/<code>/`, the shop, cart, checkout and payment, the
+  orders and the lookup, quotations, reviews and stock-alert forms, the account pages, My record and its forms, teacher
+  access, the parent's consent page, the legal pages and About, `/revision/`, `robots.txt`, the sitemap, the web app's
+  manifest, service worker and offline page, the favicon redirect), 12 page-only forms, `shop/seo.py`, the
+  `web` template tags and the site context processor, 84 templates (the pages, partials and allauth's, MFA's and
+  socialaccount's overrides) and 86 static files (the site's CSS and scripts, KaTeX, the icons, the 240 px cover
+  sizes, the pay page's script); `django-widget-tweaks`, `django.contrib.sitemaps` and `django.contrib.humanize`.
+- **allauth headless only** (`HEADLESS_ONLY = True`): no allauth page; Google's callback stays at
+  `/account/google/login/callback/`. The website's log-in keeps the site's rules there: `auth/login` takes a mobile
+  number as typed, and `auth/code/confirm`, `auth/email/verify` and `auth/phone/verify` count three tries per code in
+  the cache (I7), as the old pages did. `LOGIN_URL` is the website's log-in (the admin sends there with `?next=`); a
+  member of staff without an authenticator app is sent to the website's `/account/2fa/`; the API's reset link is built
+  from `HEADLESS_FRONTEND_URLS`.
+- **Stays:** the API and its docs, allauth.headless, the admin with its dashboard, the staff clip player (now on the
+  admin's layout), the webhooks, `/shop/media/`, `/qr/<code>.png`, health, the emails, the invoice, credit-note and
+  quotation PDFs (with their fonts), the book covers and `og-default.jpg` the website shows (`build_covers` makes the
+  320 and 480 px sizes), every management command. Staff download invoices and credit notes from the admin
+  (`<id>/pdf/`), no longer through the customer's order page.
+- **Error pages** (400, 403, CSRF, 404, 429, 500) are plain HTML for Django's own paths; JSON under `/api/` as before.
+  The CSP lost what only the pages needed (manifest, worker, Turnstile, Google's form address).
+- **Caddy:** `PAGES_UPSTREAM` defaults to `frontend:3000`; Django's prefixes are unchanged.
+- **Models:** `get_absolute_url` of books, papers, products, shelves, collections, orders and legal pages, and the
+  order link, are the website's paths written out (no Django route any more); the QR codes still encode
+  `SITE_URL/s/<CODE>/`.
+
 ## Phase 8 backend, account part (8 October 2026)
 
 What the account and revision pages (8C) asked of the API, docs/examleaf-phase8-nextjs-plan.md "Backend gaps found

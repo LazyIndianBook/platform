@@ -53,17 +53,16 @@ def test_the_site_keeps_working_while_redis_is_down(client, settings, monkeypatc
     make_paper()
     assert client.get("/api/v1/books/physics-2027/").status_code == 200  # cached page and throttles: a miss
     lookup = {"number": "EL-2026-999999", "email": "x@example.com"}
-    assert client.post(reverse("shop:lookup"), lookup).status_code == 429  # its limits refuse while uncounted (M2, L8)
-    assert client.get(reverse("account_login")).status_code == 200
-    user = (
-        UserFactory()
-    )  # allauth's own rate limits too (their lock is cache.add): log-in, sign-up and reset go through
+    assert client.post("/api/v1/orders/lookup/", lookup, "application/json").status_code == 429  # uncounted (M2, L8)
+    # allauth's own rate limits too (their lock is cache.add): the website's log-in, sign-up and reset go through
+    user, auth = UserFactory(), "/_allauth/browser/v1/auth"
     EmailAddress.objects.create(user=user, email=user.email, verified=True, primary=True)
-    login = client.post(reverse("account_login"), {"login": user.email, "password": PASSWORD})
-    assert login.status_code == 302 and client.get(reverse("account")).status_code == 200
-    client.post(reverse("account_logout"))
-    assert client.post(reverse("account_reset_password"), {"email": user.email}).status_code == 302
-    assert client.post(reverse("account_signup"), {"email": "x"}).status_code == 200  # the form's errors, not a 429
+    login = client.post(f"{auth}/login", {"email": user.email, "password": PASSWORD}, "application/json")
+    assert login.status_code == 200 and client.get("/api/v1/me/").status_code == 200
+    client.delete(f"{auth}/session")  # log out
+    reset = client.post(f"{auth}/password/request", {"email": user.email}, "application/json")
+    assert reset.status_code == 200
+    assert client.post(f"{auth}/signup", {"email": "x"}, "application/json").status_code == 400  # errors, not a 429
     assert client.get(reverse("health_web"), HTTP_ACCEPT="application/json").status_code == 500  # the monitor knows
     with pytest.raises(SystemExit) as gate:  # and a new web container waits for Redis
         call_command("health_check", "health_web", "--no-http", stdout=StringIO())
@@ -75,8 +74,8 @@ def test_the_site_keeps_working_while_redis_is_down(client, settings, monkeypatc
 
 def test_the_request_id_from_the_proxy_comes_back_or_a_new_one_is_made(client):
     request_id = uuid.uuid4().hex
-    assert client.get(reverse("terms"), HTTP_X_REQUEST_ID=request_id)["X-Request-ID"] == request_id
-    assert len(client.get(reverse("terms"))["X-Request-ID"]) == 32
+    assert client.get("/api/v1/pages/terms/", HTTP_X_REQUEST_ID=request_id)["X-Request-ID"] == request_id
+    assert len(client.get("/api/v1/pages/terms/")["X-Request-ID"]) == 32
 
 
 def test_email_is_sent_by_the_task_or_here_when_the_broker_is_down(monkeypatch):

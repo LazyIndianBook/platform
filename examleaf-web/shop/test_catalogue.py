@@ -1,5 +1,6 @@
-"""Phase 6 E1: the category tree, collections, product types and attributes (page and API filters), slug history,
-related products, and digital products (no shipping, stock or cash on delivery; the `learn` hook on payment)."""
+"""Phase 6 E1: the category tree, collections, product types and attributes (the API's filters, which the website's
+shop pages use), slug history, related products, and digital products (no shipping, stock or cash on delivery; the
+`learn` hook on payment)."""
 
 import logging
 import sys
@@ -8,6 +9,7 @@ from decimal import Decimal
 
 import pytest
 from django.core import mail
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from rest_framework.test import APIClient
 
@@ -48,24 +50,21 @@ def book_type():
     return kind, year, language
 
 
-def test_a_shelf_shows_its_sub_shelves_products_and_the_catalogue_its_top_shelves(client):
+def slugs(query):
+    return [product["slug"] for product in APIClient().get(f"/api/v1/products/?{query}").json()["results"]]
+
+
+def test_a_shelf_lists_the_products_of_its_branch_once(client):
     shelves = tree()
     physics = ProductFactory(title="Physics Sample Papers", slug="physics")
     physics.categories.add(shelves["science"], shelves["class-12"])  # two shelves of one branch: listed once
-    ProductFactory(title="Class 11 Papers").categories.add(shelves["class-11"])
-    ProductFactory(title="Hidden", is_active=False).categories.add(shelves["science"])
-    page = client.get("/shop/category/class-12/").content.decode()
-    assert page.count('href="/shop/physics/"') == 1 and "Class 11 Papers" not in page and "Hidden" not in page
-    assert '<a href="/shop/category/science/">Science</a>' in page  # its sub-shelf
-    assert '<a href="/shop/category/books/">Books</a>' in page and 'aria-current="page">Class 12' in page
-    assert client.get("/shop/category/books/").content.decode().count('href="/shop/physics/"') == 1
-    assert '<a href="/shop/category/books/">Books</a>' in client.get("/shop/").content.decode()
-    assert client.get("/shop/category/nothing/").status_code == 404
-    assert 'href="/shop/physics/"' not in client.get("/shop/category/class-12/?kind=solutions").content.decode()
-    ProductFactory(title="Physics Solutions", kind=Product.Kind.SOLUTIONS).categories.add(shelves["class-12"])
-    page = client.get("/shop/category/class-12/?kind=solutions").content.decode()  # the kind links set ?kind=
-    assert '<a href="/shop/category/class-12/">All</a>' in page and "Physics Solutions" in page
-    assert '<a href="?kind=solutions" aria-current="page">Solutions</a>' in page and "Physics Sample" not in page
+    ProductFactory(title="Class 11 Papers", slug="class-11-papers").categories.add(shelves["class-11"])
+    ProductFactory(title="Hidden", slug="hidden", is_active=False).categories.add(shelves["science"])
+    assert slugs("category=class-12") == ["physics"] and slugs("category=books").count("physics") == 1
+    assert client.get("/api/v1/categories/nothing/").status_code == 404
+    assert slugs("category=class-12&kind=solutions") == []
+    ProductFactory(slug="physics-solutions", kind=Product.Kind.SOLUTIONS).categories.add(shelves["class-12"])
+    assert slugs("category=class-12&kind=solutions") == ["physics-solutions"]
 
 
 def test_a_collection_lists_its_products_in_the_staffs_order(client):
@@ -73,35 +72,27 @@ def test_a_collection_lists_its_products_in_the_staffs_order(client):
     for position, title in ((2, "Chemistry"), (1, "Physics"), (0, "Off sale")):
         product = ProductFactory(title=title, is_active=title != "Off sale")
         CollectionItem.objects.create(collection=essentials, product=product, position=position)
-    page = client.get("/shop/collection/essentials/").content.decode()
-    assert page.index("Physics") < page.index("Chemistry") and "Off sale" not in page
-    assert '<a href="/shop/collection/essentials/">Board 2027 essentials</a>' in client.get("/shop/").content.decode()
+    titles = dict(Product.objects.values_list("slug", "title"))
+    products = client.get("/api/v1/collections/essentials/").json()["products"]
+    assert [titles[slug] for slug in products] == ["Physics", "Chemistry"]  # staff's order, none off sale
     essentials.is_active = False
     essentials.save()
-    assert client.get("/shop/collection/essentials/").status_code == 404
-
-
-def test_the_sitemap_lists_the_shop_its_shelves_and_collections(client):
-    tree()
-    Collection.objects.create(name="Essentials", slug="essentials")
-    Collection.objects.create(name="Hidden", slug="hidden", is_active=False)
-    sitemap = client.get("/sitemap.xml").text
-    for path in ["/shop/", "/shop/school-orders/", "/shop/category/science/", "/shop/collection/essentials/"]:
-        assert f"<loc>http://testserver{path}</loc>" in sitemap, path
-    assert "/shop/collection/hidden/" not in sitemap
+    cache.clear()  # the API keeps a collection 15 minutes
+    assert client.get("/api/v1/collections/essentials/").status_code == 404
 
 
 def test_a_renamed_product_redirects_from_its_old_address_and_slugs_of_shop_pages_are_refused(client):
     product = ProductFactory(slug="physics-2026")
     product.slug = "physics-2027"
     product.save()
-    response = client.get("/shop/physics-2026/")
-    assert response.status_code == 301 and response["Location"] == "/shop/physics-2027/"
+    response = client.get("/api/v1/products/physics-2026/")  # the website's page redirects as the API says
+    assert response.status_code == 301 and response.json() == {"redirect_to": "physics-2027"}
     other = ProductFactory(slug="chemistry")
     other.slug = "physics-2026"  # an old slug taken again: the product's own page wins
     other.save()
-    assert client.get("/shop/physics-2026/").status_code == 200
-    assert client.get("/shop/chemistry/")["Location"] == "/shop/physics-2026/"
+    cache.clear()  # the API keeps a product 15 minutes
+    assert client.get("/api/v1/products/physics-2026/").status_code == 200
+    assert client.get("/api/v1/products/chemistry/").json() == {"redirect_to": "physics-2026"}
     with pytest.raises(ValidationError, match="page of the shop"):
         ProductFactory.build(slug="category").clean()
 
@@ -123,10 +114,10 @@ def test_attributes_keep_their_kind_and_show_on_the_page_with_related_products(c
     stranger = Attribute.objects.create(product_type=ProductType.objects.create(name="Other"), name="X", code="x")
     with pytest.raises(ValidationError, match="product's type"):
         AttributeValue(product=product, attribute=stranger, value="1").full_clean()
-    product.related.add(ProductFactory(title="Chemistry Sample Papers"))
-    page = client.get("/shop/physics/").content.decode()
-    assert "<dt>Edition year</dt><dd>2027</dd>" in page
-    assert "You may also need" in page and "Chemistry Sample Papers" in page
+    product.related.add(ProductFactory(title="Chemistry Sample Papers", slug="chemistry"))
+    data = client.get("/api/v1/products/physics/").json()  # the product page
+    assert {(a["name"], a["value"]) for a in data["attributes"]} == {("Edition year", "2027")}
+    assert data["related"] == ["chemistry"]  # "You may also need"
 
 
 def test_the_api_lists_categories_and_collections_and_filters_products_by_them_and_by_attributes():
@@ -201,34 +192,6 @@ def test_a_digital_product_has_one_copy_no_shipping_and_no_cash_on_delivery(cour
         make_order((course, 1))  # a guest: the course needs an account
 
 
-def test_a_course_page_says_it_opens_in_the_app_and_claims_no_book_or_shipping(course, client):
-    page = client.get("/shop/physics-pass/").content.decode()
-    assert "In the ExamLeaf app" in page and "Only 1 left" not in page
-    assert '"Book"' not in page and "shippingDetails" not in page and '"@type": "Product"' in page
-
-
-def test_a_course_alone_is_never_spoken_of_as_books_copies_shipping_or_delivery(course, rzp, commit, client):
-    page = client.get("/shop/physics-pass/").text
-    assert '<input type="hidden" name="quantity" value="1">' in page and '<label for="quantity">Copies' not in page
-    assert "About the course" in page and "delivered across India" not in page
-    client.post(f"/cart/add/{course.pk}/")
-    cart = client.get("/cart/").text
-    assert "The revision course is in your cart" in cart and "Total before shipping" not in cart
-    assert "The course opens in your ExamLeaf account" in cart and "No account needed" not in cart  # a guest
-    user = verified_user("rahul@example.com")
-    client.force_login(user)
-    client.post(f"/cart/add/{course.pk}/")
-    checkout = client.get("/checkout/").text
-    assert "Access is granted as soon as the payment is confirmed" in checkout and "free on books worth" not in checkout
-    assert "<dt>Course</dt>" in checkout and "Total before shipping" not in checkout
-    Cart.objects.filter(user=user).delete()
-    order = make_order((course, 1), user=user)
-    with commit():
-        services.record_capture(captured(order))
-    page = client.get(order.get_absolute_url()).text
-    assert "<dt>Course</dt>" in page and "<dt>Shipping</dt>" not in page and "Delivery to" not in page
-
-
 def test_paying_for_a_course_opens_it_and_delivers_an_order_of_digital_products_only(course, hooks, rzp, commit):
     granted = hooks.granted
     user, book = verified_user("rahul@example.com"), ProductFactory(stock=5)
@@ -254,11 +217,7 @@ def test_the_order_and_its_delivered_email_lead_to_the_papers_and_the_course(cou
     order = make_order((course, 1), (book, 1), user=user)
     with commit():
         services.record_capture(captured(order))
-    client.force_login(user)
-    page = client.get(order.get_absolute_url()).text
     qr = "Scan the QR code on each paper for its solutions."
-    assert f'<a href="/books/physics-2027/">Physics Sample Papers</a>. {qr}' in page
-    assert '<a href="/revision/">Physics Revision Pass</a>: the revision course, in the ExamLeaf app.' in page
     order = services.pack_order(Order.objects.get(pk=order.pk))
     services.ship_order(order, "India Post", "EA1IN")
     with commit():

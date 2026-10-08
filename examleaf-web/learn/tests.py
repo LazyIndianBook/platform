@@ -68,30 +68,3 @@ def test_every_learn_admin_page_opens(client):
             reverse(f"{name}_change", args=[model.objects.first().pk]),
         ]:
             assert client.get(url).status_code == 200, url
-
-
-def test_the_course_page_lists_chapters_and_free_clips_and_takes_a_book_code_within_the_apps_limits(client):
-    from api.tests import student
-
-    from .services import make_codes
-
-    subject = make_course(chapters=2, clips=2)
-    Clip.objects.filter(title="Clip 2.2").update(is_free_preview=True)
-    page = client.get(reverse("revision"))
-    assert "<td>Chapter 2<br>" in page.text and '<td class="num">7</td>' in page.text  # the Board's marks
-    shown = [title for title in ["Clip 1.1", "Clip 1.2", "Clip 2.1", "Clip 2.2"] if f"Free clip: {title}" in page.text]
-    assert shown == ["Clip 1.1", "Clip 2.1", "Clip 2.2"]  # each revision's first, and the one marked free
-    assert "[Google Play link]" in page.text and "/account/login/?next=/revision/" in page.text
-    assert client.post(reverse("revision"), {"code": "X"}).url == "/account/login/?next=/revision/"
-    user = student()
-    client.force_login(user)
-    assert reverse("revision") in client.get(reverse("account")).text  # My account's "Revision course" line
-    code = make_codes(subject, 1, "PHY-1")[0]
-    assert client.post(reverse("revision"), {"code": code.lower().replace("-", " ")}).url == "/revision/"
-    assert user.entitlements.get().subject == subject
-    page = client.get(reverse("revision"))
-    assert "Code accepted. Physics is open in the app until" in page.text and "Open until" in page.text
-    assert "This code is not valid" in client.post(reverse("revision"), {"code": "ABCD-EFGH-JKLM"}).text
-    for _ in range(3):
-        client.post(reverse("revision"), {"code": "ABCD-EFGH-JKLM"})
-    assert client.post(reverse("revision"), {"code": code}).status_code == 429  # the sixth in an hour, as in the app

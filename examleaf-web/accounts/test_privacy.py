@@ -10,7 +10,6 @@ from axes.models import AccessAttempt
 from django.contrib.admin.models import CHANGE, LogEntry
 from django.contrib.contenttypes.models import ContentType
 from django.core import mail
-from django.urls import reverse
 from django.utils import timezone
 
 from accounts.factories import PASSWORD, UserFactory
@@ -43,12 +42,6 @@ def test_deleting_the_account_deletes_the_stock_alerts_kept_under_its_email(stud
     assert list(StockAlert.objects.values_list("email", flat=True)) == ["other@example.com"]
 
 
-def reauthenticate(client, response):
-    """allauth asks for the password again (none entered in the last 5 minutes); then the request goes through."""
-    assert response.status_code == 302 and response.url.startswith(reverse("account_reauthenticate"))
-    return client.post(response.url, {"password": PASSWORD})
-
-
 def test_download_my_data_asks_for_the_password_and_gives_everything(client, student):
     Address.objects.create(user=student, **{**ADDRESS, "phone": "+919864012345"}, is_default=True)
     order = make_order((ProductFactory(title="Physics Sample Papers", price=299), 1), user=student, email=student.email)
@@ -57,12 +50,11 @@ def test_download_my_data_asks_for_the_password_and_gives_everything(client, stu
     CreditNote.objects.create(
         refund=refund, invoice=invoice, number="CN/2026-27/00001", financial_year="2026-27", serial=1
     )
-    response = reauthenticate(client, client.get(reverse("data_export")))
-    page = client.get(response.url).text  # first what the file holds, in words
-    assert '<td>Saved addresses</td><td class="num">1</td>' in page and '<td>Reviews</td><td class="num">none' in page
-    assert '<a class="btn btn-primary" href="?download=1">' in page
-    response = client.get(reverse("data_export") + "?download=1")
-    assert response["Content-Disposition"].startswith('attachment; filename="examleaf-my-data-')
+    summary = {part["key"]: part["count"] for part in client.get("/api/v1/me/export/summary/").json()}
+    assert (summary["addresses"], summary["reviews"]) == (1, 0)  # first what the file holds, in words
+    export = "/api/v1/me/export/"  # the website's Download my data
+    assert client.post(export, {"password": "wrong"}, content_type="application/json").status_code == 400
+    response = client.post(export, {"password": PASSWORD}, content_type="application/json")
     assert "no-cache" in response["Cache-Control"]
     data = json.loads(response.content)
     assert data["profile"]["email"] == "rahul@example.com" and data["profile"]["parent_name"] == "Anita Das"
@@ -78,17 +70,18 @@ def test_download_my_data_asks_for_the_password_and_gives_everything(client, stu
 
 
 def test_delete_my_account_waits_seven_days_and_can_be_cancelled(client, student):
-    assert client.get(reverse("account_delete")).status_code == 200  # the explanation needs no password
-    response = reauthenticate(client, client.post(reverse("account_delete"), {"confirm": "on"}))
-    client.get(response.url)  # allauth resumes the stashed POST after the password
+    deletion_url = "/api/v1/me/deletion/"  # the website's Delete my account
+    assert client.post(deletion_url, {"password": "wrong"}, content_type="application/json").status_code == 400
+    response = client.post(deletion_url, {"password": PASSWORD}, content_type="application/json")
+    assert response.status_code == 201
     deletion = DeletionRequest.objects.get(user=student)
     assert deletion.status == "pending"
     assert deletion.due_at - deletion.requested_at == timedelta(days=7)
     assert student.consents.first().event == "withdrawn"
     assert mail.outbox[-1].subject == "[ExamLeaf] Your account will be deleted"
-    assert "Keep my account" in client.get(reverse("account")).text
+    assert client.get("/api/v1/me/").json()["deletion_due_at"]  # My account offers "Keep my account"
 
-    client.post(reverse("account_delete_cancel"))
+    client.delete(deletion_url)
     deletion.refresh_from_db()
     assert deletion.status == "cancelled" and student.consents.first().event == "given"
     assert mail.outbox[-1].subject == "[ExamLeaf] Your account will not be deleted"
@@ -125,10 +118,11 @@ def test_purge_erases_personal_data_of_due_requests_only(student):
 
 
 def test_a_new_email_address_is_used_only_after_its_code_is_confirmed(client, student):
-    response = reauthenticate(
-        client, client.post(reverse("account_email"), {"email": "rahul.das@example.com", "action_add": ""})
-    )
-    client.get(response.url)
+    email, change = "/_allauth/browser/v1/account/email", {"email": "rahul.das@example.com"}
+    assert client.post(email, change, content_type="application/json").status_code == 401  # the password first
+    reauthenticate = "/_allauth/browser/v1/auth/reauthenticate"
+    assert client.post(reauthenticate, {"password": PASSWORD}, content_type="application/json").status_code == 200
+    assert client.post(email, change, content_type="application/json").status_code == 200
     to_new = [m for m in mail.outbox if m.to == ["rahul.das@example.com"]]
     assert to_new and re.search(r"^\d{6}$", to_new[0].body, re.M)
     student.refresh_from_db()

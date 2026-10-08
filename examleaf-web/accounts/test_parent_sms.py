@@ -1,11 +1,11 @@
 """Parental consent by SMS (PARENTAL_CONSENT_MODE "verified"): a parent's Indian mobile number gets the short signed
-link (/c/<token>/, a token that fits a 30-character DLT variable), recorded as confirmed through the texted link."""
+link (/c/<token>/, a token that fits a 30-character DLT variable), recorded as confirmed through the texted link (the
+website's page asks api/v1/parent-consent/<token>/)."""
 
 import re
 
 import pytest
 from django.test import Client
-from django.urls import reverse
 
 from accounts.models import ConsentRecord, User
 from accounts.test_security import confirm_own_address, sign_up
@@ -30,10 +30,10 @@ def test_a_parents_mobile_number_gets_the_link_by_sms(client, settings, capsys):
     confirm_own_address(client)
     [token] = texted_token(capsys)
     assert len(token) <= 30 and re.fullmatch(r"[\w.-]+", token)
-    parent = Client()
-    assert "gave your\nmobile number" in parent.get(f"/c/{token}/").text
-    assert parent.get(f"/c/{token[:-1]}x/").status_code == 400  # a changed signature
-    parent.post(f"/c/{token}/")
+    parent, link = Client(), f"/api/v1/parent-consent/{token}/"
+    assert parent.get(link).json()["contact"] == "phone"  # the page: "… gave your mobile number"
+    assert parent.get(f"/api/v1/parent-consent/{token[:-1]}x/").status_code == 400  # a changed signature
+    parent.post(link)
     record = ConsentRecord.objects.get(verified_at__isnull=False)
     assert record.method == ConsentRecord.Method.SMS_LINK and not User.objects.get().consent_pending
 
@@ -44,10 +44,11 @@ def test_a_corrected_number_voids_the_first_link_and_sms_off_means_email_only(cl
     sign_up(client, parent_contact="98640 12345")
     confirm_own_address(client)
     [first] = texted_token(capsys)
-    client.force_login(User.objects.get())
-    client.post(reverse("parent_consent_resend"), {"parent_contact": "98641 12345"})
-    assert "to +919864112345" in capsys.readouterr().out and Client().get(f"/c/{first}/").status_code == 400
+    client.post("/api/v1/me/parent-consent/", {"parent_contact": "98641 12345"}, content_type="application/json")
+    assert "to +919864112345" in capsys.readouterr().out
+    assert Client().get(f"/api/v1/parent-consent/{first}/").status_code == 400
     settings.SMS_ENABLED = False
     response = sign_up(Client(), email="other@example.com", parent_contact="98640 12345")
-    [error] = response.context["form"].errors["parent_contact"]
-    assert error == "Enter your parent's or guardian's email address: we send them a link to confirm."
+    [error] = response.json()["errors"]
+    assert error["param"] == "parent_contact"
+    assert error["message"] == "Enter your parent's or guardian's email address: we send them a link to confirm."

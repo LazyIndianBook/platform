@@ -7,7 +7,6 @@ import pytest
 from allauth.account.internal.flows.code_verification import AbstractCodeVerificationProcess
 from allauth.account.models import EmailAddress
 from django.core import mail
-from django.urls import reverse
 from rest_framework.test import APIClient
 
 from accounts.factories import PASSWORD, UserFactory
@@ -73,20 +72,38 @@ def test_the_fourth_try_of_a_texted_code_is_refused_even_when_the_tries_come_tog
     assert response.status_code == 400 and response.json() == {"code": [NO_TRIES_LEFT]}
 
 
+def browser(client, path, data):
+    """The website's code pages: allauth.headless, the browser client (examleaf/urls.py gives it the site's forms)."""
+    return client.post(f"/_allauth/browser/v1/auth/{path}", data, content_type="application/json")
+
+
 def test_the_websites_code_page_counts_tries_in_the_cache_too(client, capsys, together):
     user = UserFactory(login_phone=PHONE, login_phone_verified=True)
     EmailAddress.objects.create(user=user, email=user.email, verified=True, primary=True)
-    client.post(reverse("account_request_login_code"), {"phone": "98640 12345"})
+    browser(client, "code/request", {"phone": "98640 12345"})
     code = texted_code(capsys)
     for _ in range(3):
-        client.post(reverse("account_confirm_login_code"), {"code": "000000"})
-    page = client.post(reverse("account_confirm_login_code"), {"code": code})
-    assert NO_TRIES_LEFT in page.content.decode() and "_auth_user_id" not in client.session
+        browser(client, "code/confirm", {"code": "000000"})
+    response = browser(client, "code/confirm", {"code": code})
+    assert NO_TRIES_LEFT in response.text and "_auth_user_id" not in client.session
 
 
-def test_no_new_log_in_code_on_the_code_page(client, capsys):
+def test_the_websites_email_and_phone_codes_count_tries_in_the_cache_too(client, capsys, together):
+    user = student(verified=False)
+    browser(client, "login", {"email": user.email, "password": PASSWORD})  # an unconfirmed address: a code
+    for _ in range(3):
+        browser(client, "email/verify", {"key": "000000"})
+    response = browser(client, "email/verify", {"key": emailed_code()})
+    assert NO_TRIES_LEFT in response.text and not EmailAddress.objects.get(user=user).verified
+    client.force_login(student())
+    client.post("/_allauth/browser/v1/account/phone", {"phone": "98640 12345"}, content_type="application/json")
+    code = texted_code(capsys)
+    for _ in range(3):
+        browser(client, "phone/verify", {"code": "000000"})
+    assert NO_TRIES_LEFT in browser(client, "phone/verify", {"code": code}).text
+
+
+def test_no_new_log_in_code_for_the_asking(client, capsys):
     """allauth's "send a new code" failed with a server error for an unknown number (a way to tell registered ones)."""
-    client.post(reverse("account_request_login_code"), {"phone": "98640 12345"})
-    page = client.get(reverse("account_confirm_login_code")).content.decode()
-    assert "Send a new code" not in page
-    assert client.post(reverse("account_confirm_login_code"), {"action": "resend", "code": "1"}).status_code == 200
+    browser(client, "code/request", {"phone": "98640 12345"})
+    assert browser(client, "code/resend", {}).status_code == 409 and "SMS" not in capsys.readouterr().out

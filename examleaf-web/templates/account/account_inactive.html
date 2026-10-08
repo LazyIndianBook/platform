@@ -1,9 +1,0 @@
-{% extends "account/base_entrance.html" %}
-{# allauth's page with the site's words and a way on (docs/design/coverage-matrix.md, G4) #}
-{% block head_title %}Account switched off{% endblock head_title %}
-{% block content %}
-<h1>This account is switched off</h1>
-<p>We switch an account off when it breaks our <a href="{% url 'terms' %}">terms</a>, or when its owner asks us to.</p>
-<p class="muted">If you think this is a mistake, write to us with the email address you registered with.</p>
-<div class="row"><a class="btn btn-primary" href="{% url 'contact' %}">Contact us</a></div>
-{% endblock content %}

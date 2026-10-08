@@ -1,4 +1,3 @@
-import re
 import tempfile
 from io import StringIO
 from pathlib import Path
@@ -8,10 +7,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.db import connection
 from django.test import SimpleTestCase, TestCase, override_settings
-from django.test.utils import CaptureQueriesContext
-from django.urls import reverse
 
 from accounts.models import User
 from content.management.commands.import_papers import SUBJECTS, import_subject
@@ -115,159 +111,48 @@ class MarkdownTests(SimpleTestCase):
         self.assertEqual(render("\ue0005\ue001 $a$", inline=True), "5 $a$")
 
 
-class PaperPageTests(TestCase):
+class PaperTests(TestCase):
+    """A paper's QR code and who reads its solutions: the website's /s/<code>/ shows what the API gives (api/tests.py
+    has the rest), one open sample per book."""
+
     @classmethod
     def setUpTestData(cls):
         cls.paper = make_paper()
         cls.student = User.objects.create_user("student@example.com", "Brahmaputra-2027", full_name="A Student")
         EmailAddress.objects.create(user=cls.student, email=cls.student.email, verified=True, primary=True)
 
-    def test_qr_landing_code_is_case_insensitive(self):
-        self.assertRedirects(self.client.get("/s/phy-e01/"), "/s/PHY-E01/", status_code=301)
-
-    def test_visitor_gets_register_and_login_that_return_here(self):
-        response = self.client.get("/s/PHY-E01/")
-        self.assertTemplateUsed(response, "landing.html")
-        self.assertContains(response, "Solutions to Sample Paper E-01 — Physics")
-        self.assertContains(response, reverse("account_signup") + "?next=/s/PHY-E01/")
-        self.assertContains(response, reverse("account_login") + "?next=/s/PHY-E01/")
-        self.assertNotContains(response, "Final answer")
-
-    def test_a_books_open_sample_is_read_without_an_account_and_offered_everywhere(self):
-        other = Paper.objects.create(
-            book=self.paper.book, code="PHY-E02", tier="E", number=2, title="E-02", full_marks=70, pass_marks=21
-        )
-        self.paper.is_sample = True  # the data migration's choice: each book's E-01
-        self.paper.save()
-        page = self.client.get("/s/PHY-E01/")
-        self.assertTemplateUsed(page, "solutions.html")
-        self.assertContains(page, "Final answer")
-        self.assertNotContains(page, "Save to my record")  # saving marks still needs an account
-        self.assertEqual(sorted(page["Cache-Control"].split(", ")), ["max-age=300", "public"])
-        gate = self.client.get("/s/PHY-E02/")
-        self.assertTemplateUsed(gate, "landing.html")
-        self.assertContains(gate, 'Not sure yet? <a href="/s/PHY-E01/">Paper E-01</a> of this book is open to everyone')
-        self.assertContains(self.client.get("/books/physics-2027/"), 'Try <a href="/s/PHY-E01/">Paper E-01</a> first')
-        self.assertContains(self.client.get("/"), 'href="/s/PHY-E01/">See a sample paper</a>')
-        other.is_sample = True
-        with self.assertRaisesMessage(ValidationError, "Another paper of this book is its open sample"):
-            other.full_clean()  # one per book (the admin's form says so)
-
-    def test_a_book_without_published_papers_says_so_and_offers_the_others(self):
-        self.assertNotContains(self.client.get("/books/physics-2027/"), "The papers are on their way")
-        Paper.objects.update(is_published=False)
-        page = self.client.get("/books/physics-2027/")
-        self.assertContains(page, "The papers are on their way")
-        self.assertContains(page, 'href="/#books">Choose another book</a>')
-
-    def test_the_headers_log_in_and_register_come_back_to_this_page_of_this_site(self):
-        page = self.client.get("/books/physics-2027/?tab=1")
-        self.assertContains(page, 'href="/account/login/?next=/books/physics-2027/%3Ftab%3D1"')
-        self.assertContains(page, 'href="/account/signup/?next=/books/physics-2027/%3Ftab%3D1">Register</a>')
-        login = self.client.get("/account/login/?next=/s/PHY-E01/")  # the log-in pages pass their own `next` on
-        self.assertContains(login, 'href="/account/signup/?next=/s/PHY-E01/">Register</a>')
-        for elsewhere in ["//evil.example/", "https://evil.example/", "/\\evil.example"]:
-            with self.subTest(elsewhere):
-                login = self.client.get("/account/login/", {"next": elsewhere})
-                self.assertContains(login, 'href="/account/signup/">Register</a>')
-        self.assertContains(self.client.get("/"), 'href="/account/signup/">Register</a>')  # home: nothing to add
-
-    def test_login_returns_to_the_paper(self):
-        response = self.client.post(
-            reverse("account_login"),
-            {"login": "Student@Example.com", "password": "Brahmaputra-2027", "next": "/s/PHY-E01/"},
-        )
-        self.assertRedirects(response, "/s/PHY-E01/")
-
-    def test_student_sees_the_solutions(self):
-        self.client.force_login(self.student)
-        response = self.client.get("/s/PHY-E01/")
-        self.assertTemplateUsed(response, "solutions.html")
-        self.assertContains(response, '<table class="steps">')
-        self.assertContains(response, "$I = \\dfrac{\\varepsilon}{R+r}$")
-        self.assertContains(response, '<p class="final"><strong>Final answer:</strong> 0.5 A</p>')
-
     def test_qr_image(self):
+        self.assertEqual(self.paper.landing_url(), settings.SITE_URL + "/s/PHY-E01/")  # the website's page, printed
         response = self.client.get("/qr/PHY-E01.png")
         self.assertEqual(response["Content-Type"], "image/png")
         self.assertTrue(response.content.startswith(b"\x89PNG"))
         self.assertEqual(self.client.get("/qr/XYZ-E01.png").status_code, 404)
 
-    def test_solutions_page_queries_do_not_grow_with_the_number_of_questions(self):
-        self.client.force_login(self.student)
-
-        def queries():
-            with CaptureQueriesContext(connection) as context:
-                self.assertEqual(self.client.get("/s/PHY-E01/").status_code, 200)
-            return len(context)
-
-        self.client.get("/s/PHY-E01/")  # the first request records the device (allauth.usersessions)
-        before = queries()
-        for order in range(2, 12):
-            question = Question.objects.create(paper=self.paper, order=order, label=str(order), text_md="Q")
-            Solution.objects.create(question=question, body_md="**Final answer:** x")
-        self.assertEqual(queries(), before)
-
-    def test_the_paper_page_is_never_kept_by_a_shared_cache(self):
-        self.assertIn("private", self.client.get("/s/PHY-E01/")["Cache-Control"])
-        self.client.force_login(self.student)
-        self.assertIn("private", self.client.get("/s/PHY-E01/")["Cache-Control"])
-
     def test_solutions_for_students_or_for_everyone_by_setting(self):
+        url = "/api/v1/papers/PHY-E01/solutions/"
         for required in (True, False):
             with self.subTest(required=required), override_settings(SOLUTIONS_REQUIRE_LOGIN=required):
                 self.client.logout()
-                page, api = self.client.get("/s/PHY-E01/"), self.client.get("/api/v1/papers/PHY-E01/solutions/")
+                response = self.client.get(url)
                 if required:
-                    self.assertTemplateUsed(page, "landing.html")
-                    self.assertIn("private", page["Cache-Control"])
-                    self.assertEqual(api.status_code, 401)
-                else:  # open: the same page for every visitor, kept a few minutes by shared caches
-                    self.assertTemplateUsed(page, "solutions.html")
-                    self.assertContains(page, "Final answer")
-                    self.assertNotContains(page, "Save to my record")  # saving marks needs an account
-                    self.assertContains(page, reverse("account_login") + "?next=/s/PHY-E01/")
-                    self.assertNotIn("csrftoken", page.cookies)
-                    for response in (page, api):
-                        self.assertEqual(sorted(response["Cache-Control"].split(", ")), ["max-age=300", "public"])
-                    self.assertEqual(api.json()[0]["solution"]["markdown"][:5], "| Ste")
+                    self.assertEqual(response.status_code, 401)
+                else:  # open: the same for every visitor, kept a few minutes by shared caches
+                    self.assertEqual(sorted(response["Cache-Control"].split(", ")), ["max-age=300", "public"])
+                    self.assertEqual(response.json()[0]["solution"]["markdown"][:5], "| Ste")
                 self.client.force_login(self.student)
-                page = self.client.get("/s/PHY-E01/")
-                self.assertContains(page, "Save to my record")
-                self.assertIn("private", page["Cache-Control"])
-                self.assertEqual(self.client.get("/api/v1/papers/PHY-E01/solutions/").status_code, 200)
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 200)
+                self.assertIn("private", response["Cache-Control"])  # never kept by a shared cache once signed in
 
-    def test_login_does_not_redirect_to_another_site(self):
-        for url in ["https://evil.example/", "//evil.example/", "/\\evil.example", "javascript:alert(1)"]:
-            with self.subTest(url):
-                response = self.client.post(
-                    reverse("account_login"),
-                    {"login": "student@example.com", "password": "Brahmaputra-2027", "next": url},
-                )
-                self.assertRedirects(response, "/", fetch_redirect_response=False)
-                self.client.logout()
-
-    def test_only_this_site_serves_files_katex_included_and_nothing_runs_inline(self):
-        self.client.force_login(self.student)
-        response = self.client.get("/s/PHY-E01/")
-        policy = (
-            response.headers.get("Content-Security-Policy") or response.headers["Content-Security-Policy-Report-Only"]
+    def test_one_open_sample_per_book(self):
+        other = Paper.objects.create(
+            book=self.paper.book, code="PHY-E02", tier="E", number=2, title="E-02", full_marks=70, pass_marks=21
         )
-        for directive in ("script-src 'self';", "font-src 'self';", "style-src 'self' 'unsafe-inline';"):
-            self.assertIn(directive, policy)  # KaTeX is served from static/katex/, no other host
-        self.assertIn("frame-ancestors 'none'", policy)
-        page = response.content.decode()
-        self.assertIn('<script defer src="/static/katex/katex.min.js"></script>', page)
-        self.assertTrue(Path(settings.BASE_DIR, "static/katex/fonts/KaTeX_Main-Regular.woff2").exists())  # its fonts
-        self.assertEqual(
-            {
-                u
-                for u in re.findall(r'(?:src|href)="(https?://[^"]+)"', page)
-                if not u.startswith(settings.SITE_URL)  # SITE_URL: the canonical link
-            },
-            set(),
-        )
-        self.assertNotRegex(page, r"\son[a-z]+=")  # an inline handler would need 'unsafe-inline' in script-src
+        self.paper.is_sample = True  # the data migration's choice: each book's E-01
+        self.paper.save()
+        other.is_sample = True
+        with self.assertRaisesMessage(ValidationError, "Another paper of this book is its open sample"):
+            other.full_clean()  # one per book (the admin's form says so)
 
 
 class ExportQrTests(TestCase):

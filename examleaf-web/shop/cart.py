@@ -18,7 +18,6 @@ from django.utils import timezone
 from .models import Cart, CartItem, Coupon, Offer, Product, ShippingRate, rupees
 
 SESSION_KEY = "shop_cart"
-COUNT_KEY = "shop_cart_count"  # the header's "Cart (n)" without a query on every page
 TOKEN_DAYS = 30  # a guest cart's token (API clients without cookies); the cart itself goes after 30 days unchanged
 
 
@@ -50,10 +49,6 @@ def issue_token(cart):
 def cart_by_token(token):
     """The guest cart of an X-Cart-Token, while the token lasts; None otherwise."""
     return Cart.objects.filter(token=hash_token(token), token_expires__gt=timezone.now(), user=None).first()
-
-
-def remember_count(request, cart):
-    request.session[COUNT_KEY] = sum(cart.items.values_list("quantity", flat=True)) if cart else 0
 
 
 def set_quantity(cart, product, quantity, add=False):
@@ -232,9 +227,9 @@ def merge_carts(guest, user):
 
 @receiver(user_logged_in)
 def merge_guest_cart(sender, request, user, **kwargs):
-    """The cart filled before logging in (this session's) joins the account's cart, website and allauth.headless alike;
-    the API merges a cart held by X-Cart-Token itself (api.shop.caller_cart)."""
+    """The cart filled before logging in (this session's) joins the account's cart, as allauth.headless logs in; the
+    API merges a cart held by X-Cart-Token itself (api.shop.caller_cart)."""
     if request is None or not hasattr(request, "session"):
         return
     guest = Cart.objects.filter(pk=request.session.pop(SESSION_KEY, None), user=None).first()
-    remember_count(request, merge_carts(guest, user))
+    merge_carts(guest, user)

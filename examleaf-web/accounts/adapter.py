@@ -1,7 +1,5 @@
-import io
 from urllib.parse import urlparse
 
-import segno
 from allauth.account.adapter import DefaultAccountAdapter
 from allauth.account.internal.flows.login import AUTHENTICATION_METHODS_SESSION_KEY
 from allauth.core import context as allauth_context
@@ -16,7 +14,6 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.sites.shortcuts import get_current_site
 from django.http import Http404
-from django.urls import reverse
 
 from ops.sms import queue_sms
 from ops.tasks import queue_email, queue_text_email
@@ -84,7 +81,7 @@ class AccountAdapter(DefaultAccountAdapter):
         others.update(login_phone="", login_phone_verified=False, sms_updates=False)
         new = not (user.login_phone == phone and user.login_phone_verified)  # also called at each log-in by SMS code
         self.set_phone(user, phone, True)
-        account = f"{settings.SITE_URL}{reverse('account')}"
+        account = f"{settings.SITE_URL}/account/"
         if new:
             queue_text_email(
                 user.email,
@@ -124,12 +121,6 @@ class MFAAdapter(DefaultMFAAdapter):
         """Passkeys belong to the host of SITE_URL, whichever host name the page was opened on (allauth's default is
         the request's host: www. and the bare domain would not share passkeys)."""
         return {"id": urlparse(settings.SITE_URL).hostname, "name": "ExamLeaf"}
-
-    def build_totp_svg(self, url):
-        """The authenticator app's QR code, drawn by segno (the papers' QR codes) rather than the qrcode package."""
-        svg = io.BytesIO()
-        segno.make(url).save(svg, kind="svg", xmldecl=False, scale=4)
-        return svg.getvalue().decode()
 
 
 class SocialAccountAdapter(DefaultSocialAccountAdapter):

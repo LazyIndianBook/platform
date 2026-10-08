@@ -1,5 +1,5 @@
-"""/api/v1/parent-consent/<token>/: the parent's link (accounts.views.parent_consent, M9) for a frontend of its own.
-GET says who registered (only to whoever holds the link, as the website's page does); POST is "I agree" and records
+"""/api/v1/parent-consent/<token>/: the parent's link (M9; accounts.views.send_parent_link), for the website's page
+/c/<token>/. GET says who registered (only to whoever holds the link); POST is "I agree" and records
 the consent, verified by the link. An expired or replaced link answers 400 with status "expired" and, for a genuine
 link that is only too old, the student's first name, so that the parent knows whom to ask."""
 

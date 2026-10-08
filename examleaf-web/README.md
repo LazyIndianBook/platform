@@ -1,16 +1,16 @@
 # ExamLeaf web
 
-The website and the REST API behind the ExamLeaf Sample Papers books. The solutions are not printed in the books: every
+The backend of the ExamLeaf Sample Papers website and app: the REST API, allauth.headless, the admin, the webhooks and
+the background tasks. The website's pages are the Next.js frontend's (`../examleaf-frontend/`), on the same origin
+behind Caddy; Django serves no page of its own (see "Paths"). The solutions are not printed in the books: every
 paper carries a QR code that opens `/s/<CODE>/` (e.g. `/s/PHY-E01/`), where a registered student reads the full
 marking-scheme solutions for free and can save the marks scored (or anyone reads them, with
 `SOLUTIONS_REQUIRE_LOGIN=0`: see "Open or registered solutions"). The same site sells the printed books and serves the
 app's revision course. Now: Class 12, Assam board (ASSEB), Physics, Chemistry, Mathematics and Biology, 30 papers each
 (E01–E10 Easy, M01–M10 Medium, H01–H10 Hard).
 
-Django 6.1 · Python 3.14 · server-rendered templates · hand-written CSS (`static/css/`), no build step · fonts and our
-own scripts served by the site, KaTeX too (`static/katex/`); third-party scripts only for Razorpay Checkout (the payment
-page) and Cloudflare Turnstile (where its keys are set) · no trackers, analytics or ads of our own ·
-PostgreSQL, Redis and Celery in production, none of them needed in development.
+Django 6.1 · Python 3.14 · Django REST framework and allauth.headless for the website and the app · no trackers,
+analytics or ads of our own · PostgreSQL, Redis and Celery in production, none of them needed in development.
 
 Documents: [DEPLOYMENT.md](DEPLOYMENT.md) (first deployment on a VPS, every setting, the accounts to open),
 [RUNBOOK.md](RUNBOOK.md) (backups, secrets, data requests, email and SMS failures, the shop, the revision course),
@@ -23,7 +23,7 @@ and the security reviews, [SECURITY_REVIEW.md](SECURITY_REVIEW.md) (phases 1 to 
 - [What it does](#what-it-does)
 - [Set up and run (development)](#set-up-and-run-development) · [Commands](#commands)
 - [Importing the papers](#importing-the-papers) · [QR codes](#qr-codes)
-- [Pages](#pages) · [Open or registered solutions](#open-or-registered-solutions)
+- [Paths](#paths) · [Open or registered solutions](#open-or-registered-solutions)
 - [Sign-in, SMS and email](#sign-in-sms-and-email) · [Roles and permissions](#roles-and-permissions)
 - [Personal data (DPDP Act)](#personal-data-dpdp-act) · [Admin](#admin) · [REST API](#rest-api)
 - [Shop](#shop) · [Revision course](#revision-course) · [Web platform](#web-platform)
@@ -54,8 +54,8 @@ and the security reviews, [SECURITY_REVIEW.md](SECURITY_REVIEW.md) (phases 1 to 
   minutes by default) in short clips (ffmpeg makes HLS for low-end phones), one-mark quiz items, flash cards, a
   day-by-day pass plan, book codes printed in the books, entitlements, and a daily reminder through Firebase Cloud
   Messaging.
-- **Web platform.** Product pictures in AVIF and WebP, a public and a private storage bucket, link previews (Open
-  Graph) and JSON-LD for search engines, an installable web app (manifest, service worker, offline page).
+- **Web platform.** Product pictures in AVIF and WebP, a public and a private storage bucket, a link-preview picture
+  per product (the website's SEO tags, JSON-LD and installable web app are the frontend's).
 - **Messages and protection.** An SMS gateway (MSG91, under India's DLT rules) with a daily cap and a log, email through
   Amazon SES with a suppression list fed by bounce and complaint webhooks, Cloudflare Turnstile on public forms,
   passwords of 10 characters that are not in breaches, rate limits, a strict Content-Security-Policy, error reports
@@ -76,8 +76,11 @@ cp .env.example .env                      # DEBUG=1, SQLite, console email and S
 make migrate                              # migrate + bootstrap_roles (the role groups)
 .venv/bin/python manage.py import_papers --all
 .venv/bin/python manage.py createsuperuser
-make run                                  # http://localhost:8000 · admin at /admin/
+make run                                  # http://localhost:8000: the API; the admin at /admin/ logs in on the website
 ```
+
+The website and its log-in page are the frontend's: to use the admin in development, run Django for the frontend and
+open http://localhost:3000/admin/ (below, "The website (Next.js) in development").
 
 `make help` lists the other tasks (see "Commands"). In development the verification codes, every other email and every
 SMS are printed in the runserver console, and the debug toolbar is on. Invoice PDFs need Pango (`brew install pango` on
@@ -86,9 +89,9 @@ ffmpeg is not installed". To run the whole stack in Docker on a laptop, set `DOM
 and `HEALTH_CHECK_TOKEN` in `.env` and run `make up`; Caddy then uses its own certificate, which
 `docker compose exec caddy caddy trust` makes your browser accept (once).
 
-### The Next.js frontend in development
+### The website (Next.js) in development
 
-The new frontend (`../examleaf-frontend/`, its README) runs on http://localhost:3000 and passes Django's paths (`/api/`,
+The website (`../examleaf-frontend/`, its README) runs on http://localhost:3000 and passes Django's paths (`/api/`,
 `/_allauth/`, `/admin/`, `/static/` …) to Django on port 8100, so the browser sees one origin, as behind Caddy. Run
 Django for it with the frontend's origin and host:
 
@@ -171,7 +174,7 @@ docker-compose stack):
 | `reconcile_payments [--older-than MINUTES]` | ask Razorpay about online orders still awaiting payment and record payments the site never heard about |
 | `import_pincodes <csv>` | replace the PIN code table with India Post's directory from data.gov.in |
 | `export_gstr1 --from DATE --to DATE [--out DIR]` | the accountant's GSTR-1 working files: B2C, HSN summary, credit notes (CSV) |
-| `build_covers` | draw the AVIF and WebP sizes of the four covers, the default link-preview picture and the app icons into `static/img/`; run it after a cover changes and commit the files |
+| `build_covers` | draw the AVIF and WebP sizes of the four covers and the default link-preview picture into `static/img/` (the website shows them); run it after a cover changes and commit the files |
 | `import_chapter_insights [--root] [--subject]` | fill the course's chapters with the Board's marks and the number of past-paper questions from `production/<subject>/` |
 | `build_quiz_items` | make quiz items from the imported one-mark questions whose options and answer parse; keeps edited items |
 | `make_book_codes <PHY\|CHE\|MAT\|BIO\|ALL> <count> --batch NAME [--out FILE]` | make book codes for a print run as a CSV; the only copy of the codes |
@@ -213,64 +216,41 @@ every one with its solution and tags; 0 unmatched.
 
 Set `SITE_URL` to the real domain before exporting codes for print: `export_qr` refuses to write codes for `localhost`
 or a plain-http address (a printed book cannot be corrected), unless you pass `--force` for a test run.
-`/s/phy-e01/` redirects to `/s/PHY-E01/`.
+The website answers `/s/<CODE>/` in any case (`/s/phy-e01/` goes to `/s/PHY-E01/`).
 
-## Pages
+## Paths
 
-| URL | Page |
+The website's pages (the home page, the books, `/s/<CODE>/`, the shop, cart and checkout, the orders, the account
+pages, `/c/<token>/`, `/revision/`, the legal pages, `robots.txt`, `sitemap.xml`, the web app's manifest and service
+worker, and the error pages) are the Next.js frontend's, at the addresses Django's pages had
+(`../docs/design/parity-nextjs.md`). Caddy sends Django only its own paths (the Caddyfile's list, and
+`DJANGO_PREFIXES` in the frontend):
+
+| URL | What |
 |---|---|
-| `/` | the four books, what the shop sells and its delivery fees |
-| `/books/<slug>/` | a book's 30 papers by tier (`physics-2027`, `chemistry-2027`, `mathematics-2027`, `biology-2027`) |
-| `/s/<CODE>/` | QR landing page: register / log in (returning here via `next`) for visitors, the solutions for students; with `SOLUTIONS_REQUIRE_LOGIN=0` the solutions for everyone (saving marks still needs an account) |
-| `/account/signup/` (`/account/register/` redirects), `/account/login/`, `/account/login/code/`, `/account/logout/`, `/account/email/`, `/account/password/change/`, `/account/password/reset/` | django-allauth: sign-up, log-in, log-in with a code, log-out, email addresses, passwords |
-| `/account/confirm-email/`, `/account/login/code/confirm/`, `/account/reauthenticate/` | allauth: where the sign-up and log-in codes are typed; the password prompt before Download my data, Delete my account and an email change |
-| `/account/phone/verify/`, `/account/phone/change/` | confirm or change the mobile number (only where SMS are sent) |
-| `/account/2fa/…` | the authenticator app, recovery codes and passkeys (`/account/2fa/webauthn/`) |
-| `/account/google/login/`, `/account/3rdparty/` | Google sign-in (only with its keys) and the connected accounts |
-| `/account/` | My account: details, change email or password, mobile number and passkeys, order updates by SMS, My record and My orders, the address book, teacher access, the parent's consent link while it is awaited, Download my data, Delete my account |
-| `/account/parent-consent/`, `/account/sms-updates/` | buttons on My account (POST): send the parent's link again; order updates by SMS on or off |
-| `/c/<token>/` | the parent's consent link, by email or SMS (`PARENTAL_CONSENT_MODE=verified`) |
-| `/account/addresses/add/`, `/account/addresses/<id>/` | the address book: add or change a saved address (Delete is a button on My account) |
-| `/account/record/` | My record: attempts, filter by subject and tier, average per tier; add from a solutions page, edit from here |
-| `/account/teacher/` | request teacher access (school, district, subject); staff verify it in the admin |
-| `/account/data/` | Download my data (a JSON file; asks for the password again) |
-| `/account/delete/` | Delete my account (seven days to change one's mind; `/account/delete/cancel/` keeps it) |
-| `/privacy/`, `/terms/`, `/refunds/`, `/shipping/`, `/contact/` | legal pages, edited in the admin (Pages) |
-| `/shop/`, `/shop/<slug>/` | the books on sale (`?kind=` narrows them), with the top categories and collections; a book's page (price, stock, what's inside, details, reviews, a sample paper, related books, add to cart, "email me when it is back") |
-| `/shop/category/<slug>/`, `/shop/collection/<slug>/` | a category (with its sub-categories' books) and a hand-picked collection |
-| `/shop/school-orders/` | the form schools and booksellers use to ask for a quotation |
-| `/shop/pin/<pin>/` | JSON for the address form's autofill: the state and districts of a PIN code |
-| `/shop/<slug>/review/`, `/shop/<slug>/stock-alert/` | POST: a buyer's review; "email me when it is back" (signed-in accounts, to their own address) |
-| `/cart/`, `/cart/add/<id>/`, `/checkout/` | cart (copies, coupon); Add to cart (POST); checkout (log in or a guest email, address, payment choice) |
-| `/checkout/<number>/pay/` | review and pay: Razorpay Checkout, or "place order" for cash on delivery; `…/paid/` takes Checkout's answer, `…/done/` thanks |
-| `/account/orders/`, `/account/orders/<number>/` | My orders; an order's timeline, tracking, invoice and credit notes (`…/invoice/`, `…/credit-notes/<id>/`) and Cancel (also in the browser session that placed it) |
-| `/orders/t/<token>/` | the link in every order email: the order read only, its PDFs (`…/invoice/`, `…/credit-notes/<id>/`) and Cancel while pending or paid |
-| `/orders/lookup/` | Find your order: number and email; a guest order's link is emailed to its address (never shown) |
+| `/api/…` | the REST API ([API.md](API.md)), which the website and the app use; `/api/schema/`, `/api/docs/`, `/api/redoc/` |
+| `/_allauth/browser/v1/…`, `/_allauth/app/v1/…`, `/_allauth/openapi.json` | allauth.headless: log-in, sign-up, codes, passkeys, MFA and account flows as JSON, for the website (same origin) and the app ([API.md](API.md) "Frontend integration guide"); `openapi.yaml` is the same description |
+| `/account/google/login/callback/` | Google's return to the site after its sign-in (only with its keys); the sign-in starts with a POST to `/_allauth/browser/v1/auth/provider/redirect` |
+| `/qr/<CODE>.png` | a published paper's QR code |
 | `/shop/webhooks/razorpay/` | Razorpay's webhooks (signed) |
 | `/shop/media/…` | the public pictures when there are no buckets (only `products/` and `og/`) |
-| `/learn/preview/<clip>/`, `/learn/hls/<token>/<file>` | the staff player for a clip; the HLS playlists, segments and poster behind signed links (for the app) |
-| `/about/`, `/sitemap.xml`, `/robots.txt` | `robots.txt` keeps crawlers out of the admin, account, cart, checkout, order-link (`/orders/`), API and health pages |
-| `/manifest.webmanifest`, `/sw.js`, `/offline/`, `/favicon.ico` | the installable web app: manifest, service worker, offline page; the icon |
+| `/learn/preview/<clip>/`, `/learn/hls/<token>/<file>` | the staff player for a clip (on the admin's layout); the HLS playlists, segments and poster behind signed links |
 | `/health/`, `/health/web/` | health checks (JSON with `Accept: application/json`); through Caddy only with the `X-Health-Token` header; see Production |
-| `/api/…` | the REST API ([API.md](API.md)); `/api/schema/`, `/api/docs/`, `/api/redoc/` |
-| `/_allauth/app/v1/…`, `/_allauth/browser/v1/…`, `/_allauth/openapi.json` | allauth.headless: allauth's log-in, sign-up, code, passkey and account flows as JSON, for the app and for a web frontend on the same origin ([API.md](API.md) "Frontend integration guide"); `openapi.yaml` is the same description |
 | `/anymail/<provider>/tracking/` | the email provider's bounce and complaint webhooks; exist only while `ANYMAIL_WEBHOOK_SECRET` is set |
-| `/admin/` | the admin (log in with the site's log-in) |
+| `/admin/` | the admin; signed out it sends to the website's log-in (`LOGIN_URL`, then back with `?next=`) |
+| `/static/…` | the admin's and the staff player's files, the fonts of the invoices and the book covers the website shows |
 
-The top bar is one row at every width: on a small screen the name, the cart and a **Menu** button that opens the other
-links; the button is the label of a hidden checkbox, so the menu works without JavaScript (`static/js/site.js` only adds
-the keyboard: Enter and Escape). Every page has its own title and description, and the private ones (account, cart,
-checkout, orders, log-in) are sent with `noindex`, and what a signed-in user sees carries `Cache-Control: no-store`
-(after Log out on a shared computer the Back button shows nothing; the solutions pages and the cached catalogue keep
-their own rules). The error pages (`templates/400.html`, `403.html`, `403_csrf.html`, `404.html`, `429.html`,
-`500.html`) are branded; the 400 and 500 pages need no layout, static file or database (the 500 page shows the request
-ID as a reference for support), and under `/api/` the same errors are JSON.
+What a signed-in user gets from Django carries `Cache-Control: no-store` unless the view sets its own (the API's
+solutions and cached catalogue). Django's error pages (`templates/400.html`, `403.html`, `403_csrf.html`, `404.html`,
+`429.html`, `500.html`) are plain: they answer only Django's own paths (the 400 and 500 pages need no static file or
+database; the 500 page shows the request ID as a reference for support), and under `/api/` the same errors are JSON.
 
 Registration asks for full name, email, password, class, board, district (optional) and date of birth, and a consent box
 (agreement to the privacy notice, linked beside it) that everyone must tick; its time is stored in `consent_at` and the
 event in a `ConsentRecord`. Under 18 it also requires a parent's or guardian's name and phone or email, and the parent
 ticks the box; for adults no parent data is asked, validated or kept. The email address is confirmed with a code typed
-on the next page (`/account/confirm-email/`), then the student lands back on the paper whose QR code was scanned. With
+on the next page (the website's `/account/verify-email/`), then the student lands back on the paper whose QR code was
+scanned. With
 `PARENTAL_CONSENT_MODE=declared` the consent is self-declared: nothing verifies that the person who ticked it is the
 parent (see RUNBOOK.md "Parental consent"). With `verified` the parent gets a link (valid 7 days) by email, or by SMS
 when the contact is a mobile number, once the student has confirmed their own address (at once after Google); the
@@ -474,8 +454,8 @@ endpoint, request and answer examples, the error format, rate limits and the ver
 ## Shop
 
 The printed books, sold online across India, and the store around them: `shop/` (models; `services.py`, every flow;
-`payments.py`, Razorpay; `cart.py`; `tasks.py`; `invoices.py`; `seo.py`), templates in `templates/shop/`, static
-`shop/static/shop/checkout.js`.
+`payments.py`, Razorpay; `cart.py`; `tasks.py`; `invoices.py`), its API in `api/shop.py`; templates only for the
+emails (`templates/shop/email/`), the PDFs (`templates/shop/invoice.html` …) and the admin (`templates/shop/admin/`).
 
 ### Set up
 
@@ -650,25 +630,18 @@ separate project.
 ## Web platform
 
 - **Pictures and storage.** A product's cover and pictures are saved with AVIF and WebP sizes (django-pictures, queued
-  after the save and made by the worker, or in the request when the broker is down) and shown with `<picture>`; the four
-  covers of the home and book pages have copies committed in `static/img/` (`build_covers`). Two S3-compatible buckets
+  after the save and made by the worker, or in the request when the broker is down) and given by the API for the
+  website's `<picture>`; the four book covers have copies committed in `static/img/` (`build_covers`). Two S3-compatible buckets
   through django-storages (Cloudflare R2 is the pick; AWS S3 Mumbai may hold the private one): the private one for
   invoices, credit notes, quotations, answer sheets and the course's videos (links signed for 5 minutes; the course's
   videos for 10), the public one for product pictures and link-preview pictures on `PUBLIC_MEDIA_DOMAIN` (cached a year,
   immutable). Without `MEDIA_BUCKET` both are the `media/` folder and the public files are served under `/shop/media/`.
-- **Search engines and link previews.** A canonical link and Open Graph and Twitter card tags on every page
-  (`templates/_head_meta.html`); a link-preview picture per product (1200×630, made on save by the worker); JSON-LD for
-  products (Product and Book: price, stock, ISBN, shipping, returns, the rating from approved reviews), breadcrumbs and
-  the publisher; a sitemap and `robots.txt`.
-- **Installable web app.** `/manifest.webmanifest`, icons drawn by `build_covers`, a service worker that keeps only the
-  offline page and the static files of the release (never a page, so nothing of an account outlives a log-out),
-  registered from `static/js/site.js`.
-- **Fonts and scripts** come from the site: Poppins and Hind Siliguri (OFL, in `static/fonts/`), `static/js/`, hls.js
-  1.7.3 for the staff player (`static/learn/`, with its licence), KaTeX 0.19.0 with its fonts (`static/katex/`, with its
-  licence, byte for byte the npm release); the payment page loads Razorpay's Checkout script (Turnstile's too, where its
-  keys are set).
-- **Redesign.** Stage 1 (fonts, the stylesheet, the base layout, the public pages) is in; stage 2 (the account, allauth
-  and shop templates, emails, PDFs, the admin theme, the staff player) is in progress (CHANGELOG.md).
+- **Link previews.** A link-preview picture per product (1200×630, made on save by the worker), with the product's
+  search-engine title and description, in the API (`og_image`, `meta_title`, `meta_description`); the website writes
+  the tags, JSON-LD, the sitemap and `robots.txt`, and is the installable web app.
+- **Fonts and scripts.** Poppins and Hind Siliguri (OFL, in `static/fonts/`) for the invoice and quotation PDFs, hls.js
+  1.7.3 for the staff player (`static/learn/`, with its licence); the website has its own copies of the fonts and of
+  KaTeX.
 
 ## Tests
 
@@ -698,13 +671,14 @@ weekly pull requests for the pip requirements and the GitHub Actions.
 
 What the test modules cover:
 
-- **accounts/**: `tests.py` sign-up (parent details and consent under 18, none kept for adults) and django-axes;
+- **accounts/** (the website's sign-in through allauth.headless, the account pages through the API): `tests.py`
+  sign-up (parent details and consent under 18, none kept for adults) and django-axes;
   `test_roles.py` role permissions, `bootstrap_roles`, the admin's role actions, teacher requests; `test_privacy.py` and
   `test_export_and_signup.py` Download my data, deletion and the purge, email change, an existing address signing up,
   double clicks; `test_security.py` staff second factor, 8-hour sessions, exports for ADMIN only, password rules, marks
   waiting for a parent's consent; `test_phone.py` mobile numbers, log-in by SMS code, limits; `test_passkeys.py`;
-  `test_google.py`; `test_parent_sms.py`; `test_turnstile.py`; `test_codes.py` codes per address and day, three tries a
-  code also when they come together; `test_parent_link.py` the parent's link with hostile input, its limits and when it
+  `test_google.py` the redirect to Google and its callback through headless (Google mocked); `test_parent_sms.py`;
+  `test_turnstile.py`; `test_codes.py` codes per address and day, three tries a code also when they come together; `test_parent_link.py` the parent's link with hostile input, its limits and when it
   goes; `test_review_lows.py` API log-ins of staff and of accounts with a second step, staff passkeys, notices when a
   number moves, deletion and Download my data.
 - **api/**: `tests.py` the public catalogue, the solutions gate, sign-up and the JWT cycle, attempts, the profile, data
@@ -712,12 +686,10 @@ What the test modules cover:
   `test_security.py` limits per account, wrong passwords, sort fields, cache keys; `test_headless.py` allauth.headless
   under the site's rules and the exchange for the JWT pair; `test_contract.py` `config/`, the legal pages, teacher
   access, the parent's link again, SMS updates.
-- **content/, pages/, practice/**: `content/tests.py` the import of the four subjects (30 papers each, every solution
-  matched, re-import changes nothing), the Markdown renderer, the QR landing page and its caching and CSP, `export_qr`;
-  `content/test_redesign.py` the redesigned templates (stage 2 is in progress, so it grows); `content/test_craft.py` the
-  size of the CSS, one H1 and the live region on every page, empty states, field errors read to screen readers;
-  `pages/tests.py` the legal pages, their history and placeholders; `practice/tests.py` recording, editing and My
-  record.
+- **content/, pages/**: `content/tests.py` the import of the four subjects (30 papers each, every solution matched,
+  re-import changes nothing), the Markdown renderer, the QR code and who reads the solutions, `export_qr`;
+  `content/test_emails.py` every email's HTML part; `pages/tests.py` the legal pages, their history and placeholders
+  (attempts and My record: `api/tests.py`).
 - **learn/**: `tests.py` answers by kind, publishing, the admin pages; `test_access.py` entitlements, free previews,
   book codes, digital products opening and closing the course; `test_api.py` the course endpoints, locks, signed links,
   quiz, plan, redeeming and its limits, devices; `test_imports.py` chapter insights and quiz items; `test_media.py` the
@@ -728,10 +700,10 @@ What the test modules cover:
 - **ops/**: `tests.py` health checks, the site with Redis down, request IDs, email fallback, the dashboard,
   `upload_backup`, Sentry scrubbing; `test_resilience.py` a broker that never answers; `test_security.py` the security
   review's operations fixes (health results, sessions, the backup script, development settings refused on a server);
-  `test_errors.py` the branded error pages, `robots.txt`, titles and descriptions; `test_copy.py` the site's words;
+  `test_errors.py` the error pages (plain, JSON under `/api/`), what the browser keeps; `test_copy.py` the emails' words;
   `test_admin_pages.py` every admin page opens; `test_sms.py` the SMS gateway and its cap; `test_sms_limits.py` the
   limits per number, account and purpose; `test_suppression.py` bounces and complaints; `test_no_server_errors.py` no
-  address of the site or the API answers an empty or odd request with a server error.
+  address of Django or the API answers an empty or odd request with a server error.
 - **shop/** (helpers in `shop/factories.py`, `shop/conftest.py`): `test_money.py` rounding, coupons, shipping zones;
   `test_orders.py` checkout, stock and bundles, cash on delivery, state machines, cancellation, refunds, invoices and
   credit notes, guest links, the daily clean-up; `test_razorpay.py` Checkout's signature, webhooks, automatic refunds;
@@ -757,15 +729,16 @@ See [DEPLOYMENT.md](DEPLOYMENT.md). Settings come from the environment (`.env.ex
   60 second timeout, WhiteNoise for static files, non-root), the Celery worker, a second worker for the clips
   (`media-worker`: queue `media`, one video at a time; it gets only the database, the queue, the buckets and
   `SECRET_KEY` from `.env`, has no Razorpay, SMS, email, Google, Sentry or Firebase secret, and drops all Linux
-  capabilities), beat, and Caddy (https with automatic Let's Encrypt certificates, a request ID per request, bodies over
-  10 MB refused, a client has 10 seconds for its headers and 5 minutes for its body, and Caddy reads the body before
-  gunicorn sees the request).
+  capabilities), beat, the website (`frontend`, the Next.js server of `../examleaf-frontend/`), and Caddy (https with
+  automatic Let's Encrypt certificates; Django's paths to `web`, every other path to the website, `PAGES_UPSTREAM`,
+  `frontend:3000` by default; a request ID per request, bodies over 10 MB refused, a client has 10 seconds for its
+  headers and 5 minutes for its body, and Caddy reads the body before gunicorn sees the request).
 - **https and the CSP.** With `DEBUG=0` the session and CSRF cookies are `Secure`, `SECURE_SSL_REDIRECT` is on and HSTS
   is sent for a year; `SECURE_HSTS_INCLUDE_SUBDOMAINS` and `SECURE_HSTS_PRELOAD` stay off until every subdomain is on
   https, which is why `check --deploy` prints W005 and W021 (and nothing else with a real email backend). A
-  Content-Security-Policy allows scripts, styles and fonts only from the site (KaTeX is in `static/katex/`), and inline
-  styles (KaTeX and the admin need them) but never inline scripts; Razorpay's hosts only on the payment page; Cloudflare's Turnstile hosts and
-  Google's address for form posts only with their keys; the public media domain for images; the private bucket's own
+  Content-Security-Policy on Django's pages (the admin, the staff player, the API docs; the website sends its own)
+  allows scripts, styles and fonts only from the site, and inline styles (the admin needs them) but never inline
+  scripts; the public media domain for images; the private bucket's own
   address only on the staff player and the clip admin pages (the video, the direct upload); in development it is
   report-only. django-axes keeps only failed log-ins (address and browser, for the 15-minute lock-out), and beat clears
   them daily.
@@ -867,8 +840,8 @@ Running without surprises:
 
 Built, phase by phase in CHANGELOG.md: the site, production setup and roles, the shop, the REST API, security, sign-in
 and communications (phase 5 A), storage, pictures, search engines, the web app and commerce extras (5 B), the revision
-course (6 D), the store (6 E) and the API contract for frontends (phase 7). In progress: the redesign's stage 2
-(CHANGELOG.md). Open:
+course (6 D), the store (6 E), the API contract for frontends (phase 7) and the website in Next.js (phase 8), after
+which Django's own pages were removed. Open:
 
 - **Founder decisions** (`../docs/examleaf-phase6-plan.md`): the price of the Revision Pass and whether book buyers get
   it free (book codes support both); where the exam date comes from until ASSEB publishes a timetable (students enter it
@@ -885,7 +858,7 @@ Pinned in `requirements.txt` (what the Docker image installs) and `requirements-
 
 | Library | Purpose |
 |---|---|
-| Django 6.1 | the framework: ORM, admin, auth, groups and permissions, forms, generic views, messages, sitemaps, mailers, security middleware, CSP |
+| Django 6.1 | the framework: ORM, admin, auth, groups and permissions, forms, messages, mailers, security middleware, CSP |
 | django-environ | settings from environment variables / `.env`: `DATABASE_URL`, `CACHE_URL`, lists and booleans |
 | whitenoise | serves static files, hashed and compressed, in production |
 | gunicorn | WSGI server for production |
@@ -915,11 +888,10 @@ Pinned in `requirements.txt` (what the Docker image installs) and `requirements-
 | django-model-utils | `TimeStampedModel` (created/modified) and `StatusModel` for the answer-sheet status |
 | django-simple-history | audit trail of edits to books, papers, questions, solutions, legal pages, orders, payments, order notes and reviews (an admin History button for all but payments and order notes) |
 | django-taggit | chapter and textbook-section tags on questions; tags on clips, flash cards and quiz items |
-| django-widget-tweaks | template-level attributes of form fields (the field template, the sign-in pages, checkout, the My record filter) |
 | django-phonenumber-field (phonenumberslite) | phone fields and validation of Indian numbers (region IN): the parent's contact, delivery addresses (website and API) |
 | django-import-export | the admin's CSV exports (users, attempts, consent records), orders as CSV and XLSX, product and category import and export |
 | django-filter | the subject/tier filter on My record and the API's list filters |
-| django-qr-code (segno) | generates the QR images (PNG for `/qr/<code>.png`, PNG and SVG for `export_qr`); segno also draws the authenticator app's QR code |
+| django-qr-code (segno) | generates the QR images (PNG for `/qr/<code>.png`, PNG and SVG for `export_qr`) |
 | django-storages[s3] (boto3) | the two S3-compatible media buckets (private and public) and the backup bucket |
 | django-pictures | AVIF and WebP sizes of the product pictures, made by Celery, and the `<picture>` tag |
 | django-treebeard | the shop's category tree (materialised path) and its admin |
@@ -934,7 +906,6 @@ Pinned in `requirements.txt` (what the Docker image installs) and `requirements-
 | ruff | lint and formatting (`pyproject.toml`) |
 | pytest, pytest-django, pytest-cov, factory_boy | tests, coverage and test data (development and CI; requirements-dev.txt, not in the image) |
 | django-debug-toolbar | development only, when `DEBUG=1` (requirements-dev.txt) |
-| KaTeX 0.19.0 (vendored in `static/katex/` with its fonts and licence) | renders the `$…$` maths in the browser |
 | hls.js 1.7.3 (vendored in `static/learn/`) | plays the clips in the staff player |
 | Poppins, Hind Siliguri (in `static/fonts/`) | the site's fonts, subsets served by the site (SIL Open Font Licence) |
 | ffmpeg (a system package in the image) | makes the clips into HLS |

@@ -6,7 +6,6 @@ import re
 import pytest
 from django.core import mail
 from django.core.cache import cache
-from django.urls import reverse
 from rest_framework.test import APIClient
 
 from accounts.models import User
@@ -71,11 +70,11 @@ def test_the_sms_carries_a_student_for_a_name_that_is_not_one(verified, client, 
 def test_one_parent_address_gets_three_links_a_day_and_the_page_says_when_none_went(verified, client):
     sign_up(client, parent_contact="anita@example.com")
     confirm_own_address(client)  # the first link
-    student = User.objects.get()
+    student, again = User.objects.get(), "/api/v1/me/parent-consent/"  # My account's "Send the link again"
     for _ in range(2):
-        page = client.post(reverse("parent_consent_resend"), {"parent_contact": "anita@example.com"}, follow=True)
-        assert "We have sent anita@example.com a link" in page.text
+        response = client.post(again, {"parent_contact": "anita@example.com"}, content_type="application/json")
+        assert "We have sent anita@example.com a link" in response.text
         cache.delete(f"accounts:parent-link:{student.pk}")  # past the ten minutes between two links
-    page = client.post(reverse("parent_consent_resend"), {"parent_contact": "anita@example.com"}, follow=True)
-    assert "The link was not sent" in page.text and "We have sent anita@example.com" not in page.text
+    response = client.post(again, {"parent_contact": "anita@example.com"}, content_type="application/json")
+    assert "The link was not sent" in response.text and "We have sent anita@example.com" not in response.text
     assert len([m for m in mail.outbox if m.to == ["anita@example.com"]]) == 3

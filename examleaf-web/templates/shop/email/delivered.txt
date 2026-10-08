@@ -3,9 +3,9 @@
 {{ item.title }}: {{ site_url }}{{ product.book.get_absolute_url }}
 Scan the QR code on each paper for its solutions.
 {% endif %}{% if product.has_digital %}
-{{ item.title }}: the revision course, in the ExamLeaf app: {{ site_url }}{% url 'revision' %}
+{{ item.title }}: the revision course, in the ExamLeaf app: {{ site_url }}/revision/
 {% endif %}{% endwith %}{% endfor %}
 Something wrong with a book (damaged, pages missing, not what you ordered)? Tell us as our Refund and Cancellation
-Policy explains and we replace it or refund it: {{ site_url }}{% url 'refunds' %}
+Policy explains and we replace it or refund it: {{ site_url }}/refunds/
 
 ExamLeaf{% endautoescape %}

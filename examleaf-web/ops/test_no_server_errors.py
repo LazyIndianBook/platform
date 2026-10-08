@@ -1,4 +1,4 @@
-"""No address of the site answers with a server error to an empty GET or POST (one visitor, one signed-in student), nor
+"""No address of Django answers with a server error to an empty GET or POST (one visitor, one signed-in student), nor
 any address of the API to a GET, POST, PUT, PATCH or DELETE with an empty or odd JSON body, signed in or not. The
 sample values are made from each address's converters (ids, slugs, order numbers, a name that climbs). Found by this
 crawl: Google's pages without its keys, a PostgreSQL-only crash on a NUL byte."""
@@ -66,7 +66,7 @@ def test_no_page_answers_with_a_server_error(student):
     visitor, signed_in = Client(raise_request_exception=False), Client(raise_request_exception=False)
     signed_in.force_login(student)
     failures, urls = [], addresses(only_api=False)
-    assert len(urls) > 100  # the crawl finds the site's addresses
+    assert len(urls) > 10  # the crawl finds Django's own addresses (the website's pages are the frontend's)
     for url in urls:
         for who, client in (("visitor", visitor), ("student", signed_in)):
             for method in (client.get, client.post):

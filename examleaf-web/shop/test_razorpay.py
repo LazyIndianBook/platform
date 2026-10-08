@@ -1,29 +1,23 @@
-"""Razorpay: the return from Checkout (signature), the webhooks (signature, duplicates, order of arrival), the
-automatic refunds, and an unreachable Razorpay. The SDK's network calls are mocked (conftest.rzp)."""
+"""Razorpay: the return from Checkout (signature; the website's pay page sends it to the API), the webhooks (signature,
+duplicates, order of arrival), the automatic refunds, and an unreachable Razorpay. The SDK's network calls are mocked
+(conftest.rzp)."""
 
 import time
 
 import pytest
 import requests
 from django.core import mail
-from django.urls import reverse
 
 from shop import payments
 from shop.factories import SECRET, ProductFactory, captured, make_order, post_webhook, sign
 from shop.models import Order, Payment, Refund, WebhookEvent
 from shop.services import cancel_order
-from shop.views import ORDERS_KEY
 
 pytestmark = pytest.mark.django_db
 
 
-def as_customer(client, order):
-    session = client.session
-    session[ORDERS_KEY] = [order.number]
-    session.save()
-
-
 def return_from_checkout(client, order, signature=None, payment_id=None):
+    """Checkout's success callback, as the website's pay page confirms it: by the order's link (a guest's)."""
     payment = order.payments.get()
     payment_id = payment_id or f"pay_{order.pk}"
     data = {
@@ -31,17 +25,16 @@ def return_from_checkout(client, order, signature=None, payment_id=None):
         "razorpay_payment_id": payment_id,
         "razorpay_signature": signature or sign(f"{payment.razorpay_order_id}|{payment_id}", SECRET),
     }
-    return client.post(reverse("shop:pay_verify", args=[order.number]), data)
+    return client.post(f"/api/v1/orders/t/{order.token}/payment/confirm/", data, "application/json")
 
 
 def test_return_with_a_good_signature_pays_the_order_once(client, rzp, commit):
     product = ProductFactory(stock=5)
     order = make_order((product, 2))
-    as_customer(client, order)
     rzp.payment.fetch.return_value = captured(order)
     with commit():
         response = return_from_checkout(client, order)
-    assert response.url == reverse("shop:done", args=[order.number])
+    assert response.status_code == 200 and response.json()["status"] == "paid"
     order.refresh_from_db()
     product.refresh_from_db()
     assert order.status == Order.Status.PAID and order.placed_at and product.stock == 3
@@ -57,9 +50,8 @@ def test_return_with_a_good_signature_pays_the_order_once(client, rzp, commit):
 
 def test_a_wrong_signature_is_refused(client, rzp):
     order = make_order((ProductFactory(), 1))
-    as_customer(client, order)
     response = return_from_checkout(client, order, signature="0" * 64)
-    assert response.url == reverse("shop:pay", args=[order.number])
+    assert response.status_code == 400
     assert order.payments.get().status == Payment.Status.CREATED and not rzp.payment.fetch.called
     order.refresh_from_db()
     assert order.status == Order.Status.PENDING
@@ -77,25 +69,22 @@ def test_webhooks_need_the_right_signature_and_a_secret(client, rzp, settings):
 def test_webhook_before_the_redirect(client, rzp, commit):
     product = ProductFactory(stock=1)
     order = make_order((product, 1))
-    as_customer(client, order)
     with commit():
         post_webhook(client, "payment.captured", captured(order))
     order.refresh_from_db()
     assert order.status == Order.Status.PAID
     rzp.payment.fetch.return_value = captured(order)
     with commit():  # the customer's browser comes back afterwards
-        assert return_from_checkout(client, order).url == reverse("shop:done", args=[order.number])
+        assert return_from_checkout(client, order).json()["status"] == "paid"
     product.refresh_from_db()
     assert product.stock == 0 and len(mail.outbox) == 1 and not Refund.objects.exists()
 
 
 def test_redirect_waits_for_the_webhook_when_razorpay_cannot_be_asked(client, rzp, commit):
     order = make_order((ProductFactory(), 1))
-    as_customer(client, order)
     rzp.payment.fetch.side_effect = requests.ConnectionError
     response = return_from_checkout(client, order)
-    assert response.url == reverse("shop:done", args=[order.number])
-    assert "We are confirming your payment" in client.get(response.url).content.decode()
+    assert response.status_code == 200 and response.json()["status"] == "pending"  # "we are confirming your payment"
     assert order.payments.get().status == Payment.Status.AUTHORIZED
     with commit():
         post_webhook(client, "payment.captured", captured(order))
@@ -105,7 +94,6 @@ def test_redirect_waits_for_the_webhook_when_razorpay_cannot_be_asked(client, rz
 
 def test_an_authorized_payment_is_captured_on_return(client, rzp, commit):
     order = make_order((ProductFactory(), 1))
-    as_customer(client, order)
     rzp.payment.fetch.return_value = captured(order, status="authorized")
     rzp.payment.capture.return_value = captured(order)
     with commit():
@@ -188,26 +176,13 @@ def test_refund_finished_by_the_webhook(client, rzp, commit):
 def test_unreachable_razorpay_keeps_the_order_and_offers_a_retry(client, rzp):
     order = make_order((ProductFactory(), 1))
     Payment.objects.filter(order=order).update(razorpay_order_id=None)
-    as_customer(client, order)
+    pay = f"/api/v1/orders/t/{order.token}/payment/"  # the website's pay page asks for Checkout's options
     rzp.order.create.side_effect = requests.Timeout
-    page = client.get(reverse("shop:pay", args=[order.number])).content.decode()
-    assert "could not be reached" in page and "Try again" in page and 'id="razorpay-options"' not in page
+    response = client.post(pay)
+    assert response.status_code == 503 and "could not be reached" in response.json()["detail"]
     rzp.order.create.side_effect = lambda data, **kw: {"id": "order_R", **data}
-    response = client.get(reverse("shop:pay", args=[order.number]))
-    assert response.context["checkout"]["order_id"] == "order_R" == order.payments.get().razorpay_order_id
+    assert client.post(pay).json()["order_id"] == "order_R" == order.payments.get().razorpay_order_id
     assert rzp.order.create.call_args.args[0]["amount"] == 29900
-
-
-def test_razorpay_is_allowed_by_the_csp_on_the_payment_page_only(client, rzp, settings):
-    settings.SECURE_CSP, settings.SECURE_CSP_REPORT_ONLY = settings.CONTENT_SECURITY_POLICY, {}
-    order = make_order((ProductFactory(), 1))
-    as_customer(client, order)
-    response = client.get(reverse("shop:pay", args=[order.number]))
-    policy = response.headers["Content-Security-Policy"]
-    assert "script-src 'self' https://checkout.razorpay.com" in policy
-    assert "frame-src 'self' https://api.razorpay.com" in policy and "lumberjack.razorpay.com" in policy
-    assert response.headers["Cross-Origin-Opener-Policy"] == "same-origin-allow-popups"
-    assert "razorpay" not in client.get(reverse("shop:catalogue")).headers["Content-Security-Policy"]
 
 
 def test_each_webhook_is_handled_once_and_old_ones_are_refused(client, rzp, commit):

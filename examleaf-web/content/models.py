@@ -1,6 +1,5 @@
 from django.conf import settings
 from django.db import models
-from django.urls import reverse
 from django.utils.functional import cached_property
 from qr_code.qrcode.maker import make_qr_code_image
 from qr_code.qrcode.utils import QRCodeOptions
@@ -49,7 +48,7 @@ class Book(models.Model):
         return self.title
 
     def get_absolute_url(self):
-        return reverse("book", args=[self.slug])
+        return f"/books/{self.slug}/"  # the website's page (examleaf-frontend)
 
     @cached_property
     def sample(self):
@@ -96,7 +95,7 @@ class Paper(models.Model):
         return self.code
 
     def get_absolute_url(self):
-        return reverse("paper", args=[self.code])
+        return f"/s/{self.code}/"  # the website's solutions page (examleaf-frontend)
 
     @property
     def short_code(self):  # E-01, as printed in the book

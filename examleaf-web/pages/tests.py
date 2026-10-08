@@ -1,4 +1,5 @@
 import pytest
+from django.core.cache import cache
 from django.urls import reverse
 
 from accounts.factories import UserFactory
@@ -7,14 +8,16 @@ from pages.models import SLUGS, Page
 pytestmark = pytest.mark.django_db
 
 
-def test_every_legal_page_is_live_and_linked_from_the_footer(client):
-    home = client.get(reverse("home")).text
+def html(client, slug):
+    """What the website's page /<slug>/ shows: the API's HTML of the page."""
+    return client.get(f"/api/v1/pages/{slug}/").json()["html"]
+
+
+def test_every_legal_page_is_live(client):
     for slug in SLUGS:
-        page = Page.objects.get(slug=slug)
-        assert f'href="{reverse(slug)}"' in home
-        assert page.title in client.get(reverse(slug)).text
-    assert "ExamLeaf LLP" in Page.objects.get(slug="contact").body_md and "[GSTIN]" in client.get("/contact/").text
-    assert "/refunds/" in client.get("/sitemap.xml").text
+        data = client.get(f"/api/v1/pages/{slug}/").json()
+        assert data["title"] == Page.objects.get(slug=slug).title and data["web_url"] == f"http://testserver/{slug}/"
+    assert "ExamLeaf LLP" in Page.objects.get(slug="contact").body_md and "[GSTIN]" in html(client, "contact")
 
 
 def test_staff_edit_a_page_in_the_admin_and_every_version_is_kept(client):
@@ -25,7 +28,7 @@ def test_staff_edit_a_page_in_the_admin_and_every_version_is_kept(client):
         {"title": page.title, "version": "2026-11-01", "body_md": "We deliver **across India**."},
     )
     assert response.status_code == 302
-    assert "<strong>across India</strong>" in client.get("/shipping/").text
+    assert "<strong>across India</strong>" in html(client, "shipping")
     assert page.history.count() == 3  # the draft, the shop's rules (migration 0003) and the edit (History button)
     assert client.get(reverse("admin:pages_page_add")).status_code == 403  # pages are fixed: edited, not added
 
@@ -33,9 +36,9 @@ def test_staff_edit_a_page_in_the_admin_and_every_version_is_kept(client):
 def test_placeholders_are_marked_on_the_page_and_counted_in_the_pages_list_and_on_the_dashboard(client, settings):
     contact = Page.objects.get(slug="contact")
     assert contact.placeholders[:3] == ["[registered address]", "[GSTIN]", "[email]"]
-    html = client.get("/contact/").text
-    assert '<mark class="placeholder">[email]</mark>' in html and "[10 am to 6 pm]</mark>" in html
-    assert 'href="/shipping/"' in html and "[Shipping Policy]" not in html  # a link's text is not a placeholder
+    page = html(client, "contact")
+    assert '<mark class="placeholder">[email]</mark>' in page and "[10 am to 6 pm]</mark>" in page
+    assert 'href="/shipping/"' in page and "[Shipping Policy]" not in page  # a link's text is not a placeholder
     client.force_login(UserFactory(is_staff=True, is_superuser=True))
     assert "5 legal pages with [placeholders] to fill in" in client.get(reverse("admin:index")).text
     listing = client.get(reverse("admin:pages_page_changelist")).text
@@ -43,29 +46,9 @@ def test_placeholders_are_marked_on_the_page_and_counted_in_the_pages_list_and_o
     contact.body_md = "Write to **orders@examleaf.in**. See the [Shipping Policy](/shipping/)."
     contact.save()
     settings.SHOP_SELLER = {**settings.SHOP_SELLER, "email": "orders@examleaf.in"}  # the form's address too
-    assert "placeholder" not in client.get("/contact/").text
+    cache.clear()  # the API keeps a page 15 minutes
+    assert "placeholder" not in html(client, "contact")
     assert "4 legal pages with [placeholders]" in client.get(reverse("admin:index")).text
-
-
-def test_the_contact_form_emails_support_and_keeps_nothing(client, settings):
-    from django.core import mail
-
-    page = client.get("/contact/").text  # the seller's address is still a [placeholder]: no form to send nowhere
-    assert 'name="message"' not in page and "[SUPPORT_EMAIL or SELLER_EMAIL]" in page
-    settings.SUPPORT_EMAIL = "help@examleaf.in"
-    assert 'name="message"' in client.get("/contact/").text
-    page = client.post("/contact/", {"name": "", "email": "rahul@", "message": ""}).text
-    assert "Tell us your name." in page and "Enter an email address." in page and "Write your message." in page
-    client.post("/contact/", {"name": "Bot", "email": "bot@example.com", "message": "Buy", "website": "spam"})
-    assert not mail.outbox  # the honeypot: thanked, nothing sent
-    data = {"name": "Rahul Das", "email": "rahul@example.com", "message": "Order EL-2026-000123 has not come."}
-    assert client.post("/contact/", data).url == "/contact/"
-    [sent] = mail.outbox
-    assert sent.to == ["help@examleaf.in"] and sent.extra_headers["Reply-To"] == "rahul@example.com"
-    assert sent.subject == "[ExamLeaf] Contact form: Rahul Das" and data["message"] in sent.body
-    for _ in range(3):
-        client.post("/contact/", data)
-    assert client.post("/contact/", data).status_code == 429  # five an hour from one address
 
 
 def test_the_privacy_draft_names_what_the_code_keeps_and_for_how_long():
