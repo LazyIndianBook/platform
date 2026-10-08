@@ -56,6 +56,7 @@ def test_free_previews(settings):
 def test_book_codes_are_kept_hashed_and_redeemed_once(tmp_path, settings):
     physics = make_course(chapters=1)
     out = tmp_path / "codes.csv"
+    settings.LEARN_CODE_SECRET = ""  # CI sets the variable; the refusal below must not depend on the environment
     with pytest.raises(CommandError, match="LEARN_CODE_SECRET"):  # never printed under the key in the source (L7)
         call_command("make_book_codes", "phy", 3, batch="PHY-2027-1", out=str(out), stderr=io.StringIO())
     settings.LEARN_CODE_SECRET = "a-test-key-for-the-book-codes"
