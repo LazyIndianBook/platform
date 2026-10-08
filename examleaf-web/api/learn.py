@@ -4,7 +4,7 @@ quiz, flash cards, progress, the plan, book codes and settings need a signed-in 
 from datetime import timedelta
 
 from django.conf import settings
-from django.db.models import Count, Min, Q, Sum
+from django.db.models import Count, F, Min, Q, Sum
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_field
@@ -27,7 +27,7 @@ from learn.models import (
     QuizItem,
     Revision,
 )
-from learn.views import playback
+from learn.views import free_clips, playback
 
 from .views import VerifiedEmail
 
@@ -54,7 +54,7 @@ class ParentConfirmed(permissions.BasePermission):
 
 STUDENT = [permissions.IsAuthenticated, VerifiedEmail, ParentConfirmed]
 LOCKED = "Unlock this subject with the code printed in your book."
-READY = Q(revision__clips__processing=Clip.Processing.READY)
+READY = Q(revision__status=Revision.Status.PUBLISHED, revision__clips__processing=Clip.Processing.READY)
 
 
 @extend_schema_field(OpenApiTypes.STR)
@@ -70,25 +70,41 @@ class Html(serializers.Field):
 
 class ChapterSerializer(serializers.ModelSerializer):
     must_do_html = Html("must_do")
+    has_revision = serializers.SerializerMethodField(help_text="its revision is published; false: coming soon")
+    revision_status = serializers.SerializerMethodField()
     clips = serializers.IntegerField(source="clip_count", read_only=True, help_text="processed clips")
     minutes = serializers.SerializerMethodField()
+    free_preview = serializers.SerializerMethodField(
+        help_text="the id of its free clip (learn/clips/<id>/, for anyone signed in); null: none"
+    )
     entitled = serializers.SerializerMethodField(help_text="every clip, card and quiz item is open to the user")
     free_cards = serializers.SerializerMethodField(help_text="its flash cards are a free preview")
     progress = serializers.SerializerMethodField(help_text="% of its clips watched to the end; null signed out")
 
     class Meta:
         model = Chapter
-        fields = ["id", "subject", "number", "title", "weight", "frequency", "must_do", "must_do_html", "clips"]
-        fields += ["minutes", "entitled", "free_cards", "progress"]
+        fields = ["id", "subject", "number", "title", "weight", "frequency", "must_do", "must_do_html", "has_revision"]
+        fields += ["revision_status", "clips", "minutes", "free_preview", "entitled", "free_cards", "progress"]
+
+    def get_has_revision(self, chapter) -> bool:
+        return chapter.revision_state == Revision.Status.PUBLISHED
+
+    @extend_schema_field(serializers.ChoiceField(choices=["published", "none"]))
+    def get_revision_status(self, chapter):
+        return "published" if self.get_has_revision(chapter) else "none"  # a draft is not shown
 
     def get_minutes(self, chapter) -> int:
         return round((chapter.seconds or 0) / 60)
+
+    def get_free_preview(self, chapter) -> int | None:
+        return self.context["free"].get(chapter.pk)
 
     def get_entitled(self, chapter) -> bool:
         return chapter.subject_id in self.context["subjects"]
 
     def get_free_cards(self, chapter) -> bool:
-        return settings.LEARN_FREE_PREVIEW and chapter.number == self.context["firsts"].get(chapter.subject_id)
+        first = chapter.number == self.context["firsts"].get(chapter.subject_id)
+        return settings.LEARN_FREE_PREVIEW and first and self.get_has_revision(chapter)
 
     def get_progress(self, chapter) -> int | None:
         if self.context["done"] is None:
@@ -152,23 +168,28 @@ def course_context(request):
         "firsts": dict(Chapter.objects.values_list("subject").annotate(Min("number"))),  # free cards
         "watched": set(progress.values_list("clip_id", flat=True)),
         "done": {row["clip__revision__chapter"]: row["n"] for row in done} if signed_in else None,
+        "free": {chapter: clips[0].pk for chapter, clips in free_clips().items()},  # free_preview
     }
 
 
 class ChapterViewSet(viewsets.ReadOnlyModelViewSet):
-    """Chapters with a published revision, `?subject=<id>`; one chapter with its revision's clips."""
+    """Every chapter, `?subject=<id>`, with its Board marks and whether its revision is out (`has_revision`); one
+    chapter of a published revision with its clips."""
 
     permission_classes = [permissions.AllowAny]
-    queryset = (
-        Chapter.objects.filter(revision__status=Revision.Status.PUBLISHED)
-        .select_related("revision", "subject")
-        .annotate(
-            clip_count=Count("revision__clips", filter=READY), seconds=Sum("revision__clips__duration", filter=READY)
-        )
+    queryset = Chapter.objects.annotate(
+        revision_state=F("revision__status"),
+        clip_count=Count("revision__clips", filter=READY),
+        seconds=Sum("revision__clips__duration", filter=READY),
     )
     filterset_fields = ["subject"]
     ordering_fields = ["number", "weight", "frequency"]
     ordering = ["subject", "number"]
+
+    def get_queryset(self):
+        if self.action == "retrieve":  # a revision in draft stays unseen
+            return super().get_queryset().filter(revision__status=Revision.Status.PUBLISHED).select_related("revision")
+        return super().get_queryset()
 
     def get_serializer_class(self):
         return ChapterDetailSerializer if self.action == "retrieve" else ChapterSerializer
@@ -370,9 +391,49 @@ class PlanQuery(serializers.Serializer):
     subject = serializers.ListField(child=serializers.IntegerField(), required=False)
 
 
-def clip_row(clip):
-    return {"id": clip.pk, "chapter": clip.revision.chapter_id, "title": clip.title, "kind": clip.kind,
-            "duration": clip.duration}  # fmt: skip
+class PlanClipSerializer(serializers.ModelSerializer):
+    chapter = serializers.IntegerField(source="revision.chapter_id")
+
+    class Meta:
+        model = Clip
+        fields = ["id", "chapter", "title", "kind", "duration"]
+
+
+class PlanDaySerializer(serializers.Serializer):
+    date = serializers.DateField()
+    minutes = serializers.SerializerMethodField(help_text="of video that day")
+    clips = PlanClipSerializer(many=True)
+
+    def get_minutes(self, day) -> int:
+        return round(sum(clip.duration for clip in day["clips"]) / 60)
+
+
+class PassChapterSerializer(serializers.Serializer):
+    id = serializers.IntegerField(source="chapter.pk")
+    number = serializers.IntegerField(source="chapter.number")
+    title = serializers.CharField(source="chapter.title")
+    weight = serializers.DecimalField(source="chapter.weight", max_digits=4, decimal_places=1, help_text="Board marks")
+    minutes = serializers.IntegerField(help_text="of video")
+    marks_per_minute = serializers.DecimalField(max_digits=8, decimal_places=2)
+    clips = PlanClipSerializer(many=True, help_text="its clips of the quickest kinds")
+
+
+class PassSerializer(serializers.Serializer):
+    subject = serializers.IntegerField(source="subject.pk")
+    pass_marks = serializers.IntegerField()
+    marks = serializers.DecimalField(max_digits=6, decimal_places=1, help_text="the Board marks of these chapters")
+    chapters = PassChapterSerializer(many=True)
+
+
+class PlanSerializer(serializers.Serializer):
+    exam_date = serializers.DateField()
+    days_left = serializers.IntegerField()
+    minutes_per_day = serializers.IntegerField()
+    days = PlanDaySerializer(many=True)
+    not_scheduled = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=Chapter.objects.all(), help_text="the chapters that did not fit before the exam"
+    )
+    minimum_to_pass = PassSerializer(many=True)
 
 
 class PlanView(views.APIView):
@@ -387,7 +448,7 @@ class PlanView(views.APIView):
             OpenApiParameter("minutes", int, description="a day, 10 to 300; default: saved, or 30"),
             OpenApiParameter("subject", int, many=True, description="default: the subjects open to the user, or all"),
         ],
-        responses={200: OpenApiTypes.OBJECT},
+        responses=PlanSerializer,
     )
     def get(self, request, *args, **kwargs):
         query = PlanQuery(data={**request.query_params.dict(), "subject": request.query_params.getlist("subject")})
@@ -403,28 +464,7 @@ class PlanView(views.APIView):
         if not query.validated_data.get("subject"):
             subjects = {s for s in subjects if s in services.entitled_subjects(request.user)} or subjects
         made = plan.build(request.user, subjects, exam_date, query.validated_data.get("minutes", saved.minutes_per_day))
-        return Response(
-            {
-                **{key: made[key] for key in ("exam_date", "days_left", "minutes_per_day")},
-                "days": [
-                    {"date": day["date"], "minutes": round(sum(c.duration for c in day["clips"]) / 60),
-                     "clips": [clip_row(clip) for clip in day["clips"]]}
-                    for day in made["days"]
-                ],
-                "not_scheduled": [chapter.pk for chapter in made["not_scheduled"]],
-                "minimum_to_pass": [
-                    {"subject": row["subject"].pk, "pass_marks": row["pass_marks"], "marks": f"{row['marks']:.1f}",
-                     "chapters": [
-                         {"id": pick["chapter"].pk, "number": pick["chapter"].number, "title": pick["chapter"].title,
-                          "weight": str(pick["chapter"].weight), "minutes": pick["minutes"],
-                          "marks_per_minute": f"{pick['marks_per_minute']:.2f}",
-                          "clips": [clip_row(clip) for clip in pick["clips"]]}
-                         for pick in row["chapters"]
-                     ]}
-                    for row in made["minimum_to_pass"]
-                ],
-            }
-        )  # fmt: skip
+        return Response(PlanSerializer(made).data)
 
 
 class ReviseAgainView(views.APIView):

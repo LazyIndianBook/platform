@@ -1,10 +1,13 @@
 """REST API v1: the public catalogue (cached), the solutions (signed in, email confirmed), the student's attempts, and
 the DPDP self-service of the profile (Download my data, Delete my account) with the website's own functions."""
 
+import time
+from collections import defaultdict
 from functools import wraps
 
 import django_filters
 from allauth.account import app_settings as account_settings
+from allauth.account.authentication import get_authentication_records
 from allauth.account.utils import has_verified_email
 from allauth.core.exceptions import ImmediateHttpResponse
 from allauth.socialaccount.adapter import get_adapter as get_social_adapter
@@ -17,15 +20,23 @@ from django.http import QueryDict
 from django.utils.cache import patch_cache_control
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
+from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import OpenApiExample, extend_schema, extend_schema_serializer, inline_serializer
+from drf_spectacular.utils import (
+    OpenApiExample,
+    OpenApiParameter,
+    extend_schema,
+    extend_schema_serializer,
+    inline_serializer,
+)
 from rest_framework import exceptions, generics, permissions, serializers, status, views, viewsets
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from accounts.forms import TurnstileField
 from accounts.models import DeletionRequest, TeacherProfile
-from accounts.views import export_user_data, keep_account, request_deletion, resend_parent_link
+from accounts.views import DATA_PARTS, export_user_data, how_many, keep_account, request_deletion, resend_parent_link
 from content.models import Board, Book, Paper, Subject
 from content.views import cache_solutions
 from pages.models import Page
@@ -216,17 +227,128 @@ class AttemptViewSet(viewsets.ModelViewSet):
         serializer.save(user=self.request.user)
 
 
+class TierAverageSerializer(serializers.Serializer):
+    tier = serializers.ChoiceField(choices=Paper.Tier.choices)
+    label = serializers.CharField()
+    count = serializers.IntegerField(help_text="attempts")
+    average = serializers.IntegerField(help_text="% of the full marks, rounded as My record rounds it")
+
+
+class SubjectAverageSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    code = serializers.CharField()
+    name = serializers.CharField()
+    count = serializers.IntegerField(help_text="attempts")
+    average = serializers.IntegerField(help_text="% of the full marks")
+
+
+class PaperRecordSerializer(serializers.Serializer):
+    paper = serializers.CharField(help_text="its code")
+    title = serializers.CharField()
+    count = serializers.IntegerField(help_text="attempts")
+    best = AttemptSerializer(help_text="the most marks (the latest of equals)")
+    latest = AttemptSerializer()
+
+
+class RecordSerializer(serializers.Serializer):
+    count = serializers.IntegerField(help_text="attempts")
+    tiers = TierAverageSerializer(many=True, help_text="the tiers attempted, Easy to Hard")
+    subjects = SubjectAverageSerializer(many=True, help_text="by name")
+    papers = PaperRecordSerializer(many=True, help_text="by code")
+
+
+def average(attempts):
+    """Their percentages' mean, rounded as My record rounds it (practice.views.RecordView)."""
+    return round(sum(attempt.percent for attempt in attempts) / len(attempts))
+
+
+class RecordView(generics.GenericAPIView):
+    """My record in figures: the average per tier (as My record shows it) and per subject, and per paper the best and
+    the latest attempt; `?subject=<id>&tier=` as attempts/."""
+
+    serializer_class = RecordSerializer
+    permission_classes = [permissions.IsAuthenticated, VerifiedEmail]
+    filterset_class = AttemptFilter
+    filter_backends = [DjangoFilterBackend]
+
+    def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Attempt.objects.none()
+        return self.request.user.attempts.select_related("paper__book__subject")
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("subject", int, description="subject id"),
+            OpenApiParameter("tier", str, enum=Paper.Tier.values),
+        ]
+    )
+    def get(self, request, *args, **kwargs):
+        attempts = self.filter_queryset(self.get_queryset())  # newest first
+        tiers, subjects, papers = defaultdict(list), defaultdict(list), defaultdict(list)
+        for attempt in attempts:
+            tiers[attempt.paper.tier].append(attempt)
+            subjects[attempt.paper.book.subject].append(attempt)
+            papers[attempt.paper].append(attempt)
+        record = {
+            "count": len(attempts),
+            "tiers": [
+                {"tier": tier, "label": label, "count": len(tiers[tier]), "average": average(tiers[tier])}
+                for tier, label in Paper.Tier.choices
+                if tiers[tier]
+            ],
+            "subjects": [
+                {"id": subject.pk, "code": subject.code, "name": subject.name, "count": len(rows),
+                 "average": average(rows)}
+                for subject, rows in sorted(subjects.items(), key=lambda item: item[0].name)
+            ],
+            "papers": [
+                {"paper": paper.code, "title": paper.title, "count": len(rows), "latest": rows[0],
+                 "best": max(rows, key=lambda attempt: attempt.marks_obtained)}
+                for paper, rows in sorted(papers.items(), key=lambda item: item[0].code)
+            ],
+        }  # fmt: skip
+        return Response(self.get_serializer(record).data)
+
+
+class ReauthenticationRequired(exceptions.PermissionDenied):
+    default_detail = {"detail": "Confirm it is you: enter your password, or log in again.",
+                      "code": "reauthentication_required"}  # fmt: skip
+
+
+def recently_authenticated(request):
+    """Logged in or re-authenticated in this session within ACCOUNT_REAUTHENTICATION_TIMEOUT (5 minutes), by allauth's
+    records of the session: the website's log-in and re-authentication, allauth.headless's (auth/reauthenticate,
+    auth/2fa/reauthenticate, a new log-in, Google's included). Not allauth's did_recently_authenticate, which lets an
+    account with neither a password nor a second step through at any time. The app's tokens have no session."""
+    if not isinstance(request.successful_authenticator, SessionAuthentication):
+        return False
+    records = get_authentication_records(request)
+    return bool(records) and time.time() - records[-1]["at"] < account_settings.REAUTHENTICATION_TIMEOUT
+
+
 class PasswordSerializer(serializers.Serializer):
-    password = serializers.CharField(write_only=True, style={"input_type": "password"})
+    password = serializers.CharField(
+        write_only=True,
+        required=False,
+        allow_blank=True,
+        style={"input_type": "password"},
+        help_text="not needed within 5 minutes of a log-in or re-authentication in this browser session",
+    )
 
     def validate_password(self, value):
-        check_password(self.context["request"], value)  # counted: 429 after five wrong ones in an hour (L6)
+        if value:
+            check_password(self.context["request"], value)  # counted: 429 after five wrong ones in an hour (L6)
         return value
+
+    def validate(self, attrs):
+        if not attrs.get("password") and not recently_authenticated(self.context["request"]):
+            raise ReauthenticationRequired()  # 403: an account without a password logs in again (Google)
+        return attrs
 
 
 class DataExportView(generics.GenericAPIView):
-    """Download my data: everything kept about the user, as the website's JSON file. Asks for the password, as the
-    website does."""
+    """Download my data: everything kept about the user, as the website's JSON file. Asks for the password, or a log-in
+    or re-authentication in the last 5 minutes, as the website does."""
 
     serializer_class = PasswordSerializer
     throttle_scope = "dj_rest_auth"
@@ -237,6 +359,28 @@ class DataExportView(generics.GenericAPIView):
         return Response(export_user_data(request.user))
 
 
+class ExportPartSerializer(serializers.Serializer):
+    key = serializers.CharField(help_text="the part's name in the file")
+    label = serializers.CharField()
+    count = serializers.IntegerField(help_text="its records (a part that is one record: 1, or 0 when empty)")
+
+
+class DataExportSummaryView(generics.GenericAPIView):
+    """What Download my data holds, part by part, as the website's page shows it before the file; without the file,
+    so without the password (the profile, the orders and My record show as much)."""
+
+    serializer_class = ExportPartSerializer
+    pagination_class = None
+    filter_backends = []
+    throttle_scope = "dj_rest_auth"  # the whole export is read: as often as the file
+
+    @extend_schema(responses=ExportPartSerializer(many=True))
+    def get(self, request, *args, **kwargs):
+        data = export_user_data(request.user)
+        parts = [{"key": key, "label": label, "count": how_many(data.get(key))} for key, label in DATA_PARTS.items()]
+        return Response(self.get_serializer(parts, many=True).data)
+
+
 class DeletionSerializer(serializers.ModelSerializer):
     class Meta:
         model = DeletionRequest
@@ -244,8 +388,9 @@ class DeletionSerializer(serializers.ModelSerializer):
 
 
 class DeletionView(generics.GenericAPIView):
-    """Delete my account: POST (with the password) asks for it, due seven days later; DELETE cancels it. The steps and
-    emails are the website's (accounts.views.request_deletion and keep_account)."""
+    """Delete my account: POST (with the password, or within 5 minutes of a log-in or re-authentication) asks for it,
+    due seven days later; DELETE cancels it. The steps and emails are the website's (accounts.views.request_deletion and
+    keep_account)."""
 
     serializer_class = PasswordSerializer
     throttle_scope = "dj_rest_auth"
@@ -450,6 +595,13 @@ CONFIG = inline_serializer(
                 "phone": serializers.CharField(allow_null=True, help_text="null until the real one is set"),
             },
         ),
+        "app_links": inline_serializer(
+            "AppLinksConfig",
+            {
+                "android": serializers.URLField(allow_null=True, help_text="Google Play's page; null until out"),
+                "ios": serializers.URLField(allow_null=True, help_text="the App Store's page; null until out"),
+            },
+        ),
     },
 )
 
@@ -457,8 +609,8 @@ CONFIG = inline_serializer(
 class ConfigView(generics.GenericAPIView):
     """What this server has switched on, so that a frontend never hard-codes a feature flag: the ways to log in
     (allauth.headless's /_allauth/<client>/v1/config has allauth's own view of them), the bot check, the shop, whether
-    the solutions need an account, the parent's consent mode, and the support contacts (null while the seller's details
-    still hold a [placeholder]). Public, cacheable for 5 minutes."""
+    the solutions need an account, the parent's consent mode, the support contacts (null while the seller's details
+    still hold a [placeholder]) and the app's store pages (null until set). Public, cacheable for 5 minutes."""
 
     permission_classes = [permissions.AllowAny]
     authentication_classes = []
@@ -483,6 +635,7 @@ class ConfigView(generics.GenericAPIView):
                     "solutions_require_login": True,
                     "parental_consent": "verified",
                     "support": {"email": "help@examleaf.in", "phone": None},
+                    "app_links": {"android": "https://play.google.com/store/apps/details?id=…", "ios": None},
                 },
             )
         ],
@@ -512,6 +665,7 @@ class ConfigView(generics.GenericAPIView):
                     "email": support_email() or None,  # SUPPORT_EMAIL, else SELLER_EMAIL
                     "phone": None if "[" in seller["phone"] else seller["phone"] or None,
                 },
+                "app_links": {"android": settings.APP_LINK_ANDROID or None, "ios": settings.APP_LINK_IOS or None},
             }
         )
         patch_cache_control(response, public=True, max_age=300)

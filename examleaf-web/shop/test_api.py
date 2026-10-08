@@ -56,10 +56,14 @@ def test_products_are_public_with_prices_pictures_and_stock_state_only(api, djan
     assert [p["slug"] for p in listed["results"]] == ["physics-bundle", "physics", "physics-solutions"]
     data = api.get("/api/v1/products/physics/").json()
     assert (data["price"], data["mrp"], data["saving_percent"], data["in_stock"]) == ("299.00", "349.00", 14, True)
+    inside = "http://testserver/shop/media/products/inside"  # its AVIF and WebP sizes by width, then the original
+    widths = (100, 200, 300, 400)
+    sizes = {f"image/{kind}": {str(w): f"{inside}/{w}w.{kind}" for w in widths} for kind in ("avif", "webp")}
     assert "stock" not in data and data["images"] == [
-        {"url": "http://testserver/shop/media/products/inside.jpg", "alt": "A page"}
+        {"sources": sizes, "src": f"{inside}.jpg", "width": 400, "height": 600, "alt": "A page"}
     ]
     assert data["web_url"] == "http://testserver/shop/physics/" and data["cover"] is None
+    assert (data["meta_title"], data["meta_description"], data["og_image"]) == ("", "", None)  # none written or made
     bundle_data = api.get("/api/v1/products/physics-bundle/").json()
     assert not bundle_data["in_stock"]  # the solutions are out of stock
     assert [(i["product"], i["quantity"]) for i in bundle_data["bundle_items"]] == [

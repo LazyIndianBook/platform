@@ -172,6 +172,8 @@ def export_user_data(user):
         "email_addresses": list(user.emailaddress_set.values("email", "verified", "primary")),
         "passkeys_and_authenticators": list(user.authenticator_set.values("type", "created_at", "last_used_at")),
         "google_accounts": list(user.socialaccount_set.values("provider", "uid", "extra_data", "date_joined")),
+        # signed-in devices (allauth.usersessions), without the session keys: credentials
+        "sessions": list(user.usersession_set.values("ip", "user_agent", "created_at", "last_seen_at")),
         "teacher_profile": TeacherProfile.objects.filter(user=user)
         .values("school_name", "district", "subject", "verified", "verified_at", "created")
         .first(),
@@ -203,6 +205,7 @@ DATA_PARTS = {  # the parts of Download my data in words, for the page shown bef
     "email_addresses": "Email addresses",
     "passkeys_and_authenticators": "Passkeys and authenticator apps",
     "google_accounts": "Google accounts connected",
+    "sessions": "Devices signed in: address, browser, first and last seen",
     "teacher_profile": "Teacher access asked for",
     "attempts": "Marks saved in My record",
     "answer_sheets": "Answer sheets uploaded",

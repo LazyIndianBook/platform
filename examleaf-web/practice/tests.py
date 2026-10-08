@@ -79,6 +79,7 @@ class AttemptTests(TestCase):
                 self.assertContains(self.client.get(reverse("record")), "PHY-E01")
             return len(context)
 
+        self.client.get(reverse("record"))  # the first request records the device (allauth.usersessions)
         before = queries()
         subject = Subject.objects.get()
         for code in ("CHE", "MAT", "BIO"):  # the subject filter prints "name (board, class)" for each of them

@@ -5,6 +5,59 @@ commits are in `git log` (phase 4: abffe6f and e5abda5; phase 5 A and B with the
 and E: 4e30e59; the redesign's stage 2 so far: ba0b9dd). Details of each feature are in README.md; the numbers of the
 tests are those of `pytest` at the end of the phase.
 
+## Phase 8 backend, account part (8 October 2026)
+
+What the account and revision pages (8C) asked of the API, docs/examleaf-phase8-nextjs-plan.md "Backend gaps found
+by 8C". 467 tests pass (7 skipped); allauth's migration `usersessions.0001_initial`, none of ours.
+
+- **Every chapter:** `learn/chapters/` lists the whole syllabus, not only chapters with a published revision:
+  `has_revision`, `revision_status` (`published` or `none`; a revision in draft shows as none, without its clips,
+  minutes or free cards) and `free_preview` (the id of the chapter's free clip, so a preview plays without fetching the
+  chapter), with `weight`, `frequency` and the filters as before; `learn/chapters/<id>/` still answers published
+  chapters only.
+- **My record in figures:** `GET me/record/` (`?subject=&tier=` as `attempts/`): the average per tier as My record
+  rounds it, per subject, and per paper the best and the latest attempt, with counts.
+- **What Download my data holds:** `GET me/export/summary/`: each part's key, the website's words and its count,
+  without the file or the password.
+- **App store links:** `config/` `app_links` (`android`, `ios`) from the new settings `APP_LINK_ANDROID` and
+  `APP_LINK_IOS` (empty: null).
+- **Signed-in devices:** `allauth.usersessions` with its middleware and `USERSESSIONS_TRACK_ACTIVITY`;
+  allauth.headless's `GET`/`DELETE /_allauth/<client>/v1/auth/sessions` list them (address, browser, first and last
+  request, the current one marked) and sign out the others, so the API has no endpoint of its own for it. The rows are
+  in Download my data (`sessions`, without the keys), deleted with the account, and dropped the night after their
+  session ends (`ops.tasks.clear_sessions`); the admin shows them read-only (allauth's own admin searched
+  `user__username`, which this User has not).
+- **Export and deletion without a password:** `me/export/` and `me/deletion/` take the password or, without one, a
+  browser session that logged in or re-authenticated through allauth (`auth/reauthenticate`, `auth/2fa/reauthenticate`,
+  or Google again) in the last 5 minutes; otherwise `403 {"detail": ..., "code": "reauthentication_required"}`. A
+  password sent is still checked and counted (L6). Not allauth's `did_recently_authenticate`, which lets an account
+  with neither a password nor a second step through at any time.
+- **Typed answers:** `learn/plan/` (`Plan`, the same JSON as before) and `me/record/` (`Record`) in the OpenAPI schema,
+  for the generated TypeScript; `spectacular --validate --fail-on-warn` clean.
+- Tests: `api/test_account.py` and the chapters test; two page query-count tests (`content`, `practice`) make one
+  request first, as the first request after `force_login` records the device.
+
+## Phase 8 backend, second part (8 October 2026)
+
+The four API gaps the shop frontend (8B) found, docs/examleaf-phase8-nextjs-plan.md "Backend gaps found by 8B". 461
+tests pass (7 skipped); no migration.
+
+- **Picture sizes in the API:** `cover` and each of `images` on `products/` and `products/<slug>/` are now
+  `{sources, src, width, height, alt}`: the AVIF and WebP sizes django-pictures makes (`sources["image/avif"]["400"]`,
+  absolute URLs; a cover's 2/3 cut), the uploaded original as `src` with its size, and `alt` ("Cover of <title>" for a
+  cover). This replaces `cover` as a URL and `images[]` as `{url, alt}`. Built from the field's `aspect_ratios`
+  (`api.shop.picture`), not `pictures.contrib.rest_framework.PictureField`, which nests the sizes by ratio with
+  relative URLs and lets `?cover_ratio=`/`?cover_container=` raise a server error on a wrong value.
+- **Renamed products:** `GET products/<old slug>/` answers 301 to `products/<new slug>/` with
+  `{"redirect_to": "<new slug>"}` for clients that do not follow redirects, as the website's page redirects by
+  `SlugHistory`; 404 once the product is off sale.
+- **Orders say what they ship:** `is_digital` (courses only, a bundle of courses included) and `has_shipping` (its
+  opposite) on `orders/`, `orders/<number>/`, `orders/t/<token>/` and the checkout's answer, read from the order's
+  lines (the list now fetches their products with them).
+- **Product SEO fields:** `meta_title` and `meta_description` (the admin's "page title" and "meta description", `""`
+  when not written) and `og_image` (the link preview's absolute URL, null until the worker has made it) on products;
+  the OpenAPI schema has a product's response example.
+
 ## Phase 8 backend (8 October 2026)
 
 What the Next.js frontend (docs/examleaf-phase8-nextjs-plan.md) needed from the API, with the website's rules. 459

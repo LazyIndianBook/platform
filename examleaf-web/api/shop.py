@@ -10,6 +10,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Avg, Count, Prefetch, Q
+from django.http import Http404
 from django.utils.cache import add_never_cache_headers, patch_cache_control
 from django_fsm import TransitionNotAllowed
 from drf_spectacular.types import OpenApiTypes
@@ -50,6 +51,7 @@ from shop.models import (
     Product,
     Review,
     ShippingRate,
+    SlugHistory,
     StockAlert,
     validate_indian_mobile,
 )
@@ -157,6 +159,39 @@ def media_url(request, file):
     return request.build_absolute_uri(file.url) if file else None  # the public bucket, or /shop/media/
 
 
+def picture(request, file, alt):
+    """A picture field's file as PictureSerializer: the original and its AVIF and WebP sizes. Not
+    pictures.contrib.rest_framework.PictureField: it nests the sizes by ratio, gives relative URLs, and its
+    ?<field>_ratio= and ?<field>_container= parameters raise a server error on a wrong value."""
+    if not file:
+        return None
+    url = request.build_absolute_uri
+    by_type = next(iter(file.aspect_ratios.values()))  # the field's one ratio: 2/3 for covers, as uploaded otherwise
+    sources = {
+        f"image/{kind.lower()}": {str(width): url(size.url) for width, size in sorted(sizes.items())}
+        for kind, sizes in by_type.items()
+    }
+    return {"sources": sources, "src": url(file.url), "width": file.width, "height": file.height, "alt": alt}
+
+
+class PictureSerializer(serializers.Serializer):
+    """A product picture for <picture>/srcset: AVIF and WebP sizes (made by the Celery worker after an upload; until
+    then they answer 404, so keep `src` as the <img> fallback), and the uploaded original."""
+
+    sources = serializers.DictField(
+        child=serializers.DictField(child=serializers.URLField()),
+        help_text='by type, then width in pixels: {"image/avif": {"200": "https://…/200w.avif", …}, "image/webp": …}',
+    )
+    src = serializers.URLField(help_text="the uploaded original")
+    width = serializers.IntegerField()
+    height = serializers.IntegerField()
+    alt = serializers.CharField(help_text='"Cover of <title>" for a cover')
+
+
+class ProductMovedSerializer(serializers.Serializer):
+    redirect_to = serializers.SlugField(help_text="the renamed product's slug; Location: its products/<slug>/")
+
+
 # Products
 
 
@@ -178,6 +213,29 @@ class AttributeValueSerializer(serializers.ModelSerializer):
         fields = ["code", "name", "value"]
 
 
+EXAMPLE_COVER = "https://media.examleaf.in/products/physics-2027/2_3/{}w.{}"  # the cover's 2/3 sizes (django-pictures)
+PRODUCT_EXAMPLE = {
+    "slug": "physics-sample-papers-2027", "title": "ExamLeaf Physics Sample Papers 2027", "kind": "sample-papers",
+    "subject": "PHY", "book": "physics-2027", "isbn": "978-81-000000-0-0", "pages": 248, "description": "30 papers …",
+    "cover": {
+        "sources": {
+            f"image/{kind}": {str(width): EXAMPLE_COVER.format(width, kind) for width in (200, 400, 800, 1600)}
+            for kind in ("avif", "webp")
+        },
+        "src": "https://media.examleaf.in/products/physics-2027.jpg", "width": 1600, "height": 2400,
+        "alt": "Cover of ExamLeaf Physics Sample Papers 2027",
+    },
+    "images": [], "mrp": "349.00", "price": "299.00", "saving_percent": 14, "gst_rate": "0.00", "hsn_code": "4901",
+    "in_stock": True, "bundle_items": [], "categories": ["class-12"],
+    "attributes": [{"code": "year", "name": "Edition year", "value": "2027"}], "related": ["physics-solutions-2027"],
+    "web_url": "https://examleaf.in/shop/physics-sample-papers-2027/",
+    "meta_title": "Physics Sample Papers 2027 for the Assam Board (ASSEB) Class 12",
+    "meta_description": "30 Physics sample papers for the ASSEB Class 12 exam, with worked solutions.",
+    "og_image": "https://media.examleaf.in/og/physics-sample-papers-2027.jpg",
+}  # fmt: skip
+
+
+@extend_schema_serializer(examples=[OpenApiExample("A book", value=PRODUCT_EXAMPLE, response_only=True)])
 class ProductSerializer(serializers.ModelSerializer):
     """A book on sale. `in_stock` says whether copies can be ordered (a bundle: of each of its books; a digital
     product: always); the number of copies is not given."""
@@ -197,6 +255,13 @@ class ProductSerializer(serializers.ModelSerializer):
     in_stock = serializers.SerializerMethodField()
     bundle_items = BundleItemSerializer(many=True, read_only=True)
     web_url = serializers.SerializerMethodField()
+    meta_title = serializers.CharField(
+        source="seo_title", read_only=True, help_text='the page title staff wrote for search engines; "": use `title`'
+    )
+    meta_description = serializers.CharField(
+        source="seo_description", read_only=True, help_text='the meta description staff wrote; "": none written'
+    )
+    og_image = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -222,17 +287,22 @@ class ProductSerializer(serializers.ModelSerializer):
             "attributes",
             "related",
             "web_url",
+            "meta_title",
+            "meta_description",
+            "og_image",
         ]
 
-    @extend_schema_field(serializers.URLField(allow_null=True))
+    @extend_schema_field(PictureSerializer(allow_null=True))
     def get_cover(self, product):
-        return media_url(self.context["request"], product.cover)
+        return picture(self.context["request"], product.cover, f"Cover of {product.title}")
 
-    @extend_schema_field(
-        serializers.ListField(child=serializers.DictField(child=serializers.CharField()), help_text="url and alt")
-    )
+    @extend_schema_field(PictureSerializer(many=True))
     def get_images(self, product):
-        return [{"url": media_url(self.context["request"], i.image), "alt": i.alt} for i in product.images.all()]
+        return [picture(self.context["request"], i.image, i.alt) for i in product.images.all()]
+
+    @extend_schema_field(serializers.URLField(allow_null=True, help_text="the link preview (1200×630), once made"))
+    def get_og_image(self, product):
+        return media_url(self.context["request"], product.og_image)
 
     def get_in_stock(self, product) -> bool:
         if product.is_digital:
@@ -341,6 +411,20 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
         for code, value in wanted:
             products = products.filter(attribute_match(by_code.get(code, []), value))
         return products.distinct()  # a product on two shelves of one branch is listed once
+
+    @extend_schema(responses={200: ProductSerializer, 301: ProductMovedSerializer})
+    def retrieve(self, request, *args, **kwargs):
+        """A product. The old slug of a renamed product (still on sale) answers 301 to its products/<slug>/, with its
+        slug as `redirect_to` for clients that do not follow redirects, as the website's page redirects."""
+        try:
+            return super().retrieve(request, *args, **kwargs)
+        except Http404:
+            moved = SlugHistory.objects.filter(slug=kwargs["slug"], product__is_active=True).select_related("product")
+            if (moved := moved.first()) is None:
+                raise
+            slug = moved.product.slug
+            url = reverse("api:product-detail", kwargs={"slug": slug}, request=request)
+            return Response({"redirect_to": slug}, status=status.HTTP_301_MOVED_PERMANENTLY, headers={"Location": url})
 
     @extend_schema(methods=["GET"], responses=ProductReviewsSerializer)
     @extend_schema(methods=["POST"], request=ProductReviewSerializer, responses={201: ProductReviewSerializer})
@@ -772,14 +856,25 @@ class OrderBriefSerializer(serializers.ModelSerializer):
     status_label = serializers.CharField(read_only=True, help_text="as the website shows it")
     total = rupees("total.amount")
     items = serializers.SerializerMethodField()
+    is_digital = serializers.SerializerMethodField(help_text="courses only: nothing to pack or ship")
+    has_shipping = serializers.SerializerMethodField(help_text="books to deliver: the address, fee and tracking apply")
 
     class Meta:
         model = Order
-        fields = ["number", "created", "placed_at", "status", "status_label", "payment_method", "total", "items"]
+        fields = [
+            *["number", "created", "placed_at", "status", "status_label", "payment_method", "total", "items"],
+            *["is_digital", "has_shipping"],
+        ]
 
     @extend_schema_field(serializers.ListField(child=serializers.CharField(), help_text='"2 × Physics Sample Papers"'))
     def get_items(self, order):
         return [str(item) for item in order.items.all()]
+
+    def get_is_digital(self, order) -> bool:
+        return all(item.product.digital_only for item in order.items.all())  # Order.is_digital, from the fetched lines
+
+    def get_has_shipping(self, order) -> bool:
+        return not self.get_is_digital(order)
 
 
 class TimelineSerializer(serializers.Serializer):
@@ -1074,9 +1169,9 @@ class OrderViewSet(Private, mixins.ListModelMixin, mixins.RetrieveModelMixin, vi
         if getattr(self, "swagger_fake_view", False):  # schema generation has no user
             return Order.objects.none()
         orders = self.request.user.orders.all()
+        items = Prefetch("items", queryset=OrderItem.objects.select_related("product"))  # is_digital reads them
         if self.action == "list":
-            return orders.prefetch_related("items")
-        items = Prefetch("items", queryset=OrderItem.objects.select_related("product"))
+            return orders.prefetch_related(items)
         return orders.select_related("invoice").prefetch_related(items, "shipments", "refunds")
 
     def get_serializer_class(self):

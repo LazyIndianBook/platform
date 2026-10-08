@@ -10,8 +10,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from accounts import forms as account_forms
 from accounts.factories import UserFactory
-from shop.factories import ProductFactory, make_order, verified_user
-from shop.models import Order, QuoteRequest, Review, StockAlert
+from shop.factories import ProductFactory, make_order, picture, verified_user
+from shop.models import BundleItem, Cart, Order, Product, QuoteRequest, Review, StockAlert
 
 pytestmark = [
     pytest.mark.django_db,
@@ -154,3 +154,47 @@ def test_shipping_rates_and_a_quote_for_the_checkouts_delivery_step(api):
     user = verified_user("rahul@example.com")
     assert signed_in(user).post("/api/v1/cart/items/", {"product": course.slug}, format="json").status_code == 200
     assert signed_in(user).get("/api/v1/shipping/quote/?state=WB").json()["fee"] == "0.00"  # a course ships nothing
+
+
+def test_a_product_gives_its_cover_sizes_and_seo_fields_and_its_old_slug_redirects(api):
+    product = ProductFactory(
+        slug="physics-2026", title="Physics", cover=picture("products/physics.png"), og_image="og/physics.jpg",
+        seo_title="Physics Sample Papers 2027", seo_description="30 papers with solutions.",
+    )  # fmt: skip
+    product.slug = "physics-2027"
+    product.save()
+    data = api.get("/api/v1/products/physics-2027/").json()
+    media = "http://testserver/shop/media"
+    assert data["cover"] == {
+        "sources": {  # the cover's 2/3 crop, by type then width
+            f"image/{kind}": {str(w): f"{media}/products/physics/2_3/{w}w.{kind}" for w in (100, 200, 300, 400)}
+            for kind in ("avif", "webp")
+        },
+        "src": f"{media}/products/physics.png", "width": 400, "height": 600, "alt": "Cover of Physics",
+    }  # fmt: skip
+    assert api.get("/api/v1/products/").json()["results"][0]["cover"] == data["cover"]  # the list's cards too
+    seo = (data["meta_title"], data["meta_description"], data["og_image"])
+    assert seo == ("Physics Sample Papers 2027", "30 papers with solutions.", f"{media}/og/physics.jpg")
+    moved = api.get("/api/v1/products/physics-2026/")  # the old slug: 301, and the new one for clients that stay put
+    assert (moved.status_code, moved["Location"]) == (301, "http://testserver/api/v1/products/physics-2027/")
+    assert moved.json() == {"redirect_to": "physics-2027"}
+    assert api.get(moved["Location"]).json()["slug"] == "physics-2027"
+    Product.objects.filter(pk=product.pk).update(is_active=False)
+    assert api.get("/api/v1/products/physics-2026/").status_code == 404  # off sale: nowhere to send it
+    assert api.get("/api/v1/products/never-was/").status_code == 404
+
+
+def test_orders_say_whether_they_hold_courses_only_or_books_to_ship(api):
+    user = verified_user("rahul@example.com")
+    course = ProductFactory(slug="course", kind=Product.Kind.DIGITAL, hsn_code="999293")
+    passes = ProductFactory(slug="passes", kind=Product.Kind.BUNDLE)  # a bundle of courses only ships nothing
+    BundleItem.objects.create(bundle=passes, product=ProductFactory(slug="course-2", kind=Product.Kind.DIGITAL))
+    courses = make_order((course, 1), (passes, 1), user=user, email=user.email)
+    Cart.objects.filter(user=user).delete()  # still there: the order is not paid; one cart per account
+    mixed = make_order((ProductFactory(slug="physics"), 1), (course, 1), user=user, email=user.email)
+    flags = lambda data: (data["is_digital"], data["has_shipping"])  # noqa: E731
+    client = signed_in(user)
+    listed = {order["number"]: flags(order) for order in client.get("/api/v1/orders/").json()["results"]}
+    assert listed == {courses.number: (True, False), mixed.number: (False, True)}
+    assert flags(client.get(f"/api/v1/orders/{courses.number}/").json()) == (True, False)
+    assert flags(api.get(f"/api/v1/orders/t/{mixed.token}/").json()) == (False, True)  # the order's link

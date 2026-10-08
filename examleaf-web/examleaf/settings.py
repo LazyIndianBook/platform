@@ -583,3 +583,15 @@ MIDDLEWARE.insert(
 # only with the model's "import_…" permission (ADMIN), as exports (M5).
 INSTALLED_APPS += ["treebeard"]
 IMPORT_EXPORT_IMPORT_PERMISSION_CODE = "import"
+
+# Signed-in devices (Phase 8 account): allauth.usersessions keeps each session's client address, browser and last
+# request, listed and ended through allauth.headless's auth/sessions (API.md "Profile and data rights"); the rows are
+# in Download my data and go with the account (accounts.models.DeletionRequest.complete).
+INSTALLED_APPS += ["allauth.usersessions"]
+MIDDLEWARE.insert(
+    MIDDLEWARE.index("axes.middleware.AxesMiddleware"), "allauth.usersessions.middleware.UserSessionsMiddleware"
+)
+USERSESSIONS_TRACK_ACTIVITY = True
+# The app's store pages (config/ app_links); empty until the app is out.
+APP_LINK_ANDROID = env("APP_LINK_ANDROID", default="")
+APP_LINK_IOS = env("APP_LINK_IOS", default="")

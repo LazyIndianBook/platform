@@ -268,6 +268,7 @@ class DeletionRequest(models.Model):
             EmailAddress.objects.filter(user=user).delete()
             user.authenticator_set.all().delete()  # passkeys, authenticator apps
             user.socialaccount_set.all().delete()  # Google sign-in and the profile Google sent
+            user.usersession_set.all().delete()  # signed-in devices: addresses and browsers
             # failed log-ins by address or by mobile number (axes), and the SMS log (number hash, last digits; L10)
             AccessAttempt.objects.filter(username__in=[email, user.login_phone or email]).delete()
             user.sms_messages.all().delete()

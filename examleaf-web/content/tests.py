@@ -201,6 +201,7 @@ class PaperPageTests(TestCase):
                 self.assertEqual(self.client.get("/s/PHY-E01/").status_code, 200)
             return len(context)
 
+        self.client.get("/s/PHY-E01/")  # the first request records the device (allauth.usersessions)
         before = queries()
         for order in range(2, 12):
             question = Question.objects.create(paper=self.paper, order=order, label=str(order), text_md="Q")

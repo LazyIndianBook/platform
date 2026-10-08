@@ -370,16 +370,19 @@ superuser changes a superuser's account or gives roles.
   requests, saved addresses, the cart and orders (items, address copy, shipments, payments, refunds, the status
   timeline, and the invoice and credit notes by number: the PDFs stay on the order pages), reviews, quotation requests
   and stock alerts (by email address), the staff's notes on the orders, the texts sent to the account (kind, status,
-  last four digits) and whether its address is suppressed after bounces, and the revision course's data (settings,
+  last four digits) and whether its address is suppressed after bounces, the signed-in devices (address, browser, first
+  and last seen; allauth.usersessions, without the session keys), and the revision course's data (settings,
   entitlements, redeemed book codes, progress, quiz answers, flash card reviews, devices without their IDs) as JSON,
   after allauth's re-authentication (password, if none was entered in the last five minutes). The API's `me/export/`
-  gives the same file.
+  gives the same file (the password, or a log-in or re-authentication of the session in the last five minutes, which
+  is the way for an account without a password).
 - **Delete my account:** a `DeletionRequest` due seven days later (`accounts.views.request_deletion` and `keep_account`,
   used by the website and the API alike); the student gets an email, can log in and cancel until then; the daily purge
   (`accounts.tasks.purge_due_deletions`) anonymises the user row (name, email, phones, date of birth, district and
   parent data cleared; the notes on attempts cleared; roles and permissions removed; the account made inactive;
   answer-sheet photos, email addresses, passkeys and authenticators, Google accounts, teacher profile, failed log-ins
-  and the SMS log's rows deleted; consent records kept as proof without the address hash; admin log entries of the user,
+  and the SMS log's rows and the signed-in devices deleted; consent records kept as proof without the address hash;
+  admin log entries of the user,
   teacher profile, attempts, answer sheets and addresses renamed; password unusable, so every session ends), deletes the
   saved addresses, the cart, the reviews, the course data (progress, quiz answers, card reviews, settings, devices,
   entitlements) and the "email me when it is back" requests for the old address, and emails a confirmation to the old
@@ -402,7 +405,8 @@ superuser changes a superuser's account or gives roles.
 - **Retention:** orders never paid or placed lose the customer's details 30 days after they were cancelled; invoiced
   orders keep them eight years (RUNBOOK.md "Purging old orders"); a Razorpay payment keeps only the fields it needs for
   180 days. Also: "email me when it is back" requests go after 365 days, guest carts after 30 days idle, Razorpay's
-  webhook records and the Celery task results after 7 days, the SMS log after 90 days, local database dumps after
+  webhook records and the Celery task results after 7 days, the SMS log after 90 days, a signed-in device's address and
+  browser the night after its session ended, local database dumps after
   `BACKUP_KEEP_DAYS` (30), and Docker keeps 10 MB in 5 files of logs per service.
 
 ## Admin

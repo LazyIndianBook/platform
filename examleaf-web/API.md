@@ -53,10 +53,12 @@ valid access token (or the website's session); **confirmed** also needs a confir
 | POST | `auth/password/change/` | signed in | a new password |
 | POST | `auth/exchange/` | an allauth.headless app session (`X-Session-Token`) | the JWT pair and the profile, after a log-in through `/_allauth/app/v1/` |
 | GET PUT PATCH | `me/` | signed in | the profile; changeable: `full_name`, `phone`, `class_level`, `board`, `district`, `sms_updates` |
-| POST | `me/export/` | signed in | Download my data (`password`): everything kept about the user |
-| POST DELETE | `me/deletion/` | signed in | Delete my account (`password`), due in 7 days; DELETE cancels |
+| POST | `me/export/` | signed in | Download my data (`password`, or a log-in in the last 5 minutes): everything kept about the user |
+| GET | `me/export/summary/` | signed in | what Download my data holds: each part with its count (no password) |
+| POST DELETE | `me/deletion/` | signed in | Delete my account (`password`, or a log-in in the last 5 minutes), due in 7 days; DELETE cancels |
 | GET POST | `me/teacher/` | confirmed | teacher access: its status; ask for it (once) |
 | POST | `me/parent-consent/` | signed in | the parent's link to confirm, again (while `consent_pending`) |
+| GET | `me/record/` (`?subject=&tier=`) | confirmed | My record in figures: averages per tier and subject, each paper's best and latest attempt |
 | GET | `boards/`, `boards/<id>/` | anyone | the boards |
 | GET | `subjects/` (`?board=`), `subjects/<id>/` | anyone | the subjects |
 | GET | `books/`, `books/<slug>/` | anyone | books with their published papers |
@@ -90,7 +92,7 @@ valid access token (or the website's session); **confirmed** also needs a confir
 | GET POST | `products/<slug>/reviews/` | anyone; POST confirmed buyers | approved reviews and their average; write one |
 | POST | `products/<slug>/stock-alert/` | signed in | "email me when it is back", to the account's address |
 | POST | `quotes/` | anyone | a school's or bookseller's request for a quotation |
-| GET | `learn/chapters/` (`?subject=`), `learn/chapters/<id>/` | anyone (flags for the signed-in user) | the revision course: chapters with Board marks, previous-year questions, what is open; one chapter with its clips |
+| GET | `learn/chapters/` (`?subject=`), `learn/chapters/<id>/` | anyone (flags for the signed-in user) | the revision course: every chapter with Board marks, previous-year questions, whether its revision is out, its free clip, what is open; one published chapter with its clips |
 | GET | `learn/clips/<id>/` | confirmed | a clip's HLS and poster links (10 minutes), notes, questions |
 | POST | `learn/clips/<id>/progress/` | confirmed | how far it was watched |
 | GET | `learn/quiz/?chapter=` | confirmed | one-mark quiz items (no answers) |
@@ -107,7 +109,7 @@ valid access token (or the website's session); **confirmed** also needs a confir
 | GET | `pages/`, `pages/<slug>/` | anyone | the legal pages: Markdown, the website's HTML, version, last change |
 | POST | `contact/` | anyone | the contact form: a message emailed to the support address |
 | GET | `/api/schema/`, `/api/docs/`, `/api/redoc/` | anyone | the OpenAPI schema, Swagger UI, Redoc |
-| any | `/_allauth/app/v1/…`, `/_allauth/browser/v1/…` | anyone; the account and authenticator endpoints need the signed-in session | allauth.headless: log-in, sign-up, codes, passkeys, Google, second step, email, phone, password; its OpenAPI file `/_allauth/openapi.json` (and `.yaml`) |
+| any | `/_allauth/app/v1/…`, `/_allauth/browser/v1/…` | anyone; the account and authenticator endpoints need the signed-in session | allauth.headless: log-in, sign-up, codes, passkeys, Google, second step, email, phone, password, re-authentication, signed-in devices (`auth/sessions`); its OpenAPI file `/_allauth/openapi.json` (and `.yaml`) |
 
 ## Authentication from the app
 
@@ -280,8 +282,20 @@ The email address, date of birth and parent details are read-only here (the emai
 or through allauth.headless's `account/email`; the others decide the consent rules).
 
 `me/export/` is Download my data: the website's JSON file (profile, addresses, attempts, orders, consent records, the
-course's data and the rest; README.md "Personal data"). `me/deletion/` is Delete my account. Both ask for the password,
-as the website does; five wrong ones in an hour end the user's refresh tokens and answer 429 (see "Rate limits").
+course's data, the signed-in devices and the rest; README.md "Personal data"). `me/deletion/` is Delete my account.
+Both ask for the password, as the website does; five wrong ones in an hour end the user's refresh tokens and answer
+429 (see "Rate limits"). Instead of it (`password` left out or empty), a browser session that logged in or
+re-authenticated in the last 5 minutes will do (allauth's records of the session, `ACCOUNT_REAUTHENTICATION_TIMEOUT`):
+allauth.headless's `POST /_allauth/browser/v1/auth/reauthenticate {"password"}` or `auth/2fa/reauthenticate {"code"}`,
+or a new log-in, which is the way for an account without a password (a Google sign-up: `auth/provider/redirect`
+again). Otherwise `403 {"detail": "Confirm it is you: enter your password, or log in again.", "code":
+"reauthentication_required"}`. A password sent is always checked (and counted). The app's Bearer tokens carry no
+session: the app sends the password.
+
+`GET me/export/summary/` says what the file holds without making it, and without the password: each part in the file's
+order, in the website's words, `[{"key": "profile", "label": "Your details: …", "count": 9}, {"key": "attempts",
+"label": "Marks saved in My record", "count": 12}, …]` (`count`: a list's records, the lists' total of a part made of
+lists, else 1 or 0; the profile counts its filled-in details, as the website's page does).
 
 ```sh
 curl -X POST https://examleaf.in/api/v1/me/deletion/ -H "Authorization: Bearer $ACCESS" -H 'Content-Type: application/json' \
@@ -295,6 +309,18 @@ curl -X DELETE https://examleaf.in/api/v1/me/deletion/ -H "Authorization: Bearer
 `login_phone` and `login_phone_verified` (the mobile number for log-in by SMS; read-only here, it changes through
 allauth.headless's `account/phone` with a code) and `sms_updates` (order updates by SMS, changeable; true only with a
 confirmed number: `400 {"sms_updates": ["Confirm a mobile number first: the updates go to it."]}`).
+
+**Signed-in devices** (allauth.usersessions): every log-in through allauth (a browser's cookie session, the app's
+`X-Session-Token` session; not the API's Bearer tokens) is listed by allauth.headless's
+`GET /_allauth/browser/v1/auth/sessions` (the app: `/_allauth/app/v1/auth/sessions`):
+`{"status": 200, "data": [{"id": 12, "ip": "203.0.113.7", "user_agent": "Mozilla/5.0 (Linux; Android 14) …",
+"created_at": 1791431400.5, "last_seen_at": 1791435000.1, "is_current": true}, …]}` (Unix seconds; `last_seen_at`: the
+latest request, `USERSESSIONS_TRACK_ACTIVITY`). `DELETE` on the same path with `{"sessions": [<ids>]}` ends those
+sessions and answers the list left: Sign out the others sends every id but the current one's (the current one's logs
+this browser out: 401). The API gives the address and the browser whole: show `203.0.113.x` and the browser's name. A
+server that calls the API with a visitor's cookie forwards the visitor's `User-Agent` and `X-Forwarded-For`: each
+request rewrites the session's. The rows are in Download my data (`sessions`), go with the account, and those of ended
+sessions are dropped nightly.
 
 **Teacher access** (`me/teacher/`, as on My account): `POST` asks for it once with `school_name`, `district` and
 `subject` (201; again: 400); `GET` answers the request with `verified` and `verified_at` (404 until asked). Staff check
@@ -371,18 +397,41 @@ curl -X POST https://examleaf.in/api/v1/attempts/ -H "Authorization: Bearer $ACC
 # 400 {"marks_obtained": ["Enter marks from 0 to 70."]}
 ```
 
+**My record in figures** (`me/record/`, confirmed; `?subject=<id>&tier=E|M|H` as `attempts/`): `count`, `tiers` (the
+tiers attempted, Easy to Hard: `tier`, `label`, `count`, `average`: the mean of the attempts' percentages rounded, as
+My record shows it), `subjects` (by name: `id`, `code`, `name`, `count`, `average`) and `papers` (by code: `paper`,
+`title`, `count`, `best`: the most marks, the latest of equals, and `latest`, both attempts as above).
+
+```sh
+curl https://examleaf.in/api/v1/me/record/ -H "Authorization: Bearer $ACCESS"
+# 200 {"count": 3, "tiers": [{"tier": "E", "label": "Easy", "count": 2, "average": 62}, {"tier": "M", ...}],
+#      "subjects": [{"id": 1, "code": "PHY", "name": "Physics", "count": 3, "average": 65}],
+#      "papers": [{"paper": "PHY-E01", "title": "...", "count": 2, "best": {"id": 31, ..., "percent": 75},
+#                  "latest": {"id": 32, ..., "percent": 50}}, ...]}
+```
+
 ## Store catalogue
 
-The shop's catalogue, public and read-only. The picture URLs are the uploaded originals: on the media domain
-(`https://media.examleaf.in/products/…`, cached a year, a new upload gets a new name) once the site uses its buckets,
-under `https://examleaf.in/shop/media/products/…` before; the website shows AVIF and WebP sizes of them.
+The shop's catalogue, public and read-only. Pictures are on the media domain (`https://media.examleaf.in/products/…`,
+cached a year, a new upload gets a new name) once the site uses its buckets, under
+`https://examleaf.in/shop/media/products/…` before. A picture (`cover`, null without one, and each of `images`) is
+`{"sources": {"image/avif": {"<width>": "<url>", …}, "image/webp": {…}}, "src", "width", "height", "alt"}`: the AVIF
+and WebP sizes django-pictures makes (a cover cut to 2/3), by width in pixels, for a `<picture>`'s `<source srcset>`s
+(AVIF first), and the uploaded original (`src`, with its `width` and `height`) for the `<img>`. The worker makes the
+sizes a moment after an upload (404 until then). A cover's `alt` is "Cover of <title>"; a card next to the title can
+use `alt=""`.
 
 - **Products**: `slug`, `title`, `kind` (`sample-papers`, `solutions`, `bundle`, `digital`), `subject` (code), `book` (its
-  slug in `books/`), `isbn`, `pages`, `description` (Markdown), `cover` and `images` (`url`, `alt`), `mrp`, `price`,
+  slug in `books/`), `isbn`, `pages`, `description` (Markdown), `cover` and `images` (above), `mrp`, `price`,
   `saving_percent`, `gst_rate`, `hsn_code`, `in_stock` (whether copies can be ordered; a bundle needs each of its
   books; always true for a digital product and for a bundle of digital products only; the number of copies is not given), `bundle_items` (`product`, `title`,
   `quantity`), `categories` (slugs), `attributes` (`code`, `name`, `value`: what the product's type defines, e.g.
-  edition year, language, board), `related` (slugs of the products shown with it) and `web_url`.
+  edition year, language, board), `related` (slugs of the products shown with it), `web_url`, and for the page's
+  `<head>`: `meta_title` and `meta_description` (what staff wrote for search engines; `""` when nothing is written:
+  the website then uses the title, and its own sentence) and `og_image` (the link preview, 1200×630, the cover with the
+  title; null until the worker has made it). The old slug of a renamed product answers `301` with `Location:
+  …/api/v1/products/<new slug>/` and `{"redirect_to": "<new slug>"}` for a client that does not follow redirects (the
+  website's `/shop/<old slug>/` redirects too); once that product is off sale, 404.
 - **Categories**: `slug`, `name`, `description` (Markdown), `depth` (1 at the top), `parent` (the slug of the category
   above it, null at the top), `web_url`.
 - **Collections**: `slug`, `name`, `description`, `products` (slugs, in order; products off sale left out), `web_url`.
@@ -399,6 +448,14 @@ curl 'https://examleaf.in/api/v1/products/?category=class-12&attr_language=Assam
 curl https://examleaf.in/api/v1/categories/
 # 200 {"count": 4, ..., "results": [{"slug": "books", "name": "Books", "description": "", "depth": 1, "parent": null,
 #      "web_url": "https://examleaf.in/shop/category/books/"}, {"slug": "class-12", ..., "depth": 2, "parent": "books"}, ...]}
+curl https://examleaf.in/api/v1/products/physics-sample-papers-2027/
+# 200 {"slug": "physics-sample-papers-2027", ..., "cover": {"sources": {"image/avif": {"200": ".../2_3/200w.avif", ...},
+#      "image/webp": {...}}, "src": "https://media.examleaf.in/products/physics-2027.jpg", "width": 1600,
+#      "height": 2400, "alt": "Cover of ..."}, ..., "meta_title": "...", "meta_description": "...",
+#      "og_image": "https://media.examleaf.in/og/physics-sample-papers-2027.jpg"}
+curl -i https://examleaf.in/api/v1/products/physics-sample-papers-2026/      # renamed since
+# 301 Location: https://examleaf.in/api/v1/products/physics-sample-papers-2027/
+#     {"redirect_to": "physics-sample-papers-2027"}
 ```
 
 **Digital products** (`kind` `digital`: a revision pass, alone or in a bundle with a book) have no stock and ship
@@ -481,8 +538,11 @@ orders), `total`, `items` (`product`, `title`, `hsn_code`, `gst_rate`, `mrp`, `u
 `timeline` (`status`, the label the website shows: "ordered", then "paid", "packed", …; `at`), `shipments` (`courier`,
 `tracking_number`, `tracking_url`, `shipped_at`, `delivered_at`), `refunds` (`amount`, `status`, `reason`, `created`,
 `processed_at`), `can_cancel`, `can_pay`, `invoice` (`number`, `created`, `url`; null until the PDF exists),
-`credit_notes` (the same with `amount`), `web_url`. The list (`orders/`, newest first, `?status=`) gives only `number`,
-`created`, `placed_at`, `status`, `status_label`, `payment_method`, `total` and the `items` as text.
+`credit_notes` (the same with `amount`), `web_url`, `is_digital` (courses only, a bundle of courses included: nothing
+to pack or ship, delivered once paid) and `has_shipping` (books to deliver, so the address, `shipping_fee` and
+`shipments` concern it: always the opposite of `is_digital`). The list (`orders/`, newest first, `?status=`) gives only
+`number`, `created`, `placed_at`, `status`, `status_label`, `payment_method`, `total`, the `items` as text,
+`is_digital` and `has_shipping`; `orders/t/<token>/` gives both too.
 
 **Paying** with Razorpay's mobile SDK (Android `com.razorpay:checkout`, iOS `razorpay-pod`):
 
@@ -627,15 +687,19 @@ sign-in. While a parent's confirmation is awaited (`consent_pending`, `PARENTAL_
 Anything else answers `403 {"detail": "Unlock this subject with the code printed in your book."}`; chapters and clip
 lists say beforehand (`entitled`, `free`, `locked`, `free_cards`).
 
-`learn/chapters/` lists the chapters that have a published revision (public; `entitled`, `free_cards` and `progress`
-describe the signed-in user, and `progress` is null signed out); `?subject=<id>` narrows them, `?ordering=` sorts by
-`number`, `weight` or `frequency`.
+`learn/chapters/` lists every chapter (public; `entitled`, `free_cards` and `progress` describe the signed-in user,
+and `progress` is null signed out); `?subject=<id>` narrows them, `?ordering=` sorts by `number`, `weight` or
+`frequency`. `has_revision` says whether its revision is published (`revision_status`: `published`, or `none`, also
+for a revision still in draft): false is "coming soon", with no clips, minutes or free cards. `free_preview` is the id
+of its free clip (`learn/clips/<id>/` for anyone signed in, without a call for the chapter first), null when none.
+`learn/chapters/<id>/` answers a chapter with a published revision only (404 otherwise).
 
 ```sh
 curl 'https://examleaf.in/api/v1/learn/chapters/?subject=1'
 # 200 {"count": 14, ..., "results": [{"id": 3, "subject": 1, "number": 1, "title": "Electric Charges and Fields",
-#      "weight": "4.5", "frequency": 23, "must_do": "...", "must_do_html": "<p>...</p>", "clips": 6, "minutes": 13,
-#      "entitled": false, "free_cards": true, "progress": null}, ...]}      progress: % of its clips watched (signed in)
+#      "weight": "4.5", "frequency": 23, "must_do": "...", "must_do_html": "<p>...</p>", "has_revision": true,
+#      "revision_status": "published", "clips": 6, "minutes": 13, "free_preview": 41, "entitled": false,
+#      "free_cards": true, "progress": null}, ...]}      progress: % of its clips watched (signed in)
 curl https://examleaf.in/api/v1/learn/chapters/3/
 # 200 {..., "revision": {"title": "Electric charges in 13 minutes", "target_minutes": 12, "clips": [{"id": 41,
 #      "order": 1, "title": "Coulomb's law in one picture", "kind": "concept", "duration": 140, "free": true,
@@ -732,8 +796,9 @@ null while the bot check is off), `shop` (`open`, `cod`, `cod_max_value`, `curre
 `free_above`: the lowest delivery fee and free-delivery value of `shipping/`, null without rates),
 `solutions_require_login`,
 `parental_consent` (`declared` or `verified`) and `support` (`email`: `SUPPORT_EMAIL`, else `SELLER_EMAIL`; `phone`:
-`SELLER_PHONE`; each null while it still holds a `[placeholder]`). allauth.headless's `/_allauth/<client>/v1/config` adds allauth's own view (the providers, the
-authenticator types).
+`SELLER_PHONE`; each null while it still holds a `[placeholder]`) and `app_links` (`android`, `ios`: the app's pages on
+Google Play and the App Store, `APP_LINK_ANDROID` and `APP_LINK_IOS`; null until set). allauth.headless's
+`/_allauth/<client>/v1/config` adds allauth's own view (the providers, the authenticator types, `usersessions`).
 
 `pages/` and `pages/<slug>/` (anyone; cached 15 minutes) are the legal and policy pages, `privacy`, `terms`, `refunds`,
 `shipping` and `contact`: `slug`, `title`, `version` (consent records keep the privacy notice's), `updated` (the last
@@ -754,7 +819,7 @@ curl https://examleaf.in/api/v1/config/
 #      "turnstile_site_key": "0x4AAAAAAA..."}, "shop": {"open": true, "cod": true, "cod_max_value": "1500.00",
 #      "currency": "INR"}, "shipping": {"fee_from": "40.00", "free_above": "499.00"},
 #      "solutions_require_login": true, "parental_consent": "verified",
-#      "support": {"email": "help@examleaf.in", "phone": null}}
+#      "support": {"email": "help@examleaf.in", "phone": null}, "app_links": {"android": null, "ios": null}}
 curl https://examleaf.in/api/v1/pages/privacy/
 # 200 {"slug": "privacy", "title": "Privacy Policy", "version": "2026-10-08", "updated": "...", "markdown": "...",
 #      "html": "<h2>...", "web_url": "https://examleaf.in/privacy/"}
@@ -799,7 +864,7 @@ Counted in the cache (Redis in production), per client address for anonymous req
 |---|---|---|
 | anonymous | 200 a minute | `API_THROTTLE_ANON` |
 | signed in | 600 a minute | `API_THROTTLE_USER` |
-| log-in, log-out, sign-up, codes (`verify-email`, `phone/code`, `phone/confirm`), passwords, data export, deletion | 30 a minute | `API_THROTTLE_AUTH` |
+| log-in, log-out, sign-up, codes (`verify-email`, `phone/code`, `phone/confirm`), passwords, data export and its summary, deletion | 30 a minute | `API_THROTTLE_AUTH` |
 | guests' order lookup (`orders/lookup/`), per client address | 10 an hour | `API_THROTTLE_ORDER_LOOKUP` |
 | starting and confirming payments (`orders/<number>/payment/…`, `orders/t/<token>/payment/…`) | 30 a minute | `API_THROTTLE_PAYMENT` |
 | coupon codes tried (`POST cart/coupon/`), per user (a visitor: per client address) | 10 an hour | `API_THROTTLE_COUPON` |

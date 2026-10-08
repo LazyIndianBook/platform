@@ -1,3 +1,5 @@
+from allauth.usersessions.admin import UserSessionAdmin as AllauthUserSessionAdmin
+from allauth.usersessions.models import UserSession
 from django.contrib import admin, messages
 from django.contrib.auth import admin as auth_admin
 from django.contrib.auth import forms as auth_forms
@@ -166,3 +168,15 @@ class DeletionRequestAdmin(ReadOnlyAdmin):
     list_filter = ["status", "due_at"]
     list_select_related = ["user"]
     search_fields = ["user__email"]
+
+
+admin.site.unregister(UserSession)  # allauth's searches user__username, which this User has not
+
+
+@admin.register(UserSession)
+class UserSessionAdmin(ReadOnlyAdmin):
+    """Signed-in devices (allauth.usersessions): the site keeps them, a user signs them out from their account."""
+
+    list_display = AllauthUserSessionAdmin.list_display
+    list_select_related = ["user"]
+    search_fields = ["user__email", "ip"]

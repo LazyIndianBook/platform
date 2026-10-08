@@ -53,8 +53,21 @@ def test_chapters_are_public_and_say_what_is_open(api, course):
         ("Clip 1.1", True, False),
         ("Clip 1.2", False, True),
     ]
-    Revision.objects.filter(chapter__number=2).update(status="draft")
-    assert api.get(url("chapters/")).json()["count"] == 1  # drafts are not listed
+    assert [(c["has_revision"], c["revision_status"]) for c in chapters] == [(True, "published")] * 2
+    assert chapters[0]["free_preview"] == Clip.objects.get(title="Clip 1.1").pk
+    Revision.objects.filter(chapter__number=1).update(status="draft")  # back in draft: coming soon, nothing shown
+    Chapter.objects.create(subject=course, number=3, title="Chapter 3", weight="4.5", frequency=6)  # none yet
+    chapters = api.get(url("chapters/"), {"subject": course.pk}).json()["results"]
+    assert [
+        (c["number"], c["weight"], c["has_revision"], c["revision_status"], c["clips"], c["free_preview"],
+         c["free_cards"]) for c in chapters
+    ] == [
+        (1, "7.0", False, "none", 0, None, False),
+        (2, "7.0", True, "published", 2, Clip.objects.get(title="Clip 2.1").pk, False),
+        (3, "4.5", False, "none", 0, None, False),
+    ]  # fmt: skip
+    assert api.get(url(f"chapters/{chapters[0]['id']}/")).status_code == 404  # a draft's clips stay unseen
+    assert api.get(url("chapters/"), {"ordering": "-weight"}).json()["results"][2]["number"] == 3
 
 
 def test_a_locked_clip_is_refused_a_free_one_plays_through_its_signed_link(api, course, client, monkeypatch):

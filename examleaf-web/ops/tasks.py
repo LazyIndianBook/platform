@@ -85,5 +85,10 @@ def reset_failed_logins():
 @shared_task
 def clear_sessions():
     """Daily: delete expired sessions, and with them what they held (allauth's pending email codes and addresses,
-    guests' order numbers, the API's verification sessions) (M10)."""
+    guests' order numbers, the API's verification sessions) (M10), and the signed-in devices of ended sessions
+    (allauth.usersessions: their addresses and browsers; allauth itself drops them only when a user lists them)."""
+    from allauth.usersessions.models import UserSession
+
     call_command("clearsessions")
+    for device in UserSession.objects.iterator():
+        device.purge()
