@@ -76,8 +76,11 @@ cp .env.example .env                      # DEBUG=1, SQLite, console email and S
 make migrate                              # migrate + bootstrap_roles (the role groups)
 .venv/bin/python manage.py import_papers --all
 .venv/bin/python manage.py createsuperuser
-make run                                  # http://localhost:8000 · admin at /admin/
+make run                                  # http://localhost:8000: the API; the admin at /admin/ logs in on the website
 ```
+
+The website and its log-in page are the frontend's: to use the admin in development, run Django for the frontend and
+open http://localhost:3000/admin/ (below, "The website (Next.js) in development").
 
 `make help` lists the other tasks (see "Commands"). In development the verification codes, every other email and every
 SMS are printed in the runserver console, and the debug toolbar is on. Invoice PDFs need Pango (`brew install pango` on
