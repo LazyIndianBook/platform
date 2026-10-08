@@ -20,7 +20,9 @@ try {
   await page.waitForTimeout(1500); // support.js renders the {{ }} templates
   const board = page.locator(`[data-screen-label="${label}"]`).first();
   if (!(await board.count())) {
-    const labels = await page.locator("[data-screen-label]").evaluateAll((all) => all.map((el) => el.dataset.screenLabel));
+    const labels = await page
+      .locator("[data-screen-label]")
+      .evaluateAll((all) => all.map((el) => el.dataset.screenLabel));
     throw new Error(`no artboard "${label}" in ${file}; there are: ${labels.join(" | ")}`);
   }
   await board.scrollIntoViewIfNeeded();
