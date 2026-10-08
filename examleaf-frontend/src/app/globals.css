@@ -687,9 +687,11 @@
 
   /* tables (table.tsx; .table-scroll is the solutions' Markdown): an ink rule on top, the head in the mono label voice
      over an ink hairline, a hairline under every row, columns 12 px apart with the first and last flush to the rule.
-     The box scrolls sideways by itself; the head sticks while the box scrolls. */
+     The box scrolls sideways by itself; the head sticks while the box scrolls. It is the containing block of what is
+     absolutely placed inside (screen-reader words in a far column), so nothing escapes it and widens the page. */
   .table-wrap,
   .table-scroll {
+    position: relative;
     overflow-x: auto;
     border-top: 1.5px solid var(--foreground);
     background: transparent;

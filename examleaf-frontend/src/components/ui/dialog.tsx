@@ -115,7 +115,8 @@ function DialogContent({ className, children, ...props }: React.ComponentProps<"
         if (event.target === event.currentTarget) setOpen(false); // the backdrop (the box's wrapper fills the box)
       }}
       className={cn(
-        "m-auto max-h-[calc(100dvh-32px)] w-[min(32rem,calc(100%-32px))] flex-col overflow-y-auto rounded-lg border-0 bg-background p-0 text-foreground shadow-dialog open:flex",
+        // centred by its margins, held against a parent's [&>*]:m-0 (the order page's) by the [open] selector's weight
+        "m-auto max-h-[calc(100dvh-32px)] w-[min(32rem,calc(100%-32px))] flex-col overflow-y-auto rounded-lg border-0 bg-background p-0 text-foreground shadow-dialog open:flex [&[open]]:m-auto",
         // the backdrop's colour written out: older browsers do not give ::backdrop the page's custom properties
         "backdrop:bg-[rgba(29,34,48,0.55)] motion-safe:open:animate-in motion-safe:open:duration-150 motion-safe:open:fade-in-0",
         className,
