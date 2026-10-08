@@ -68,7 +68,7 @@ try {
     await page.locator("#login").fill(email);
     await page.locator("#password").fill(password);
     await page.locator("details form").getByRole("button", { name: "Log in" }).click();
-    await page.waitForURL(/\/account\/$/, { timeout: 30_000 });
+    await page.waitForURL((url) => url.pathname === "/account/" && !url.search, { timeout: 30_000 }); // not the login page's ?next=/account/
     await shoot(page, "account", "/account/");
     await context.close();
   }
