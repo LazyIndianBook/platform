@@ -1,7 +1,7 @@
 "use client";
 
-// Log out: allauth.headless ends the session (DELETE /_allauth/browser/v1/auth/session), then a fresh home page.
-import { LogOut } from "lucide-react";
+// Log out: allauth.headless ends the session (DELETE /_allauth/browser/v1/auth/session), then a fresh home page. The
+// ink button of the Logout board (navy is for the actions that go forward).
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ export function LogoutButton() {
       size="lg"
       block
       busy={busy}
+      className="border-foreground bg-foreground text-background hover:border-primary hover:bg-primary hover:text-primary-foreground"
       onClick={async () => {
         setBusy(true);
         try {
@@ -25,8 +26,7 @@ export function LogoutButton() {
         }
       }}
     >
-      <LogOut aria-hidden="true" />
-      <span>Log out</span>
+      Log out
     </Button>
   );
 }

@@ -1,9 +1,12 @@
 "use client";
 
-// Passwords: ask for a reset link (the email links to /account/password/reset/key/<key>/, HEADLESS_FRONTEND_URLS),
-// choose a new password from that link, and type the password again before a sensitive change (reauthenticate).
+// Passwords (Password reset, New password, Reauthenticate boards): ask for a reset link (the email links to
+// /account/password/reset/key/<key>/, HEADLESS_FRONTEND_URLS), choose a new password from that link, and type the
+// password again before a sensitive change (reauthenticate). PasswordResetDone is the page after a reset (G2, G18):
+// the reset form shows it in place, and /account/password/reset/done/ (where Django's old "password changed" address
+// now lands) draws it for a visitor who arrives there.
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Alert } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -12,9 +15,11 @@ import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api/errors";
 import { auth } from "@/lib/auth/headless";
 import { withNext } from "@/lib/auth/next-url";
+import { focusHere } from "@/lib/utils";
 
-import { AuthTitle } from "./auth-card";
+import { AuthTitle, Lead, NextChip } from "./auth-card";
 import { ErrorSummary } from "./error-summary";
+import { PasswordInput } from "./password-input";
 import { fieldError, useAuthAction } from "./use-auth-action";
 
 export function PasswordResetRequestForm() {
@@ -40,8 +45,11 @@ export function PasswordResetRequestForm() {
   return (
     <>
       <AuthTitle>Forgot your password?</AuthTitle>
-      <p className="text-muted-foreground">Give your email address and we email you a link to choose a new one.</p>
-      <ErrorSummary error={error} />
+      <Lead>
+        Enter your email address and we&apos;ll send a link to choose a new one. You can also log in with a code
+        instead.
+      </Lead>
+      <ErrorSummary error={error} retryIn={1} limited="a reset link can be asked for" />
       <form
         className="flex flex-col gap-4"
         noValidate
@@ -52,13 +60,37 @@ export function PasswordResetRequestForm() {
           if (result) setSentTo(email);
         }}
       >
-        <Field id="email" label="Email" required error={fieldError(error, "email")}>
-          <Input name="email" type="email" autoComplete="email" inputMode="email" />
+        <Field id="email" label="Email address" error={fieldError(error, "email")}>
+          <Input name="email" type="email" autoComplete="email" inputMode="email" aria-required="true" />
         </Field>
         <Button type="submit" size="lg" block busy={busy}>
-          Email me a link
+          Send the link
         </Button>
       </form>
+      <Link href="/account/login/" className="inline-flex min-h-11 items-center font-semibold">
+        Log in with a code instead
+      </Link>
+    </>
+  );
+}
+
+/** "Your new password is saved": the way on is Log in, which keeps the destination (G2, G18). */
+export function PasswordResetDone({ next, focus = false }: { next: string | null; focus?: boolean }) {
+  const title = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (focus) focusHere(title.current);
+  }, [focus]);
+  return (
+    <>
+      <AuthTitle ref={title}>Your new password is saved</AuthTitle>
+      <Lead>Log in with it now.</Lead>
+      <NextChip next={next} />
+      <Link
+        href={withNext("/account/login/", next)}
+        className={buttonVariants({ variant: "primary", size: "lg", block: true })}
+      >
+        Log in
+      </Link>
     </>
   );
 }
@@ -81,29 +113,20 @@ export function PasswordResetKeyForm({ resetKey, next }: { resetKey: string; nex
         <Alert variant="warning">
           <p>A link works for an hour, and only once. Ask for a new one.</p>
         </Alert>
-        <Link href="/account/password/reset/" className={buttonVariants({ variant: "primary", block: true })}>
+        <Link
+          href="/account/password/reset/"
+          className={buttonVariants({ variant: "primary", size: "lg", block: true })}
+        >
           Email me a new link
         </Link>
       </>
     );
   }
-  if (state === "done") {
-    return (
-      <>
-        <AuthTitle>Your password is changed</AuthTitle>
-        <Alert variant="success">
-          <p>Log in with your new password.</p>
-        </Alert>
-        <Link href={withNext("/account/login/", next)} className={buttonVariants({ variant: "primary", block: true })}>
-          Log in
-        </Link>
-      </>
-    );
-  }
+  if (state === "done") return <PasswordResetDone next={next} focus />; // not signed in by the reset: log in with the new password
   return (
     <>
       <AuthTitle>Choose a new password</AuthTitle>
-      <ErrorSummary error={error} />
+      <ErrorSummary error={error} retryIn={60} limited="this can be tried" />
       <form
         className="flex flex-col gap-4"
         noValidate
@@ -117,25 +140,25 @@ export function PasswordResetKeyForm({ resetKey, next }: { resetKey: string; nex
             return;
           }
           const result = await run(() => auth.resetPassword(resetKey, String(form.get("password"))));
-          if (result) setState("done"); // not signed in by the reset: log in with the new password
+          if (result) setState("done");
         }}
       >
         <Field
           id="password"
           label="New password"
-          required
           help="At least 10 characters: not only numbers, not a common password, not like your name or email."
           error={fieldError(error, "password")}
         >
-          <Input name="password" type="password" autoComplete="new-password" />
+          <PasswordInput name="password" autoComplete="new-password" aria-required="true" />
         </Field>
-        <Field id="password2" label="New password again" required error={fieldError(error, "password2")}>
-          <Input name="password2" type="password" autoComplete="new-password" />
+        <Field id="password2" label="Type it again" error={fieldError(error, "password2")}>
+          <PasswordInput name="password2" autoComplete="new-password" aria-required="true" />
         </Field>
         <Button type="submit" size="lg" block busy={busy || state === "checking"}>
-          Change my password
+          Save the password
         </Button>
       </form>
+      <p className="m-0 text-sm text-muted-foreground">This link works once, for an hour.</p>
     </>
   );
 }
@@ -144,9 +167,9 @@ export function ReauthenticateForm({ next }: { next: string | null }) {
   const { run, busy, error } = useAuthAction(next);
   return (
     <>
-      <AuthTitle>Your password, again</AuthTitle>
-      <p className="text-muted-foreground">For your safety, type your password before this change.</p>
-      <ErrorSummary error={error} />
+      <AuthTitle>Confirm it&apos;s you</AuthTitle>
+      <Lead>For your safety, type your password again before this change.</Lead>
+      <ErrorSummary error={error} retryIn={60} limited="a password can be tried" />
       <form
         className="flex flex-col gap-4"
         noValidate
@@ -155,11 +178,11 @@ export function ReauthenticateForm({ next }: { next: string | null }) {
           await run(() => auth.reauthenticate(String(new FormData(event.currentTarget).get("password") ?? "")));
         }}
       >
-        <Field id="password" label="Password" required error={fieldError(error, "password")}>
-          <Input name="password" type="password" autoComplete="current-password" />
+        <Field id="password" label="Password" error={fieldError(error, "password")}>
+          <PasswordInput name="password" autoComplete="current-password" aria-required="true" />
         </Field>
         <Button type="submit" size="lg" block busy={busy}>
-          Continue
+          Confirm
         </Button>
       </form>
     </>

@@ -1,35 +1,59 @@
 "use client";
 
-// Log in (Login artboard; Django's account/login.html), every method the server has on (useConfig): a code by SMS
-// first when SMS is on (by email otherwise), then the code in six boxes on the same card; an emailed code, Google
-// and a passkey as the other ways; email (or mobile) and password last, in a fold. A reload or the return from
-// Google resumes where the session stands (a pending code, the second step, the student details after Google).
-import { KeyRound, Lock, Mail } from "lucide-react";
+// Log in (Login, Phone login, Code and Password login boards; Django's account/login.html), every method the server
+// has on (useConfig): a code by SMS first when SMS is on (by email otherwise), then the code in six boxes on the same
+// page; an emailed code, Google and a passkey as the other ways; email (or mobile) and password last, in a fold. A
+// reload or the return from Google resumes where the session stands (a pending code, the second step, the student
+// details after Google). Two notices can stand above the title, for how the visitor came: Google refused the log-in
+// (?error=, the boards' words and a way on), or a save found the session ended (the marks typed wait in sessionStorage,
+// marks-form.tsx).
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 
 import { useConfig } from "@/components/providers/config-provider";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input, InputPrefix } from "@/components/ui/input";
-import { OtpInput } from "@/components/ui/input-otp";
 import { auth, nextRoute, startProviderLogin } from "@/lib/auth/headless";
 import { safeNext, withNext } from "@/lib/auth/next-url";
 
-import { AuthTitle } from "./auth-card";
+import { AuthTitle, Lead, LinkButton, NextChip } from "./auth-card";
+import { CodeField } from "./code-field";
 import { ErrorSummary } from "./error-summary";
+import { PasswordInput } from "./password-input";
 import { CHECKING, useTurnstile } from "./turnstile";
 import { fieldError, useAuthAction } from "./use-auth-action";
 
-const PROVIDER_ERRORS: Record<string, string> = {
-  cancelled: "You cancelled the log-in with Google. Choose another way below.",
-};
+const DRAFT_PREFIX = "examleaf:marks-draft:";
+const nothing = () => () => undefined;
+
+/** The marks typed on a page whose save found the session ended (marks-form.tsx keeps the draft in sessionStorage
+ *  until a save works): null when no draft waits, else the marks as typed ("" when that box was empty). */
+function keptMarks(): string | null {
+  try {
+    for (let index = 0; index < window.sessionStorage.length; index++) {
+      const key = window.sessionStorage.key(index);
+      if (!key?.startsWith(DRAFT_PREFIX)) continue;
+      const draft = JSON.parse(window.sessionStorage.getItem(key) ?? "null") as { marks_obtained?: unknown } | null;
+      return typeof draft?.marks_obtained === "string" ? draft.marks_obtained.trim() : "";
+    }
+  } catch {
+    // storage off, or a draft that is not JSON: no notice
+  }
+  return null;
+}
+
+/** "+91 98•• •••• 10": the number the code went to, as the Code board draws it. */
+function maskedPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, "").slice(-10);
+  return digits.length === 10 ? `+91 ${digits.slice(0, 2)}•• •••• ${digits.slice(-2)}` : `+91 ${phone}`;
+}
 
 function Or() {
   return (
-    <div className="flex items-center gap-4 text-[15px] font-semibold text-muted-foreground before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border">
+    <div className="flex items-center gap-3 text-sm text-muted-foreground before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border">
       or
     </div>
   );
@@ -43,10 +67,13 @@ export function LoginForm({ next, providerError }: { next: string | null; provid
   const [step, setStep] = useState<"start" | "code">("start");
   const [by, setBy] = useState<"phone" | "email">(sms ? "phone" : "email");
   const [sentTo, setSentTo] = useState("");
+  const [typed, setTyped] = useState(""); // what the visitor gave, kept for "Send a new code"
   const [code, setCode] = useState("");
+  const [passwordTry, setPasswordTry] = useState(false); // what a 429 is about: codes (an hour) or passwords (5 min)
   const { run, busy, error, setError } = useAuthAction(next);
   const bot = useTurnstile(step === "start" ? siteKey : null, error);
   const passkey = useAuthAction(next); // its own busy state: the passkey prompt is not the code request
+  const draft = useSyncExternalStore(nothing, keptMarks, () => null);
 
   useEffect(() => {
     auth
@@ -74,9 +101,11 @@ export function LoginForm({ next, providerError }: { next: string | null; provid
     event.preventDefault();
     const value = String(new FormData(event.currentTarget).get(by) ?? "").trim();
     const input = by === "phone" ? { phone: value } : { email: value };
+    setPasswordTry(false);
+    setTyped(value);
     const result = await run(() => auth.requestCode({ ...input, ...(siteKey ? { turnstile: bot.token } : {}) }));
     if (result?.pending?.id === "login_by_code") {
-      setSentTo(by === "phone" ? `+91 ${value}` : value);
+      setSentTo(by === "phone" ? maskedPhone(value) : value);
       setCode("");
       setStep("code");
     }
@@ -84,6 +113,7 @@ export function LoginForm({ next, providerError }: { next: string | null; provid
 
   async function confirmCode(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setPasswordTry(false);
     await run(() => auth.confirmCode(code));
   }
 
@@ -92,82 +122,117 @@ export function LoginForm({ next, providerError }: { next: string | null; provid
     const form = new FormData(event.currentTarget);
     const login = String(form.get("login") ?? "").trim();
     const password = String(form.get("password") ?? "");
+    setPasswordTry(true);
     await run(() => auth.login(sms && !login.includes("@") ? { phone: login, password } : { email: login, password }));
   }
 
-  const lead = (
-    <p className="text-muted-foreground">
-      Not registered yet? <Link href={withNext("/account/signup/", next)}>Register</Link> first: it is free.
-    </p>
-  );
+  const focusCodeField = () => document.getElementById(by === "phone" ? "phone" : "email")?.focus();
+  const tryGoogle = () => startProviderLogin("google", withNext("/account/login/", next));
 
   if (step === "code") {
     return (
       <>
-        <AuthTitle>Log in</AuthTitle>
-        {lead}
-        <ErrorSummary error={error} />
+        <AuthTitle page>Enter the code</AuthTitle>
+        <Lead>
+          We {sentTo ? (by === "phone" ? "texted" : "emailed") : "sent"} a 6-digit code to{" "}
+          {sentTo || "the address you gave"}. It works for a few minutes.
+        </Lead>
+        <ErrorSummary error={error} retryIn={60} />
         <form className="flex flex-col gap-4" onSubmit={confirmCode} noValidate>
-          <Field
-            id="code"
-            label="Code"
-            required
-            help={`Sent to ${sentTo || "the address you gave"}. It works for a few minutes.`}
-            error={fieldError(error, "code")}
-          >
-            <OtpInput value={code} onChange={setCode} autoFocus />
-          </Field>
+          <CodeField id="code" value={code} onChange={setCode} error={fieldError(error, "code")} />
           <Button type="submit" size="lg" block busy={busy} disabled={code.length < 6}>
             Log in
           </Button>
         </form>
-        <p className="text-[15px]">
+        <p className="m-0 text-[15px] text-muted-foreground">
           No code?{" "}
-          <button
-            type="button"
-            className="inline-flex min-h-11 cursor-pointer items-center font-semibold text-primary underline underline-offset-3"
+          <LinkButton
             onClick={() => {
               setError(null);
               setStep("start");
             }}
           >
             Send a new code
-          </button>
+          </LinkButton>
         </p>
       </>
     );
   }
 
+  const cancelled = providerError === "cancelled";
+  const going = safeNext(next, "");
   return (
     <>
-      <AuthTitle>Log in</AuthTitle>
-      {lead}
-      {providerError ? (
-        <Alert variant="warning" title="Google did not log you in">
-          <p>{PROVIDER_ERRORS[providerError] ?? "Something went wrong with Google. Choose another way below."}</p>
+      {going && going !== "/" && draft !== null ? (
+        <Alert variant="info" title="You were logged out">
+          <p>
+            For your safety, sessions end after a while. Log in and we&apos;ll take you back to where you were.{" "}
+            {draft
+              ? `The marks you typed (${draft}) are kept on this device until then.`
+              : "What you typed is kept on this device until then."}
+          </p>
         </Alert>
       ) : null}
-      <ErrorSummary error={error ?? passkey.error} />
+      {providerError ? (
+        <Alert
+          variant="warning"
+          title={cancelled ? "You didn't finish logging in with Google" : "Google couldn't log you in"}
+        >
+          <p>
+            {cancelled
+              ? "Nothing was changed. Try again, or log in another way."
+              : "This sometimes happens when the page was open for a long time. Please try once more."}
+          </p>
+          <p className="flex flex-wrap gap-x-4 font-bold">
+            {config.auth.google ? (
+              <LinkButton onClick={tryGoogle}>{cancelled ? "Try Google again" : "Try again"}</LinkButton>
+            ) : null}
+            <LinkButton onClick={focusCodeField}>
+              {cancelled ? "Other ways to log in" : "Log in with a code"}
+            </LinkButton>
+          </p>
+        </Alert>
+      ) : null}
+      <AuthTitle page>Log in</AuthTitle>
+      <NextChip next={next} />
+      <ErrorSummary
+        error={error ?? passkey.error}
+        retryIn={passwordTry ? 5 : 60}
+        limited={passwordTry ? "a password can be tried" : undefined}
+      />
       <form className="flex flex-col gap-4" onSubmit={requestCode} noValidate>
         {by === "phone" ? (
           <Field
             id="phone"
             label="Mobile number"
-            required
             help="The number you confirmed on My account. We text it a 6-digit code: no password needed."
             error={fieldError(error, "phone")}
           >
-            <InputPrefix prefix="+91" name="phone" type="tel" inputMode="tel" autoComplete="tel-national" />
+            <InputPrefix
+              prefix="+91"
+              name="phone"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel-national"
+              defaultValue={typed}
+              aria-required="true"
+            />
           </Field>
         ) : (
           <Field
             id="email"
-            label="Email"
-            required
+            label="Email address"
             help="We email you a 6-digit code: no password needed."
             error={fieldError(error, "email")}
           >
-            <Input name="email" type="email" autoComplete="email" inputMode="email" />
+            <Input
+              name="email"
+              type="email"
+              autoComplete="email"
+              inputMode="email"
+              defaultValue={typed}
+              aria-required="true"
+            />
           </Field>
         )}
         {bot.widget}
@@ -177,18 +242,23 @@ export function LoginForm({ next, providerError }: { next: string | null; provid
       </form>
       <Or />
       {sms ? (
-        <Button variant="secondary" block onClick={() => setBy(by === "phone" ? "email" : "phone")}>
-          <Mail aria-hidden="true" />
-          <span>{by === "phone" ? "Email me a code" : "Text me a code"}</span>
-        </Button>
-      ) : null}
-      {config.auth.google ? (
         <Button
           variant="secondary"
           block
-          onClick={() => startProviderLogin("google", withNext("/account/login/", next))}
+          onClick={() => {
+            setBy(by === "phone" ? "email" : "phone");
+            setTyped("");
+          }}
         >
-          <span aria-hidden="true" className="font-head font-extrabold">
+          {by === "phone" ? "Email me a code instead" : "Text me a code instead"}
+        </Button>
+      ) : null}
+      {config.auth.google ? (
+        <Button variant="secondary" block onClick={tryGoogle}>
+          <span
+            aria-hidden="true"
+            className="inline-flex size-[18px] items-center justify-center rounded-full border-[1.5px] border-current text-[11px] leading-none font-bold"
+          >
             G
           </span>
           <span>Continue with Google</span>
@@ -196,35 +266,50 @@ export function LoginForm({ next, providerError }: { next: string | null; provid
       ) : null}
       {config.auth.passkeys ? (
         <Button variant="secondary" block busy={passkey.busy} onClick={() => passkey.run(() => auth.passkeyLogin())}>
-          <KeyRound aria-hidden="true" />
-          <span>Use a passkey</span>
+          Use a passkey
         </Button>
       ) : null}
-      <details className="group border-t border-border pt-2">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 font-semibold text-primary [&::-webkit-details-marker]:hidden">
-          <Lock aria-hidden="true" className="size-5" />
-          Log in with email and password
-        </summary>
-        <form className="flex flex-col gap-4 pt-3" onSubmit={passwordLogin} noValidate>
-          <Field
-            id="login"
-            label={sms ? "Email or mobile number" : "Email"}
-            required
-            error={fieldError(error, "email") ?? fieldError(error, "phone")}
-          >
-            <Input name="login" type={sms ? "text" : "email"} autoComplete="username" />
-          </Field>
-          <Field id="password" label="Password" required error={fieldError(error, "password")}>
-            <Input name="password" type="password" autoComplete="current-password" />
-          </Field>
-          <Button type="submit" block busy={busy}>
-            Log in
-          </Button>
-          <Link href="/account/password/reset/" className="inline-flex min-h-11 items-center font-semibold">
-            Forgot your password?
-          </Link>
-        </form>
-      </details>
+      <div className="flex flex-wrap items-start justify-between gap-x-6">
+        <details className="min-w-0 open:basis-full">
+          <summary className="inline-flex min-h-11 cursor-pointer list-none items-center font-semibold text-primary underline underline-offset-3 hover:text-red-ink [&::-webkit-details-marker]:hidden">
+            Log in with email and password
+          </summary>
+          <form className="flex flex-col gap-4 pt-3 pb-2" onSubmit={passwordLogin} noValidate>
+            <Field
+              id="login"
+              label={sms ? "Email address or mobile number" : "Email address"}
+              error={fieldError(error, "email") ?? fieldError(error, "phone")}
+            >
+              <Input name="login" type={sms ? "text" : "email"} autoComplete="username" aria-required="true" />
+            </Field>
+            <Field id="password" label="Password" error={fieldError(error, "password")}>
+              <PasswordInput name="password" autoComplete="current-password" aria-required="true" />
+            </Field>
+            <Button type="submit" size="lg" block busy={busy}>
+              Log in
+            </Button>
+            <div className="flex flex-wrap justify-between gap-x-6">
+              <Link href="/account/password/reset/" className="inline-flex min-h-11 items-center font-semibold">
+                Forgot your password?
+              </Link>
+              <LinkButton
+                onClick={(event) => {
+                  event.currentTarget.closest("details")?.removeAttribute("open");
+                  focusCodeField();
+                }}
+              >
+                Use a code instead
+              </LinkButton>
+            </div>
+            <p className="m-0 text-sm text-muted-foreground">
+              After 5 wrong tries you have to wait a few minutes. Logging in with a code needs no password.
+            </p>
+          </form>
+        </details>
+        <Link href={withNext("/account/signup/", next)} className="inline-flex min-h-11 items-center font-semibold">
+          New here? Register
+        </Link>
+      </div>
     </>
   );
 }

@@ -4,7 +4,8 @@
 // Android's SMS autofill, the numeric keypad, a pasted code and Backspace all work, and screen readers hear one field.
 // A paste keeps only its digits and a whole code replaces what was there, so "482 913" or "Your code: 482913" fills
 // all six. The box the next digit goes into is navy inside the focus ring; an error is the error red; disabled is
-// paper 2. Its value is posted as `name` (default "code").
+// paper 2. On a phone the six boxes share the width (320 px too, 56 px each at most); from the desktop layout up they
+// are 44 px wide. Its value is posted as `name` (default "code").
 import { cn } from "cn";
 import { OTPInput, REGEXP_ONLY_DIGITS } from "input-otp";
 import * as React from "react";
@@ -43,7 +44,7 @@ function OtpInput({ name = "code", value, onChange, ...props }: OtpInputProps) {
       aria-label="6-digit code"
       value={value ?? inner}
       onChange={onChange ?? setInner}
-      containerClassName="group/otp flex items-center gap-2"
+      containerClassName="group/otp flex w-full items-center gap-1.5 nav:w-auto nav:gap-2"
       render={({ slots }) =>
         slots.map((slot, index) => (
           <div
@@ -51,7 +52,7 @@ function OtpInput({ name = "code", value, onChange, ...props }: OtpInputProps) {
             data-slot="otp-box"
             data-active={slot.isActive || undefined}
             className={cn(
-              "relative flex h-[54px] w-11 items-center justify-center rounded-lg border-[1.5px] border-input bg-card",
+              "relative flex h-[54px] min-w-0 max-w-14 flex-1 items-center justify-center rounded-lg border-[1.5px] border-input bg-card nav:w-11 nav:max-w-none nav:flex-none",
               "font-mono text-2xl leading-none font-medium text-foreground",
               props["aria-invalid"] && "border-destructive shadow-[inset_0_0_0_0.5px_var(--destructive)]",
               "data-active:border-primary data-active:outline-2 data-active:outline-offset-2 data-active:outline-ring",

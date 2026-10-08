@@ -1,4 +1,5 @@
-import { AuthSection } from "@/components/auth/auth-card";
+// Ask for a reset link (ExamLeaf A - Auth, card "Password reset"; Phone, "Phone reset and logout").
+import { AuthCard } from "@/components/auth/auth-card";
 import { PasswordResetRequestForm } from "@/components/auth/password-forms";
 import { pageMetadata } from "@/lib/seo/metadata";
 
@@ -10,8 +11,8 @@ export const metadata = pageMetadata({
 
 export default function PasswordResetPage() {
   return (
-    <AuthSection>
+    <AuthCard margin="?">
       <PasswordResetRequestForm />
-    </AuthSection>
+    </AuthCard>
   );
 }

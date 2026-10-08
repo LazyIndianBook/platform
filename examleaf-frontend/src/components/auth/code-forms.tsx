@@ -1,23 +1,23 @@
 "use client";
 
-// The steps that take a code: the email confirmation after Register (six boxes; a new code on request) and the
-// second step at log-in for accounts with an authenticator app (staff): the app's code, a recovery code, or a
-// security key / passkey. Each first asks the session whether its step is due.
-import { KeyRound } from "lucide-react";
+// The steps that take a code (Verify email and Two-step check boards): the email confirmation after Register (six
+// boxes; a new code on request) and the second step at log-in for accounts with an authenticator app (staff): the
+// app's code in six boxes, or a recovery code, or a security key / passkey. Each first asks the session whether its
+// step is due.
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { toast } from "@/components/ui/toaster";
 
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { OtpInput } from "@/components/ui/input-otp";
+import { toast } from "@/components/ui/toaster";
 import { ApiError } from "@/lib/api/errors";
 import { auth, type Flow } from "@/lib/auth/headless";
 import { safeNext, withNext } from "@/lib/auth/next-url";
 
-import { AuthTitle } from "./auth-card";
+import { AuthTitle, Lead, LinkButton } from "./auth-card";
+import { CodeField } from "./code-field";
 import { ErrorSummary } from "./error-summary";
 import { fieldError, useAuthAction } from "./use-auth-action";
 
@@ -67,15 +67,13 @@ export function VerifyEmailForm({ next }: { next: string | null }) {
 
   return (
     <>
-      <AuthTitle>Confirm your email</AuthTitle>
+      <AuthTitle>Check your email</AuthTitle>
       {pending === null ? (
         <NothingDue next={next} what="email confirmation" />
       ) : (
         <>
-          <p className="text-muted-foreground">
-            We have emailed you a 6-digit code. Type it here to finish registering.
-          </p>
-          <ErrorSummary error={error} />
+          <Lead>We have emailed you a 6-digit code. Type it here to finish registering.</Lead>
+          <ErrorSummary error={error} retryIn={60} />
           <form
             className="flex flex-col gap-4"
             noValidate
@@ -84,29 +82,17 @@ export function VerifyEmailForm({ next }: { next: string | null }) {
               await run(() => auth.verifyEmail(code));
             }}
           >
-            <Field
-              id="key"
-              label="Code"
-              required
-              help="Check your spam folder if it has not come in a minute."
-              error={fieldError(error, "key")}
-            >
-              <OtpInput value={code} onChange={setCode} autoFocus />
-            </Field>
+            <CodeField id="key" value={code} onChange={setCode} error={fieldError(error, "key")} />
             <Button type="submit" size="lg" block busy={busy} disabled={code.length < 6 || pending === undefined}>
-              Confirm
+              Confirm my email
             </Button>
           </form>
-          <p className="text-[15px]">
-            No code?{" "}
-            <button
-              type="button"
-              onClick={resend}
-              disabled={sending}
-              className="inline-flex min-h-11 cursor-pointer items-center font-semibold text-primary underline underline-offset-3 disabled:opacity-55"
-            >
-              Send a new code
-            </button>
+          <p className="m-0 text-[15px] text-muted-foreground">
+            Didn&apos;t get it? Check your spam folder, or{" "}
+            <LinkButton onClick={resend} disabled={sending}>
+              send it again
+            </LinkButton>
+            .
           </p>
         </>
       )}
@@ -117,49 +103,65 @@ export function VerifyEmailForm({ next }: { next: string | null }) {
 export function MfaForm({ next }: { next: string | null }) {
   const pending = usePending(next);
   const { run, busy, error } = useAuthAction(next);
+  const [recovery, setRecovery] = useState(false);
+  const [code, setCode] = useState("");
   const due = pending?.id === "mfa_authenticate" ? pending : null;
   const keys = due?.types?.includes("webauthn");
 
   return (
     <>
-      <AuthTitle>Second step</AuthTitle>
+      <AuthTitle>Two-step check</AuthTitle>
       {pending !== undefined && !due ? (
         <NothingDue next={next} what="second step" />
       ) : (
         <>
-          <p className="text-muted-foreground">
-            Your account asks for a second step: the 6-digit code of your authenticator app, or one of your recovery
-            codes.
-          </p>
-          <ErrorSummary error={error} />
+          <Lead>
+            {recovery
+              ? "Type one of your recovery codes."
+              : "Open your authenticator app and enter the 6-digit code for ExamLeaf."}
+          </Lead>
+          <ErrorSummary error={error} retryIn={60} />
           <form
             className="flex flex-col gap-4"
             noValidate
             onSubmit={async (event) => {
               event.preventDefault();
-              const code = String(new FormData(event.currentTarget).get("code") ?? "").trim();
-              await run(() => auth.mfaAuthenticate(code));
+              const typed = recovery ? String(new FormData(event.currentTarget).get("code") ?? "").trim() : code;
+              await run(() => auth.mfaAuthenticate(typed));
             }}
           >
-            <Field id="code" label="Code" required error={fieldError(error, "code")}>
-              <Input
-                name="code"
-                inputMode="text"
-                autoComplete="one-time-code"
-                autoCapitalize="off"
-                spellCheck={false}
-              />
-            </Field>
-            <Button type="submit" size="lg" block busy={busy}>
+            {recovery ? (
+              <Field id="code" label="Recovery code" error={fieldError(error, "code")}>
+                <Input
+                  name="code"
+                  inputMode="text"
+                  autoComplete="one-time-code"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  autoFocus
+                  aria-required="true"
+                />
+              </Field>
+            ) : (
+              <CodeField id="code" value={code} onChange={setCode} error={fieldError(error, "code")} />
+            )}
+            <Button type="submit" size="lg" block busy={busy} disabled={!recovery && code.length < 6}>
               Continue
             </Button>
           </form>
-          {keys ? (
-            <Button variant="secondary" block busy={busy} onClick={() => run(() => auth.passkeyAuthenticate())}>
-              <KeyRound aria-hidden="true" />
-              <span>Use a security key or passkey</span>
-            </Button>
-          ) : null}
+          <p className="m-0 flex flex-wrap items-center gap-x-2 text-[15px]">
+            <LinkButton onClick={() => setRecovery(!recovery)}>
+              {recovery ? "Use the app's code" : "Use a recovery code"}
+            </LinkButton>
+            {keys ? (
+              <>
+                <span aria-hidden="true">·</span>
+                <LinkButton disabled={busy} onClick={() => run(() => auth.passkeyAuthenticate())}>
+                  Use a passkey
+                </LinkButton>
+              </>
+            ) : null}
+          </p>
         </>
       )}
     </>
