@@ -1,19 +1,19 @@
-{% load shop %}{# Rows for email/base.html's content block (the EmailOrder artboard; inline styles only): the order's lines and total, the delivery address, then one button: "Pay" to pay_url when given, otherwise "Open your order" (the private link). With: order, site_url, pay_url (optional). #}
-{% with td="font-family: 'Hind Siliguri', 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #1B2330;" head="font-family: Poppins, 'Segoe UI', Helvetica, Arial, sans-serif;" %}
-<tr><td style="padding: 0 32px 8px">
-<table role="presentation" width="100%" style="width: 100%; border-collapse: collapse">
-{% for item in order.items.all %}<tr><td style="{{ td|safe }} border-top: 1px solid #D9DDE3; padding: 10px 0">{{ item.quantity }} × {{ item.title }}</td><td align="right" style="{{ td|safe }} border-top: 1px solid #D9DDE3; padding: 10px 0 10px 16px; white-space: nowrap">{{ item.line_total|inr }}</td></tr>
-{% endfor %}{% for label, amount in order.savings %}<tr><td style="{{ td|safe }} border-top: 1px solid #D9DDE3; padding: 10px 0">{{ label }}</td><td align="right" style="{{ td|safe }} border-top: 1px solid #D9DDE3; padding: 10px 0 10px 16px; white-space: nowrap">−{{ amount|inr }}</td></tr>
-{% endfor %}<tr><td style="{{ td|safe }} border-top: 1px solid #D9DDE3; padding: 10px 0">Shipping</td><td align="right" style="{{ td|safe }} border-top: 1px solid #D9DDE3; padding: 10px 0 10px 16px; white-space: nowrap">{% if order.shipping_fee.amount %}{{ order.shipping_fee|inr }}{% else %}free{% endif %}</td></tr>
-<tr><td style="{{ td|safe }} {{ head|safe }} border-top: 2px solid #1B2330; padding: 10px 0; font-weight: 700; font-size: 17px">Total{% if order.is_cod %} (pay on delivery){% endif %}</td><td align="right" style="{{ td|safe }} {{ head|safe }} border-top: 2px solid #1B2330; padding: 10px 0 10px 16px; white-space: nowrap; font-weight: 700; font-size: 17px">{{ order.total|inr }}</td></tr>
+{% load shop %}{# Rows for email/base.html's content block (ExamLeaf A - Shop "Email"): the order's lines and total under an ink rule with a hairline between the rows, the delivery address, then one navy button: "Pay" to pay_url when given, otherwise "Open your order" (the private link). With: order, site_url, pay_url (optional); the style strings are base.html's. #}
+{% with cell="padding: 10px 0; font-size: 15px; line-height: 1.5; color: #1D2230;" rule="border-bottom: 1px solid #DCD4C4;" amount="padding-left: 16px; text-align: right; white-space: nowrap;" %}
+<tr><td style="padding: 0 36px">
+<table role="presentation" width="100%" class="inkline" style="width: 100%; border-collapse: collapse; border-top: 1px solid #1D2230">
+{% for item in order.items.all %}<tr><td class="ink hair" style="{{ sans|safe }} {{ cell|safe }} {{ rule|safe }}">{{ item.quantity }} × {{ item.title }}</td><td class="ink hair" align="right" style="{{ sans|safe }} {{ cell|safe }} {{ rule|safe }} {{ amount|safe }}">{{ item.line_total|inr }}</td></tr>
+{% endfor %}{% for label, amount_off in order.savings %}<tr><td class="ink hair" style="{{ sans|safe }} {{ cell|safe }} {{ rule|safe }}">{{ label }}</td><td class="ink hair" align="right" style="{{ sans|safe }} {{ cell|safe }} {{ rule|safe }} {{ amount|safe }}">−{{ amount_off|inr }}</td></tr>
+{% endfor %}<tr><td class="ink hair" style="{{ sans|safe }} {{ cell|safe }} {{ rule|safe }}">Shipping</td><td class="ink hair" align="right" style="{{ sans|safe }} {{ cell|safe }} {{ rule|safe }} {{ amount|safe }}">{% if order.shipping_fee.amount %}{{ order.shipping_fee|inr }}{% else %}free{% endif %}</td></tr>
+<tr><td class="ink" style="{{ sans|safe }} {{ cell|safe }} font-weight: 700">Total{% if order.is_cod %} (pay on delivery){% endif %}</td><td class="ink" align="right" style="{{ sans|safe }} {{ cell|safe }} {{ amount|safe }} font-weight: 700">{{ order.total|inr }}</td></tr>
 </table>
 </td></tr>
-<tr><td style="padding: 16px 32px 8px">
-<p style="margin: 0 0 4px; {{ head|safe }} font-weight: 700; font-size: 16px; color: #1B2330">Delivery to</p>
-<p style="margin: 0; {{ td|safe }}">{% for line in order.address_lines %}{{ line }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</p>
+<tr><td style="padding: 24px 36px 0">
+<p class="mute" style="margin: 0 0 6px; {{ tag|safe }}">Delivery to</p>
+<p class="ink" style="margin: 0; {{ sans|safe }} font-size: 15px; line-height: 1.6; color: #1D2230">{% for line in order.address_lines %}{{ line }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</p>
 </td></tr>
-<tr><td style="padding: 24px 32px 0">
-<table role="presentation" style="border-collapse: separate"><tr><td style="border-radius: 10px; background: #1A6E30"><a href="{% if pay_url %}{{ pay_url }}{% else %}{{ site_url }}{{ order.get_link_url }}{% endif %}" style="display: inline-block; padding: 14px 24px; {{ head|safe }} font-weight: 700; font-size: 16px; line-height: 1.2; color: #FFFFFF; text-decoration: none">{% if pay_url %}Pay {{ order.total|inr }}{% else %}Open your order{% endif %}</a></td></tr></table>
-<p style="margin: 10px 0 0; {{ td|safe }} font-size: 15px; color: #5D6675">{% if pay_url %}Online with UPI, a card or net banking (Razorpay), within 15 days.{% else %}This link opens the order without an account: keep it to yourself.{% endif %}</p>
+<tr><td style="padding: 24px 36px 0">
+<table role="presentation" style="border-collapse: collapse"><tr><td class="btn" style="background: #0B2A5B"><a href="{% if pay_url %}{{ pay_url }}{% else %}{{ site_url }}{{ order.get_link_url }}{% endif %}" style="{{ button|safe }}">{% if pay_url %}Pay {{ order.total|inr }}{% else %}Open your order{% endif %}</a></td></tr></table>
+<p class="mute" style="margin: 12px 0 0; {{ note|safe }}">{% if pay_url %}Online with UPI, a card or net banking (Razorpay), within 15 days.{% else %}This link opens the order without an account: keep it to yourself.{% endif %}</p>
 </td></tr>
 {% endwith %}

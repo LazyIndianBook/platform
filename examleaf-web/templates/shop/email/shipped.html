@@ -1,14 +1,12 @@
-{% extends "email/base.html" %}{% load shop %}{# The HTML part of shipped.txt; the text part says the same. #}
+{% extends "email/base.html" %}{% load shop %}{# The HTML part of shipped.txt (ExamLeaf A - Gaps and edge pages "Emails", order shipped); the text part says the same. #}
 {% block preheader %}{{ shipment.courier }}, tracking number {{ shipment.tracking_number }}.{% endblock %}
 {% block label %}On its way{% endblock %}
-{% block content %}{% with td="font-family: 'Hind Siliguri', 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 16px; line-height: 1.6; color: #1B2330;" %}
-<tr><td style="padding: 32px 32px 12px">
-<h1 style="margin: 0 0 8px; font-family: Poppins, 'Segoe UI', Helvetica, Arial, sans-serif; font-weight: 800; font-size: 24px; line-height: 1.3; color: #0B2A5B">Your order {{ order.number }} is on its way.</h1>
-<p style="margin: 0; {{ td|safe }}">Courier: {{ shipment.courier }}<br>Tracking number: <strong>{{ shipment.tracking_number }}</strong>{% if shipment.tracking_url %}<br><a href="{{ shipment.tracking_url }}" style="color: #0B2A5B; font-weight: 600">Track the parcel</a>{% endif %}</p>
+{% block content %}<tr><td style="padding: 32px 36px 24px">
+<h1 class="ink" style="margin: 0 0 12px; {{ serif|safe }} font-weight: 700; font-size: 30px; line-height: 1.15; color: #1D2230">Your order <span style="display: inline-block">{{ order.number }}</span> is on its way.</h1>
+<p class="ink" style="margin: 0; {{ text|safe }}">Courier: {{ shipment.courier }}<br>Tracking number: <strong style="{{ mono|safe }} font-weight: 700">{{ shipment.tracking_number }}</strong>{% if shipment.tracking_url %}<br><a href="{{ shipment.tracking_url }}" style="color: #0B2A5B; font-weight: 700">Track the parcel</a>{% endif %}</p>
 </td></tr>
 {% include "shop/email/_order.html" %}
-<tr><td style="padding: 24px 32px 32px">
-{% if order.is_cod %}<p style="margin: 0 0 20px; {{ td|safe }}">Please keep {{ order.total|inr }} ready for the courier.</p>{% endif %}
-<p style="margin: 0; font-family: Poppins, 'Segoe UI', Helvetica, Arial, sans-serif; font-weight: 700; font-size: 16px; color: #0B2A5B">ExamLeaf</p>
-</td></tr>
-{% endwith %}{% endblock %}
+<tr><td style="padding: 24px 36px 32px">
+{% if order.is_cod %}<p class="ink" style="margin: 0 0 20px; {{ text|safe }}">Please keep {{ order.total|inr }} ready for the courier.</p>{% endif %}
+<p class="ink" style="margin: 0; {{ serif|safe }} font-weight: 700; font-size: 16px; line-height: 1.6; color: #1D2230">ExamLeaf</p>
+</td></tr>{% endblock %}
