@@ -50,6 +50,7 @@ def refund_payment(refund_id):
 def generate_invoice(order_id):
     """The order's invoice: numbered on the first try, the PDF made with WeasyPrint. A failure is retried; the order
     page shows the invoice link once the file exists."""
+    invoices.check_seller()
     invoice = Invoice.for_order(Order.objects.get(pk=order_id))
     if not invoice.pdf:
         invoice.pdf.save(f"{invoice.number.replace('/', '-')}.pdf", ContentFile(invoices.render_pdf(invoice)))
@@ -66,6 +67,7 @@ def generate_credit_note(refund_id):
     invoice = Invoice.objects.filter(order=refund.order_id).first()
     if refund.status != Refund.Status.PROCESSED or invoice is None:
         return
+    invoices.check_seller()
     note = CreditNote.for_refund(refund, invoice)
     if not note.pdf:
         note.pdf.save(f"{note.number.replace('/', '-')}.pdf", ContentFile(invoices.render_pdf(note)))
@@ -73,10 +75,10 @@ def generate_credit_note(refund_id):
 
 @shared_task
 def clean_up():
-    """Daily (celery beat): cancel online orders left unpaid; queue again the refunds, invoices and credit notes whose
-    task was lost (broker down when queued, retries used up); delete guest carts untouched for 30 days and the record
-    of webhooks too old to be accepted again."""
-    services.expire_unpaid_orders()
+    """Daily (celery beat): cancel orders left unpaid (after asking Razorpay if they were paid after all); queue again
+    the refunds, invoices and credit notes whose task was lost (broker down when queued, retries used up); delete guest
+    carts untouched for 30 days and the record of webhooks too old to be accepted again."""
+    services.expire_unpaid_orders(reconcile=payments.reconcile)
     hour_ago = timezone.now() - timedelta(hours=1)
     lost_refunds = Refund.objects.filter(status=Refund.Status.PENDING, razorpay_refund_id=None, created__lt=hour_ago)
     for pk in lost_refunds.values_list("pk", flat=True):

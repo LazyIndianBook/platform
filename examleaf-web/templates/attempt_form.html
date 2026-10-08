@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 {% block head_title %}Record marks · {{ form.paper.code }}{% endblock %}
+{% block meta_description %}Save the marks you scored in an ExamLeaf Sample Paper to your record.{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
 {% block content %}
 <h1>{{ form.paper.code }} — your marks</h1>
 <form method="post" class="narrow">

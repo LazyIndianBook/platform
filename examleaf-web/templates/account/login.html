@@ -1,0 +1,20 @@
+{% extends "account/base_entrance.html" %}
+{% load allauth %}
+{# allauth's page with the site's words: Log in and Register (as in the header), not Sign In and Sign Up #}
+{% block head_title %}Log in{% endblock head_title %}
+{% block content %}
+    {% element h1 %}Log in{% endelement %}
+    {% element p %}Not registered yet? <a href="{{ signup_url }}">Register</a> first: it is free.{% endelement %}
+    {% url 'account_login' as login_url %}
+    {% element form form=form method="post" action=login_url tags="entrance,login" %}
+        {% slot body %}
+            {% csrf_token %}
+            {% element fields form=form unlabeled=True %}
+            {% endelement %}
+            {{ redirect_field }}
+        {% endslot %}
+        {% slot actions %}
+            {% element button type="submit" tags="prominent,login" %}Log in{% endelement %}
+        {% endslot %}
+    {% endelement %}
+{% endblock content %}

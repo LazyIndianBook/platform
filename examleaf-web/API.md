@@ -99,7 +99,7 @@ in it does no harm there.
 | `GET PUT PATCH me/` | signed in | profile; changeable: `full_name`, `phone`, `class_level`, `board`, `district` |
 | `POST me/export/` | signed in | Download my data (`password`): everything kept about the user |
 | `POST DELETE me/deletion/` | signed in | Delete my account (`password`), due in 7 days; DELETE cancels |
-| `GET boards/`, `subjects/` (`?board=`) | anyone | the boards and subjects |
+| `GET boards/`, `boards/<id>/`, `subjects/` (`?board=`), `subjects/<id>/` | anyone | the boards and subjects |
 | `GET books/`, `books/<slug>/` | anyone | books with their papers (`code`, `tier`, `number`, `title`, `is_published`) |
 | `GET papers/`, `papers/<code>/` | anyone | paper details: marks, time, instructions, `web_url`, `solutions_url` |
 | `GET papers/<code>/solutions/` | signed in, email confirmed (anyone while solutions are open) | the questions in order, each with its solution |
@@ -251,14 +251,14 @@ DRF's standard format, always JSON:
 
 | Status | Body |
 |---|---|
-| 400 | the fields' errors: `{"marks_obtained": ["Enter marks from 0 to 70."]}`; others (and the shop's rules) under `non_field_errors` |
+| 400 | the fields' errors: `{"marks_obtained": ["Enter marks from 0 to 70."]}`; others (and the shop's rules) under `non_field_errors`; `{"detail": "Bad request."}` for a request Django refuses before the API sees it (a host name that is not served) |
 | 401 | `{"detail": "Authentication credentials were not provided."}`; a bad or expired token adds `"code": "token_not_valid"` |
 | 403 | `{"detail": "Confirm your email address first."}` (or another reason) |
 | 404 | `{"detail": "No Paper matches the given query."}`, `{"detail": "Not found."}` |
 | 405, 406, 415 | `{"detail": "..."}` |
 | 413 | `{"detail": "The request body is too large."}` (over 1 MB, `DATA_UPLOAD_MAX_MEMORY_SIZE`) |
 | 429 | `{"detail": "Request was throttled. Expected available in 38 seconds."}` with a `Retry-After` header |
-| 500 | the site's error page; reported to Sentry with the request ID |
+| 500 | `{"detail": "Server error."}`; reported to Sentry, with the request ID in `X-Request-ID` (the site's own pages show an error page) |
 | 503 | `{"detail": "The payment service could not be reached."}` (Razorpay, `orders/<number>/payment/`): try again |
 
 ## Rate limits

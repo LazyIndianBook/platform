@@ -1,9 +1,14 @@
+import re
+
 from django.db import models
 from django.urls import reverse
 from simple_history.models import HistoricalRecords
 
 # Each slug is also the page's URL (/privacy/, /terms/, …) and its URL name; see examleaf/urls.py.
 SLUGS = ["privacy", "terms", "refunds", "shipping", "contact"]
+# The drafts hold [places to fill in] (address, GSTIN, phone, Grievance Officer, delivery times ...): a [word in square
+# brackets] that is not the text of a Markdown link, [text](url).
+PLACEHOLDER = re.compile(r"\[[^\]\n]+\](?!\()")
 
 
 class Page(models.Model):
@@ -29,3 +34,8 @@ class Page(models.Model):
 
     def get_absolute_url(self):
         return reverse(self.slug)
+
+    @property
+    def placeholders(self):
+        """The [placeholders] still in the text: none may be left when the shop opens."""
+        return PLACEHOLDER.findall(self.body_md)

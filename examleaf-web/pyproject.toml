@@ -7,6 +7,9 @@ addopts = "--strict-markers"
 filterwarnings = [
     "ignore:'asyncio.iscoroutinefunction' is deprecated:DeprecationWarning:django_guid",
     "ignore:unclosed database:ResourceWarning",  # SQLite connections of the health check's worker threads
+    # taggit and simple_history (admin pages) call Django APIs that are deprecated for 2028; nothing to fix here
+    "ignore:SQLCompiler.quote_name_unless_alias:django.utils.deprecation.RemovedInDjango2028Warning",
+    "ignore:Calling select_related:django.utils.deprecation.RemovedInDjango2028Warning",
 ]
 
 [tool.coverage.run]

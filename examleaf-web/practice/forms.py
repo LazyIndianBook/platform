@@ -4,14 +4,18 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 
 from content.models import Paper, Subject
 
-from .models import Attempt
+from .models import NOTES_MAX_LENGTH, Attempt
 
 
 class AttemptForm(forms.ModelForm):
+    notes = forms.CharField(
+        label="What to revise", required=False, max_length=NOTES_MAX_LENGTH, widget=forms.Textarea(attrs={"rows": 2})
+    )
+
     class Meta:
         model = Attempt
         fields = ["date", "marks_obtained", "time_taken_minutes", "notes"]
-        widgets = {"date": forms.DateInput(attrs={"type": "date"}), "notes": forms.Textarea(attrs={"rows": 2})}
+        widgets = {"date": forms.DateInput(attrs={"type": "date"})}
         labels = {"time_taken_minutes": "Time taken (minutes)"}
 
     def __init__(self, *args, paper, **kwargs):

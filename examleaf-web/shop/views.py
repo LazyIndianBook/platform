@@ -60,7 +60,9 @@ def rate_limit(scope, limit, seconds):
                     count = 1
                     cache.set(key, count, seconds)
                 if (count or 0) > limit:  # None: the cache (Redis) is down; let the request through
-                    return HttpResponse("Too many requests. Please wait a few minutes.", status=429)
+                    response = render(request, "429.html", status=429)
+                    response["Retry-After"] = str(seconds)
+                    return response
             return view(request, *args, **kwargs)
 
         return wrapped
@@ -220,15 +222,16 @@ def pay(request, number):
     if request.method == "POST" and order.is_cod:
         try:
             services.place_cod(order)
-        except services.OutOfStock as error:
-            messages.error(request, f"{error} Please change your cart.")
+        except services.ShopError as error:  # the last copies, or the coupon's last use, went meanwhile
+            services.cancel_order(order, f"Not placed: {error}", email=False)
+            messages.error(request, f"{error} {error.advice}")
             return redirect("shop:cart")
         empty_cart(request)
         return redirect("shop:done", order.number)
     if order.status != Order.Status.PENDING or order.placed_at:
         return redirect(order)
-    context = {"order": order}
-    if not order.is_cod:
+    context = {"order": order, "coupon_problem": services.coupon_problem(order)}  # nothing to pay for if it is gone
+    if not order.is_cod and not context["coupon_problem"]:
         try:
             context["checkout"] = payments.checkout_options(order)
         except payments.Unavailable as error:
@@ -249,6 +252,8 @@ def pay_verify(request, number):
             "confirm the order or refund it by ourselves within a few minutes.",
         )
         return redirect("shop:pay", number)
+    if Order.objects.values_list("status", flat=True).get(pk=order.pk) == Order.Status.CANCELLED:
+        return redirect("shop:done", number)  # sold out or coupon used up while paying: refunded; the cart is kept
     empty_cart(request)
     return redirect("shop:done", number)
 
@@ -294,7 +299,11 @@ def order_cancel(request, number):
     messages.success(
         request,
         f"Order {order.number} is cancelled."
-        + (f" {refund.amount} will be refunded to the way you paid within 5–7 working days." if refund else ""),
+        + (
+            f" {refund.amount} will be refunded to the account, card or UPI ID you paid from within 5–7 working days."
+            if refund
+            else ""
+        ),
     )
     return redirect(order)
 

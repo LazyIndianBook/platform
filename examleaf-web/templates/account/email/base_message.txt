@@ -1,0 +1,7 @@
+{% autoescape off %}Hello from ExamLeaf!
+
+{% block content %}{% endblock content %}
+
+Thank you for using ExamLeaf.
+{{ current_site.domain }}
+{% endautoescape %}

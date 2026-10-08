@@ -1,5 +1,6 @@
 from allauth.account.forms import SignupForm as AllauthSignupForm
 from django import forms
+from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
@@ -100,6 +101,12 @@ class SignupForm(AllauthSignupForm):
                 else "Please tick this box to agree to the privacy notice.",
             )
         return data
+
+    def try_save(self, request):
+        user, response = super().try_save(request)
+        if user is None:  # the address has an account already: nothing is made, but the answer must not come quicker
+            make_password(self.cleaned_data["password1"])  # than for a new address, whose password is hashed
+        return user, response
 
     def custom_signup(self, request, user):
         data = self.cleaned_data

@@ -42,8 +42,9 @@ make worker                               # threads pool: Celery's prefork pool 
 make beat                                 # the schedule is in settings.py and editable in the admin (Periodic tasks)
 ```
 
-If the broker cannot be reached, an email is sent synchronously instead, so that a sign-up never fails because Redis
-is down.
+If the broker cannot be reached (refused at once, or no answer within about 4 seconds), an email is sent from the
+web process instead, so that a sign-up never fails because Redis is down; if the email provider is down as well, the
+failure is logged (Sentry) and the page goes on: the student asks for a new code.
 
 ## Importing the papers
 
@@ -96,8 +97,17 @@ or a plain-http address (a printed book cannot be corrected), unless you pass `-
 | `/account/orders/`, `/account/orders/<number>/` | My orders; an order's timeline, tracking, invoice and credit notes (`…/invoice/`, `…/credit-notes/<id>/`) and Cancel (also for guests who looked it up) |
 | `/orders/lookup/` | Find your order: number and email, for guests |
 | `/shop/webhooks/razorpay/` | Razorpay's webhooks (signed) |
-| `/about/`, `/sitemap.xml`, `/admin/` | |
+| `/about/`, `/sitemap.xml`, `/robots.txt`, `/admin/` | `robots.txt` keeps crawlers out of the account, cart, checkout, admin and API pages; `/favicon.ico` redirects to the icon |
 | `/health/`, `/health/web/` | health checks (JSON with `Accept: application/json`); see Production |
+
+The top bar is one row at every width: on a phone the name, the cart (once it holds books) and a **Menu** button that
+opens the other links; the button is the label of a hidden checkbox (CSS only, no JavaScript, so the CSP stays as it
+is). Every page has its own title and description, and the private ones (account, cart, checkout, orders, log-in) are
+sent with `noindex`, and what a signed-in user sees carries `Cache-Control: no-store` (after Log out on a shared
+computer the Back button shows nothing; the solutions pages and the cached catalogue keep their own rules). The error
+pages (`templates/400.html`, `403.html`, `403_csrf.html`, `404.html`, `429.html`,
+`500.html`) are branded; the 400 and 500 pages need no layout, static file or database (the 500 page shows the request ID
+as a reference for support), and under `/api/` the same errors are JSON.
 
 Registration asks for full name, email, password, class, board, district (optional) and date of birth, and a consent
 box (agreement to the privacy notice, linked beside it) that everyone must tick; its time is stored in `consent_at` and
@@ -152,14 +162,16 @@ last of them clears it. Teacher profiles have "Verify" (adds TEACHER, records wh
   HMAC of the address keyed with `SECRET_KEY`). Sign-up records one; asking for deletion records a withdrawal and
   cancelling it a new consent. Read-only in the admin, exportable as CSV.
 - **Download my data:** `/account/data/` returns the profile, email addresses, teacher profile, attempts, answer sheets,
-  consent records, deletion requests, saved addresses and orders (items, address copy, shipments, refunds, and the
-  invoice and credit notes by number: the PDFs stay on the order pages) as JSON, after allauth's re-authentication
+  consent records, deletion requests, roles, saved addresses, the cart and orders (items, address copy, shipments,
+  payments, refunds, the status timeline, and the invoice and credit notes by number: the PDFs stay on the order pages)
+  as JSON, after allauth's re-authentication
   (password, if none was entered in the last five minutes). The API's `me/export/` gives the same file.
 - **Delete my account:** a `DeletionRequest` due seven days later (`accounts.views.request_deletion` and
   `keep_account`, used by the website and the API alike); the student gets an email, can log in and cancel
   until then; the daily purge (`accounts.tasks.purge_due_deletions`) anonymises the user row (name, email, phone,
   date of birth, district, parent data, notes cleared; answer-sheet photos, email addresses, teacher profile and
-  failed log-ins deleted; consent records kept as proof without the address hash; admin log entries renamed;
+  failed log-ins deleted; consent records kept as proof without the address hash; admin log entries of the user, teacher
+  profile, attempts, answer sheets and addresses renamed;
   password unusable, so every session ends) and emails a confirmation to the old address. The marks stay as
   anonymous statistics.
 - **Changing the email address:** allauth's `ACCOUNT_CHANGE_EMAIL` keeps one address; a new one replaces it only after
@@ -175,8 +187,9 @@ last of them clears it. Teacher profiles have "Verify" (adds TEACHER, records wh
 
 django-admin-interface gives the admin ExamLeaf's colours and name (theme set by `ops/migrations/0001_admin_theme.py`;
 the related-object pop-up stays a window because the CSP forbids frames). The index page
-(`templates/admin/dashboard.html`, `admin.site.index_template`) shows registrations, registrations with a confirmed email
-and saved attempts today and in the last 30 days, and the teacher requests and account deletions waiting.
+(`templates/admin/dashboard.html`, `admin.site.index_template`) shows registrations, registrations with a confirmed
+email and saved attempts today and in the last 30 days, the teacher requests and account deletions waiting, and how many
+legal pages still hold a [placeholder] (the Pages list counts them for each page; on the site they are marked yellow).
 Books, papers, questions, solutions and legal pages keep a full edit history (django-simple-history); users, attempts
 and consent records export to CSV (django-import-export); periodic tasks and task results are under Celery.
 
@@ -229,7 +242,8 @@ The printed books, sold online across India: `shop/` (models; `services.py`, eve
   `SELLER_STATE` (two letters: same state as the buyer = CGST + SGST, otherwise IGST), `SELLER_STATE_CODE`,
   `SELLER_EMAIL`, `SELLER_PHONE`.
 - Invoice PDFs are made by WeasyPrint, which needs Pango: `brew install pango` on a Mac; the Dockerfile installs it
-  with the DejaVu fonts (₹ sign).
+  with the DejaVu fonts (₹ sign) and the Noto fonts (a name or address typed in Assamese, Bengali or Devanagari prints
+  on the invoice instead of empty boxes).
 
 ### How it works
 
@@ -244,8 +258,10 @@ The printed books, sold online across India: `shop/` (models; `services.py`, eve
   webhooks do the same, so a lost redirect still completes the order; repeats and either order of arrival change
   nothing (row locks and the state machines). Each webhook is recorded (`WebhookEvent`: Razorpay's event id and the
   hash of the signed body) and handled once, in one transaction with what it changes; a replay, even under another
-  event id, is acknowledged and ignored, and events signed more than seven days ago are refused. A payment that cannot pay its order (cancelled meanwhile, sold out,
-  wrong amount) is refunded automatically. Cash on delivery: "place order"; the courier's cash captures the payment
+  event id, is acknowledged and ignored, and events signed more than seven days ago are refused. A payment that cannot
+  pay its order (cancelled meanwhile, sold out, a coupon whose last use went to another order, wrong amount) is refunded
+  automatically. A refund made in the Razorpay dashboard is recorded from its webhook (the order, the customer's email
+  and the credit note follow). Cash on delivery: "place order"; the courier's cash captures the payment
   at delivery.
 - **Stock** is taken on payment (cash on delivery: when placed) under `select_for_update`, in product-id order, and
   checked first, so the last copy sells once; it goes back on cancellation. A bundle sells its books' copies.
@@ -264,11 +280,16 @@ The printed books, sold online across India: `shop/` (models; `services.py`, eve
   include tax, the coupon is shared out over the lines.
 - **Credit notes**: a refund of an invoiced order, in full or in part, gets a credit note (`CN/2026-27/00001`, its own
   series per financial year; `TC/…` with test keys), made by a task once Razorpay has refunded (or once the invoice
-  is made, when the refund came first). It credits the books first, over the invoice's lines in proportion, then the
+  is made, when the refund came first). No invoice or credit note of the real series is numbered while a `SELLER_*`
+  setting still holds a [placeholder] (the task is retried; the numbers cannot be reissued). It credits the books first,
+  over the invoice's lines in proportion, then the
   shipping with what is left (a refused parcel refunded less the shipping credits the books only), reversing each
   line's GST. Linked next to the invoice in My orders, the API and the admin (order page, Credit notes).
 - **Coupons**: per cent or rupees off, minimum order, dates, a total and a per-customer limit (by account and by
-  email), any case. A use is a paid (or placed cash-on-delivery) order not cancelled or refunded.
+  email), any case. A use is a paid (or placed cash-on-delivery) order not cancelled or refunded. The limits are checked
+  when the order is made and again, under a lock on the coupon, when it is paid or placed (`services.claim_coupon`):
+  orders awaiting payment are not uses, so the first to be paid or placed gets the last one; the other is not placed
+  (cash on delivery: back to the cart with a message) or its payment is refunded, with an email saying why.
 - **Shipping rates**: a flat fee per group of states (one rate without states covers the rest), free from an order
   value (after the discount).
 - **Admin**: products (images, bundle items), coupons, shipping rates; orders with filters and search (number,
@@ -276,9 +297,15 @@ The printed books, sold online across India: `shop/` (models; `services.py`, eve
   shipped (courier and tracking number per order), Mark delivered, Cancel, Refund (in full; shipped orders also by an
   amount, e.g. a refused parcel less shipping), export to CSV and XLSX; payments, refunds, invoices and credit notes
   read-only; the
-  shop's numbers (orders and revenue today and in 30 days, orders to pack, parcels on the way) on the admin index.
-- **Beat** (04:30, `shop.tasks.clean_up`): online orders unpaid for two days are cancelled (a late payment is
-  refunded), refund, invoice and credit note tasks lost on the way (broker down) are queued again, guest carts idle
+  shop's numbers (orders and revenue today and in 30 days, the revenue net of refunds, orders to pack, parcels on the
+  way) on the admin index. A product's pictures over 2 MB are refused, and saving a product page that was open while
+  customers bought keeps the copies left (only a stock typed on purpose is set).
+- **Beat** (04:30, `shop.tasks.clean_up`): orders never paid (online) or placed (cash on delivery) within two days are
+  cancelled (a late payment is refunded), after asking Razorpay whether the payment was made after all
+  (`payments.reconcile`: a customer who paid and never came back, with a lost webhook, is not left charged without an
+  order; a Razorpay that cannot be asked leaves the order for the next run; `manage.py reconcile_payments` does the same
+  by hand, RUNBOOK.md), refund, invoice and credit note tasks lost on the way (broker down) are queued again, guest
+  carts idle
   for 30 days go, and so do webhook records older than seven days.
 - **Security**: Razorpay's script, frames and API calls are allowed by the CSP on the payment page only, with
   `Cross-Origin-Opener-Policy: same-origin-allow-popups` for the banks' windows; the webhook is CSRF-exempt but signed
@@ -291,8 +318,8 @@ The printed books, sold online across India: `shop/` (models; `services.py`, eve
 ## Tests
 
 ```sh
-make test                                 # pytest: 128 tests, about 50 s (imports all four subjects once)
-make cov                                  # the same with a coverage report (94 %)
+make test                                 # pytest: 188 tests, about 70 s (imports all four subjects once)
+make cov                                  # the same with a coverage report (95 %)
 make lint                                 # ruff, as in CI
 make check                                # manage.py check and missing migrations
 ```
@@ -302,7 +329,9 @@ pytest with pytest-django runs the old Django `TestCase` classes and the newer p
 (`.github/workflows/ci.yml` at the repository root) runs ruff, the migration check and the tests with coverage on
 PostgreSQL 17, and builds the Docker image (job `docker-build`: `docker build`, then Django and WeasyPrint must load
 in the image; nothing is pushed). Every test module passes on its own and in any order, on SQLite and PostgreSQL (no
-test relies on ids or on rows made by another). They cover the import of the four subjects (30 papers each, every solution matched, re-import changes
+test relies on ids or on rows made by another); four tests run threads against PostgreSQL (the last copy, a coupon's
+last use, a webhook and the return page, two clicks on Add to cart, each at the very same instant) and are skipped on
+SQLite. They cover the import of the four subjects (30 papers each, every solution matched, re-import changes
 nothing), the QR landing redirect, the gated solutions page and log-in returning to it (and never to another site), open
 or registered solutions (both settings, website and API), the QR image and export guard, registration (parent details and consent under 18, none kept for adults; the STUDENT role
 and the consent record), the Markdown renderer, query counts, the Content-Security-Policy and private caching of the
@@ -310,8 +339,12 @@ paper page, axes, recording attempts; the role groups' permissions, bootstrap_ro
 that support staff cannot use them), the teacher request and verification; Download my data, deletion with its
 grace period and cancellation, the purge task and what it erases, email change re-verification; the legal pages and
 their history, the health endpoint and the readiness check, request IDs, the email fallback, Redis stopped (its
-connections refused: pages, rate limits and throttles still answer, emails go out, the health checks fail), request
-body limits, Sentry's scrubbing, the admin dashboard and the backup upload. The
+connections refused: pages, rate limits and throttles still answer, log-in, sign-up and password reset work, emails
+go out, the health checks fail; a half-open broker; the email provider failing as well), request body limits,
+Sentry's scrubbing, the admin dashboard and the backup upload. `ops/test_errors.py`, `test_copy.py` and
+`test_admin_pages.py` cover the branded error pages (400, 403, expired form, 404, 429, 500, and JSON under `/api/`),
+`robots.txt`, the icons, the title and description of every page, a NUL byte in an address, the site's words, and that
+every page of the admin (each list, add, change, history and delete page, with data behind it) opens. The
 shop's tests (`shop/test_*.py`, helpers in `shop/factories.py`; Razorpay's network calls are mocked and any real HTTP
 call fails a test, while signatures are checked for real) cover the cart and coupon maths, checkout validation, a price
 changed after the cart, stock and bundles, cash on delivery, the state machines, Checkout's signature, the webhooks'
@@ -321,7 +354,10 @@ lookup and its rate limit, the cart merge at log-in, the address book, account d
 orders, the daily clean-up, SALES and SUPPORT in the admin, the order actions, the export, the dashboard and
 `seed_shop`. `shop/test_api.py` covers the shop's REST endpoints: products, the cart, addresses, checkout, payment
 through the SDK (and a bad signature), cancellation, invoice and credit note PDFs, other customers' orders (404),
-cash on delivery, and the guests' lookup and its limit.
+cash on delivery, and the guests' lookup and its limit. `shop/test_robustness.py` covers coupon limits at the moment of
+payment (and, on PostgreSQL, at the very same instant), payments that cannot be used, unfinished orders, stuck payments
+found when an order expires or by `reconcile_payments`, refunds made in the Razorpay dashboard, the seller's
+placeholders, the dashboard's revenue, and the product page in the admin (a stale form, pictures over 2 MB).
 
 ## Production
 
@@ -344,13 +380,17 @@ the file size when it is built.
 
 Running without surprises:
 
-- **Readiness**: the web container migrates, brings the roles up to date and then runs django-health-check's
+- **Readiness**: the image build collects the static files (hashed, compressed); the web container migrates, brings the
+  roles up to date and runs django-health-check's
   `manage.py health_check health_web --no-http` (database, cache, a write to the media volume) before gunicorn starts;
   if it fails the container stops and Docker restarts it.
 - **Redis down**: the cache fails soft (django-redis with one-second timeouts and `IGNORE_EXCEPTIONS`: every call counts
   as a miss and is logged), so pages keep working while rate limits and throttles let requests through (sessions and
-  axes are in the database); emails are sent from the web process when the broker cannot be reached (about a second
-  late); invoice, credit note and refund tasks lost meanwhile are queued again by the daily clean-up; `/health/`
+  axes are in the database); log-in, sign-up and password reset keep working too (allauth takes `cache.add` answering
+  nothing for a lock held by somebody else, and would answer 429 to all of them, so `examleaf.cache.SoftRedisCache` says
+  "stored" instead); emails are sent from the web process when the broker cannot be reached (at once when it refuses,
+  about 4 seconds when it accepts connections and never answers: `CELERY_BROKER_TRANSPORT_OPTIONS`); invoice, credit
+  note and refund tasks lost meanwhile are queued again by the daily clean-up; `/health/`
   reports the cache.
 - **Request sizes**: Caddy refuses bodies over 10 MB; Django refuses more than 1 MB of form or JSON data
   (`DATA_UPLOAD_MAX_MEMORY_SIZE`; the API answers 413 in its JSON format) and more than 10 files in one request.

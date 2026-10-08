@@ -7,6 +7,7 @@ import json
 import logging
 import time
 from datetime import timedelta
+from decimal import Decimal
 
 import razorpay
 import requests
@@ -107,6 +108,27 @@ def confirm_return(payment, data):
     return True
 
 
+def reconcile(order):
+    """For an online order still awaiting payment: ask Razorpay what became of the payment (the customer may have paid
+    and never come back, and the webhook may have been lost) and record a captured one, capturing an authorized one
+    first. Returns True if the order has been paid, False if Razorpay has no payment for it, None if Razorpay could not
+    be asked (nothing is known then)."""
+    payment = order.payments.filter(method=Order.Method.RAZORPAY).exclude(razorpay_order_id=None).first()
+    if payment is None:
+        return False  # the customer never reached the payment page: Razorpay has no order for it
+    try:
+        for entity in client().order.payments(payment.razorpay_order_id, timeout=TIMEOUT).get("items", []):
+            if entity.get("status") == "authorized" and entity.get("amount") == paise(payment.amount):
+                entity = client().payment.capture(entity["id"], entity["amount"], {"currency": INR}, timeout=TIMEOUT)
+            if entity.get("status") == "captured" and entity.get("order_id") == payment.razorpay_order_id:
+                services.record_capture(entity)
+                return True
+    except API_ERRORS as error:
+        logger.warning("Razorpay could not be asked about order %s: %s", order.number, error)
+        return None
+    return False
+
+
 def handle_webhook(body, signature, event_id=""):
     """A Razorpay webhook. Returns False if the signature (HMAC of the raw body with the webhook secret) is wrong or
     no secret is set. Each event is handled once, in one transaction with its record (WebhookEvent: its id and the hash
@@ -152,7 +174,18 @@ def _dispatch(event):
         ours = Q(razorpay_refund_id=entity["id"])
         if str(notes.get("refund_id", "")).isdigit():
             ours |= Q(pk=int(notes["refund_id"]), razorpay_refund_id=None)  # webhook before the API's answer
-        if refund := Refund.objects.filter(ours).first():
+        refund = Refund.objects.filter(ours).first()
+        if refund is None and name == "refund.processed":
+            payment = Payment.objects.filter(razorpay_payment_id=entity.get("payment_id") or None).first()
+            if payment is not None:  # made in the Razorpay dashboard, not here: recorded, so the order and books follow
+                refund = Refund.objects.create(
+                    order=payment.order,
+                    payment=payment,
+                    amount=Decimal(entity["amount"]) / 100,
+                    reason="Refunded in the Razorpay dashboard.",
+                    razorpay_refund_id=entity["id"],
+                )
+        if refund:
             if name == "refund.processed":
                 services.refund_processed(refund.pk, razorpay_refund_id=entity["id"])
             else:

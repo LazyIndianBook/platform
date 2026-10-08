@@ -1,12 +1,13 @@
 {% extends "base.html" %}{% load static %}
 {% block head_title %}{{ book.title }}{% endblock %}
+{% block meta_description %}{{ book.title }}: papers for the {{ book.subject.board }} {{ book.subject.class_level }} examination, Easy, Medium and Hard. Choose a paper and open its worked solutions.{% endblock %}
 {% block content %}
 <div class="book-head">
   <img src="{% static book.cover %}" alt="" width="480" height="678">
   <div>
     <h1>{{ book.title }}</h1>
     <p class="muted">{{ book.subject.board }} · {{ book.subject.class_level }} · {{ book.edition }}</p>
-    <p>The solutions to every paper are free for registered students. Scan the QR code printed on the paper, or choose it here.</p>
+    <p>The solutions to every paper are free{% if solutions_require_login %} for registered students{% endif %}. Scan the QR code printed on the paper, or choose it here.</p>
   </div>
 </div>
 {% for label, papers in tiers %}

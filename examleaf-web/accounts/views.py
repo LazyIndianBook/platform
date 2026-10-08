@@ -6,7 +6,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.core.serializers.json import DjangoJSONEncoder
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse, reverse_lazy
@@ -55,14 +55,18 @@ class TeacherRequestView(LoginRequiredMixin, SuccessMessageMixin, CreateView):
 
     def form_valid(self, form):
         form.instance.user = self.request.user
-        return super().form_valid(form)
+        try:
+            with transaction.atomic():
+                return super().form_valid(form)
+        except IntegrityError:  # a double click: the other request has made the profile
+            return redirect("account")
 
 
 def export_orders(user):
     """The user's orders as kept (tax records), with their invoice and credit notes by number (the PDFs stay on the
     order pages)."""
     orders = user.orders.select_related("invoice").prefetch_related(
-        "items", "shipments", "refunds", "invoice__credit_notes"
+        "items", "shipments", "refunds", "payments", "invoice__credit_notes"
     )
     return [
         {
@@ -87,11 +91,30 @@ def export_orders(user):
                 {"amount": str(r.amount.amount), "status": r.status, "reason": r.reason, "created": r.created}
                 for r in order.refunds.all()
             ],
+            "payments": [
+                {
+                    "method": p.get_method_display(),
+                    "status": p.status,
+                    "amount": str(p.amount.amount),
+                    "razorpay_payment_id": p.razorpay_payment_id,
+                    "created": p.created,
+                }
+                for p in order.payments.all()
+            ],
+            "timeline": [{"status": label, "at": at} for label, at in order.timeline()],
             "invoice": order.invoice.number if hasattr(order, "invoice") else None,
             "credit_notes": [n.number for n in order.invoice.credit_notes.all()] if hasattr(order, "invoice") else [],
         }
         for order in orders
     ]
+
+
+def export_cart(user):
+    """The cart kept for the user (deleted with the account), if there is one."""
+    if cart := getattr(user, "cart", None):
+        items = [{"title": i.product.title, "quantity": i.quantity} for i in cart.items.select_related("product")]
+        return {"coupon": cart.coupon.code if cart.coupon else None, "items": items}
+    return None
 
 
 def export_user_data(user):
@@ -102,6 +125,7 @@ def export_user_data(user):
             **{name: getattr(user, name) for name in PROFILE_FIELDS},
             "phone": str(user.phone),
             "board": str(user.board or ""),
+            "roles": sorted(user.role_names),
         },
         "email_addresses": list(user.emailaddress_set.values("email", "verified", "primary")),
         "teacher_profile": TeacherProfile.objects.filter(user=user)
@@ -114,6 +138,7 @@ def export_user_data(user):
         "consents": list(user.consents.values("event", "purpose", "notice_version", "by_parent", "ip_hash", "created")),
         "deletion_requests": list(user.deletion_requests.values("status", "requested_at", "due_at", "closed_at")),
         "addresses": [{**a.snapshot(), "is_default": a.is_default, "created": a.created} for a in user.addresses.all()],
+        "cart": export_cart(user),
         "orders": export_orders(user),
     }
 
@@ -146,9 +171,12 @@ def request_deletion(request):
     user = request.user
     if deletion := user.pending_deletion:
         return deletion, False
-    with transaction.atomic():
-        deletion = DeletionRequest.objects.create(user=user)
-        ConsentRecord.record(request, user, event=ConsentRecord.Event.WITHDRAWN)
+    try:
+        with transaction.atomic():
+            deletion = DeletionRequest.objects.create(user=user)
+            ConsentRecord.record(request, user, event=ConsentRecord.Event.WITHDRAWN)
+    except IntegrityError:  # a double click: the other request has made it (one waiting request per user)
+        return DeletionRequest.objects.get(user=user, status=DeletionRequest.Status.PENDING), False
     queue_text_email(
         user.email,
         "Your account will be deleted",

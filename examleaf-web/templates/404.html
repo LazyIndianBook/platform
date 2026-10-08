@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block head_title %}Page not found{% endblock %}
+{% block meta_description %}This page does not exist on the ExamLeaf website. Choose a book or open the shop.{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+<section class="landing">
+  <p class="eyebrow">Error 404</p>
+  <h1>We could not find that page</h1>
+  <p>The address may have a typing mistake, or the page has moved.</p>
+  {% if request_path|slice:":3" == "/s/" %}<p>Looking for the solutions to a paper? Choose your book on the home page and open the paper from there, or scan the QR code on the paper again.</p>{% endif %}
+  <p class="actions">
+    <a class="button" href="{% url 'home' %}">The books</a>
+    <a class="button secondary" href="{% url 'shop:catalogue' %}">Shop</a>
+  </p>
+</section>
+{% endblock %}

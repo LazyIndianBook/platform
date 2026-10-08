@@ -1,5 +1,7 @@
 {% extends "base.html" %}{% load shop %}
 {% block head_title %}My orders{% endblock %}
+{% block meta_description %}The ExamLeaf orders you placed while logged in, with their status.{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
 {% block content %}
 <h1>My orders</h1>
 {% if object_list %}

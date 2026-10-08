@@ -20,8 +20,10 @@ def send_email(message):
 
 
 def queue_email(msg):
-    """Hand an EmailMessage to the worker. If the broker cannot be reached the email is sent here and now instead,
-    so a sign-up never fails (and no verification code is lost) because Redis is down."""
+    """Hand an EmailMessage to the worker. If the broker cannot be reached (refused at once, or no answer within a few
+    seconds: settings.CELERY_BROKER_TRANSPORT_OPTIONS) the email is sent here and now instead, so a sign-up never fails
+    (and no verification code is lost) because Redis is down. If the email provider is down as well, the failure is
+    logged (Sentry) and the page goes on: the student asks for a new code, as RUNBOOK.md says."""
     message = {
         "subject": msg.subject,
         "body": msg.body,
@@ -34,7 +36,10 @@ def queue_email(msg):
         send_email.delay(message)
     except send_email.OperationalError:
         logger.exception("broker unavailable, sending the email synchronously")
-        send_email.run(message)
+        try:
+            send_email.run(message)
+        except Exception:
+            logger.exception("the email could not be sent here either; dropped")
 
 
 def queue_text_email(to, subject, body):

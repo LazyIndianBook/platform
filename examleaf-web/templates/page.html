@@ -1,9 +1,10 @@
-{% extends "base.html" %}{% load markdown %}
+{% extends "base.html" %}{% load pages %}
 {% block head_title %}{{ page.title }}{% endblock %}
+{% block meta_description %}ExamLeaf LLP, publisher of the ExamLeaf books and website: {{ page.title }}.{% endblock %}
 {% block content %}
 <article class="prose">
 <h1>{{ page.title }}</h1>
-{{ page.body_md|markdown }}
+{{ page.body_md|page_html }}
 <p class="muted">Version {{ page.version }} · last changed {{ page.updated|date:"j F Y" }}</p>
 </article>
 {% endblock %}

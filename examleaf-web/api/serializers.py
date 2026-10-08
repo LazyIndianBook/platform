@@ -9,7 +9,7 @@ from rest_framework.reverse import reverse
 from accounts.models import User
 from content.models import Board, Book, Paper, Question, Solution, Subject
 from content.templatetags.markdown import render
-from practice.models import Attempt
+from practice.models import NOTES_MAX_LENGTH, Attempt
 
 
 class BoardSerializer(serializers.ModelSerializer):
@@ -173,6 +173,7 @@ class AttemptSerializer(serializers.ModelSerializer):
             "created",
             "modified",
         ]
+        extra_kwargs = {"notes": {"max_length": NOTES_MAX_LENGTH}}
 
     def validate(self, attrs):
         paper = attrs.get("paper") or self.instance.paper

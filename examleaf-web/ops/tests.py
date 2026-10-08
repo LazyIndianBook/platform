@@ -14,11 +14,10 @@ from django.core.management import call_command
 from django.urls import reverse
 from kombu.exceptions import OperationalError
 
-from accounts.factories import UserFactory
+from accounts.factories import PASSWORD, UserFactory
 from accounts.models import TeacherProfile
 from content.tests import make_paper
 from examleaf import sentry
-from examleaf.celery import app as celery_app
 from ops import tasks
 
 pytestmark = pytest.mark.django_db
@@ -39,14 +38,14 @@ def test_health_checks_database_cache_and_storage(client):
     assert gate.value.code == 0
 
 
-def test_the_site_keeps_working_while_redis_is_down(client, settings, monkeypatch):
+def test_the_site_keeps_working_while_redis_is_down(client, settings, monkeypatch, broker, closed_port):
     def refused(connection):
         raise ConnectionRefusedError(61, "Connection refused")
 
     monkeypatch.setattr(redis.connection.Connection, "_connect", refused)  # Redis stopped: cache and broker
     settings.CACHES = {
         "default": {
-            "BACKEND": "django_redis.cache.RedisCache",
+            "BACKEND": "examleaf.cache.SoftRedisCache",  # what settings.py gives a redis:// CACHE_URL
             "LOCATION": "redis://localhost:6379/1",
             "OPTIONS": settings.REDIS_CACHE_OPTIONS,  # what settings.py gives a redis:// CACHE_URL
         }
@@ -56,16 +55,22 @@ def test_the_site_keeps_working_while_redis_is_down(client, settings, monkeypatc
     lookup = {"number": "EL-2026-999999", "email": "x@example.com"}
     assert client.post(reverse("shop:lookup"), lookup).status_code == 200  # its rate limit lets it through
     assert client.get(reverse("account_login")).status_code == 200
+    user = (
+        UserFactory()
+    )  # allauth's own rate limits too (their lock is cache.add): log-in, sign-up and reset go through
+    EmailAddress.objects.create(user=user, email=user.email, verified=True, primary=True)
+    login = client.post(reverse("account_login"), {"login": user.email, "password": PASSWORD})
+    assert login.status_code == 302 and client.get(reverse("account")).status_code == 200
+    client.post(reverse("account_logout"))
+    assert client.post(reverse("account_reset_password"), {"email": user.email}).status_code == 302
+    assert client.post(reverse("account_signup"), {"email": "x"}).status_code == 200  # the form's errors, not a 429
     assert client.get(reverse("health_web"), HTTP_ACCEPT="application/json").status_code == 500  # the monitor knows
     with pytest.raises(SystemExit) as gate:  # and a new web container waits for Redis
         call_command("health_check", "health_web", "--no-http", stdout=StringIO())
     assert gate.value.code == 1
-    monkeypatch.setattr(celery_app.conf, "task_always_eager", False)  # a real broker, as in production
-    monkeypatch.setattr(celery_app.conf, "broker_url", "redis://localhost:6379/0")
-    monkeypatch.setattr(celery_app, "_pool", None)
-    monkeypatch.setattr(celery_app.amqp, "_producer_pool", None)
+    broker(f"redis://127.0.0.1:{closed_port}/0")  # a real queue, as in production: nobody there
     tasks.queue_email(EmailMessage("Your code", "ABCD-EFGH", to=["a@example.com"]))
-    assert [m.subject for m in mail.outbox] == ["Your code"]  # sent from the web process instead
+    assert mail.outbox[-1].subject == "Your code"  # sent from the web process instead (after the reset email above)
 
 
 def test_the_request_id_from_the_proxy_comes_back_or_a_new_one_is_made(client):

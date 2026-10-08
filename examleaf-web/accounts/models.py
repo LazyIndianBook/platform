@@ -185,13 +185,17 @@ class DeletionRequest(models.Model):
         Returns the old email address, for the goodbye email."""
         user, email = self.user, self.user.email
         with transaction.atomic():
+            from practice.models import AnswerSheetUpload, Attempt  # (practice does not import accounts)
+
             sheets = list(user.answer_sheets.all())
-            for model, pk in [
-                (User, user.pk),
-                *[(TeacherProfile, p.pk) for p in TeacherProfile.objects.filter(user=user)],
+            for model, pks in [  # admin history rows name these objects (the user's email is in their text)
+                (User, [user.pk]),
+                (TeacherProfile, TeacherProfile.objects.filter(user=user).values_list("pk", flat=True)),
+                (Attempt, user.attempts.values_list("pk", flat=True)),
+                (AnswerSheetUpload, [sheet.pk for sheet in sheets]),
             ]:
                 LogEntry.objects.filter(
-                    content_type=ContentType.objects.get_for_model(model), object_id=str(pk)
+                    content_type=ContentType.objects.get_for_model(model), object_id__in=[str(pk) for pk in pks]
                 ).update(object_repr=f"deleted account #{user.pk}")
             TeacherProfile.objects.filter(user=user).delete()
             EmailAddress.objects.filter(user=user).delete()

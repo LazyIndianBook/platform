@@ -3,6 +3,8 @@
   --ink: #1b2330; --muted: #5d6675; --line: #d9dde3; --paper: #fbfaf7; --card: #fff;
   --brand: #0b2a5b; --leaf: #2f8f3a; --gold: #b8860b; --easy: #1b7f3b; --medium: #1a5fb4; --hard: #a0272d;
   --error: #b42318;
+  /* text on the paper colour needs 4.5:1; --leaf and --gold are for borders and fills */
+  --leaf-text: #1a6e30; --gold-text: #8a6508;
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
@@ -16,15 +18,39 @@ code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .9em; }
 .muted, small { color: var(--muted); }
 
 /* header, footer, messages */
-.site-header { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .2rem 1rem; background: var(--brand); color: #fff; }
-.brand { color: #fff; font-weight: 700; font-size: 1.3rem; text-decoration: none; letter-spacing: .02em; }
+/* The header is one row at every width. On a phone: the name, the cart (once it holds books) and a Menu button that
+   opens the other links as a panel under the bar; the button is the label of a hidden checkbox, so no JavaScript.
+   From 40rem the links sit in the row and the button goes. */
+.site-header { position: relative; z-index: 20; display: flex; align-items: center; gap: .3rem; padding: .2rem 1rem; background: var(--brand); color: #fff; }
+.brand { margin-right: auto; color: #fff; font-weight: 700; font-size: 1.3rem; text-decoration: none; letter-spacing: .02em; }
 .brand span { color: #8fd694; }
-.site-header nav { display: flex; align-items: center; gap: .9rem; }
-.site-header nav a, .site-header nav button.link { color: #fff; }
-/* tap targets: links in the header, footer and form help are at least 44px high (buttons already are, see below) */
-.brand, .site-header nav a:not(.button), .site-header nav button.link, .site-footer a, .helptext a { display: inline-flex; align-items: center; min-height: 44px; }
-.site-header nav a:not(.button), .site-header nav button.link, .site-footer a, .helptext a { padding: 0 .3rem; }
 .site-header form { margin: 0; }
+.site-header .menu-toggle { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0; overflow: hidden; clip: rect(0 0 0 0); opacity: 0; }
+.menu-button { display: inline-flex; align-items: center; gap: .5rem; min-height: 44px; margin: 0; padding: 0 .8rem; border: 1px solid rgba(255,255,255,.6); border-radius: 8px; color: #fff; font-weight: 600; cursor: pointer; }
+.menu-button .bars, .menu-button .bars::before, .menu-button .bars::after { display: block; width: 18px; height: 2px; border-radius: 1px; background: currentColor; }
+.menu-button .bars { position: relative; }
+.menu-button .bars::before, .menu-button .bars::after { content: ""; position: absolute; left: 0; }
+.menu-button .bars::before { top: -6px; } .menu-button .bars::after { top: 6px; }
+.menu-button .close, .menu-toggle:checked ~ .menu-button .open { display: none; }
+.menu-toggle:checked ~ .menu-button .close { display: inline; }
+.menu-toggle:focus-visible ~ .menu-button { outline: 3px solid #8fd694; outline-offset: 2px; }
+.site-header nav { display: none; position: absolute; top: 100%; left: 0; right: 0; flex-direction: column; padding: .3rem 1rem 1rem; background: var(--brand); border-top: 1px solid rgba(255,255,255,.25); box-shadow: 0 12px 20px rgba(0,0,0,.3); }
+.menu-toggle:checked ~ nav { display: flex; }
+.site-header nav a, .site-header nav button.link { display: flex; align-items: center; width: 100%; min-height: 48px; padding: 0 .3rem; color: #fff; white-space: nowrap; text-decoration: none; border-bottom: 1px solid rgba(255,255,255,.18); }
+.site-header nav > :last-child, .site-header nav > form:last-child button { border-bottom: 0; }
+.site-header nav .button.small { justify-content: center; margin-top: .8rem; color: var(--brand); }
+.site-header nav .cart-menu { display: none; }  /* the bar has the cart on a phone */
+.cart-bar { display: inline-flex; align-items: center; min-height: 44px; padding: 0 .5rem; color: #fff; white-space: nowrap; }
+/* tap targets: links in the footer and form help are at least 44px high (buttons already are, see below) */
+.brand, .site-footer a, .helptext a { display: inline-flex; align-items: center; min-height: 44px; }
+.site-footer a, .helptext a { padding: 0 .3rem; }
+@media (min-width: 40rem) {
+  .menu-button, .site-header .menu-toggle, .cart-bar { display: none; }
+  .site-header nav, .menu-toggle:checked ~ nav { display: flex; position: static; flex-direction: row; align-items: center; gap: .9rem; padding: 0; background: none; border: 0; box-shadow: none; }
+  .site-header nav a, .site-header nav button.link { width: auto; min-height: 44px; border: 0; text-decoration: underline; }
+  .site-header nav .button.small { margin: 0; padding: 0 .8rem; }
+  .site-header nav .cart-menu { display: flex; }
+}
 .site-footer { text-align: center; padding: 1.5rem 1rem; color: var(--muted); font-size: .9rem; border-top: 1px solid var(--line); }
 .messages { list-style: none; margin: .8rem auto 0; padding: 0 1rem; max-width: 48rem; }
 .messages li { background: #e8f3ea; border-left: 4px solid var(--leaf); padding: .6rem .8rem; border-radius: 4px; }
@@ -122,6 +148,7 @@ table.steps td:last-child { background: var(--card); }
 .averages { list-style: none; padding: 0; display: flex; gap: .6rem; flex-wrap: wrap; }
 .averages li { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: .5rem .8rem; }
 .prose { max-width: 40rem; }
+mark.placeholder { padding: 0 .2em; border-radius: 3px; background: #fff1a8; color: var(--ink); outline: 1px dashed var(--gold-text); }  /* still to be filled in */
 
 @media (min-width: 40rem) {
   body { font-size: 18px; }
@@ -133,16 +160,8 @@ table.steps td:last-child { background: var(--card); }
 .details { display: grid; grid-template-columns: max-content 1fr; gap: .3rem 1rem; }
 .details dt { color: var(--muted); } .details dd { margin: 0; }
 .notice { background: #fdecea; border-left: 4px solid var(--error); padding: .2rem .9rem .8rem; border-radius: 4px; }
-/* three header links on a phone (My record, Account, Log out): keep each on one line */
-.site-header nav a, .site-header nav button.link { white-space: nowrap; }
-@media (max-width: 26rem) {
-  .site-header { padding: .2rem .6rem; flex-wrap: wrap; }  /* below ~340px the links go under the name */
-  .site-header nav { gap: .3rem; }
-  .site-header nav a:not(.button), .site-header nav button.link { padding: 0 .2rem; }
-}
 
-/* shop: the header gains Shop and Cart, so its links may wrap onto a second line rather than overflow */
-.site-header nav { flex-wrap: wrap; justify-content: flex-end; column-gap: .6rem; }
+/* shop */
 .products { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.2rem 1rem; }
 .products a { display: block; text-decoration: none; color: var(--ink); }
 .products img { display: block; border-radius: 6px; box-shadow: 0 2px 10px rgba(0,0,0,.18); margin-bottom: .4rem; }
@@ -151,8 +170,8 @@ table.steps td:last-child { background: var(--card); }
 .price { margin: .3rem 0 0; font-weight: 700; color: var(--brand); }
 .price s { font-weight: 400; color: var(--muted); }
 .price.big { font-size: 1.4rem; }
-.save { font-size: .9rem; color: var(--leaf); }
-.stock { margin: .2rem 0; font-size: .9rem; color: var(--gold); }
+.save { font-size: .9rem; color: var(--leaf-text); }
+.stock { margin: .2rem 0; font-size: .9rem; color: var(--gold-text); }
 .stock.out { color: var(--error); font-weight: 600; }
 .add-to-cart { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .5rem; margin: .8rem 0 0; }
 .add-to-cart label { flex-basis: 100%; margin: 0; }
@@ -176,7 +195,7 @@ legend { font-weight: 700; padding: 0 .3rem; }
 label:has(> input[type=radio]) { display: flex; align-items: center; gap: .6rem; font-weight: 400; min-height: 44px; }
 input[type=radio] { width: 1.2rem; height: 1.2rem; margin: 0; flex: none; }
 .status { display: inline-block; font-weight: 700; padding: .2rem .7rem; border-radius: 999px; background: #eef3fb; color: var(--brand); }
-.status-paid, .status-packed, .status-shipped, .status-delivered { background: #e8f3ea; color: var(--easy); }
+.status-paid, .status-packed, .status-shipped, .status-delivered { background: #e8f3ea; color: var(--leaf-text); }
 .status-cancelled, .status-refunded { background: #f1f3f6; color: var(--muted); }
 .timeline { list-style: none; padding: 0 0 0 1rem; border-left: 3px solid var(--line); }
 .timeline li { position: relative; margin: .4rem 0; }

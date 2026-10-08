@@ -70,7 +70,8 @@ docker compose ps                     # db, redis, web healthy; worker, beat, ca
 docker compose logs -f web caddy      # migrations, bootstrap_roles, gunicorn; Caddy obtaining the certificate
 ```
 
-The web container runs `migrate` and `bootstrap_roles` on every start, then the readiness check
+The static files were collected (hashed, compressed) when the image was built. The web container runs `migrate` and
+`bootstrap_roles` on every start, in that order, then the readiness check
 (`manage.py health_check health_web --no-http`: database, cache, a write to the media volume), then gunicorn; if the
 check fails the container stops, its log names the failing part, and Docker starts it again. To run them by hand:
 `docker compose exec web python manage.py migrate && docker compose exec web python manage.py bootstrap_roles`.
@@ -120,7 +121,8 @@ uploads each dump to `BACKUP_BUCKET` when set. Without a bucket the dumps stay o
 copy them elsewhere. Try a restore once (RUNBOOK.md) before relying on them. The `media` volume holds the invoice PDFs
 (tax records: keep them eight years) and the product pictures: back it up too, e.g.
 `docker run --rm -v examleaf-web_media:/m -v /srv/examleaf/backups:/b alpine tar czf /b/media-$(date +%F).tgz -C /m .`
-(the volume name is `docker volume ls`'s); invoices can also be made again from the orders (`generate_invoice`).
+(the volume name is `docker volume ls`'s); an invoice that is missing is made again by the daily clean-up, or by hand:
+`docker compose exec web python manage.py shell -c "from shop.tasks import generate_invoice; generate_invoice(<order id>)"`.
 
 ## 10. Logs
 
@@ -173,8 +175,11 @@ the flows.
 ### Going live
 
 - [ ] Legal pages final: the email, phone, address, GSTIN and Grievance Officer filled in; the courier and dispatch days
-      in Shipping; the refund rules in Refunds checked against what the business wants.
-- [ ] Seller details in `.env` correct: they print on every invoice and cannot be changed afterwards.
+      in Shipping; the refund rules in Refunds checked against what the business wants. The admin index says how many
+      pages still hold a `[placeholder]` (the Pages list counts them page by page; on the site they are marked yellow).
+- [ ] Seller details in `.env` correct: they print on every invoice and cannot be changed afterwards. While one of
+      `SELLER_ADDRESS`, `SELLER_EMAIL` or `SELLER_PHONE` still holds its `[placeholder]`, no invoice of the real series is
+      numbered (the worker logs the error and retries; the daily clean-up queues the invoices again once `.env` is right).
 - [ ] Real prices, stock and ISBNs. Orders made in test mode stay in the admin; their invoices are in the test series
       (`T/2026-27/…`, credit notes `TC/2026-27/…`, marked as not a tax document), so the real ones start at
       `EL/<year>/00001` and `CN/<year>/00001`.
@@ -185,4 +190,57 @@ the flows.
       the money comes back to the card or UPI account.
 - [ ] `check --deploy` shows only W005 and W021; `/health/` is OK; Sentry receives errors; the `media` volume is backed
       up (invoices and credit notes).
+- [ ] After a first real order: `docker compose exec web python manage.py reconcile_payments` lists nothing but
+      "no payment at Razorpay" for abandoned checkouts (it asks Razorpay about every unpaid online order; RUNBOOK.md,
+      "A stuck payment").
 
+
+## 13. Environment variables
+
+All of them are read from `.env` (copy `.env.example`: each is explained there) or the real environment. docker-compose.yml
+sets `DATABASE_URL`, `CACHE_URL`, `CELERY_BROKER_URL`, `PROXY_COUNT` and `BOOK_ROOT` for its containers; the rest come
+from `.env`.
+
+| Variable | Default | What it does |
+|---|---|---|
+| `DEBUG` | 0 | 1 in development only (https redirect, secure cookies, HSTS and the strict CSP are off or report-only) |
+| `SECRET_KEY` | required | long and random; signs sessions, tokens and the consent address hashes |
+| `SECRET_KEY_FALLBACKS` | none | the previous key(s) while rotating (RUNBOOK.md) |
+| `ALLOWED_HOSTS` | `localhost,127.0.0.1` | host names the site answers to (comma separated) |
+| `SITE_URL` | `http://localhost:8000` | base of the QR codes and of the links in emails; `export_qr` refuses localhost and http |
+| `CSRF_TRUSTED_ORIGINS` | `SITE_URL` | origins trusted for form posts |
+| `BOOK_ROOT` | the folder above `examleaf-web` | where `production/` (the Markdown papers) is, for `import_papers` |
+| `SOLUTIONS_REQUIRE_LOGIN` | 1 | 1: solutions for signed-in students; 0: for everyone (README, "Open or registered solutions") |
+| `DATA_UPLOAD_MAX_MEMORY_SIZE` | 1048576 | largest form or JSON body in bytes (the API answers 413 above it) |
+| `DATABASE_URL` | SQLite `db.sqlite3` | `postgres://user:password@host:5432/examleaf` (compose sets it from `POSTGRES_PASSWORD`) |
+| `CONN_MAX_AGE` | 60 | seconds a database connection is kept between requests |
+| `CACHE_URL` | per-process memory | `redis://host:6379/1`; with Redis down the site runs on without it |
+| `CELERY_BROKER_URL` | empty | `redis://host:6379/0`; empty: tasks run inline in the web process (development) |
+| `CELERY_TASK_ALWAYS_EAGER` | 1 without a broker | force inline tasks (1) or never (0) |
+| `EMAIL_BACKEND` | console | `anymail.backends.brevo.EmailBackend` etc. in production |
+| `ANYMAIL_*` | none | the email provider's settings, e.g. `ANYMAIL_BREVO_API_KEY` |
+| `DEFAULT_FROM_EMAIL` | `ExamLeaf <noreply@localhost>` | the sender of every email: use the verified sending domain |
+| `PROXY_COUNT` | 0 (compose: 1) | proxies in front of the site: trusts `X-Forwarded-Proto` and `-For` from Caddy |
+| `USE_X_FORWARDED_HOST` | 0 | take the host name from `X-Forwarded-Host` (Caddy does not need it) |
+| `SECURE_SSL_REDIRECT` | 1 (with `DEBUG=0`) | redirect http to https |
+| `SECURE_HSTS_SECONDS` | 31536000 | HSTS lifetime |
+| `SECURE_HSTS_INCLUDE_SUBDOMAINS`, `SECURE_HSTS_PRELOAD` | 0 | on only when every subdomain is https (they are the two `check --deploy` warnings) |
+| `MEDIA_BUCKET`, `MEDIA_ENDPOINT_URL` | none | private S3-compatible bucket for uploads instead of the `media` volume |
+| `BACKUP_BUCKET`, `BACKUP_ENDPOINT_URL` | none | private bucket that `scripts/backup.sh` uploads the dumps to |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | none | keys for both buckets |
+| `BACKUP_KEEP_DAYS` | 30 | days of local dumps `scripts/backup.sh` keeps (match the Privacy Policy) |
+| `SENTRY_DSN` | empty (off) | error reports, scrubbed of personal data (`examleaf/sentry.py`) |
+| `SENTRY_ENVIRONMENT`, `SENTRY_TRACES_SAMPLE_RATE`, `RELEASE` | `production`, 0, none | Sentry's environment name, trace sampling, version label |
+| `LOG_JSON`, `LOG_LEVEL` | 1 with `DEBUG=0`, `INFO` | JSON log lines or text, and the level |
+| `CORS_ALLOWED_ORIGINS` | none | web origins allowed to call `/api/` from a browser (the app and the site need none) |
+| `JWT_ACCESS_MINUTES`, `JWT_REFRESH_DAYS` | 15, 30 | token lifetimes of the API |
+| `API_THROTTLE_ANON`, `API_THROTTLE_USER`, `API_THROTTLE_AUTH` | 200/minute, 600/minute, 30/minute | API rate limits per address, per user, and for log-in, sign-up and passwords |
+| `API_THROTTLE_ORDER_LOOKUP`, `API_THROTTLE_PAYMENT` | 30/hour, 30/minute | guests' order lookup per address; starting and confirming payments |
+| `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET` | empty | API keys (`rzp_test_…` until going live); empty: online payment is not set up |
+| `RAZORPAY_WEBHOOK_SECRET` | empty | the webhook's secret; empty: every webhook is refused |
+| `SHOP_COD_ENABLED` | 0 | offer cash on delivery |
+| `SELLER_LEGAL_NAME`, `SELLER_ADDRESS`, `SELLER_GSTIN`, `SELLER_STATE`, `SELLER_STATE_CODE`, `SELLER_EMAIL`, `SELLER_PHONE` | ExamLeaf LLP, placeholders, empty, `AS`, `18`, placeholders | the seller printed on invoices (no invoice is numbered while a `[placeholder]` is left) |
+| `DOMAIN` | required (compose) | the domain Caddy serves and gets its certificate for |
+| `POSTGRES_PASSWORD` | required (compose) | the compose PostgreSQL's password: random, letters and digits only (it goes into a URL) |
+| `WEB_CONCURRENCY` | 1 | gunicorn worker processes (about 2 x CPU cores + 1) |
+| `BOOK_SOURCE` | `..` | folder holding `production/` on the host, mounted read-only for `import_papers` |

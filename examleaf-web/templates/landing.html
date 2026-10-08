@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block head_title %}Solutions to Sample Paper {{ paper.short_code }} — {{ paper.book.subject.name }}{% endblock %}
+{% block meta_description %}Free worked solutions to ExamLeaf Sample Paper {{ paper.short_code }} ({{ paper.book.subject.name }}). Register once with your email address to read them.{% endblock %}
 {% block content %}
 <section class="landing">
   <p class="eyebrow">{{ paper.code }} · {{ paper.get_tier_display }}</p>

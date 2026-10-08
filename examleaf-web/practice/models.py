@@ -4,6 +4,10 @@ from django.utils import timezone
 from model_utils import Choices
 from model_utils.models import StatusModel, TimeStampedModel
 
+NOTES_MAX_LENGTH = (
+    2000  # characters of "what to revise", in the form and in the API (the text is read back on every page)
+)
+
 
 class Attempt(TimeStampedModel):
     """A student's own record of sitting a paper, marked against the solutions."""

@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 {% block head_title %}My account{% endblock %}
+{% block meta_description %}Your ExamLeaf account: your details, saved addresses, teacher access and your data.{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
 {% block content %}
 <h1>My account</h1>
 {% with deletion=user.pending_deletion %}{% if deletion %}

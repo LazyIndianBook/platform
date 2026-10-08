@@ -6,6 +6,7 @@ from django.db.models import Count, Q
 from django.utils import timezone
 
 from accounts.models import DeletionRequest, TeacherProfile, User
+from pages.models import Page
 from practice.models import Attempt
 
 register = template.Library()
@@ -32,4 +33,5 @@ def dashboard_stats():
         ],
         "teachers_waiting": TeacherProfile.objects.filter(verified=False).count(),
         "deletions_waiting": DeletionRequest.objects.filter(status=DeletionRequest.Status.PENDING).count(),
+        "pages_unfinished": sum(bool(page.placeholders) for page in Page.objects.only("body_md")),
     }

@@ -5,9 +5,20 @@ share of the order's discount, divided by (1 + rate). Same state as the seller: 
 from decimal import Decimal
 
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 from django.template.loader import render_to_string
 
 from .models import STATES, CreditNote, address_lines, rupees
+
+
+def check_seller():
+    """Invoices of the real series carry the seller's details for good (the numbers cannot be reissued): while one of
+    them is still a [placeholder] of the defaults, none is made (the task is retried; set SELLER_* in .env). Test keys
+    (their own series) and DEBUG are not held up."""
+    if settings.DEBUG or settings.RAZORPAY_KEY_ID.startswith("rzp_test_"):
+        return
+    if missing := [name for name, value in settings.SHOP_SELLER.items() if "[" in str(value)]:
+        raise ImproperlyConfigured(f"SELLER_* still holds placeholders for {', '.join(missing)}: see .env.example")
 
 
 def tax(item, amount, intra_state):
@@ -44,6 +55,7 @@ def context(invoice):
                 "item": item,
                 "value": value,
                 "discount": share,
+                "amount": value - share,  # what is payable for the line: taxable value and GST
                 "half_rate": half_rate,
                 **tax(item, value - share, intra_state),
             }
@@ -83,7 +95,7 @@ def credit_note_context(note):
     shares = [rupees(part * books_credit / books) if books else Decimal("0.00") for part in invoiced[:-1]]
     shares.append(books_credit - sum(shares, Decimal("0.00")))  # the last line takes the rounding remainder
     lines = [
-        {**line, "value": share, **tax(line["item"], share, data["intra_state"])}
+        {**line, "value": share, "amount": share, **tax(line["item"], share, data["intra_state"])}
         for line, share in zip(data["lines"], shares, strict=True)
     ]
     return {

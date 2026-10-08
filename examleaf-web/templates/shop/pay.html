@@ -1,5 +1,7 @@
 {% extends "base.html" %}{% load shop static %}
 {% block head_title %}Pay for order {{ order.number }}{% endblock %}
+{% block meta_description %}Review your ExamLeaf order, check the address and the total, then pay.{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
 {% block content %}
 <h1>Review and pay</h1>
 <p class="eyebrow">Order {{ order.number }}</p>
@@ -8,7 +10,12 @@
 <p class="address">{% for line in order.address_lines %}{{ line }}<br>{% endfor %}</p>
 <p class="muted">Confirmation to {{ order.email }}. Wrong? <a href="{% url 'shop:checkout' %}">Change the details</a> (this order will simply not be paid).</p>
 
-{% if order.is_cod %}
+{% if coupon_problem %}
+  <div class="notice">
+    <p><strong>{{ coupon_problem }}</strong> Nothing has been charged. Remove the coupon in your cart and check out again.</p>
+    <p><a class="button" href="{% url 'shop:cart' %}">Back to the cart</a></p>
+  </div>
+{% elif order.is_cod %}
   <form method="post">{% csrf_token %}
     <button type="submit">Place order: pay {{ order.total|inr }} on delivery</button>
   </form>

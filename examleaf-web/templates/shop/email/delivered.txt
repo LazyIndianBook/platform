@@ -1,7 +1,7 @@
 {% autoescape off %}Your order {{ order.number }} has been delivered.
 
-Something wrong with a book (damaged, pages missing, not what you ordered)? Reply within 7 days with a photo and we
-replace it or refund it: {{ site_url }}{% url 'refunds' %}
+Something wrong with a book (damaged, pages missing, not what you ordered)? Tell us as our Refund and Cancellation
+Policy explains and we replace it or refund it: {{ site_url }}{% url 'refunds' %}
 
 Every paper has a QR code: scan it after the paper to read its full solutions, free, at {{ site_url }}.
 

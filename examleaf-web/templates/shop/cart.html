@@ -1,5 +1,7 @@
 {% extends "base.html" %}{% load shop %}
 {% block head_title %}Your cart{% endblock %}
+{% block meta_description %}Your ExamLeaf cart: the books you chose, the copies of each, a coupon code and the way to checkout.{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
 {% block content %}
 <h1>Your cart</h1>
 {% if totals.lines %}

@@ -9,6 +9,8 @@ import re
 from decimal import ROUND_HALF_UP, Decimal
 
 from django.conf import settings
+from django.contrib.admin.models import LogEntry
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
 from django.db import models
@@ -202,7 +204,12 @@ class Coupon(TimeStampedModel):
             return "This coupon has expired."
         if amount < self.min_order.amount:
             return f"This coupon needs books worth at least {self.min_order}."
-        # ponytail: checked when the order is made; two orders paid at the same moment can both take the last use.
+        return self.limit_problem(user, email)
+
+    def limit_problem(self, user=None, email=""):
+        """Why the coupon's limits stop this customer (used up, or used before by this account or email address), or
+        None. Checked when the order is made and again, under a lock on the coupon, when it is placed
+        (services.claim_coupon): orders still awaiting payment do not count as uses until then."""
         used = self.orders.counted()
         if self.max_uses is not None and used.count() >= self.max_uses:
             return "This coupon has been used up."
@@ -642,5 +649,10 @@ def forget_shop_details(sender, instance, **kwargs):
     """Account deletion (accounts.DeletionRequest.complete): saved addresses and the cart go; orders stay as tax
     records, with the address copied into them."""
     if instance.status == DeletionRequest.Status.DONE:
-        Address.objects.filter(user=instance.user_id).delete()
+        addresses = Address.objects.filter(user=instance.user_id)
+        LogEntry.objects.filter(  # admin history rows name an address by its text: the name, the town, the PIN
+            content_type=ContentType.objects.get_for_model(Address),
+            object_id__in=[str(pk) for pk in addresses.values_list("pk", flat=True)],
+        ).update(object_repr=f"deleted address of account #{instance.user_id}")
+        addresses.delete()
         Cart.objects.filter(user=instance.user_id).delete()

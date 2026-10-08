@@ -37,11 +37,8 @@ def set_quantity(cart, product, quantity, add=False):
     quantity = min(max(quantity + (item.quantity if item and add else 0), 0), CartItem.MAX_QUANTITY)
     if quantity == 0:
         cart.items.filter(product=product).delete()
-    elif item:
-        item.quantity = quantity
-        item.save(update_fields=["quantity"])
-    else:
-        cart.items.create(product=product, quantity=quantity)
+    else:  # update_or_create: a double click sends two requests, and both may find no row to change
+        CartItem.objects.update_or_create(cart=cart, product=product, defaults={"quantity": quantity})
     cart.save(update_fields=["modified"])  # keeps an active guest cart from the daily clean-up
 
 

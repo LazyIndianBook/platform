@@ -1,6 +1,6 @@
 {% extends "base.html" %}{% load shop markdown %}
 {% block head_title %}{{ product.seo_title|default:product.title }}{% endblock %}
-{% block meta_description %}{{ product.seo_description|default:product.title }}{% endblock %}
+{% block meta_description %}{% if product.seo_description %}{{ product.seo_description }}{% else %}{{ product.title }}{% if product.subject %} for the {{ product.subject.board }} {{ product.subject.class_level }} examination{% endif %}: {{ product.price|inr }}, delivered across India.{% endif %}{% endblock %}
 {% block content %}
 <div class="book-head">
   {% if product.cover %}<img src="{% url 'shop:media' product.cover.name %}" alt="Cover of {{ product.title }}" width="480" height="678">{% else %}{% include "shop/no_cover.html" %}{% endif %}
@@ -48,7 +48,7 @@
   {% if product.pages %}<dt>Pages</dt><dd>{{ product.pages }}</dd>{% endif %}
   {% if product.isbn %}<dt>ISBN</dt><dd>{{ product.isbn }}</dd>{% endif %}
   {% if product.weight_grams %}<dt>Weight</dt><dd>{{ product.weight_grams }} g</dd>{% endif %}
-  <dt>Delivery</dt><dd>Anywhere in India, usually 5–10 working days. <a href="{% url 'shipping' %}">Shipping</a> · <a href="{% url 'refunds' %}">Refunds</a></dd>
+  <dt>Delivery</dt><dd>Anywhere in India. Dispatch times and charges: <a href="{% url 'shipping' %}">Shipping Policy</a> · returns: <a href="{% url 'refunds' %}">Refund and Cancellation Policy</a></dd>
 </dl>
 
 {% for image in product.images.all %}

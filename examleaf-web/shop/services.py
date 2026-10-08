@@ -18,7 +18,7 @@ from ops.tasks import queue_text_email
 
 from . import tasks
 from .cart import totals as cart_totals
-from .models import INR, Order, OrderItem, Payment, Product, Refund, Shipment, paise
+from .models import INR, Coupon, Order, OrderItem, Payment, Product, Refund, Shipment, paise
 
 logger = logging.getLogger(__name__)
 UNPAID_ORDERS_EXPIRE = timedelta(days=2)
@@ -27,9 +27,18 @@ UNPAID_ORDERS_EXPIRE = timedelta(days=2)
 class ShopError(Exception):
     """Something the customer must fix (shown to them as it is)."""
 
+    advice = ""  # what to do about it, for the pages that send the customer back to the cart
+    while_paying = ""  # how it reads in the email of an order cancelled because of it ("… while you were paying")
+
 
 class OutOfStock(ShopError):
-    pass
+    advice = "Please change your cart."
+    while_paying = "the books sold out"
+
+
+class CouponUsedUp(ShopError):
+    advice = "Please remove the coupon from your cart."
+    while_paying = "the coupon was used up"
 
 
 SUBJECTS = {
@@ -68,6 +77,23 @@ def reserve_stock(order):
     for pk, count in need.items():
         Product.objects.filter(pk=pk).update(stock=F("stock") - count)
     order.stock_reserved = True
+
+
+def coupon_problem(order):
+    """Why the order's coupon can no longer be used for it (a limit reached since the order was made), or None."""
+    if order.coupon_id and (coupon := Coupon.objects.filter(pk=order.coupon_id).first()):
+        return coupon.limit_problem(user=order.user, email=order.email)
+    return None
+
+
+def claim_coupon(order):
+    """The coupon's limits, checked again when the order is placed, under a lock on the coupon: the check at checkout
+    cannot stop several pending orders from each taking the last use (or one customer's second use), and only orders
+    placed count as uses. Changes nothing; raises CouponUsedUp."""
+    if order.coupon_id:
+        Coupon.objects.select_for_update().filter(pk=order.coupon_id).first()  # one placement at a time per coupon
+        if problem := coupon_problem(order):
+            raise CouponUsedUp(problem)
 
 
 def release_stock(order):
@@ -128,6 +154,7 @@ def place_cod(order):
     with transaction.atomic():
         order = _lock(order)
         if order.placed_at is None and order.is_cod and order.status == Order.Status.PENDING:
+            claim_coupon(order)
             reserve_stock(order)
             order.placed_at = timezone.now()
             order.save()
@@ -164,12 +191,14 @@ def record_capture(entity, payload=None):
             start_refund(order, f"Paid while the order was {order.get_status_display()}.", payment=payment)
         else:
             try:
+                claim_coupon(order)  # first: it changes nothing, so a book sold out after it leaves no trace
                 reserve_stock(order)
-            except OutOfStock:
+            except (OutOfStock, CouponUsedUp) as error:
                 order.cancel()
                 order.save()
-                refund = start_refund(order, "The books sold out while the payment was made.", payment=payment)
-                notify(order, "cancelled", reason="the books sold out while you were paying", refund=refund)
+                why = error.while_paying
+                refund = start_refund(order, f"{why.capitalize()} while the payment was made.", payment=payment)
+                notify(order, "cancelled", reason=f"{why} while you were paying", refund=refund)
             else:
                 order.pay()
                 order.save()
@@ -301,14 +330,27 @@ def refund_order(order, reason, by=None, amount=None):
         return start_refund(order, reason, by=by, amount=amount)
 
 
-def expire_unpaid_orders():
-    """Online orders left unpaid for UNPAID_ORDERS_EXPIRE are cancelled (a payment arriving later is refunded), so an
-    old checkout page cannot be paid at an old price."""
+def expire_unpaid_orders(reconcile=None):
+    """Orders never paid (online) or placed (cash on delivery) within UNPAID_ORDERS_EXPIRE are cancelled (a payment
+    arriving later is refunded), so an old checkout page cannot be paid at an old price and abandoned review pages do
+    not pile up in the admin. `reconcile(order)` asks Razorpay first (payments.reconcile): an order whose payment was
+    made but never reported is paid, not cancelled, and one that Razorpay could not be asked about waits for the next
+    run. Returns how many were cancelled."""
     stale = Order.objects.filter(
-        status=Order.Status.PENDING,
-        payment_method=Order.Method.RAZORPAY,
-        created__lt=timezone.now() - UNPAID_ORDERS_EXPIRE,
+        status=Order.Status.PENDING, placed_at__isnull=True, created__lt=timezone.now() - UNPAID_ORDERS_EXPIRE
     )
+    cancelled = 0
     for order in stale:
-        cancel_order(order, "Not paid within two days.", email=False)
-    return len(stale)
+        try:
+            known = reconcile(order) if reconcile and not order.is_cod else False
+        except Exception:  # one order's trouble must not stop the others, or the rest of the daily clean-up
+            logger.exception("Reconciling order %s failed", order.number)
+            continue
+        if known is not False:  # paid, or not known: not cancelled
+            continue
+        with transaction.atomic():
+            locked = _lock(order)
+            if locked.status == Order.Status.PENDING and locked.placed_at is None:  # paid meanwhile: leave it
+                cancel_order(locked, "Not paid within two days.", email=False)
+                cancelled += 1
+    return cancelled

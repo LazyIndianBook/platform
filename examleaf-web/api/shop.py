@@ -515,8 +515,8 @@ class OrderViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.Ge
             if order.is_cod:
                 try:
                     order = services.place_cod(order)
-                except services.OutOfStock:
-                    services.cancel_order(order, "Sold out while it was being placed.", email=False)
+                except services.ShopError as error:  # sold out, or the coupon's last use went, meanwhile
+                    services.cancel_order(order, f"Not placed: {error}", email=False)
                     raise
                 cart.delete()
         except services.ShopError as error:
@@ -544,6 +544,8 @@ class OrderViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.Ge
         order = self.get_object()
         if not can_pay(order):
             raise refuse(NOT_PAYABLE)
+        if problem := services.coupon_problem(order):  # a payment would only be refunded
+            raise refuse(f"{problem} Cancel this order and check out again without the coupon.")
         try:
             options = payments.checkout_options(order)
         except payments.Unavailable as error:
@@ -561,8 +563,10 @@ class OrderViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.Ge
         payment = order.payments.filter(razorpay_order_id=data.validated_data["razorpay_order_id"]).first()
         if payment is None or not payments.confirm_return(payment, data.validated_data):
             raise refuse(NOT_CONFIRMED)
-        Cart.objects.filter(user=request.user).delete()
-        return self.answer(self.get_object())
+        order = self.get_object()
+        if order.status != Order.Status.CANCELLED:  # cancelled: sold out or coupon used up while paying (refunded)
+            Cart.objects.filter(user=request.user).delete()
+        return self.answer(order)
 
     @extend_schema(responses=PDF)
     @action(detail=True, content_negotiation_class=AnyAccept)

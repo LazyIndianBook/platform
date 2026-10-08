@@ -1,5 +1,6 @@
 from django import forms
 from django.contrib import admin, messages
+from django.core.files.uploadedfile import UploadedFile
 from django.forms import formset_factory
 from django.shortcuts import render
 from django.urls import reverse
@@ -42,9 +43,48 @@ class ReadOnlyInline(admin.TabularInline):
         return False
 
 
+MAX_PICTURE_BYTES = 2 * 1024 * 1024
+
+
+def small_picture(upload):
+    """Covers and pictures load on every phone: refuse a new upload over 2 MB (Caddy stops 10 MB bodies anyway)."""
+    if isinstance(upload, UploadedFile) and upload.size > MAX_PICTURE_BYTES:
+        raise forms.ValidationError(
+            f"This picture is {upload.size / 1048576:.1f} MB. Make it smaller than 2 MB first: it loads on every phone."
+        )
+    return upload
+
+
+class ProductImageForm(forms.ModelForm):
+    class Meta:
+        model = ProductImage
+        fields = ["image", "alt", "position"]
+
+    def clean_image(self):
+        return small_picture(self.cleaned_data["image"])
+
+
 class ProductImageInline(admin.TabularInline):
     model = ProductImage
+    form = ProductImageForm
     extra = 0
+
+
+class ProductForm(forms.ModelForm):
+    class Meta:
+        model = Product
+        fields = [  # as in the admin's fieldsets
+            *["title", "slug", "kind", "is_active", "subject", "book", "mrp", "price", "stock", "gst_rate"],
+            *["hsn_code", "cover", "description", "isbn", "pages", "weight_grams", "seo_title", "seo_description"],
+        ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # the page carries the stock it was opened with, so that saving it can tell whether stock was edited
+        self.fields["stock"].show_hidden_initial = True
+
+    def clean_cover(self):
+        return small_picture(self.cleaned_data["cover"])
 
 
 class BundleItemInline(admin.TabularInline):
@@ -56,6 +96,7 @@ class BundleItemInline(admin.TabularInline):
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
+    form = ProductForm
     list_display = ["title", "kind", "subject", "price", "mrp", "stock", "is_active"]
     list_filter = ["is_active", "kind", "subject"]
     search_fields = ["title", "isbn", "slug"]
@@ -68,6 +109,12 @@ class ProductAdmin(admin.ModelAdmin):
         ("The book", {"fields": ["cover", "description", "isbn", "pages", "weight_grams"]}),
         ("Search engines", {"fields": ["seo_title", "seo_description"], "classes": ["collapse"]}),
     ]
+
+    def save_model(self, request, obj, form, change):
+        if change and "stock" not in form.changed_data:
+            # The page may have been open while customers bought: saving it must not put its old copy count back.
+            obj.stock = Product.objects.values_list("stock", flat=True).get(pk=obj.pk)
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(Coupon)

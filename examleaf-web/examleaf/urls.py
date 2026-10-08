@@ -16,6 +16,8 @@ from pages.views import PageView
 from practice import views as practice
 from shop.models import Product
 
+from .views import RobotsView
+
 
 class PageSitemap(Sitemap):
     def items(self):
@@ -29,9 +31,17 @@ class PageSitemap(Sitemap):
 # /health/: that plus the Celery workers when a broker is in use (with eager tasks there is no worker to ask); for an
 # uptime monitor. The container check leaves Celery out: the worker starts only once the web container is healthy.
 WEB_CHECKS = ["health_check.checks.Database", "health_check.checks.Cache", "health_check.checks.Storage"]
-ALL_CHECKS = WEB_CHECKS
-if not settings.CELERY_TASK_ALWAYS_EAGER:
-    ALL_CHECKS = [*WEB_CHECKS, ("health_check.contrib.celery.Ping", {"timeout": timedelta(seconds=3)})]
+
+
+def health_checks(eager):
+    """The checks of /health/: the web ones, plus a ping of the Celery workers when a broker is in use. limit=1: the
+    first worker's answer is enough; without it the ping waits out its whole timeout and holds a gunicorn worker."""
+    if eager:
+        return WEB_CHECKS
+    return [*WEB_CHECKS, ("health_check.contrib.celery.Ping", {"timeout": timedelta(seconds=3), "limit": 1})]
+
+
+ALL_CHECKS = health_checks(settings.CELERY_TASK_ALWAYS_EAGER)
 
 
 class BookSitemap(Sitemap):
@@ -43,6 +53,9 @@ class ProductSitemap(Sitemap):
     def items(self):
         return Product.objects.filter(is_active=True).order_by("id")
 
+
+handler400 = "examleaf.views.bad_request"  # self-contained pages, and JSON under /api/
+handler500 = "examleaf.views.server_error"  # 403, 404 and CSRF failures use templates/403.html, 404.html, 403_csrf.html
 
 urlpatterns = [
     path("", content.HomeView.as_view(), name="home"),
@@ -62,6 +75,8 @@ urlpatterns = [
     path("account/", include("allauth.urls")),
     *[path(f"{slug}/", PageView.as_view(), {"slug": slug}, name=slug) for slug in PAGES],  # /privacy/, /terms/, …
     path("about/", TemplateView.as_view(template_name="about.html"), name="about"),
+    path("robots.txt", RobotsView.as_view()),
+    path("favicon.ico", RedirectView.as_view(url=settings.STATIC_URL + "img/favicon-32.png", permanent=True)),
     path("sitemap.xml", sitemap, {"sitemaps": {"pages": PageSitemap, "books": BookSitemap, "shop": ProductSitemap}}),
     path("health/", HealthCheckView.as_view(checks=ALL_CHECKS), name="health"),
     path("health/web/", HealthCheckView.as_view(checks=WEB_CHECKS), name="health_web"),

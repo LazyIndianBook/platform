@@ -4,9 +4,12 @@ FROM python:3.14-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
 WORKDIR /app
 
-# WeasyPrint (invoice PDFs) needs Pango and HarfBuzz, and a font with the rupee sign (DejaVu Sans).
+# WeasyPrint (invoice PDFs) needs Pango and HarfBuzz, a font with the rupee sign (DejaVu Sans) and fonts for the names
+# and addresses customers type in their own script (Noto: Assamese and Bengali, Devanagari ...): the address is printed
+# on the invoice, and without such a font the letters come out as empty boxes.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 fonts-dejavu-core \
+    && apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 \
+        fonts-dejavu-core fonts-noto-core \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

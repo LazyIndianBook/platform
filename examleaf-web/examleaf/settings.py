@@ -62,6 +62,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django_guid.middleware.guid_middleware",  # request ID (X-Request-ID from the proxy, or new), in every log line
+    "examleaf.middleware.NullByteMiddleware",  # %00 in an address: 404 (PostgreSQL would fail with a 500)
     "django.middleware.security.SecurityMiddleware",
     "django.middleware.csp.ContentSecurityPolicyMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
@@ -69,6 +70,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "examleaf.middleware.PrivatePagesMiddleware",  # a signed-in user's pages are not kept by the browser (log-out)
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
@@ -94,6 +96,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "examleaf.context_processors.site",
             ],
         },
     },
@@ -110,6 +113,7 @@ DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
 CACHES = {"default": env.cache("CACHE_URL", default="locmemcache://")}
 REDIS_CACHE_OPTIONS = {"SOCKET_CONNECT_TIMEOUT": 1, "SOCKET_TIMEOUT": 1, "IGNORE_EXCEPTIONS": True}
 if CACHES["default"]["BACKEND"] == "django_redis.cache.RedisCache":
+    CACHES["default"]["BACKEND"] = "examleaf.cache.SoftRedisCache"  # also for allauth's locks, see examleaf/cache.py
     CACHES["default"]["OPTIONS"] = {**REDIS_CACHE_OPTIONS, **CACHES["default"].get("OPTIONS", {})}
 DJANGO_REDIS_LOG_IGNORED_EXCEPTIONS = True
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
@@ -205,7 +209,10 @@ DEFAULT_FROM_EMAIL = SERVER_EMAIL = env("DEFAULT_FROM_EMAIL", default="ExamLeaf 
 CELERY_BROKER_URL = env("CELERY_BROKER_URL", default="")
 CELERY_TASK_ALWAYS_EAGER = TESTING or env.bool("CELERY_TASK_ALWAYS_EAGER", default=not CELERY_BROKER_URL)
 CELERY_TASK_EAGER_PROPAGATES = True
-CELERY_BROKER_TRANSPORT_OPTIONS = {"socket_connect_timeout": 5}  # an unreachable Redis fails fast (email fallback)
+# An unreachable Redis fails at once and a half-open one (accepts the connection, never answers) within seconds, not
+# never: queueing an email then falls back to sending it in the web process (ops/tasks.py), not a hung request.
+CELERY_BROKER_TRANSPORT_OPTIONS = {"socket_connect_timeout": 2, "socket_timeout": 2}
+CELERY_TASK_PUBLISH_RETRY_POLICY = {"max_retries": 1, "interval_start": 0, "interval_step": 0.2, "interval_max": 0.5}
 CELERY_RESULT_BACKEND = "django-db"  # django-celery-results; beat removes results after CELERY_RESULT_EXPIRES
 CELERY_RESULT_EXPIRES = timedelta(days=7)
 CELERY_TASK_TIME_LIMIT = 300

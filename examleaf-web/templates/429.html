@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block head_title %}Too many tries{% endblock %}
+{% block meta_description %}Too many requests from your address. Please wait a few minutes and try again.{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+<section class="landing">
+  <p class="eyebrow">Error 429</p>
+  <h1>Too many tries</h1>
+  <p>Please wait a few minutes and try again.</p>
+  <p class="actions"><a class="button" href="{% url 'home' %}">The books</a></p>
+</section>
+{% endblock %}

@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 {% block head_title %}{% if object %}Change an address{% else %}Add an address{% endif %}{% endblock %}
+{% block meta_description %}Save a delivery address in your ExamLeaf account for a faster checkout.{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
 {% block content %}
 <h1>{% if object %}Change an address{% else %}Add an address{% endif %}</h1>
 <form method="post">{% csrf_token %}

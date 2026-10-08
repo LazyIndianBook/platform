@@ -1,7 +1,8 @@
 {% autoescape off %}Thank you for your order {{ order.number }}.
 
 {% include "shop/email/_order.txt" %}
-We dispatch within 2 working days and email you the tracking number. Delivery usually takes 5–10 working days.
+We email you the tracking number when the parcel is dispatched. Dispatch and delivery times are in our Shipping
+Policy: {{ site_url }}{% url 'shipping' %}
 You can cancel the order on its page until it is packed.
 
 ExamLeaf{% endautoescape %}

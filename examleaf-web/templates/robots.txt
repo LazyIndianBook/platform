@@ -1,0 +1,10 @@
+User-agent: *
+Disallow: /admin/
+Disallow: /account/
+Disallow: /cart/
+Disallow: /checkout/
+Disallow: /orders/
+Disallow: /api/
+Disallow: /health/
+
+Sitemap: {{ site_url }}/sitemap.xml

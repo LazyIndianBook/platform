@@ -54,3 +54,14 @@ def rzp(monkeypatch):
 def commit(django_capture_on_commit_callbacks):
     """`with commit():` runs what the code queues for after the commit (emails, tasks), as production would."""
     return lambda: django_capture_on_commit_callbacks(execute=True)
+
+
+@pytest.fixture
+def real_seller(settings):
+    """The seller's details as .env gives them once filled in (the defaults hold [placeholders])."""
+    settings.SHOP_SELLER = {
+        **settings.SHOP_SELLER,
+        "address": "House 1, Zoo Road, Guwahati, Assam 781001",
+        "email": "orders@examleaf.in",
+        "phone": "+91 98640 00000",
+    }

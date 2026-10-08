@@ -210,7 +210,7 @@ def test_refund_is_retried_while_razorpay_is_down_and_stops_when_refused(rzp, co
 
 
 @pytest.mark.real_pdf
-def test_invoice_and_credit_note_are_pdfs_with_gst_columns_even_at_zero(rzp, settings, commit):
+def test_invoice_and_credit_note_are_pdfs_with_gst_columns_even_at_zero(rzp, settings, commit, real_seller):
     try:
         import weasyprint  # noqa: F401
     except OSError:
@@ -258,7 +258,7 @@ def test_invoice_link_appears_once_the_pdf_exists(client, rzp, monkeypatch):
     assert response["Content-Type"] == "application/pdf" and Invoice.objects.count() == 1
 
 
-def test_refunds_of_invoiced_orders_get_credit_notes(client, rzp, commit, settings):
+def test_refunds_of_invoiced_orders_get_credit_notes(client, rzp, commit, settings, real_seller):
     ShippingRateFactory()  # Assam: ₹40 below ₹499
     user = UserFactory()
     order = make_order((ProductFactory(price=299), 1), user=user, email=user.email)

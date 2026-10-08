@@ -78,14 +78,14 @@
       {% else %}
       <td class="num">{{ line.item.gst_rate|floatformat:2 }} %<br>{{ line.igst }}</td>
       {% endif %}
-      <td class="num">{{ line.value|floatformat:2 }}</td>
+      <td class="num">{{ line.amount|floatformat:2 }}</td>
     </tr>
   {% endfor %}
   </tbody>
 </table>
 
 <table class="totals">
-  <tr><th>Books (MRP-inclusive prices)</th><td class="num">₹{{ order.subtotal.amount }}</td></tr>
+  <tr><th>Books (prices include tax)</th><td class="num">₹{{ order.subtotal.amount }}</td></tr>
   {% if order.discount.amount %}<tr><th>Discount{% if order.coupon_code %} ({{ order.coupon_code }}){% endif %}</th><td class="num">−₹{{ order.discount.amount }}</td></tr>{% endif %}
   <tr><th>Taxable value</th><td class="num">₹{{ taxable_total }}</td></tr>
   <tr><th>GST</th><td class="num">₹{{ tax_total }}</td></tr>

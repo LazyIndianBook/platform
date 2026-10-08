@@ -1,12 +1,18 @@
 {% extends "base.html" %}{% load shop %}
 {% block head_title %}Order {{ order.number }}{% endblock %}
+{% block meta_description %}The status, delivery and invoice of your ExamLeaf order.{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
 {% block content %}
 {% if thanks %}
 <section class="landing thanks">
-  <h1>Thank you!</h1>
-  {% if order.status == "pending" and not order.placed_at %}
+  {% if order.status == "cancelled" or order.status == "refunded" %}
+    <h1>We could not complete this order</h1>
+    <p>Order <strong>{{ order.number }}</strong> was cancelled: the last copies sold, or a coupon ran out, while you were paying. Any money taken is refunded in full, and we email you when it is sent. Your cart is as you left it.</p>
+  {% elif order.status == "pending" and not order.placed_at %}
+    <h1>Thank you!</h1>
     <p>We are confirming your payment with the bank. This page and your email show it in a few minutes; nothing more to do.</p>
   {% else %}
+    <h1>Thank you!</h1>
     <p>Order <strong>{{ order.number }}</strong> is placed. A confirmation is on its way to {{ order.email }}.</p>
   {% endif %}
   {% if not user.is_authenticated %}<p class="muted">Keep the order number: with your email address it opens this page again (<a href="{% url 'shop:lookup' %}">Find your order</a>).</p>{% endif %}
@@ -40,7 +46,7 @@
 {% if order.can_cancel %}
 <form method="post" action="{% url 'shop:order_cancel' order.number %}" class="cancel">{% csrf_token %}
   <button type="submit" class="secondary">Cancel the order</button>
-  <span class="helptext">{% if order.status == "paid" %}The full amount is refunded to the way you paid within 5–7 working days.{% else %}Nothing has been charged.{% endif %}</span>
+  <span class="helptext">{% if order.status == "paid" %}The full amount is refunded to the account, card or UPI ID you paid from, within 5–7 working days.{% else %}Nothing has been charged.{% endif %}</span>
 </form>
 {% endif %}
 <p><a href="{% if user.is_authenticated %}{% url 'shop:orders' %}{% else %}{% url 'shop:catalogue' %}{% endif %}">{% if user.is_authenticated %}My orders{% else %}Back to the shop{% endif %}</a> · Questions? <a href="{% url 'contact' %}">Contact us</a> with the order number.</p>
