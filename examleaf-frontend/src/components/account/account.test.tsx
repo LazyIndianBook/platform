@@ -15,7 +15,7 @@ import { ApiError } from "@/lib/api/errors";
 import { AddressBook } from "./address-book";
 import { MarksForm, validateMarks } from "./marks-form";
 import { maskContact } from "./parts";
-import { DataExport, DeleteAccountForm } from "./privacy-forms";
+import { DataExport, DeleteAccountForm, throttled } from "./privacy-forms";
 import { TeacherAccess } from "./profile-forms";
 import { recordHref, RecordNoMatch } from "./record";
 import { CodeStep, deviceName, shortAddress } from "./security-forms";
@@ -327,6 +327,16 @@ describe("Where you are logged in", () => {
     expect(shortAddress("203.0.113.42")).toBe("203.0.113.x");
     expect(shortAddress("2001:db8:85a3:8d3:1319:8a2e:370:7348")).toBe("2001:db8:85a3:8d3:…");
     expect(shortAddress(null)).toBe("address unknown");
+  });
+
+  it("says when to try again after a 429, in words, without DRF's seconds", () => {
+    const sentence = "A link was sent a few minutes ago: wait ten minutes before asking for another.";
+    const parent = new ApiError(429, "throttled", `${sentence} Expected available in 600 seconds.`);
+    expect(throttled(parent)?.message).toBe(sentence);
+    const bare = new ApiError(429, "throttled", "Request was throttled. Expected available in 90 seconds.");
+    expect(throttled(bare)?.message).toBe("Request was throttled. Try again in about 2 minutes.");
+    const other = new ApiError(400, "invalid", "Enter an email address.");
+    expect(throttled(other)).toBe(other);
   });
 
   it("masks a parent's contact in a notice", () => {

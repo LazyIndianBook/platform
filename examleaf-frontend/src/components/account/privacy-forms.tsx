@@ -6,6 +6,7 @@
 // due in seven days, confirmed by typing the account's email address) and Keep my account (DELETE me/deletion/). The
 // export and the deletion ask for the password; an account without one (Google) needs a log-in in this browser in the
 // last 5 minutes instead (the API's 403 reauthentication_required says when it is older).
+import { CircleAlert } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -24,8 +25,19 @@ import { dateInIndia } from "@/lib/dates";
 
 import { useAction } from "./use-action";
 
+/** A 429 in words: the API's sentence without DRF's "Expected available in N seconds." (the sentence says when
+ *  already), or with the minutes to wait when it does not. Never retried by itself. */
+export function throttled(error: ApiError | null): ApiError | null {
+  if (error?.status !== 429) return error;
+  const seconds = Number(/Expected available in (\d+) seconds?/.exec(error.message)?.[1]);
+  const said = error.message.replace(/\s*Expected available in \d+ seconds?\.?/, "").trim();
+  const wait = seconds ? `Try again in about ${Math.max(1, Math.ceil(seconds / 60))} minutes.` : "Try again later.";
+  return new ApiError(429, error.code, /wait|try again/i.test(said) ? said : `${said} ${wait}`, error.fields);
+}
+
 export function ParentResendForm({ contact, sms }: { contact: string; sms: boolean }) {
-  const { run, busy, error } = useAction();
+  const { run, busy, error: raw } = useAction();
+  const error = throttled(raw);
   const [sent, setSent] = useState<string | null>(null);
   const label = `Parent's or guardian's email${sms ? " or mobile number" : ""}`;
   return (
@@ -64,7 +76,8 @@ export function ParentResendForm({ contact, sms }: { contact: string; sms: boole
 /** "Send the link again" in a notice: to the contact on record at once; the answer (or why not, such as a link sent
  *  minutes ago) beside it. A corrected contact goes through ParentResendForm. */
 export function SendParentLinkButton({ contact }: { contact: string }) {
-  const { run, busy, error } = useAction();
+  const { run, busy, error: raw } = useAction();
+  const error = throttled(raw);
   const [sent, setSent] = useState<string | null>(null);
   return (
     <>
@@ -86,6 +99,7 @@ export function SendParentLinkButton({ contact }: { contact: string }) {
         Send the link again
       </Button>
       <span role="status" className={`order-last basis-full ${error ? "text-destructive" : "font-normal"}`}>
+        {error ? <CircleAlert aria-hidden="true" className="mr-1.5 inline size-[18px] align-[-3px]" /> : null}
         {sent ?? error?.message ?? ""}
       </span>
     </>
