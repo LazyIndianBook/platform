@@ -10,7 +10,7 @@ from django.core.management.base import CommandError
 from django.test import SimpleTestCase, TestCase, override_settings
 
 from accounts.models import User
-from content.management.commands.import_papers import SUBJECTS, import_subject
+from content.management.commands.import_papers import FIXTURES, SUBJECTS, import_subject
 from content.templatetags.markdown import render
 
 from .models import Board, Book, ClassLevel, Paper, Question, Solution, Subject
@@ -49,18 +49,25 @@ def make_paper():
 
 
 class ImportTests(TestCase):
+    """The test copies of content/fixtures/papers/ (E01, M01 and H01 of each subject, and PHY-E02); the books
+    repository's 120 papers import the same way (README "Importing the papers")."""
+
+    PAPERS = {"physics": 4, "chemistry": 3, "mathematics": 3, "biology": 3}
+
     @classmethod
     def setUpTestData(cls):
-        cls.stats = {subject: import_subject(settings.BOOK_ROOT, subject) for subject in SUBJECTS}
+        cls.stats = {subject: import_subject(FIXTURES, subject) for subject in SUBJECTS}
 
-    def test_four_subjects_thirty_papers_every_solution_matched(self):
+    def test_four_subjects_every_paper_and_solution_matched(self):
         for subject, stats in self.stats.items():
             with self.subTest(subject):
-                self.assertEqual(stats["papers"], 30)
+                self.assertEqual(stats["papers"], self.PAPERS[subject])
                 self.assertEqual(stats["unmatched"], [])
                 self.assertEqual(stats["missing"], [])
                 self.assertEqual(stats["solutions"], stats["questions"])
-                self.assertEqual(Paper.objects.filter(book__subject__name__iexact=subject).count(), 30)
+                papers = Paper.objects.filter(book__subject__name__iexact=subject)
+                self.assertEqual(papers.count(), self.PAPERS[subject])
+                self.assertEqual(set(papers.values_list("tier", flat=True)), {"E", "M", "H"})
         self.assertFalse(Question.objects.filter(solution__isnull=True).exists())
 
     def test_labels_and_tags(self):
@@ -71,8 +78,14 @@ class ImportTests(TestCase):
         )
 
     def test_reimport_changes_nothing(self):
-        counts = import_subject(settings.BOOK_ROOT, "physics")["counts"]
-        self.assertEqual((counts["created"], counts["updated"]), (0, 0))
+        out = StringIO()
+        call_command("import_papers", "--all", "--fixtures", stdout=out)
+        self.assertEqual(out.getvalue().count("records created 0, updated 0,"), 4)
+
+    @override_settings(PAPERS_ROOT="")
+    def test_no_papers_root_is_said_in_words(self):
+        with self.assertRaisesMessage(CommandError, "give --root a checkout of the books repository"):
+            call_command("import_papers", "--all")
 
 
 class MarkdownTests(SimpleTestCase):

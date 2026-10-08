@@ -1,0 +1,575 @@
+{
+ "subject": "biology",
+ "code": "BIO",
+ "full_marks": 70,
+ "pass_marks": 21,
+ "time": "3 hours",
+ "parts": [
+  {
+   "name": "Botany",
+   "prefix": "B",
+   "marks": 35,
+   "groups": [
+    {
+     "gid": "BA",
+     "item_style": "numbered",
+     "first_number": 1,
+     "mains": 4,
+     "ors": 0,
+     "marks": 1,
+     "to_answer": 4,
+     "header": null,
+     "slot_chapters": [
+      [
+       1
+      ],
+      [
+       6
+      ],
+      [
+       8
+      ],
+      [
+       9,
+       10
+      ]
+     ],
+     "or_slots": [],
+     "suggested_types": [
+      "what is / define (one line)",
+      "name one / give one example",
+      "who proposed / discovered",
+      "function or full form in one line"
+     ]
+    },
+    {
+     "gid": "BB",
+     "item_style": "numbered",
+     "first_number": 5,
+     "mains": 4,
+     "ors": 2,
+     "marks": 2,
+     "to_answer": 4,
+     "header": null,
+     "slot_chapters": [
+      [
+       1
+      ],
+      [
+       1
+      ],
+      [
+       9,
+       10
+      ],
+      [
+       12
+      ]
+     ],
+     "or_slots": [
+      1,
+      3
+     ],
+     "suggested_types": [
+      "what is X? + its significance or role (1+1)",
+      "'statement.' Explain.",
+      "define + two examples",
+      "differentiate between X and Y (any two points)",
+      "mention two advantages or functions"
+     ]
+    },
+    {
+     "gid": "BC",
+     "item_style": "lettered",
+     "first_number": 9,
+     "mains": 4,
+     "ors": 0,
+     "marks": 2,
+     "to_answer": 2,
+     "header": "Explain briefly (any two) :",
+     "slot_chapters": [
+      [
+       9
+      ],
+      [
+       9
+      ],
+      [
+       10
+      ],
+      [
+       10
+      ]
+     ],
+     "or_slots": [],
+     "suggested_types": [
+      "a bare biotechnology term, tool or process as the item"
+     ]
+    },
+    {
+     "gid": "BD",
+     "item_style": "lettered",
+     "first_number": 10,
+     "mains": 4,
+     "ors": 0,
+     "marks": 1,
+     "to_answer": 3,
+     "header": "Write the scientific names and uses of the following plants (any three) :",
+     "slot_chapters": [
+      [
+       14
+      ],
+      [
+       14
+      ],
+      [
+       14
+      ],
+      [
+       14
+      ]
+     ],
+     "or_slots": [],
+     "suggested_types": [
+      "common name of a plant from assam-reference.md section A, as the board prints it"
+     ]
+    },
+    {
+     "gid": "BE",
+     "item_style": "numbered",
+     "first_number": 11,
+     "mains": 1,
+     "ors": 0,
+     "marks": 3,
+     "to_answer": 1,
+     "header": null,
+     "slot_chapters": [
+      [
+       8
+      ]
+     ],
+     "or_slots": [],
+     "suggested_types": [
+      "what are X? + brief account with examples (1+2)",
+      "three steps or three uses",
+      "name + role of three microbes"
+     ]
+    },
+    {
+     "gid": "BF",
+     "item_style": "numbered",
+     "first_number": 12,
+     "mains": 2,
+     "ors": 2,
+     "marks": 4,
+     "to_answer": 2,
+     "header": null,
+     "slot_chapters": [
+      [
+       6
+      ],
+      [
+       12
+      ]
+     ],
+     "or_slots": [
+      1,
+      2
+     ],
+     "suggested_types": [
+      "describe / discuss a process or theory",
+      "define + three points (1+3)",
+      "describe with a labelled diagram of an NCERT figure"
+     ]
+    },
+    {
+     "gid": "BG",
+     "item_style": "numbered",
+     "first_number": 14,
+     "mains": 1,
+     "ors": 1,
+     "marks": 5,
+     "to_answer": 1,
+     "header": null,
+     "slot_chapters": [
+      [
+       9,
+       10
+      ]
+     ],
+     "or_slots": [
+      1
+     ],
+     "suggested_types": [
+      "define + describe the process (1+4)",
+      "write an account of applications",
+      "describe the steps with a labelled diagram"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Zoology",
+   "prefix": "Z",
+   "marks": 35,
+   "groups": [
+    {
+     "gid": "ZA",
+     "item_style": "lettered",
+     "first_number": 1,
+     "mains": 4,
+     "ors": 0,
+     "marks": 1,
+     "to_answer": 2,
+     "header": "Fill in the blanks (any two) :",
+     "slot_chapters": [
+      [
+       2,
+       3
+      ],
+      [
+       4,
+       5
+      ],
+      [
+       7
+      ],
+      [
+       10
+      ]
+     ],
+     "or_slots": [],
+     "suggested_types": [
+      "one blank ________ for a word or short phrase"
+     ]
+    },
+    {
+     "gid": "ZB",
+     "item_style": "lettered",
+     "first_number": 2,
+     "mains": 4,
+     "ors": 0,
+     "marks": 1,
+     "to_answer": 2,
+     "header": "Answer any two of the following questions :",
+     "slot_chapters": [
+      [
+       2,
+       3
+      ],
+      [
+       4,
+       5
+      ],
+      [
+       7
+      ],
+      [
+       10
+      ]
+     ],
+     "or_slots": [],
+     "suggested_types": [
+      "what is / define (one line)",
+      "name / which one",
+      "one function or one example"
+     ]
+    },
+    {
+     "gid": "ZC",
+     "item_style": "lettered",
+     "first_number": 3,
+     "mains": 6,
+     "ors": 0,
+     "marks": 2,
+     "to_answer": 4,
+     "header": "Answer any four of the following questions :",
+     "slot_chapters": [
+      [
+       2,
+       3
+      ],
+      [
+       2,
+       3
+      ],
+      [
+       2,
+       3
+      ],
+      [
+       4,
+       5
+      ],
+      [
+       4,
+       5
+      ],
+      [
+       4,
+       5
+      ]
+     ],
+     "or_slots": [],
+     "suggested_types": [
+      "what is X? (two points)",
+      "mention two …",
+      "define + one example (1+1)",
+      "why …? (two reasons)"
+     ]
+    },
+    {
+     "gid": "ZD",
+     "item_style": "lettered",
+     "first_number": 4,
+     "mains": 4,
+     "ors": 0,
+     "marks": 2,
+     "to_answer": 2,
+     "header": "Write the difference between (any two) :",
+     "slot_chapters": [
+      [
+       4,
+       5
+      ],
+      [
+       4,
+       5
+      ],
+      [
+       7
+      ],
+      [
+       11,
+       13
+      ]
+     ],
+     "or_slots": [],
+     "suggested_types": [
+      "a pair of related terms 'X and Y'"
+     ]
+    },
+    {
+     "gid": "ZE",
+     "item_style": "numbered",
+     "first_number": 5,
+     "mains": 1,
+     "ors": 1,
+     "marks": 3,
+     "to_answer": 1,
+     "header": null,
+     "slot_chapters": [
+      [
+       2,
+       3
+      ]
+     ],
+     "or_slots": [
+      1
+     ],
+     "suggested_types": [
+      "Draw a labelled diagram of … (main and Or)"
+     ]
+    },
+    {
+     "gid": "ZF",
+     "item_style": "numbered",
+     "first_number": 6,
+     "mains": 2,
+     "ors": 2,
+     "marks": 3,
+     "to_answer": 2,
+     "header": null,
+     "slot_chapters": [
+      [
+       7
+      ],
+      [
+       14
+      ]
+     ],
+     "or_slots": [
+      1,
+      2
+     ],
+     "suggested_types": [
+      "what is X? + causes/effects/types (1+2)",
+      "describe briefly (three points)",
+      "muga/eri as the board asks it (Ch 14 slot only)"
+     ]
+    },
+    {
+     "gid": "ZG",
+     "item_style": "numbered",
+     "first_number": 8,
+     "mains": 2,
+     "ors": 2,
+     "marks": 5,
+     "to_answer": 2,
+     "header": null,
+     "slot_chapters": [
+      [
+       4,
+       5
+      ],
+      [
+       11,
+       13
+      ]
+     ],
+     "or_slots": [
+      1,
+      2
+     ],
+     "suggested_types": [
+      "describe a process or mechanism",
+      "explain a law or theory with an example",
+      "describe the experiment that showed …",
+      "define + account (1+4)"
+     ]
+    }
+   ]
+  }
+ ],
+ "chapters": [
+  {
+   "ch": 1,
+   "title": "Sexual Reproduction in Flowering Plants",
+   "part": "Botany",
+   "unit": "B-VI",
+   "unit_marks": 5
+  },
+  {
+   "ch": 6,
+   "title": "Evolution",
+   "part": "Botany",
+   "unit": "B-VII",
+   "unit_marks": 5
+  },
+  {
+   "ch": 8,
+   "title": "Microbes in Human Welfare",
+   "part": "Botany",
+   "unit": "B-VIII",
+   "unit_marks": 4
+  },
+  {
+   "ch": 9,
+   "title": "Biotechnology: Principles and Processes",
+   "part": "Botany",
+   "unit": "B-IX",
+   "unit_marks": 12
+  },
+  {
+   "ch": 10,
+   "title": "Biotechnology and its Applications",
+   "part": "Botany",
+   "unit": "B-IX",
+   "unit_marks": 12,
+   "sections": [
+    "10.1",
+    "10.2",
+    "10.4"
+   ]
+  },
+  {
+   "ch": 12,
+   "title": "Ecosystem",
+   "part": "Botany",
+   "unit": "B-X",
+   "unit_marks": 9
+  },
+  {
+   "ch": 14,
+   "title": "Bioresources of Assam (plants)",
+   "part": "Botany",
+   "unit": "B-X",
+   "unit_marks": 9,
+   "sections": [
+    "14.1",
+    "14.2",
+    "14.4"
+   ]
+  },
+  {
+   "ch": 2,
+   "title": "Human Reproduction",
+   "part": "Zoology",
+   "unit": "Z-VI",
+   "unit_marks": 8
+  },
+  {
+   "ch": 3,
+   "title": "Reproductive Health",
+   "part": "Zoology",
+   "unit": "Z-VI",
+   "unit_marks": 8
+  },
+  {
+   "ch": 4,
+   "title": "Principles of Inheritance and Variation",
+   "part": "Zoology",
+   "unit": "Z-VII",
+   "unit_marks": 12,
+   "sections": [
+    "4.1",
+    "4.2",
+    "4.3",
+    "4.6",
+    "4.7",
+    "4.8"
+   ]
+  },
+  {
+   "ch": 5,
+   "title": "Molecular Basis of Inheritance",
+   "part": "Zoology",
+   "unit": "Z-VII",
+   "unit_marks": 12
+  },
+  {
+   "ch": 7,
+   "title": "Human Health and Disease",
+   "part": "Zoology",
+   "unit": "Z-VIII",
+   "unit_marks": 5
+  },
+  {
+   "ch": 10,
+   "title": "Biotechnology and its Applications (transgenic animals only)",
+   "part": "Zoology",
+   "unit": "Z-IX",
+   "unit_marks": 1,
+   "sections": [
+    "10.3"
+   ]
+  },
+  {
+   "ch": 11,
+   "title": "Organisms and Populations",
+   "part": "Zoology",
+   "unit": "Z-X",
+   "unit_marks": 9
+  },
+  {
+   "ch": 13,
+   "title": "Biodiversity and Conservation",
+   "part": "Zoology",
+   "unit": "Z-X",
+   "unit_marks": 9
+  },
+  {
+   "ch": 14,
+   "title": "Bioresources of Assam (sericulture: muga and eri)",
+   "part": "Zoology",
+   "unit": "Z-X",
+   "unit_marks": 9,
+   "sections": [
+    "14.3"
+   ]
+  }
+ ],
+ "repeat_ok_chapters": [
+  14
+ ]
+}

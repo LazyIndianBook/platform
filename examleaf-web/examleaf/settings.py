@@ -28,8 +28,12 @@ if not DEBUG and (SECRET_KEY.startswith("dev-") or len(SECRET_KEY) < 50):
 SITE_URL = env("SITE_URL", default="http://localhost:8000").rstrip("/")  # base of the URLs inside the QR codes
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[SITE_URL])
 TESTING = sys.argv[1:2] == ["test"] or "pytest" in sys.modules  # manage.py test, or pytest
-# Where book.py and the Markdown papers live (the book repository root).
-BOOK_ROOT = Path(env("BOOK_ROOT", default=str(BASE_DIR.parent)))
+# A checkout of the books repository LazyIndianBook/Class-12-Assam (the folder that holds production/), for
+# import_papers and import_chapter_insights: PAPERS_ROOT, else "Class 12" beside this repository when it is there. The
+# tests and CI import the copies in content/fixtures/papers/ instead (--fixtures).
+PAPERS_ROOT = env("PAPERS_ROOT", default="")
+if not PAPERS_ROOT and (BASE_DIR.parent.parent / "Class 12").is_dir():
+    PAPERS_ROOT = str(BASE_DIR.parent.parent / "Class 12")
 # The solutions behind the QR codes (/s/<CODE>/ and the API): for signed-in students only (1), or open to everyone (0;
 # then only saving marks needs an account). README "Open or registered solutions" explains the trade-off.
 SOLUTIONS_REQUIRE_LOGIN = env.bool("SOLUTIONS_REQUIRE_LOGIN", default=True)

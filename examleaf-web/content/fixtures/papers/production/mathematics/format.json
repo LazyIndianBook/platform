@@ -1,0 +1,580 @@
+{
+ "subject": "mathematics",
+ "code": "MAT",
+ "full_marks": 80,
+ "pass_marks": 24,
+ "time": "3 hours",
+ "formats": {
+  "A": {
+   "papers": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "parts": [
+    {
+     "name": null,
+     "prefix": "",
+     "marks": 80,
+     "groups": [
+      {
+       "gid": "A",
+       "item_style": "lettered",
+       "first_number": 1,
+       "mains": 12,
+       "ors": 0,
+       "marks": 1,
+       "to_answer": 10,
+       "header": "Answer the following as directed (any ten) :",
+       "slot_chapters": [
+        [
+         1
+        ],
+        [
+         1
+        ],
+        [
+         3
+        ],
+        [
+         3
+        ],
+        [
+         5
+        ],
+        [
+         5
+        ],
+        [
+         5
+        ],
+        [
+         6
+        ],
+        [
+         7
+        ],
+        [
+         9
+        ],
+        [
+         10
+        ],
+        [
+         11
+        ]
+       ],
+       "or_slots": [],
+       "tier_types": {
+        "E": [
+         "mcq",
+         "very short answer",
+         "fill in the blank",
+         "mcq",
+         "very short answer",
+         "true or false",
+         "mcq",
+         "very short answer",
+         "fill in the blank",
+         "very short answer",
+         "mcq",
+         "true or false"
+        ],
+        "M": [
+         "mcq",
+         "very short answer",
+         "fill in the blank",
+         "mcq",
+         "very short answer",
+         "true or false",
+         "mcq",
+         "very short answer",
+         "fill in the blank",
+         "very short answer",
+         "mcq",
+         "true or false"
+        ],
+        "H": [
+         "mcq",
+         "very short answer",
+         "fill in the blank",
+         "mcq",
+         "very short answer",
+         "true or false",
+         "mcq",
+         "very short answer",
+         "fill in the blank",
+         "very short answer",
+         "mcq",
+         "true or false"
+        ]
+       }
+      },
+      {
+       "gid": "B",
+       "item_style": "numbered",
+       "first_number": 2,
+       "mains": 9,
+       "ors": 3,
+       "marks": 2,
+       "to_answer": 9,
+       "header": null,
+       "slot_chapters": [
+        [
+         1
+        ],
+        [
+         3
+        ],
+        [
+         5
+        ],
+        [
+         6
+        ],
+        [
+         7
+        ],
+        [
+         7
+        ],
+        [
+         10
+        ],
+        [
+         10
+        ],
+        [
+         13
+        ]
+       ],
+       "or_slots": [
+        1,
+        5,
+        9
+       ]
+      },
+      {
+       "gid": "C",
+       "item_style": "numbered",
+       "first_number": 11,
+       "mains": 7,
+       "ors": 5,
+       "marks": 4,
+       "to_answer": 7,
+       "header": null,
+       "slot_chapters": [
+        [
+         2
+        ],
+        [
+         5
+        ],
+        [
+         7
+        ],
+        [
+         8
+        ],
+        [
+         9
+        ],
+        [
+         10
+        ],
+        [
+         13
+        ]
+       ],
+       "or_slots": [
+        1,
+        3,
+        4,
+        5,
+        7
+       ]
+      },
+      {
+       "gid": "D",
+       "item_style": "numbered",
+       "first_number": 18,
+       "mains": 4,
+       "ors": 4,
+       "marks": 6,
+       "to_answer": 4,
+       "header": null,
+       "slot_chapters": [
+        [
+         4
+        ],
+        [
+         6
+        ],
+        [
+         11
+        ],
+        [
+         12
+        ]
+       ],
+       "or_slots": [
+        1,
+        2,
+        3,
+        4
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  "B": {
+   "papers": [
+    8,
+    9,
+    10
+   ],
+   "parts": [
+    {
+     "name": null,
+     "prefix": "",
+     "marks": 80,
+     "groups": [
+      {
+       "gid": "A1",
+       "section": "SECTION A",
+       "item_style": "numbered",
+       "first_number": 1,
+       "mains": 10,
+       "ors": 0,
+       "marks": 1,
+       "to_answer": 10,
+       "header": "Question numbers 1 to 20 carry 1 mark each. Question numbers 1 to 10 are multiple choice type questions. Select the correct option.",
+       "slot_chapters": [
+        [
+         2
+        ],
+        [
+         3
+        ],
+        [
+         5
+        ],
+        [
+         6
+        ],
+        [
+         7
+        ],
+        [
+         9
+        ],
+        [
+         10
+        ],
+        [
+         11
+        ],
+        [
+         12
+        ],
+        [
+         13
+        ]
+       ],
+       "or_slots": [],
+       "slot_types": [
+        "mcq",
+        "mcq",
+        "mcq",
+        "mcq",
+        "mcq",
+        "mcq",
+        "mcq",
+        "mcq",
+        "mcq",
+        "mcq"
+       ]
+      },
+      {
+       "gid": "A2",
+       "section": "SECTION A",
+       "item_style": "numbered",
+       "first_number": 11,
+       "mains": 10,
+       "ors": 5,
+       "marks": 1,
+       "to_answer": 10,
+       "header": "Fill in the blanks in question numbers 11 to 15. Question numbers 16 to 20 are very short answer type questions.",
+       "slot_chapters": [
+        [
+         2
+        ],
+        [
+         3
+        ],
+        [
+         5
+        ],
+        [
+         6
+        ],
+        [
+         6
+        ],
+        [
+         9
+        ],
+        [
+         9
+        ],
+        [
+         10
+        ],
+        [
+         10
+        ],
+        [
+         13
+        ]
+       ],
+       "or_slots": [
+        2,
+        4,
+        6,
+        8,
+        10
+       ],
+       "slot_types": [
+        "fill in the blank",
+        "fill in the blank",
+        "fill in the blank",
+        "fill in the blank",
+        "fill in the blank",
+        "very short answer",
+        "very short answer",
+        "very short answer",
+        "very short answer",
+        "very short answer"
+       ]
+      },
+      {
+       "gid": "B",
+       "section": "SECTION B",
+       "item_style": "numbered",
+       "first_number": 21,
+       "mains": 6,
+       "ors": 3,
+       "marks": 2,
+       "to_answer": 6,
+       "header": "Question numbers 21 to 26 carry 2 marks each.",
+       "slot_chapters": [
+        [
+         2
+        ],
+        [
+         3
+        ],
+        [
+         5
+        ],
+        [
+         7
+        ],
+        [
+         9
+        ],
+        [
+         10
+        ]
+       ],
+       "or_slots": [
+        1,
+        4,
+        6
+       ]
+      },
+      {
+       "gid": "C",
+       "section": "SECTION C",
+       "item_style": "numbered",
+       "first_number": 27,
+       "mains": 6,
+       "ors": 4,
+       "marks": 4,
+       "to_answer": 6,
+       "header": "Question numbers 27 to 32 carry 4 marks each.",
+       "slot_chapters": [
+        [
+         1
+        ],
+        [
+         5
+        ],
+        [
+         8
+        ],
+        [
+         10
+        ],
+        [
+         12
+        ],
+        [
+         13
+        ]
+       ],
+       "or_slots": [
+        1,
+        3,
+        4,
+        6
+       ]
+      },
+      {
+       "gid": "D",
+       "section": "SECTION D",
+       "item_style": "numbered",
+       "first_number": 33,
+       "mains": 4,
+       "ors": 3,
+       "marks": 6,
+       "to_answer": 4,
+       "header": "Question numbers 33 to 36 carry 6 marks each.",
+       "slot_chapters": [
+        [
+         4
+        ],
+        [
+         6
+        ],
+        [
+         7
+        ],
+        [
+         11
+        ]
+       ],
+       "or_slots": [
+        2,
+        3,
+        4
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "chapters": [
+  {
+   "ch": 1,
+   "title": "Relations and Functions",
+   "unit": "I",
+   "unit_marks": 8,
+   "chapter_marks": 4,
+   "file": "Mathematics - Part 1/lemh101"
+  },
+  {
+   "ch": 2,
+   "title": "Inverse Trigonometric Functions",
+   "unit": "I",
+   "unit_marks": 8,
+   "chapter_marks": 4,
+   "file": "Mathematics - Part 1/lemh102"
+  },
+  {
+   "ch": 3,
+   "title": "Matrices",
+   "unit": "II",
+   "unit_marks": 10,
+   "chapter_marks": 4,
+   "file": "Mathematics - Part 1/lemh103"
+  },
+  {
+   "ch": 4,
+   "title": "Determinants",
+   "unit": "II",
+   "unit_marks": 10,
+   "chapter_marks": 6,
+   "file": "Mathematics - Part 1/lemh104"
+  },
+  {
+   "ch": 5,
+   "title": "Continuity and Differentiability",
+   "unit": "III",
+   "unit_marks": 35,
+   "chapter_marks": 8,
+   "file": "Mathematics - Part 1/lemh105"
+  },
+  {
+   "ch": 6,
+   "title": "Application of Derivatives",
+   "unit": "III",
+   "unit_marks": 35,
+   "chapter_marks": 9,
+   "file": "Mathematics - Part 1/lemh106"
+  },
+  {
+   "ch": 7,
+   "title": "Integrals",
+   "unit": "III",
+   "unit_marks": 35,
+   "chapter_marks": 9,
+   "file": "Mathematics - Part 2/lemh201"
+  },
+  {
+   "ch": 8,
+   "title": "Application of Integrals",
+   "unit": "III",
+   "unit_marks": 35,
+   "chapter_marks": 4,
+   "file": "Mathematics - Part 2/lemh202"
+  },
+  {
+   "ch": 9,
+   "title": "Differential Equations",
+   "unit": "III",
+   "unit_marks": 35,
+   "chapter_marks": 5,
+   "file": "Mathematics - Part 2/lemh203"
+  },
+  {
+   "ch": 10,
+   "title": "Vector Algebra",
+   "unit": "IV",
+   "unit_marks": 16,
+   "chapter_marks": 9,
+   "file": "Mathematics - Part 2/lemh204"
+  },
+  {
+   "ch": 11,
+   "title": "Three Dimensional Geometry",
+   "unit": "IV",
+   "unit_marks": 16,
+   "chapter_marks": 7,
+   "file": "Mathematics - Part 2/lemh205"
+  },
+  {
+   "ch": 12,
+   "title": "Linear Programming",
+   "unit": "V",
+   "unit_marks": 5,
+   "chapter_marks": 5,
+   "file": "Mathematics - Part 2/lemh206"
+  },
+  {
+   "ch": 13,
+   "title": "Probability",
+   "unit": "VI",
+   "unit_marks": 6,
+   "chapter_marks": 6,
+   "file": "Mathematics - Part 2/lemh207"
+  }
+ ],
+ "same_question": 1.0
+}

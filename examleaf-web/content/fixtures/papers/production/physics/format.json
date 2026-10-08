@@ -1,0 +1,387 @@
+{
+ "subject": "physics",
+ "code": "PHY",
+ "full_marks": 70,
+ "pass_marks": 21,
+ "time": "3 hours",
+ "same_question": 0.97,
+ "parts": [
+  {
+   "name": null,
+   "prefix": "",
+   "marks": 70,
+   "groups": [
+    {
+     "gid": "1",
+     "item_style": "lettered",
+     "first_number": 1,
+     "mains": 15,
+     "ors": 0,
+     "marks": 1,
+     "to_answer": 8,
+     "header": "Answer any eight questions from the following as directed :",
+     "slot_chapters": [
+      [
+       1
+      ],
+      [
+       2
+      ],
+      [
+       3
+      ],
+      [
+       3
+      ],
+      [
+       4
+      ],
+      [
+       5
+      ],
+      [
+       6
+      ],
+      [
+       7
+      ],
+      [
+       8
+      ],
+      [
+       9
+      ],
+      [
+       10
+      ],
+      [
+       9,
+       10
+      ],
+      [
+       11
+      ],
+      [
+       12,
+       13
+      ],
+      [
+       14
+      ]
+     ],
+     "tier_types": {
+      "E": [
+       "very short answer",
+       "fill in the blank",
+       "one word",
+       "very short answer",
+       "mcq",
+       "true or false",
+       "very short answer",
+       "fill in the blank",
+       "very short answer",
+       "mcq",
+       "one word",
+       "very short answer",
+       "fill in the blank",
+       "very short answer",
+       "mcq"
+      ],
+      "M": [
+       "very short answer",
+       "fill in the blank",
+       "mcq",
+       "very short answer",
+       "one word",
+       "very short answer",
+       "true or false",
+       "fill in the blank",
+       "mcq",
+       "very short answer",
+       "very short answer",
+       "fill in the blank",
+       "one word",
+       "mcq",
+       "very short answer"
+      ],
+      "H": [
+       "very short answer",
+       "mcq",
+       "very short answer",
+       "fill in the blank",
+       "very short answer",
+       "assertion–reason mcq",
+       "very short answer",
+       "one word",
+       "very short answer",
+       "mcq",
+       "fill in the blank",
+       "very short answer",
+       "true or false",
+       "very short answer",
+       "very short answer"
+      ]
+     }
+    },
+    {
+     "gid": "2",
+     "item_style": "lettered",
+     "first_number": 2,
+     "mains": 15,
+     "ors": 0,
+     "marks": 2,
+     "to_answer": 10,
+     "header": "Answer any ten questions from the following as directed :",
+     "slot_chapters": [
+      [
+       1
+      ],
+      [
+       2
+      ],
+      [
+       3
+      ],
+      [
+       3
+      ],
+      [
+       4
+      ],
+      [
+       5
+      ],
+      [
+       6
+      ],
+      [
+       7
+      ],
+      [
+       8
+      ],
+      [
+       9
+      ],
+      [
+       10
+      ],
+      [
+       9,
+       10
+      ],
+      [
+       11
+      ],
+      [
+       12,
+       13
+      ],
+      [
+       14
+      ]
+     ],
+     "suggested_types": [
+      "short numerical",
+      "definition and one point",
+      "give reason",
+      "short numerical",
+      "small derivation or labelled diagram",
+      "state the law and its expression",
+      "short numerical",
+      "distinguish between (two points)"
+     ]
+    },
+    {
+     "gid": "3",
+     "item_style": "lettered",
+     "first_number": 3,
+     "mains": 9,
+     "ors": 9,
+     "marks": 3,
+     "to_answer": 9,
+     "header": "Answer the following questions :",
+     "slot_chapters": [
+      [
+       1,
+       2
+      ],
+      [
+       3
+      ],
+      [
+       4,
+       5
+      ],
+      [
+       6,
+       7
+      ],
+      [
+       9
+      ],
+      [
+       10
+      ],
+      [
+       11
+      ],
+      [
+       12,
+       13
+      ],
+      [
+       14
+      ]
+     ],
+     "or_slots": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+     ],
+     "suggested_types": [
+      "derivation",
+      "numerical",
+      "explanation with diagram",
+      "statement of a law and its use in a numerical",
+      "derivation"
+     ]
+    },
+    {
+     "gid": "4",
+     "item_style": "lettered",
+     "first_number": 4,
+     "mains": 7,
+     "ors": 0,
+     "marks": 5,
+     "to_answer": 3,
+     "header": "Answer any three of the following questions :",
+     "slot_chapters": [
+      [
+       1,
+       2
+      ],
+      [
+       3
+      ],
+      [
+       4,
+       5
+      ],
+      [
+       6,
+       7
+      ],
+      [
+       9
+      ],
+      [
+       10
+      ],
+      [
+       14
+      ]
+     ],
+     "suggested_types": [
+      "derivation 3 + numerical 2",
+      "statement, diagram and derivation",
+      "principle, labelled diagram and working",
+      "derivation 3 + numerical 2"
+     ]
+    }
+   ]
+  }
+ ],
+ "chapters": [
+  {
+   "ch": 1,
+   "title": "Electric Charges and Fields",
+   "unit": "I",
+   "unit_marks": 9
+  },
+  {
+   "ch": 2,
+   "title": "Electrostatic Potential and Capacitance",
+   "unit": "I",
+   "unit_marks": 9
+  },
+  {
+   "ch": 3,
+   "title": "Current Electricity",
+   "unit": "II",
+   "unit_marks": 8
+  },
+  {
+   "ch": 4,
+   "title": "Moving Charges and Magnetism",
+   "unit": "III",
+   "unit_marks": 9
+  },
+  {
+   "ch": 5,
+   "title": "Magnetism and Matter",
+   "unit": "III",
+   "unit_marks": 9
+  },
+  {
+   "ch": 6,
+   "title": "Electromagnetic Induction",
+   "unit": "IV",
+   "unit_marks": 9
+  },
+  {
+   "ch": 7,
+   "title": "Alternating Current",
+   "unit": "IV",
+   "unit_marks": 9
+  },
+  {
+   "ch": 8,
+   "title": "Electromagnetic Waves",
+   "unit": "V",
+   "unit_marks": 3
+  },
+  {
+   "ch": 9,
+   "title": "Ray Optics and Optical Instruments",
+   "unit": "VI",
+   "unit_marks": 14
+  },
+  {
+   "ch": 10,
+   "title": "Wave Optics",
+   "unit": "VI",
+   "unit_marks": 14
+  },
+  {
+   "ch": 11,
+   "title": "Dual Nature of Radiation and Matter",
+   "unit": "VII",
+   "unit_marks": 5
+  },
+  {
+   "ch": 12,
+   "title": "Atoms",
+   "unit": "VIII",
+   "unit_marks": 6
+  },
+  {
+   "ch": 13,
+   "title": "Nuclei",
+   "unit": "VIII",
+   "unit_marks": 6
+  },
+  {
+   "ch": 14,
+   "title": "Semiconductor Electronics: Materials, Devices and Simple Circuits",
+   "unit": "IX",
+   "unit_marks": 7
+  }
+ ]
+}

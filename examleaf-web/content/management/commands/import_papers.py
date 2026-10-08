@@ -1,13 +1,14 @@
-"""Import the Markdown sample papers and solutions of the book repository.
+"""Import the Markdown sample papers and solutions of the books repository LazyIndianBook/Class-12-Assam.
 
-    python manage.py import_papers --root "<book repo>" --subject physics
-    python manage.py import_papers --all
+    python manage.py import_papers --root "<a checkout of the books repository>" --subject physics
+    python manage.py import_papers --all              # --root defaults to the PAPERS_ROOT setting
+    python manage.py import_papers --all --fixtures   # the copies in content/fixtures/papers/ (tests, CI)
 
-Parsing is done by production/build/book.py (parse_paper, parse_solutions, split_marks), loaded by path.
-Re-running updates changed records only, so simple-history keeps real edits, not import noise.
+Parsing is done by content/papers_parser.py (parse_paper, parse_solutions, split_marks), vendored from the books
+repository's production/build/book.py. Re-running updates changed records only, so simple-history keeps real edits,
+not import noise.
 """
 
-import importlib.util
 import json
 import re
 from pathlib import Path
@@ -16,17 +17,25 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
+from content import papers_parser
 from content.models import Board, Book, ClassLevel, Paper, Question, Solution, Subject
 
 SUBJECTS = ("physics", "chemistry", "mathematics", "biology")
 EDITORIAL_NOTE = re.compile(r"\s*\((?:syllabus-only|Hard tier only|latter part)[^)]*\)")
 
 
-def load_book_py(root):
-    spec = importlib.util.spec_from_file_location("examleaf_book", Path(root) / "production" / "build" / "book.py")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+FIXTURES = Path(__file__).resolve().parents[2] / "fixtures" / "papers"
+
+
+def papers_root(root=None, fixtures=False):
+    """The books checkout to read: the test copies with --fixtures, else --root, else the PAPERS_ROOT setting."""
+    root = FIXTURES if fixtures else root or settings.PAPERS_ROOT
+    if not root or not (Path(root) / "production").is_dir():
+        raise CommandError(
+            f"No production/ folder in {root or 'PAPERS_ROOT (not set)'}: give --root a checkout of the books "
+            "repository LazyIndianBook/Class-12-Assam, set PAPERS_ROOT, or use --fixtures (the test copies)."
+        )
+    return Path(root)
 
 
 def split_tables(rows):
@@ -124,8 +133,7 @@ def upsert(model, lookup, values, counts):
 
 def import_subject(root, subject):
     root = Path(root)
-    book_py = load_book_py(root)
-    meta = book_py.SUBJECTS[subject]
+    meta = papers_parser.SUBJECTS[subject]
     subject_dir = root / "production" / subject
     fmt = json.loads((subject_dir / "format.json").read_text())
     prefixes = {p["name"].upper(): p["prefix"] for p in fmt.get("parts", []) if p.get("name")}
@@ -143,11 +151,11 @@ def import_subject(root, subject):
         )
         book = upsert(
             Book,
-            dict(slug=f"{subject}-{book_py.EXAM_YEAR}"),
+            dict(slug=f"{subject}-{papers_parser.EXAM_YEAR}"),
             dict(
-                title=f"ExamLeaf {meta['name']} Sample Papers {book_py.EXAM_YEAR}",
+                title=f"ExamLeaf {meta['name']} Sample Papers {papers_parser.EXAM_YEAR}",
                 subject=subj,
-                edition=f"First edition, {book_py.YEAR}",
+                edition=f"First edition, {papers_parser.YEAR}",
                 cover=f"img/{subject}.png",
             ),
             counts,
@@ -156,7 +164,7 @@ def import_subject(root, subject):
         for path in sorted((subject_dir / "papers_md").glob(f"{meta['code']}-[EMH][0-9][0-9].md")):
             code = path.stem
             tier, number = code[-3], int(code[-2:])
-            P = book_py.parse_paper(str(path))
+            P = papers_parser.parse_paper(str(path))
             header = [h for h in P["header"] if "Full Marks" not in h and "Assam HS Final" not in h]
             paper = upsert(
                 Paper,
@@ -175,12 +183,12 @@ def import_subject(root, subject):
             )
             stats["papers"] += 1
 
-            parsed = derive_questions(P, prefixes, book_py.split_marks)
+            parsed = derive_questions(P, prefixes, papers_parser.split_marks)
             labels = [q.pop("label") for q in parsed]
             existing = {q.label: q for q in paper.questions.prefetch_related("tags")}
             solutions = {
                 s["label"]: "\n".join(s["lines"]).strip()
-                for s in book_py.parse_solutions(str(path.with_name(code + "-solutions.md")))
+                for s in papers_parser.parse_solutions(str(path.with_name(code + "-solutions.md")))
             }
             stats["unmatched"] += [f"{code} {label}" for label in solutions if label not in labels]
             for order, (label, values) in enumerate(zip(labels, parsed, strict=True), 1):
@@ -205,13 +213,15 @@ class Command(BaseCommand):
     help = "Import the sample papers and solutions (Markdown) of one subject or all four."
 
     def add_arguments(self, parser):
-        parser.add_argument("--root", default=str(settings.BOOK_ROOT), help="root of the book repository")
+        parser.add_argument("--root", help="a checkout of the books repository (default: the PAPERS_ROOT setting)")
+        parser.add_argument("--fixtures", action="store_true", help="the test copies in content/fixtures/papers/")
         parser.add_argument("--subject", choices=SUBJECTS)
         parser.add_argument("--all", action="store_true")
 
-    def handle(self, root, subject, all, **options):
+    def handle(self, root, fixtures, subject, all, **options):
         if not (subject or all):
             raise CommandError("Give --subject <name> or --all.")
+        root = papers_root(root, fixtures)
         problems = 0
         for name in SUBJECTS if all else [subject]:
             s = import_subject(root, name)

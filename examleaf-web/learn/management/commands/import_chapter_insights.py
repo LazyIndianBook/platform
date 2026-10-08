@@ -2,12 +2,10 @@ import json
 import re
 from collections import Counter, defaultdict
 from decimal import Decimal
-from pathlib import Path
 
-from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
-from content.management.commands.import_papers import SUBJECTS
+from content.management.commands.import_papers import SUBJECTS, papers_root
 from content.models import Subject
 from learn.models import Chapter
 
@@ -31,19 +29,22 @@ def chapter_marks(fmt):
 
 class Command(BaseCommand):
     help = (
-        "Fill each chapter's Board marks (production/<subject>/format.json) and the number of previous-year "
-        "questions on it (production/<subject>/pyq/chNN.md). Run import_papers first: it makes the subjects."
+        "Fill each chapter's Board marks (production/<subject>/format.json of the books repository) and the number "
+        "of previous-year questions on it (production/<subject>/pyq/chNN.md). Run import_papers first: it makes the "
+        "subjects."
     )
 
     def add_arguments(self, parser):
-        parser.add_argument("--root", default=str(settings.BOOK_ROOT), help="root of the book repository")
+        parser.add_argument("--root", help="a checkout of the books repository (default: the PAPERS_ROOT setting)")
+        parser.add_argument("--fixtures", action="store_true", help="the test copies in content/fixtures/papers/")
         parser.add_argument("--subject", choices=SUBJECTS, action="append", help="default: all four")
 
-    def handle(self, root, subject, **options):
+    def handle(self, root, fixtures, subject, **options):
+        root = papers_root(root, fixtures)
         for name in subject or SUBJECTS:
-            folder = Path(root) / "production" / name
+            folder = root / "production" / name
             if not (folder / "format.json").exists():
-                raise CommandError(f"{folder / 'format.json'} not found: --root (BOOK_ROOT) is the book repository.")
+                raise CommandError(f"{folder / 'format.json'} not found: --root (PAPERS_ROOT) is the books repository.")
             fmt = json.loads((folder / "format.json").read_text())
             subj = Subject.objects.filter(code=fmt["code"], board__short_name="ASSEB", class_level__number=12).first()
             if subj is None:

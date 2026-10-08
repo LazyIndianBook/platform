@@ -1,0 +1,322 @@
+{
+ "subject": "chemistry",
+ "code": "CHE",
+ "full_marks": 70,
+ "pass_marks": 21,
+ "time": "3 hours",
+ "parts": [
+  {
+   "name": null,
+   "prefix": "",
+   "marks": 70,
+   "groups": [
+    {
+     "gid": "A",
+     "item_style": "numbered",
+     "first_number": 1,
+     "mains": 8,
+     "ors": 0,
+     "marks": 1,
+     "to_answer": 8,
+     "header": null,
+     "slot_chapters": [
+      [
+       1
+      ],
+      [
+       2
+      ],
+      [
+       3
+      ],
+      [
+       4
+      ],
+      [
+       5
+      ],
+      [
+       7
+      ],
+      [
+       10
+      ],
+      [
+       10
+      ]
+     ],
+     "suggested_types": [
+      "mcq",
+      "mcq",
+      "mcq",
+      "very short answer",
+      "mcq",
+      "mcq",
+      "mcq",
+      "fill in the blank"
+     ],
+     "tier_types": {
+      "E": [
+       "mcq",
+       "fill in the blank",
+       "very short answer",
+       "mcq",
+       "very short answer",
+       "fill in the blank",
+       "mcq",
+       "very short answer"
+      ],
+      "M": [
+       "mcq",
+       "mcq",
+       "assertion–reason mcq",
+       "mcq",
+       "very short answer",
+       "mcq",
+       "mcq",
+       "fill in the blank"
+      ],
+      "H": [
+       "mcq",
+       "assertion–reason mcq",
+       "mcq",
+       "very short answer",
+       "mcq",
+       "assertion–reason mcq",
+       "mcq",
+       "fill in the blank"
+      ]
+     }
+    },
+    {
+     "gid": "B",
+     "item_style": "numbered",
+     "first_number": 9,
+     "mains": 10,
+     "ors": 5,
+     "marks": 2,
+     "to_answer": 10,
+     "header": null,
+     "slot_chapters": [
+      [
+       4
+      ],
+      [
+       4
+      ],
+      [
+       4
+      ],
+      [
+       5
+      ],
+      [
+       5
+      ],
+      [
+       5
+      ],
+      [
+       7
+      ],
+      [
+       9
+      ],
+      [
+       9
+      ],
+      [
+       9
+      ]
+     ],
+     "or_slots": [
+      1,
+      3,
+      5,
+      7,
+      9
+     ],
+     "suggested_types": [
+      "give reasons",
+      "short calculation or structure",
+      "equations of a named reaction or test",
+      "compare / distinguish",
+      "define and explain"
+     ],
+     "tier_types": {
+      "E": [
+       "give reasons",
+       "short calculation or structure",
+       "equations of a named reaction or test",
+       "compare / distinguish",
+       "define and explain"
+      ],
+      "M": [
+       "give reasons",
+       "short calculation or structure",
+       "equations of a named reaction or test",
+       "compare / distinguish",
+       "define and explain"
+      ],
+      "H": [
+       "give reasons",
+       "short calculation or structure",
+       "equations of a named reaction or test",
+       "compare / distinguish",
+       "define and explain",
+       "give reasons",
+       "short calculation or structure",
+       "equations of a named reaction or test",
+       "compare / distinguish",
+       "data-based: a small table of values to interpret"
+      ]
+     }
+    },
+    {
+     "gid": "C",
+     "item_style": "numbered",
+     "first_number": 19,
+     "mains": 9,
+     "ors": 4,
+     "marks": 3,
+     "to_answer": 9,
+     "header": null,
+     "slot_chapters": [
+      [
+       1
+      ],
+      [
+       1
+      ],
+      [
+       2
+      ],
+      [
+       3
+      ],
+      [
+       3
+      ],
+      [
+       6
+      ],
+      [
+       6
+      ],
+      [
+       7
+      ],
+      [
+       8
+      ]
+     ],
+     "or_slots": [
+      2,
+      4,
+      8,
+      9
+     ],
+     "suggested_types": [
+      "calculation or reaction scheme",
+      "give reasons / explain why",
+      "two parts 1+2",
+      "identify A, B, C / predict and explain"
+     ]
+    },
+    {
+     "gid": "D",
+     "item_style": "numbered",
+     "first_number": 28,
+     "mains": 3,
+     "ors": 3,
+     "marks": 5,
+     "to_answer": 3,
+     "header": null,
+     "slot_chapters": [
+      [
+       2
+      ],
+      [
+       8
+      ],
+      [
+       10
+      ]
+     ],
+     "or_slots": [
+      1,
+      2,
+      3
+     ],
+     "suggested_types": [
+      "(a) theory 2 + (b) application 3",
+      "(a) reasons 2 + (b) calculation or reactions 3",
+      "(a) definitions 2 + (b) problem 3"
+     ]
+    }
+   ]
+  }
+ ],
+ "chapters": [
+  {
+   "ch": 1,
+   "title": "Solutions",
+   "unit": "1",
+   "unit_marks": 7
+  },
+  {
+   "ch": 2,
+   "title": "Electrochemistry",
+   "unit": "2",
+   "unit_marks": 9
+  },
+  {
+   "ch": 3,
+   "title": "Chemical Kinetics",
+   "unit": "3",
+   "unit_marks": 7
+  },
+  {
+   "ch": 4,
+   "title": "The d- and f-Block Elements",
+   "unit": "4",
+   "unit_marks": 7
+  },
+  {
+   "ch": 5,
+   "title": "Coordination Compounds",
+   "unit": "5",
+   "unit_marks": 7
+  },
+  {
+   "ch": 6,
+   "title": "Haloalkanes and Haloarenes",
+   "unit": "6",
+   "unit_marks": 6
+  },
+  {
+   "ch": 7,
+   "title": "Alcohols, Phenols and Ethers",
+   "unit": "7",
+   "unit_marks": 6
+  },
+  {
+   "ch": 8,
+   "title": "Aldehydes, Ketones and Carboxylic Acids",
+   "unit": "8",
+   "unit_marks": 8
+  },
+  {
+   "ch": 9,
+   "title": "Amines",
+   "unit": "9",
+   "unit_marks": 6
+  },
+  {
+   "ch": 10,
+   "title": "Biomolecules",
+   "unit": "10",
+   "unit_marks": 7
+  }
+ ]
+}

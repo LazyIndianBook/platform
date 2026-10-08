@@ -1,4 +1,5 @@
-"""Chapter weights and previous-year frequencies from the production files, and quiz items from one-mark questions."""
+"""Chapter weights and previous-year frequencies from the books' production files, and quiz items from one-mark
+questions; the test copies of content/fixtures/papers/ go through all three commands."""
 
 import io
 import json
@@ -50,7 +51,10 @@ def one_mark(paper, label, text, answer, options=(), chapter="Ch 1: Electric Cha
 
 
 def test_a_wrong_book_root_is_said_in_words(tmp_path):
-    with pytest.raises(CommandError, match=r"format\.json not found: --root \(BOOK_ROOT\)"):
+    with pytest.raises(CommandError, match=r"No production/ folder in .+: give --root a checkout of the books"):
+        call_command("import_chapter_insights", root=str(tmp_path), stdout=io.StringIO())
+    (tmp_path / "production").mkdir()
+    with pytest.raises(CommandError, match=r"format\.json not found: --root \(PAPERS_ROOT\)"):
         call_command("import_chapter_insights", root=str(tmp_path), stdout=io.StringIO())
 
 
@@ -77,3 +81,16 @@ def test_quiz_items_from_one_mark_questions():
     assert "PHY: 3 new, 0 kept" in out.getvalue() and "not one option 1" in out.getvalue()
     call_command("build_quiz_items", stdout=out)  # again: nothing new, editors' changes kept
     assert QuizItem.objects.count() == 3 and "PHY: 0 new, 3 kept" in out.getvalue()
+
+
+def test_the_fixture_papers_go_through_all_three_commands():
+    """import_papers, import_chapter_insights and build_quiz_items on the test copies, as on the books repository."""
+    out = io.StringIO()
+    call_command("import_papers", "--all", "--fixtures", stdout=out)
+    call_command("import_chapter_insights", "--fixtures", stdout=out)
+    call_command("build_quiz_items", stdout=out)
+    for code in ("PHY", "CHE", "MAT", "BIO"):
+        chapters = Chapter.objects.filter(subject__code=code)
+        assert chapters.count() >= 10 and chapters.filter(weight__gt=0).count() == chapters.count(), code
+        assert chapters.get(number=1).frequency > 0 and not chapters.filter(number__gt=1, frequency__gt=0), code
+        assert QuizItem.objects.filter(chapter__subject__code=code).exists(), code
