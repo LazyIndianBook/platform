@@ -177,6 +177,8 @@ services:
     restart: unless-stopped
     environment:
       API_INTERNAL_BASE: http://web:8000  # server components call Django over the compose network
+      # sent with each of those calls (X-Internal-Token): Django then counts the visitor's address, not the frontend's
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN in .env (DEPLOYMENT.md)}
       NEXT_PUBLIC_SITE_URL: https://${DOMAIN:?set DOMAIN in .env}
       NEXT_PUBLIC_RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
       NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}

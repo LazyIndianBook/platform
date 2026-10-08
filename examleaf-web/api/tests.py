@@ -67,7 +67,8 @@ def test_catalogue_is_public_with_published_papers_only(api, paper):
     book = api.get("/api/v1/books/physics-2027/").json()
     assert book["subject"]["code"] == "PHY" and book["cover"] is None
     brief = {"code": "PHY-E01", "tier": "E", "number": 1, "title": paper.title}
-    assert book["papers"] == [{**brief, "is_published": True, "is_sample": False}]
+    times = {"full_marks": 70, "time_text": paper.time_text}  # a book's marks and time in one call (the home page)
+    assert book["papers"] == [{**brief, **times, "is_published": True, "is_sample": False}]
     data = api.get("/api/v1/papers/PHY-E01/").json()
     assert data["book"] == "physics-2027" and data["full_marks"] == 70 and data["web_url"].endswith("/s/PHY-E01/")
     assert data["solutions_url"] == "http://testserver/api/v1/papers/PHY-E01/solutions/"
@@ -372,3 +373,21 @@ def test_openapi_schema_is_valid_and_the_docs_pages_load(api, tmp_path):
     assert "application/pdf" in schema  # invoices and credit notes are files, not JSON
     for url in ["/api/schema/", "/api/docs/", "/api/docs/?script", "/api/redoc/"]:
         assert api.get(url).status_code == 200, url
+
+
+def test_the_frontends_calls_count_against_each_visitor_only_with_the_shared_secret(api, paper, monkeypatch, settings):
+    """Frontend review S4: the frontend's server-side calls all come from one address; with INTERNAL_API_TOKEN the
+    visitor's address it forwards is the throttle's, so one visitor's burst does not lock out the others."""
+    settings.INTERNAL_API_TOKEN = "s3cret-for-tests"
+    monkeypatch.setitem(SimpleRateThrottle.THROTTLE_RATES, "anon", "2/minute")
+    frontend = APIClient(REMOTE_ADDR="10.9.0.3")  # the frontend container
+
+    def page(visitor, token="s3cret-for-tests"):
+        headers = {"HTTP_X_FORWARDED_FOR": visitor, "HTTP_X_INTERNAL_TOKEN": token}
+        return frontend.get("/api/v1/qr/PHY-E01/", **headers).status_code
+
+    assert [page("203.0.113.5") for _ in range(3)] == [200, 200, 429]  # one visitor's own limit
+    assert page("198.51.100.7") == 200  # another visitor: not the frontend's shared bucket
+    assert page("192.0.2.9", token="wrong") == 200  # a wrong secret: the frontend's own address (no proxy count) ...
+    assert page("192.0.2.10", token="wrong") == 200
+    assert page("192.0.2.11", token="wrong") == 429  # ... which is one bucket again, whatever the header says

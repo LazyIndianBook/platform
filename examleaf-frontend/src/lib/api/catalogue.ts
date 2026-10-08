@@ -24,15 +24,9 @@ export function getBook(slug: string): Promise<Book> {
   return unwrap(serverApi.GET("/api/v1/books/{slug}/", { params: { path: { slug } }, ...publicFetch("books") }));
 }
 
-/** A book's marks and time, from its first paper (every paper of a book has the same). */
-export async function getBookFacts(slug: string): Promise<Pick<Paper, "full_marks" | "time_text"> | null> {
-  const list = await unwrap(
-    serverApi.GET("/api/v1/papers/", {
-      params: { query: { book: slug, page_size: 1, ordering: "number" } },
-      ...publicFetch("papers"),
-    }),
-  );
-  return list.results[0] ?? null;
+/** A book's marks and time, from its first paper (every paper of a book has the same): no call of its own. */
+export function bookFacts(book: Book | null | undefined): Pick<Paper, "full_marks" | "time_text"> | null {
+  return book?.papers[0] ?? null;
 }
 
 export async function getProducts(): Promise<Product[]> {

@@ -9,7 +9,7 @@ import { withNext } from "@/lib/auth/next-url";
 
 import { ApiError, unwrap } from "./errors";
 import type { components } from "./schema";
-import { personalFetch, publicFetch, REVALIDATE_SECONDS, serverApi } from "./server";
+import { anonymousFetch, personalFetch, publicFetch, serverApi } from "./server";
 
 type Schemas = components["schemas"];
 export type Product = Schemas["Product"];
@@ -21,16 +21,13 @@ export type Order = Schemas["Order"];
 export type OrderBrief = Schemas["OrderBrief"];
 export type Reviews = Schemas["ProductReviews"];
 
-const noStore = { fetch: (request: Request) => fetch(request, { cache: "no-store" }) };
-
 /** A product; a renamed one's old slug is an ApiError 301 whose body says `redirect_to` (its Location names the public
  *  site, which this server should not go out to). */
 export function getProduct(slug: string): Promise<Product> {
   return unwrap(
     serverApi.GET("/api/v1/products/{slug}/", {
       params: { path: { slug } },
-      fetch: (request: Request) =>
-        fetch(request, { redirect: "manual", next: { revalidate: REVALIDATE_SECONDS, tags: ["products"] } }),
+      fetch: (request: Request) => publicFetch("products").fetch(new Request(request, { redirect: "manual" })),
     }),
   );
 }
@@ -93,8 +90,10 @@ export async function getOrder(number: string): Promise<Order> {
 }
 
 /** The order of an emailed link: no cookie (the link is the key), never cached. */
-export function getOrderByToken(token: string): Promise<Order> {
-  return unwrap(serverApi.GET("/api/v1/orders/t/{token}/", { params: { path: { token } }, ...noStore }));
+export async function getOrderByToken(token: string): Promise<Order> {
+  return unwrap(
+    serverApi.GET("/api/v1/orders/t/{token}/", { params: { path: { token } }, ...(await anonymousFetch()) }),
+  );
 }
 
 /**

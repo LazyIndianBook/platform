@@ -27,7 +27,7 @@ import { Price } from "@/components/ui/price";
 import { QrCard } from "@/components/ui/qr-card";
 import { SubjectTile } from "@/components/ui/subject-tile";
 import { Table, TableCell, TableHead } from "@/components/ui/table";
-import { type Book, getBookFacts, getBooks, getProducts, type Product } from "@/lib/api/catalogue";
+import { type Book, bookFacts, getBooks, getProducts, type Product } from "@/lib/api/catalogue";
 import { getConfig } from "@/lib/api/config";
 import { getSessionUser } from "@/lib/auth/session";
 import { JsonLd, organizationJsonLd } from "@/lib/seo/json-ld";
@@ -77,12 +77,8 @@ export default async function HomePage() {
   } catch {
     return <Unavailable what="The home page" />;
   }
-  const [config, user, products, facts] = await Promise.all([
-    getConfig(),
-    getSessionUser(),
-    getProducts().catch(() => []),
-    Promise.all(books.map((book) => getBookFacts(book.slug).catch(() => null))),
-  ]);
+  const [config, user, products] = await Promise.all([getConfig(), getSessionUser(), getProducts().catch(() => [])]);
+  const facts = books.map(bookFacts);
   const sample = books.flatMap((book) => book.papers).find((paper) => paper.is_sample);
   const bookOffers = offers(products);
   const samePrice = bookOffers.every((offer) => !offer.from);

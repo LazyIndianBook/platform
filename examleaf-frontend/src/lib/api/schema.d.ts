@@ -2806,6 +2806,9 @@ export interface components {
             /** Format: int64 */
             number: number;
             title: string;
+            /** Format: int64 */
+            full_marks: number;
+            time_text: string;
             is_published?: boolean;
             /**
              * Open sample

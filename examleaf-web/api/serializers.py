@@ -30,7 +30,8 @@ class SubjectSerializer(serializers.ModelSerializer):
 class PaperBriefSerializer(serializers.ModelSerializer):
     class Meta:
         model = Paper
-        fields = ["code", "tier", "number", "title", "is_published", "is_sample"]
+        # full_marks and time_text: a book's marks and time without a call per book (the website's home page)
+        fields = ["code", "tier", "number", "title", "full_marks", "time_text", "is_published", "is_sample"]
 
 
 class BookSerializer(serializers.ModelSerializer):

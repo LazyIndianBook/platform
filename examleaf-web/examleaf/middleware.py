@@ -1,9 +1,35 @@
+import ipaddress
+
 from allauth.mfa.models import Authenticator
 from allauth.mfa.utils import is_mfa_enabled
 from django.conf import settings
 from django.http import Http404, JsonResponse
 from django.shortcuts import redirect
 from django.utils.cache import add_never_cache_headers
+from django.utils.crypto import constant_time_compare
+
+
+class FrontendClientMiddleware:
+    """The Next.js frontend's server-side calls (examleaf-frontend/src/lib/api/server.ts) send the visitor's address in
+    X-Forwarded-For and the shared secret INTERNAL_API_TOKEN in X-Internal-Token. With the right secret that address
+    becomes REMOTE_ADDR (X-Forwarded-For is dropped), so DRF's throttles, axes, allauth's limits and the device list
+    count the visitor: the frontend's own address is never one shared anonymous bucket (frontend review S4), and each
+    visitor keeps their own limits. Without the secret, or with a wrong one, nothing changes (Caddy's requests rely on
+    PROXY_COUNT as before); the header never goes further."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        sent = request.META.pop("HTTP_X_INTERNAL_TOKEN", None)
+        token = settings.INTERNAL_API_TOKEN
+        if sent is not None and token and constant_time_compare(sent, token):
+            client = request.META.pop("HTTP_X_FORWARDED_FOR", "").split(",")[-1].strip()
+            try:
+                request.META["REMOTE_ADDR"] = str(ipaddress.ip_address(client))
+            except ValueError:
+                pass  # no address to speak for: the frontend's own
+        return self.get_response(request)
 
 
 class NullByteMiddleware:

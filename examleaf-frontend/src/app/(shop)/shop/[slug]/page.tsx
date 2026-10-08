@@ -21,7 +21,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { CoverPicture } from "@/components/ui/cover";
 import { Morph } from "@/components/ui/morph";
 import { Price } from "@/components/ui/price";
-import { getBook, getBookFacts, getProducts } from "@/lib/api/catalogue";
+import { bookFacts, getBook, getProducts } from "@/lib/api/catalogue";
 import { getConfig } from "@/lib/api/config";
 import { ApiError } from "@/lib/api/errors";
 import { getCategories, getProduct, getReviews, type Product } from "@/lib/api/shop";
@@ -77,14 +77,14 @@ export default async function ProductPage({ params }: Props) {
   if (product === "unavailable") return <Unavailable what="This book's page" retry={here} />;
 
   const user = await getSessionUser();
-  const [config, all, reviews, categories, book, facts] = await Promise.all([
+  const [config, all, reviews, categories, book] = await Promise.all([
     getConfig(),
     getProducts().catch(() => [product]),
     getReviews(slug, Boolean(user)).catch(() => null),
     product.categories.length ? getCategories().catch(() => []) : [],
     product.book ? getBook(product.book).catch(() => null) : null,
-    product.book ? getBookFacts(product.book).catch(() => null) : null,
   ]);
+  const facts = bookFacts(book);
   const bySlug = new Map(all.map((item) => [item.slug, item]));
   const digital = isDigital(product, bySlug);
   const subject = subjectOf(product.subject);

@@ -41,6 +41,7 @@ LTS; Node 20 is past its end of life).
 | -------------------------------- | ------- | --------------------------------------------------------------------------------------- |
 | `NEXT_PUBLIC_SITE_URL`           | build   | the public address: canonical URLs, Open Graph, sitemap, the host sent to Django        |
 | `API_INTERNAL_BASE`              | runtime | Django for server components (`http://web:8000` in compose)                             |
+| `INTERNAL_API_TOKEN`             | runtime | the secret shared with Django (compose, from `.env`): sent with every server-side call  |
 | `NEXT_PUBLIC_API_BASE`           | build   | the browser's API base; empty = same origin (always, behind Caddy)                      |
 | `NEXT_PUBLIC_RAZORPAY_KEY_ID`    | build   | 8B's pay page; Razorpay's hosts are in the CSP of the two pay pages only                |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | build   | Turnstile's hosts in the CSP (the widget's key itself comes from `GET /api/v1/config/`) |
@@ -55,11 +56,15 @@ server, `useConfig()` in client components).
 - **Browser → Django**, same origin: `/api/v1/` and `/_allauth/browser/v1/` with the session cookie and
   `X-CSRFToken` from the `csrftoken` cookie on every unsafe method (`src/lib/api/client.ts`, `src/lib/auth/headless.ts`).
 - **Server components → Django**, internal network (`src/lib/api/server.ts`): `serverApi` (openapi-fetch, typed from
-  `openapi.json`) with `X-Forwarded-Host`/`-Proto` set to the site's. Two cache rules, nothing in between:
-  - public catalogue and content: `...publicFetch("books")`: Next's data cache, 60 s, tagged (`revalidateTag("books")`
-    refreshes it early), no cookies sent;
-  - anything personal: `...(await personalFetch())`: the visitor's cookies, address and browser (`User-Agent`, which
-    allauth.usersessions records for Log-in and security's devices) forwarded, `cache: "no-store"`.
+  `openapi.json`) with `X-Forwarded-Host`/`-Proto` set to the site's. Every call speaks for the visitor: their
+  address (`X-Forwarded-For`, as Caddy gave it) and browser (`User-Agent`, which allauth.usersessions records for Log-in
+  and security's devices) go with it, and `INTERNAL_API_TOKEN` (`X-Internal-Token`) makes Django believe the address,
+  so its throttles count each visitor, never this server as one anonymous client. Two cache rules, nothing in between:
+  - public catalogue and content: `...publicFetch("books")`: Next's data cache by URL alone (`unstable_cache`, so the
+    visitor's headers do not split it), 60 s, tagged (`revalidateTag("books")` refreshes it early), only a 200 kept, no
+    cookies sent;
+  - anything personal: `...(await personalFetch())`: the visitor's cookies too, `cache: "no-store"`
+    (`anonymousFetch()`: the same without cookies, for an order by its emailed link).
 - **Errors**: every failure becomes one `ApiError` (`status`, `code`, `message`, `fields`), from DRF's and
   allauth.headless's formats alike, and status 0 when Django cannot be reached (`unwrap()`; `error.unavailable` →
   the page renders `<Unavailable/>`, never stale or invented data). A refusal because a parent's consent is awaited

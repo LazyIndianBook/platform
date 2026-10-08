@@ -16,7 +16,7 @@ import { CardLink } from "@/components/ui/card";
 import { CoverPicture } from "@/components/ui/cover";
 import { Morph } from "@/components/ui/morph";
 import { EmptyState } from "@/components/ui/empty-state";
-import { type Book, getBook, getBookFacts, getProducts } from "@/lib/api/catalogue";
+import { type Book, bookFacts, getBook, getProducts } from "@/lib/api/catalogue";
 import { getConfig } from "@/lib/api/config";
 import { ApiError } from "@/lib/api/errors";
 import { getSessionUser } from "@/lib/auth/session";
@@ -54,12 +54,8 @@ export default async function BookPage({ params }: Props) {
   if (book === null) notFound();
   if (book === "unavailable") return <Unavailable what="This book's page" retry={`/books/${slug}/`} />;
 
-  const [config, user, facts, products] = await Promise.all([
-    getConfig(),
-    getSessionUser(),
-    getBookFacts(slug).catch(() => null),
-    getProducts().catch(() => []),
-  ]);
+  const [config, user, products] = await Promise.all([getConfig(), getSessionUser(), getProducts().catch(() => [])]);
+  const facts = bookFacts(book);
   const subject = subjectOf(book.subject.code);
   const name = subject?.name ?? book.subject.name;
   const papers = book.papers.filter((paper) => paper.is_published !== false);

@@ -82,6 +82,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "examleaf.middleware.FrontendClientMiddleware",  # first: the frontend's calls count as the visitor's (S4)
     "django_guid.middleware.guid_middleware",  # request ID (X-Request-ID from the proxy, or new), in every log line
     "examleaf.middleware.NullByteMiddleware",  # %00 in an address: 404 (PostgreSQL would fail with a 500)
     "django.middleware.security.SecurityMiddleware",
@@ -256,6 +257,10 @@ AXES_DISABLE_ACCESS_LOG = True
 # Reverse proxy (Caddy in docker-compose.yml): PROXY_COUNT=1 trusts its X-Forwarded-Proto/-For headers.
 PROXY_COUNT = env.int("PROXY_COUNT", default=0)
 USE_X_FORWARDED_HOST = env.bool("USE_X_FORWARDED_HOST", default=False)
+# The secret the Next.js frontend sends with its server-side calls (X-Internal-Token): only then is the visitor's
+# address it forwards trusted (examleaf.middleware.FrontendClientMiddleware). The same value in the frontend's
+# environment; empty: the frontend's calls count as the frontend's own address.
+INTERNAL_API_TOKEN = env.str("INTERNAL_API_TOKEN", default="")
 # allauth's limits per address (log-in, reset, sign-up) must see the client too, not Caddy: one address for everybody
 # would turn ten failed log-ins a minute anywhere into a lock-out of the whole site (M7).
 ALLAUTH_TRUSTED_PROXY_COUNT = PROXY_COUNT
