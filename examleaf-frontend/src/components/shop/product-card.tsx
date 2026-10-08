@@ -1,6 +1,6 @@
-// A product card (Django's shop/_product_card.html; components.md .card-interactive): the whole card is the one link
-// to the product, with its cover (or the drawn no-cover), the kind and subject chips, Out of stock, title and price.
-// data-subject feeds the catalogue's subject tabs. The cover morphs into the product page's (Morph, motion.md d).
+// A product card, Direction A: the whole card is the one link to the product; cover (or the drawn no-cover), the kind
+// in the mono voice, the subject and Out of stock as chips, the title in serif, the price. No lift on hover (the
+// border turns ink, from CardLink). data-subject feeds the catalogue's subject tabs; the cover still morphs.
 import { Badge } from "@/components/ui/badge";
 import { CardLink } from "@/components/ui/card";
 import { CoverPicture, NoCover } from "@/components/ui/cover";
@@ -38,17 +38,22 @@ export function ProductCard({ product }: { product: Product }) {
   const subject = subjectOf(product.subject);
   return (
     <li data-subject={product.subject ?? undefined} className="flex">
-      <CardLink href={`/shop/${product.slug}/`} className="w-full">
-        <span className="flex flex-col gap-3 p-4">
+      <CardLink
+        href={`/shop/${product.slug}/`}
+        className="group w-full border-transparent bg-transparent hover:border-transparent"
+      >
+        <span className="flex flex-col gap-2.5">
           <Morph name={`cover-${product.slug}`}>
             <ProductCover product={product} />
           </Morph>
-          <span className="flex flex-wrap gap-2">
-            <Badge>{KIND_LABEL[product.kind]}</Badge>
-            {subject ? <Badge variant={subject.key}>{subject.name}</Badge> : null}
-            {product.in_stock ? null : <Badge variant="hard">Out of stock</Badge>}
+          <span className="label-mono text-xs uppercase">{KIND_LABEL[product.kind]}</span>
+          <span className="font-head text-[21px] leading-tight font-semibold text-foreground underline-offset-[3px] group-hover:underline">
+            {product.title}
           </span>
-          <span className="font-head text-card-title leading-tight font-bold text-heading">{product.title}</span>
+          <span className="flex flex-wrap gap-2">
+            {subject ? <Badge variant={subject.key}>{subject.name}</Badge> : null}
+            {product.in_stock ? null : <Badge variant="gold">Out of stock</Badge>}
+          </span>
           <Price as="span" price={product.price} mrp={product.mrp} />
         </span>
       </CardLink>
@@ -58,7 +63,10 @@ export function ProductCard({ product }: { product: Product }) {
 
 export function ProductGrid({ products, label }: { products: Product[]; label: string }) {
   return (
-    <ul aria-label={label} className="m-0 grid-auto list-none p-0 [--min:220px]">
+    <ul
+      aria-label={label}
+      className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(min(200px,100%),1fr))] gap-x-6 gap-y-8 p-0"
+    >
       {products.map((product) => (
         <ProductCard key={product.slug} product={product} />
       ))}

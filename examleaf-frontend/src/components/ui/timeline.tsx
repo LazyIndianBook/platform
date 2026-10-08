@@ -1,8 +1,7 @@
-// .timeline (an order's status): a 28 px dot and connector per item; done items are filled with a check, the
-// current one is an accent ring with aria-current="step", upcoming ones dashed and muted. Items rise in 40 ms apart
-// (six at most) inside the motion wrapper.
+// .timeline, Direction A (an order's status): a 14 px dot and a hairline per item; done items are navy, the current
+// one a red-ink ring with aria-current="step", upcoming ones a pale ring and muted words. Items rise in 40 ms apart
+// (six at most) inside the motion wrapper; with reduced motion they are simply there.
 import { cn } from "cn";
-import { Check } from "lucide-react";
 
 type TimelineItem = {
   label: string;
@@ -21,30 +20,30 @@ function Timeline({ items }: { items: TimelineItem[] }) {
           aria-current={item.state === "current" ? "step" : undefined}
           style={{ animationDelay: `${Math.min(index, 5) * 40}ms` }}
           className={cn(
-            "relative grid grid-cols-[28px_1fr] gap-x-4",
+            "relative grid grid-cols-[24px_1fr] gap-x-3.5",
             "motion-safe:animate-[el-rise_220ms_var(--ease-enter)_both]",
-            "before:absolute before:top-8 before:bottom-1 before:left-[13px] before:w-0.5 before:bg-border before:content-[''] last:before:hidden",
-            item.state === "done" && "before:bg-primary",
+            "before:absolute before:top-6 before:bottom-0 before:left-[11px] before:w-[1.5px] before:bg-border before:content-[''] last:before:hidden",
           )}
         >
           <span
+            aria-hidden="true"
             className={cn(
-              "flex size-7 items-center justify-center rounded-full border-2 border-dashed border-input bg-card",
-              item.state === "done" && "border-0 bg-primary text-white",
-              item.state === "current" &&
-                "border-[3px] border-solid border-accent bg-[radial-gradient(circle,var(--accent)_5px,var(--card)_5.5px)]",
+              "mt-[7px] ml-[5px] size-3.5 rounded-full border-2 border-border bg-card",
+              item.state === "done" && "border-primary bg-primary",
+              item.state === "current" && "border-red-ink bg-card",
             )}
-          >
-            {item.state === "done" ? <Check aria-hidden="true" className="size-4" /> : null}
-          </span>
+          />
           <span className={cn("flex flex-col", index < items.length - 1 && "pb-5")}>
             <strong
               className={cn(
-                "font-head text-[17px] leading-7 font-bold",
+                "text-[17px] leading-7 font-bold",
                 item.state === "upcoming" && "font-semibold text-muted-foreground",
               )}
             >
               {item.label}
+              <span className="sr-only">
+                {item.state === "done" ? ", done" : item.state === "current" ? ", now" : ", next"}
+              </span>
             </strong>
             {item.time ? (
               <time dateTime={item.datetime} className="text-[15px] text-muted-foreground">

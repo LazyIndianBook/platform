@@ -1,12 +1,16 @@
 "use client";
 
-// "Record your marks" (the #record card of a solutions page; Edit on My record): the date, the marks out of the
-// paper's full marks, the minutes taken and what to revise. Checked here with the backend's own messages
-// (practice/forms.py) before POST attempts/ (PATCH attempts/<id>/ to edit); the API has the last word, and its
-// refusals (a parent's consent still awaited, 20 attempts of one paper a day) come back in the summary.
+// "Record your marks" (the #record card of a solutions page; Edit on My record), Direction A. Same fields, checks
+// and API calls as before (date, marks out of the paper's full marks with one decimal, minutes, what to revise;
+// POST attempts/ or PATCH attempts/<id>/; the API has the last word: consent pending, 20 a day).
+// Added for robustness and the signature moment:
+// - a draft of the four fields is kept in sessionStorage while the request is in flight, so a session that ended
+//   (401 → log in and back, sessionMiddleware) brings the typed marks back on this page; it is cleared on success;
+// - after the server confirms, the score is circled in red ink ([data-mark-landed], 220 ms, globals.css; still with
+//   reduced motion) next to the success message. Nothing is shown as saved before the server answers.
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "@/components/ui/toaster";
 
 import { ErrorSummary } from "@/components/auth/error-summary";
@@ -32,6 +36,7 @@ const LABELS = {
   time_taken_minutes: "Time taken",
   notes: "What to revise",
 };
+const FIELDS: (keyof MarksValues)[] = ["date", "marks_obtained", "time_taken_minutes", "notes"];
 
 /** The website form's checks and words; {} when the marks can be sent. */
 export function validateMarks(values: MarksValues, fullMarks: number): FieldErrors {
@@ -50,6 +55,26 @@ export function validateMarks(values: MarksValues, fullMarks: number): FieldErro
   return errors;
 }
 
+const draftKey = (paper: string, attempt?: Attempt) => `examleaf:marks-draft:${paper}:${attempt?.id ?? "new"}`;
+
+function readDraft(key: string): Partial<MarksValues> | null {
+  try {
+    const raw = window.sessionStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as Partial<MarksValues>) : null;
+  } catch {
+    return null; // storage off (private mode, quota): the form simply starts as usual
+  }
+}
+
+function writeDraft(key: string, values: MarksValues | null) {
+  try {
+    if (values) window.sessionStorage.setItem(key, JSON.stringify(values));
+    else window.sessionStorage.removeItem(key);
+  } catch {
+    /* storage unavailable: nothing to keep */
+  }
+}
+
 type MarksFormProps = { paper: string; fullMarks: number; attempt?: Attempt };
 
 export function MarksForm({ paper, fullMarks, attempt }: MarksFormProps) {
@@ -57,6 +82,19 @@ export function MarksForm({ paper, fullMarks, attempt }: MarksFormProps) {
   const { run, busy, error, setError } = useAction();
   const [saved, setSaved] = useState<Attempt | null>(null);
   const [blank, setBlank] = useState(0); // a fresh form after each save
+  const formRef = useRef<HTMLFormElement>(null);
+  const key = draftKey(paper, attempt);
+
+  // after a log-in round trip, put back what was typed (client only, after hydration: no mismatch)
+  useEffect(() => {
+    const draft = readDraft(key);
+    const form = formRef.current;
+    if (!draft || !form) return;
+    for (const name of FIELDS) {
+      const field = form.elements.namedItem(name) as HTMLInputElement | HTMLTextAreaElement | null;
+      if (field && typeof draft[name] === "string") field.value = draft[name]!;
+    }
+  }, [key, blank]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -80,13 +118,15 @@ export function MarksForm({ paper, fullMarks, attempt }: MarksFormProps) {
       time_taken_minutes: values.time_taken_minutes.trim() ? Number(values.time_taken_minutes) : null,
       notes: values.notes,
     };
+    writeDraft(key, values);
     let answer: Attempt | undefined;
     const ok = await run(async () => {
       answer = attempt
         ? await personal(api.PATCH("/api/v1/attempts/{id}/", { params: { path: { id: attempt.id } }, body }))
         : await personal(api.POST("/api/v1/attempts/", { body: { paper, ...body } }));
     });
-    if (!ok || !answer) return;
+    if (!ok || !answer) return; // the draft stays for the next try
+    writeDraft(key, null);
     if (attempt) {
       toast.success("Saved to your record.");
       router.push("/account/record/");
@@ -94,24 +134,33 @@ export function MarksForm({ paper, fullMarks, attempt }: MarksFormProps) {
     }
     setSaved(answer);
     setBlank((count) => count + 1);
-    router.refresh(); // My record's numbers elsewhere on the page, if any
+    router.refresh();
   }
 
   return (
     <div className="flex flex-col gap-4">
       {saved ? (
-        <Alert variant="success" title="Saved to your record">
-          <p>
-            {saved.paper}: {Number(saved.marks_obtained)}/{saved.full_marks} ({saved.percent}%) on{" "}
-            {formatDate(saved.date ?? dateInIndia())}. <Link href="/account/record/">See My record</Link>.
-          </p>
-        </Alert>
+        <div className="flex items-center gap-5">
+          <span
+            data-mark-landed=""
+            aria-hidden="true"
+            className="flex size-16 flex-none -rotate-6 items-center justify-center rounded-full border-2 border-red-ink font-mono text-xl font-semibold text-red-ink"
+          >
+            {Number(saved.marks_obtained)}
+          </span>
+          <Alert variant="success" title="Saved to your record" className="flex-1">
+            <p>
+              {saved.paper}: {Number(saved.marks_obtained)}/{saved.full_marks} ({saved.percent}%) on{" "}
+              {formatDate(saved.date ?? dateInIndia())}. <Link href="/account/record/">See My record</Link>.
+            </p>
+          </Alert>
+        </div>
       ) : null}
       <ErrorSummary error={error} labels={LABELS} />
-      <form key={blank} className="flex flex-col gap-4" noValidate onSubmit={submit}>
+      <form ref={formRef} key={blank} className="flex flex-col gap-4" noValidate onSubmit={submit}>
         <FormGrid>
           <Field id="date" label="Date" required error={fieldError(error, "date")}>
-            <Input name="date" type="date" defaultValue={attempt?.date ?? dateInIndia()} />
+            <Input name="date" type="date" defaultValue={attempt?.date ?? dateInIndia()} max={dateInIndia()} />
           </Field>
           <Field
             id="marks_obtained"
@@ -123,6 +172,7 @@ export function MarksForm({ paper, fullMarks, attempt }: MarksFormProps) {
               name="marks_obtained"
               inputMode="decimal"
               autoComplete="off"
+              className="font-mono"
               defaultValue={attempt ? String(Number(attempt.marks_obtained)) : ""}
             />
           </Field>
@@ -136,17 +186,25 @@ export function MarksForm({ paper, fullMarks, attempt }: MarksFormProps) {
               name="time_taken_minutes"
               inputMode="numeric"
               autoComplete="off"
+              className="font-mono"
               defaultValue={attempt?.time_taken_minutes ?? ""}
             />
           </Field>
         </FormGrid>
         <Field id="notes" label="What to revise" optional error={fieldError(error, "notes")}>
-          <Textarea name="notes" rows={2} maxLength={NOTES_MAX} defaultValue={attempt?.notes ?? ""} />
+          <Textarea
+            name="notes"
+            rows={2}
+            maxLength={NOTES_MAX}
+            className="font-head text-[17px]"
+            defaultValue={attempt?.notes ?? ""}
+          />
         </Field>
         <div className="flex flex-wrap items-center gap-3">
           <Button type="submit" busy={busy}>
             Save to my record
           </Button>
+          <span className="text-sm text-muted-foreground">Half marks are fine: 52.5.</span>
         </div>
       </form>
     </div>

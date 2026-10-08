@@ -1,6 +1,7 @@
-// A book (Book artboard; Django's book.html): breadcrumb, the cover (its view-transition name pairs it with the
-// Home tile), chips, title, facts, buy buttons from the shop, the log-in prompt, then the 30 papers by tier, each
-// a link to its solutions; the open sample is marked.
+// A book, Direction A (design: ExamLeaf A - Public.dc.html, "Book"): the hero on a Sheet (margin: the subject code,
+// marks: [papers] [marks] [time]), cover morphing from the Home row, buy buttons from the shop, the log-in prompt,
+// then each tier on its own Sheet with the papers as cells; the open sample is marked in red ink. Data, metadata,
+// JSON-LD, 404 and Unavailable handling are unchanged.
 import { ArrowRight } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -8,8 +9,7 @@ import { notFound } from "next/navigation";
 
 import { Unavailable } from "@/components/site/unavailable";
 import { Alert } from "@/components/ui/alert";
-import { Badge, TIER_VARIANT } from "@/components/ui/badge";
-import { QRule } from "@/components/ui/band";
+import { Marks, Sheet } from "@/components/ui/band";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { buttonVariants } from "@/components/ui/button";
 import { CardLink } from "@/components/ui/card";
@@ -26,6 +26,8 @@ import { pageMetadata } from "@/lib/seo/metadata";
 import { shortCode, subjectOf, TIERS, type TierCode } from "@/lib/site";
 
 type Props = { params: Promise<{ slug: string }> };
+
+const TIER_SWATCH: Record<TierCode, string> = { E: "bg-easy", M: "bg-medium", H: "bg-hard" };
 
 async function load(slug: string): Promise<Book | null | "unavailable"> {
   try {
@@ -100,151 +102,165 @@ export default async function BookPage({ params }: Props) {
         ])}
       />
 
-      <section className="pt-7 pb-(--section)">
-        <div className="container-site">
-          <Breadcrumb trail={[{ label: "Home", href: "/" }, { label: name }]} />
-          <div className="flex flex-wrap items-start gap-x-12 gap-y-8">
-            {book.cover ? (
-              <Morph name={`book-${subject?.key ?? slug}`}>
-                <div className={`cover book-cover subject-${subject?.key} flex-[0_0_260px] max-nav:basis-40`}>
-                  <CoverPicture
-                    src={book.cover}
-                    alt={`Cover of ${book.title}`}
-                    sizes="(min-width: 900px) 260px, 160px"
-                    priority
-                  />
-                </div>
-              </Morph>
-            ) : null}
-            <div className="flex min-w-0 flex-[1_1_420px] flex-col gap-3.5 [&>*]:m-0">
-              <div className="flex flex-wrap gap-2">
-                {subject ? <Badge variant={subject.key}>{name}</Badge> : null}
-                <Badge>Sample Papers</Badge>
+      <Sheet
+        margin={book.subject.code}
+        marks={
+          facts && papers.length ? (
+            <Marks
+              items={[
+                { value: papers.length, label: "papers" },
+                { value: facts.full_marks, label: "marks each" },
+                { value: facts.time_text.replace(/ hours?/, "h"), label: "each paper" },
+              ]}
+            />
+          ) : null
+        }
+        bodyClassName="pt-7"
+      >
+        <Breadcrumb trail={[{ label: "Home", href: "/" }, { label: name }]} />
+        <div className="mt-6 flex flex-wrap items-start gap-x-12 gap-y-8">
+          {book.cover ? (
+            <Morph name={`book-${subject?.key ?? slug}`}>
+              <div className={`cover book-cover subject-${subject?.key} flex-[0_0_260px] max-nav:basis-40`}>
+                <CoverPicture
+                  src={book.cover}
+                  alt={`Cover of ${book.title}`}
+                  sizes="(min-width: 900px) 260px, 160px"
+                  priority
+                />
               </div>
-              <h1>{book.title}</h1>
-              <p className="text-muted-foreground">
-                {book.subject.board} · Class {book.subject.class_level}
-                {book.edition ? ` · ${book.edition}` : ""}
-              </p>
+            </Morph>
+          ) : null}
+          <div className="flex min-w-0 flex-[1_1_380px] flex-col gap-4 [&>*]:m-0">
+            <p className="label-mono uppercase">
+              Sample Papers · {book.subject.board} · Class {book.subject.class_level}
+              {book.edition ? ` · ${book.edition}` : ""}
+            </p>
+            <h1>{book.title}</h1>
+            <p className="max-w-[34em] text-lg leading-relaxed text-ink/85">
+              The solutions to every paper are free{requireLogin ? " for registered students" : ""}. Scan the QR code
+              printed on the paper, or choose it here.
+            </p>
+            {sample && requireLogin ? (
               <p>
-                The solutions to every paper are free{requireLogin ? " for registered students" : ""}. Scan the QR code
-                printed on the paper, or choose it here.
+                Try{" "}
+                <Link href={`/s/${sample.code}/`} className="font-bold">
+                  Paper {shortCode(sample.code)}
+                </Link>{" "}
+                first: its solutions are open to everyone, no account needed.
               </p>
-              {sample && requireLogin ? (
-                <p>
-                  Try <Link href={`/s/${sample.code}/`}>Paper {shortCode(sample.code)}</Link> first: its solutions are
-                  open to everyone, no account needed.
+            ) : null}
+            {facts && papers.length ? (
+              <p className="flex flex-wrap gap-x-6 font-mono text-[15px] text-muted-foreground nav:hidden">
+                <span>[{papers.length}] papers</span>
+                <span>[{facts.full_marks}] marks each</span>
+                <span>{facts.time_text}</span>
+              </p>
+            ) : null}
+            {forSale.length ? (
+              <div className="flex flex-wrap items-center gap-3">
+                {forSale.map((product) => (
+                  <Link
+                    key={product.slug}
+                    href={`/shop/${product.slug}/`}
+                    className={buttonVariants({
+                      variant: product.kind === "sample-papers" ? "primary" : "secondary",
+                      size: "lg",
+                    })}
+                  >
+                    {product.kind === "sample-papers" ? "Buy this book" : "Solutions book"} · {inrShort(product.price)}
+                    {product.in_stock ? null : <span className="font-normal"> (out of stock)</span>}
+                  </Link>
+                ))}
+              </div>
+            ) : null}
+            {!user ? (
+              <Alert title="Keep your marks" className="max-w-[36em]">
+                <p>Registered students can save their marks after each paper and see their average for each tier.</p>
+                <p className="flex flex-wrap gap-x-4 gap-y-1">
+                  <Link
+                    href={`/account/signup/?next=/books/${slug}/`}
+                    className="inline-flex min-h-11 items-center font-bold"
+                  >
+                    Register free
+                  </Link>
+                  <Link
+                    href={`/account/login/?next=/books/${slug}/`}
+                    className="inline-flex min-h-11 items-center font-bold"
+                  >
+                    Log in
+                  </Link>
                 </p>
-              ) : null}
-              {facts && papers.length ? (
-                <dl className="m-0 my-1 flex flex-wrap gap-x-10 gap-y-3">
-                  {[
-                    ["papers", papers.length],
-                    ["marks each", facts.full_marks],
-                    ["each paper", facts.time_text],
-                  ].map(([label, value]) => (
-                    <div key={label} className="flex flex-col gap-1">
-                      <dt className="order-2 text-[15px] text-muted-foreground">{label}</dt>
-                      <dd className="m-0 font-head text-[28px] leading-none font-extrabold text-primary">{value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              ) : null}
-              {forSale.length ? (
-                <div className="flex flex-wrap items-center gap-3">
-                  {forSale.map((product) => (
-                    <Link
-                      key={product.slug}
-                      href={`/shop/${product.slug}/`}
-                      className={buttonVariants({
-                        variant: product.kind === "sample-papers" ? "accent" : "secondary",
-                        size: "lg",
-                      })}
-                    >
-                      {product.kind === "sample-papers" ? "Buy this book" : "Solutions book"} ·{" "}
-                      {inrShort(product.price)}
-                    </Link>
-                  ))}
-                </div>
-              ) : null}
-              {!user ? (
-                <Alert title="Keep your marks">
-                  <p>Registered students can save their marks after each paper and see their average for each tier.</p>
-                  <p className="flex flex-wrap gap-x-4 gap-y-1">
-                    <Link
-                      href={`/account/signup/?next=/books/${slug}/`}
-                      className="inline-flex min-h-11 items-center font-semibold"
-                    >
-                      Register free
-                    </Link>
-                    <Link
-                      href={`/account/login/?next=/books/${slug}/`}
-                      className="inline-flex min-h-11 items-center font-semibold"
-                    >
-                      Log in
-                    </Link>
-                  </p>
-                </Alert>
-              ) : null}
-            </div>
+              </Alert>
+            ) : null}
           </div>
         </div>
-      </section>
+      </Sheet>
 
-      <section className="bg-secondary section">
-        <div className="container-site">
-          {!papers.length ? (
-            <EmptyState
-              art="sheet"
-              title="The papers are on their way"
-              action={
-                <Link href="/#books" className={buttonVariants({ variant: "primary" })}>
-                  Choose another book
-                </Link>
-              }
-            >
-              <p>This book&apos;s papers are still being set. The other books are ready.</p>
-            </EmptyState>
-          ) : null}
-          {tiers
-            .filter((group) => group.papers.length)
-            .map((group, index) => (
-              <div key={group.tier} className="not-first:mt-14">
-                <QRule
-                  number={index + 1}
-                  label={`${shortCode(group.papers[0].code)} to ${shortCode(group.papers[group.papers.length - 1].code)}`}
-                />
-                <div className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-2">
-                  <Badge variant={TIER_VARIANT[group.tier]}>{TIERS[group.tier]}</Badge>
-                  <h2 className="m-0">{TIERS[group.tier]} papers</h2>
-                </div>
-                <div className="grid-auto gap-4 [--min:180px]">
-                  {group.papers.map((paper) => {
-                    const open = paper.is_sample && requireLogin;
-                    return (
-                      // named by what it shows, then the tier and where it goes (label in name: review F7)
-                      <CardLink key={paper.code} href={`/s/${paper.code}/`}>
-                        <span className="flex flex-col gap-1 p-4">
-                          <span className="flex items-center justify-between gap-2 font-head text-[22px] leading-tight font-extrabold text-primary">
-                            {shortCode(paper.code)}
-                            <ArrowRight aria-hidden="true" className="size-5" />
-                          </span>
-                          {facts ? (
-                            <span className="text-[15px] text-muted-foreground">
-                              {facts.full_marks} marks · {facts.time_text}
-                            </span>
-                          ) : null}
-                          {open ? <span className="text-[15px] text-muted-foreground">Open to everyone</span> : null}
-                          <span className="sr-only">, {TIERS[group.tier]} paper: open the solutions</span>
+      {!papers.length ? (
+        <Sheet margin="—" className="border-t border-border bg-paper-2">
+          <EmptyState
+            art="sheet"
+            title="The papers are on their way"
+            action={
+              <Link href="/#books" className={buttonVariants({ variant: "primary" })}>
+                Choose another book
+              </Link>
+            }
+          >
+            <p>This book&apos;s papers are still being set. The other books are ready.</p>
+          </EmptyState>
+        </Sheet>
+      ) : null}
+
+      {tiers
+        .filter((group) => group.papers.length)
+        .map((group) => (
+          <Sheet
+            key={group.tier}
+            margin={group.tier}
+            marks={`[${group.papers.length}]`}
+            className="border-t border-border bg-paper-2"
+            bodyClassName="py-10 nav:py-12"
+            aria-labelledby={`tier-${group.tier}`}
+          >
+            <div className="mb-5 flex flex-wrap items-baseline gap-x-3.5 gap-y-1">
+              <span aria-hidden="true" className={`size-3 ${TIER_SWATCH[group.tier]}`} />
+              <h2 id={`tier-${group.tier}`} className="m-0 text-[clamp(26px,3vw,32px)]">
+                {TIERS[group.tier]} papers
+              </h2>
+              <span className="label-mono">
+                {shortCode(group.papers[0].code)} to {shortCode(group.papers[group.papers.length - 1].code)}
+              </span>
+            </div>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(150px,100%),1fr))] gap-3">
+              {group.papers.map((paper) => {
+                const open = paper.is_sample && requireLogin;
+                return (
+                  <CardLink key={paper.code} href={`/s/${paper.code}/`}>
+                    <span className="flex flex-col gap-1 px-4 py-3.5">
+                      <span className="flex items-center justify-between gap-2 font-head text-[22px] leading-tight font-semibold">
+                        {shortCode(paper.code)}
+                        <ArrowRight aria-hidden="true" className="size-[18px] text-primary" />
+                      </span>
+                      {facts ? (
+                        <span className="text-sm text-muted-foreground">
+                          {facts.full_marks} marks · {facts.time_text}
                         </span>
-                      </CardLink>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-        </div>
-      </section>
+                      ) : null}
+                      {open ? (
+                        <span className="font-mono text-xs font-medium tracking-[0.04em] text-red-ink uppercase">
+                          Open to everyone
+                        </span>
+                      ) : null}
+                      <span className="sr-only">, {TIERS[group.tier]} paper: open the solutions</span>
+                    </span>
+                  </CardLink>
+                );
+              })}
+            </div>
+          </Sheet>
+        ))}
     </>
   );
 }

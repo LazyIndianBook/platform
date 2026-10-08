@@ -1,7 +1,7 @@
-// .btn (components.md): 44 px tall (52 large), radius 10, Poppins 700; hover darkens 6 %, a 1 px press, the focus
-// ring; busy draws a spinner before the label and ignores presses, but is aria-disabled, not disabled: a disabled
-// button loses the keyboard focus, which then starts again at the top of the page (accessibility review F1).
-// asChild renders the styles on a <Link>.
+// .btn, Direction A: 44 px tall (52 large), radius 4, Public Sans 700. Primary is navy (the one action colour);
+// secondary is an ink outline; press moves 1 px; focus ring 2 + 2 px. Busy draws a spinner, sets aria-busy and
+// aria-disabled (not disabled, so focus is not thrown to the top of the page: accessibility review F1) and
+// swallows presses, so a form can't be sent twice. API unchanged.
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "cn";
 import { Slot } from "radix-ui";
@@ -9,8 +9,8 @@ import * as React from "react";
 
 const buttonCva = cva(
   [
-    "inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-btn px-4",
-    "cursor-pointer text-center font-head text-[15px] leading-tight font-bold no-underline select-none hover:no-underline",
+    "inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-btn px-5",
+    "cursor-pointer text-center font-body text-base leading-tight font-bold no-underline select-none hover:no-underline",
     "[&_svg]:size-5 [&_svg]:shrink-0",
     "active:not-disabled:not-aria-busy:translate-y-px motion-safe:transition-[translate] motion-safe:duration-150 motion-safe:ease-enter",
     "disabled:cursor-not-allowed disabled:not-aria-busy:opacity-55 aria-disabled:cursor-not-allowed aria-disabled:opacity-55",
@@ -22,19 +22,19 @@ const buttonCva = cva(
     variants: {
       variant: {
         primary:
-          "border-2 border-primary bg-primary text-primary-foreground hover:border-primary-hover hover:bg-primary-hover",
+          "border-2 border-primary bg-primary text-primary-foreground hover:border-primary-hover hover:bg-primary-hover hover:text-primary-foreground",
         secondary:
-          "border-[1.5px] border-input bg-card text-primary hover:bg-secondary-hover [.band-night_&]:bg-transparent [.band-night_&]:hover:bg-white/8",
+          "border-[1.5px] border-foreground bg-transparent text-foreground hover:bg-secondary-hover hover:text-foreground [.band-night_&]:border-input",
         ghost:
-          "border-2 border-transparent bg-transparent text-primary hover:bg-secondary-hover [.band-night_&]:hover:bg-white/8",
+          "border-2 border-transparent bg-transparent text-primary underline underline-offset-[3px] hover:text-red-ink",
         destructive:
-          "border-2 border-destructive bg-destructive text-destructive-foreground hover:border-destructive-hover hover:bg-destructive-hover",
+          "border-2 border-destructive bg-destructive text-destructive-foreground hover:border-destructive-hover hover:bg-destructive-hover hover:text-destructive-foreground",
         accent:
-          "border-2 border-accent bg-accent text-accent-foreground hover:border-accent-hover hover:bg-accent-hover",
+          "border-2 border-accent bg-accent text-accent-foreground hover:border-accent-hover hover:bg-accent-hover hover:text-accent-foreground",
       },
       size: {
-        default: "",
-        sm: "px-3 text-sm",
+        default: "min-h-12",
+        sm: "px-4 text-[15px]",
         lg: "min-h-[52px] px-6 text-[17px]",
         icon: "w-11 px-0 [&_svg]:size-[22px]",
       },
@@ -44,7 +44,6 @@ const buttonCva = cva(
   },
 );
 
-/** The classes of a button, merged (a caller's className wins over the variant's): for links styled as buttons. */
 function buttonVariants({ className, ...variants }: VariantProps<typeof buttonCva> & { className?: string } = {}) {
   return cn(buttonCva(variants), className);
 }
@@ -52,7 +51,6 @@ function buttonVariants({ className, ...variants }: VariantProps<typeof buttonCv
 type ButtonProps = React.ComponentProps<"button"> &
   VariantProps<typeof buttonCva> & {
     asChild?: boolean;
-    /** A real wait (a request in flight): spinner, aria-busy, aria-disabled; presses (a form's submit too) do nothing. */
     busy?: boolean;
   };
 

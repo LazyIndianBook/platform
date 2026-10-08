@@ -1,5 +1,5 @@
-// .tile: a subject's cover colours, 2 px ink outline, 4 px hard shadow; :active drops it into its shadow (the
-// sticker press, globals.css). It morphs into the Book page's cover (Morph "book-<subject>", motion.md d).
+// The subject row (was the sticker tile), Direction A: cover, the subject in serif, the book's figures in the mono
+// voice, one link. Same props; still morphs into the Book page's cover (Morph "book-<subject>").
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 
@@ -20,34 +20,24 @@ type SubjectTileProps = {
 
 function SubjectTile({ subject, name, href, papers = 30, marks, time, cover }: SubjectTileProps) {
   return (
-    <Morph name={`book-${subject}`}>
-      <Link href={href} className={`tile subject-${subject}`}>
-        <span className="inline-flex h-6 items-center self-start rounded-pill bg-(--pill) px-2.5 font-head text-xs leading-none font-bold text-(--base)">
-          {papers} papers
+    <Link href={href} className={`tile subject-${subject}`}>
+      {cover ? (
+        <Morph name={`book-${subject}`}>
+          <CoverPicture src={cover} alt="" sizes="64px" className="w-16 rounded-cover shadow-cover" />
+        </Morph>
+      ) : (
+        <span aria-hidden="true" className="block aspect-[480/678] w-16 rounded-cover bg-(--base)" />
+      )}
+      <span className="flex min-w-0 flex-col gap-1">
+        <span className="font-head text-[28px] leading-[1.1] font-semibold">{name}</span>
+        <span className="font-mono text-[13px] leading-snug text-muted-foreground">
+          {papers} papers · 10 Easy · 10 Medium · 10 Hard{marks ? ` · ${marks} marks · ${time}` : ""}
         </span>
-        <span className="font-head text-[28px] leading-[1.15] font-extrabold">{name}</span>
-        <span className="text-[15px] leading-normal font-semibold text-(--pill)">
-          10 Easy · 10 Medium · 10 Hard
-          {marks ? (
-            <>
-              <br />
-              {marks} marks · {time}
-            </>
-          ) : null}
-        </span>
-        <span className="mt-auto max-w-[58%] text-base leading-snug font-semibold">
-          Open the papers <ArrowRight aria-hidden="true" className="ml-1 inline size-5 align-[-4px]" />
-        </span>
-        {cover ? (
-          <CoverPicture
-            src={cover}
-            alt=""
-            sizes="112px"
-            className="absolute -right-3.5 -bottom-[34px] w-28 rotate-8 rounded-cover shadow-cover"
-          />
-        ) : null}
-      </Link>
-    </Morph>
+      </span>
+      <span className="inline-flex items-center gap-1.5 font-bold whitespace-nowrap text-primary max-nav:sr-only">
+        Open the book <ArrowRight aria-hidden="true" className="size-5" />
+      </span>
+    </Link>
   );
 }
 

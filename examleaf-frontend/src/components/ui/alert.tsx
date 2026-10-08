@@ -1,12 +1,12 @@
-// .alert: tint, hairline and icon of its kind, title and text; no side bar. role="status" for news after an action,
-// role="alert" only for a form's error summary.
+// .alert, Direction A: tint, hairline and icon of its kind, title (Public Sans 700) and text; square corners, no side
+// bar. role="status" for news after an action, role="alert" only for a form's error summary. API unchanged.
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "cn";
 import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
 import * as React from "react";
 
 const alertVariants = cva(
-  "flex items-start gap-3 rounded-lg border p-4 text-foreground [&>svg]:mt-0.5 [&>svg]:size-[22px] [&>svg]:shrink-0",
+  "flex items-start gap-3 rounded-lg border px-4 py-3.5 text-foreground [&>svg]:mt-0.5 [&>svg]:size-[22px] [&>svg]:shrink-0",
   {
     variants: {
       variant: {
@@ -30,8 +30,8 @@ function Alert({ className, variant = "info", title, children, role = "status", 
   return (
     <div data-slot="alert" role={role} className={cn(alertVariants({ variant }), className)} {...props}>
       <Icon aria-hidden="true" />
-      <div className="flex min-w-0 flex-col gap-1.5 [&_p]:m-0">
-        {title ? <p className="font-head text-base leading-snug font-bold">{title}</p> : null}
+      <div className="flex min-w-0 flex-col gap-1 text-[15px] leading-relaxed [&_p]:m-0">
+        {title ? <p className="text-base leading-snug font-bold">{title}</p> : null}
         {children}
       </div>
     </div>

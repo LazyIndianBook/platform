@@ -2,48 +2,56 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-/* ExamLeaf's token layer: docs/design/tokens.css (direction.md section 2) with the craft-pass additions of
-   components.md 4a (type scale, motion timing). shadcn names, hex values (old Android WebViews). Light paper by
-   default; .band-night inverts them for the header, hero, final call to action and footer. Components read the
-   tokens through the Tailwind theme below (bg-primary, text-muted-foreground, font-head, shadow-card …). */
+/* ExamLeaf token layer, Direction A "Answer Script" (design: ExamLeaf A - Components.dc.html).
+   Same token NAMES as before (shadcn names + the ExamLeaf additions), so every component and page keeps compiling;
+   only the values and a few component rules change. Paper by default; .band-night is now the ink band (footer,
+   closing call to action). Hex values on purpose (old Android WebViews). */
 :root {
   color-scheme: light;
-  --background: #fbfaf7;
-  --foreground: #1b2330;
+  --background: #f8f5ee; /* paper */
+  --foreground: #1d2230; /* ink */
   --card: #ffffff;
-  --card-foreground: #1b2330;
+  --card-foreground: #1d2230;
   --popover: #ffffff;
-  --popover-foreground: #1b2330;
-  --primary: #0b2a5b;
+  --popover-foreground: #1d2230;
+  --primary: #0b2a5b; /* navy: the one action colour */
   --primary-foreground: #ffffff;
-  --secondary: #f4efe3;
-  --secondary-foreground: #1b2330;
-  --muted: #f1f3f6;
-  --muted-foreground: #5d6675;
-  --accent: #1a6e30;
+  --secondary: #f1ece1; /* paper 2: alternate bands, summaries */
+  --secondary-foreground: #1d2230;
+  --muted: #ebe5d7;
+  --muted-foreground: #5b6170; /* 5.9:1 on paper */
+  --accent: #0b2a5b; /* was leaf green; A uses navy for every call to action */
   --accent-foreground: #ffffff;
   --destructive: #b42318;
   --destructive-foreground: #ffffff;
-  --border: #d9dde3; /* hairlines */
+  --border: #dcd4c4; /* hairlines */
   --input: #7b8595; /* control borders, 3.7:1 */
   --ring: #2f8f3a; /* focus ring, 2 px + 2 px offset */
-  --heading: #0b2a5b;
-  --primary-hover: #0a2856;
-  --accent-hover: #18672d;
+  --heading: #1d2230;
+  --primary-hover: #1d2230;
+  --accent-hover: #1d2230;
   --destructive-hover: #a92117;
-  --secondary-hover: #f1f3f6;
+  --secondary-hover: #ebe5d7;
+
+  /* Answer Script */
+  --ink: #1d2230;
+  --red-ink: #b3342a; /* marks, ticks, the margin, the stamp, one emphasis per screen; never errors */
+  --red-ink-soft: #e7bdb7;
+  --red-ink-night: #e0786e;
+  --paper-2: #f1ece1;
+  --rule-soft: #e6dfd1;
 
   --navy: #0b2a5b;
-  --night: #07122b;
-  --night-card: #0e1d42;
-  --night-muted: #a9b8d6;
-  --night-line: #2e3a54;
-  --header-line: #425c86;
-  --gold: #ebc34a; /* numerals and seals on dark; never text on paper */
-  --gold-text: #8a6508; /* gold as text on paper, 5.1:1 */
+  --night: #1d2230; /* the ink band */
+  --night-card: #262c3b;
+  --night-muted: #c9cdd6;
+  --night-line: #3a4152;
+  --header-line: #dcd4c4;
+  --gold: #ebc34a;
+  --gold-text: #8a6508;
   --marker: #ffe27a;
-  --leaf: #2f8f3a; /* fills and focus rings only; never under white text */
-  --leaf-night: #4cc265;
+  --leaf: #1a6e30; /* the wordmark's "Leaf" on paper */
+  --leaf-night: #8fd694;
   --leaf-light: #8fd694;
 
   --physics: #0f3560;
@@ -71,60 +79,62 @@
   --error-line: #f1c2bc;
   --error-fg: #b42318;
 
-  --radius: 12px;
-  --backdrop: rgba(7, 18, 43, 0.55);
+  --radius: 4px;
+  --backdrop: rgba(29, 34, 48, 0.55);
 
-  --fs-display: clamp(36px, 4.6vw, 54px);
-  --fs-h1: clamp(28px, 4vw, 44px);
-  --fs-h1-card: clamp(28px, 3vw, 32px);
-  --fs-h2: clamp(26px, 3.2vw, 38px);
+  --fs-display: clamp(44px, 6vw, 76px);
+  --fs-h1: clamp(34px, 4.6vw, 56px);
+  --fs-h1-card: clamp(28px, 3vw, 36px);
+  --fs-h2: clamp(28px, 3.4vw, 44px);
   --fs-title: clamp(22px, 2.4vw, 28px);
   --fs-card: 22px;
-  --fs-h3: 19px;
-  --fs-h4: 17px;
+  --fs-h3: 21px;
+  --fs-h4: 18px;
   --fs-lead: 19px;
   --fs-body: 17px;
   --fs-small: 15px;
   --fs-caption: 14px;
+  --fs-read: 19px; /* questions and solutions, Source Serif */
   --measure: 66ch;
 
-  --container: 1120px;
+  --container: 1200px;
+  --margin-col: 120px; /* the answer booklet's left margin */
+  --marks-col: 112px; /* the examiner's marks column */
   --gutter: clamp(16px, 4vw, 24px);
   --gap: 24px;
-  --section: clamp(64px, 8vw, 96px);
-  --header: 64px;
+  --section: clamp(56px, 7vw, 80px);
+  --header: 72px;
   --target: 44px;
   --control: 48px;
 
-  /* motion.md: one timing scale, one easing family; transform and opacity only */
   --t-instant: 0ms;
   --t-fast: 150ms;
   --t-base: 220ms;
   --t-slow: 360ms;
 }
 
-/* in the base layer, so a utility (the header's bg-navy) can still set the band's fill */
 @layer base {
   .band-night {
-    --background: #07122b;
+    --background: #1d2230;
     --foreground: #ffffff;
-    --card: #0e1d42;
+    --card: #262c3b;
     --card-foreground: #ffffff;
-    --primary: #ffffff;
-    --primary-foreground: #0b2a5b;
-    --primary-hover: #eaf1ff;
-    --secondary: #0e1d42;
+    --primary: #f8f5ee;
+    --primary-foreground: #1d2230;
+    --primary-hover: #ffffff;
+    --secondary: #262c3b;
     --secondary-foreground: #ffffff;
-    --secondary-hover: #0e1d42;
-    --muted: #0e1d42;
-    --muted-foreground: #a9b8d6;
-    --accent: #4cc265;
-    --accent-foreground: #07122b;
-    --accent-hover: #47b65f;
-    --border: #2e3a54;
-    --input: #a9b8d6;
+    --secondary-hover: #2e3546;
+    --muted: #262c3b;
+    --muted-foreground: #c9cdd6;
+    --accent: #f8f5ee;
+    --accent-foreground: #1d2230;
+    --accent-hover: #ffffff;
+    --border: #3a4152;
+    --input: #8a90a0;
     --ring: #8fd694;
     --heading: #ffffff;
+    --red-ink: #e0786e;
     background: var(--background);
     color: var(--foreground);
   }
@@ -155,6 +165,11 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-heading: var(--heading);
+  --color-ink: var(--ink);
+  --color-red-ink: var(--red-ink);
+  --color-red-ink-soft: var(--red-ink-soft);
+  --color-paper-2: var(--paper-2);
+  --color-rule-soft: var(--rule-soft);
   --color-navy: var(--navy);
   --color-night: var(--night);
   --color-night-card: var(--night-card);
@@ -182,32 +197,35 @@
   --color-error-line: var(--error-line);
   --color-error-fg: var(--error-fg);
 
-  /* next/font/local sets the three families on <html> (src/app/fonts.ts). Bengali first: its unicode-range keeps it
-     to Assamese and Bangla text, so Latin pages never download it. */
-  --font-head: var(--font-poppins), var(--font-hind-bn), var(--font-hind), "Segoe UI", system-ui, sans-serif;
-  --font-body: var(--font-hind-bn), var(--font-hind), "Segoe UI", system-ui, sans-serif;
+  /* src/app/fonts.ts sets the families on <html>. Hind Siliguri stays in every stack for Assamese and Bangla:
+     its Bengali file has a unicode-range, so Latin pages never download it. */
+  --font-head: var(--font-serif), var(--font-hind-bn), var(--font-hind), Georgia, serif;
+  --font-read: var(--font-serif), var(--font-hind-bn), var(--font-hind), Georgia, serif;
+  --font-body: var(--font-ui), var(--font-hind-bn), var(--font-hind), "Segoe UI", system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, Menlo, Consolas, monospace;
   --font-sans: var(--font-body);
 
-  --radius-sm: 6px;
-  --radius-md: 10px;
+  --radius-sm: 3px;
+  --radius-md: 4px;
   --radius-lg: var(--radius);
-  --radius-xl: 16px;
-  --radius-btn: 10px;
+  --radius-xl: 6px;
+  --radius-btn: 4px;
   --radius-pill: 999px;
-  --radius-cover: 6px;
+  --radius-cover: 4px;
 
   --text-display: var(--fs-display);
   --text-h1: var(--fs-h1);
   --text-h1-card: var(--fs-h1-card);
   --text-h2: var(--fs-h2);
   --text-title: var(--fs-title);
-  --text-card-title: var(--fs-card); /* not --text-card: that would clash with the colour bg-card/text-card */
+  --text-card-title: var(--fs-card);
   --text-h3: var(--fs-h3);
   --text-h4: var(--fs-h4);
   --text-lead: var(--fs-lead);
   --text-body: var(--fs-body);
   --text-small: var(--fs-small);
   --text-caption: var(--fs-caption);
+  --text-read: var(--fs-read);
 
   --ease-enter: cubic-bezier(0.2, 0.7, 0.2, 1);
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
@@ -216,11 +234,12 @@
 }
 
 @theme {
-  --shadow-card: 0 1px 2px rgba(11, 42, 91, 0.06), 0 8px 24px rgba(11, 42, 91, 0.08);
-  --shadow-hard: 4px 4px 0 #1b2330;
-  --shadow-cover: 0 14px 24px -14px #000000;
-  --shadow-dialog: 0 24px 48px rgba(7, 18, 43, 0.28);
-  --shadow-menu: 0 16px 24px rgba(7, 18, 43, 0.35);
+  --shadow-card: 0 1px 0 rgba(29, 34, 48, 0.04);
+  --shadow-hard: none;
+  --shadow-cover: 0 14px 24px -14px rgba(0, 0, 0, 0.6);
+  --shadow-sheet: 0 30px 50px -30px rgba(29, 34, 48, 0.45);
+  --shadow-dialog: 0 24px 48px rgba(29, 34, 48, 0.28);
+  --shadow-menu: 0 16px 24px rgba(29, 34, 48, 0.25);
 }
 
 @utility container-site {
@@ -234,11 +253,20 @@
   padding-block: var(--section);
 }
 
-/* Intrinsic grids, no breakpoints (components.md section 0): --min sets the column's smallest width. */
 @utility grid-auto {
   display: grid;
   gap: var(--gap);
   grid-template-columns: repeat(auto-fit, minmax(min(var(--min, 240px), 100%), 1fr));
+}
+
+/* the mono label: codes, marks, eyebrows. Latin only: Assamese text is never tracked or uppercased (:lang rule). */
+@utility label-mono {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.05em;
+  color: var(--muted-foreground);
 }
 
 @layer base {
@@ -258,14 +286,15 @@
     min-height: 100vh;
     background: var(--background);
     color: var(--foreground);
-    font: 400 var(--fs-body) / 1.7 var(--font-body);
+    font: 400 var(--fs-body) / 1.65 var(--font-body);
+    -webkit-font-smoothing: antialiased;
   }
   main {
     flex: 1 0 auto;
   }
   main:focus,
   main h1[tabindex="-1"]:focus {
-    outline: none; /* focused after a client-side navigation (RouteFocus), not by the visitor */
+    outline: none;
   }
   h1,
   h2,
@@ -274,26 +303,25 @@
     font-family: var(--font-head);
     color: var(--heading);
     text-wrap: balance;
+    font-weight: 600;
   }
   h1 {
     font-size: var(--fs-h1);
-    line-height: 1.15;
-    font-weight: 800;
+    line-height: 1.02;
+    letter-spacing: -0.02em;
   }
   h2 {
     font-size: var(--fs-h2);
-    line-height: 1.2;
-    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.015em;
   }
   h3 {
     font-size: var(--fs-h3);
-    line-height: 1.3;
-    font-weight: 700;
+    line-height: 1.25;
   }
   h4 {
     font-size: var(--fs-h4);
-    line-height: 1.4;
-    font-weight: 700;
+    line-height: 1.35;
   }
   p,
   li,
@@ -307,21 +335,25 @@
     text-decoration-line: underline;
   }
   a:hover {
+    color: var(--red-ink);
     text-decoration-thickness: 2px;
   }
   table {
     font-variant-numeric: tabular-nums;
   }
   code {
-    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-family: var(--font-mono);
     font-size: 0.9em;
   }
-  /* Assamese and Bangla: never tracked, never uppercased, roomier lines */
   :lang(bn),
   :lang(as) {
     letter-spacing: 0;
     text-transform: none;
     line-height: 1.8;
+  }
+  :lang(bn) :is(h1, h2, h3, h4),
+  :lang(as) :is(h1, h2, h3, h4) {
+    line-height: 1.45;
   }
   :focus-visible {
     outline: 2px solid var(--ring);
@@ -338,7 +370,65 @@
 }
 
 @layer components {
-  /* the exam-paper divider that opens each section: Q.1 ——— What's inside */
+  /* ---- The answer booklet: margin | content (red double rule) | marks. Phones: a 12 px rule at the edge. ---- */
+  .sheet {
+    display: grid;
+    grid-template-columns: var(--margin-col) minmax(0, 1fr) var(--marks-col);
+    width: 100%;
+    max-width: calc(var(--container) + var(--margin-col) + var(--marks-col));
+    margin-inline: auto;
+  }
+  .sheet-margin {
+    padding: var(--section) 12px 0 var(--gutter);
+    font: 600 15px/1.4 var(--font-mono);
+    color: var(--red-ink);
+  }
+  .sheet-body {
+    min-width: 0;
+    border-left: 3px double var(--red-ink);
+    padding: var(--section) clamp(20px, 4vw, 48px);
+  }
+  .sheet-marks {
+    padding: var(--section) var(--gutter) 0 16px;
+    font: 600 15px/1.4 var(--font-mono);
+    color: var(--red-ink);
+  }
+  /* one row with its mark: content, then the mark on the same baseline */
+  .marked-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--marks-col);
+    align-items: baseline;
+  }
+  .marked-row > .mark {
+    justify-self: center;
+    font: 600 16px/1 var(--font-mono);
+    color: var(--red-ink);
+  }
+  .marked-row > .mark.allotted {
+    font-weight: 500;
+    color: var(--muted-foreground);
+  }
+  @media (max-width: 899.98px) {
+    .sheet {
+      grid-template-columns: minmax(0, 1fr);
+      border-left: 3px double var(--red-ink);
+    }
+    .sheet-margin {
+      padding: 32px var(--gutter) 0;
+    }
+    .sheet-body {
+      border-left: 0;
+      padding: 8px var(--gutter) 40px;
+    }
+    .sheet-marks {
+      display: none;
+    }
+    .marked-row {
+      grid-template-columns: minmax(0, 1fr) 56px;
+    }
+  }
+
+  /* the section opener: "Q.1 ——— What's inside" in the margin's voice */
   .q-rule {
     display: flex;
     align-items: center;
@@ -346,8 +436,8 @@
     margin-bottom: 16px;
   }
   .q-rule > :first-child {
-    font: 800 15px/1.4 var(--font-head);
-    color: var(--primary);
+    font: 600 15px/1.4 var(--font-mono);
+    color: var(--red-ink);
   }
   .q-rule > :nth-child(2) {
     flex: 1;
@@ -355,23 +445,20 @@
     background: var(--border);
   }
   .q-rule > :last-child {
-    font-weight: 600;
-    font-size: 15px;
-    line-height: 1.4;
+    font: 500 13px/1.4 var(--font-mono);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
     color: var(--muted-foreground);
   }
+  /* a big figure in the marks voice: [30] */
   .numeral {
-    font-family: var(--font-head);
-    font-weight: 800;
-    line-height: 0.9;
-    color: var(--primary);
+    font-family: var(--font-mono);
+    font-weight: 600;
+    line-height: 1;
+    color: var(--red-ink);
     font-variant-numeric: tabular-nums;
   }
-  .band-night .numeral {
-    color: var(--gold);
-  }
 
-  /* subject colour pairs: base fill and pill accent */
   .subject-physics {
     --base: var(--physics);
     --pill: var(--physics-pill);
@@ -389,7 +476,6 @@
     --pill: var(--biology-pill);
   }
 
-  /* a book cover with its spine shading */
   .cover {
     position: relative;
     display: block;
@@ -402,16 +488,8 @@
     width: 100%;
     height: auto;
   }
-  .cover::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    pointer-events: none;
-    background: linear-gradient(90deg, rgba(0, 0, 0, 0.28), transparent 7%, transparent 93%, rgba(255, 255, 255, 0.07));
-  }
 
-  /* the cover stage: four covers fanned, one lifts on hover, focus or tap (motion.md, a) */
+  /* kept for pages that still use the fan (404); Home now shows the solution sheet instead */
   .stage {
     display: flex;
     justify-content: center;
@@ -420,114 +498,61 @@
   }
   .stage-cover {
     flex: none;
-    width: min(30vw, 172px);
-    z-index: 2;
-  }
-  .stage-cover::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    border-radius: inherit;
-    pointer-events: none;
-    opacity: 0;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      rgba(255, 255, 255, 0.5) 2.5%,
-      rgba(255, 255, 255, 0.1) 6%,
-      transparent 11%
-    );
+    width: min(30vw, 160px);
   }
   .stage-cover + .stage-cover {
-    margin-left: max(-56px, -10vw);
-  }
-  .stage-cover:nth-child(1) {
-    transform: rotate(-8deg) translateY(14px);
-    z-index: 1;
-  }
-  .stage-cover:nth-child(2) {
-    transform: rotate(-3deg);
-  }
-  .stage-cover:nth-child(3) {
-    transform: rotate(3deg);
-    z-index: 3;
-  }
-  .stage-cover:nth-child(4) {
-    transform: rotate(8deg) translateY(14px);
-  }
-  @media (max-width: 899.98px) {
-    .stage-cover {
-      width: 104px;
-    }
-    .stage-cover + .stage-cover {
-      margin-left: -34px;
-    }
-  }
-  /* 400 % zoom (320 px): the fan fits the 288 px column instead of being clipped */
-  @media (max-width: 359.98px) {
-    .stage-cover {
-      width: 90px;
-    }
-    .stage-cover + .stage-cover {
-      margin-left: -30px;
-    }
+    margin-left: max(-48px, -9vw);
   }
 
-  /* the subject tile: cover colours, 2 px ink outline, 4 px hard shadow, sticker press */
+  /* the subject row (was the sticker tile): cover, name, the book's figures, one link */
   .tile {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    min-height: 300px;
-    padding: 20px;
-    overflow: hidden;
-    border: 2px solid var(--foreground);
-    border-radius: var(--radius);
-    background: var(--base, var(--navy));
-    color: #ffffff;
-    box-shadow: var(--shadow-hard);
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 20px;
+    padding: 14px 4px;
+    border-bottom: 1px solid var(--border);
+    color: var(--foreground);
     text-decoration: none;
   }
   .tile:hover {
-    color: #ffffff;
+    color: var(--foreground);
+    background: var(--paper-2);
   }
   .tile:active {
-    translate: 3px 3px;
-    box-shadow: none;
+    translate: 0 1px;
   }
 
-  /* the one highlighter stroke of a view */
+  /* the one emphasis of a view: red ink, italic */
   .marker {
-    padding: 0 2px;
-    color: inherit;
-    white-space: nowrap;
-    background: linear-gradient(180deg, transparent 50%, var(--marker) 50% 92%, transparent 92%);
+    padding: 0;
+    background: none;
+    color: var(--red-ink);
+    font-style: italic;
   }
 
-  /* the QR landing header's seal */
+  /* the stamp (was the seal): EXAMLEAF · OFFICIAL SOLUTIONS, once per screen */
   .seal {
     display: inline-flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
-    width: 104px;
-    height: 104px;
+    width: 118px;
+    height: 118px;
     flex: none;
     margin-left: auto;
-    border: 2px solid var(--gold);
+    border: 2px solid var(--red-ink);
     border-radius: 50%;
-    outline: 1px dashed rgba(235, 195, 74, 0.6);
+    outline: 1px solid var(--red-ink);
     outline-offset: -8px;
-    color: var(--gold);
-    transform: rotate(-8deg);
+    color: var(--red-ink);
+    transform: rotate(-10deg);
     text-align: center;
-    font: 800 12px/1.15 var(--font-head);
+    font: 600 12px/1.35 var(--font-mono);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
 
-  /* details.accordion: summary with a chevron that turns (a state, so it applies with reduced motion too) */
   details.accordion {
     border-top: 1px solid var(--border);
     border-bottom: 1px solid var(--border);
@@ -540,19 +565,18 @@
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    min-height: 56px;
-    padding: 6px 0;
+    min-height: 60px;
+    padding: 8px 0;
     list-style: none;
     cursor: pointer;
-    font: 700 17px/1.4 var(--font-head);
-    color: var(--primary);
+    font: 600 20px/1.35 var(--font-head);
+    color: var(--foreground);
   }
   details.accordion > summary::-webkit-details-marker {
     display: none;
   }
-  details.accordion > summary:hover > span {
-    text-decoration: underline;
-    text-underline-offset: 3px;
+  details.accordion > summary > svg {
+    color: var(--red-ink);
   }
   details.accordion[open] > summary > svg {
     rotate: 180deg;
@@ -567,13 +591,11 @@
     margin: 0;
   }
 
-  /* tables: a scroll box on phones, sticky header, numbers on the right */
   .table-wrap,
   .table-scroll {
     overflow-x: auto;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--card);
+    border-top: 1.5px solid var(--foreground);
+    background: transparent;
   }
   .table-wrap table,
   .table-scroll table {
@@ -586,37 +608,39 @@
   .table-scroll th {
     position: sticky;
     top: 0;
-    padding: 10px 14px;
-    border-bottom: 1px solid var(--border);
-    background: var(--secondary);
-    font-weight: 600;
-    font-size: 15px;
-    line-height: 1.5;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--foreground);
+    background: var(--background);
+    font: 500 12px/1.4 var(--font-mono);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
     text-align: left;
     white-space: nowrap;
   }
   .table-wrap td,
   .table-scroll td {
-    padding: 12px 14px;
+    padding: 12px;
     border-top: 1px solid var(--border);
     vertical-align: top;
   }
   .table-wrap tfoot td,
   .table-wrap tfoot th {
-    border-top: 2px solid var(--foreground);
-    font-family: var(--font-head);
+    border-top: 1.5px solid var(--foreground);
     font-weight: 700;
   }
   .num,
   .table-wrap :is(th, td).num {
     text-align: right;
+    font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
   }
 
-  /* legal pages, About, the FAQ: a reading column */
+  /* legal pages, About, the FAQ: a serif reading column */
   .prose {
     max-width: var(--measure);
+    font: 400 18px/1.7 var(--font-read);
   }
   .prose > :first-child {
     margin-top: 0;
@@ -653,71 +677,35 @@
     margin: 16px 0;
     width: 100%;
     border-collapse: collapse;
+    font-family: var(--font-body);
+    font-size: 16px;
   }
   .prose th,
   .prose td {
     padding: 8px 12px;
-    border: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
     text-align: left;
     vertical-align: top;
   }
   mark.placeholder {
     padding: 0 0.2em;
-    border-radius: 3px;
+    border-radius: 2px;
     background: #fff1a8;
     color: var(--foreground);
     outline: 1px dashed var(--gold-text);
   }
 }
 
-/* Motion (motion.md): everything that moves lives here, so the default state is the final, readable one. */
+/* Motion (motion.md + the two Answer Script moments). Everything that moves lives here; with reduced motion the
+   default state is the final one. */
 @media (prefers-reduced-motion: no-preference) {
   .tile,
   .stage-cover {
     transition: translate var(--t-fast) var(--ease-enter);
   }
-  .stage-cover::before {
-    transition: opacity var(--t-base) var(--ease-enter);
-  }
   details.accordion > summary > svg {
     transition: rotate var(--t-fast) var(--ease-enter);
   }
-  @media (hover: hover) {
-    .stage > .stage-cover:hover {
-      translate: 0 -14px;
-      z-index: 4;
-    }
-    .stage > .stage-cover:hover::before {
-      opacity: 1;
-    }
-  }
-  .stage > .stage-cover:is(:focus-visible, :active) {
-    translate: 0 -14px;
-    z-index: 4;
-  }
-  .stage > .stage-cover:is(:focus-visible, :active)::before {
-    opacity: 1;
-  }
-  @supports (animation-timeline: view()) {
-    .marker[data-draw] {
-      background: none;
-      position: relative;
-      isolation: isolate;
-    }
-    .marker[data-draw]::after {
-      content: "";
-      position: absolute;
-      inset: 50% -2px 8% -2px;
-      z-index: -1;
-      background: var(--marker);
-      transform-origin: left;
-      animation: el-draw linear both;
-      animation-timeline: view();
-      animation-range: entry 10% entry 60%;
-    }
-  }
-  /* toasts (f): in with a fade and 8 px, up from the bottom on a phone, down from the top right on a desktop; they
-     leave at once (src/components/ui/toaster.tsx) */
   [data-toast] {
     animation: el-rise var(--t-base) var(--ease-enter) both;
   }
@@ -726,18 +714,31 @@
       --rise: -8px;
     }
   }
-  /* view transitions (d): the morphs of src/components/ui/morph.tsx and the page around them */
+  /* "the tick lands": a saved score's red circle, played once after the server confirmed (marks-form.tsx) */
+  [data-mark-landed] {
+    animation: el-land var(--t-base) var(--ease-enter) both;
+  }
   ::view-transition-group(*) {
     animation-duration: var(--t-slow);
     animation-timing-function: var(--ease-enter);
   }
 }
-/* reduced motion: a navigation with a morph changes the page at once */
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-group(*),
   ::view-transition-old(*),
   ::view-transition-new(*) {
     animation: none !important;
+  }
+}
+/* "the margin follows": the current question number turns red as its row reaches the top third. Colour only,
+   scroll-linked where supported, static elsewhere (no JavaScript). */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .paper-page .qno {
+      animation: el-current linear both;
+      animation-timeline: view();
+      animation-range: contain 0% contain 40%;
+    }
   }
 }
 
@@ -757,27 +758,39 @@
     translate: 0 var(--rise, 8px);
   }
 }
+@keyframes el-land {
+  from {
+    opacity: 0;
+    scale: 0.9;
+  }
+}
+@keyframes el-current {
+  0%,
+  100% {
+    color: var(--foreground);
+  }
+  50% {
+    color: var(--red-ink);
+  }
+}
 
-/* On a phone, a focused field never hides behind a toast: scrolling it into view leaves the toast's room free. */
 @media (max-width: 899.98px) {
   html:has([data-toast]) {
     scroll-padding-bottom: 120px;
   }
 }
 
-/* lucide icons in the site's one stroke (direction.md: 1.75 px) */
 svg.lucide {
   stroke-width: 1.75;
 }
 
-/* the skip link: off screen until focused */
 .skip-link {
   position: absolute;
   left: 16px;
   top: -100px;
   z-index: 50;
   padding: 10px 16px;
-  border-radius: 10px;
+  border-radius: 4px;
   background: var(--card);
   color: var(--primary);
   font-weight: 600;

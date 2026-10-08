@@ -1,17 +1,34 @@
-// The site's two families, self-hosted from the same subset files as the Django site (examleaf-web/static/fonts/,
-// licences beside them): Poppins 700/800 for headings (Latin + the rupee sign), Hind Siliguri 400/600 for body text,
-// with its Bengali files (Assamese and Bangla) declared for the Bengali range only. adjustFontFallback draws a
-// metric-matched Arial while they load, so the swap does not move the page (CLS).
+// The site's families. Direction A: Source Serif 4 for headings, questions and solutions; Public Sans for the
+// interface; IBM Plex Mono for codes and marks; Hind Siliguri (local, unchanged) for Assamese and Bangla in every
+// stack. next/font/google downloads the files at BUILD time and serves them from this origin, so the CSP's
+// "no third-party font host" rule still holds at runtime. If the build machine has no internet, download the
+// woff2 files into ./fonts/ and switch these three to localFont (README_IMPLEMENTATION.md, "Fonts offline").
+import { IBM_Plex_Mono, Public_Sans, Source_Serif_4 } from "next/font/google";
 import localFont from "next/font/local";
 
-export const poppins = localFont({
-  src: [
-    { path: "./fonts/poppins-700.woff2", weight: "700", style: "normal" },
-    { path: "./fonts/poppins-800.woff2", weight: "800", style: "normal" },
-  ],
-  variable: "--font-poppins",
+export const serif = Source_Serif_4({
+  subsets: ["latin"],
+  weight: ["400", "600", "700"],
+  style: ["normal", "italic"],
+  variable: "--font-serif",
   display: "swap",
-  adjustFontFallback: "Arial",
+  adjustFontFallback: true,
+});
+
+export const ui = Public_Sans({
+  subsets: ["latin"],
+  weight: ["400", "600", "700"],
+  variable: "--font-ui",
+  display: "swap",
+  adjustFontFallback: true,
+});
+
+export const mono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["500", "600"],
+  variable: "--font-plex-mono",
+  display: "swap",
+  preload: false, // labels only; never the LCP text
 });
 
 export const hind = localFont({
@@ -21,6 +38,7 @@ export const hind = localFont({
   ],
   variable: "--font-hind",
   display: "swap",
+  preload: false,
   adjustFontFallback: "Arial",
 });
 
@@ -36,4 +54,7 @@ export const hindBengali = localFont({
   declarations: [{ prop: "unicode-range", value: "U+0980-09FE, U+200C-200D, U+25CC" }],
 });
 
-export const fontVariables = `${poppins.variable} ${hind.variable} ${hindBengali.variable}`;
+/** Kept so any import of the old heading font still compiles; it now resolves to the serif. */
+export const poppins = serif;
+
+export const fontVariables = `${serif.variable} ${ui.variable} ${mono.variable} ${hind.variable} ${hindBengali.variable}`;

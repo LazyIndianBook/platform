@@ -465,7 +465,8 @@ describe("Site pieces", () => {
     );
     expect(container.querySelector("section")).toHaveClass("band-night");
     expect(screen.getByText("Q.1")).toBeInTheDocument();
-    expect(screen.getByText("the solutions free")).toHaveAttribute("data-draw", "true");
+    // Direction A: the one emphasis of a view is red ink in italics, no drawn highlighter
+    expect(screen.getByText("the solutions free")).toHaveClass("marker");
   });
 
   it("keeps the header on one row with the cart count spoken and the menu button", () => {
