@@ -25,6 +25,12 @@
     grid-template-columns: minmax(0, 1fr) 280px;
   }
 }
+/* no rail between 900 and 1100 px: the marks column keeps a gutter from the edge */
+@media (min-width: 900px) and (max-width: 1099.98px) {
+  .paper-sheet > .sheet-body {
+    padding-right: var(--gutter);
+  }
+}
 .paper-main {
   min-width: 0;
 }
@@ -78,6 +84,11 @@
 .paper-page .paper-chips a:hover {
   background: var(--foreground);
   color: var(--background);
+}
+@media (min-width: 900px) and (max-width: 1099.98px) {
+  .paper-page .paper-chips {
+    margin-right: calc(-1 * var(--gutter)); /* to the edge, past the body's gutter */
+  }
 }
 @media (min-width: 1100px) {
   .paper-page .paper-chips {
