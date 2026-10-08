@@ -195,8 +195,9 @@ test("a payment the server has not confirmed yet says so, updates once, and show
 test("the order is in My orders, and its emailed link opens it without an account and cancels it", async () => {
   await page.goto("/orders/");
   await expect(page).toHaveURL(/\/account\/orders\/$/);
-  await expect(page.getByRole("link", { name: number })).toBeVisible();
-  await page.getByRole("link", { name: number }).click();
+  // the row's Pay now and View links name the order too (for screen readers): the number itself is the link
+  await expect(page.getByRole("link", { name: number, exact: true })).toBeVisible();
+  await page.getByRole("link", { name: number, exact: true }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(`Order ${number}`);
   await expect(page.getByText("awaiting payment", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Pay now" })).toBeVisible();
