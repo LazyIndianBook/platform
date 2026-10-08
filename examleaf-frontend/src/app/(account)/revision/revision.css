@@ -1,0 +1,102 @@
+/* /revision/ (Account artboard "Revision course", Phone "Phone revision course"): the answer booklet with an aside.
+   Desktop: the margin (▶) | the course behind the red double rule | the student's course, plan and app behind a
+   hairline. Phones: one column behind the rule at the left edge, the student's course (a card) before the chapters
+   (the book code is the first thing a student with a book needs), the plan and the app after them. Layout only:
+   the type is in the page's classes. */
+.revision {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "hero" "course" "chapters" "plan" "app";
+  width: 100%;
+  border-left: 3px double var(--red-ink);
+}
+.revision > .rv-margin,
+.revision > .rv-rest {
+  display: none;
+}
+.revision > .rv-hero {
+  grid-area: hero;
+  padding: 24px var(--gutter) 0;
+}
+.revision > .rv-course {
+  grid-area: course;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 18px var(--gutter) 8px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  background: var(--card);
+}
+.revision > .rv-chapters {
+  grid-area: chapters;
+  padding: 16px var(--gutter) 0;
+}
+.revision > .rv-plan,
+.revision > .rv-app {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 32px var(--gutter) 0;
+}
+.revision > .rv-plan {
+  grid-area: plan;
+}
+.revision > .rv-app {
+  grid-area: app;
+  padding-bottom: 48px;
+}
+
+@media (min-width: 900px) {
+  .revision {
+    grid-template-columns: 120px minmax(0, 1fr) 360px;
+    grid-template-rows: auto auto auto 1fr;
+    grid-template-areas:
+      "margin hero course"
+      "margin chapters plan"
+      "margin chapters app"
+      "margin chapters rest";
+    max-width: calc(var(--container) + 280px);
+    margin-inline: auto;
+    border-left: 0;
+  }
+  .revision > .rv-margin {
+    display: block;
+    grid-area: margin;
+    padding: 60px 0 0 var(--gutter);
+    font: 600 15px/1 var(--font-mono);
+    color: var(--red-ink);
+  }
+  .revision > .rv-hero,
+  .revision > .rv-chapters {
+    border-left: 3px double var(--red-ink);
+    padding-inline: 48px;
+  }
+  .revision > .rv-hero {
+    padding-top: 48px;
+  }
+  .revision > .rv-chapters {
+    padding-top: 22px;
+    padding-bottom: 64px;
+  }
+  .revision > .rv-course,
+  .revision > .rv-plan,
+  .revision > .rv-app,
+  .revision > .rv-rest {
+    display: flex;
+    margin: 0;
+    border: 0;
+    border-left: 1px solid var(--border);
+    background: transparent;
+    padding: 28px 32px 0;
+  }
+  .revision > .rv-course {
+    padding-top: 48px;
+  }
+  .revision > .rv-app {
+    padding-bottom: 0;
+  }
+  .revision > .rv-rest {
+    grid-area: rest;
+  }
+}

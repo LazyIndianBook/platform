@@ -1,19 +1,24 @@
-// /account/learning/: the revision course as the student has used it (GET me/learning/, read per request and never
-// stored): the clip to continue with, the plan's next three days with the exam date, the revise-again queue, progress
-// per subject and chapter, what is open, and the streak as a quiet line. A server component; islands only for the
-// player and the exam-date form. The quiz, flash cards and the progress itself are kept by the app.
-import { ArrowRight } from "lucide-react";
+// /account/learning/ (Account artboard "Learning", Phone "Phone learning"): the revision course as the student has used
+// it (GET me/learning/, read per request and never stored): the clip to continue with on the vertical player, the plan
+// to the exam (its date and minutes a day, the next three days) and the revise-again count, then each open subject's
+// chapters with their bars and the QUIZ column, and the subjects tried for free. The streak is the quiet line on the
+// right. A server component; islands only for the player and the plan's form. The quiz, flash cards and the progress
+// itself are kept by the app.
 import Link from "next/link";
 
-import { ContinueCard, NextDaysList, streakWords, SubjectProgress } from "@/components/account/learning";
-import { CompactEmpty, ConsentPending, PageHead, Problem } from "@/components/account/parts";
-import { EntitlementList } from "@/components/revision/course";
+import {
+  ContinueCard,
+  NextDaysList,
+  streakWords,
+  SubjectProgress,
+  SubjectSummary,
+} from "@/components/account/learning";
+import { CompactEmpty, ConsentPending, goLink, PageHead, Problem, SectionHead } from "@/components/account/parts";
 import { ExamDateForm } from "@/components/revision/islands";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { settle } from "@/lib/api/account";
 import { ApiError, unwrap } from "@/lib/api/errors";
 import { personalFetch, serverApi } from "@/lib/api/server";
-import { dateInIndia, formatDate } from "@/lib/dates";
+import { dateInIndia } from "@/lib/dates";
 import { pageMetadata } from "@/lib/seo/metadata";
 
 export const metadata = pageMetadata({
@@ -22,8 +27,6 @@ export const metadata = pageMetadata({
   description: "Your revision course: where you left off, what you watched, what to revise and the days ahead.",
   noindex: true,
 });
-
-const goLink = "inline-flex min-h-11 items-center gap-1.5 font-semibold";
 
 export default async function LearningPage() {
   const path = "/account/learning/";
@@ -37,108 +40,78 @@ export default async function LearningPage() {
     );
   }
   const { plan, revise_again: revise } = learning;
+  const today = dateInIndia();
+  const until = (subject: number) =>
+    learning.entitlements.find(
+      (item) => (item.subject === subject || item.subject == null) && (!item.valid_until || item.valid_until >= today),
+    )?.valid_until;
+  const open = learning.subjects.filter((subject) => subject.entitled);
+  const tried = learning.subjects.filter((subject) => !subject.entitled);
 
   return (
     <>
-      <PageHead
-        title="Learning"
-        lead={streakWords(learning.streak) ?? "Where you left off, what you watched and what comes next."}
-      />
+      <PageHead title="Learning" aside={streakWords(learning.streak)} />
       {learning.consent_pending ? (
         <ConsentPending what="you can watch and read here, but nothing you watch, answer or plan is saved" />
       ) : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Continue</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ContinueCard next={learning.continue_watching} hasAppLinks={learning.has_app_links} />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Your next three days</CardTitle>
-          <CardDescription>
-            {plan.exam_date && plan.days_left !== null
-              ? `${plan.days_left} day${plan.days_left === 1 ? "" : "s"} to your exam on ${formatDate(plan.exam_date, "long")}, at ${plan.minutes_per_day} minutes a day: the clips you have not watched, the chapters worth the most marks first.`
-              : "The clips you have not watched, day by day until your exam, the chapters worth the most marks first."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="gap-4">
+      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+        <ContinueCard next={learning.continue_watching} hasAppLinks={learning.has_app_links} />
+        <section aria-labelledby="plan-title" className="flex flex-col gap-3.5">
+          <SectionHead id="plan-title" title="Plan to your exam" />
+          <ExamDateForm examDate={plan.exam_date} minutesPerDay={plan.minutes_per_day} />
           <NextDaysList plan={plan} />
-          <ExamDateForm examDate={plan.exam_date} />
-        </CardContent>
-        <CardFooter>
-          <Link href="/revision/#plan" className={goLink}>
-            The whole plan, and the minimum to pass
-            <ArrowRight aria-hidden="true" className="size-5" />
-          </Link>
-        </CardFooter>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Revise again</CardTitle>
-          <CardDescription>
-            The quiz questions and flash cards you got wrong come back 1, 3 and 7 days later, in the app.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {revise.due_today || revise.later ? (
-            <p>
-              <strong className="font-head text-[22px] tabular-nums">{revise.due_today}</strong> due today ·{" "}
-              {revise.later} later
+          {revise.due_today ? (
+            <p className="m-0 flex items-baseline gap-3 pt-1">
+              <span className="font-head text-4xl leading-none font-semibold tabular-nums max-nav:text-3xl">
+                {revise.due_today}
+              </span>
+              <span className="text-[15px] text-ink/85">to revise again today, in the app</span>
             </p>
           ) : (
-            <CompactEmpty art="results">
-              <p>Nothing to revise again. What you get wrong in the quiz and the flash cards comes back here.</p>
-            </CompactEmpty>
+            <p className="m-0 text-[15px] text-ink/85">
+              Nothing to revise again today. What you get wrong in the quiz and the flash cards comes back 1, 3 and 7
+              days later.
+            </p>
           )}
-        </CardContent>
-        <CardFooter>
-          <Link href={learning.has_app_links ? "/revision/#app" : "/revision/#chapters"} className={goLink}>
-            {learning.has_app_links ? "Revise them in the app" : "The chapters and their quiz"}
-            <ArrowRight aria-hidden="true" className="size-5" />
+          {revise.later ? (
+            <p className="m-0 text-sm text-muted-foreground">
+              {revise.later} more {revise.later === 1 ? "comes" : "come"} back on later days.
+            </p>
+          ) : null}
+          <Link href="/revision/#plan" className={goLink}>
+            The whole plan, and the minimum to pass →
           </Link>
-        </CardFooter>
-      </Card>
+        </section>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Progress</CardTitle>
-          <CardDescription>The subjects open to you, and those whose free clips you tried.</CardDescription>
-        </CardHeader>
-        <CardContent className="gap-6">
-          {learning.subjects.length ? (
-            learning.subjects.map((subject) => <SubjectProgress key={subject.id} subject={subject} />)
-          ) : (
-            <CompactEmpty art="attempts">
-              <p>No clip watched yet. Each chapter shows how much of it you have watched, and your quiz score.</p>
-            </CompactEmpty>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Your course</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {learning.entitlements.length ? (
-            <EntitlementList entitlements={learning.entitlements} today={dateInIndia()} />
-          ) : (
-            <p>Nothing is open in your account yet, apart from the free clips.</p>
-          )}
-        </CardContent>
-        <CardFooter>
-          <Link href="/revision/" className={goLink}>
-            {learning.entitlements.length ? "All chapters, and the app" : "Use the code printed in your book"}
-            <ArrowRight aria-hidden="true" className="size-5" />
-          </Link>
-        </CardFooter>
-      </Card>
+      {open.map((subject) => (
+        <SubjectProgress key={subject.id} subject={subject} until={until(subject.id)} />
+      ))}
+      {tried.length ? (
+        <div className="grid gap-6 lg:grid-cols-3">
+          {tried.map((subject) => (
+            <SubjectSummary key={subject.id} subject={subject} />
+          ))}
+        </div>
+      ) : null}
+      {learning.subjects.length ? null : (
+        <CompactEmpty
+          title="No clip watched yet"
+          actions={
+            <Link href="/revision/">
+              {learning.entitlements.length ? "Open the Revision course →" : "Use the code printed in your book →"}
+            </Link>
+          }
+        >
+          <p>Each chapter shows how much of it you have watched, and your quiz score.</p>
+          <p>
+            {learning.entitlements.length
+              ? "Your course is open: start with any chapter."
+              : "Nothing is open in your account yet, apart from the free clips."}
+          </p>
+        </CompactEmpty>
+      )}
     </>
   );
 }

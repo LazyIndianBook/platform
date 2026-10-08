@@ -1,15 +1,16 @@
-// The revision page's state from the API: what is open to the student (entitlements), the pass plan, and the book
-// code's limit in words.
+// The revision page's state from the API: what is open to the student (entitlements), the pass plan, the book code's
+// refusals in the design's words (used, not recognised, the limit), its form disabled while a parent's consent is
+// awaited, and the app's store links.
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { ApiError } from "@/lib/api/errors";
 
-import { EntitlementList, type Plan, PlanView } from "./course";
-import { codeProblem } from "./islands";
+import { AppLinks, dayLabel, EntitlementList, type Plan, PlanView } from "./course";
+import { codeProblem, RedeemForm } from "./islands";
 
 describe("EntitlementList", () => {
-  it("says until when each subject is open, which one ended, and what opened it", () => {
+  it("says which subject is open and until when, and which one ended", () => {
     const created = "2026-10-01T10:00:00+05:30";
     render(
       <EntitlementList
@@ -22,11 +23,11 @@ describe("EntitlementList", () => {
       />,
     );
     const row = (name: string) => screen.getByText(name).closest("div")!;
-    expect(within(row("Physics")).getByRole("definition")).toHaveTextContent(
-      "Open until 8 Oct 2027 · from a book code",
-    );
-    expect(within(row("Chemistry")).getByRole("definition")).toHaveTextContent("Ended on 7 Oct 2026 · from a purchase");
-    expect(within(row("Every subject")).getByRole("definition")).toHaveTextContent("Open · from a staff grant");
+    expect(row("Physics")).toHaveTextContent("Physics · open");
+    expect(within(row("Physics")).getByRole("definition")).toHaveTextContent("until 8 Oct 2027");
+    expect(row("Chemistry")).toHaveTextContent("Chemistry · ended");
+    expect(within(row("Chemistry")).getByRole("definition")).toHaveTextContent("on 7 Oct 2026");
+    expect(within(row("Every subject")).getByRole("definition")).toHaveTextContent("with no end date");
   });
 });
 
@@ -58,11 +59,11 @@ describe("PlanView", () => {
   it("shows the days left, the first week's clips, what did not fit and the quickest way to the pass mark", () => {
     render(<PlanView plan={plan} subjectName={(id) => (id === 1 ? "Physics" : "?")} />);
     expect(screen.getByText(/days to your exam on 20 February 2027, at 30 minutes a day/)).toHaveTextContent("135");
-    const days = screen.getByRole("list", { name: "Your first days" });
-    expect(within(days).getAllByText(/· 28 min$/)).toHaveLength(7);
-    expect(screen.getByText("8 Oct 2026 · 28 min")).toBeInTheDocument();
-    expect(screen.getByText("Clip 1 (2 min)")).toBeInTheDocument();
-    expect(screen.queryByText(/Clip 15/)).toBeNull(); // the eighth day is not shown
+    const days = within(screen.getByRole("list", { name: "Your first days" })).getAllByRole("listitem");
+    expect(days).toHaveLength(7); // the eighth day is not shown
+    expect(days[0]).toHaveTextContent("Thu 8 Oct · 28 min");
+    expect(days[0]).toHaveTextContent("Clip 1 (2 min) · Clip 2 (2 min)");
+    expect(screen.queryByText(/Clip 15/)).toBeNull();
     expect(screen.getByText(/And 2 more days/)).toBeInTheDocument();
     expect(screen.getByText(/1 chapter does not fit before the exam/)).toBeInTheDocument();
     expect(screen.getByText(/Physics: the pass mark is 21. These chapters give 32 marks/)).toBeInTheDocument();
@@ -74,16 +75,55 @@ describe("PlanView", () => {
     expect(screen.getByText(/Nothing to plan yet/)).toBeInTheDocument();
     expect(screen.queryByRole("list")).toBeNull();
   });
+
+  it("writes a day as the design does, its weekday from the date itself", () => {
+    expect(dayLabel("2026-10-09")).toBe("Fri 9 Oct");
+    expect(dayLabel("2027-02-20")).toBe("Sat 20 Feb");
+  });
 });
 
-describe("codeProblem", () => {
-  it("turns the API's throttle into the limit in words, and leaves other refusals alone", () => {
+describe("The book code", () => {
+  it("turns the API's refusals into the design's words, and leaves the others alone", () => {
     const throttled = new ApiError(429, "throttled", "Request was throttled. Expected available in 1800 seconds.");
     expect(codeProblem(throttled)?.message).toBe(
       "That is 5 tries this hour, the most a code can have. Try again in about 30 minutes.",
     );
-    const invalid = new ApiError(400, "invalid", "This code is not valid.", { code: ["This code is not valid."] });
-    expect(codeProblem(invalid)).toBe(invalid);
+    const used = new ApiError(400, "invalid", "This code has been used already.", {
+      code: ["This code has been used already."],
+    });
+    expect(codeProblem(used)?.fields.code).toEqual([
+      "This code has already been used. Each code opens one account. If it's yours, log in with that account.",
+    ]);
+    const unknown = "This code is not valid. Check it against the one printed in your book.";
+    expect(codeProblem(new ApiError(400, "invalid", unknown, { code: [unknown] }))?.message).toBe(
+      "We don't recognise that code. Check it against the page in your book; it has 12 characters.",
+    );
+    const format = "A book code has 12 letters and digits, like 7KQM-3XPA-9TRW.";
+    const shape = new ApiError(400, "invalid", format, { code: [format] });
+    expect(codeProblem(shape)).toBe(shape);
     expect(codeProblem(null)).toBeNull();
+  });
+
+  it("is disabled while a parent's consent is awaited", () => {
+    render(<RedeemForm disabled />);
+    expect(screen.getByLabelText("Code from your book")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Open" })).toBeDisabled();
+  });
+});
+
+describe("AppLinks", () => {
+  it("links each store the config names, with its QR code on a desktop; says the app is coming otherwise", () => {
+    const { rerender } = render(
+      <AppLinks links={{ android: "https://play.google.com/store/apps/details?id=in.examleaf", ios: null }} qr />,
+    );
+    expect(screen.getByRole("link", { name: "ExamLeaf on Google Play" })).toHaveAttribute(
+      "href",
+      "https://play.google.com/store/apps/details?id=in.examleaf",
+    );
+    expect(screen.getByRole("img", { name: /QR code of ExamLeaf on Google Play/ })).toBeInTheDocument();
+    expect(screen.queryByText(/App Store/)).toBeNull();
+    rerender(<AppLinks links={{ android: null, ios: null }} qr />);
+    expect(screen.getByText("The app is coming to the stores soon.")).toBeInTheDocument();
+    expect(screen.queryByRole("link")).toBeNull();
   });
 });
