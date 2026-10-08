@@ -294,3 +294,33 @@ HTML reports of three runs, the cookie values scrubbed from the signed-in one:
 | [lighthouse-nextjs/account-mobile-cls.html](lighthouse-nextjs/account-mobile-cls.html) | `/account/`, a mobile run with CLS 0.295 (82): the footer shift |
 
 The other HTML reports and all the JSON reports were deleted after their numbers were copied into the tables above. To re-run: build with `NEXT_PUBLIC_SITE_URL=http://localhost:3003`, start the standalone server (or `npm start`) on 3003 with `API_INTERNAL_BASE` at a running Django, sign in once through the email-code form, then `lighthouse <url> --chrome-flags=--headless=new --only-categories=performance,accessibility,best-practices,seo` (add `--extra-headers '{"Cookie":"sessionid=…; csrftoken=…"}'` for the signed-in pages, `--preset=desktop` for desktop, `--ignore-status-code` for the 404). The scripts that ran the pages, the experiments and the INP probe are in [audit-scripts/nextjs/](audit-scripts/nextjs/README.md). Not covered: orders and order pages, the pay page (Razorpay has no keys here), the contact form's send, a real device or network.
+
+## After the fix pass
+
+Phase 8F (the review's fixes, commits `9a749b1` to the CHANGELOG's "Phase 8F review fixes"), measured on 8 October 2026 with the same script (`lh.mjs`, Lighthouse 13.5.0, Chrome 154, mobile preset, two runs each; the account page eight times) on the same Mac. Both builds were served by `next start` on 3005 against one Django on 8105 (`runserver`, the shared development database): **before** is the tree the review read, rebuilt from `4e5c218`; **after** is the fixed tree. Lab LCP moves by up to 1.4 s between two runs of one build here (home before: 1.6 and 2.9 s), so the LCP columns show both runs.
+
+| Page | Perf before (runs) | Perf after (runs) | LCP before | LCP after | CLS before | CLS after | JS before → after (KiB transferred) | Total bytes before → after (KiB) | HTML before → after (KiB) |
+|---|---|---|---|---|---|---|---|---|---|
+| Home `/` | 100, 96 | 97, 96 | 1.6, 2.9 s | 2.7, 2.8 s | 0 | 0 | 173.3 → **160.8** | 414 → **349** | 23.1 → 23.0 |
+| Shop `/shop/` | 90, 94 | 94, 94 | 3.6, 3.0 s | 3.0, 3.0 s | 0, 0.006 | 0.006 | 179.9 → **171.4** | 489 → **480** | 16.7 → 16.1 |
+| Product | 91, 94 | 94, 93 | 3.5, 3.2 s | 3.1, 3.3 s | 0.008 | 0, 0.008 | 179.9 → **171.4** | 313 → **305** | 15.6 → 15.7 |
+| `/s/PHY-E01/` (open sample) | 93, 97 | 93, 98 | 3.1, 2.4 s | 3.1, 2.1 s | 0 | 0 | 177.8 → **170.4** | 349 → **330** | 92.2 → **81.1** |
+| `/account/` (signed in, 8 runs) | 100, 96, 100, 92, 99, 97, 92, **83** | 97, 97, 93, 97, 93, 97, 93, 97 | 1.2 to 3.3 s | 2.7 to 3.2 s | **0.343 in 1 of 8** | **0 in 8 of 8** | 207.3 → **194.4** | 304 → **291** | 13.3 → 13.5 |
+| Desktop home / product | 100 / 99 | 100 / 100 | 0.6 / 0.8 s | 0.6 / 0.7 s | 0 | 0 | 173.3 / 179.9 → 160.8 / 171.4 | 417 / 314 → 358 / 310 | |
+
+Accessibility 100, best practices 100 and SEO as before on every run (SEO 66 on `/account/`: `noindex` on purpose).
+
+**JavaScript per route** (`jsload.mjs` in the fix pass's scratch set-up: every script a page loads in Chrome until the network is idle, gzipped at level 6 as Next sends it; Next 16's `next build` no longer prints first-load sizes):
+
+| Route | Before | After | Route | Before | After |
+|---|---:|---:|---|---:|---:|
+| `/` | 167.9 KB | 155.4 KB | `/cart/` (signed in) | 190.7 KB | 170.2 KB |
+| `/shop/`, product | 174.0 KB | 165.4 KB | `/checkout/` | 178.3 KB | 169.3 KB |
+| `/books/physics-2027/` | 167.9 KB | 155.4 KB | `/account/` | 199.5 KB | 186.1 KB |
+| `/s/PHY-E01/` | 171.9 KB | 164.5 KB | `/account/record/` | 193.0 KB | 172.6 KB |
+| `/account/login/` | 177.9 KB | 170.1 KB | `/s/PHY-E02/` (signed in) | 194.6 KB | 179.3 KB |
+| `/privacy/`, 404 | 172.5 KB | 163.4 KB | `/revision/` | 173.7 KB | 167.3 KB |
+
+What went: sonner (a toaster of a few lines in its place), Radix Dialog (the browser's own `<dialog>`), the sign-in client in the header (loaded on Log out), the clip player and the Turnstile widget (loaded when used). **The target of 120 KB on public routes is out of reach on this stack**: React 19's react-dom (73.2 KB) and the App Router's client (45.1 KB) with Turbopack's runtime and Next's own entry (12.7 KB) are 131 KB before a line of ExamLeaf's code; what ExamLeaf adds is now 24 to 39 KB on the public routes (55 KB on `/account/`). Getting under 120 KB means fewer framework bytes, not app bytes (no client router on the public pages, or another framework for them).
+
+**What changed against the findings.** L1: LCP is unchanged within the noise (2.7 to 3.1 s on the budget pages, against 2.5 s); the 8 to 13 KB less JavaScript is worth about 0.1 s in the lab, as section 9 predicted. L2: 6 to 21 KB less per route (above). L3: fixed, the account pages keep at least a screen of height while their content streams in. L4: the solutions page's HTML 92.2 → 81.1 KiB (KaTeX's HTML output without its MathML copy, 72.8 KiB; each formula then gets spoken words for screen readers, `rehype-math-speech.ts`, 8 KiB of it), still over the 60 KB budget: the inline RSC payload still repeats the markup (the review's suggestion of one pre-rendered HTML string per solution remains). L5: the covers come at 240 px too, home 414 → 349 KiB. L6 to L11: not part of this pass.

@@ -150,3 +150,7 @@ Two things the table shows that the document does not say:
 | x | `/sitemap-django.xml` | Django (prefix list) | `/sitemap-django.xml` | 404 | 404 | **no**: Django has no such sitemap (the prefix was dropped from Caddy and the frontend by commit `97ea4c6` while this review ran) |
 | x | `/api/docs/` | Django (prefix list) | `/api/docs/` | 200 | 200 | yes |
 | x | `/static/img/og-default.jpg` | Django (static, used by the metadata) | `/static/img/og-default.jpg` | 200 (image/jpeg) | 200 (image/jpeg) | yes |
+
+## After the fix pass (Phase 8F)
+
+The three groups that could be fixed in the frontend answer as documented now: `/account/2fa/webauthn/reauthenticate/` is a 404 (the passkeys redirect excludes it), an anonymous visitor's `/checkout/<n>/pay/` and `/checkout/<n>/done/` get a real 307 to `/account/login/?next=…` (the checkout's loading placeholder covers the address step only), and `/sitemap-django.xml` is gone from `parity-nextjs.md` and from `parity.mjs`. The Google, shelf, collection and renamed-product rows still need keys or data to be seen. `e2e/smoke.spec.ts` checks the first two.
