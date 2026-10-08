@@ -5,6 +5,7 @@ import re
 import time
 from datetime import date
 from io import StringIO
+from urllib.parse import urljoin, urlsplit
 
 import pytest
 from allauth.account.models import EmailAddress
@@ -181,3 +182,28 @@ def test_verified_mode_marks_wait_for_the_parents_emailed_consent(client, settin
     assert record.by_parent and record.verified_at and not User.objects.get().consent_pending
     response = client.post("/api/v1/attempts/", attempt, "application/json")
     assert response.status_code == 201 and Attempt.objects.exists()
+
+
+OFF_SITE_NEXT = ["//evil.com", "///evil.com", "https://evil.com/", "/\\evil.com", "\\\\evil.com", "javascript:alert(1)"]
+
+
+@pytest.mark.parametrize("url", OFF_SITE_NEXT)
+def test_allauth_refuses_a_next_or_callback_on_another_site(rf, url):  # frontend review S1, the backend's side
+    """The backend has no `next` handling of its own: allauth's is_safe_url (the admin log-in's ?next=, a provider's
+    callback_url) refuses another host, a network-path reference, a backslash and other schemes; the website's
+    log-in page then applies safeNext() to what it is given."""
+    from allauth.account.adapter import get_adapter
+    from allauth.core import context
+
+    with context.request_context(rf.get("/")):
+        assert not get_adapter().is_safe_url(url)
+        assert get_adapter().is_safe_url("/s/PHY-E02/")
+
+
+@pytest.mark.parametrize("url", ["/..//evil.com", "/.//evil.com", "/%2e%2e//evil.com"])
+def test_a_dot_segment_next_stays_on_this_site(client, settings, url):
+    """What allauth accepts as relative resolves on this host: the admin's log-in passes it to the website's log-in
+    page (whose safeNext() refuses it), never to another host."""
+    location = client.get(reverse("admin:login"), {"next": url})["Location"]
+    assert location.startswith(settings.LOGIN_URL)
+    assert urlsplit(urljoin("https://examleaf.in/admin/login/", url)).netloc == "examleaf.in"

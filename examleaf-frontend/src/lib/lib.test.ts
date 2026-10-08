@@ -33,8 +33,33 @@ describe("safeNext", () => {
       expect(safeNext(bad)).toBe("/");
     }
     expect(safeNext("/account/logout/")).toBe("/"); // never back to undo the log-in
+    expect(safeNext("/s/PHY-E02/#record")).toBe("/s/PHY-E02/#record");
+    expect(safeNext("/shop/?q=a%2Fb")).toBe("/shop/?q=a%2Fb");
     expect(withNext("/account/login/", "/s/PHY-E02/")).toBe("/account/login/?next=%2Fs%2FPHY-E02%2F");
     expect(withNext("/account/login/", "https://evil.example/")).toBe("/account/login/");
+  });
+
+  it("refuses the review's dot-segment, encoded and @ vectors (security review S1)", () => {
+    for (const bad of [
+      "/..//evil.com",
+      "/.//evil.com",
+      "/././/evil.com",
+      "/a/..//evil.com",
+      "/%2e%2e//evil.com",
+      "/..///evil.com",
+      "/account/../..//evil.com",
+      "/%2e%2e/evil.com",
+      "/../evil.com",
+      "/./",
+      "///evil.com",
+      "/\t/evil.com",
+      "/@evil.com",
+      "/?x=1#//evil.com",
+      "\\\\evil.com",
+      "data:text/html,x",
+    ]) {
+      expect(safeNext(bad), bad).toBe("/");
+    }
   });
 });
 

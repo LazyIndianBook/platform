@@ -1,16 +1,22 @@
 // The intended destination after a log-in (?next=): a path on this site only, never another host (open redirect),
 // never back to a page that would undo the log-in.
 const NEVER = ["/account/logout/", "/account/login/", "/account/signup/"];
+const ORIGIN = "https://examleaf.invalid";
+// "//" anywhere (a network-path reference, also once dot segments are removed: "/..//host"), a backslash, a "."
+// or ".." segment (plain or percent-encoded), "@", whitespace or a control character
+const UNSAFE = /\/\/|\\|@|[\s\u0000-\u001f\u007f]|(^|\/)(\.|%2e){1,2}(\/|[?#]|$)/i;
 
+/** A relative path that starts with one "/", with none of UNSAFE, and stays on this origin through the URL parser;
+ *  anything else is `fallback`. */
 export function safeNext(value: string | string[] | null | undefined, fallback = "/"): string {
   const next = Array.isArray(value) ? value[0] : value;
-  if (!next || !next.startsWith("/") || next.startsWith("//") || next.includes("\\")) return fallback;
+  if (!next || !next.startsWith("/") || UNSAFE.test(next)) return fallback;
   try {
-    // a path that parses to another origin (e.g. "/\t/evil.example") is refused too
-    const url = new URL(next, "https://examleaf.invalid");
-    if (url.origin !== "https://examleaf.invalid") return fallback;
-    if (NEVER.some((path) => url.pathname.startsWith(path))) return fallback;
-    return url.pathname + url.search + url.hash;
+    const url = new URL(next, ORIGIN);
+    const path = url.pathname + url.search + url.hash;
+    if (url.origin !== ORIGIN || path.startsWith("//") || new URL(path, ORIGIN).origin !== ORIGIN) return fallback;
+    if (NEVER.some((never) => url.pathname.startsWith(never))) return fallback;
+    return path;
   } catch {
     return fallback;
   }
