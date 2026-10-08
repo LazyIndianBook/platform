@@ -42,11 +42,35 @@ the compose network.
 ## 4. Code and settings
 
 ```sh
-sudo mkdir -p /srv/examleaf && sudo chown examleaf: /srv/examleaf
-git clone git@github.com:LazyIndianBook/Class-12-Assam.git /srv/examleaf   # a read-only deploy key on the server
+sudo mkdir -p /srv/examleaf /srv/books && sudo chown examleaf: /srv/examleaf /srv/books
+git clone git@github.com:LazyIndianBook/platform.git /srv/examleaf          # this repository (deploy key 1)
+git clone git@github-books:LazyIndianBook/Class-12-Assam.git /srv/books    # the papers (deploy key 2, below)
 cd /srv/examleaf/examleaf-web
 cp .env.example .env && chmod 600 .env
 ```
+
+**The papers.** The questions and solutions are not in this repository: they live in the private books repository
+`LazyIndianBook/Class-12-Assam`, and `import_papers` reads a copy of it on the server. GitHub lets a deploy key open
+one repository only, so the server has two read-only keys (`ssh-keygen -t ed25519 -N "" -f ~/.ssh/examleaf_platform`,
+the same for `~/.ssh/examleaf_books`), each added in its repository under Settings → Deploy keys without write access,
+and `~/.ssh/config` says which is which:
+
+```
+Host github.com
+  IdentityFile ~/.ssh/examleaf_platform
+  IdentitiesOnly yes
+Host github-books
+  HostName github.com
+  IdentityFile ~/.ssh/examleaf_books
+  IdentitiesOnly yes
+```
+
+Without git access to the books, copy the files the import reads from a checkout instead (the same folders, so the
+rest is unchanged): `tar czf papers.tgz production/{physics,chemistry,mathematics,biology}/{papers_md,format.json,orders,pyq}`
+there, then `scp papers.tgz examleaf@<server>:/srv/books/ && ssh examleaf@<server> tar xzf /srv/books/papers.tgz -C /srv/books`.
+Either way `.env` gets `BOOK_SOURCE=/srv/books`: compose mounts its `production/` read-only at `/book/production`
+and sets `PAPERS_ROOT=/book`, so the command is `docker compose exec web python manage.py import_papers --all`
+(outside compose: `manage.py import_papers --all --root /srv/books`).
 
 Edit `.env` (each variable is explained there, and in section 13). At least:
 
@@ -99,7 +123,7 @@ media-worker and beat start once the web container is healthy (`/health/web/`: d
 ## 6. Content and the first admin
 
 ```sh
-docker compose exec web python manage.py import_papers --all      # reads ../production, mounted read-only
+docker compose exec web python manage.py import_papers --all      # reads /srv/books (BOOK_SOURCE), mounted read-only
 docker compose exec web python manage.py createsuperuser
 ```
 
@@ -180,8 +204,11 @@ Celery task results are in the admin (Celery Results → Task results) for a wee
 ```sh
 cd /srv/examleaf && git pull
 cd examleaf-web && docker compose up -d --build     # migrations and bootstrap_roles run on start
-docker compose exec web python manage.py import_papers --all   # when papers changed
+git -C /srv/books pull && docker compose exec web python manage.py import_papers --all   # when papers changed
 ```
+
+Importing again is safe at any time: it changes only the questions and solutions whose Markdown changed (the rest are
+left alone, so the admin's history shows real edits) and drops questions that left a paper; nothing else is touched.
 
 The site is down for the few seconds the web container takes to restart. A new release can bring settings: compare
 `.env` with `.env.example` and section 13.
@@ -276,8 +303,8 @@ list any variable its clip task comes to need. After a change: `docker compose u
 | `SITE_URL` | `http://localhost:8000` | required on a server | `https://examleaf.in`, no trailing slash: the base of the QR codes and of the links in emails and SMS, and the host of the passkeys. `export_qr` refuses localhost and http. Printed in the books: final before printing |
 | `CSRF_TRUSTED_ORIGINS` | `SITE_URL` | no | origins trusted for form posts, comma separated; add others only if the site is served under several names |
 | `DOMAIN` | none | required (compose) | the domain Caddy serves and gets its certificate for: `examleaf.in` (`localhost` for a local run); compose refuses to start without it |
-| `BOOK_ROOT` | the folder above `examleaf-web` (compose: `/book`) | no | where `production/` (the Markdown papers) is, for `import_papers` and `import_chapter_insights` |
-| `BOOK_SOURCE` | `..` | no | compose only: the folder on the host that holds `production/`, mounted read-only at `/book/production` |
+| `PAPERS_ROOT` | `Class 12` beside this repository when it is there (compose: `/book`) | no | a checkout of the books repository `LazyIndianBook/Class-12-Assam` (the folder that holds `production/`, the Markdown papers), for `import_papers` and `import_chapter_insights`; without it they stop and say so (`--root` gives it on the command line, `--fixtures` imports the test papers) |
+| `BOOK_SOURCE` | `../../Class 12` | required to import on a server | compose only: the books checkout on the host (`/srv/books`, section 4), its `production/` mounted read-only at `/book/production` |
 | `SOLUTIONS_REQUIRE_LOGIN` | `1` | no | 1: solutions for signed-in students; 0: for everyone (README.md, "Open or registered solutions") |
 | `PARENTAL_CONSENT_MODE` | `declared` | no | `declared`: the parent ticks the sign-up box; `verified`: the parent also confirms by a link sent by email, or by SMS to an Indian mobile number when SMS are on (section 14; before May 2027) |
 | `DATA_UPLOAD_MAX_MEMORY_SIZE` | `1048576` | no | largest form or JSON body in bytes, files not counted (the API answers 413 above it); Caddy stops bodies over 10 MB (500 MB only on the clip and revision admin pages, for signed-in staff) |
