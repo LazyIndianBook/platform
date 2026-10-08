@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<header style="display:flex;align-items:center;justify-content:space-between;height:72px;padding:0 40px;border-bottom:1px solid #DCD4C4;background:#F8F5EE;font-family:'Public Sans','Hind Siliguri',sans-serif;color:#1D2230;box-sizing:border-box;">
+  <span style="display:flex;align-items:center;gap:10px;">
+    <svg viewBox="0 0 64 64" width="30" height="30" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#0B2A5B"></rect><path d="M16 48C16 24 32 12 50 14C52 32 40 50 16 48Z" fill="#8FD694"></path><path d="M18 46C28 36 36 28 44 20" fill="none" stroke="#0B2A5B" stroke-width="3" stroke-linecap="round"></path></svg>
+    <span style="font:700 23px/1 'Source Serif 4',serif;letter-spacing:-0.01em;">Exam<span style="color:#1A6E30;">Leaf</span></span>
+  </span>
+  <nav aria-label="Main" style="display:flex;align-items:center;gap:4px;font-size:16px;font-weight:600;">
+    <sc-for list="{{ links }}" as="l" hint-placeholder-count="4">
+      <a href="#" style="padding:12px 14px;text-decoration:none;color:#1D2230;box-shadow:{{ l.mark }};" style-hover="color:#B3342A;">{{ l.label }}</a>
+    </sc-for>
+    <span style="width:1px;height:24px;background:#DCD4C4;margin:0 8px;"></span>
+    <sc-if value="{{ signedIn }}" hint-placeholder-val="{{ false }}">
+      <a href="#" style="padding:12px 14px;display:flex;gap:8px;align-items:center;text-decoration:none;color:#1D2230;">Cart <span style="font:600 12px/1 'IBM Plex Mono',monospace;background:#1D2230;color:#FFFFFF;border-radius:999px;padding:4px 7px;">{{ cartCount }}</span></a>
+      <a href="#" style="padding:12px 14px;text-decoration:none;color:#1D2230;">Log out</a>
+    </sc-if>
+    <sc-if value="{{ signedOut }}" hint-placeholder-val="{{ true }}">
+      <a href="#" style="padding:12px 14px;text-decoration:none;color:#1D2230;">Log in</a>
+      <a href="#" style="padding:12px 18px;text-decoration:none;color:#FFFFFF;background:#0B2A5B;border-radius:4px;" style-hover="background:#1D2230;">Register</a>
+    </sc-if>
+  </nav>
+</header>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:72},&quot;signedIn&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;current&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;cart&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:1,&quot;tsType&quot;:&quot;number&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const signedIn = !!this.props.signedIn;
+    const current = this.props.current || "";
+    const labels = signedIn ? ["Books", "Shop", "Revision course", "My record", "Account"] : ["Books", "Shop", "Revision course", "Find your order"];
+    return {
+      signedIn,
+      signedOut: !signedIn,
+      cartCount: this.props.cart ?? 1,
+      links: labels.map((label) => ({ label, mark: label === current ? "inset 0 -2px 0 #B3342A" : "none" })),
+    };
+  }
+}
+</script>
+</body>
+</html>

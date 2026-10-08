@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<header style="display:flex;justify-content:space-between;align-items:center;height:60px;padding:0 16px;border-bottom:1px solid #DCD4C4;background:#F8F5EE;font-family:'Public Sans',sans-serif;color:#1D2230;box-sizing:border-box;">
+  <span style="display:flex;align-items:center;gap:8px;"><svg viewBox="0 0 64 64" width="26" height="26" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#0B2A5B"></rect><path d="M16 48C16 24 32 12 50 14C52 32 40 50 16 48Z" fill="#8FD694"></path><path d="M18 46C28 36 36 28 44 20" fill="none" stroke="#0B2A5B" stroke-width="3" stroke-linecap="round"></path></svg><span style="font:700 21px/1 'Source Serif 4',serif;">Exam<span style="color:#1A6E30;">Leaf</span></span></span>
+  <span style="display:flex;gap:8px;align-items:center;">
+    <sc-if value="{{ showCart }}" hint-placeholder-val="{{ false }}"><span style="display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 10px;font-weight:700;font-size:15px;">Cart <span style="font:600 11px/1 'IBM Plex Mono',monospace;background:#1D2230;color:#FFFFFF;border-radius:999px;padding:3px 6px;">{{ cartCount }}</span></span></sc-if>
+    <span style="display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border:1.5px solid #1D2230;border-radius:4px;font-weight:700;font-size:15px;">{{ right }}</span>
+  </span>
+</header>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:60},&quot;right&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Menu&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;cart&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:0,&quot;tsType&quot;:&quot;number&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    return { right: this.props.right || "Menu", showCart: !!this.props.cart, cartCount: this.props.cart || 0 };
+  }
+}
+</script>
+</body>
+</html>

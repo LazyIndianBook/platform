@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<nav aria-label="My account" style="padding:40px 24px 40px 40px;display:flex;flex-direction:column;font-family:'Public Sans','Hind Siliguri',sans-serif;font-size:15px;font-weight:600;color:#1D2230;">
+  <sc-for list="{{ items }}" as="l" hint-placeholder-count="10">
+    <a href="#" style="padding:10px 0;border-bottom:1px solid #E6DFD1;color:#1D2230;text-decoration:none;display:flex;gap:10px;align-items:center;font-weight:{{ l.weight }};" style-hover="color:#B3342A;"><span style="width:7px;height:7px;border-radius:50%;background:{{ l.dot }};flex:none;"></span>{{ l.label }}</a>
+  </sc-for>
+</nav>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:240,&quot;height&quot;:520},&quot;current&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;My account&quot;,&quot;My record&quot;,&quot;Learning&quot;,&quot;My orders&quot;,&quot;Details&quot;,&quot;Addresses&quot;,&quot;Log-in and security&quot;,&quot;Consent and your data&quot;,&quot;Teacher access&quot;,&quot;Revision course&quot;],&quot;default&quot;:&quot;My account&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const cur = this.props.current || "My account";
+    return {
+      items: ["My account", "My record", "Learning", "My orders", "Details", "Addresses", "Log-in and security", "Consent and your data", "Teacher access", "Revision course"].map((label) => ({ label, dot: label === cur ? "#B3342A" : "transparent", weight: label === cur ? 700 : 600 })),
+    };
+  }
+}
+</script>
+</body>
+</html>

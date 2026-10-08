@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Hind+Siliguri:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#E4E1DA;-webkit-font-smoothing:antialiased}
+a{color:#0B2A5B;text-underline-offset:3px}
+a:hover{color:#B3342A}
+</style>
+</helmet>
+<section id="7a" style="padding:64px;display:flex;flex-direction:column;gap:40px;font-family:'Public Sans','Hind Siliguri',sans-serif;color:#1D2230;">
+  <div style="display:flex;align-items:flex-start;gap:24px;">
+    <span style="flex:none;font:600 15px/1 'IBM Plex Mono',monospace;background:#1D2230;color:#F8F5EE;padding:10px 12px;border-radius:3px;">7a</span>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <h1 style="margin:0;font:600 40px/1.1 'Source Serif 4',serif;">Phone, 390 wide</h1>
+      <p style="margin:0;font-size:17px;color:#4A5060;max-width:60em;line-height:1.6;">Under 900 px the margin shrinks to a 12 px red double rule at the edge. Numbers move inline, and marks stay right-aligned on their own row. Menu opens the drawer, and every target is at least 44 px. Most students arrive here from a QR scan, so Solutions is the screen tuned most carefully.</p>
+    </div>
+  </div>
+  <div style="display:flex;gap:48px;align-items:flex-start;">
+
+    <!-- HOME PHONE -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <p style="margin:0;font:500 14px/1 'IBM Plex Mono',monospace;color:#5B6170;">HOME · /</p>
+      <div data-screen-label="Phone home" style="width:390px;background:#F8F5EE;box-shadow:0 30px 60px -30px rgba(29,34,48,.35);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+        <header style="display:flex;justify-content:space-between;align-items:center;height:60px;padding:0 16px;border-bottom:1px solid #DCD4C4;"><span style="font:700 21px/1 'Source Serif 4',serif;">Exam<span style="color:#1A6E30;">Leaf</span></span><span style="display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border:1.5px solid #1D2230;border-radius:4px;font-weight:700;font-size:15px;">Menu</span></header>
+        <div style="padding:28px 16px 32px;display:flex;flex-direction:column;gap:18px;">
+          <span style="font:500 12px/1.4 'IBM Plex Mono',monospace;color:#5B6170;letter-spacing:0.04em;">Q.1 · ASSEB · CLASS 12 · 2027 EXAM</span>
+          <h1 style="margin:0;font:600 44px/1 'Source Serif 4',serif;letter-spacing:-0.025em;">Sample papers with <em style="color:#B3342A;">free solutions</em></h1>
+          <p style="margin:0;font-size:17px;line-height:1.65;color:#3E4454;">Physics, Chemistry, Mathematics and Biology, in the board's pattern. Sit a paper, scan its QR code, and check every step with the marks it earns.</p>
+          <div style="display:flex;gap:18px;font:600 22px/1 'IBM Plex Mono',monospace;color:#B3342A;"><span>[30]<span style="display:block;font:400 12px/1.4 'Public Sans',sans-serif;color:#5B6170;margin-top:4px;">papers</span></span><span>[70]<span style="display:block;font:400 12px/1.4 'Public Sans',sans-serif;color:#5B6170;margin-top:4px;">marks</span></span><span>[3h]<span style="display:block;font:400 12px/1.4 'Public Sans',sans-serif;color:#5B6170;margin-top:4px;">each</span></span></div>
+          <span style="display:flex;justify-content:center;align-items:center;min-height:52px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Buy the books →</span>
+          <span style="display:flex;justify-content:center;align-items:center;min-height:52px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;">See a sample paper</span>
+        </div>
+        <div style="padding:24px 16px;border-top:1px solid #DCD4C4;display:flex;flex-direction:column;gap:4px;">
+          <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#B3342A;margin-bottom:6px;">Q.2</span>
+          <h2 style="margin:0 0 10px;font:600 28px/1.1 'Source Serif 4',serif;">Open a book, then any paper's solutions</h2>
+          <sc-for list="{{ subjects }}" as="s" hint-placeholder-count="4">
+            <div style="display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:14px;align-items:center;padding:10px 0;border-top:1px solid #DCD4C4;"><span aria-hidden="true" style="display:block;width:44px;height:64px;object-fit:cover;border-radius:2px;background:#E6DFD1 center / cover no-repeat;background-image:{{ s.coverBg }};"></span><span style="display:flex;flex-direction:column;gap:2px;"><span style="font:600 21px/1.1 'Source Serif 4',serif;">{{ s.name }}</span><span style="font-size:13px;color:#5B6170;">30 papers · {{ s.marks }} marks · 3 h</span></span><span style="font-size:20px;color:#0B2A5B;">→</span></div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <!-- SOLUTIONS PHONE -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <p style="margin:0;font:500 14px/1 'IBM Plex Mono',monospace;color:#5B6170;">SOLUTIONS · /s/PHY-E01/ · after a QR scan</p>
+      <div data-screen-label="Phone solutions" style="width:390px;background:#F8F5EE;box-shadow:0 30px 60px -30px rgba(29,34,48,.35);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+        <header style="display:flex;justify-content:space-between;align-items:center;height:60px;padding:0 16px;border-bottom:1px solid #DCD4C4;"><span style="font:700 21px/1 'Source Serif 4',serif;">Exam<span style="color:#1A6E30;">Leaf</span></span><span style="display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border:1.5px solid #1D2230;border-radius:4px;font-weight:700;font-size:15px;">Menu</span></header>
+        <div style="padding:20px 16px;display:flex;flex-direction:column;gap:12px;border-bottom:1px solid #DCD4C4;">
+          <span style="font:500 12px/1.4 'IBM Plex Mono',monospace;color:#5B6170;">PHY-E01 · EASY · ASSEB CLASS 12</span>
+          <h1 style="margin:0;font:600 36px/1 'Source Serif 4',serif;">Physics: solutions</h1>
+          <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1.5px solid #1D2230;border-bottom:1px solid #DCD4C4;"><span style="padding:10px 0;display:flex;flex-direction:column;gap:2px;"><span style="font-size:12px;color:#5B6170;">Full</span><strong style="font:600 20px/1 'IBM Plex Mono',monospace;">70</strong></span><span style="padding:10px;border-left:1px solid #DCD4C4;display:flex;flex-direction:column;gap:2px;"><span style="font-size:12px;color:#5B6170;">Pass</span><strong style="font:600 20px/1 'IBM Plex Mono',monospace;">21</strong></span><span style="padding:10px;border-left:1px solid #DCD4C4;display:flex;flex-direction:column;gap:2px;"><span style="font-size:12px;color:#5B6170;">Time</span><strong style="font:600 20px/1 'IBM Plex Mono',monospace;">3 h</strong></span></div>
+        </div>
+        <div style="position:sticky;top:0;display:flex;gap:6px;padding:8px 16px;background:#F1ECE1;border-bottom:1px solid #DCD4C4;font:600 14px/1 'IBM Plex Mono',monospace;overflow:hidden;"><span style="padding:10px 12px;background:#1D2230;color:#FFFFFF;">Q1</span><span style="padding:10px 12px;border:1px solid #7B8595;">Q2</span><span style="padding:10px 12px;border:1px solid #7B8595;">Q3</span><span style="padding:10px 12px;border:1px solid #7B8595;">Q4</span><span style="padding:10px 12px;border:1px solid #7B8595;">Marks</span></div>
+        <div style="padding:20px 16px 28px;display:flex;flex-direction:column;gap:16px;">
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 52px;align-items:baseline;"><h2 style="margin:0;font:600 19px/1.35 'Source Serif 4',serif;">1. Answer any eight questions from the following as directed :</h2><span style="font:600 13px/1 'IBM Plex Mono',monospace;text-align:right;">1×8=8</span></div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 40px;align-items:baseline;gap:8px;"><p style="margin:0;font:400 18px/1.7 'Source Serif 4',serif;"><strong>1(a)</strong> Coulomb's law states that the force between two point charges is inversely proportional to the ______ of the distance between them. (Fill in the blank)</p><span style="font:500 14px/1 'IBM Plex Mono',monospace;color:#5B6170;text-align:right;">[1]</span></div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 40px;align-items:baseline;gap:8px;padding-left:14px;border-left:1px solid #E7BDB7;"><p style="margin:0;font:400 18px/1.7 'Source Serif 4',serif;"><strong>Ans.</strong> square</p><span style="font:600 14px/1 'IBM Plex Mono',monospace;color:#B3342A;text-align:right;">✓ 1</span></div>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 40px;align-items:baseline;gap:8px;padding-top:16px;border-top:1px solid #DCD4C4;"><p style="margin:0;font:400 18px/1.7 'Source Serif 4',serif;"><strong>2(c)</strong> An electrical appliance draws a current of 2.5 A from a 220 V supply. Calculate the power consumed, and the energy consumed in 10 minutes.</p><span style="font:500 14px/1 'IBM Plex Mono',monospace;color:#5B6170;text-align:right;">[2]</span></div>
+          <div style="display:flex;flex-direction:column;gap:6px;padding-left:14px;border-left:1px solid #E7BDB7;">
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 40px;align-items:baseline;gap:8px;"><p style="margin:0;font:400 17px/1.65 'Source Serif 4',serif;"><i>P</i> = <i>VI</i> = 220 × 2.5 = 550 W</p><span style="font:600 14px/1 'IBM Plex Mono',monospace;color:#B3342A;text-align:right;">✓ 1</span></div>
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 40px;align-items:baseline;gap:8px;"><p style="margin:0;font:400 17px/1.65 'Source Serif 4',serif;"><i>W</i> = <i>Pt</i> = 550 × 600 = 3.30 × 10<sup>5</sup> J</p><span style="font:600 14px/1 'IBM Plex Mono',monospace;color:#B3342A;text-align:right;">✓ 1</span></div>
+          </div>
+        </div>
+        <div style="padding:16px;border-top:1.5px solid #1D2230;background:#FFFFFF;display:flex;gap:10px;align-items:center;"><span style="flex:1;font-size:15px;font-weight:600;">Your marks <span style="font-family:'IBM Plex Mono',monospace;">__ / 70</span></span><span style="display:inline-flex;align-items:center;min-height:48px;padding:0 18px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Record</span></div>
+      </div>
+    </div>
+
+    <!-- CHECKOUT PHONE -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <p style="margin:0;font:500 14px/1 'IBM Plex Mono',monospace;color:#5B6170;">CHECKOUT · /checkout/</p>
+      <div data-screen-label="Phone checkout" style="width:390px;background:#F8F5EE;box-shadow:0 30px 60px -30px rgba(29,34,48,.35);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+        <header style="display:flex;justify-content:space-between;align-items:center;height:60px;padding:0 16px;border-bottom:1px solid #DCD4C4;"><span style="font:700 21px/1 'Source Serif 4',serif;">Exam<span style="color:#1A6E30;">Leaf</span></span><a href="#" style="font-weight:700;font-size:15px;">Cart</a></header>
+        <div style="padding:16px;display:flex;justify-content:space-between;align-items:center;background:#F1ECE1;border-bottom:1px solid #DCD4C4;font-size:15px;"><span>1 book · delivery to Assam</span><strong style="font:600 20px/1 'Source Serif 4',serif;">₹339.00 ⌄</strong></div>
+        <div style="padding:20px 16px 28px;display:flex;flex-direction:column;gap:16px;">
+          <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;font-size:12px;"><span style="display:flex;flex-direction:column;gap:6px;"><span style="height:4px;background:#B3342A;"></span><strong>Address</strong></span><span style="display:flex;flex-direction:column;gap:6px;color:#5B6170;"><span style="height:4px;background:#DCD4C4;"></span>Delivery</span><span style="display:flex;flex-direction:column;gap:6px;color:#5B6170;"><span style="height:4px;background:#DCD4C4;"></span>Payment</span><span style="display:flex;flex-direction:column;gap:6px;color:#5B6170;"><span style="height:4px;background:#DCD4C4;"></span>Done</span></div>
+          <h1 style="margin:0;font:600 30px/1.1 'Source Serif 4',serif;">Where should we deliver?</h1>
+          <sc-for list="{{ phoneFields }}" as="f" hint-placeholder-count="5">
+            <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">{{ f.l }}<span style="height:50px;border:1.5px solid {{ f.b }};border-radius:4px;background:#FFFFFF;display:flex;align-items:center;padding:0 14px;font-weight:400;">{{ f.v }}</span><span style="font-weight:600;font-size:14px;color:#B42318;">{{ f.e }}</span></label>
+          </sc-for>
+          <span style="display:flex;justify-content:center;align-items:center;min-height:54px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Continue to delivery</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACCOUNT PHONE -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <p style="margin:0;font:500 14px/1 'IBM Plex Mono',monospace;color:#5B6170;">MY ACCOUNT · /account/ · SAMPLE DATA</p>
+      <div data-screen-label="Phone account" style="width:390px;background:#F8F5EE;box-shadow:0 30px 60px -30px rgba(29,34,48,.35);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+        <header style="display:flex;justify-content:space-between;align-items:center;height:60px;padding:0 16px;border-bottom:1px solid #DCD4C4;"><span style="font:700 21px/1 'Source Serif 4',serif;">Exam<span style="color:#1A6E30;">Leaf</span></span><span style="display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border:1.5px solid #1D2230;border-radius:4px;font-weight:700;font-size:15px;">Menu</span></header>
+        <div style="display:flex;gap:8px;padding:10px 16px;overflow:hidden;border-bottom:1px solid #DCD4C4;font-size:14px;font-weight:600;white-space:nowrap;"><span style="padding:10px 12px;border:1.5px solid #1D2230;background:#FFFFFF;">My account</span><span style="padding:10px 12px;border:1px solid #7B8595;">My record</span><span style="padding:10px 12px;border:1px solid #7B8595;">Learning</span><span style="padding:10px 12px;border:1px solid #7B8595;">My orders</span></div>
+        <div style="padding:22px 16px 28px;display:flex;flex-direction:column;gap:18px;">
+          <div><h1 style="margin:0;font:600 34px/1 'Source Serif 4',serif;">My account</h1><span style="font-size:14px;color:#5B6170;">Ananya Das · Class 12, ASSEB</span></div>
+          <div style="background:#FFFFFF;border:1px solid #DCD4C4;padding:16px;display:flex;flex-direction:column;gap:6px;"><span style="font:500 11px/1 'IBM Plex Mono',monospace;color:#B3342A;letter-spacing:0.08em;">CONTINUE</span><span style="font:600 20px/1.25 'Source Serif 4',serif;">Kirchhoff's loop rule in two steps</span><span style="font-size:13px;color:#5B6170;">Physics · Ch. 3 · Concept · 4 min</span><span style="display:flex;justify-content:center;align-items:center;min-height:46px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;margin-top:6px;">Play it here</span></div>
+          <div style="display:flex;flex-direction:column;border-top:1.5px solid #1D2230;">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;padding:14px 0 6px;"><strong style="font:600 22px/1 'Source Serif 4',serif;">My record</strong><span style="font:500 11px/1 'IBM Plex Mono',monospace;color:#5B6170;">AVERAGE</span></div>
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 56px;padding:12px 0;border-bottom:1px solid #DCD4C4;font-size:15px;"><span><strong>Easy</strong> · 4 saved</span><span style="font:600 16px/1 'IBM Plex Mono',monospace;color:#B3342A;text-align:right;">83%</span></div>
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 56px;padding:12px 0;border-bottom:1px solid #DCD4C4;font-size:15px;"><span><strong>Medium</strong> · 2 saved</span><span style="font:600 16px/1 'IBM Plex Mono',monospace;color:#B3342A;text-align:right;">70%</span></div>
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 56px;padding:12px 0;border-bottom:1px solid #DCD4C4;font-size:15px;"><span><strong>Hard</strong> · none yet</span><span style="font:600 16px/1 'IBM Plex Mono',monospace;color:#5B6170;text-align:right;">—</span></div>
+          </div>
+          <div style="background:#FFFFFF;border:1px solid #DCD4C4;padding:16px;display:flex;flex-direction:column;gap:8px;"><span style="display:flex;justify-content:space-between;align-items:center;"><strong style="font-family:'IBM Plex Mono',monospace;font-size:14px;">EL-2026-000003</strong><span style="font:600 10px/1 'IBM Plex Mono',monospace;color:#8A6508;border:1.5px solid #C9A03A;padding:4px 6px;">AWAITING PAYMENT</span></span><span style="font-size:14px;color:#5B6170;">8 Oct 2026 · ₹339.00</span><span style="display:flex;justify-content:center;align-items:center;min-height:46px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Pay now</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      subjects: [
+        { name: "Physics", marks: "70", cover: "examleaf-web/static/img/physics-480.webp", coverBg: 'url("examleaf-web/static/img/physics-480.webp")' },
+        { name: "Chemistry", marks: "70", cover: "examleaf-web/static/img/chemistry-480.webp", coverBg: 'url("examleaf-web/static/img/chemistry-480.webp")' },
+        { name: "Mathematics", marks: "80", cover: "examleaf-web/static/img/mathematics-480.webp", coverBg: 'url("examleaf-web/static/img/mathematics-480.webp")' },
+        { name: "Biology", marks: "70", cover: "examleaf-web/static/img/biology-480.webp", coverBg: 'url("examleaf-web/static/img/biology-480.webp")' },
+      ],
+      phoneFields: [
+        { l: "Full name", v: "Ananya Das", b: "#7B8595", e: "" },
+        { l: "Mobile number", v: "+91 98•• •••• 21", b: "#7B8595", e: "" },
+        { l: "House, street, area", v: "House 12, Rajgarh Road", b: "#7B8595", e: "" },
+        { l: "State", v: "Assam", b: "#7B8595", e: "" },
+        { l: "PIN code", v: "78100", b: "#B42318", e: "Enter the 6-digit PIN code." },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

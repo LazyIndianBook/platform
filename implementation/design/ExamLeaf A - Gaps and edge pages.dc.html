@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Hind+Siliguri:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#E4E1DA;-webkit-font-smoothing:antialiased}
+a{color:#0B2A5B;text-underline-offset:3px}
+a:hover{color:#B3342A}
+</style>
+</helmet>
+<section id="10a" style="padding:64px;display:flex;flex-direction:column;gap:40px;font-family:'Public Sans','Hind Siliguri',sans-serif;color:#1D2230;">
+  <div style="display:flex;align-items:flex-start;gap:24px;">
+    <span style="flex:none;font:600 15px/1 'IBM Plex Mono',monospace;background:#1D2230;color:#F8F5EE;padding:10px 12px;border-radius:3px;">10a</span>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <h1 style="margin:0;font:600 40px/1.1 'Source Serif 4',serif;">Gaps, fixes and edge pages</h1>
+      <p style="margin:0;font-size:17px;color:#4A5060;max-width:66em;line-height:1.6;">Found in the second, in-depth audit of the repo (API routes, models and coverage-matrix.md G1–G25). The tag on each card says whether it fixes my earlier design, covers a feature that exists but wasn't drawn, or is a page the repo lists as not built. All data is SAMPLE DATA.</p>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(3,620px);gap:40px;align-items:start;">
+
+    <!-- TEACHER -->
+    <div data-screen-label="Teacher access fixed" style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);display:grid;grid-template-columns:72px minmax(0,1fr);padding:28px 32px 32px 0;">
+      <span style="padding:6px 0 0 24px;font:600 14px/1 'IBM Plex Mono',monospace;color:#B3342A;">T</span>
+      <div style="border-left:3px double #B3342A;padding-left:28px;display:flex;flex-direction:column;gap:12px;">
+        <span style="font:600 11px/1 'IBM Plex Mono',monospace;color:#B42318;letter-spacing:0.06em;">FIX · /account/teacher/ · me/teacher · was drawn wrongly as "share with a teacher"</span>
+        <h2 style="margin:0;font:600 30px/1.1 'Source Serif 4',serif;">Teacher access</h2>
+        <p style="margin:0;font-size:15px;line-height:1.55;color:#3E4454;">Tell us where you teach. We check with the school, then your account is marked as a teacher's.</p>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">School name<span style="height:46px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;"></span></label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">District<span style="height:46px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;"></span></label><label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Subject you teach<span style="height:46px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;font-weight:400;">Physics <span>⌄</span></span></label></div>
+        <span style="display:inline-flex;align-self:flex-start;align-items:center;min-height:48px;padding:0 20px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Ask for teacher access</span>
+        <div style="padding:12px 14px;background:#EEF3FB;border:1px solid #C9D8F0;font-size:14px;line-height:1.5;"><strong>We are checking your request.</strong> Cotton Collegiate H.S. School, Kamrup Metro (Physics), asked on 2 Oct 2026.</div>
+        <div style="padding:12px 14px;background:#EBF5ED;border:1px solid #C3E1CA;font-size:14px;line-height:1.5;"><strong>You are a verified teacher.</strong> At Cotton Collegiate H.S. School, Kamrup Metro, since 5 Oct 2026.</div>
+        <span style="font-size:13px;color:#5B6170;">Teachers can't see students yet: there's no student link in the API (G14).</span>
+      </div>
+    </div>
+
+    <!-- RECORD FORM -->
+    <div data-screen-label="Record form full" style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);display:grid;grid-template-columns:72px minmax(0,1fr) 72px;padding:28px 0 32px 0;">
+      <span style="padding:6px 0 0 24px;font:600 14px/1 'IBM Plex Mono',monospace;color:#B3342A;">#</span>
+      <div style="border-left:3px double #B3342A;padding-left:28px;display:flex;flex-direction:column;gap:12px;">
+        <span style="font:600 11px/1 'IBM Plex Mono',monospace;color:#B42318;letter-spacing:0.06em;">FIX · SOLUTIONS #record AND EDIT · all four fields of an attempt</span>
+        <h2 style="margin:0;font:600 28px/1.1 'Source Serif 4',serif;">Record your marks</h2>
+        <div role="alert" style="padding:10px 12px;background:#FCEBE9;border:1px solid #F1C2BC;font-size:14px;"><strong>1 thing to fix:</strong> <a href="#">Marks obtained: at most 70, the paper's full marks.</a></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+          <label style="display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:600;">Date<span style="height:46px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;display:flex;align-items:center;padding:0 10px;font-weight:400;">8 Oct 2026</span></label>
+          <label style="display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:600;">Marks (of 70)<span style="height:46px;border:2px solid #B42318;background:#FFFFFF;border-radius:4px;display:flex;align-items:center;padding:0 10px;font:400 16px/1 'IBM Plex Mono',monospace;">72</span></label>
+          <label style="display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:600;">Time taken <span style="font-weight:400;color:#5B6170;">min</span><span style="height:46px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;display:flex;align-items:center;padding:0 10px;font:400 16px/1 'IBM Plex Mono',monospace;">170</span></label>
+        </div>
+        <span style="font-size:13px;font-weight:600;color:#B42318;">At most 70, the paper's full marks. Half marks are fine: 52.5.</span>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:600;">What to revise <span style="font-weight:400;color:#5B6170;">optional · up to 2,000 characters</span><span style="height:64px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;padding:10px;font:400 15px/1.5 'Source Serif 4',serif;box-sizing:border-box;">Sign convention in loops. Q4 took 25 min.</span></label>
+        <span style="display:inline-flex;align-self:flex-start;align-items:center;min-height:48px;padding:0 20px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Save to my record</span>
+        <span style="font-size:13px;color:#5B6170;">Saved without leaving the paper (G11). At most 20 saves of one paper a day.</span>
+      </div>
+      <div style="padding-top:140px;display:flex;flex-direction:column;align-items:center;gap:4px;font:600 13px/1 'IBM Plex Mono',monospace;color:#5B6170;"><span>MARKS</span><span style="color:#B42318;font-size:16px;">72?</span><span>/ 70</span></div>
+    </div>
+
+    <!-- RECORD FILTER NO MATCH -->
+    <div data-screen-label="Record filters" style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);display:grid;grid-template-columns:72px minmax(0,1fr);padding:28px 32px 32px 0;">
+      <span style="padding:6px 0 0 24px;font:600 14px/1 'IBM Plex Mono',monospace;color:#B3342A;">[0]</span>
+      <div style="border-left:3px double #B3342A;padding-left:28px;display:flex;flex-direction:column;gap:12px;">
+        <span style="font:600 11px/1 'IBM Plex Mono',monospace;color:#1A5FB4;letter-spacing:0.06em;">EXISTS, NOT DRAWN · MY RECORD FILTERS · G10</span>
+        <h2 style="margin:0;font:600 28px/1.1 'Source Serif 4',serif;">My record</h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:14px;font-weight:600;"><span style="padding:9px 12px;border:1.5px solid #1D2230;background:#FFFFFF;">Physics ×</span><span style="padding:9px 12px;border:1.5px solid #1D2230;background:#FFFFFF;">Hard ×</span><span style="padding:9px 12px;border:1px solid #DCD4C4;">This month</span><span style="padding:9px 12px;color:#0B2A5B;">Clear all</span></div>
+        <div style="border:1.5px dashed #C9C0AE;padding:18px;display:flex;flex-direction:column;gap:8px;"><strong style="font:600 20px/1.2 'Source Serif 4',serif;">No papers match these filters</strong><span style="font-size:15px;color:#3E4454;line-height:1.5;">You haven't saved a Hard Physics paper yet. You have 6 other Physics papers saved.</span><a href="#" style="font-weight:700;">Clear the filters</a></div>
+        <span style="font-size:13px;color:#5B6170;">The record no longer says "Nothing recorded yet" when only the filter is empty.</span>
+      </div>
+    </div>
+
+    <!-- COUPON -->
+    <div data-screen-label="Cart coupon" style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);display:grid;grid-template-columns:72px minmax(0,1fr);padding:28px 32px 32px 0;">
+      <span style="padding:6px 0 0 24px;font:600 14px/1 'IBM Plex Mono',monospace;color:#B3342A;">%</span>
+      <div style="border-left:3px double #B3342A;padding-left:28px;display:flex;flex-direction:column;gap:12px;">
+        <span style="font:600 11px/1 'IBM Plex Mono',monospace;color:#1A5FB4;letter-spacing:0.06em;">EXISTS, NOT DRAWN · CART SUMMARY · cart/coupon</span>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Coupon code<span style="display:flex;gap:8px;"><span style="flex:1;height:46px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;display:flex;align-items:center;padding:0 12px;font:500 15px/1 'IBM Plex Mono',monospace;">SCHOOL10</span><span style="display:inline-flex;align-items:center;min-height:46px;padding:0 16px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;">Apply</span></span></label>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#EBF5ED;border:1px solid #C3E1CA;font-size:14px;"><span><strong>SCHOOL10</strong> · 10% off books</span><span style="display:flex;gap:12px;align-items:center;"><span style="font-family:'IBM Plex Mono',monospace;">−₹109.70</span><a href="#" style="font-weight:700;">Remove</a></span></div>
+        <div style="padding:10px 12px;background:#FCEBE9;border:1px solid #F1C2BC;font-size:14px;"><strong>EARLY50 has ended.</strong> Coupons are checked when you pay, too.</div>
+        <div style="border-top:1.5px solid #1D2230;padding-top:10px;display:flex;flex-direction:column;gap:6px;font-size:15px;"><span style="display:flex;justify-content:space-between;"><span>3 books</span><span style="font-family:'IBM Plex Mono',monospace;">₹1,097.00</span></span><span style="display:flex;justify-content:space-between;color:#1B7F3B;"><span>Coupon</span><span style="font-family:'IBM Plex Mono',monospace;">−₹109.70</span></span><span style="display:flex;justify-content:space-between;align-items:baseline;"><strong>Total so far</strong><span style="font:600 24px/1 'Source Serif 4',serif;">₹987.30</span></span></div>
+        <span style="font-size:13px;color:#5B6170;">Coupon names and amounts are examples. The cart API returns the real discount.</span>
+      </div>
+    </div>
+
+    <!-- SHIPPING -->
+    <div data-screen-label="Shipping rates" style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);display:grid;grid-template-columns:72px minmax(0,1fr);padding:28px 32px 32px 0;">
+      <span style="padding:6px 0 0 24px;font:600 14px/1 'IBM Plex Mono',monospace;color:#B3342A;">§</span>
+      <div style="border-left:3px double #B3342A;padding-left:28px;display:flex;flex-direction:column;gap:12px;">
+        <span style="font:600 11px/1 'IBM Plex Mono',monospace;color:#1A5FB4;letter-spacing:0.06em;">EXISTS, NOT DRAWN · /shipping/ · rates table from GET shipping/</span>
+        <h2 style="margin:0;font:600 32px/1.05 'Source Serif 4',serif;">Shipping</h2>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Your state<span style="height:46px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;font-weight:400;">Assam <span>⌄</span></span></label>
+        <div style="border-top:1.5px solid #1D2230;font-size:15px;">
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 100px 140px;gap:10px;padding:8px 0;border-bottom:1px solid #1D2230;font:500 11px/1 'IBM Plex Mono',monospace;color:#5B6170;"><span>STATE</span><span style="text-align:right;">FEE</span><span style="text-align:right;">FREE ABOVE</span></div>
+          <sc-for list="{{ rates }}" as="r" hint-placeholder-count="4"><div style="display:grid;grid-template-columns:minmax(0,1fr) 100px 140px;gap:10px;padding:10px 0;border-bottom:1px solid #DCD4C4;background:{{ r.bg }};"><span>{{ r.s }}</span><span style="text-align:right;font-family:'IBM Plex Mono',monospace;">{{ r.f }}</span><span style="text-align:right;font-family:'IBM Plex Mono',monospace;">{{ r.t }}</span></div></sc-for>
+        </div>
+        <span style="font-size:13px;color:#5B6170;">The figures are placeholders; the page draws every state from the API. The legal text sits below the table.</span>
+      </div>
+    </div>
+
+    <!-- REFUND -->
+    <div data-screen-label="Order refunded" style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);display:grid;grid-template-columns:72px minmax(0,1fr);padding:28px 32px 32px 0;">
+      <span style="padding:6px 0 0 24px;font:600 14px/1 'IBM Plex Mono',monospace;color:#B3342A;">№</span>
+      <div style="border-left:3px double #B3342A;padding-left:28px;display:flex;flex-direction:column;gap:12px;">
+        <span style="font:600 11px/1 'IBM Plex Mono',monospace;color:#1A5FB4;letter-spacing:0.06em;">EXISTS, NOT DRAWN · ORDER CANCELLED + CREDIT NOTE</span>
+        <span style="display:flex;gap:10px;align-items:center;"><span style="font:600 22px/1 'IBM Plex Mono',monospace;">EL-2026-000001</span><span style="font:600 11px/1 'IBM Plex Mono',monospace;padding:5px 7px;border:1.5px solid #7B8595;color:#5B6170;background:#F1ECE1;">REFUNDED</span></span>
+        <div style="display:flex;flex-direction:column;">
+          <sc-for list="{{ refundTimeline }}" as="t" hint-placeholder-count="4"><div style="display:grid;grid-template-columns:24px minmax(0,1fr);gap:10px;"><span style="display:flex;flex-direction:column;align-items:center;"><span style="width:12px;height:12px;border-radius:50%;margin-top:5px;background:#0B2A5B;"></span><span style="flex:1;width:1.5px;background:#DCD4C4;"></span></span><span style="display:flex;flex-direction:column;padding-bottom:12px;"><strong style="font-size:15px;">{{ t.l }}</strong><span style="font-size:13px;color:#5B6170;">{{ t.w }}</span></span></div></sc-for>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;"><span style="display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;">GST invoice (PDF)</span><span style="display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;">Credit note CN-0001 (PDF)</span></div>
+        <span style="font-size:13px;color:#5B6170;">If a PDF can't be fetched, the page says "The invoice isn't ready; try again later" instead of an error page (G25).</span>
+      </div>
+    </div>
+
+    <!-- YOUR PAPERS ON ORDER -->
+    <div data-screen-label="Order your papers" style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);display:grid;grid-template-columns:72px minmax(0,1fr);padding:28px 32px 32px 0;">
+      <span style="padding:6px 0 0 24px;font:600 14px/1 'IBM Plex Mono',monospace;color:#B3342A;">→</span>
+      <div style="border-left:3px double #B3342A;padding-left:28px;display:flex;flex-direction:column;gap:12px;">
+        <span style="font:600 11px/1 'IBM Plex Mono',monospace;color:#8A6508;letter-spacing:0.06em;">PROPOSED FIX · ORDER + DONE PAGE · "Your papers" (G20)</span>
+        <h2 style="margin:0;font:600 26px/1.15 'Source Serif 4',serif;">While your book is on its way</h2>
+        <p style="margin:0;font-size:15px;line-height:1.6;color:#3E4454;">Every paper has a QR code. Scan it after you sit the paper and its worked solutions open here.</p>
+        <div style="display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:14px;align-items:center;padding:12px;background:#FFFFFF;border:1px solid #DCD4C4;"><img src="examleaf-web/static/img/physics-480.webp" alt="" style="width:48px;border-radius:2px;"><span style="display:flex;flex-direction:column;"><strong style="font:600 18px/1.2 'Source Serif 4',serif;">Physics · 30 papers</strong><span style="font-size:13px;color:#5B6170;">Paper E-01 is open now, without the book</span></span><a href="#" style="font-weight:700;">Open E-01 →</a></div>
+        <a href="#" style="font-weight:700;font-size:15px;">Revision course: watch the first clip of every chapter free →</a>
+      </div>
+    </div>
+
+    <!-- AUTH DEAD ENDS -->
+    <div data-screen-label="Auth edge pages" style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);display:grid;grid-template-columns:72px minmax(0,1fr);padding:28px 32px 32px 0;">
+      <span style="padding:6px 0 0 24px;font:600 14px/1 'IBM Plex Mono',monospace;color:#B3342A;">!</span>
+      <div style="border-left:3px double #B3342A;padding-left:28px;display:flex;flex-direction:column;gap:16px;">
+        <span style="font:600 11px/1 'IBM Plex Mono',monospace;color:#8A6508;letter-spacing:0.06em;">NOT BUILT IN REPO · G2 G4 G18 G23</span>
+        <sc-for list="{{ authEdges }}" as="e" hint-placeholder-count="4">
+          <div style="display:flex;flex-direction:column;gap:6px;padding-top:12px;border-top:1px solid #DCD4C4;">
+            <span style="font:500 11px/1 'IBM Plex Mono',monospace;color:#5B6170;">{{ e.route }}</span>
+            <strong style="font:600 22px/1.15 'Source Serif 4',serif;">{{ e.title }}</strong>
+            <span style="font-size:15px;line-height:1.55;color:#3E4454;">{{ e.text }}</span>
+            <span style="display:flex;gap:16px;font-weight:700;font-size:15px;"><a href="#">{{ e.a }}</a><a href="#">{{ e.b }}</a></span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- EXPIRED LINKS -->
+    <div data-screen-label="Expired links" style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);display:grid;grid-template-columns:72px minmax(0,1fr);padding:28px 32px 32px 0;">
+      <span style="padding:6px 0 0 24px;font:600 14px/1 'IBM Plex Mono',monospace;color:#B3342A;">⌛</span>
+      <div style="border-left:3px double #B3342A;padding-left:28px;display:flex;flex-direction:column;gap:16px;">
+        <span style="font:600 11px/1 'IBM Plex Mono',monospace;color:#8A6508;letter-spacing:0.06em;">PROPOSED FIX · G5 · G19</span>
+        <div style="display:flex;flex-direction:column;gap:6px;"><span style="font:500 11px/1 'IBM Plex Mono',monospace;color:#5B6170;">/c/&lt;token&gt;/ · EXPIRED (400)</span><strong style="font:600 22px/1.15 'Source Serif 4',serif;">This consent link has expired</strong><span style="font-size:15px;line-height:1.55;color:#3E4454;">Links work for 7 days, for the parent's safety. Ananya can send a new one from her account, or you can write to us and we'll send it.</span><span style="display:flex;gap:16px;font-weight:700;font-size:15px;"><a href="#">Contact us</a></span></div>
+        <div style="display:flex;flex-direction:column;gap:6px;padding-top:12px;border-top:1px solid #DCD4C4;"><span style="font:500 11px/1 'IBM Plex Mono',monospace;color:#5B6170;">/orders/t/&lt;token&gt;/ · WRONG OR OLD (404)</span><strong style="font:600 22px/1.15 'Source Serif 4',serif;">We can't open this order link</strong><span style="font-size:15px;line-height:1.55;color:#3E4454;">It may have been copied only partly. Ask for a fresh private link with your order number.</span><span style="display:flex;gap:16px;font-weight:700;font-size:15px;"><a href="#">Find your order</a><a href="#">Log in</a></span></div>
+      </div>
+    </div>
+
+    <!-- 429 / 403 -->
+    <div data-screen-label="429 and 403" style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);display:grid;grid-template-columns:72px minmax(0,1fr);padding:28px 32px 32px 0;">
+      <span style="padding:6px 0 0 24px;font:600 14px/1 'IBM Plex Mono',monospace;color:#B42318;">429</span>
+      <div style="border-left:3px double #B3342A;padding-left:28px;display:flex;flex-direction:column;gap:16px;">
+        <span style="font:600 11px/1 'IBM Plex Mono',monospace;color:#1A5FB4;letter-spacing:0.06em;">EXISTS, NOT DRAWN · templates/429.html · 403.html · 403_csrf.html</span>
+        <div style="display:flex;flex-direction:column;gap:6px;"><strong style="font:600 24px/1.15 'Source Serif 4',serif;">Too many tries. Please wait a minute</strong><span style="font-size:15px;line-height:1.55;color:#3E4454;">To keep accounts safe, we limit how often codes can be asked for and typed. You can try again at 18:24.</span></div>
+        <div style="display:flex;flex-direction:column;gap:6px;padding-top:12px;border-top:1px solid #DCD4C4;"><strong style="font:600 24px/1.15 'Source Serif 4',serif;">This page isn't open to your account</strong><span style="font-size:15px;line-height:1.55;color:#3E4454;">You're logged in as ananya@example.com. If you think you should see it, contact us.</span><span style="display:flex;gap:16px;font-weight:700;font-size:15px;"><a href="#">My account</a><a href="#">Contact us</a></span></div>
+        <div style="display:flex;flex-direction:column;gap:6px;padding-top:12px;border-top:1px solid #DCD4C4;"><strong style="font:600 24px/1.15 'Source Serif 4',serif;">The form timed out</strong><span style="font-size:15px;line-height:1.55;color:#3E4454;">For your safety, forms expire. Go back, reload the page and send it again.</span></div>
+      </div>
+    </div>
+
+    <!-- DATA + DELETION -->
+    <div data-screen-label="Data summary and deletion" style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);display:grid;grid-template-columns:72px minmax(0,1fr);padding:28px 32px 32px 0;">
+      <span style="padding:6px 0 0 24px;font:600 14px/1 'IBM Plex Mono',monospace;color:#B3342A;">↓</span>
+      <div style="border-left:3px double #B3342A;padding-left:28px;display:flex;flex-direction:column;gap:12px;">
+        <span style="font:600 11px/1 'IBM Plex Mono',monospace;color:#1A5FB4;letter-spacing:0.06em;">EXISTS, NOT DRAWN · me/export/summary · me/deletion (G21)</span>
+        <h2 style="margin:0;font:600 26px/1.15 'Source Serif 4',serif;">What we keep about you</h2>
+        <div style="border-top:1.5px solid #1D2230;font-size:15px;">
+          <sc-for list="{{ dataRows }}" as="d" hint-placeholder-count="6"><div style="display:grid;grid-template-columns:minmax(0,1fr) 120px;padding:9px 0;border-bottom:1px solid #DCD4C4;"><span>{{ d.k }}</span><span style="text-align:right;font-family:'IBM Plex Mono',monospace;">{{ d.v }}</span></div></sc-for>
+        </div>
+        <span style="display:inline-flex;align-self:flex-start;align-items:center;min-height:46px;padding:0 16px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;">Download all of it (JSON)</span>
+        <div style="background:#FFFFFF;border:2px solid #B42318;padding:16px;display:flex;flex-direction:column;gap:10px;margin-top:6px;">
+          <strong style="font:600 20px/1.2 'Source Serif 4',serif;">Delete your account?</strong>
+          <span style="font-size:14px;line-height:1.55;color:#3E4454;">Your record, course progress and addresses go at once. Orders and invoices are kept for 8 years, as tax law requires. Type your email address to confirm.</span>
+          <span style="height:46px;border:1.5px solid #7B8595;border-radius:4px;"></span>
+          <span style="display:flex;gap:10px;justify-content:flex-end;"><span style="display:inline-flex;align-items:center;min-height:46px;padding:0 16px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;">Keep my account</span><span style="display:inline-flex;align-items:center;min-height:46px;padding:0 16px;background:#B42318;color:#FFFFFF;font-weight:700;border-radius:4px;">Delete it</span></span>
+        </div>
+        <span style="font-size:13px;color:#5B6170;">The "8 years" and the counts are examples. The backend's retention rules decide.</span>
+      </div>
+    </div>
+
+    <!-- PIN AUTOFILL -->
+    <div data-screen-label="PIN autofill" style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);display:grid;grid-template-columns:72px minmax(0,1fr);padding:28px 32px 32px 0;">
+      <span style="padding:6px 0 0 24px;font:600 14px/1 'IBM Plex Mono',monospace;color:#B3342A;">PIN</span>
+      <div style="border-left:3px double #B3342A;padding-left:28px;display:flex;flex-direction:column;gap:12px;">
+        <span style="font:600 11px/1 'IBM Plex Mono',monospace;color:#1A5FB4;letter-spacing:0.06em;">EXISTS, NOT DRAWN · CHECKOUT + ADDRESSES · /shop/pin/&lt;pin&gt;/ (G12)</span>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">PIN code<span style="height:48px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;display:flex;align-items:center;padding:0 12px;font:400 16px/1 'IBM Plex Mono',monospace;">781003</span><span style="font-weight:600;font-size:14px;color:#1B7F3B;">Guwahati, Kamrup Metro, Assam: filled in below</span></label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Town or city<span style="height:46px;border:1.5px solid #7B8595;background:#F1ECE1;border-radius:4px;display:flex;align-items:center;padding:0 12px;font-weight:400;">Guwahati</span></label><label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">State<span style="height:46px;border:1.5px solid #7B8595;background:#F1ECE1;border-radius:4px;display:flex;align-items:center;padding:0 12px;font-weight:400;">Assam</span></label></div>
+        <span style="font-size:14px;color:#3E4454;">Not found: "We don't know PIN 781999. Type the town and state yourself." The fields stay editable either way.</span>
+      </div>
+    </div>
+
+    <!-- EMAILS -->
+    <div data-screen-label="Emails" style="grid-column:span 2;display:grid;grid-template-columns:repeat(2,1fr);gap:32px;">
+      <sc-for list="{{ emails }}" as="m" hint-placeholder-count="4">
+        <div style="background:#FFFFFF;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);font-family:Arial,'Public Sans',sans-serif;">
+          <div style="padding:20px 28px;border-bottom:3px double #B3342A;display:flex;justify-content:space-between;align-items:center;"><span style="font:700 20px/1 Georgia,serif;">Exam<span style="color:#1A6E30;">Leaf</span></span><span style="font:600 11px/1 'Courier New',monospace;color:#5B6170;">{{ m.tag }}</span></div>
+          <div style="padding:24px 28px;display:flex;flex-direction:column;gap:12px;color:#1D2230;">
+            <span style="font:700 24px/1.2 Georgia,serif;">{{ m.title }}</span>
+            <span style="font-size:15px;line-height:1.6;">{{ m.body }}</span>
+            <span style="font:700 26px/1 'Courier New',monospace;letter-spacing:0.2em;">{{ m.code }}</span>
+            <span style="display:inline-block;align-self:flex-start;background:#0B2A5B;color:#FFFFFF;font-weight:700;padding:12px 18px;">{{ m.button }}</span>
+            <span style="font-size:13px;line-height:1.6;color:#5B6170;">{{ m.foot }}</span>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- INVOICE -->
+    <div data-screen-label="GST invoice" style="background:#FFFFFF;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);padding:36px 36px 40px;display:flex;flex-direction:column;gap:14px;font-family:'Public Sans',sans-serif;aspect-ratio:210 / 297;box-sizing:border-box;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:12px;border-bottom:3px double #B3342A;"><span style="display:flex;flex-direction:column;gap:4px;"><span style="font:700 22px/1 'Source Serif 4',serif;">Exam<span style="color:#1A6E30;">Leaf</span> LLP</span><span style="font-size:11px;color:#5B6170;line-height:1.5;">Registered address · GSTIN · from settings</span></span><span style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;"><span style="font:600 14px/1 'IBM Plex Mono',monospace;letter-spacing:0.06em;">TAX INVOICE</span><span style="font:500 11px/1.5 'IBM Plex Mono',monospace;color:#5B6170;text-align:right;">INV-2026-0003<br>EL-2026-000003 · 10 Oct 2026</span></span></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:12px;line-height:1.5;"><span><strong style="font:500 10px/1 'IBM Plex Mono',monospace;color:#5B6170;">BILL TO</strong><br>Ananya Das<br>Guwahati, Assam 781003</span><span><strong style="font:500 10px/1 'IBM Plex Mono',monospace;color:#5B6170;">PLACE OF SUPPLY</strong><br>Assam (18)</span></div>
+      <div style="border-top:1.5px solid #1D2230;font-size:12px;">
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) 60px 40px 70px;gap:8px;padding:6px 0;border-bottom:1px solid #1D2230;font:500 10px/1 'IBM Plex Mono',monospace;color:#5B6170;"><span>ITEM · HSN</span><span style="text-align:right;">RATE</span><span style="text-align:right;">QTY</span><span style="text-align:right;">AMOUNT</span></div>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) 60px 40px 70px;gap:8px;padding:8px 0;border-bottom:1px solid #DCD4C4;"><span>Physics Sample Papers 2027 · 4901</span><span style="text-align:right;">₹299.00</span><span style="text-align:right;">1</span><span style="text-align:right;">₹299.00</span></div>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) 60px 40px 70px;gap:8px;padding:8px 0;border-bottom:1px solid #DCD4C4;"><span>Delivery · 9965</span><span style="text-align:right;"></span><span style="text-align:right;"></span><span style="text-align:right;">₹40.00</span></div>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) 70px;padding:8px 0;font-weight:700;"><span>Total</span><span style="text-align:right;">₹339.00</span></div>
+      </div>
+      <span style="font-size:11px;color:#5B6170;line-height:1.5;">Tax lines, HSN codes and wording come from shop/invoices.py. This card shows the visual treatment only.</span>
+    </div>
+
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      cards: [],
+      rates: [
+        { s: "Assam", f: "₹40", t: "₹500", bg: "#FFFFFF" },
+        { s: "Meghalaya, Nagaland, Arunachal…", f: "₹60", t: "₹700", bg: "transparent" },
+        { s: "West Bengal, Bihar…", f: "₹70", t: "₹800", bg: "transparent" },
+        { s: "Rest of India", f: "₹90", t: "₹1,000", bg: "transparent" },
+      ],
+      refundTimeline: [
+        { l: "Order placed and paid", w: "26 Sep 2026 · Razorpay card" },
+        { l: "Cancelled by you", w: "27 Sep 2026, before packing" },
+        { l: "Refund sent to your card", w: "27 Sep 2026 · ₹339.00" },
+        { l: "Usually shows in 5–7 working days", w: "Your bank's timing" },
+      ],
+      authEdges: [
+        { route: "/account/password/reset/key/done/ · G2, G18", title: "Your new password is saved", text: "Log in with it now. We'll take you back to where you were.", a: "Log in", b: "" },
+        { route: "/account/inactive/ · G4", title: "This account is switched off", text: "It was closed by you or by us after a report. Write to us and we'll explain what happened and what you can do.", a: "Contact us", b: "Register again" },
+        { route: "/account/social/login/cancelled/", title: "You didn't finish logging in with Google", text: "Nothing was changed. Try again, or log in another way.", a: "Try Google again", b: "Other ways to log in" },
+        { route: "/account/social/login/error/", title: "Google couldn't log you in", text: "This sometimes happens when the page was open for a long time. Please try once more.", a: "Try again", b: "Log in with a code" },
+      ],
+      dataRows: [
+        { k: "Your details", v: "name, class" }, { k: "Email and mobile", v: "2" }, { k: "Saved marks", v: "8 papers" },
+        { k: "Course progress", v: "16 clips" }, { k: "Orders and invoices", v: "3" }, { k: "Addresses", v: "2" },
+      ],
+      emails: [
+        { tag: "LOG-IN CODE", title: "Your ExamLeaf code", body: "Type this code on the log-in page. It works for 10 minutes. If you didn't ask for it, you can ignore this email.", code: "481 902", button: "Open ExamLeaf", foot: "Never share this code. ExamLeaf staff will never ask for it." },
+        { tag: "PARENT'S CONSENT", title: "Ananya registered on ExamLeaf", body: "Ananya is under 18, so we ask a parent or guardian to agree before she saves marks or orders books. It takes a minute.", code: "", button: "Read and answer", foot: "The link works for 7 days. Didn't expect this? Ignore it and we delete the account." },
+        { tag: "ORDER SHIPPED", title: "Your books are on their way", body: "EL-2026-000003 left us on 11 Oct. Courier: from the order · tracking number: from the order. Your GST invoice is attached.", code: "", button: "Track the order", foot: "While you wait: Paper E-01's solutions are open to everyone." },
+        { tag: "PASSWORD RESET", title: "Choose a new password", body: "Someone (we hope you) asked to reset the password of this account. The link works once, for 3 days.", code: "", button: "Choose a new password", foot: "Didn't ask? Ignore this email. Your password stays the same." },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<footer style="background:#1D2230;color:#F8F5EE;font-family:'Public Sans','Hind Siliguri',sans-serif;padding:48px 40px 32px 160px;display:grid;grid-template-columns:minmax(0,1.6fr) repeat(3,minmax(0,1fr));gap:32px;">
+  <div style="display:flex;flex-direction:column;gap:12px;">
+    <span style="font:700 23px/1 'Source Serif 4',serif;color:#FFFFFF;">Exam<span style="color:#8FD694;">Leaf</span></span>
+    <p style="margin:0;font-size:15px;line-height:1.7;color:#AEB3C0;max-width:22em;">Sample papers for the Assam Board (ASSEB) Class 12 examination, with free worked solutions behind a QR code.</p>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:10px;font-size:15px;"><span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#AEB3C0;letter-spacing:0.06em;margin-bottom:4px;">BOOKS</span><span>Physics</span><span>Chemistry</span><span>Mathematics</span><span>Biology</span><span>Revision course</span></div>
+  <div style="display:flex;flex-direction:column;gap:10px;font-size:15px;"><span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#AEB3C0;letter-spacing:0.06em;margin-bottom:4px;">SHOP</span><span>All books</span><span>{{ orderLink }}</span><span>Shipping</span><span>Refunds</span></div>
+  <div style="display:flex;flex-direction:column;gap:10px;font-size:15px;"><span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#AEB3C0;letter-spacing:0.06em;margin-bottom:4px;">EXAMLEAF</span><span>About</span><span>Contact</span><span>Privacy</span><span>Terms</span></div>
+  <div style="grid-column:1 / -1;display:flex;justify-content:space-between;border-top:1px solid #3A4152;padding-top:18px;font-size:14px;color:#AEB3C0;"><span>© ExamLeaf LLP</span><span>Payments through Razorpay: UPI, cards, net banking</span></div>
+</footer>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:260},&quot;signedIn&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    return { orderLink: this.props.signedIn ? "My orders" : "Find your order" };
+  }
+}
+</script>
+</body>
+</html>

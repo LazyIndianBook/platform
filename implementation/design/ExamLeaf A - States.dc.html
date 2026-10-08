@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Hind+Siliguri:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#E4E1DA;-webkit-font-smoothing:antialiased}
+a{color:#0B2A5B;text-underline-offset:3px}
+a:hover{color:#B3342A}
+</style>
+</helmet>
+<section id="8a" style="padding:64px;display:flex;flex-direction:column;gap:40px;font-family:'Public Sans','Hind Siliguri',sans-serif;color:#1D2230;">
+  <div style="display:flex;align-items:flex-start;gap:24px;">
+    <span style="flex:none;font:600 15px/1 'IBM Plex Mono',monospace;background:#1D2230;color:#F8F5EE;padding:10px 12px;border-radius:3px;">8a</span>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <h1 style="margin:0;font:600 40px/1.1 'Source Serif 4',serif;">Secondary states</h1>
+      <p style="margin:0;font-size:17px;color:#4A5060;max-width:64em;line-height:1.6;">The steps and answers not already shown on the main screens. Each card is the part of the desktop page that changes, at its real size. The header, footer and side menu are unchanged. All student data is SAMPLE DATA.</p>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(3,620px);gap:40px;align-items:start;">
+
+    <!-- 1 delivery step -->
+    <div data-screen-label="Checkout delivery" style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);display:grid;grid-template-columns:72px minmax(0,1fr);padding:32px 32px 36px 0;">
+      <span style="padding:6px 0 0 24px;font:600 14px/1 'IBM Plex Mono',monospace;color:#B3342A;">2/4</span>
+      <div style="border-left:3px double #B3342A;padding-left:28px;display:flex;flex-direction:column;gap:14px;">
+        <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">CHECKOUT · DELIVERY STEP</span>
+        <h2 style="margin:0;font:600 32px/1.1 'Source Serif 4',serif;">Delivery to Assam</h2>
+        <div style="background:#FFFFFF;border:1px solid #DCD4C4;padding:14px 16px;font-size:15px;line-height:1.55;display:flex;justify-content:space-between;gap:12px;"><span>Ananya Das · +91 98•• •••• 21<br>House 12, Rajgarh Road, Guwahati 781003</span><a href="#" style="font-weight:700;">Change</a></div>
+        <div style="border:2px solid #1D2230;background:#FFFFFF;padding:14px 16px;display:flex;gap:12px;align-items:center;"><span style="width:22px;height:22px;border:1.5px solid #0B2A5B;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex:none;"><span style="width:12px;height:12px;border-radius:50%;background:#0B2A5B;"></span></span><span style="flex:1;display:flex;flex-direction:column;"><strong>Standard courier</strong><span style="font-size:14px;color:#5B6170;">Usually 4–7 days after packing</span></span><strong style="font-family:'IBM Plex Mono',monospace;">₹40.00</strong></div>
+        <span style="font-size:14px;color:#1B7F3B;font-weight:600;">Add ₹161 more for free delivery to Assam.</span>
+        <span style="display:inline-flex;align-self:flex-start;align-items:center;min-height:52px;padding:0 24px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Continue to payment</span>
+        <span style="font:500 11px/1.5 'IBM Plex Mono',monospace;color:#5B6170;">Fee and free-delivery threshold come from the API by state. The threshold shown here is illustrative.</span>
+      </div>
+    </div>
+
+    <!-- 2 payment failed -->
+    <div data-screen-label="Payment failed" style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);display:grid;grid-template-columns:72px minmax(0,1fr);padding:32px 32px 36px 0;">
+      <span style="padding:6px 0 0 24px;font:600 14px/1 'IBM Plex Mono',monospace;color:#B42318;">3/4</span>
+      <div style="border-left:3px double #B3342A;padding-left:28px;display:flex;flex-direction:column;gap:14px;">
+        <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">PAY · RAZORPAY RETURNED A FAILURE</span>
+        <h2 style="margin:0;font:600 32px/1.1 'Source Serif 4',serif;">Pay ₹339.00</h2>
+        <div role="alert" style="display:grid;grid-template-columns:28px minmax(0,1fr);gap:12px;padding:14px 16px;background:#FCEBE9;border:1px solid #F1C2BC;"><span style="width:22px;height:22px;border-radius:50%;background:#B42318;color:#FFFFFF;font-weight:700;font-size:13px;display:inline-flex;align-items:center;justify-content:center;">×</span><span style="display:flex;flex-direction:column;gap:2px;"><strong>The payment didn't go through</strong><span style="font-size:15px;line-height:1.55;color:#3E4454;">Your bank declined it. No money was taken. Your order EL-2026-000003 is kept for 24 hours.</span></span></div>
+        <span style="display:inline-flex;justify-content:center;align-items:center;min-height:52px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Try again</span>
+        <span style="display:inline-flex;justify-content:center;align-items:center;min-height:48px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;">Pay cash on delivery instead</span>
+        <span style="font-size:14px;color:#5B6170;">If money did leave your account, it is refunded automatically. <a href="#">Contact us</a> with the order number.</span>
+      </div>
+    </div>
+
+    <!-- 3 payment pending -->
+    <div data-screen-label="Payment pending" style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);display:grid;grid-template-columns:72px minmax(0,1fr);padding:32px 32px 36px 0;">
+      <span style="padding:6px 0 0 24px;font:600 14px/1 'IBM Plex Mono',monospace;color:#B3342A;">…</span>
+      <div style="border-left:3px double #B3342A;padding-left:28px;display:flex;flex-direction:column;gap:14px;">
+        <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">DONE · WAITING FOR RAZORPAY'S CONFIRMATION</span>
+        <h2 style="margin:0;font:600 32px/1.1 'Source Serif 4',serif;">We're confirming your payment</h2>
+        <p style="margin:0;font-size:16px;line-height:1.65;color:#3E4454;">Razorpay has your payment. We're waiting for the bank's confirmation, which usually takes a few seconds. Please don't pay again.</p>
+        <div style="display:flex;gap:12px;align-items:center;padding:12px 14px;background:#FFFFFF;border:1px solid #DCD4C4;font-size:15px;"><span style="width:16px;height:16px;border-radius:50%;border:2px solid #DCD4C4;border-top-color:#0B2A5B;flex:none;"></span>Checking EL-2026-000003. This page updates once.</div>
+        <span style="font-size:14px;color:#5B6170;line-height:1.5;">If it hasn't confirmed within 10 minutes, the order's page shows the result and we email you either way. There's no PAID stamp until it's confirmed.</span>
+      </div>
+    </div>
+
+    <!-- 4 shop closed + out of stock -->
+    <div data-screen-label="Shop closed and out of stock" style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);display:grid;grid-template-columns:72px minmax(0,1fr);padding:32px 32px 36px 0;">
+      <span style="padding:6px 0 0 24px;font:600 14px/1 'IBM Plex Mono',monospace;color:#B3342A;">₹</span>
+      <div style="border-left:3px double #B3342A;padding-left:28px;display:flex;flex-direction:column;gap:14px;">
+        <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">SHOP_OPEN=0 · banner on shop, product, cart</span>
+        <div style="display:grid;grid-template-columns:28px minmax(0,1fr);gap:12px;padding:14px 16px;background:#FFF5D8;border:1px solid #EED58C;"><span style="width:22px;height:22px;border-radius:50%;background:#8A6508;color:#FFFFFF;font-weight:700;font-size:13px;display:inline-flex;align-items:center;justify-content:center;">!</span><span style="display:flex;flex-direction:column;gap:2px;"><strong>The shop is closed for now</strong><span style="font-size:15px;line-height:1.55;color:#3E4454;">You can't place new orders at the moment. Orders you've already placed go ahead as normal, and the free solutions stay open.</span></span></div>
+        <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;margin-top:8px;">PRODUCT · OUT OF STOCK</span>
+        <div style="display:flex;align-items:baseline;gap:12px;"><span style="font:600 32px/1 'Source Serif 4',serif;">₹249</span><span style="font:600 12px/1 'IBM Plex Mono',monospace;color:#A0272D;border:1.5px solid #A0272D;padding:5px 7px;">OUT OF STOCK</span></div>
+        <span style="display:inline-flex;justify-content:center;align-items:center;min-height:52px;background:#C9CCD2;color:#4A5060;font-weight:700;border-radius:4px;">Add to cart</span>
+        <span style="font-size:15px;color:#3E4454;line-height:1.55;">Biology Solutions is being reprinted. The worked solutions are free online behind each paper's QR code meanwhile.</span>
+      </div>
+    </div>
+
+    <!-- 5 password login -->
+    <div data-screen-label="Password login" style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);display:grid;grid-template-columns:72px minmax(0,1fr);padding:32px 32px 36px 0;">
+      <span style="padding:6px 0 0 24px;font:600 14px/1 'IBM Plex Mono',monospace;color:#B3342A;">**</span>
+      <div style="border-left:3px double #B3342A;padding-left:28px;display:flex;flex-direction:column;gap:14px;">
+        <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">LOG IN · WITH PASSWORD · WRONG PASSWORD</span>
+        <h2 style="margin:0;font:600 32px/1.1 'Source Serif 4',serif;">Log in with your password</h2>
+        <div role="alert" style="padding:12px 14px;background:#FCEBE9;border:1px solid #F1C2BC;font-size:15px;"><strong>That email and password don't match.</strong> Check both, or log in with a code.</div>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Email address or mobile<span style="height:48px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;display:flex;align-items:center;padding:0 14px;font-weight:400;">ananya@example.com</span></label>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Password<span style="height:48px;border:2px solid #B42318;background:#FFFFFF;border-radius:4px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-weight:400;">••••••••<span style="font-size:14px;font-weight:600;color:#0B2A5B;">Show</span></span></label>
+        <span style="display:inline-flex;justify-content:center;align-items:center;min-height:52px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Log in</span>
+        <span style="display:flex;justify-content:space-between;font-size:15px;font-weight:600;"><a href="#">Forgot your password?</a><a href="#">Use a code instead</a></span>
+        <span style="font-size:14px;color:#5B6170;">After 5 tries we ask for a code (the backend throttles).</span>
+      </div>
+    </div>
+
+    <!-- 6 google continue -->
+    <div data-screen-label="Google sign-up" style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);display:grid;grid-template-columns:72px minmax(0,1fr);padding:32px 32px 36px 0;">
+      <span style="padding:6px 0 0 24px;font:600 14px/1 'IBM Plex Mono',monospace;color:#B3342A;">G</span>
+      <div style="border-left:3px double #B3342A;padding-left:28px;display:flex;flex-direction:column;gap:14px;">
+        <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">REGISTER · AFTER GOOGLE (PROVIDER SIGN-UP)</span>
+        <h2 style="margin:0;font:600 32px/1.1 'Source Serif 4',serif;">One more step, Ananya</h2>
+        <p style="margin:0;font-size:16px;line-height:1.6;color:#3E4454;">Google told us your name and email. Tell us your board and class so the right books show first.</p>
+        <div style="padding:12px 14px;background:#FFFFFF;border:1px solid #DCD4C4;font-size:15px;display:flex;justify-content:space-between;"><span>ananya@gmail.com</span><span style="font:600 11px/1 'IBM Plex Mono',monospace;color:#1B7F3B;">FROM GOOGLE</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Board<span style="height:48px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;display:flex;align-items:center;padding:0 12px;font-weight:400;">ASSEB</span></label><label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Class<span style="height:48px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;display:flex;align-items:center;padding:0 12px;font-weight:400;">Class 12</span></label></div>
+        <span style="font-size:15px;font-weight:600;">Are you 18 or over? · Privacy notice</span>
+        <span style="display:inline-flex;justify-content:center;align-items:center;min-height:52px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Finish registering</span>
+      </div>
+    </div>
+
+    <!-- 7 recovery codes -->
+    <div data-screen-label="Recovery codes" style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);display:grid;grid-template-columns:72px minmax(0,1fr);padding:32px 32px 36px 0;">
+      <span style="padding:6px 0 0 24px;font:600 14px/1 'IBM Plex Mono',monospace;color:#B3342A;">2F</span>
+      <div style="border-left:3px double #B3342A;padding-left:28px;display:flex;flex-direction:column;gap:14px;">
+        <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">/account/2fa/ · SHOWN ONCE</span>
+        <h2 style="margin:0;font:600 32px/1.1 'Source Serif 4',serif;">Two-step log-in is on</h2>
+        <p style="margin:0;font-size:16px;line-height:1.6;color:#3E4454;">If you lose your phone, each of these codes lets you in once. We won't show them again.</p>
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 24px;padding:16px;background:#FFFFFF;border:1.5px dashed #7B8595;font:500 16px/1.4 'IBM Plex Mono',monospace;">
+          <sc-for list="{{ codes }}" as="c" hint-placeholder-count="10"><span>{{ c }}</span></sc-for>
+        </div>
+        <div style="display:flex;gap:12px;"><span style="display:inline-flex;align-items:center;min-height:48px;padding:0 18px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;">Download</span><span style="display:inline-flex;align-items:center;min-height:48px;padding:0 18px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;">Copy</span><span style="display:inline-flex;align-items:center;min-height:48px;padding:0 18px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">I've saved them</span></div>
+      </div>
+    </div>
+
+    <!-- 8 consent pending -->
+    <div data-screen-label="Consent pending" style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);display:grid;grid-template-columns:72px minmax(0,1fr);padding:32px 32px 36px 0;">
+      <span style="padding:6px 0 0 24px;font:600 14px/1 'IBM Plex Mono',monospace;color:#8A6508;">!</span>
+      <div style="border-left:3px double #B3342A;padding-left:28px;display:flex;flex-direction:column;gap:14px;">
+        <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">API CODE consent_pending · on My account, record save, checkout</span>
+        <div style="display:grid;grid-template-columns:28px minmax(0,1fr);gap:12px;padding:14px 16px;background:#FFF5D8;border:1px solid #EED58C;"><span style="width:22px;height:22px;border-radius:50%;background:#8A6508;color:#FFFFFF;font-weight:700;font-size:13px;display:inline-flex;align-items:center;justify-content:center;">!</span><span style="display:flex;flex-direction:column;gap:4px;"><strong>Waiting for your parent</strong><span style="font-size:15px;line-height:1.55;color:#3E4454;">We sent the consent link to p•••@example.com on 8 Oct. Until they confirm, you can read the solutions but not save marks or order books.</span><span style="display:flex;gap:16px;font-weight:700;font-size:15px;"><a href="#">Send the link again</a><a href="#">Change their email</a></span></span></div>
+        <div style="background:#FFFFFF;border:1.5px solid #DCD4C4;padding:18px;display:flex;justify-content:space-between;align-items:flex-end;opacity:1;">
+          <span style="display:flex;flex-direction:column;gap:4px;"><span style="font:600 20px/1.2 'Source Serif 4',serif;">Record your marks</span><span style="font-size:14px;color:#5B6170;">Opens once your parent confirms.</span></span>
+          <span style="display:inline-flex;align-items:center;min-height:48px;padding:0 18px;background:#C9CCD2;color:#4A5060;font-weight:700;border-radius:4px;">Save</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 9 session expired -->
+    <div data-screen-label="Session expired" style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);display:grid;grid-template-columns:72px minmax(0,1fr);padding:32px 32px 36px 0;">
+      <span style="padding:6px 0 0 24px;font:600 14px/1 'IBM Plex Mono',monospace;color:#B3342A;">↺</span>
+      <div style="border-left:3px double #B3342A;padding-left:28px;display:flex;flex-direction:column;gap:14px;">
+        <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">401 IN THE BROWSER → LOG IN, ?next= KEPT</span>
+        <div style="display:grid;grid-template-columns:28px minmax(0,1fr);gap:12px;padding:14px 16px;background:#EEF3FB;border:1px solid #C9D8F0;"><span style="width:22px;height:22px;border-radius:50%;background:#1A5FB4;color:#FFFFFF;font-weight:700;font-size:13px;display:inline-flex;align-items:center;justify-content:center;">i</span><span style="display:flex;flex-direction:column;gap:2px;"><strong>You were logged out</strong><span style="font-size:15px;line-height:1.55;color:#3E4454;">For your safety, sessions end after a while. Log in and we'll take you back to Edit Physics E-04. The marks you typed (61) are kept on this device until then.</span></span></div>
+        <h2 style="margin:0;font:600 32px/1.1 'Source Serif 4',serif;">Log in</h2>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Mobile number<span style="height:48px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;"></span></label>
+        <span style="display:inline-flex;justify-content:center;align-items:center;min-height:52px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Text me a code</span>
+      </div>
+    </div>
+
+    <!-- 10 marks saved signature -->
+    <div data-screen-label="Marks saved" style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);display:grid;grid-template-columns:72px minmax(0,1fr) 88px;padding:32px 0 36px 0;">
+      <span style="padding:6px 0 0 24px;font:600 14px/1 'IBM Plex Mono',monospace;color:#B3342A;">✓</span>
+      <div style="border-left:3px double #B3342A;padding-left:28px;display:flex;flex-direction:column;gap:14px;">
+        <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">SOLUTIONS · AFTER SAVE · THE SIGNATURE MOMENT</span>
+        <h2 style="margin:0;font:600 28px/1.15 'Source Serif 4',serif;">Saved to My record</h2>
+        <p style="margin:0;font-size:16px;line-height:1.6;color:#3E4454;">Physics E-04: 61 of 70. Your Easy average is now 83% over 4 papers.</p>
+        <div style="display:flex;gap:16px;font-weight:700;font-size:15px;"><a href="#">Open My record</a><a href="#">Next: Paper E-05 →</a><a href="#">Edit</a></div>
+        <span style="font-size:14px;color:#5B6170;line-height:1.5;">The red circle draws in once (220 ms) after the server confirms. With reduced motion it simply appears.</span>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding-top:40px;"><span style="font:600 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">MARKS</span><span style="width:64px;height:64px;border-radius:50%;border:2px solid #B3342A;display:flex;align-items:center;justify-content:center;font:600 20px/1 'IBM Plex Mono',monospace;color:#B3342A;transform:rotate(-6deg);">61</span><span style="font:500 13px/1 'IBM Plex Mono',monospace;color:#5B6170;">/ 70</span></div>
+    </div>
+
+    <!-- 11 cancel dialog -->
+    <div data-screen-label="Cancel dialog" style="background:rgba(29,34,48,.55);box-shadow:0 24px 48px -28px rgba(29,34,48,.4);padding:48px 56px;display:flex;align-items:center;justify-content:center;">
+      <div role="dialog" style="background:#F8F5EE;width:100%;padding:26px;display:flex;flex-direction:column;gap:14px;box-shadow:0 24px 48px rgba(7,18,43,.28);">
+        <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">ORDER · CANCEL DIALOG (native &lt;dialog&gt;)</span>
+        <span style="font:600 26px/1.15 'Source Serif 4',serif;">Cancel order EL-2026-000003?</span>
+        <span style="font-size:15px;line-height:1.6;color:#3E4454;">It hasn't been packed. You paid ₹339.00 by UPI. It goes back to the same UPI ID within 5–7 working days.</span>
+        <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Reason <span style="font-weight:400;color:#5B6170;">optional</span><span style="height:48px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;"></span></label>
+        <span style="display:flex;gap:10px;justify-content:flex-end;"><span style="display:inline-flex;align-items:center;min-height:48px;padding:0 18px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;">Keep the order</span><span style="display:inline-flex;align-items:center;min-height:48px;padding:0 18px;background:#B42318;color:#FFFFFF;font-weight:700;border-radius:4px;">Cancel order</span></span>
+      </div>
+    </div>
+
+    <!-- 12 empty learning + empty orders -->
+    <div data-screen-label="Empty states" style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);display:grid;grid-template-columns:72px minmax(0,1fr);padding:32px 32px 36px 0;">
+      <span style="padding:6px 0 0 24px;font:600 14px/1 'IBM Plex Mono',monospace;color:#B3342A;">[0]</span>
+      <div style="border-left:3px double #B3342A;padding-left:28px;display:flex;flex-direction:column;gap:16px;">
+        <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">EMPTY · LEARNING · ORDERS · RECORD</span>
+        <div style="border:1.5px dashed #C9C0AE;padding:18px;display:flex;flex-direction:column;gap:8px;"><strong style="font:600 20px/1.2 'Source Serif 4',serif;">Nothing to continue yet</strong><span style="font-size:15px;line-height:1.55;color:#3E4454;">The first clip of every chapter is free: pick one in the Revision course.</span><a href="#" style="font-weight:700;">Open the Revision course →</a></div>
+        <div style="border:1.5px dashed #C9C0AE;padding:18px;display:flex;flex-direction:column;gap:8px;"><strong style="font:600 20px/1.2 'Source Serif 4',serif;">No orders yet</strong><span style="font-size:15px;line-height:1.55;color:#3E4454;">Ordered without logging in? Find it with its number.</span><span style="display:flex;gap:16px;font-weight:700;"><a href="#">Go to the shop</a><a href="#">Find your order</a></span></div>
+        <div style="border:1.5px dashed #C9C0AE;padding:18px;display:flex;flex-direction:column;gap:8px;"><strong style="font:600 20px/1.2 'Source Serif 4',serif;">Nothing saved yet</strong><span style="font-size:15px;line-height:1.55;color:#3E4454;">After you mark a paper against its solutions, save your score at the end of the solutions page.</span></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    return { codes: ["8K2F-Q9TD", "M4XR-7PLC", "2WVN-HE6A", "T7QB-3JZK", "R9MD-K2YU", "C5HL-8NFE", "P3GW-6RXT", "Z8EJ-4VQM", "H6UA-9DKS", "N2CY-5BWL"] };
+  }
+}
+</script>
+</body>
+</html>

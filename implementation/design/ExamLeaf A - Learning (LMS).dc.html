@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Hind+Siliguri:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#E4E1DA;-webkit-font-smoothing:antialiased}
+a{color:#0B2A5B;text-underline-offset:3px}
+a:hover{color:#B3342A}
+</style>
+</helmet>
+<section id="9a" style="padding:64px;display:flex;flex-direction:column;gap:40px;font-family:'Public Sans','Hind Siliguri',sans-serif;color:#1D2230;">
+  <div style="display:flex;align-items:flex-start;gap:24px;">
+    <span style="flex:none;font:600 15px/1 'IBM Plex Mono',monospace;background:#1D2230;color:#F8F5EE;padding:10px 12px;border-radius:3px;">9a</span>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <h1 style="margin:0;font:600 40px/1.1 'Source Serif 4',serif;">The revision course on the website</h1>
+      <p style="margin:0;font-size:17px;color:#4A5060;max-width:66em;line-height:1.6;">Today the website plays only free clips; the full course lives in the ExamLeaf app. Every screen here is <strong>PROPOSED</strong>. Each is built on an API that already exists (learn/chapters, clips, quiz, flash-cards, revise-again, plan, settings, redeem), so no new business rules are needed. The routes are suggestions. Quiz answers are checked on the server, and the result is shown only after the server replies. All student data is SAMPLE DATA.</p>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:64px;align-items:flex-start;max-width:4100px;">
+
+    <!-- CHAPTER -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <p style="margin:0;font:500 14px/1 'IBM Plex Mono',monospace;color:#5B6170;">PROPOSED · CHAPTER · /revision/physics/3/ · learn/chapters/&lt;id&gt; + clips · entitled student</p>
+      <div data-screen-label="Chapter" style="width:1280px;background:#F8F5EE;box-shadow:0 30px 60px -30px rgba(29,34,48,.35);overflow:hidden;">
+        <dc-import name="A Header" signed-in="{{ true }}" current="Revision course" hint-size="1280px,72px"></dc-import>
+        <div style="display:grid;grid-template-columns:120px minmax(0,1fr) 120px;">
+          <div style="padding:40px 0 0 40px;font:600 15px/1 'IBM Plex Mono',monospace;color:#B3342A;">Ch.3</div>
+          <div style="border-left:3px double #B3342A;padding:28px 48px 0;display:flex;flex-direction:column;gap:12px;">
+            <span style="font-size:15px;color:#5B6170;"><a href="#">Revision course</a> / Physics / Chapter 3</span>
+            <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px;">
+              <h1 style="margin:0;font:600 52px/1 'Source Serif 4',serif;letter-spacing:-0.02em;">Current Electricity</h1>
+              <span style="font-size:15px;color:#5B6170;white-space:nowrap;">10 clips · 15 min · 3 of 10 watched</span>
+            </div>
+          </div>
+          <div style="padding:44px 24px 0 18px;"><div style="font:600 30px/1 'IBM Plex Mono',monospace;color:#B3342A;">[7]</div><div style="font-size:13px;color:#5B6170;margin-top:6px;line-height:1.4;">Board marks · 16 past Qs</div></div>
+          <div></div>
+          <div style="border-left:3px double #B3342A;padding:28px 48px 64px;display:grid;grid-template-columns:340px minmax(0,1fr);gap:40px;">
+            <div style="display:flex;flex-direction:column;gap:12px;">
+              <div style="aspect-ratio:9 / 16;background:repeating-linear-gradient(135deg,#2A3142 0 10px,#232A3A 10px 20px);display:flex;flex-direction:column;justify-content:space-between;padding:16px;box-sizing:border-box;color:#FFFFFF;">
+                <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#C9CDD6;">vertical clip · HLS · poster</span>
+                <span style="align-self:center;width:72px;height:72px;border-radius:50%;background:#F8F5EE;color:#1D2230;display:flex;align-items:center;justify-content:center;font-size:24px;">▶</span>
+                <span style="display:flex;flex-direction:column;gap:8px;"><span style="height:4px;background:#4A5163;display:block;"><span style="display:block;width:35%;height:100%;background:#F8F5EE;"></span></span><span style="display:flex;justify-content:space-between;font:500 13px/1 'IBM Plex Mono',monospace;"><span>1:24 / 4:02</span><span>CC · 1×</span></span></span>
+              </div>
+              <span style="font:500 11px/1 'IBM Plex Mono',monospace;color:#B3342A;letter-spacing:0.08em;">CLIP 4 OF 10 · CONCEPT</span>
+              <span style="font:600 24px/1.2 'Source Serif 4',serif;">Kirchhoff's loop rule in two steps</span>
+              <span style="font-size:14px;color:#5B6170;line-height:1.5;">Progress is saved as you watch (Progress API), so the app and the website stay in step.</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:22px;">
+              <div style="border-top:1.5px solid #1D2230;">
+                <sc-for list="{{ clips }}" as="c" hint-placeholder-count="10">
+                  <div style="display:grid;grid-template-columns:36px minmax(0,1fr) 120px 56px;gap:12px;align-items:center;min-height:52px;border-bottom:1px solid #DCD4C4;background:{{ c.bg }};padding:0 8px;font-size:15px;">
+                    <span style="font:600 14px/1 'IBM Plex Mono',monospace;color:{{ c.markFg }};">{{ c.mark }}</span>
+                    <span style="font-weight:{{ c.weight }};">{{ c.title }}</span>
+                    <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">{{ c.kind }}</span>
+                    <span style="font:500 13px/1 'IBM Plex Mono',monospace;color:#5B6170;text-align:right;">{{ c.min }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;">
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                  <h2 style="margin:0;font:600 22px/1.2 'Source Serif 4',serif;">Notes for this clip</h2>
+                  <p style="margin:0;font:400 17px/1.7 'Source Serif 4',serif;color:#3E4454;">Going round any closed loop, the sum of the potential differences is zero: Σ<i>V</i> = 0. Take a direction, add the EMFs you cross from − to +, subtract every <i>IR</i> you cross with the current.</p>
+                  <span style="font:500 11px/1 'IBM Plex Mono',monospace;color:#5B6170;">Clip.notes · transcript or notes, Markdown</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                  <h2 style="margin:0;font:600 22px/1.2 'Source Serif 4',serif;">The Board asked this</h2>
+                  <a href="#" style="display:grid;grid-template-columns:72px minmax(0,1fr);gap:10px;padding:12px;background:#FFFFFF;border:1px solid #DCD4C4;text-decoration:none;color:#1D2230;font-size:15px;line-height:1.5;"><span style="font:600 13px/1.5 'IBM Plex Mono',monospace;color:#B3342A;">M-04 2(c)</span><span>An electrical appliance draws a current of 2.5 A… <strong style="color:#0B2A5B;">Open its solution →</strong></span></a>
+                  <span style="font:500 11px/1 'IBM Plex Mono',monospace;color:#5B6170;">Clip.questions → content.Question · links to /s/&lt;code&gt;/</span>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;">
+                <span style="display:flex;flex-direction:column;gap:4px;padding:16px;border:1.5px solid #1D2230;background:#FFFFFF;"><strong style="font:600 20px/1.2 'Source Serif 4',serif;">Flash cards</strong><span style="font-size:14px;color:#5B6170;">12 cards · 5 known</span></span>
+                <span style="display:flex;flex-direction:column;gap:4px;padding:16px;border:1.5px solid #1D2230;background:#FFFFFF;"><strong style="font:600 20px/1.2 'Source Serif 4',serif;">Quiz</strong><span style="font-size:14px;color:#5B6170;">10 one-mark questions</span></span>
+                <span style="display:flex;flex-direction:column;gap:4px;padding:16px;border:1px solid #DCD4C4;"><strong style="font:600 20px/1.2 'Source Serif 4',serif;">Must-do</strong><span style="font-size:14px;color:#5B6170;">Wheatstone bridge numericals</span></span>
+              </div>
+            </div>
+          </div>
+          <div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOCKED CHAPTER -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <p style="margin:0;font:500 14px/1 'IBM Plex Mono',monospace;color:#5B6170;">PROPOSED · CHAPTER · not entitled (free clip only) · and BOOK CODE states (learn/redeem)</p>
+      <div data-screen-label="Chapter locked" style="width:1280px;background:#F8F5EE;box-shadow:0 30px 60px -30px rgba(29,34,48,.35);overflow:hidden;">
+        <dc-import name="A Header" signed-in="{{ true }}" current="Revision course" hint-size="1280px,72px"></dc-import>
+        <div style="display:grid;grid-template-columns:120px minmax(0,1fr) 120px;">
+          <div style="padding:40px 0 0 40px;font:600 15px/1 'IBM Plex Mono',monospace;color:#B3342A;">Ch.4</div>
+          <div style="border-left:3px double #B3342A;padding:32px 48px 64px;display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:48px;">
+            <div style="display:flex;flex-direction:column;gap:14px;">
+              <span style="font-size:15px;color:#5B6170;"><a href="#">Revision course</a> / Chemistry / Chapter 4</span>
+              <h1 style="margin:0;font:600 48px/1.02 'Source Serif 4',serif;letter-spacing:-0.02em;">Chemical Kinetics</h1>
+              <div style="border-top:1.5px solid #1D2230;">
+                <sc-for list="{{ lockedClips }}" as="c" hint-placeholder-count="6">
+                  <div style="display:grid;grid-template-columns:36px minmax(0,1fr) 140px 56px;gap:12px;align-items:center;min-height:50px;border-bottom:1px solid #DCD4C4;font-size:15px;color:{{ c.fg }};">
+                    <span style="font:600 13px/1 'IBM Plex Mono',monospace;color:{{ c.markFg }};">{{ c.mark }}</span><span style="font-weight:600;">{{ c.title }}</span><span style="font:500 12px/1 'IBM Plex Mono',monospace;">{{ c.state }}</span><span style="font:500 13px/1 'IBM Plex Mono',monospace;text-align:right;">{{ c.min }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <span style="font-size:15px;color:#3E4454;">The first clip of every chapter is free, and so are the flash cards of each subject's first chapter.</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:14px;">
+              <div style="background:#FFFFFF;border:1.5px solid #1D2230;padding:24px;display:flex;flex-direction:column;gap:12px;">
+                <span style="font:600 24px/1.15 'Source Serif 4',serif;">Open all of Chemistry</span>
+                <span style="font-size:15px;line-height:1.55;color:#3E4454;">Type the 12-character code printed in your ExamLeaf Chemistry book. It opens the subject for a year.</span>
+                <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Book code<span style="height:52px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;display:flex;align-items:center;padding:0 14px;font:500 18px/1 'IBM Plex Mono',monospace;letter-spacing:0.12em;">7KQ2 M9XD …</span><span style="font-weight:400;font-size:13px;color:#5B6170;">Spaces and dashes don't matter. No 0, O, 1 or I.</span></label>
+                <span style="display:flex;justify-content:center;align-items:center;min-height:52px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Open the subject</span>
+                <span style="font-size:14px;color:#5B6170;">No code? <a href="#" style="font-weight:700;">Get the course in the shop</a></span>
+              </div>
+              <div style="padding:12px 14px;background:#EBF5ED;border:1px solid #C3E1CA;font-size:14px;line-height:1.5;"><strong>Chemistry is open until 8 Oct 2027.</strong> Every clip, card and quiz question.</div>
+              <div style="padding:12px 14px;background:#FCEBE9;border:1px solid #F1C2BC;font-size:14px;line-height:1.5;"><strong>This code has already been used.</strong> Each code opens one account. If it's yours, log in with that account.</div>
+              <div style="padding:12px 14px;background:#FCEBE9;border:1px solid #F1C2BC;font-size:14px;line-height:1.5;"><strong>We don't recognise that code.</strong> Check it against the page in your book; it has 12 characters.</div>
+            </div>
+          </div>
+          <div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FLASH CARDS -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <p style="margin:0;font:500 14px/1 'IBM Plex Mono',monospace;color:#5B6170;">PROPOSED · FLASH CARDS · /revision/physics/3/cards/ · front, then back · focus mode (no site nav)</p>
+      <div data-screen-label="Flash cards" style="width:1280px;display:grid;grid-template-columns:1fr 1fr;gap:32px;">
+        <sc-for list="{{ cardStates }}" as="s" hint-placeholder-count="2">
+          <div style="background:#F8F5EE;box-shadow:0 30px 60px -30px rgba(29,34,48,.35);overflow:hidden;display:flex;flex-direction:column;">
+            <div style="height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;border-bottom:1px solid #DCD4C4;"><span style="font-size:15px;font-weight:600;">Current Electricity · Flash cards</span><span style="display:flex;gap:16px;align-items:center;font:500 13px/1 'IBM Plex Mono',monospace;color:#5B6170;">{{ s.count }}<span style="font:700 15px/1 'Public Sans',sans-serif;color:#1D2230;">Close ×</span></span></div>
+            <div style="height:4px;background:#E6DFD1;"><span style="display:block;width:{{ s.pct }};height:100%;background:#0B2A5B;"></span></div>
+            <div style="padding:40px 48px 44px;display:flex;flex-direction:column;gap:24px;">
+              <div style="min-height:300px;background:#FFFFFF;border:1.5px solid #1D2230;box-shadow:6px 6px 0 #E6DFD1;display:flex;flex-direction:column;justify-content:space-between;padding:32px;">
+                <span style="font:600 12px/1 'IBM Plex Mono',monospace;color:#B3342A;letter-spacing:0.08em;">{{ s.side }}</span>
+                <span style="font:400 28px/1.45 'Source Serif 4',serif;text-wrap:pretty;">{{ s.text }}</span>
+                <span style="font-size:14px;color:#5B6170;">{{ s.hint }}</span>
+              </div>
+              <sc-if value="{{ s.front }}" hint-placeholder-val="{{ true }}"><span style="display:flex;justify-content:center;align-items:center;min-height:56px;background:#0B2A5B;color:#FFFFFF;font-weight:700;font-size:17px;border-radius:4px;">Show the back <span style="font:500 13px/1 'IBM Plex Mono',monospace;margin-left:10px;opacity:.75;">Space</span></span></sc-if>
+              <sc-if value="{{ s.back }}" hint-placeholder-val="{{ false }}"><div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><span style="display:flex;justify-content:center;align-items:center;min-height:56px;border:1.5px solid #1D2230;font-weight:700;font-size:17px;border-radius:4px;">Not yet <span style="font:500 13px/1 'IBM Plex Mono',monospace;margin-left:10px;color:#5B6170;">1</span></span><span style="display:flex;justify-content:center;align-items:center;min-height:56px;background:#0B2A5B;color:#FFFFFF;font-weight:700;font-size:17px;border-radius:4px;">I knew it <span style="font:500 13px/1 'IBM Plex Mono',monospace;margin-left:10px;opacity:.75;">2</span></span></div></sc-if>
+              <span style="font-size:14px;color:#5B6170;line-height:1.5;">{{ s.note }}</span>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- QUIZ -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <p style="margin:0;font:500 14px/1 'IBM Plex Mono',monospace;color:#5B6170;">PROPOSED · QUIZ · /revision/physics/3/quiz/ · answering, server's answer, fill-in-the-blank, result</p>
+      <div style="width:1920px;display:grid;grid-template-columns:repeat(3,1fr);gap:32px;">
+        <div data-screen-label="Quiz question" style="background:#F8F5EE;box-shadow:0 30px 60px -30px rgba(29,34,48,.35);overflow:hidden;">
+          <div style="height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;border-bottom:1px solid #DCD4C4;"><span style="font-size:15px;font-weight:600;">Current Electricity · Quiz</span><span style="font:500 13px/1 'IBM Plex Mono',monospace;color:#5B6170;">3 / 10 · Close ×</span></div>
+          <div style="display:grid;grid-template-columns:64px minmax(0,1fr) 56px;padding:36px 0 40px;">
+            <span style="padding:6px 0 0 24px;font:600 15px/1 'IBM Plex Mono',monospace;color:#B3342A;">Q3</span>
+            <div style="border-left:3px double #B3342A;padding:0 24px;display:flex;flex-direction:column;gap:16px;">
+              <span style="font:500 11px/1 'IBM Plex Mono',monospace;color:#5B6170;letter-spacing:0.06em;">MULTIPLE CHOICE</span>
+              <p style="margin:0;font:400 21px/1.6 'Source Serif 4',serif;">The SI unit of resistivity is</p>
+              <sc-for list="{{ options }}" as="o" hint-placeholder-count="4">
+                <div style="display:flex;gap:14px;align-items:center;min-height:56px;padding:0 16px;background:#FFFFFF;border:{{ o.border }};font:400 18px/1.4 'Source Serif 4',serif;"><span style="width:22px;height:22px;border-radius:50%;border:1.5px solid {{ o.ring }};display:inline-flex;align-items:center;justify-content:center;flex:none;"><span style="width:12px;height:12px;border-radius:50%;background:{{ o.dot }};"></span></span>{{ o.t }}</div>
+              </sc-for>
+              <span style="display:flex;justify-content:center;align-items:center;min-height:54px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;margin-top:6px;">Check</span>
+            </div>
+            <span style="padding:8px 0 0;font:500 14px/1 'IBM Plex Mono',monospace;color:#5B6170;text-align:center;">[1]</span>
+          </div>
+        </div>
+        <div data-screen-label="Quiz feedback" style="background:#F8F5EE;box-shadow:0 30px 60px -30px rgba(29,34,48,.35);overflow:hidden;">
+          <div style="height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;border-bottom:1px solid #DCD4C4;"><span style="font-size:15px;font-weight:600;">Current Electricity · Quiz</span><span style="font:500 13px/1 'IBM Plex Mono',monospace;color:#5B6170;">4 / 10 · Close ×</span></div>
+          <div style="display:grid;grid-template-columns:64px minmax(0,1fr) 56px;padding:36px 0 40px;">
+            <span style="padding:6px 0 0 24px;font:600 15px/1 'IBM Plex Mono',monospace;color:#B3342A;">Q4</span>
+            <div style="border-left:3px double #B3342A;padding:0 24px;display:flex;flex-direction:column;gap:16px;">
+              <span style="font:500 11px/1 'IBM Plex Mono',monospace;color:#5B6170;letter-spacing:0.06em;">FILL IN THE BLANK</span>
+              <p style="margin:0;font:400 21px/1.6 'Source Serif 4',serif;">In a balanced Wheatstone bridge, the current through the galvanometer is ______.</p>
+              <span style="height:54px;border:2px solid #A0272D;background:#FFFFFF;border-radius:4px;display:flex;align-items:center;padding:0 14px;font:400 18px/1 'Source Serif 4',serif;">maximum</span>
+              <div role="status" style="display:flex;flex-direction:column;gap:6px;padding:16px;background:#FFFFFF;border:1px solid #DCD4C4;">
+                <span style="font:600 13px/1 'IBM Plex Mono',monospace;color:#A0272D;">NOT QUITE · ANSWER: zero</span>
+                <span style="font:400 17px/1.6 'Source Serif 4',serif;color:#3E4454;">When P/Q = R/S the two ends of the galvanometer are at the same potential, so no current flows through it.</span>
+                <span style="font:500 11px/1 'IBM Plex Mono',monospace;color:#5B6170;">QuizItem.explanation · checked on the server</span>
+              </div>
+              <span style="display:flex;justify-content:center;align-items:center;min-height:54px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Next question</span>
+            </div>
+            <span style="padding:8px 0 0;font:600 15px/1 'IBM Plex Mono',monospace;color:#A0272D;text-align:center;">✗ 0</span>
+          </div>
+        </div>
+        <div data-screen-label="Quiz result" style="background:#F8F5EE;box-shadow:0 30px 60px -30px rgba(29,34,48,.35);overflow:hidden;">
+          <div style="height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;border-bottom:1px solid #DCD4C4;"><span style="font-size:15px;font-weight:600;">Current Electricity · Quiz</span><span style="font:500 13px/1 'IBM Plex Mono',monospace;color:#5B6170;">Done</span></div>
+          <div style="display:grid;grid-template-columns:64px minmax(0,1fr) 72px;padding:36px 0 40px;">
+            <span style="padding:6px 0 0 24px;font:600 15px/1 'IBM Plex Mono',monospace;color:#B3342A;">Σ</span>
+            <div style="border-left:3px double #B3342A;padding:0 24px;display:flex;flex-direction:column;gap:14px;">
+              <h2 style="margin:0;font:600 34px/1.05 'Source Serif 4',serif;">7 of 10 right</h2>
+              <span style="font-size:15px;color:#3E4454;line-height:1.55;">The three you missed come back in Revise again tomorrow.</span>
+              <div style="border-top:1.5px solid #1D2230;">
+                <sc-for list="{{ quizRows }}" as="q" hint-placeholder-count="10">
+                  <div style="display:grid;grid-template-columns:36px minmax(0,1fr) 36px;gap:10px;align-items:center;min-height:42px;border-bottom:1px solid #DCD4C4;font-size:14px;"><span style="font:600 13px/1 'IBM Plex Mono',monospace;color:#5B6170;">Q{{ q.n }}</span><span>{{ q.t }}</span><span style="font:600 14px/1 'IBM Plex Mono',monospace;color:{{ q.fg }};text-align:right;">{{ q.m }}</span></div>
+                </sc-for>
+              </div>
+              <div style="display:flex;gap:10px;"><span style="flex:1;display:flex;justify-content:center;align-items:center;min-height:50px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Back to the chapter</span><span style="display:flex;justify-content:center;align-items:center;min-height:50px;padding:0 16px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;">Try again</span></div>
+            </div>
+            <span style="padding:6px 0 0;display:flex;justify-content:center;"><span style="width:52px;height:52px;border-radius:50%;border:2px solid #B3342A;display:flex;align-items:center;justify-content:center;font:600 16px/1 'IBM Plex Mono',monospace;color:#B3342A;transform:rotate(-6deg);">7</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- REVISE AGAIN + SETTINGS -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <p style="margin:0;font:500 14px/1 'IBM Plex Mono',monospace;color:#5B6170;">PROPOSED · REVISE AGAIN · /account/learning/revise-again/ (learn/revise-again) · and COURSE SETTINGS (learn/settings)</p>
+      <div data-screen-label="Revise again and settings" style="width:1280px;background:#F8F5EE;box-shadow:0 30px 60px -30px rgba(29,34,48,.35);overflow:hidden;">
+        <dc-import name="A Header" signed-in="{{ true }}" current="Account" hint-size="1280px,72px"></dc-import>
+        <div style="display:grid;grid-template-columns:240px minmax(0,1fr);">
+          <dc-import name="A Account Nav" current="Learning" hint-size="240px,520px"></dc-import>
+          <div style="border-left:3px double #B3342A;padding:40px 48px 64px;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:48px;">
+            <div style="display:flex;flex-direction:column;gap:16px;">
+              <span style="font-size:15px;color:#5B6170;"><a href="#">Learning</a> / Revise again</span>
+              <h1 style="margin:0;font:600 44px/1 'Source Serif 4',serif;letter-spacing:-0.02em;">Revise again today</h1>
+              <p style="margin:0;font-size:16px;line-height:1.6;color:#3E4454;">Things you got wrong or marked "Not yet" a few days ago, brought back before you forget them.</p>
+              <div style="border-top:1.5px solid #1D2230;">
+                <sc-for list="{{ due }}" as="d" hint-placeholder-count="6">
+                  <div style="display:grid;grid-template-columns:96px minmax(0,1fr) 120px;gap:14px;align-items:center;min-height:56px;border-bottom:1px solid #DCD4C4;font-size:15px;"><span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#B3342A;letter-spacing:0.05em;">{{ d.kind }}</span><span style="display:flex;flex-direction:column;gap:2px;"><span style="font-weight:600;">{{ d.t }}</span><span style="font-size:13px;color:#5B6170;">{{ d.why }}</span></span><span style="font-size:13px;color:#5B6170;text-align:right;">{{ d.ch }}</span></div>
+                </sc-for>
+              </div>
+              <span style="display:inline-flex;align-self:flex-start;align-items:center;min-height:52px;padding:0 24px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Start · about 9 min</span>
+            </div>
+            <div style="background:#FFFFFF;border:1.5px solid #1D2230;padding:28px;display:flex;flex-direction:column;gap:16px;align-self:start;">
+              <span style="font:600 24px/1.15 'Source Serif 4',serif;">Course settings</span>
+              <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Your exam date<span style="height:48px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;display:flex;align-items:center;padding:0 14px;font-weight:400;">20 Feb 2027</span><span style="font-weight:400;font-size:13px;color:#5B6170;">From the Board's timetable once it's out.</span></label>
+              <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Minutes a day<span style="display:flex;align-items:center;gap:10px;"><span style="width:96px;height:48px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;display:flex;align-items:center;padding:0 14px;font:500 17px/1 'IBM Plex Mono',monospace;box-sizing:border-box;">30</span><span style="font-weight:400;font-size:14px;color:#5B6170;">10 to 300</span></span></label>
+              <span style="display:flex;justify-content:space-between;align-items:center;font-size:15px;padding-top:8px;border-top:1px solid #DCD4C4;">Daily reminder in the app<span style="width:44px;height:26px;border-radius:999px;background:#C9CCD2;position:relative;"><span style="position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#FFFFFF;"></span></span></span>
+              <span style="font-size:14px;color:#5B6170;line-height:1.5;">At 30 minutes a day, you finish the unwatched Physics clips by 14 Dec, which leaves 10 weeks to sit papers.</span>
+              <span style="display:flex;justify-content:center;align-items:center;min-height:50px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Save and re-plan</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHONE LMS -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <p style="margin:0;font:500 14px/1 'IBM Plex Mono',monospace;color:#5B6170;">PROPOSED · PHONE · chapter, flash card, quiz</p>
+      <div style="display:flex;gap:32px;align-items:flex-start;">
+        <div data-screen-label="Phone chapter" style="width:390px;background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+          <dc-import name="A Phone Header" hint-size="390px,60px"></dc-import>
+          <div style="aspect-ratio:9 / 14;background:repeating-linear-gradient(135deg,#2A3142 0 10px,#232A3A 10px 20px);display:flex;align-items:center;justify-content:center;"><span style="width:64px;height:64px;border-radius:50%;background:#F8F5EE;display:flex;align-items:center;justify-content:center;">▶</span></div>
+          <div style="padding:16px;display:flex;flex-direction:column;gap:8px;">
+            <span style="display:flex;justify-content:space-between;font:500 11px/1 'IBM Plex Mono',monospace;color:#B3342A;"><span>CH.3 · CLIP 4 OF 10</span><span>[7]</span></span>
+            <span style="font:600 21px/1.2 'Source Serif 4',serif;">Kirchhoff's loop rule in two steps</span>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;"><span style="display:flex;justify-content:center;align-items:center;min-height:48px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;">Cards</span><span style="display:flex;justify-content:center;align-items:center;min-height:48px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;">Quiz</span></div>
+            <sc-for list="{{ phoneClips }}" as="c" hint-placeholder-count="4"><div style="display:grid;grid-template-columns:28px minmax(0,1fr) 40px;gap:8px;align-items:center;min-height:48px;border-top:1px solid #DCD4C4;font-size:14px;"><span style="font:600 13px/1 'IBM Plex Mono',monospace;color:{{ c.markFg }};">{{ c.mark }}</span><span style="font-weight:{{ c.weight }};">{{ c.title }}</span><span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;text-align:right;">{{ c.min }}</span></div></sc-for>
+          </div>
+        </div>
+        <div data-screen-label="Phone flash card" style="width:390px;background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+          <div style="height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid #DCD4C4;font-size:14px;"><strong>Flash cards</strong><span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">6 / 12 · ×</span></div>
+          <div style="padding:24px 16px 28px;display:flex;flex-direction:column;gap:18px;">
+            <div style="min-height:360px;background:#FFFFFF;border:1.5px solid #1D2230;box-shadow:5px 5px 0 #E6DFD1;padding:22px;display:flex;flex-direction:column;justify-content:space-between;"><span style="font:600 11px/1 'IBM Plex Mono',monospace;color:#B3342A;">BACK</span><span style="font:400 23px/1.5 'Source Serif 4',serif;">Ω m (ohm metre). Resistivity ρ = RA / l.</span><span style="font-size:13px;color:#5B6170;">Front: The SI unit of resistivity?</span></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"><span style="display:flex;justify-content:center;align-items:center;min-height:56px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;">Not yet</span><span style="display:flex;justify-content:center;align-items:center;min-height:56px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">I knew it</span></div>
+          </div>
+        </div>
+        <div data-screen-label="Phone quiz" style="width:390px;background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+          <div style="height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid #DCD4C4;font-size:14px;"><strong>Quiz</strong><span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">3 / 10 · ×</span></div>
+          <div style="padding:22px 16px 28px;display:flex;flex-direction:column;gap:12px;">
+            <span style="display:flex;justify-content:space-between;font:500 11px/1 'IBM Plex Mono',monospace;color:#5B6170;"><span>Q3 · MULTIPLE CHOICE</span><span>[1]</span></span>
+            <p style="margin:0;font:400 20px/1.55 'Source Serif 4',serif;">The SI unit of resistivity is</p>
+            <sc-for list="{{ options }}" as="o" hint-placeholder-count="4"><div style="display:flex;gap:12px;align-items:center;min-height:54px;padding:0 14px;background:#FFFFFF;border:{{ o.border }};font:400 17px/1.4 'Source Serif 4',serif;"><span style="width:22px;height:22px;border-radius:50%;border:1.5px solid {{ o.ring }};display:inline-flex;align-items:center;justify-content:center;flex:none;"><span style="width:12px;height:12px;border-radius:50%;background:{{ o.dot }};"></span></span>{{ o.t }}</div></sc-for>
+            <span style="display:flex;justify-content:center;align-items:center;min-height:54px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;margin-top:4px;">Check</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const titles = [["Current and drift velocity", "concept", "1 min"], ["Ohm's law and resistivity", "concept", "2 min"], ["Colour code in 20 seconds", "trick", "1 min"], ["Kirchhoff's loop rule in two steps", "concept", "4 min"], ["Cells in series and parallel", "formula", "2 min"], ["Wheatstone bridge", "pattern", "2 min"], ["Metre bridge", "pattern", "1 min"], ["Potentiometer: compare EMFs", "concept", "1 min"], ["Sign mistakes in loops", "common mistake", "1 min"], ["2025 Board question", "previous-year q.", "1 min"]];
+    const clips = titles.map(([title, kind, min], i) => ({ title, kind: kind.toUpperCase(), min, mark: i < 3 ? "✓" : i === 3 ? "▶" : String(i + 1).padStart(2, "0"), markFg: i < 3 ? "#1B7F3B" : i === 3 ? "#B3342A" : "#5B6170", weight: i === 3 ? 700 : 500, bg: i === 3 ? "#FFFFFF" : "transparent" }));
+    return {
+      clips,
+      phoneClips: clips.slice(2, 6),
+      lockedClips: [
+        { title: "Rate of a reaction", state: "FREE", min: "2 min", mark: "▶", markFg: "#B3342A", fg: "#1D2230" },
+        { title: "Order and molecularity", state: "LOCKED", min: "2 min", mark: "—", markFg: "#7B8595", fg: "#5B6170" },
+        { title: "Integrated rate equations", state: "LOCKED", min: "3 min", mark: "—", markFg: "#7B8595", fg: "#5B6170" },
+        { title: "Half-life shortcut", state: "LOCKED", min: "1 min", mark: "—", markFg: "#7B8595", fg: "#5B6170" },
+        { title: "Arrhenius equation", state: "LOCKED", min: "2 min", mark: "—", markFg: "#7B8595", fg: "#5B6170" },
+        { title: "2024 Board question", state: "LOCKED", min: "1 min", mark: "—", markFg: "#7B8595", fg: "#5B6170" },
+      ],
+      cardStates: [
+        { count: "6 / 12", pct: "50%", side: "FRONT", text: "What is the SI unit of resistivity?", hint: "Say the answer to yourself, then turn the card.", front: true, back: false, note: "Keyboard: Space turns the card. Each answer is saved (CardReview) and decides when the card comes back." },
+        { count: "6 / 12", pct: "50%", side: "BACK", text: "Ω m (ohm metre). Resistivity ρ = RA / l, a property of the material, not the wire.", hint: "Front: What is the SI unit of resistivity?", front: false, back: true, note: "Keyboard: 1 Not yet, 2 I knew it. \"Not yet\" cards come back in Revise again." },
+      ],
+      options: [
+        { t: "(i) Ω", border: "1px solid #DCD4C4", ring: "#7B8595", dot: "transparent" },
+        { t: "(ii) Ω m", border: "2px solid #1D2230", ring: "#0B2A5B", dot: "#0B2A5B" },
+        { t: "(iii) Ω / m", border: "1px solid #DCD4C4", ring: "#7B8595", dot: "transparent" },
+        { t: "(iv) S m", border: "1px solid #DCD4C4", ring: "#7B8595", dot: "transparent" },
+      ],
+      quizRows: [
+        ["Drift velocity and current", "✓"], ["Temperature and resistance", "✓"], ["SI unit of resistivity", "✓"], ["Balanced Wheatstone bridge", "✗"], ["Cells in parallel: EMF", "✓"],
+        ["Loop rule: true or false", "✓"], ["Colour code: 4th band", "✗"], ["Metre bridge null point", "✓"], ["Potentiometer sensitivity", "✗"], ["Power in a resistor", "✓"],
+      ].map(([t, m], i) => ({ n: i + 1, t, m, fg: m === "✓" ? "#1B7F3B" : "#A0272D" })),
+      due: [
+        { kind: "QUIZ", t: "Balanced Wheatstone bridge", why: "Wrong on 6 Oct", ch: "Physics · Ch. 3" },
+        { kind: "QUIZ", t: "Colour code: 4th band", why: "Wrong on 6 Oct", ch: "Physics · Ch. 3" },
+        { kind: "CARD", t: "Electric flux through a closed surface", why: "Not yet, 4 Oct", ch: "Physics · Ch. 1" },
+        { kind: "CARD", t: "Dielectric constant", why: "Not yet, 5 Oct", ch: "Physics · Ch. 2" },
+        { kind: "CLIP", t: "Gauss's law in one picture", why: "Watched 1 Oct · due again", ch: "Physics · Ch. 1" },
+        { kind: "QUIZ", t: "Potentiometer sensitivity", why: "Wrong on 6 Oct", ch: "Physics · Ch. 3" },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

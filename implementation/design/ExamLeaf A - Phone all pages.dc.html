@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Hind+Siliguri:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#E4E1DA;-webkit-font-smoothing:antialiased}
+a{color:#0B2A5B;text-underline-offset:3px}
+a:hover{color:#B3342A}
+</style>
+</helmet>
+<section id="7b" style="padding:64px;display:flex;flex-direction:column;gap:56px;font-family:'Public Sans','Hind Siliguri',sans-serif;color:#1D2230;">
+  <div style="display:flex;align-items:flex-start;gap:24px;">
+    <span style="flex:none;font:600 15px/1 'IBM Plex Mono',monospace;background:#1D2230;color:#F8F5EE;padding:10px 12px;border-radius:3px;">7b</span>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <h1 style="margin:0;font:600 40px/1.1 'Source Serif 4',serif;">Phone, every other page</h1>
+      <p style="margin:0;font-size:17px;color:#4A5060;max-width:62em;line-height:1.6;">390 wide. These go with Home, Solutions, Checkout and My account in 7a. The margin is a 12 px red double rule, numbers sit inline, marks stay right-aligned on their own row, and every target is at least 44 px. All student data is SAMPLE DATA.</p>
+    </div>
+  </div>
+
+  <!-- ===== PUBLIC ===== -->
+  <div style="display:flex;flex-direction:column;gap:16px;">
+    <h2 style="margin:0;font:600 28px/1 'Source Serif 4',serif;">Public</h2>
+    <div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start;max-width:3200px;">
+
+      <div data-screen-label="Phone menu" style="width:390px;background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+        <header style="display:flex;justify-content:space-between;align-items:center;height:60px;padding:0 16px;border-bottom:1.5px solid #1D2230;"><span style="font:700 21px/1 'Source Serif 4',serif;">Exam<span style="color:#1A6E30;">Leaf</span></span><span style="display:inline-flex;align-items:center;min-height:44px;padding:0 14px;background:#1D2230;color:#FFFFFF;border-radius:4px;font-weight:700;font-size:15px;">Close</span></header>
+        <nav style="padding:8px 16px 28px;display:flex;flex-direction:column;font-size:18px;font-weight:600;">
+          <sc-for list="{{ menu }}" as="m" hint-placeholder-count="6"><span style="display:flex;justify-content:space-between;align-items:center;min-height:56px;border-bottom:1px solid #DCD4C4;">{{ m }}<span style="color:#5B6170;">›</span></span></sc-for>
+          <span style="display:flex;justify-content:center;align-items:center;min-height:54px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;margin-top:20px;">Register</span>
+          <span style="display:flex;justify-content:center;align-items:center;min-height:50px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;margin-top:10px;">Log in</span>
+          <span style="font-size:14px;font-weight:400;color:#5B6170;margin-top:20px;">Menu drawer · focus stays inside, Escape and Close return focus to Menu.</span>
+        </nav>
+      </div>
+
+      <div data-screen-label="Phone book" style="width:390px;background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+        <dc-import name="A Phone Header" hint-size="390px,60px"></dc-import>
+        <div style="padding:16px 16px 24px;display:flex;flex-direction:column;gap:14px;">
+          <span style="font-size:14px;color:#5B6170;"><a href="#">Home</a> / Physics</span>
+          <div style="display:grid;grid-template-columns:120px minmax(0,1fr);gap:16px;align-items:end;"><img src="examleaf-web/static/img/physics-480.webp" alt="Cover of Physics Sample Papers 2027" style="width:120px;border-radius:3px;box-shadow:0 14px 24px -14px rgba(0,0,0,.6);"><div style="display:flex;flex-direction:column;gap:8px;"><span style="font:500 11px/1.4 'IBM Plex Mono',monospace;color:#5B6170;">SAMPLE PAPERS · ASSEB 12</span><h1 style="margin:0;font:600 28px/1.05 'Source Serif 4',serif;">Physics Sample Papers 2027</h1></div></div>
+          <div style="display:flex;gap:18px;font:600 20px/1 'IBM Plex Mono',monospace;color:#B3342A;"><span>[30]<span style="display:block;font:400 12px/1.4 'Public Sans',sans-serif;color:#5B6170;margin-top:4px;">papers</span></span><span>[70]<span style="display:block;font:400 12px/1.4 'Public Sans',sans-serif;color:#5B6170;margin-top:4px;">marks each</span></span><span>[3h]<span style="display:block;font:400 12px/1.4 'Public Sans',sans-serif;color:#5B6170;margin-top:4px;">each</span></span></div>
+          <p style="margin:0;font-size:16px;line-height:1.6;color:#3E4454;">The solutions to every paper are free for registered students. Try <a href="#" style="font-weight:700;">Paper E-01</a> first: open to everyone.</p>
+          <span style="display:flex;justify-content:center;align-items:center;min-height:52px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Buy this book · ₹299</span>
+        </div>
+        <sc-for list="{{ tiers }}" as="t" hint-placeholder-count="3">
+          <div style="padding:18px 16px;background:#F1ECE1;border-top:1px solid #DCD4C4;display:flex;flex-direction:column;gap:12px;">
+            <div style="display:flex;align-items:baseline;gap:10px;"><span style="width:10px;height:10px;background:{{ t.color }};"></span><strong style="font:600 22px/1 'Source Serif 4',serif;">{{ t.name }}</strong><span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">{{ t.range }}</span></div>
+            <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;">
+              <sc-for list="{{ t.papers }}" as="p" hint-placeholder-count="10"><span style="min-height:48px;display:flex;align-items:center;justify-content:center;background:#FFFFFF;border:1px solid {{ p.line }};font:600 14px/1 'IBM Plex Mono',monospace;">{{ p.code }}</span></sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div data-screen-label="Phone solutions logged out" style="width:390px;background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+        <dc-import name="A Phone Header" hint-size="390px,60px"></dc-import>
+        <div style="padding:20px 16px;display:flex;flex-direction:column;gap:12px;border-bottom:1px solid #DCD4C4;">
+          <span style="font:500 12px/1.4 'IBM Plex Mono',monospace;color:#5B6170;">PHY-M04 · MEDIUM · ASSEB CLASS 12</span>
+          <h1 style="margin:0;font:600 34px/1 'Source Serif 4',serif;">Physics: solutions</h1>
+          <span style="font-size:14px;color:#5B6170;">70 marks · pass 21 · 3 hours</span>
+        </div>
+        <div style="padding:20px 16px 28px;display:flex;flex-direction:column;gap:14px;">
+          <span style="font:600 11px/1 'IBM Plex Mono',monospace;color:#B3342A;letter-spacing:0.08em;">THE QR CODE BROUGHT YOU HERE</span>
+          <h2 style="margin:0;font:600 28px/1.1 'Source Serif 4',serif;">Register once to open every solution, free</h2>
+          <p style="margin:0;font-size:16px;line-height:1.6;color:#3E4454;">You only need to register once. After that, every QR code in your book opens its paper's solutions straight away.</p>
+          <span style="display:flex;justify-content:center;align-items:center;min-height:52px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Register free</span>
+          <span style="display:flex;justify-content:center;align-items:center;min-height:48px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;">Log in</span>
+          <span style="font-size:14px;color:#5B6170;">You come straight back to Paper M-04.</span>
+          <span style="font-size:15px;padding-top:12px;border-top:1px solid #DCD4C4;">Not ready? <a href="#" style="font-weight:700;">Paper E-01</a> is open to everyone.</span>
+        </div>
+      </div>
+
+      <div data-screen-label="Phone parent link" style="width:390px;background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+        <dc-import name="A Phone Header" hint-size="390px,60px"></dc-import>
+        <div style="padding:22px 16px 28px;display:flex;flex-direction:column;gap:14px;">
+          <span style="font:500 11px/1 'IBM Plex Mono',monospace;color:#5B6170;letter-spacing:0.06em;">FOR A PARENT OR GUARDIAN</span>
+          <h1 style="margin:0;font:600 32px/1.05 'Source Serif 4',serif;">Ananya has registered on ExamLeaf</h1>
+          <p style="margin:0;font-size:16px;line-height:1.65;color:#3E4454;">Ananya is under 18, so we need your consent before she can save her marks or order books. She can already read the solutions.</p>
+          <div style="border-top:1.5px solid #1D2230;font-size:15px;"><div style="padding:10px 0;border-bottom:1px solid #DCD4C4;"><span style="color:#5B6170;">Student</span><br>Ananya Das · Class 12, ASSEB</div><div style="padding:10px 0;border-bottom:1px solid #DCD4C4;"><span style="color:#5B6170;">What we keep</span><br>Name, class, email and saved marks</div></div>
+          <label style="display:flex;gap:12px;align-items:flex-start;font-size:15px;line-height:1.5;"><span style="flex:none;width:24px;height:24px;border:1.5px solid #7B8595;border-radius:3px;background:#FFFFFF;"></span>I am Ananya's parent or guardian and I have read the <a href="#">privacy notice</a>.</label>
+          <span style="display:flex;justify-content:center;align-items:center;min-height:52px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">I give my consent</span>
+          <span style="display:flex;justify-content:center;align-items:center;min-height:48px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;">I don't consent</span>
+        </div>
+      </div>
+
+      <div data-screen-label="Phone legal" style="width:390px;background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+        <dc-import name="A Phone Header" hint-size="390px,60px"></dc-import>
+        <div style="padding:22px 16px 28px;display:flex;flex-direction:column;gap:14px;">
+          <span style="font:500 11px/1 'IBM Plex Mono',monospace;color:#5B6170;">ABOUT · PRIVACY · TERMS · REFUNDS · SHIPPING</span>
+          <h1 style="margin:0;font:600 38px/1 'Source Serif 4',serif;">Privacy</h1>
+          <div style="display:flex;justify-content:space-between;align-items:center;min-height:48px;padding:0 14px;border:1px solid #DCD4C4;background:#FFFFFF;font-weight:600;font-size:15px;">On this page · 5 sections<span style="font-family:'IBM Plex Mono',monospace;color:#B3342A;">+</span></div>
+          <sc-for list="{{ legal }}" as="h" hint-placeholder-count="3">
+            <div style="display:flex;flex-direction:column;gap:8px;padding-top:10px;"><h2 style="margin:0;font:600 22px/1.25 'Source Serif 4',serif;"><span style="font:600 13px/1 'IBM Plex Mono',monospace;color:#B3342A;margin-right:8px;">§</span>{{ h }}</h2><span style="height:11px;background:repeating-linear-gradient(135deg,#E6DFD1 0 6px,#EFE9DC 6px 12px);"></span><span style="height:11px;width:86%;background:repeating-linear-gradient(135deg,#E6DFD1 0 6px,#EFE9DC 6px 12px);"></span><span style="height:11px;width:64%;background:repeating-linear-gradient(135deg,#E6DFD1 0 6px,#EFE9DC 6px 12px);"></span></div>
+          </sc-for>
+          <span style="font:500 11px/1 'IBM Plex Mono',monospace;color:#5B6170;">CMS copy · Source Serif 18/1.7</span>
+        </div>
+      </div>
+
+      <div data-screen-label="Phone contact" style="width:390px;background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+        <dc-import name="A Phone Header" hint-size="390px,60px"></dc-import>
+        <div style="padding:22px 16px 28px;display:flex;flex-direction:column;gap:14px;">
+          <h1 style="margin:0;font:600 38px/1 'Source Serif 4',serif;">Contact</h1>
+          <p style="margin:0;font-size:15px;line-height:1.6;color:#3E4454;">For an order, have its number ready (EL-2026-…).</p>
+          <sc-for list="{{ contactFields }}" as="f" hint-placeholder-count="4"><label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">{{ f.l }}<span style="height:{{ f.h }};border:1.5px solid #7B8595;border-radius:4px;background:#FFFFFF;"></span></label></sc-for>
+          <span style="height:56px;border:1px dashed #C9C0AE;display:flex;align-items:center;justify-content:center;font:500 11px/1 'IBM Plex Mono',monospace;color:#5B6170;">Turnstile</span>
+          <span style="display:flex;justify-content:center;align-items:center;min-height:52px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Send</span>
+        </div>
+      </div>
+
+      <div data-screen-label="Phone 404 and offline" style="width:390px;display:flex;flex-direction:column;gap:24px;">
+        <div style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+          <dc-import name="A Phone Header" hint-size="390px,60px"></dc-import>
+          <div style="padding:24px 16px 28px;display:flex;flex-direction:column;gap:12px;">
+            <span style="font:600 14px/1 'IBM Plex Mono',monospace;color:#B3342A;">404 · [0]</span>
+            <h1 style="margin:0;font:600 32px/1.05 'Source Serif 4',serif;">This page isn't in the book</h1>
+            <p style="margin:0;font-size:15px;line-height:1.6;color:#3E4454;">Check the code under the QR on the paper (for example PHY-E01), or open a book.</p>
+            <sc-for list="{{ subjects }}" as="s" hint-placeholder-count="4"><span style="display:flex;justify-content:space-between;align-items:center;min-height:48px;border-top:1px solid #DCD4C4;font:600 19px/1 'Source Serif 4',serif;">{{ s.name }}<span style="color:#0B2A5B;">→</span></span></sc-for>
+          </div>
+        </div>
+        <div style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;padding:28px 16px;display:flex;flex-direction:column;gap:12px;">
+          <span style="font:700 21px/1 'Source Serif 4',serif;">Exam<span style="color:#1A6E30;">Leaf</span></span>
+          <h1 style="margin:0;font:600 32px/1.05 'Source Serif 4',serif;">You're offline</h1>
+          <p style="margin:0;font-size:15px;line-height:1.6;color:#3E4454;">This page needs the internet. Your book works without it: sit the paper now, and open its solutions when you're back online.</p>
+          <span style="display:flex;justify-content:center;align-items:center;min-height:48px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;">Try again</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ===== SHOP ===== -->
+  <div style="display:flex;flex-direction:column;gap:16px;">
+    <h2 style="margin:0;font:600 28px/1 'Source Serif 4',serif;">Shop and orders</h2>
+    <div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start;max-width:3200px;">
+
+      <div data-screen-label="Phone shop" style="width:390px;background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+        <dc-import name="A Phone Header" hint-size="390px,60px"></dc-import>
+        <div style="padding:20px 16px 0;display:flex;flex-direction:column;gap:12px;"><h1 style="margin:0;font:600 38px/1 'Source Serif 4',serif;">The shop</h1><a href="#" style="font-weight:700;font-size:15px;">Ordering for a school? Get a quote →</a></div>
+        <div style="display:flex;gap:8px;padding:14px 16px;overflow:hidden;white-space:nowrap;font-size:14px;font-weight:600;border-bottom:1px solid #DCD4C4;"><span style="padding:10px 12px;background:#1D2230;color:#FFFFFF;">All</span><span style="padding:10px 12px;border:1px solid #7B8595;">Physics</span><span style="padding:10px 12px;border:1px solid #7B8595;">Chemistry</span><span style="padding:10px 12px;border:1px solid #7B8595;">Mathematics</span></div>
+        <div style="padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:20px 14px;">
+          <sc-for list="{{ shopItems }}" as="p" hint-placeholder-count="4">
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <span aria-hidden="true" style="display:block;aspect-ratio:480 / 678;background:{{ p.base }} center / cover no-repeat;background-image:{{ p.coverBg }};border-radius:3px;box-shadow:0 10px 18px -12px rgba(0,0,0,.6);"></span>
+              <span style="font:500 10px/1 'IBM Plex Mono',monospace;color:#5B6170;letter-spacing:0.05em;">{{ p.label }}</span>
+              <span style="font:600 17px/1.2 'Source Serif 4',serif;">{{ p.title }}</span>
+              <span style="display:flex;gap:6px;align-items:baseline;"><strong style="font:600 18px/1 'Source Serif 4',serif;">{{ p.price }}</strong><s style="font-size:13px;color:#5B6170;">{{ p.mrp }}</s></span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div data-screen-label="Phone product" style="width:390px;background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+        <dc-import name="A Phone Header" hint-size="390px,60px"></dc-import>
+        <div style="padding:16px 16px 0;display:flex;flex-direction:column;gap:14px;">
+          <span style="font-size:14px;color:#5B6170;"><a href="#">Shop</a> / Physics / Sample Papers</span>
+          <img src="examleaf-web/static/img/physics-480.webp" alt="Cover of ExamLeaf Physics Sample Papers 2027" style="width:200px;align-self:center;border-radius:3px;box-shadow:0 18px 30px -16px rgba(0,0,0,.6);">
+          <span style="font:500 11px/1.4 'IBM Plex Mono',monospace;color:#5B6170;">SAMPLE PAPERS · PHYSICS · ASSEB 12</span>
+          <h1 style="margin:0;font:600 30px/1.05 'Source Serif 4',serif;">ExamLeaf Physics Sample Papers 2027</h1>
+          <p style="margin:0;font-size:15px;line-height:1.6;color:#3E4454;">30 full papers in the board's pattern: 10 Easy, 10 Medium and 10 Hard, each with its time and marks.</p>
+          <div style="border:2px solid #1D2230;background:#FFFFFF;padding:14px;display:flex;gap:12px;align-items:center;"><span style="width:22px;height:22px;border:1.5px solid #0B2A5B;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex:none;"><span style="width:12px;height:12px;border-radius:50%;background:#0B2A5B;"></span></span><span style="flex:1;font-weight:600;">Sample Papers only</span><strong style="font:600 20px/1 'Source Serif 4',serif;">₹299</strong></div>
+          <div style="border:1px solid #DCD4C4;background:#FFFFFF;padding:14px;display:flex;gap:12px;align-items:center;"><span style="width:22px;height:22px;border:1.5px solid #7B8595;border-radius:50%;flex:none;"></span><span style="flex:1;display:flex;flex-direction:column;gap:4px;"><span style="font-weight:600;">Sample Papers + Solutions</span><span style="font-size:13px;color:#1B7F3B;font-weight:700;">Save ₹49 · best value</span></span><span style="display:flex;flex-direction:column;align-items:flex-end;"><strong style="font:600 20px/1 'Source Serif 4',serif;">₹499</strong><s style="font-size:13px;color:#5B6170;">₹548</s></span></div>
+          <span style="font-size:14px;color:#5B6170;line-height:1.5;">In stock · delivery fee by state · cancel until packed</span>
+        </div>
+        <div style="position:sticky;bottom:0;margin-top:18px;padding:12px 16px;background:#FFFFFF;border-top:1.5px solid #1D2230;display:flex;gap:10px;align-items:center;"><span style="display:flex;border:1.5px solid #7B8595;border-radius:4px;"><span style="width:44px;height:48px;display:flex;align-items:center;justify-content:center;">−</span><span style="width:36px;height:48px;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;">1</span><span style="width:44px;height:48px;display:flex;align-items:center;justify-content:center;">+</span></span><span style="flex:1;display:flex;justify-content:center;align-items:center;min-height:50px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Add · ₹299</span></div>
+      </div>
+
+      <div data-screen-label="Phone cart" style="width:390px;background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+        <dc-import name="A Phone Header" cart="{{ 3 }}" hint-size="390px,60px"></dc-import>
+        <div style="padding:20px 16px;display:flex;flex-direction:column;gap:6px;">
+          <h1 style="margin:0 0 8px;font:600 36px/1 'Source Serif 4',serif;">Your cart</h1>
+          <sc-for list="{{ cartLines }}" as="l" hint-placeholder-count="2">
+            <div style="display:grid;grid-template-columns:56px minmax(0,1fr);gap:14px;padding:14px 0;border-top:1px solid #DCD4C4;">
+              <span aria-hidden="true" style="display:block;width:56px;aspect-ratio:480 / 678;background:#E6DFD1 center / cover no-repeat;background-image:{{ l.coverBg }};border-radius:2px;"></span>
+              <span style="display:flex;flex-direction:column;gap:8px;"><span style="font:600 18px/1.2 'Source Serif 4',serif;">{{ l.title }}</span><span style="display:flex;justify-content:space-between;align-items:center;"><span style="display:flex;border:1.5px solid #7B8595;border-radius:4px;"><span style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;">−</span><span style="width:32px;height:44px;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;">{{ l.qty }}</span><span style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;">+</span></span><strong style="font:600 18px/1 'Source Serif 4',serif;">{{ l.total }}</strong></span><a href="#" style="font-size:14px;font-weight:600;">Remove</a></span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="padding:16px;background:#F1ECE1;border-top:1.5px solid #1D2230;display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;justify-content:space-between;font-size:15px;"><span>3 books</span><span style="font-family:'IBM Plex Mono',monospace;">₹1,097.00</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:14px;color:#5B6170;"><span>Delivery</span><span>next step, from your state</span></div>
+          <span style="display:flex;justify-content:center;align-items:center;min-height:54px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Go to checkout</span>
+        </div>
+      </div>
+
+      <div data-screen-label="Phone pay" style="width:390px;background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+        <header style="display:flex;justify-content:space-between;align-items:center;height:60px;padding:0 16px;border-bottom:1px solid #DCD4C4;"><span style="font:700 21px/1 'Source Serif 4',serif;">Exam<span style="color:#1A6E30;">Leaf</span></span><span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">3/4 · PAYMENT</span></header>
+        <div style="padding:22px 16px 28px;display:flex;flex-direction:column;gap:14px;">
+          <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">ORDER EL-2026-000003</span>
+          <h1 style="margin:0;font:600 36px/1 'Source Serif 4',serif;">Pay ₹339.00</h1>
+          <div style="border:2px solid #1D2230;background:#FFFFFF;padding:14px;display:flex;gap:12px;align-items:center;"><span style="width:22px;height:22px;border:1.5px solid #0B2A5B;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex:none;"><span style="width:12px;height:12px;border-radius:50%;background:#0B2A5B;"></span></span><span style="display:flex;flex-direction:column;"><strong>Pay online</strong><span style="font-size:13px;color:#5B6170;">UPI, card or net banking · Razorpay</span></span></div>
+          <div style="border:1px solid #DCD4C4;background:#FFFFFF;padding:14px;display:flex;gap:12px;align-items:center;"><span style="width:22px;height:22px;border:1.5px solid #7B8595;border-radius:50%;flex:none;"></span><span style="display:flex;flex-direction:column;"><strong>Cash on delivery</strong><span style="font-size:13px;color:#5B6170;">Pay the courier</span></span></div>
+          <span style="display:flex;justify-content:center;align-items:center;min-height:54px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Pay ₹339.00</span>
+          <span style="font-size:13px;color:#5B6170;line-height:1.5;">Razorpay opens over this page. Closing it doesn't charge you.</span>
+        </div>
+      </div>
+
+      <div data-screen-label="Phone done" style="width:390px;background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+        <header style="display:flex;justify-content:space-between;align-items:center;height:60px;padding:0 16px;border-bottom:1px solid #DCD4C4;"><span style="font:700 21px/1 'Source Serif 4',serif;">Exam<span style="color:#1A6E30;">Leaf</span></span><span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">4/4 · DONE</span></header>
+        <div style="padding:22px 16px 28px;display:flex;flex-direction:column;gap:14px;position:relative;">
+          <div style="position:absolute;right:16px;top:20px;width:78px;height:78px;border-radius:50%;border:2px solid #B3342A;display:flex;align-items:center;justify-content:center;transform:rotate(-10deg);font:600 11px/1.3 'IBM Plex Mono',monospace;color:#B3342A;text-align:center;">PAID<br>₹339</div>
+          <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">ORDER EL-2026-000003</span>
+          <h1 style="margin:0;font:600 32px/1.05 'Source Serif 4',serif;max-width:8em;">Thank you. Your order is placed.</h1>
+          <p style="margin:0;font-size:15px;line-height:1.6;color:#3E4454;">Razorpay confirmed the payment. A confirmation is on its way to ananya@example.com.</p>
+          <span style="display:flex;justify-content:center;align-items:center;min-height:52px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Track this order</span>
+          <span style="display:flex;justify-content:center;align-items:center;min-height:48px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;">Open Paper E-01</span>
+        </div>
+      </div>
+
+      <div data-screen-label="Phone order" style="width:390px;background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+        <dc-import name="A Phone Header" hint-size="390px,60px"></dc-import>
+        <div style="padding:22px 16px;display:flex;flex-direction:column;gap:12px;">
+          <span style="display:flex;gap:10px;align-items:center;"><span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">8 OCT 2026</span><span style="font:600 11px/1 'IBM Plex Mono',monospace;padding:5px 7px;border:1.5px solid #1B7F3B;color:#1B7F3B;">PAID</span></span>
+          <h1 style="margin:0;font:600 28px/1 'IBM Plex Mono',monospace;">EL-2026-000003</h1>
+          <div style="display:flex;flex-direction:column;margin-top:6px;">
+            <sc-for list="{{ timeline }}" as="t" hint-placeholder-count="5">
+              <div style="display:grid;grid-template-columns:24px minmax(0,1fr);gap:10px;"><span style="display:flex;flex-direction:column;align-items:center;"><span style="width:12px;height:12px;border-radius:50%;margin-top:5px;background:{{ t.dot }};border:2px solid {{ t.ring }};box-sizing:border-box;"></span><span style="flex:1;width:1.5px;background:#DCD4C4;"></span></span><span style="display:flex;flex-direction:column;padding-bottom:14px;"><strong style="font-size:16px;color:{{ t.fg }};">{{ t.label }}</strong><span style="font-size:13px;color:#5B6170;">{{ t.when }}</span></span></div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="padding:16px;background:#F1ECE1;border-top:1.5px solid #1D2230;display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;justify-content:space-between;font-size:15px;"><span>Physics Sample Papers × 1</span><span style="font-family:'IBM Plex Mono',monospace;">₹299</span></div>
+          <div style="display:flex;justify-content:space-between;font-size:15px;"><span>Delivery</span><span style="font-family:'IBM Plex Mono',monospace;">₹40</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid #1D2230;padding-top:10px;"><strong>Total</strong><span style="font:600 24px/1 'Source Serif 4',serif;">₹339.00</span></div>
+          <span style="display:flex;justify-content:center;align-items:center;min-height:48px;background:#B42318;color:#FFFFFF;font-weight:700;border-radius:4px;">Cancel order</span>
+          <span style="font-size:13px;color:#5B6170;">Until it is packed. Refunded in 5–7 working days.</span>
+        </div>
+      </div>
+
+      <div data-screen-label="Phone lookup and school" style="width:390px;display:flex;flex-direction:column;gap:24px;">
+        <div style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+          <dc-import name="A Phone Header" hint-size="390px,60px"></dc-import>
+          <div style="padding:22px 16px 26px;display:flex;flex-direction:column;gap:12px;">
+            <h1 style="margin:0;font:600 32px/1 'Source Serif 4',serif;">Find your order</h1>
+            <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Order number<span style="height:50px;border:1.5px solid #7B8595;border-radius:4px;background:#FFFFFF;display:flex;align-items:center;padding:0 14px;font:400 15px/1 'IBM Plex Mono',monospace;color:#7B8595;">EL-2026-</span></label>
+            <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Email or mobile used<span style="height:50px;border:1.5px solid #7B8595;border-radius:4px;background:#FFFFFF;"></span></label>
+            <span style="display:flex;justify-content:center;align-items:center;min-height:52px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Send me the link</span>
+          </div>
+        </div>
+        <div style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+          <dc-import name="A Phone Header" hint-size="390px,60px"></dc-import>
+          <div style="padding:22px 16px 26px;display:flex;flex-direction:column;gap:12px;">
+            <h1 style="margin:0;font:600 32px/1 'Source Serif 4',serif;">Books for your school</h1>
+            <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">School name<span style="height:50px;border:1.5px solid #7B8595;border-radius:4px;background:#FFFFFF;"></span></label>
+            <sc-for list="{{ quoteRows }}" as="r" hint-placeholder-count="4"><div style="display:grid;grid-template-columns:minmax(0,1fr) 80px 80px;gap:8px;align-items:center;font-size:15px;"><span>{{ r }}</span><span style="height:44px;border:1.5px solid #7B8595;border-radius:4px;background:#FFFFFF;"></span><span style="height:44px;border:1.5px solid #7B8595;border-radius:4px;background:#FFFFFF;"></span></div></sc-for>
+            <span style="font-size:12px;color:#5B6170;text-align:right;">Sample Papers · Solutions</span>
+            <span style="display:flex;justify-content:center;align-items:center;min-height:52px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Ask for a quote</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ===== AUTH ===== -->
+  <div style="display:flex;flex-direction:column;gap:16px;">
+    <h2 style="margin:0;font:600 28px/1 'Source Serif 4',serif;">Sign-in</h2>
+    <div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start;max-width:3200px;">
+
+      <div data-screen-label="Phone login" style="width:390px;background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+        <dc-import name="A Phone Header" hint-size="390px,60px"></dc-import>
+        <div style="padding:22px 16px 28px;display:flex;flex-direction:column;gap:12px;">
+          <h1 style="margin:0;font:600 38px/1 'Source Serif 4',serif;">Log in</h1>
+          <span style="display:flex;gap:8px;align-items:center;padding:10px 12px;background:#F1ECE1;font-size:14px;"><span style="font:600 11px/1 'IBM Plex Mono',monospace;color:#B3342A;">NEXT</span>Physics Paper M-04</span>
+          <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Mobile number<span style="height:52px;border:1.5px solid #7B8595;border-radius:4px;background:#FFFFFF;display:flex;align-items:center;"><span style="padding:0 12px;border-right:1px solid #DCD4C4;height:100%;display:flex;align-items:center;font-family:'IBM Plex Mono',monospace;">+91</span></span></label>
+          <span style="display:flex;justify-content:center;align-items:center;min-height:52px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Text me a code</span>
+          <span style="text-align:center;font-size:13px;color:#5B6170;">or</span>
+          <span style="display:flex;justify-content:center;align-items:center;min-height:48px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;">Email me a code</span>
+          <span style="display:flex;justify-content:center;align-items:center;min-height:48px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;">Continue with Google</span>
+          <span style="display:flex;justify-content:center;align-items:center;min-height:48px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;">Use a passkey</span>
+          <span style="display:flex;justify-content:space-between;font-size:15px;font-weight:600;"><a href="#">Use my password</a><a href="#">Register</a></span>
+        </div>
+      </div>
+
+      <div data-screen-label="Phone code" style="width:390px;background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+        <dc-import name="A Phone Header" hint-size="390px,60px"></dc-import>
+        <div style="padding:22px 16px 28px;display:flex;flex-direction:column;gap:14px;">
+          <h1 style="margin:0;font:600 34px/1 'Source Serif 4',serif;">Enter the code</h1>
+          <p style="margin:0;font-size:15px;line-height:1.6;color:#3E4454;">We texted a 6-digit code to +91 98•• •••• 10.</p>
+          <span style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;"><sc-for list="{{ otp }}" as="d" hint-placeholder-count="6"><span style="height:56px;border:1.5px solid {{ d.b }};background:#FFFFFF;border-radius:4px;display:flex;align-items:center;justify-content:center;font:500 22px/1 'IBM Plex Mono',monospace;">{{ d.v }}</span></sc-for></span>
+          <span style="display:flex;justify-content:center;align-items:center;min-height:52px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Log in</span>
+          <span style="font-size:14px;color:#5B6170;">Send a new code in 0:45 · <a href="#">Change number</a></span>
+          <span style="font-size:13px;color:#5B6170;padding-top:10px;border-top:1px solid #DCD4C4;">Same card for: verify email, two-step check.</span>
+        </div>
+      </div>
+
+      <div data-screen-label="Phone signup" style="width:390px;background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+        <dc-import name="A Phone Header" hint-size="390px,60px"></dc-import>
+        <div style="padding:22px 16px 28px;display:flex;flex-direction:column;gap:12px;">
+          <h1 style="margin:0;font:600 38px/1 'Source Serif 4',serif;">Register</h1>
+          <sc-for list="{{ signupFields }}" as="f" hint-placeholder-count="4"><label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">{{ f }}<span style="height:50px;border:1.5px solid #7B8595;border-radius:4px;background:#FFFFFF;"></span></label></sc-for>
+          <span style="font-size:15px;font-weight:600;">Are you 18 or over?</span>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><span style="min-height:48px;display:flex;align-items:center;justify-content:center;border:1px solid #DCD4C4;background:#FFFFFF;">Yes</span><span style="min-height:48px;display:flex;align-items:center;justify-content:center;border:2px solid #1D2230;background:#FFFFFF;font-weight:700;">No, under 18</span></div>
+          <div style="background:#FFFFFF;border:1px solid #DCD4C4;padding:14px;display:flex;flex-direction:column;gap:10px;"><strong style="font:600 18px/1.2 'Source Serif 4',serif;">Your parent or guardian</strong><span style="font-size:14px;line-height:1.5;color:#3E4454;">We send them a link to confirm.</span><label style="display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:600;">Their email or mobile<span style="height:48px;border:1.5px solid #7B8595;border-radius:4px;"></span></label></div>
+          <label style="display:flex;gap:12px;align-items:flex-start;font-size:15px;line-height:1.5;"><span style="flex:none;width:24px;height:24px;border:1.5px solid #7B8595;border-radius:3px;background:#FFFFFF;"></span>I have read the <a href="#">privacy notice</a>.</label>
+          <span style="display:flex;justify-content:center;align-items:center;min-height:54px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Register</span>
+        </div>
+      </div>
+
+      <div data-screen-label="Phone reset and logout" style="width:390px;display:flex;flex-direction:column;gap:24px;">
+        <div style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+          <dc-import name="A Phone Header" hint-size="390px,60px"></dc-import>
+          <div style="padding:22px 16px 26px;display:flex;flex-direction:column;gap:12px;">
+            <h1 style="margin:0;font:600 30px/1.05 'Source Serif 4',serif;">Forgot your password?</h1>
+            <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Email address<span style="height:50px;border:1.5px solid #7B8595;border-radius:4px;background:#FFFFFF;"></span></label>
+            <span style="display:flex;justify-content:center;align-items:center;min-height:52px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Send the link</span>
+            <a href="#" style="font-weight:600;font-size:15px;">Log in with a code instead</a>
+          </div>
+        </div>
+        <div style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+          <dc-import name="A Phone Header" hint-size="390px,60px"></dc-import>
+          <div style="padding:22px 16px 26px;display:flex;flex-direction:column;gap:12px;">
+            <h1 style="margin:0;font:600 30px/1.05 'Source Serif 4',serif;">Log out of ExamLeaf?</h1>
+            <p style="margin:0;font-size:15px;line-height:1.6;color:#3E4454;">On a shared phone, always log out.</p>
+            <span style="display:flex;justify-content:center;align-items:center;min-height:52px;background:#1D2230;color:#FFFFFF;font-weight:700;border-radius:4px;">Log out</span>
+            <span style="display:flex;justify-content:center;align-items:center;min-height:48px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;">Stay logged in</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ===== ACCOUNT ===== -->
+  <div style="display:flex;flex-direction:column;gap:16px;">
+    <h2 style="margin:0;font:600 28px/1 'Source Serif 4',serif;">Student area · SAMPLE DATA</h2>
+    <div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start;max-width:3200px;">
+
+      <div data-screen-label="Phone record" style="width:390px;background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+        <dc-import name="A Phone Header" hint-size="390px,60px"></dc-import>
+        <div style="display:flex;gap:8px;padding:10px 16px;overflow:hidden;border-bottom:1px solid #DCD4C4;font-size:14px;font-weight:600;white-space:nowrap;"><span style="padding:10px 12px;border:1px solid #7B8595;">My account</span><span style="padding:10px 12px;border:1.5px solid #1D2230;background:#FFFFFF;">My record</span><span style="padding:10px 12px;border:1px solid #7B8595;">Learning</span><span style="padding:10px 12px;border:1px solid #7B8595;">My orders</span></div>
+        <div style="padding:20px 16px 26px;display:flex;flex-direction:column;gap:12px;">
+          <h1 style="margin:0;font:600 34px/1 'Source Serif 4',serif;">My record</h1>
+          <div style="display:flex;gap:6px;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;"><span style="padding:10px 12px;background:#1D2230;color:#FFFFFF;">Physics · 6</span><span style="padding:10px 12px;border:1px solid #7B8595;">Chemistry · 2</span><span style="padding:10px 12px;border:1px solid #7B8595;">Maths · 0</span></div>
+          <div style="display:flex;flex-direction:column;border-top:1.5px solid #1D2230;">
+            <sc-for list="{{ recordRows }}" as="r" hint-placeholder-count="8">
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) 64px;align-items:center;min-height:48px;border-bottom:1px solid {{ r.line }};background:{{ r.bg }};padding:0 4px;"><span style="display:flex;gap:10px;align-items:center;font-size:15px;"><span style="width:8px;height:8px;background:{{ r.color }};"></span><span style="font:{{ r.font }};">{{ r.code }}</span><span style="color:#5B6170;font-size:13px;">{{ r.date }}</span></span><span style="font:600 15px/1 'IBM Plex Mono',monospace;color:#B3342A;text-align:right;">{{ r.marks }}</span></div>
+            </sc-for>
+          </div>
+          <span style="font-size:13px;color:#5B6170;">Tap a paper to edit or delete its marks.</span>
+        </div>
+      </div>
+
+      <div data-screen-label="Phone learning" style="width:390px;background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+        <dc-import name="A Phone Header" hint-size="390px,60px"></dc-import>
+        <div style="padding:20px 16px 26px;display:flex;flex-direction:column;gap:14px;">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;"><h1 style="margin:0;font:600 34px/1 'Source Serif 4',serif;">Learning</h1><span style="font-size:13px;color:#5B6170;">4 days in a row</span></div>
+          <div style="aspect-ratio:16 / 9;background:repeating-linear-gradient(135deg,#EFE9DC 0 8px,#E6DFD1 8px 16px);display:flex;align-items:center;justify-content:center;"><span style="width:56px;height:56px;border-radius:50%;background:#1D2230;color:#FFFFFF;display:flex;align-items:center;justify-content:center;">▶</span></div>
+          <span style="font:500 11px/1 'IBM Plex Mono',monospace;color:#B3342A;letter-spacing:0.08em;">CONTINUE</span>
+          <span style="font:600 21px/1.2 'Source Serif 4',serif;">Kirchhoff's loop rule in two steps</span>
+          <span style="font-size:13px;color:#5B6170;">Physics · Ch. 3 · Concept · 4 min</span>
+          <div style="display:flex;gap:10px;align-items:baseline;padding:12px 0;border-top:1px solid #DCD4C4;border-bottom:1px solid #DCD4C4;"><span style="font:600 30px/1 'Source Serif 4',serif;">6</span><span style="font-size:14px;color:#3E4454;">to revise again today, in the app</span></div>
+          <strong style="font:600 20px/1.2 'Source Serif 4',serif;">Next days · exam 20 Feb 2027</strong>
+          <sc-for list="{{ days }}" as="d" hint-placeholder-count="3"><div style="display:flex;flex-direction:column;gap:2px;padding:8px 0;border-bottom:1px solid #DCD4C4;font-size:14px;"><span style="font:500 13px/1 'IBM Plex Mono',monospace;">{{ d.date }} · {{ d.min }}</span><span style="color:#3E4454;line-height:1.5;">{{ d.clips }}</span></div></sc-for>
+          <strong style="font:600 20px/1.2 'Source Serif 4',serif;margin-top:6px;">Physics · 12 of 48 clips</strong>
+          <sc-for list="{{ chapters }}" as="c" hint-placeholder-count="3"><div style="display:flex;flex-direction:column;gap:6px;padding:8px 0;border-bottom:1px solid #DCD4C4;"><span style="display:flex;justify-content:space-between;font-size:14px;font-weight:600;">Ch. {{ c.n }} {{ c.t }}<span style="font:600 13px/1 'IBM Plex Mono',monospace;color:#B3342A;">{{ c.quiz }}</span></span><span style="display:flex;align-items:center;gap:10px;"><span style="flex:1;height:8px;background:#E6DFD1;display:block;"><span style="display:block;height:100%;width:{{ c.pct }};background:#0B2A5B;"></span></span><span style="font-size:13px;color:#5B6170;">{{ c.done }}</span></span></div></sc-for>
+        </div>
+      </div>
+
+      <div data-screen-label="Phone orders and details" style="width:390px;display:flex;flex-direction:column;gap:24px;">
+        <div style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+          <dc-import name="A Phone Header" hint-size="390px,60px"></dc-import>
+          <div style="padding:20px 16px 24px;display:flex;flex-direction:column;gap:6px;">
+            <h1 style="margin:0 0 8px;font:600 34px/1 'Source Serif 4',serif;">My orders</h1>
+            <sc-for list="{{ orders }}" as="o" hint-placeholder-count="3"><div style="display:flex;flex-direction:column;gap:6px;padding:12px 0;border-top:1px solid #DCD4C4;"><span style="display:flex;justify-content:space-between;align-items:center;"><strong style="font:600 14px/1 'IBM Plex Mono',monospace;">{{ o.n }}</strong><span style="font:600 10px/1 'IBM Plex Mono',monospace;padding:5px 6px;border:1.5px solid {{ o.line }};color:{{ o.fg }};background:{{ o.bg }};">{{ o.status }}</span></span><span style="font-size:14px;color:#5B6170;">{{ o.date }} · {{ o.total }} · {{ o.items }}</span><a href="#" style="font-size:14px;font-weight:700;">{{ o.action }}</a></div></sc-for>
+          </div>
+        </div>
+        <div style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+          <dc-import name="A Phone Header" hint-size="390px,60px"></dc-import>
+          <div style="padding:20px 16px 24px;display:flex;flex-direction:column;gap:12px;">
+            <h1 style="margin:0;font:600 34px/1 'Source Serif 4',serif;">Details</h1>
+            <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Full name<span style="height:50px;border:1.5px solid #7B8595;border-radius:4px;background:#FFFFFF;display:flex;align-items:center;padding:0 14px;font-weight:400;">Ananya Das</span></label>
+            <span style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #DCD4C4;font-size:15px;">ananya@example.com<span style="font:600 10px/1 'IBM Plex Mono',monospace;color:#1B7F3B;border:1.5px solid #1B7F3B;padding:4px 6px;">VERIFIED</span></span>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"><label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Board<span style="height:50px;border:1.5px solid #7B8595;border-radius:4px;background:#FFFFFF;display:flex;align-items:center;padding:0 12px;font-weight:400;">ASSEB</span></label><label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Class<span style="height:50px;border:1.5px solid #7B8595;border-radius:4px;background:#FFFFFF;display:flex;align-items:center;padding:0 12px;font-weight:400;">Class 12</span></label></div>
+            <span style="display:flex;justify-content:center;align-items:center;min-height:52px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Save changes</span>
+          </div>
+        </div>
+      </div>
+
+      <div data-screen-label="Phone addresses and security" style="width:390px;display:flex;flex-direction:column;gap:24px;">
+        <div style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+          <dc-import name="A Phone Header" hint-size="390px,60px"></dc-import>
+          <div style="padding:20px 16px 24px;display:flex;flex-direction:column;gap:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;"><h1 style="margin:0;font:600 34px/1 'Source Serif 4',serif;">Addresses</h1><a href="#" style="font-weight:700;font-size:15px;">+ Add</a></div>
+            <div style="background:#FFFFFF;border:1.5px solid #1D2230;padding:14px;display:flex;flex-direction:column;gap:6px;font-size:14px;line-height:1.55;"><span style="display:flex;justify-content:space-between;"><strong style="font-size:15px;">Home</strong><span style="font:600 10px/1 'IBM Plex Mono',monospace;color:#5B6170;border:1px solid #7B8595;padding:4px 6px;">DEFAULT</span></span>House 12, Rajgarh Road, Chandmari, Guwahati, Assam 781003<span style="display:flex;gap:16px;font-weight:600;"><a href="#">Edit</a><a href="#" style="color:#B42318;">Delete</a></span></div>
+          </div>
+        </div>
+        <div style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+          <dc-import name="A Phone Header" hint-size="390px,60px"></dc-import>
+          <div style="padding:20px 16px 24px;display:flex;flex-direction:column;">
+            <h1 style="margin:0 0 12px;font:600 30px/1.05 'Source Serif 4',serif;">Log-in and security</h1>
+            <sc-for list="{{ security }}" as="s" hint-placeholder-count="6"><div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;min-height:56px;border-top:1px solid #DCD4C4;"><span style="display:flex;flex-direction:column;gap:2px;"><strong style="font-size:15px;">{{ s.title }}</strong><span style="font-size:13px;color:#5B6170;">{{ s.value }}</span></span><a href="#" style="font-weight:700;font-size:14px;">{{ s.action }}</a></div></sc-for>
+          </div>
+        </div>
+      </div>
+
+      <div data-screen-label="Phone privacy and teacher" style="width:390px;display:flex;flex-direction:column;gap:24px;">
+        <div style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+          <dc-import name="A Phone Header" hint-size="390px,60px"></dc-import>
+          <div style="padding:20px 16px 24px;display:flex;flex-direction:column;gap:12px;">
+            <h1 style="margin:0;font:600 30px/1.05 'Source Serif 4',serif;">Consent and your data</h1>
+            <div style="padding:12px;background:#EBF5ED;border:1px solid #C3E1CA;font-size:14px;line-height:1.5;"><strong>Your parent confirmed on 9 Oct 2026.</strong> You can save marks and order books.</div>
+            <span style="display:flex;justify-content:space-between;align-items:center;min-height:52px;border-top:1px solid #DCD4C4;font-size:15px;">Order updates by SMS<span style="width:44px;height:26px;border-radius:999px;background:#0B2A5B;position:relative;"><span style="position:absolute;right:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#FFFFFF;"></span></span></span>
+            <span style="display:flex;justify-content:center;align-items:center;min-height:48px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;">Download your data</span>
+            <span style="display:flex;justify-content:center;align-items:center;min-height:48px;background:#B42318;color:#FFFFFF;font-weight:700;border-radius:4px;">Delete my account…</span>
+          </div>
+        </div>
+        <div style="background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+          <dc-import name="A Phone Header" hint-size="390px,60px"></dc-import>
+          <div style="padding:20px 16px 24px;display:flex;flex-direction:column;gap:12px;">
+            <h1 style="margin:0;font:600 30px/1.05 'Source Serif 4',serif;">Teacher access</h1>
+            <p style="margin:0;font-size:14px;line-height:1.55;color:#3E4454;">Tell us where you teach. We check with the school, then mark your account as a teacher's.</p>
+            <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">School name<span style="height:50px;border:1.5px solid #7B8595;border-radius:4px;background:#FFFFFF;"></span></label>
+            <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">District<span style="height:50px;border:1.5px solid #7B8595;border-radius:4px;background:#FFFFFF;"></span></label>
+            <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Subject<span style="height:50px;border:1.5px solid #7B8595;border-radius:4px;background:#FFFFFF;"></span></label>
+            <span style="display:flex;justify-content:center;align-items:center;min-height:50px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Ask for teacher access</span>
+          </div>
+        </div>
+      </div>
+
+      <div data-screen-label="Phone revision course" style="width:390px;background:#F8F5EE;box-shadow:0 24px 48px -28px rgba(29,34,48,.4);overflow:hidden;border-left:3px double #B3342A;box-sizing:border-box;">
+        <dc-import name="A Phone Header" hint-size="390px,60px"></dc-import>
+        <div style="padding:20px 16px 26px;display:flex;flex-direction:column;gap:12px;">
+          <span style="font:500 11px/1 'IBM Plex Mono',monospace;color:#5B6170;">IN THE EXAMLEAF APP · ASSEB 12</span>
+          <h1 style="margin:0;font:600 36px/1 'Source Serif 4',serif;">Revision course</h1>
+          <p style="margin:0;font-size:15px;line-height:1.6;color:#3E4454;">Each chapter revised in 10 to 15 minutes: short clips, then flash cards and one-mark quiz questions.</p>
+          <div style="background:#FFFFFF;border:1px solid #DCD4C4;padding:14px;display:flex;flex-direction:column;gap:8px;"><strong style="font:600 18px/1.2 'Source Serif 4',serif;">Your course</strong><span style="font-size:14px;"><strong>Physics</strong> · open until 7 Oct 2027</span><span style="display:flex;gap:8px;"><span style="flex:1;height:46px;border:1.5px solid #7B8595;border-radius:4px;"></span><span style="display:inline-flex;align-items:center;min-height:46px;padding:0 14px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Open</span></span><span style="font-size:12px;color:#5B6170;">Code from your book</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;min-height:52px;border-top:1.5px solid #1D2230;font:600 18px/1.2 'Source Serif 4',serif;">Physics · 14 chapters<span style="font-family:'IBM Plex Mono',monospace;color:#B3342A;">−</span></div>
+          <sc-for list="{{ revRows }}" as="r" hint-placeholder-count="4"><div style="display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:8px;padding:10px 0;border-bottom:1px solid #DCD4C4;"><span style="display:flex;flex-direction:column;gap:3px;"><span style="font-size:15px;font-weight:600;">{{ r.n }}. {{ r.t }}</span><span style="font-size:13px;color:{{ r.stateFg }};">{{ r.state }}</span></span><span style="font:600 14px/1.4 'IBM Plex Mono',monospace;color:#B3342A;text-align:right;">[{{ r.m }}]</span></div></sc-for>
+          <sc-for list="{{ revOther }}" as="o" hint-placeholder-count="3"><div style="display:flex;justify-content:space-between;align-items:center;min-height:52px;border-bottom:1px solid #DCD4C4;font:600 18px/1.2 'Source Serif 4',serif;">{{ o }}<span style="font-family:'IBM Plex Mono',monospace;color:#B3342A;">+</span></div></sc-for>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const mk = (L, color, name) => ({ color, name, range: `${L}-01 to ${L}-10`, papers: Array.from({ length: 10 }, (_, i) => ({ code: `${L}-${String(i + 1).padStart(2, "0")}`, line: L === "E" && i === 0 ? "#B3342A" : "#DCD4C4" })) });
+    const img = (k) => `url("examleaf-web/static/img/${k}-480.webp")`;
+    const row = (code, color, date, marks) => ({ code, color, date, marks, line: "#DCD4C4", bg: "transparent", font: "500 14px/1 'IBM Plex Mono',monospace" });
+    const avg = (code, marks) => ({ code, color: "transparent", date: "", marks, line: "#1D2230", bg: "#F1ECE1", font: "600 14px/1 'Public Sans',sans-serif" });
+    return {
+      menu: ["Books", "Shop", "Revision course", "Find your order", "About", "Contact"],
+      tiers: [mk("E", "#1B7F3B", "Easy"), mk("M", "#1A5FB4", "Medium"), mk("H", "#A0272D", "Hard")],
+      legal: ["Who we are", "What we collect", "Students under 18"],
+      contactFields: [{ l: "Your name", h: "50px" }, { l: "Email address", h: "50px" }, { l: "Order number (optional)", h: "50px" }, { l: "Message", h: "110px" }],
+      subjects: [{ name: "Physics" }, { name: "Chemistry" }, { name: "Mathematics" }, { name: "Biology" }],
+      shopItems: [
+        { label: "SAMPLE PAPERS", title: "Physics Sample Papers 2027", price: "₹299", mrp: "", base: "#0F3560", coverBg: img("physics") },
+        { label: "SAMPLE PAPERS", title: "Chemistry Sample Papers 2027", price: "₹299", mrp: "", base: "#134043", coverBg: img("chemistry") },
+        { label: "SAMPLE PAPERS", title: "Mathematics Sample Papers 2027", price: "₹299", mrp: "", base: "#2E1D65", coverBg: img("mathematics") },
+        { label: "BUNDLE", title: "Biology: both books", price: "₹499", mrp: "₹548", base: "#124931", coverBg: "none" },
+      ],
+      cartLines: [
+        { title: "Physics Sample Papers 2027", qty: "2", total: "₹598", coverBg: img("physics") },
+        { title: "Chemistry: both books", qty: "1", total: "₹499", coverBg: img("chemistry") },
+      ],
+      timeline: [
+        { label: "Order placed", when: "8 Oct, 10:42", dot: "#0B2A5B", ring: "#0B2A5B", fg: "#1D2230" },
+        { label: "Paid", when: "8 Oct, 10:44 · UPI", dot: "#0B2A5B", ring: "#0B2A5B", fg: "#1D2230" },
+        { label: "Packing", when: "Usually within 2 working days", dot: "#FFFFFF", ring: "#B3342A", fg: "#1D2230" },
+        { label: "Shipped", when: "Tracking by email and SMS", dot: "#FFFFFF", ring: "#DCD4C4", fg: "#5B6170" },
+        { label: "Delivered", when: "", dot: "#FFFFFF", ring: "#DCD4C4", fg: "#5B6170" },
+      ],
+      quoteRows: ["Physics", "Chemistry", "Mathematics", "Biology"],
+      otp: ["4", "8", "", "", "", ""].map((v, i) => ({ v, b: i === 2 ? "#0B2A5B" : "#7B8595" })),
+      signupFields: ["Your full name", "Email address", "Board", "Class"],
+      recordRows: [row("E-01", "#1B7F3B", "28 Sep", "55/70"), row("E-02", "#1B7F3B", "30 Sep", "59/70"), row("E-03", "#1B7F3B", "3 Oct", "57/70"), row("E-04", "#1B7F3B", "6 Oct", "61/70"), avg("Easy average", "83%"), row("M-01", "#1A5FB4", "5 Oct", "52/70"), row("M-02", "#1A5FB4", "7 Oct", "47/70"), avg("Medium average", "70%")],
+      days: [
+        { date: "Thu 9 Oct", min: "30 min", clips: "Ohm's law and resistivity · Cells in series and parallel · Wheatstone bridge" },
+        { date: "Fri 10 Oct", min: "30 min", clips: "Electric field lines · Gauss's law in one picture" },
+        { date: "Sat 11 Oct", min: "30 min", clips: "Capacitors in series · Energy stored in a capacitor" },
+      ],
+      chapters: [
+        { n: 1, t: "Electric Charges and Fields", pct: "75%", done: "6 of 8", quiz: "82%" },
+        { n: 2, t: "Electrostatic Potential", pct: "38%", done: "3 of 8", quiz: "64%" },
+        { n: 3, t: "Current Electricity", pct: "30%", done: "3 of 10", quiz: "—" },
+      ],
+      orders: [
+        { n: "EL-2026-000003", date: "8 Oct", items: "Physics Sample Papers", status: "AWAITING PAYMENT", line: "#C9A03A", fg: "#8A6508", bg: "transparent", total: "₹339.00", action: "Pay now" },
+        { n: "EL-2026-000002", date: "2 Oct", items: "Chemistry: both books", status: "DELIVERED", line: "#1B7F3B", fg: "#FFFFFF", bg: "#1B7F3B", total: "₹539.00", action: "Invoice" },
+        { n: "EL-2026-000001", date: "26 Sep", items: "Biology Sample Papers", status: "REFUNDED", line: "#7B8595", fg: "#5B6170", bg: "#F1ECE1", total: "₹339.00", action: "View" },
+      ],
+      security: [
+        { title: "Email address", value: "verified", action: "Change" },
+        { title: "Mobile number", value: "for codes by SMS", action: "Change" },
+        { title: "Password", value: "Set 28 Sep 2026", action: "Change" },
+        { title: "Google", value: "Not connected", action: "Connect" },
+        { title: "Passkeys", value: "1 · Android phone", action: "Add" },
+        { title: "Two-step log-in", value: "Off", action: "Turn on" },
+      ],
+      revRows: [
+        { n: 1, t: "Electric Charges and Fields", m: "6", state: "Open · 75% watched", stateFg: "#1B7F3B" },
+        { n: 2, t: "Electrostatic Potential", m: "5", state: "Open · 38% watched", stateFg: "#1B7F3B" },
+        { n: 3, t: "Current Electricity", m: "7", state: "Open · 30% watched", stateFg: "#1B7F3B" },
+        { n: 5, t: "Magnetism and Matter", m: "3", state: "Coming soon", stateFg: "#5B6170" },
+      ],
+      revOther: ["Chemistry · 16 chapters", "Mathematics · 13 chapters", "Biology · 13 chapters"],
+    };
+  }
+}
+</script>
+</body>
+</html>

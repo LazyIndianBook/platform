@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F8F5EE;-webkit-font-smoothing:antialiased}
+a{color:#0B2A5B;text-underline-offset:3px}
+a:hover{color:#B3342A}
+</style>
+</helmet>
+<main style="font-family:'Public Sans',sans-serif;color:#1D2230;max-width:1200px;margin:0 auto;padding:56px 24px 96px;display:grid;grid-template-columns:minmax(48px,96px) minmax(0,1fr);">
+  <span style="padding-top:12px;font:600 15px/1 'IBM Plex Mono',monospace;color:#B3342A;">§</span>
+  <div style="border-left:3px double #B3342A;padding-left:clamp(16px,4vw,48px);display:flex;flex-direction:column;gap:40px;">
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <span style="font:500 13px/1 'IBM Plex Mono',monospace;color:#5B6170;letter-spacing:0.06em;">EXAMLEAF REDESIGN · DIRECTION A, ANSWER SCRIPT</span>
+      <h1 style="margin:0;font:600 clamp(40px,6vw,64px)/1 'Source Serif 4',serif;letter-spacing:-0.025em;">Every page, end to end</h1>
+      <p style="margin:0;font-size:18px;line-height:1.65;color:#3E4454;max-width:44em;text-wrap:pretty;">The design is built on the student's answer booklet: a red double margin, numbers to its left and marks on the right. Questions and solutions are set in a reading serif. Public pages are more expressive, and the signed-in area is quiet and dense.</p>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;">
+      <sc-for list="{{ files }}" as="f" hint-placeholder-count="7">
+        <a href="{{ f.href }}" style="background:#FFFFFF;border:1px solid #DCD4C4;padding:20px;display:flex;flex-direction:column;gap:8px;text-decoration:none;color:#1D2230;" style-hover="border-color:#1D2230;">
+          <span style="font:600 13px/1 'IBM Plex Mono',monospace;color:#B3342A;">{{ f.id }}</span>
+          <span style="font:600 24px/1.15 'Source Serif 4',serif;">{{ f.name }}</span>
+          <span style="font-size:15px;line-height:1.5;color:#5B6170;">{{ f.what }}</span>
+        </a>
+      </sc-for>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <h2 style="margin:0;font:600 34px/1.1 'Source Serif 4',serif;">Route coverage</h2>
+      <p style="margin:0;font-size:15px;color:#5B6170;">Every route in examleaf-frontend/src/app, mapped to its screen. "Shares" means the route uses the layout of the screen named, with different data.</p>
+      <div style="overflow-x:auto;">
+        <div style="min-width:720px;border-top:1.5px solid #1D2230;">
+          <div style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) 110px minmax(0,1.2fr);gap:16px;padding:10px 0;border-bottom:1px solid #1D2230;font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;letter-spacing:0.05em;"><span>ROUTE</span><span>SCREEN</span><span>STATUS</span><span>STATES SHOWN</span></div>
+          <sc-for list="{{ routes }}" as="r" hint-placeholder-count="20">
+            <div style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) 110px minmax(0,1.2fr);gap:16px;padding:10px 0;border-bottom:1px solid #DCD4C4;font-size:14px;align-items:baseline;">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;word-break:break-all;">{{ r.route }}</span>
+              <span>{{ r.screen }}</span>
+              <span style="font:600 11px/1 'IBM Plex Mono',monospace;color:{{ r.fg }};">{{ r.status }}</span>
+              <span style="color:#5B6170;">{{ r.states }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <h2 style="margin:0;font:600 34px/1.1 'Source Serif 4',serif;">What's still open</h2>
+      <ul style="margin:0;padding-left:20px;font-size:16px;line-height:1.7;color:#3E4454;">
+        <li>Text managed in the CMS (About, the legal pages) is shown as striped blocks.</li>
+        <li>Two questions on the solutions screens come from two different real papers (1(a) from E-01, 2(c) from M-04), combined to show the layout.</li>
+        <li>All student data (marks, clips, orders, devices) is sample data. Chapter titles are the usual Class 12 Physics chapters; the marks and question counts beside them are made up.</li>
+        <li>The Solutions price (₹249) is worked out from the bundle's MRP. The shop API is the source of truth.</li>
+        <li>Every page has a phone layout (7a and 7b). Tablet widths (600–900) aren't drawn separately: they use the phone layout with a wider column, and the desktop layout starts at 900 px.</li>
+        <li>The free-delivery threshold on the delivery step is illustrative. It comes from the API by state.</li>
+        <li>Teacher access is now drawn as the real flow: a request form (school, district, subject), then checking, then verified. Teachers can't see students yet, because the API has no link between them (G14).</li>
+      </ul>
+      <h2 style="margin:24px 0 0;font:600 34px/1.1 'Source Serif 4',serif;">Pending: not designed, waiting on a decision or the backend</h2>
+      <ul style="margin:0;padding-left:20px;font-size:16px;line-height:1.7;color:#3E4454;">
+        <li><strong>AI answer checker.</strong> practice.AnswerSheetUpload exists, but it has no grading and is marked "planned". It isn't drawn, so it doesn't show as a working feature. It needs the product decision in docs/examleaf-ai-checker-design.md.</li>
+        <li><strong>The revision course on the web (9a)</strong> is a proposal. The API is ready, but the course is only in the app. Building the web pages is a product call: same course, two places.</li>
+        <li><strong>The ExamLeaf mobile app</strong> isn't in this repository, so its screens aren't covered.</li>
+        <li><strong>A teacher's view of their students (G14)</strong> needs a link model and consent rules in the backend first.</li>
+        <li><strong>Telling a student their parent has confirmed (G17)</strong> and <strong>claiming guest orders after registering (G16)</strong> are backend and product decisions. The screens around them are drawn.</li>
+        <li><strong>Staff pages</strong> (the Django admin and the clip preview, G3) are outside the student and customer scope.</li>
+        <li><strong>Other boards and classes</strong> need no new screens (board, class and subject are data), only a paper-code scheme.</li>
+      </ul>
+    </div>
+  </div>
+</main>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const D = { status: "DESIGNED", fg: "#1B7F3B" };
+    const S = (s) => ({ status: "SHARES", fg: "#1A5FB4", screen: s });
+    const r = (route, screen, states, x = D) => ({ route, screen, states, ...x, screen: x.screen || screen });
+    return {
+      files: [
+        { id: "2a", name: "Components", what: "Tokens, type, margin grid, buttons, fields, badges, alerts, navigation, data, overlays, motion", href: "ExamLeaf A - Components.dc.html" },
+        { id: "3a", name: "Public pages", what: "Home, Book, Solutions (signed in and logged out), Parent's link, About, Legal, Contact, 404, Unavailable, Offline", href: "ExamLeaf A - Public.dc.html" },
+        { id: "4a", name: "Shop and orders", what: "Catalogue, Product, School orders, Cart, Checkout, Pay, Done, Order, Find your order, Email", href: "ExamLeaf A - Shop.dc.html" },
+        { id: "5a", name: "Sign-in", what: "Log in, Code, Register, Verify email, Reset, New password, Reauthenticate, 2FA, Log out", href: "ExamLeaf A - Auth.dc.html" },
+        { id: "6a", name: "Student area", what: "My account, Record, Edit, Learning, Orders, Details, Addresses, Security, 2FA setup, Privacy, Teacher, Revision course", href: "ExamLeaf A - Account.dc.html" },
+        { id: "7a", name: "Phone", what: "Home, Solutions, Checkout, My account at 390 wide", href: "ExamLeaf A - Phone.dc.html" },
+        { id: "7b", name: "Phone, every other page", what: "Menu drawer, Book, Solutions logged out, Parent's link, Legal, Contact, 404, Offline, Shop, Product, Cart, Pay, Done, Order, Lookup, School orders, Log in, Code, Register, Reset, Log out, Record, Learning, Orders, Details, Addresses, Security, Privacy, Teacher, Revision", href: "ExamLeaf A - Phone all pages.dc.html" },
+        { id: "8a", name: "Secondary states", what: "Delivery step, payment failed, payment pending, shop closed, out of stock, password login, Google sign-up, recovery codes, consent pending, session expired, marks saved, cancel dialog, empty states", href: "ExamLeaf A - States.dc.html" },
+        { id: "9a", name: "Revision course (LMS), proposed", what: "Chapter player with clip list, notes and the Board's questions; locked chapter and book-code states; flash cards; quiz (question, server feedback, result); Revise again; course settings; phone versions", href: "ExamLeaf A - Learning (LMS).dc.html" },
+        { id: "10a", name: "Gaps and edge pages", what: "Teacher access (fixed), full marks form, record filters, coupon, shipping rates, refund and credit note, Your papers on orders, auth dead ends, expired links, 429/403/CSRF, data summary and deletion, PIN autofill, four emails, GST invoice", href: "ExamLeaf A - Gaps and edge pages.dc.html" },
+        { id: "1a–c", name: "The three directions", what: "Answer Script, Exam Hall and Night Stage, as first explored", href: "Direction A - Answer Script.dc.html" },
+      ],
+      routes: [
+        r("/", "Home", "logged out; phone"),
+        r("/books/<slug>/", "Book", "logged out, sample paper marked"),
+        r("/s/<code>/", "Solutions", "signed in, logged out, phone"),
+        r("/c/<token>/", "Parent's link", "consent form"),
+        r("/about/", "About", "CMS copy"),
+        r("/privacy/ /terms/ /refunds/ /shipping/", "Legal", "one template"),
+        r("/contact/", "Contact", "form + Turnstile"),
+        r("/offline/", "Offline", "service worker page"),
+        r("not-found / error", "404, Unavailable", "404, 503"),
+        r("/shop/", "Catalogue", "tabs, kind filter, out of stock, no cover"),
+        r("/shop/category/<slug>/ · /shop/collection/<slug>/", "", "heading changes", S("Catalogue")),
+        r("/shop/<slug>/", "Product", "choice, copies, stock"),
+        r("/shop/school-orders/", "School orders", "quote form"),
+        r("/cart/", "Cart", "filled, empty"),
+        r("/checkout/", "Checkout", "address step, field error, phone"),
+        r("/checkout/<n>/pay/ · t/<token>/pay/", "Pay", "busy"),
+        r("/checkout/<n>/done/ · t/<token>/done/", "Done", "confirmed; pending noted"),
+        r("/orders/t/<token>/ · /account/orders/<n>/", "Order", "timeline, cancel, invoice"),
+        r("/orders/lookup/", "Find your order", "form"),
+        r("/orders/ · /orders/<n>/", "", "redirects", S("My orders / Order")),
+        r("/account/login/", "Log in", "SMS first, all methods"),
+        r("/account/signup/", "Register", "under 18 path"),
+        r("/account/verify-email/", "Verify email", "code"),
+        r("/account/password/reset/ · key/<key>/", "Reset, New password", "form"),
+        r("/account/reauthenticate/", "Reauthenticate", "form"),
+        r("/account/2fa/authenticate/", "Two-step check", "code"),
+        r("/account/logout/", "Log out", "confirm"),
+        r("/account/", "My account", "desktop, phone"),
+        r("/account/record/ · <id>/edit/", "Record, Edit", "tier averages"),
+        r("/account/learning/", "Learning", "continue, plan, chapters"),
+        r("/account/orders/", "My orders", "statuses"),
+        r("/account/details/ · /addresses/", "Details and addresses", "verified email"),
+        r("/account/security/ · /2fa/", "Security, 2FA setup", "methods, devices"),
+        r("/account/privacy/", "Consent and your data", "consent, export, delete"),
+        r("/account/teacher/", "Teacher access", "share by code"),
+        r("/revision/", "Revision course", "signed in, entitlements"),
+        r("Order confirmation email", "Email", "600 wide"),
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

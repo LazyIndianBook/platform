@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Hind+Siliguri:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#E4E1DA;-webkit-font-smoothing:antialiased}
+a{color:#0B2A5B;text-underline-offset:3px}
+a:hover{color:#B3342A}
+</style>
+</helmet>
+<section id="4a" style="padding:64px;display:flex;flex-direction:column;gap:40px;font-family:'Public Sans','Hind Siliguri',sans-serif;color:#1D2230;">
+  <div style="display:flex;align-items:flex-start;gap:24px;">
+    <span style="flex:none;font:600 15px/1 'IBM Plex Mono',monospace;background:#1D2230;color:#F8F5EE;padding:10px 12px;border-radius:3px;">4a</span>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <h1 style="margin:0;font:600 40px/1.1 'Source Serif 4',serif;">Shop and orders</h1>
+      <p style="margin:0;font-size:17px;color:#4A5060;max-width:62em;line-height:1.6;">Catalogue (also category and collection) · Product · School orders · Cart (filled and empty) · Checkout · Pay · Done · Order status · Find your order · Confirmation email. Prices, stock and delivery fees come from the shop API. The Solutions price shown (₹548 − ₹299 = ₹249) is worked out from the bundle's MRP.</p>
+    </div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:64px;align-items:flex-start;max-width:4100px;">
+
+    <!-- CATALOGUE -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <p style="margin:0;font:500 14px/1 'IBM Plex Mono',monospace;color:#5B6170;">CATALOGUE · /shop/ · also /shop/category/&lt;slug&gt;/ and /shop/collection/&lt;slug&gt;/ with their own heading</p>
+      <div data-screen-label="Shop" style="width:1280px;background:#F8F5EE;box-shadow:0 30px 60px -30px rgba(29,34,48,.35);overflow:hidden;">
+        <dc-import name="A Header" current="Shop" hint-size="1280px,72px"></dc-import>
+        <div style="display:grid;grid-template-columns:120px minmax(0,1fr) 120px;">
+          <div style="padding:64px 0 0 40px;font:600 15px/1 'IBM Plex Mono',monospace;color:#B3342A;">₹</div>
+          <div style="border-left:3px double #B3342A;padding:52px 48px 32px;display:flex;flex-direction:column;gap:22px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px;">
+              <div style="display:flex;flex-direction:column;gap:10px;"><h1 style="margin:0;font:600 60px/1 'Source Serif 4',serif;letter-spacing:-0.02em;">The shop</h1><p style="margin:0;font-size:18px;color:#3E4454;">Printed books for ASSEB Class 12, delivered anywhere in India.</p></div>
+              <a href="#" style="font-weight:700;">Ordering for a school? Get a quote →</a>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #DCD4C4;">
+              <div style="display:flex;font-weight:600;"><span style="padding:12px 16px 12px 0;box-shadow:inset 0 -2px 0 #B3342A;">All</span><span style="padding:12px 16px;color:#5B6170;">Physics</span><span style="padding:12px 16px;color:#5B6170;">Chemistry</span><span style="padding:12px 16px;color:#5B6170;">Mathematics</span><span style="padding:12px 16px;color:#5B6170;">Biology</span></div>
+              <div style="display:flex;gap:8px;font-size:14px;font-weight:600;"><span style="padding:8px 12px;border:1.5px solid #1D2230;background:#FFFFFF;">Every book</span><span style="padding:8px 12px;border:1px solid #DCD4C4;">Sample Papers</span><span style="padding:8px 12px;border:1px solid #DCD4C4;">Solutions</span><span style="padding:8px 12px;border:1px solid #DCD4C4;">Bundles</span></div>
+            </div>
+          </div>
+          <div style="padding:64px 24px 0 18px;font:600 15px/1.5 'IBM Plex Mono',monospace;color:#B3342A;">[12]</div>
+          <div></div>
+          <div style="border-left:3px double #B3342A;padding:8px 48px 64px;">
+            <ul style="list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:28px 24px;">
+              <sc-for list="{{ products }}" as="p" hint-placeholder-count="12">
+                <li style="display:flex;flex-direction:column;gap:10px;">
+                  <div style="aspect-ratio:2 / 3;position:relative;">
+                    <sc-if value="{{ p.hasCover }}" hint-placeholder-val="{{ true }}"><span aria-hidden="true" style="display:block;width:100%;height:100%;object-fit:cover;border-radius:3px;box-shadow:0 14px 24px -14px rgba(0,0,0,.6);background:#E6DFD1 center / cover no-repeat;background-image:{{ p.coverBg }};"></span></sc-if>
+                    <sc-if value="{{ p.noCover }}" hint-placeholder-val="{{ false }}"><div style="width:100%;height:100%;background:{{ p.base }};border-radius:3px;display:flex;flex-direction:column;justify-content:space-between;padding:18px;box-sizing:border-box;color:#FFFFFF;"><span style="font:500 11px/1 'IBM Plex Mono',monospace;letter-spacing:0.08em;opacity:.85;">EXAMLEAF · ASSEB 12</span><span style="font:600 26px/1.05 'Source Serif 4',serif;">{{ p.subject }}<br>{{ p.kind }}</span><span style="font:500 11px/1 'IBM Plex Mono',monospace;opacity:.85;">cover coming</span></div></sc-if>
+                    <sc-if value="{{ p.out }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:10px;left:10px;font:600 11px/1 'IBM Plex Mono',monospace;background:#F8F5EE;color:#A0272D;border:1.5px solid #A0272D;padding:5px 7px;">OUT OF STOCK</span></sc-if>
+                  </div>
+                  <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;letter-spacing:0.05em;">{{ p.label }}</span>
+                  <span style="font:600 21px/1.2 'Source Serif 4',serif;">{{ p.title }}</span>
+                  <span style="display:flex;gap:10px;align-items:baseline;"><strong style="font:600 22px/1 'Source Serif 4',serif;">{{ p.price }}</strong><s style="color:#5B6170;font-size:15px;">{{ p.mrp }}</s></span>
+                </li>
+              </sc-for>
+            </ul>
+          </div>
+          <div></div>
+        </div>
+        <dc-import name="A Footer" hint-size="1280px,260px"></dc-import>
+      </div>
+    </div>
+
+    <!-- PRODUCT -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <p style="margin:0;font:500 14px/1 'IBM Plex Mono',monospace;color:#5B6170;">PRODUCT · /shop/physics-sample-papers-2027/</p>
+      <div data-screen-label="Product" style="width:1280px;background:#F8F5EE;box-shadow:0 30px 60px -30px rgba(29,34,48,.35);overflow:hidden;">
+        <dc-import name="A Header" current="Shop" hint-size="1280px,72px"></dc-import>
+        <div style="display:grid;grid-template-columns:120px minmax(0,1fr) 120px;">
+          <div></div>
+          <div style="border-left:3px double #B3342A;padding:28px 48px 0;font-size:15px;color:#5B6170;display:flex;gap:10px;"><a href="#">Shop</a><span>/</span><a href="#">Physics</a><span>/</span><span>Sample Papers</span></div>
+          <div></div>
+          <div style="padding:52px 0 0 40px;font:600 15px/1 'IBM Plex Mono',monospace;color:#B3342A;">PHY</div>
+          <div style="border-left:3px double #B3342A;padding:32px 48px 64px;display:grid;grid-template-columns:360px minmax(0,1fr);gap:56px;">
+            <div style="display:flex;flex-direction:column;gap:14px;">
+              <img src="examleaf-web/static/img/physics-480.webp" alt="Cover of ExamLeaf Physics Sample Papers 2027" style="width:100%;border-radius:4px;box-shadow:0 30px 50px -24px rgba(0,0,0,.6);">
+              <span style="font-size:14px;color:#5B6170;">An ExamLeaf publication · Paperback</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:18px;min-width:0;">
+              <span style="font:500 13px/1 'IBM Plex Mono',monospace;color:#5B6170;letter-spacing:0.05em;">SAMPLE PAPERS · PHYSICS · ASSEB · CLASS 12</span>
+              <h1 style="margin:0;font:600 52px/1.02 'Source Serif 4',serif;letter-spacing:-0.02em;">ExamLeaf Physics Sample Papers 2027</h1>
+              <p style="margin:0;font-size:18px;line-height:1.65;color:#3E4454;">30 full papers in the board's pattern for the Assam Board (ASSEB) Class 12 examination: 10 Easy, 10 Medium and 10 Hard, each with its time and marks.</p>
+              <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;letter-spacing:0.06em;margin-top:6px;">CHOOSE</span>
+              <div style="display:flex;flex-direction:column;gap:10px;">
+                <div style="border:2px solid #1D2230;background:#FFFFFF;padding:18px 20px;display:flex;gap:14px;align-items:center;"><span style="width:22px;height:22px;border:1.5px solid #0B2A5B;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;"><span style="width:12px;height:12px;border-radius:50%;background:#0B2A5B;"></span></span><span style="flex:1;font-weight:600;font-size:17px;">Sample Papers only</span><span style="font:600 26px/1 'Source Serif 4',serif;">₹299</span></div>
+                <div style="border:1px solid #DCD4C4;background:#FFFFFF;padding:18px 20px;display:flex;gap:14px;align-items:center;"><span style="width:22px;height:22px;border:1.5px solid #7B8595;border-radius:50%;"></span><span style="flex:1;font-weight:600;font-size:17px;display:flex;gap:10px;align-items:center;">Sample Papers + Solutions <span style="font:600 11px/1 'IBM Plex Mono',monospace;color:#B3342A;border:1.5px solid #B3342A;padding:4px 6px;">BEST VALUE</span></span><span style="display:flex;gap:10px;align-items:baseline;"><span style="font:600 26px/1 'Source Serif 4',serif;">₹499</span><s style="color:#5B6170;">₹548</s><span style="color:#1B7F3B;font-weight:700;font-size:15px;">Save ₹49 (9%)</span></span></div>
+              </div>
+              <div style="display:flex;gap:16px;align-items:flex-end;margin-top:6px;">
+                <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Copies
+                  <span style="display:flex;border:1.5px solid #7B8595;border-radius:4px;background:#FFFFFF;"><span style="width:48px;height:52px;display:flex;align-items:center;justify-content:center;font-size:20px;border-right:1px solid #DCD4C4;">−</span><span style="width:52px;height:52px;display:flex;align-items:center;justify-content:center;font:500 18px/1 'IBM Plex Mono',monospace;">1</span><span style="width:48px;height:52px;display:flex;align-items:center;justify-content:center;font-size:20px;border-left:1px solid #DCD4C4;">+</span></span>
+                </label>
+                <span style="flex:1;display:inline-flex;justify-content:center;align-items:center;min-height:56px;background:#0B2A5B;color:#FFFFFF;font-weight:700;font-size:17px;border-radius:4px;">Add to cart · ₹299</span>
+                <span style="display:inline-flex;justify-content:center;align-items:center;min-height:56px;padding:0 22px;border:1.5px solid #1D2230;font-weight:700;font-size:17px;border-radius:4px;">Buy now</span>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1.5px solid #1D2230;margin-top:6px;">
+                <div style="padding:14px 16px 0 0;display:flex;flex-direction:column;gap:4px;"><strong style="font-size:15px;">In stock</strong><span style="font-size:14px;color:#5B6170;">Packed within 2 working days</span></div>
+                <div style="padding:14px 16px 0;border-left:1px solid #DCD4C4;display:flex;flex-direction:column;gap:4px;"><strong style="font-size:15px;">Delivery fee by state</strong><span style="font-size:14px;color:#5B6170;">Free above an order value · <a href="#">Shipping</a></span></div>
+                <div style="padding:14px 0 0 16px;border-left:1px solid #DCD4C4;display:flex;flex-direction:column;gap:4px;"><strong style="font-size:15px;">Cancel until packed</strong><span style="font-size:14px;color:#5B6170;">Refunded in 5–7 working days</span></div>
+              </div>
+            </div>
+          </div>
+          <div style="padding:300px 24px 0 18px;font:600 15px/1.5 'IBM Plex Mono',monospace;color:#B3342A;">[30]<br><span style="font:400 13px/1.4 'Public Sans',sans-serif;color:#5B6170;">papers inside</span></div>
+          <div style="padding:40px 0 0 40px;font:600 15px/1 'IBM Plex Mono',monospace;color:#B3342A;background:#F1ECE1;">Q.</div>
+          <div style="border-left:3px double #B3342A;padding:36px 48px 56px;background:#F1ECE1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px;">
+            <div style="display:flex;flex-direction:column;gap:12px;"><h2 style="margin:0;font:600 30px/1.15 'Source Serif 4',serif;">What's inside</h2><p style="margin:0;font-size:16px;line-height:1.7;color:#3E4454;">Papers E-01 to E-10 build your basics, M-01 to M-10 strengthen your preparation, H-01 to H-10 challenge like a topper. A QR code on every paper opens its worked solutions on this site, free.</p></div>
+            <div style="display:flex;flex-direction:column;gap:12px;"><h2 style="margin:0;font:600 30px/1.15 'Source Serif 4',serif;">Try before you buy</h2><p style="margin:0;font-size:16px;line-height:1.7;color:#3E4454;">Paper E-01's solutions are open to everyone. <a href="#" style="font-weight:700;">Open them</a> to see exactly what the QR codes lead to.</p></div>
+          </div>
+          <div style="background:#F1ECE1;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCHOOL ORDERS -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <p style="margin:0;font:500 14px/1 'IBM Plex Mono',monospace;color:#5B6170;">SCHOOL ORDERS · /shop/school-orders/ · quote request</p>
+      <div data-screen-label="School orders" style="width:1280px;background:#F8F5EE;box-shadow:0 30px 60px -30px rgba(29,34,48,.35);overflow:hidden;">
+        <dc-import name="A Header" current="Shop" hint-size="1280px,72px"></dc-import>
+        <div style="display:grid;grid-template-columns:120px minmax(0,1fr) 120px;">
+          <div style="padding:64px 0 0 40px;font:600 15px/1 'IBM Plex Mono',monospace;color:#B3342A;">×N</div>
+          <div style="border-left:3px double #B3342A;padding:52px 48px 72px;display:grid;grid-template-columns:minmax(0,0.9fr) minmax(0,1.1fr);gap:56px;">
+            <div style="display:flex;flex-direction:column;gap:18px;">
+              <h1 style="margin:0;font:600 56px/1.02 'Source Serif 4',serif;letter-spacing:-0.02em;">Books for your school</h1>
+              <p style="margin:0;font-size:18px;line-height:1.65;color:#3E4454;">Tell us how many copies of each book your school needs. We reply with a quote and a GST invoice for the school.</p>
+              <div style="border-top:1.5px solid #1D2230;font-size:16px;">
+                <div style="padding:12px 0;border-bottom:1px solid #DCD4C4;">Every student gets the free QR solutions</div>
+                <div style="padding:12px 0;border-bottom:1px solid #DCD4C4;">Delivered to the school</div>
+                <div style="padding:12px 0;border-bottom:1px solid #DCD4C4;">Teachers can see their students' saved marks with <a href="#">Teacher access</a></div>
+              </div>
+            </div>
+            <div style="background:#FFFFFF;border:1.5px solid #1D2230;padding:32px;display:flex;flex-direction:column;gap:16px;">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;grid-column:1 / -1;">School name<span style="height:48px;border:1.5px solid #7B8595;border-radius:4px;"></span></label>
+                <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Your name<span style="height:48px;border:1.5px solid #7B8595;border-radius:4px;"></span></label>
+                <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Mobile number<span style="height:48px;border:1.5px solid #7B8595;border-radius:4px;"></span></label>
+                <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;grid-column:1 / -1;">Email address<span style="height:48px;border:1.5px solid #7B8595;border-radius:4px;"></span></label>
+              </div>
+              <span style="font-size:15px;font-weight:600;margin-top:4px;">Copies of each book</span>
+              <div style="border-top:1px solid #1D2230;">
+                <sc-for list="{{ quoteRows }}" as="r" hint-placeholder-count="4">
+                  <div style="display:grid;grid-template-columns:minmax(0,1fr) 120px 120px;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid #DCD4C4;font-size:15px;"><span>{{ r }}</span><span style="display:flex;flex-direction:column;gap:2px;font-size:12px;color:#5B6170;">Sample Papers<span style="height:40px;border:1.5px solid #7B8595;border-radius:4px;"></span></span><span style="display:flex;flex-direction:column;gap:2px;font-size:12px;color:#5B6170;">Solutions<span style="height:40px;border:1.5px solid #7B8595;border-radius:4px;"></span></span></div>
+                </sc-for>
+              </div>
+              <span style="display:inline-flex;justify-content:center;align-items:center;min-height:52px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;margin-top:4px;">Ask for a quote</span>
+            </div>
+          </div>
+          <div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CART -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <p style="margin:0;font:500 14px/1 'IBM Plex Mono',monospace;color:#5B6170;">CART · /cart/ · filled, and the empty state below</p>
+      <div data-screen-label="Cart" style="width:1280px;background:#F8F5EE;box-shadow:0 30px 60px -30px rgba(29,34,48,.35);overflow:hidden;">
+        <dc-import name="A Header" signed-in="{{ true }}" cart="{{ 3 }}" hint-size="1280px,72px"></dc-import>
+        <div style="display:grid;grid-template-columns:120px minmax(0,1fr) 380px;">
+          <div style="padding:64px 0 0 40px;font:600 15px/1 'IBM Plex Mono',monospace;color:#B3342A;">[3]</div>
+          <div style="border-left:3px double #B3342A;padding:52px 48px 64px;display:flex;flex-direction:column;gap:20px;">
+            <h1 style="margin:0;font:600 56px/1 'Source Serif 4',serif;letter-spacing:-0.02em;">Your cart</h1>
+            <div style="border-top:1.5px solid #1D2230;">
+              <sc-for list="{{ cartLines }}" as="l" hint-placeholder-count="2">
+                <div style="display:grid;grid-template-columns:72px minmax(0,1fr) 160px 110px;gap:20px;align-items:center;padding:18px 0;border-bottom:1px solid #DCD4C4;">
+                  <span aria-hidden="true" style="display:block;width:64px;height:92px;object-fit:cover;border-radius:3px;box-shadow:0 6px 12px -6px rgba(0,0,0,.5);background:#E6DFD1 center / cover no-repeat;background-image:{{ l.coverBg }};"></span>
+                  <span style="display:flex;flex-direction:column;gap:4px;"><span style="font:600 21px/1.2 'Source Serif 4',serif;">{{ l.title }}</span><span style="font-size:14px;color:#5B6170;">{{ l.each }}</span><a href="#" style="font-size:14px;font-weight:600;">Remove</a></span>
+                  <span style="display:flex;border:1.5px solid #7B8595;border-radius:4px;background:#FFFFFF;justify-self:start;"><span style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-right:1px solid #DCD4C4;">−</span><span style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;font:500 16px/1 'IBM Plex Mono',monospace;">{{ l.qty }}</span><span style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-left:1px solid #DCD4C4;">+</span></span>
+                  <strong style="font:600 22px/1 'Source Serif 4',serif;text-align:right;">{{ l.total }}</strong>
+                </div>
+              </sc-for>
+            </div>
+            <a href="#" style="font-weight:700;">← Keep shopping</a>
+          </div>
+          <div style="border-left:1px solid #DCD4C4;padding:52px 40px;display:flex;flex-direction:column;gap:14px;background:#F1ECE1;">
+            <span style="font:600 24px/1.2 'Source Serif 4',serif;">Summary</span>
+            <div style="display:flex;justify-content:space-between;font-size:16px;"><span>3 books</span><span style="font-family:'IBM Plex Mono',monospace;">₹1,097.00</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:16px;color:#5B6170;"><span>Delivery</span><span>From your state, next step</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;border-top:1.5px solid #1D2230;padding-top:14px;"><strong>Total so far</strong><span style="font:600 30px/1 'Source Serif 4',serif;">₹1,097</span></div>
+            <span style="display:inline-flex;justify-content:center;align-items:center;min-height:56px;background:#0B2A5B;color:#FFFFFF;font-weight:700;font-size:17px;border-radius:4px;margin-top:8px;">Go to checkout</span>
+            <span style="font-size:14px;color:#5B6170;line-height:1.5;">UPI, card or net banking through Razorpay, or cash on delivery where it's offered.</span>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:120px minmax(0,1fr) 120px;border-top:8px solid #E4E1DA;">
+          <div style="padding:52px 0 0 40px;font:600 15px/1 'IBM Plex Mono',monospace;color:#B3342A;">[0]</div>
+          <div style="border-left:3px double #B3342A;padding:44px 48px 56px;display:flex;flex-direction:column;gap:14px;align-items:flex-start;">
+            <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">EMPTY STATE</span>
+            <h2 style="margin:0;font:600 40px/1.05 'Source Serif 4',serif;">Your cart is empty</h2>
+            <p style="margin:0;font-size:17px;color:#3E4454;">Each subject has two books: Sample Papers, and Solutions printed for working without a phone.</p>
+            <span style="display:inline-flex;align-items:center;min-height:52px;padding:0 24px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Go to the shop</span>
+          </div>
+          <div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHECKOUT -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <p style="margin:0;font:500 14px/1 'IBM Plex Mono',monospace;color:#5B6170;">CHECKOUT · /checkout/ · guest or signed in · validation shown on PIN code</p>
+      <div data-screen-label="Checkout" style="width:1280px;background:#F8F5EE;box-shadow:0 30px 60px -30px rgba(29,34,48,.35);overflow:hidden;">
+        <header style="display:flex;align-items:center;justify-content:space-between;height:72px;padding:0 40px;border-bottom:1px solid #DCD4C4;"><span style="font:700 23px/1 'Source Serif 4',serif;">Exam<span style="color:#1A6E30;">Leaf</span></span><span style="font-size:15px;color:#5B6170;display:flex;gap:16px;align-items:center;">Secure checkout · Razorpay <a href="#" style="font-weight:700;">Back to cart</a></span></header>
+        <div style="display:grid;grid-template-columns:120px minmax(0,1fr) 400px;">
+          <div style="padding:52px 0 0 40px;font:600 15px/1 'IBM Plex Mono',monospace;color:#B3342A;">1/4</div>
+          <div style="border-left:3px double #B3342A;padding:44px 48px 64px;display:flex;flex-direction:column;gap:24px;">
+            <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;">
+              <div style="display:flex;flex-direction:column;gap:8px;"><span style="height:4px;background:#B3342A;"></span><span style="font-size:14px;font-weight:700;">Address</span></div>
+              <div style="display:flex;flex-direction:column;gap:8px;"><span style="height:4px;background:#DCD4C4;"></span><span style="font-size:14px;color:#5B6170;">Delivery</span></div>
+              <div style="display:flex;flex-direction:column;gap:8px;"><span style="height:4px;background:#DCD4C4;"></span><span style="font-size:14px;color:#5B6170;">Payment</span></div>
+              <div style="display:flex;flex-direction:column;gap:8px;"><span style="height:4px;background:#DCD4C4;"></span><span style="font-size:14px;color:#5B6170;">Done</span></div>
+            </div>
+            <h1 style="margin:0;font:600 44px/1.05 'Source Serif 4',serif;">Where should we deliver?</h1>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+              <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Full name<span style="height:48px;border:1.5px solid #7B8595;border-radius:4px;background:#FFFFFF;display:flex;align-items:center;padding:0 14px;font-weight:400;">Ananya Das</span></label>
+              <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Mobile number<span style="height:48px;border:1.5px solid #7B8595;border-radius:4px;background:#FFFFFF;display:flex;align-items:center;padding:0 14px;font-weight:400;font-family:'IBM Plex Mono',monospace;">+91 98•• •••• 21</span><span style="font-weight:400;font-size:14px;color:#5B6170;">For the courier, and order updates by SMS</span></label>
+              <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;grid-column:1 / -1;">House, street, area<span style="height:48px;border:1.5px solid #7B8595;border-radius:4px;background:#FFFFFF;display:flex;align-items:center;padding:0 14px;font-weight:400;">House 12, Rajgarh Road, Chandmari</span></label>
+              <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Town or city<span style="height:48px;border:1.5px solid #7B8595;border-radius:4px;background:#FFFFFF;display:flex;align-items:center;padding:0 14px;font-weight:400;">Guwahati</span></label>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">State<span style="height:48px;border:1.5px solid #7B8595;border-radius:4px;background:#FFFFFF;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-weight:400;">Assam <span>⌄</span></span></label>
+                <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">PIN code<span style="height:48px;border:2px solid #B42318;border-radius:4px;background:#FFFFFF;display:flex;align-items:center;padding:0 14px;font-weight:400;font-family:'IBM Plex Mono',monospace;">78100</span></label>
+              </div>
+              <span style="grid-column:2;margin-top:-10px;font-weight:600;font-size:14px;color:#B42318;display:flex;gap:6px;align-items:center;justify-self:end;"><span style="width:16px;height:16px;border-radius:50%;background:#B42318;color:#FFFFFF;font-size:11px;display:inline-flex;align-items:center;justify-content:center;">!</span>Enter the 6-digit PIN code.</span>
+              <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;grid-column:1 / -1;">Email address <span style="font-weight:400;color:#5B6170;">for the confirmation and the GST invoice</span><span style="height:48px;border:1.5px solid #7B8595;border-radius:4px;background:#FFFFFF;display:flex;align-items:center;padding:0 14px;font-weight:400;">ananya@example.com</span></label>
+            </div>
+            <label style="display:flex;gap:12px;align-items:center;font-size:16px;"><span style="width:22px;height:22px;border-radius:3px;background:#0B2A5B;color:#FFFFFF;font-size:14px;display:inline-flex;align-items:center;justify-content:center;">✓</span>Save this address to my account</label>
+            <span style="display:inline-flex;align-self:flex-start;align-items:center;min-height:56px;padding:0 28px;background:#0B2A5B;color:#FFFFFF;font-weight:700;font-size:17px;border-radius:4px;">Continue to delivery</span>
+          </div>
+          <div style="border-left:1px solid #DCD4C4;background:#F1ECE1;padding:44px 40px;display:flex;flex-direction:column;gap:14px;">
+            <span style="font:600 22px/1.2 'Source Serif 4',serif;">Your order</span>
+            <div style="display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:12px;align-items:center;font-size:15px;"><img src="examleaf-web/static/img/physics-480.webp" alt="" style="width:44px;border-radius:2px;"><span>Physics Sample Papers 2027 × 1</span><span style="font-family:'IBM Plex Mono',monospace;">₹299</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:15px;border-top:1px solid #DCD4C4;padding-top:12px;"><span>Books</span><span style="font-family:'IBM Plex Mono',monospace;">₹299.00</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:15px;"><span>Delivery to Assam</span><span style="font-family:'IBM Plex Mono',monospace;">₹40.00</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;border-top:1.5px solid #1D2230;padding-top:14px;"><strong>Total</strong><span style="font:600 30px/1 'Source Serif 4',serif;">₹339.00</span></div>
+            <span style="font-size:14px;color:#5B6170;line-height:1.5;">Prices include GST. Your entries stay if you go back.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAY + DONE -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <p style="margin:0;font:500 14px/1 'IBM Plex Mono',monospace;color:#5B6170;">PAY · /checkout/&lt;n&gt;/pay/ · and DONE · /checkout/&lt;n&gt;/done/ (shown only after the server confirms payment)</p>
+      <div style="width:1280px;display:grid;grid-template-columns:1fr 1fr;gap:32px;">
+        <div data-screen-label="Pay" style="background:#F8F5EE;box-shadow:0 30px 60px -30px rgba(29,34,48,.35);overflow:hidden;">
+          <div style="height:64px;display:flex;align-items:center;padding:0 32px;border-bottom:1px solid #DCD4C4;font:700 21px/1 'Source Serif 4',serif;">Exam<span style="color:#1A6E30;">Leaf</span></div>
+          <div style="padding:36px 32px 48px 0;display:grid;grid-template-columns:72px minmax(0,1fr);">
+            <span style="padding:8px 0 0 28px;font:600 14px/1 'IBM Plex Mono',monospace;color:#B3342A;">3/4</span>
+            <div style="border-left:3px double #B3342A;padding-left:28px;display:flex;flex-direction:column;gap:16px;">
+              <span style="font:500 13px/1 'IBM Plex Mono',monospace;color:#5B6170;">ORDER EL-2026-000003</span>
+              <h1 style="margin:0;font:600 40px/1.05 'Source Serif 4',serif;">Pay ₹339.00</h1>
+              <div style="display:flex;flex-direction:column;gap:12px;">
+                <div style="border:2px solid #1D2230;background:#FFFFFF;padding:16px;display:flex;gap:12px;align-items:center;"><span style="width:20px;height:20px;border:1.5px solid #0B2A5B;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;"><span style="width:10px;height:10px;border-radius:50%;background:#0B2A5B;"></span></span><span style="display:flex;flex-direction:column;"><strong>Pay online</strong><span style="font-size:14px;color:#5B6170;">UPI, card or net banking through Razorpay</span></span></div>
+                <div style="border:1px solid #DCD4C4;background:#FFFFFF;padding:16px;display:flex;gap:12px;align-items:center;"><span style="width:20px;height:20px;border:1.5px solid #7B8595;border-radius:50%;"></span><span style="display:flex;flex-direction:column;"><strong>Cash on delivery</strong><span style="font-size:14px;color:#5B6170;">Pay the courier when the books arrive</span></span></div>
+              </div>
+              <span style="display:inline-flex;justify-content:center;align-items:center;gap:10px;min-height:56px;background:#0B2A5B;color:#FFFFFF;font-weight:700;font-size:17px;border-radius:4px;"><span style="width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,.35);border-top-color:#FFFFFF;"></span>Opening Razorpay…</span>
+              <span style="font-size:14px;color:#5B6170;line-height:1.5;">The button stays busy until Razorpay's window opens, and again while we check the payment. Closing the window doesn't charge you.</span>
+            </div>
+          </div>
+        </div>
+        <div data-screen-label="Done" style="background:#F8F5EE;box-shadow:0 30px 60px -30px rgba(29,34,48,.35);overflow:hidden;">
+          <div style="height:64px;display:flex;align-items:center;padding:0 32px;border-bottom:1px solid #DCD4C4;font:700 21px/1 'Source Serif 4',serif;">Exam<span style="color:#1A6E30;">Leaf</span></div>
+          <div style="padding:36px 32px 48px 0;display:grid;grid-template-columns:72px minmax(0,1fr);">
+            <span style="padding:8px 0 0 28px;font:600 14px/1 'IBM Plex Mono',monospace;color:#B3342A;">4/4</span>
+            <div style="border-left:3px double #B3342A;padding-left:28px;display:flex;flex-direction:column;gap:16px;position:relative;">
+              <div style="position:absolute;right:0;top:0;width:96px;height:96px;border-radius:50%;border:2px solid #B3342A;display:flex;align-items:center;justify-content:center;transform:rotate(-10deg);font:600 12px/1.3 'IBM Plex Mono',monospace;color:#B3342A;text-align:center;">PAID<br>₹339.00</div>
+              <span style="font:500 13px/1 'IBM Plex Mono',monospace;color:#5B6170;">ORDER EL-2026-000003</span>
+              <h1 style="margin:0;font:600 40px/1.05 'Source Serif 4',serif;max-width:8em;">Thank you. Your order is placed.</h1>
+              <p style="margin:0;font-size:16px;line-height:1.65;color:#3E4454;">Razorpay confirmed the payment. We've emailed a confirmation to ananya@example.com and will send the GST invoice when the books are packed.</p>
+              <div style="border-top:1.5px solid #1D2230;font-size:15px;"><div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #DCD4C4;"><span>Physics Sample Papers 2027 × 1</span><span style="font-family:'IBM Plex Mono',monospace;">₹299.00</span></div><div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #DCD4C4;"><span>Delivery to Assam</span><span style="font-family:'IBM Plex Mono',monospace;">₹40.00</span></div></div>
+              <div style="display:flex;gap:12px;"><span style="display:inline-flex;align-items:center;min-height:48px;padding:0 20px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Track this order</span><span style="display:inline-flex;align-items:center;min-height:48px;padding:0 18px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;">Open Paper E-01</span></div>
+              <span style="font-size:14px;color:#5B6170;">If the payment is still being checked, this page says "We're confirming your payment" and refreshes once.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ORDER STATUS -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <p style="margin:0;font:500 14px/1 'IBM Plex Mono',monospace;color:#5B6170;">ORDER · /orders/t/&lt;token&gt;/ (emailed link) and /account/orders/&lt;n&gt;/ · same layout</p>
+      <div data-screen-label="Order" style="width:1280px;background:#F8F5EE;box-shadow:0 30px 60px -30px rgba(29,34,48,.35);overflow:hidden;">
+        <dc-import name="A Header" hint-size="1280px,72px"></dc-import>
+        <div style="display:grid;grid-template-columns:120px minmax(0,1fr) 380px;">
+          <div style="padding:60px 0 0 40px;font:600 15px/1 'IBM Plex Mono',monospace;color:#B3342A;">№</div>
+          <div style="border-left:3px double #B3342A;padding:48px 48px 64px;display:flex;flex-direction:column;gap:22px;">
+            <div style="display:flex;gap:14px;align-items:center;"><span style="font:500 14px/1 'IBM Plex Mono',monospace;color:#5B6170;">PLACED 8 OCT 2026</span><span style="font:600 12px/1 'IBM Plex Mono',monospace;letter-spacing:0.04em;padding:6px 8px;border:1.5px solid #1B7F3B;color:#1B7F3B;">PAID</span></div>
+            <h1 style="margin:0;font:600 52px/1 'IBM Plex Mono',monospace;letter-spacing:-0.02em;">EL-2026-000003</h1>
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:40px;">
+              <div style="display:flex;flex-direction:column;">
+                <sc-for list="{{ timeline }}" as="t" hint-placeholder-count="5">
+                  <div style="display:grid;grid-template-columns:28px minmax(0,1fr);gap:12px;">
+                    <span style="display:flex;flex-direction:column;align-items:center;"><span style="width:14px;height:14px;border-radius:50%;margin-top:5px;background:{{ t.dot }};border:2px solid {{ t.ring }};box-sizing:border-box;"></span><span style="flex:1;width:1.5px;background:#DCD4C4;"></span></span>
+                    <span style="display:flex;flex-direction:column;gap:2px;padding-bottom:18px;"><strong style="font-size:17px;color:{{ t.fg }};">{{ t.label }}</strong><span style="font-size:14px;color:#5B6170;">{{ t.when }}</span></span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px;font-size:16px;line-height:1.6;">
+                <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;letter-spacing:0.06em;margin-bottom:4px;">DELIVER TO</span>
+                <span>Ananya Das<br>House 12, Rajgarh Road, Chandmari<br>Guwahati, Assam 781003</span>
+                <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;letter-spacing:0.06em;margin:14px 0 4px;">PAYMENT</span>
+                <span>Razorpay · UPI · ₹339.00</span>
+              </div>
+            </div>
+          </div>
+          <div style="border-left:1px solid #DCD4C4;background:#F1ECE1;padding:48px 40px;display:flex;flex-direction:column;gap:14px;">
+            <span style="font:600 22px/1.2 'Source Serif 4',serif;">Items</span>
+            <div style="display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:12px;align-items:center;font-size:15px;"><img src="examleaf-web/static/img/physics-480.webp" alt="" style="width:44px;border-radius:2px;"><span>Physics Sample Papers 2027 × 1</span><span style="font-family:'IBM Plex Mono',monospace;">₹299</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:15px;border-top:1px solid #DCD4C4;padding-top:12px;"><span>Delivery</span><span style="font-family:'IBM Plex Mono',monospace;">₹40.00</span></div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;border-top:1.5px solid #1D2230;padding-top:12px;"><strong>Total</strong><span style="font:600 28px/1 'Source Serif 4',serif;">₹339.00</span></div>
+            <span style="display:inline-flex;justify-content:center;align-items:center;min-height:48px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;margin-top:6px;color:#7B8595;border-color:#B9BCC3;">GST invoice · after packing</span>
+            <span style="display:inline-flex;justify-content:center;align-items:center;min-height:48px;background:#B42318;color:#FFFFFF;font-weight:700;border-radius:4px;">Cancel order</span>
+            <span style="font-size:14px;color:#5B6170;line-height:1.5;">You can cancel until the books are packed. A paid order is refunded in full to the account, card or UPI ID you paid from, within 5–7 working days.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOOKUP + EMAIL -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <p style="margin:0;font:500 14px/1 'IBM Plex Mono',monospace;color:#5B6170;">FIND YOUR ORDER · /orders/lookup/ · and ORDER CONFIRMATION EMAIL (600 wide)</p>
+      <div style="width:1280px;display:grid;grid-template-columns:minmax(0,1fr) 600px;gap:32px;align-items:start;">
+        <div data-screen-label="Order lookup" style="background:#F8F5EE;box-shadow:0 30px 60px -30px rgba(29,34,48,.35);overflow:hidden;">
+          <div style="height:64px;display:flex;align-items:center;padding:0 32px;border-bottom:1px solid #DCD4C4;font:700 21px/1 'Source Serif 4',serif;">Exam<span style="color:#1A6E30;">Leaf</span></div>
+          <div style="padding:44px 32px 56px 0;display:grid;grid-template-columns:72px minmax(0,1fr);">
+            <span style="padding:10px 0 0 28px;font:600 14px/1 'IBM Plex Mono',monospace;color:#B3342A;">?</span>
+            <div style="border-left:3px double #B3342A;padding-left:28px;display:flex;flex-direction:column;gap:16px;">
+              <h1 style="margin:0;font:600 44px/1.05 'Source Serif 4',serif;">Find your order</h1>
+              <p style="margin:0;font-size:16px;line-height:1.6;color:#3E4454;">No account needed. Use the number from your confirmation email.</p>
+              <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Order number<span style="height:48px;border:1.5px solid #7B8595;border-radius:4px;background:#FFFFFF;display:flex;align-items:center;padding:0 14px;font:400 16px/1 'IBM Plex Mono',monospace;color:#7B8595;">EL-2026-</span></label>
+              <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Email address or mobile number used<span style="height:48px;border:1.5px solid #7B8595;border-radius:4px;background:#FFFFFF;"></span></label>
+              <span style="display:inline-flex;justify-content:center;align-items:center;min-height:52px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Send me the link</span>
+              <span style="font-size:14px;color:#5B6170;line-height:1.5;">We send a private link to the order's page. For your safety we don't say whether the order exists.</span>
+            </div>
+          </div>
+        </div>
+        <div data-screen-label="Email" style="background:#FFFFFF;box-shadow:0 30px 60px -30px rgba(29,34,48,.35);font-family:Georgia,'Source Serif 4',serif;">
+          <div style="padding:28px 36px;border-bottom:3px double #B3342A;font:700 22px/1 Georgia,serif;">Exam<span style="color:#1A6E30;">Leaf</span></div>
+          <div style="padding:32px 36px;display:flex;flex-direction:column;gap:16px;font-family:Arial,'Public Sans',sans-serif;color:#1D2230;">
+            <span style="font:600 12px/1 'Courier New',monospace;color:#5B6170;letter-spacing:0.06em;">ORDER EL-2026-000003</span>
+            <span style="font:700 30px/1.15 Georgia,serif;">Your order is placed, Ananya.</span>
+            <span style="font-size:16px;line-height:1.6;">We've received ₹339.00 through Razorpay. We'll email again when the books are packed, with your GST invoice.</span>
+            <table style="width:100%;border-collapse:collapse;font-size:15px;"><tbody><tr><td style="padding:10px 0;border-top:1px solid #1D2230;border-bottom:1px solid #DCD4C4;">Physics Sample Papers 2027 × 1</td><td style="padding:10px 0;border-top:1px solid #1D2230;border-bottom:1px solid #DCD4C4;text-align:right;">₹299.00</td></tr><tr><td style="padding:10px 0;border-bottom:1px solid #DCD4C4;">Delivery to Assam</td><td style="padding:10px 0;border-bottom:1px solid #DCD4C4;text-align:right;">₹40.00</td></tr><tr><td style="padding:10px 0;font-weight:700;">Total</td><td style="padding:10px 0;text-align:right;font-weight:700;">₹339.00</td></tr></tbody></table>
+            <span style="display:inline-block;align-self:flex-start;background:#0B2A5B;color:#FFFFFF;font-weight:700;padding:14px 22px;">View your order</span>
+            <span style="font-size:14px;line-height:1.6;color:#5B6170;">While you wait: the solutions of Paper E-01 are open to everyone at examleaf.in/s/PHY-E01/</span>
+          </div>
+          <div style="padding:20px 36px;background:#F1ECE1;font:13px/1.6 Arial,sans-serif;color:#5B6170;">ExamLeaf LLP · You get this email because you placed an order.</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const subs = [["Physics", "physics", "#0F3560"], ["Chemistry", "chemistry", "#134043"], ["Mathematics", "mathematics", "#2E1D65"], ["Biology", "biology", "#124931"]];
+    const products = [];
+    subs.forEach(([name, key, base], i) => {
+      products.push({ label: "SAMPLE PAPERS", subject: name, kind: "Sample Papers", title: `${name} Sample Papers 2027`, price: "₹299", mrp: "", hasCover: true, noCover: false, cover: `examleaf-web/static/img/${key}-480.webp`, coverBg: `url("examleaf-web/static/img/${key}-480.webp")`, base, out: false });
+    });
+    subs.forEach(([name, key, base], i) => {
+      products.push({ label: "SOLUTIONS", subject: name, kind: "Solutions", title: `${name} Solutions 2027`, price: "₹249", mrp: "", hasCover: false, noCover: true, cover: "", base, out: i === 3 });
+    });
+    subs.forEach(([name, key, base]) => {
+      products.push({ label: "BUNDLE · BEST VALUE", subject: name, kind: "Bundle", title: `${name}: both books`, price: "₹499", mrp: "₹548", hasCover: false, noCover: true, cover: "", base, out: false });
+    });
+    return {
+      products,
+      quoteRows: ["Physics", "Chemistry", "Mathematics", "Biology"],
+      cartLines: [
+        { title: "Physics Sample Papers 2027", each: "₹299 each", qty: "2", total: "₹598", cover: "examleaf-web/static/img/physics-480.webp", coverBg: 'url("examleaf-web/static/img/physics-480.webp")' },
+        { title: "Chemistry: both books", each: "₹499 each · Sample Papers + Solutions", qty: "1", total: "₹499", cover: "examleaf-web/static/img/chemistry-480.webp", coverBg: 'url("examleaf-web/static/img/chemistry-480.webp")' },
+      ],
+      timeline: [
+        { label: "Order placed", when: "8 Oct 2026, 10:42", dot: "#0B2A5B", ring: "#0B2A5B", fg: "#1D2230" },
+        { label: "Paid", when: "8 Oct 2026, 10:44 · Razorpay UPI", dot: "#0B2A5B", ring: "#0B2A5B", fg: "#1D2230" },
+        { label: "Packing", when: "Usually within 2 working days", dot: "#FFFFFF", ring: "#B3342A", fg: "#1D2230" },
+        { label: "Shipped", when: "You get the tracking number by email and SMS", dot: "#FFFFFF", ring: "#DCD4C4", fg: "#5B6170" },
+        { label: "Delivered", when: "", dot: "#FFFFFF", ring: "#DCD4C4", fg: "#5B6170" },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

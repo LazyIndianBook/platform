@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Hind+Siliguri:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#E4E1DA;-webkit-font-smoothing:antialiased}
+a{color:#0B2A5B;text-underline-offset:3px}
+a:hover{color:#B3342A}
+</style>
+</helmet>
+<section id="2a" data-screen-label="Components" style="padding:64px;font-family:'Public Sans','Hind Siliguri',sans-serif;color:#1D2230;">
+  <div style="width:1440px;background:#F8F5EE;box-shadow:0 30px 60px -30px rgba(29,34,48,.35);padding:64px 72px 96px;box-sizing:border-box;display:flex;flex-direction:column;gap:72px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1.5px solid #1D2230;padding-bottom:24px;">
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <span style="font:500 13px/1 'IBM Plex Mono',monospace;color:#B3342A;letter-spacing:0.08em;">2a · DESIGN SYSTEM · ANSWER SCRIPT</span>
+        <h1 style="margin:0;font:600 64px/1 'Source Serif 4',serif;letter-spacing:-0.025em;">ExamLeaf components</h1>
+        <p style="margin:0;font-size:18px;color:#4A5060;max-width:46em;line-height:1.6;">One vocabulary for the public site, the shop and the signed-in area. Names follow the existing <code style="font-family:'IBM Plex Mono',monospace;font-size:15px;">src/components/ui</code> set, so the restyle maps one to one onto the Next.js code.</p>
+      </div>
+      <span style="font:500 13px/1.6 'IBM Plex Mono',monospace;color:#5B6170;text-align:right;">tokens → globals.css<br>components → src/components/ui</span>
+    </div>
+
+    <!-- 01 TOKENS -->
+    <div style="display:grid;grid-template-columns:120px minmax(0,1fr);">
+      <span style="font:600 15px/1 'IBM Plex Mono',monospace;color:#B3342A;padding-top:6px;">01</span>
+      <div style="border-left:3px double #B3342A;padding-left:40px;display:flex;flex-direction:column;gap:28px;">
+        <h2 style="margin:0;font:600 36px/1.1 'Source Serif 4',serif;">Colour</h2>
+        <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:16px;">
+          <sc-for list="{{ swatches }}" as="c" hint-placeholder-count="18">
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <div style="height:72px;background:{{ c.hex }};border:1px solid #DCD4C4;"></div>
+              <span style="font-weight:600;font-size:14px;">{{ c.name }}</span>
+              <span style="font:500 12px/1.4 'IBM Plex Mono',monospace;color:#5B6170;">{{ c.hex }} · {{ c.use }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <p style="margin:0;font-size:15px;color:#4A5060;max-width:52em;line-height:1.6;">Rules: red ink only for marks, ticks, the stamp and one emphasis per screen, never for errors (errors use #B42318 with an icon and words). White text only on navy, ink, tiers and subject bases. Every control border is at least 3:1 (#7B8595).</p>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:120px minmax(0,1fr);">
+      <span style="font:600 15px/1 'IBM Plex Mono',monospace;color:#B3342A;padding-top:6px;">02</span>
+      <div style="border-left:3px double #B3342A;padding-left:40px;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:56px;">
+        <div style="display:flex;flex-direction:column;gap:18px;">
+          <h2 style="margin:0;font:600 36px/1.1 'Source Serif 4',serif;">Type</h2>
+          <div style="display:grid;grid-template-columns:150px minmax(0,1fr);gap:14px 20px;align-items:baseline;">
+            <span style="font:500 12px/1.3 'IBM Plex Mono',monospace;color:#5B6170;">Display · Serif 600<br>76 / 0.98</span><span style="font:600 56px/1 'Source Serif 4',serif;letter-spacing:-0.025em;">Sample papers</span>
+            <span style="font:500 12px/1.3 'IBM Plex Mono',monospace;color:#5B6170;">H1 · Serif 600<br>48–60</span><span style="font:600 40px/1.05 'Source Serif 4',serif;">Physics: solutions</span>
+            <span style="font:500 12px/1.3 'IBM Plex Mono',monospace;color:#5B6170;">H2 · Serif 600<br>44 / 26</span><span style="font:600 28px/1.15 'Source Serif 4',serif;">Two books for each subject</span>
+            <span style="font:500 12px/1.3 'IBM Plex Mono',monospace;color:#5B6170;">Reading · Serif 400<br>19 / 1.7</span><span style="font:400 19px/1.7 'Source Serif 4',serif;">Coulomb's law states that the force between two point charges is inversely proportional to the square of the distance.</span>
+            <span style="font:500 12px/1.3 'IBM Plex Mono',monospace;color:#5B6170;">UI · Public Sans<br>17 / 15 / 14</span><span style="font-size:17px;line-height:1.6;">Delivered anywhere in India. <span style="font-size:15px;color:#5B6170;">Cancel until it is packed.</span></span>
+            <span style="font:500 12px/1.3 'IBM Plex Mono',monospace;color:#5B6170;">Label · Plex Mono<br>12–15, +0.06em</span><span style="font:500 14px/1 'IBM Plex Mono',monospace;letter-spacing:0.06em;">PHY-E01 · [2] · ✓ 1</span>
+            <span style="font:500 12px/1.3 'IBM Plex Mono',monospace;color:#5B6170;">Assamese · Hind Siliguri<br>never tracked or capitalised</span><span style="font:400 19px/1.8 'Hind Siliguri',sans-serif;">অসম উচ্চতৰ মাধ্যমিক শিক্ষা সংসদ</span>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:18px;">
+          <h2 style="margin:0;font:600 36px/1.1 'Source Serif 4',serif;">The margin grid</h2>
+          <div style="display:grid;grid-template-columns:64px minmax(0,1fr) 64px;height:220px;border:1px solid #DCD4C4;background:#FFFFFF;">
+            <div style="padding:14px 10px;font:600 13px/1 'IBM Plex Mono',monospace;color:#B3342A;">Q.1</div>
+            <div style="border-left:3px double #B3342A;padding:14px;display:flex;flex-direction:column;gap:8px;"><span style="height:14px;width:70%;background:#1D2230;"></span><span style="height:8px;width:90%;background:#DCD4C4;"></span><span style="height:8px;width:80%;background:#DCD4C4;"></span><span style="height:8px;width:60%;background:#DCD4C4;"></span></div>
+            <div style="padding:14px 8px;font:600 13px/1.8 'IBM Plex Mono',monospace;color:#B3342A;text-align:center;">[2]<br>✓ 1<br>✓ 1</div>
+          </div>
+          <p style="margin:0;font-size:15px;line-height:1.6;color:#4A5060;">Left margin 120: section numbers, question numbers, paper codes. Content starts at the red double rule. Right column 96–120: marks, totals, averages, aligned to the row they belong to (each row is a <code style="font-family:'IBM Plex Mono',monospace;">minmax(0,1fr) 96px</code> grid). Under 900 px the margin collapses to 16 px with numbers inline and marks right-aligned on the same line.</p>
+          <div style="display:flex;gap:24px;font:500 13px/1.6 'IBM Plex Mono',monospace;color:#5B6170;"><span>space 4·8·12·16·24·32·48·64</span><span>radius 4 · pill 999</span><span>target ≥ 44</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 03 BUTTONS -->
+    <div style="display:grid;grid-template-columns:120px minmax(0,1fr);">
+      <span style="font:600 15px/1 'IBM Plex Mono',monospace;color:#B3342A;padding-top:6px;">03</span>
+      <div style="border-left:3px double #B3342A;padding-left:40px;display:flex;flex-direction:column;gap:20px;">
+        <h2 style="margin:0;font:600 36px/1.1 'Source Serif 4',serif;">Button</h2>
+        <div style="display:grid;grid-template-columns:120px repeat(6,minmax(0,1fr));gap:14px 16px;align-items:center;">
+          <span></span><span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">DEFAULT</span><span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">HOVER</span><span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">FOCUS</span><span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">PRESSED</span><span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">BUSY</span><span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">DISABLED</span>
+          <span style="font-weight:600;font-size:14px;">Primary</span>
+          <span style="display:inline-flex;justify-content:center;align-items:center;min-height:48px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Buy the books</span>
+          <span style="display:inline-flex;justify-content:center;align-items:center;min-height:48px;background:#1D2230;color:#FFFFFF;font-weight:700;border-radius:4px;">Buy the books</span>
+          <span style="display:inline-flex;justify-content:center;align-items:center;min-height:48px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;outline:2px solid #2F8F3A;outline-offset:2px;">Buy the books</span>
+          <span style="display:inline-flex;justify-content:center;align-items:center;min-height:48px;background:#1D2230;color:#FFFFFF;font-weight:700;border-radius:4px;transform:translateY(1px);">Buy the books</span>
+          <span style="display:inline-flex;justify-content:center;align-items:center;gap:10px;min-height:48px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;"><span style="width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.35);border-top-color:#FFFFFF;"></span>Opening Razorpay</span>
+          <span style="display:inline-flex;justify-content:center;align-items:center;min-height:48px;background:#C9CCD2;color:#4A5060;font-weight:700;border-radius:4px;">Buy the books</span>
+          <span style="font-weight:600;font-size:14px;">Secondary</span>
+          <span style="display:inline-flex;justify-content:center;align-items:center;min-height:48px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;">See a sample</span>
+          <span style="display:inline-flex;justify-content:center;align-items:center;min-height:48px;border:1.5px solid #1D2230;background:#F1ECE1;font-weight:700;border-radius:4px;">See a sample</span>
+          <span style="display:inline-flex;justify-content:center;align-items:center;min-height:48px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;outline:2px solid #2F8F3A;outline-offset:2px;">See a sample</span>
+          <span style="display:inline-flex;justify-content:center;align-items:center;min-height:48px;border:1.5px solid #1D2230;background:#E6DFD1;font-weight:700;border-radius:4px;transform:translateY(1px);">See a sample</span>
+          <span style="display:inline-flex;justify-content:center;align-items:center;gap:10px;min-height:48px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;"><span style="width:14px;height:14px;border-radius:50%;border:2px solid #DCD4C4;border-top-color:#1D2230;"></span>Saving</span>
+          <span style="display:inline-flex;justify-content:center;align-items:center;min-height:48px;border:1.5px solid #B9BCC3;color:#7B8595;font-weight:700;border-radius:4px;">See a sample</span>
+          <span style="font-weight:600;font-size:14px;">Destructive</span>
+          <span style="display:inline-flex;justify-content:center;align-items:center;min-height:48px;background:#B42318;color:#FFFFFF;font-weight:700;border-radius:4px;">Cancel order</span>
+          <span style="display:inline-flex;justify-content:center;align-items:center;min-height:48px;background:#A92117;color:#FFFFFF;font-weight:700;border-radius:4px;">Cancel order</span>
+          <span style="display:inline-flex;justify-content:center;align-items:center;min-height:48px;background:#B42318;color:#FFFFFF;font-weight:700;border-radius:4px;outline:2px solid #2F8F3A;outline-offset:2px;">Cancel order</span>
+          <span style="display:inline-flex;justify-content:center;align-items:center;min-height:48px;background:#A92117;color:#FFFFFF;font-weight:700;border-radius:4px;transform:translateY(1px);">Cancel order</span>
+          <span style="display:inline-flex;justify-content:center;align-items:center;gap:10px;min-height:48px;background:#B42318;color:#FFFFFF;font-weight:700;border-radius:4px;"><span style="width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.35);border-top-color:#FFFFFF;"></span>Cancelling</span>
+          <span style="display:inline-flex;justify-content:center;align-items:center;min-height:48px;background:#E9C9C5;color:#7A3A33;font-weight:700;border-radius:4px;">Cancel order</span>
+          <span style="font-weight:600;font-size:14px;">Link</span>
+          <span style="font-weight:700;color:#0B2A5B;text-decoration:underline;text-underline-offset:3px;">Open the book →</span>
+          <span style="font-weight:700;color:#B3342A;text-decoration:underline;text-underline-offset:3px;">Open the book →</span>
+          <span style="font-weight:700;color:#0B2A5B;text-decoration:underline;outline:2px solid #2F8F3A;outline-offset:2px;justify-self:start;">Open the book →</span>
+          <span style="font-weight:700;color:#1D2230;">Open the book →</span>
+          <span></span>
+          <span style="font-weight:700;color:#7B8595;">Open the book →</span>
+        </div>
+        <p style="margin:0;font-size:15px;color:#4A5060;">Sizes: lg 52 · md 48 · sm 44 (never smaller). Busy is set only for real waits (Razorpay loading, payment check, saving) and disables the button, so a form can't be sent twice.</p>
+      </div>
+    </div>
+
+    <!-- 04 FORMS -->
+    <div style="display:grid;grid-template-columns:120px minmax(0,1fr);">
+      <span style="font:600 15px/1 'IBM Plex Mono',monospace;color:#B3342A;padding-top:6px;">04</span>
+      <div style="border-left:3px double #B3342A;padding-left:40px;display:flex;flex-direction:column;gap:24px;">
+        <h2 style="margin:0;font:600 36px/1.1 'Source Serif 4',serif;">Field, input, choice</h2>
+        <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px;">
+          <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Email address
+            <span style="height:48px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;display:flex;align-items:center;padding:0 14px;font-weight:400;color:#7B8595;">you@example.com</span>
+            <span style="font-weight:400;font-size:14px;color:#5B6170;">We send the code here.</span>
+          </label>
+          <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Email address
+            <span style="height:48px;border:1.5px solid #0B2A5B;background:#FFFFFF;border-radius:4px;display:flex;align-items:center;padding:0 14px;font-weight:400;outline:2px solid #2F8F3A;outline-offset:2px;">ananya@exam|</span>
+            <span style="font-weight:400;font-size:14px;color:#5B6170;">Focus</span>
+          </label>
+          <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">PIN code <span style="font-weight:400;color:#B42318;"></span>
+            <span style="height:48px;border:2px solid #B42318;background:#FFFFFF;border-radius:4px;display:flex;align-items:center;padding:0 14px;font-weight:400;">78100</span>
+            <span style="font-weight:600;font-size:14px;color:#B42318;display:flex;gap:6px;align-items:center;"><span style="width:16px;height:16px;border-radius:50%;background:#B42318;color:#FFFFFF;font-size:11px;display:inline-flex;align-items:center;justify-content:center;">!</span>Enter the 6-digit PIN code.</span>
+          </label>
+          <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;color:#7B8595;">Class
+            <span style="height:48px;border:1.5px solid #C9CCD2;background:#F1ECE1;border-radius:4px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-weight:400;">Class 12 <span>⌄</span></span>
+            <span style="font-weight:400;font-size:14px;">Disabled: set by your book</span>
+          </label>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px;align-items:start;">
+          <div style="display:flex;flex-direction:column;gap:12px;font-size:16px;">
+            <span style="display:flex;gap:12px;align-items:center;"><span style="width:22px;height:22px;border:1.5px solid #7B8595;border-radius:3px;background:#FFFFFF;"></span>Unchecked</span>
+            <span style="display:flex;gap:12px;align-items:center;"><span style="width:22px;height:22px;border-radius:3px;background:#0B2A5B;color:#FFFFFF;font-size:14px;display:inline-flex;align-items:center;justify-content:center;">✓</span>I have read the privacy notice</span>
+            <span style="display:flex;gap:12px;align-items:center;color:#7B8595;"><span style="width:22px;height:22px;border:1.5px solid #C9CCD2;border-radius:3px;background:#F1ECE1;"></span>Disabled</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px;font-size:16px;">
+            <span style="display:flex;gap:12px;align-items:center;"><span style="width:22px;height:22px;border:1.5px solid #7B8595;border-radius:50%;background:#FFFFFF;"></span>Cash on delivery</span>
+            <span style="display:flex;gap:12px;align-items:center;"><span style="width:22px;height:22px;border:1.5px solid #0B2A5B;border-radius:50%;background:#FFFFFF;display:inline-flex;align-items:center;justify-content:center;"><span style="width:12px;height:12px;border-radius:50%;background:#0B2A5B;"></span></span>Pay online</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px;font-size:16px;">
+            <span style="display:flex;gap:12px;align-items:center;"><span style="width:44px;height:26px;border-radius:999px;background:#0B2A5B;position:relative;"><span style="position:absolute;right:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#FFFFFF;"></span></span>Order updates by SMS</span>
+            <span style="display:flex;gap:12px;align-items:center;"><span style="width:44px;height:26px;border-radius:999px;background:#C9CCD2;position:relative;"><span style="position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#FFFFFF;"></span></span>News by email</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;font-size:15px;font-weight:600;">One-time code
+            <span style="display:flex;gap:8px;">
+              <sc-for list="{{ otp }}" as="d" hint-placeholder-count="6">
+                <span style="width:44px;height:54px;border:1.5px solid {{ d.border }};background:#FFFFFF;border-radius:4px;display:flex;align-items:center;justify-content:center;font:500 24px/1 'IBM Plex Mono',monospace;">{{ d.v }}</span>
+              </sc-for>
+            </span>
+            <span style="font-weight:400;font-size:14px;color:#5B6170;">Six boxes, numeric keypad, paste fills all.</span>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;">
+          <div style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Choice card (product option)
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <div style="border:2px solid #1D2230;background:#FFFFFF;padding:16px 18px;display:flex;gap:14px;align-items:center;"><span style="width:22px;height:22px;border:1.5px solid #0B2A5B;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;"><span style="width:12px;height:12px;border-radius:50%;background:#0B2A5B;"></span></span><span style="flex:1;font-weight:600;">Sample Papers only</span><span style="font:600 22px/1 'Source Serif 4',serif;">₹299</span></div>
+              <div style="border:1px solid #DCD4C4;background:#FFFFFF;padding:16px 18px;display:flex;gap:14px;align-items:center;"><span style="width:22px;height:22px;border:1.5px solid #7B8595;border-radius:50%;"></span><span style="flex:1;font-weight:600;font-size:16px;">Sample Papers + Solutions <span style="font:600 11px/1 'IBM Plex Mono',monospace;color:#B3342A;border:1.5px solid #B3342A;padding:4px 6px;margin-left:6px;">BEST VALUE</span></span><span style="font:600 22px/1 'Source Serif 4',serif;">₹499</span></div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Copies stepper · Textarea
+            <div style="display:flex;gap:16px;align-items:flex-start;">
+              <span style="display:flex;border:1.5px solid #7B8595;border-radius:4px;background:#FFFFFF;"><span style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;font-size:20px;border-right:1px solid #DCD4C4;">−</span><span style="width:56px;height:48px;display:flex;align-items:center;justify-content:center;font:500 18px/1 'IBM Plex Mono',monospace;">2</span><span style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;font-size:20px;border-left:1px solid #DCD4C4;">+</span></span>
+              <span style="flex:1;height:96px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;padding:12px 14px;font-weight:400;color:#7B8595;box-sizing:border-box;">Your message</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 05 BADGES / ALERTS -->
+    <div style="display:grid;grid-template-columns:120px minmax(0,1fr);">
+      <span style="font:600 15px/1 'IBM Plex Mono',monospace;color:#B3342A;padding-top:6px;">05</span>
+      <div style="border-left:3px double #B3342A;padding-left:40px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:48px;">
+        <div style="display:flex;flex-direction:column;gap:18px;">
+          <h2 style="margin:0;font:600 36px/1.1 'Source Serif 4',serif;">Badge</h2>
+          <div style="display:flex;flex-wrap:wrap;gap:10px;">
+            <span style="display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:13px;padding:5px 10px;background:#1B7F3B;color:#FFFFFF;">Easy</span>
+            <span style="display:inline-flex;align-items:center;font-weight:700;font-size:13px;padding:5px 10px;background:#1A5FB4;color:#FFFFFF;">Medium</span>
+            <span style="display:inline-flex;align-items:center;font-weight:700;font-size:13px;padding:5px 10px;background:#A0272D;color:#FFFFFF;">Hard</span>
+            <span style="display:inline-flex;align-items:center;font-weight:700;font-size:13px;padding:5px 10px;background:#0F3560;color:#FFFFFF;">Physics</span>
+            <span style="display:inline-flex;align-items:center;font-weight:700;font-size:13px;padding:5px 10px;background:#134043;color:#FFFFFF;">Chemistry</span>
+            <span style="display:inline-flex;align-items:center;font-weight:700;font-size:13px;padding:5px 10px;background:#2E1D65;color:#FFFFFF;">Mathematics</span>
+            <span style="display:inline-flex;align-items:center;font-weight:700;font-size:13px;padding:5px 10px;background:#124931;color:#FFFFFF;">Biology</span>
+            <span style="display:inline-flex;align-items:center;font:500 13px/1 'IBM Plex Mono',monospace;padding:6px 8px;border:1px solid #7B8595;">PHY-E01</span>
+          </div>
+          <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;letter-spacing:0.06em;">ORDER STATUS</span>
+          <div style="display:flex;flex-wrap:wrap;gap:10px;">
+            <sc-for list="{{ statuses }}" as="s" hint-placeholder-count="7">
+              <span style="font:600 12px/1 'IBM Plex Mono',monospace;letter-spacing:0.04em;padding:6px 8px;border:1.5px solid {{ s.line }};color:{{ s.fg }};background:{{ s.bg }};">{{ s.label }}</span>
+            </sc-for>
+          </div>
+          <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;letter-spacing:0.06em;">STAMP · used once per screen</span>
+          <div style="display:flex;gap:24px;align-items:center;">
+            <div style="width:110px;height:110px;border-radius:50%;border:2px solid #B3342A;display:flex;align-items:center;justify-content:center;transform:rotate(-10deg);"><div style="width:94px;height:94px;border-radius:50%;border:1px solid #B3342A;display:flex;align-items:center;justify-content:center;text-align:center;font:600 11px/1.35 'IBM Plex Mono',monospace;color:#B3342A;">EXAMLEAF<br>OFFICIAL<br>SOLUTIONS</div></div>
+            <span style="font:600 13px/1 'IBM Plex Mono',monospace;color:#B3342A;border:1.5px solid #B3342A;padding:7px 10px;transform:rotate(-4deg);">BEST VALUE</span>
+            <span style="font:600 15px/1 'IBM Plex Mono',monospace;color:#B3342A;border:1.5px solid #B3342A;border-radius:50%;width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;">2</span>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <h2 style="margin:0;font:600 36px/1.1 'Source Serif 4',serif;">Alert, toast</h2>
+          <sc-for list="{{ alerts }}" as="a" hint-placeholder-count="4">
+            <div style="display:grid;grid-template-columns:28px minmax(0,1fr);gap:12px;padding:14px 16px;background:{{ a.bg }};border:1px solid {{ a.line }};">
+              <span style="width:22px;height:22px;border-radius:50%;background:{{ a.fg }};color:#FFFFFF;font:700 13px/1 'Public Sans',sans-serif;display:inline-flex;align-items:center;justify-content:center;">{{ a.icon }}</span>
+              <span style="display:flex;flex-direction:column;gap:2px;"><strong style="font-size:16px;">{{ a.title }}</strong><span style="font-size:15px;line-height:1.55;color:#3E4454;">{{ a.text }}</span></span>
+            </div>
+          </sc-for>
+          <div style="align-self:flex-end;display:flex;gap:14px;align-items:center;background:#1D2230;color:#FFFFFF;padding:14px 16px;width:380px;box-shadow:0 18px 30px -16px rgba(0,0,0,.5);">
+            <span style="color:#8FD694;font-weight:700;">✓</span><span style="flex:1;font-size:15px;">Saved: 61 of 70 for PHY-E04.</span><span style="font-weight:700;font-size:14px;text-decoration:underline;">Dismiss</span>
+          </div>
+          <span style="font-size:14px;color:#5B6170;align-self:flex-end;">Toast: top right on desktop, bottom on phones, 6 s, pauses on hover and focus, announced once.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 06 NAVIGATION -->
+    <div style="display:grid;grid-template-columns:120px minmax(0,1fr);">
+      <span style="font:600 15px/1 'IBM Plex Mono',monospace;color:#B3342A;padding-top:6px;">06</span>
+      <div style="border-left:3px double #B3342A;padding-left:40px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:40px 48px;">
+        <h2 style="grid-column:1 / -1;margin:0;font:600 36px/1.1 'Source Serif 4',serif;">Navigation</h2>
+        <div style="display:flex;flex-direction:column;gap:10px;"><span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">BREADCRUMB</span><span style="font-size:15px;display:flex;gap:10px;color:#5B6170;"><a href="#">Shop</a><span>/</span><a href="#">Physics</a><span>/</span><span aria-current="page">Sample Papers</span></span></div>
+        <div style="display:flex;flex-direction:column;gap:10px;"><span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">PAGINATION</span><span style="display:flex;gap:6px;"><span style="min-width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:1px solid #DCD4C4;">←</span><span style="min-width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:1.5px solid #1D2230;font:600 15px/1 'IBM Plex Mono',monospace;background:#FFFFFF;">1</span><span style="min-width:44px;height:44px;display:flex;align-items:center;justify-content:center;font:500 15px/1 'IBM Plex Mono',monospace;">2</span><span style="min-width:44px;height:44px;display:flex;align-items:center;justify-content:center;font:500 15px/1 'IBM Plex Mono',monospace;">3</span><span style="min-width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:1px solid #DCD4C4;">→</span></span></div>
+        <div style="display:flex;flex-direction:column;gap:10px;"><span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">TABS</span><span style="display:flex;gap:0;border-bottom:1px solid #DCD4C4;font-weight:600;"><span style="padding:12px 16px;box-shadow:inset 0 -2px 0 #B3342A;">All</span><span style="padding:12px 16px;color:#5B6170;">Physics</span><span style="padding:12px 16px;color:#5B6170;">Chemistry</span><span style="padding:12px 16px;color:#5B6170;">Mathematics</span><span style="padding:12px 16px;color:#5B6170;">Biology</span></span></div>
+        <div style="display:flex;flex-direction:column;gap:10px;"><span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">STEPPER · CHECKOUT</span>
+          <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;">
+            <sc-for list="{{ stepper }}" as="s" hint-placeholder-count="4">
+              <div style="display:flex;flex-direction:column;gap:8px;"><span style="height:4px;background:{{ s.bar }};"></span><span style="font-size:14px;font-weight:{{ s.weight }};color:{{ s.fg }};">{{ s.label }}</span></div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;"><span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">ACCORDION</span>
+          <div style="border-top:1.5px solid #1D2230;"><div style="padding:16px 0;border-bottom:1px solid #DCD4C4;display:flex;justify-content:space-between;font:600 19px/1.3 'Source Serif 4',serif;"><span>How much is delivery?</span><span style="font-family:'IBM Plex Mono',monospace;color:#B3342A;">+</span></div><div style="padding:16px 0;border-bottom:1px solid #DCD4C4;display:flex;flex-direction:column;gap:8px;"><span style="display:flex;justify-content:space-between;font:600 19px/1.3 'Source Serif 4',serif;"><span>Can I cancel an order?</span><span style="font-family:'IBM Plex Mono',monospace;color:#B3342A;">−</span></span><span style="font-size:15px;line-height:1.6;color:#4A5060;">Yes, on the order's page, until it is packed.</span></div></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;"><span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">ACCOUNT SIDE NAV</span>
+          <div style="display:flex;flex-direction:column;font-size:15px;font-weight:600;width:240px;"><span style="padding:10px 0;border-bottom:1px solid #E6DFD1;display:flex;gap:10px;align-items:center;"><span style="width:7px;height:7px;border-radius:50%;background:#B3342A;"></span>My record</span><span style="padding:10px 0 10px 17px;border-bottom:1px solid #E6DFD1;">Learning</span><span style="padding:10px 0 10px 17px;border-bottom:1px solid #E6DFD1;">My orders</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 07 DATA -->
+    <div style="display:grid;grid-template-columns:120px minmax(0,1fr);">
+      <span style="font:600 15px/1 'IBM Plex Mono',monospace;color:#B3342A;padding-top:6px;">07</span>
+      <div style="border-left:3px double #B3342A;padding-left:40px;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:40px 48px;">
+        <h2 style="grid-column:1 / -1;margin:0;font:600 36px/1.1 'Source Serif 4',serif;">Table, timeline, price, progress</h2>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">TABLE · sticky head, scrolls sideways in its own box</span>
+          <div style="border-top:1.5px solid #1D2230;font-size:15px;">
+            <div style="display:grid;grid-template-columns:60px minmax(0,1fr) 80px 120px;gap:12px;padding:10px 0;border-bottom:1px solid #1D2230;font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;letter-spacing:0.05em;"><span>CH.</span><span>CHAPTER</span><span style="text-align:right;">MARKS</span><span style="text-align:right;">PAST QUESTIONS</span></div>
+            <sc-for list="{{ chapters }}" as="c" hint-placeholder-count="4">
+              <div style="display:grid;grid-template-columns:60px minmax(0,1fr) 80px 120px;gap:12px;padding:12px 0;border-bottom:1px solid #DCD4C4;"><span style="font-family:'IBM Plex Mono',monospace;">{{ c.n }}</span><span>{{ c.t }}</span><span style="text-align:right;font-family:'IBM Plex Mono',monospace;">{{ c.m }}</span><span style="text-align:right;font-family:'IBM Plex Mono',monospace;">{{ c.q }}</span></div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">TIMELINE · ORDER</span>
+          <div style="display:flex;flex-direction:column;">
+            <sc-for list="{{ timeline }}" as="t" hint-placeholder-count="5">
+              <div style="display:grid;grid-template-columns:28px minmax(0,1fr);gap:12px;">
+                <span style="display:flex;flex-direction:column;align-items:center;"><span style="width:14px;height:14px;border-radius:50%;margin-top:4px;background:{{ t.dot }};border:2px solid {{ t.ring }};box-sizing:border-box;"></span><span style="flex:1;width:1.5px;background:#DCD4C4;"></span></span>
+                <span style="display:flex;flex-direction:column;gap:2px;padding-bottom:16px;"><strong style="font-size:16px;color:{{ t.fg }};">{{ t.label }}</strong><span style="font-size:14px;color:#5B6170;">{{ t.when }}</span></span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">PRICE</span>
+          <div style="display:flex;align-items:baseline;gap:12px;"><span style="font:600 44px/1 'Source Serif 4',serif;">₹499</span><s style="font-size:18px;color:#5B6170;">₹548</s><span style="font-weight:700;color:#1B7F3B;">Save ₹49 (9%)</span></div>
+          <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;margin-top:12px;">PROGRESS · words beside the bar always</span>
+          <div style="display:flex;align-items:center;gap:14px;font-size:15px;"><span style="flex:1;height:8px;background:#E6DFD1;display:block;"><span style="display:block;width:25%;height:100%;background:#0B2A5B;"></span></span><span style="color:#5B6170;">12 of 48 clips</span></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">SUBJECT ROW · COVER</span>
+          <div style="display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:16px;align-items:center;padding:12px 0;border-top:1px solid #DCD4C4;border-bottom:1px solid #DCD4C4;"><img src="examleaf-web/static/img/chemistry-480.webp" alt="" style="width:56px;height:80px;object-fit:cover;border-radius:3px;box-shadow:0 6px 12px -6px rgba(0,0,0,.5);"><span style="display:flex;flex-direction:column;gap:2px;"><span style="font:600 24px/1.1 'Source Serif 4',serif;">Chemistry</span><span style="font-size:14px;color:#5B6170;">30 papers · 70 marks · 3 h</span></span><span style="font-weight:700;color:#0B2A5B;">Open →</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 08 OVERLAYS + STATES -->
+    <div style="display:grid;grid-template-columns:120px minmax(0,1fr);">
+      <span style="font:600 15px/1 'IBM Plex Mono',monospace;color:#B3342A;padding-top:6px;">08</span>
+      <div style="border-left:3px double #B3342A;padding-left:40px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:32px;">
+        <h2 style="grid-column:1 / -1;margin:0;font:600 36px/1.1 'Source Serif 4',serif;">Dialog, drawer, empty, loading, unavailable</h2>
+        <div style="background:rgba(29,34,48,.55);padding:28px;display:flex;align-items:center;justify-content:center;height:300px;box-sizing:border-box;">
+          <div style="background:#F8F5EE;width:100%;padding:22px;display:flex;flex-direction:column;gap:12px;box-shadow:0 24px 48px rgba(7,18,43,.28);">
+            <span style="font:600 22px/1.2 'Source Serif 4',serif;">Cancel order EL-2026-000003?</span>
+            <span style="font-size:15px;line-height:1.55;color:#3E4454;">It hasn't been packed. A paid order is refunded in full within 5–7 working days.</span>
+            <span style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px;"><span style="display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;">Keep it</span><span style="display:inline-flex;align-items:center;min-height:44px;padding:0 16px;background:#B42318;color:#FFFFFF;font-weight:700;border-radius:4px;">Cancel order</span></span>
+          </div>
+        </div>
+        <div style="background:rgba(29,34,48,.55);display:flex;justify-content:flex-end;height:300px;">
+          <div style="background:#F8F5EE;width:72%;padding:20px;display:flex;flex-direction:column;gap:2px;font-size:16px;font-weight:600;">
+            <span style="display:flex;justify-content:space-between;align-items:center;padding-bottom:12px;border-bottom:1.5px solid #1D2230;margin-bottom:6px;"><span style="font:600 18px/1 'Source Serif 4',serif;">Menu</span><span style="font-size:22px;">×</span></span>
+            <span style="padding:11px 0;border-bottom:1px solid #DCD4C4;">Books</span><span style="padding:11px 0;border-bottom:1px solid #DCD4C4;">Shop</span><span style="padding:11px 0;border-bottom:1px solid #DCD4C4;">Revision course</span><span style="padding:11px 0;border-bottom:1px solid #DCD4C4;">Find your order</span><span style="margin-top:12px;display:inline-flex;justify-content:center;align-items:center;min-height:48px;background:#0B2A5B;color:#FFFFFF;border-radius:4px;">Register</span>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="border:1.5px dashed #C9C0AE;padding:24px;display:flex;flex-direction:column;gap:10px;align-items:flex-start;">
+            <span style="font:600 28px/1 'IBM Plex Mono',monospace;color:#B3342A;">[ — ]</span>
+            <strong style="font:600 20px/1.2 'Source Serif 4',serif;">Nothing saved yet</strong>
+            <span style="font-size:15px;line-height:1.55;color:#4A5060;">After you mark a paper against its solutions, save your score at the end of the solutions page.</span>
+            <span style="font-weight:700;color:#0B2A5B;">Choose a paper →</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;padding:16px;border:1px solid #DCD4C4;background:#FFFFFF;">
+            <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">LOADING · still placeholder, no shimmer</span>
+            <span style="height:16px;width:60%;background:#EAE4D8;"></span><span style="height:10px;width:90%;background:#F1ECE1;"></span><span style="height:10px;width:75%;background:#F1ECE1;"></span>
+          </div>
+        </div>
+        <div style="grid-column:1 / -1;display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:14px;align-items:center;padding:18px 20px;background:#FFFFFF;border:1.5px solid #1D2230;">
+          <span style="font:600 18px/1 'IBM Plex Mono',monospace;color:#B42318;">!</span>
+          <span style="display:flex;flex-direction:column;gap:2px;"><strong>This book's page can't be reached right now</strong><span style="font-size:15px;color:#4A5060;">Nothing is wrong with your account. Try again in a minute; nothing you typed is lost.</span></span>
+          <span style="display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;">Try again</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 09 MOTION -->
+    <div style="display:grid;grid-template-columns:120px minmax(0,1fr);">
+      <span style="font:600 15px/1 'IBM Plex Mono',monospace;color:#B3342A;padding-top:6px;">09</span>
+      <div style="border-left:3px double #B3342A;padding-left:40px;display:flex;flex-direction:column;gap:16px;">
+        <h2 style="margin:0;font:600 36px/1.1 'Source Serif 4',serif;">Motion</h2>
+        <p style="margin:0;font-size:16px;line-height:1.6;color:#4A5060;max-width:56em;">The motion language in motion.md stays in force: transform and opacity only; 150 / 220 / 360 ms; ease-out cubic-bezier(.2,.7,.2,1); everything inside prefers-reduced-motion: no-preference; reading surfaces never move. Answer Script adds two signature moments and changes nothing else.</p>
+        <div style="border-top:1.5px solid #1D2230;">
+          <sc-for list="{{ motion }}" as="m" hint-placeholder-count="5">
+            <div style="display:grid;grid-template-columns:220px minmax(0,1fr) 220px;gap:24px;padding:14px 0;border-bottom:1px solid #DCD4C4;font-size:15px;"><strong>{{ m.name }}</strong><span style="color:#3E4454;line-height:1.55;">{{ m.what }}</span><span style="font:500 13px/1.5 'IBM Plex Mono',monospace;color:#5B6170;">{{ m.spec }}</span></div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      swatches: [
+        { name: "Paper", hex: "#F8F5EE", use: "background" }, { name: "Paper 2", hex: "#F1ECE1", use: "alternate band" }, { name: "Card", hex: "#FFFFFF", use: "sheets, inputs" },
+        { name: "Ink", hex: "#1D2230", use: "text, rules, night" }, { name: "Muted", hex: "#5B6170", use: "secondary text 5.9:1" }, { name: "Rule", hex: "#DCD4C4", use: "hairlines" },
+        { name: "Red ink", hex: "#B3342A", use: "marks, ticks, margin" }, { name: "Navy", hex: "#0B2A5B", use: "primary action" }, { name: "Leaf", hex: "#1A6E30", use: "wordmark, success" },
+        { name: "Control", hex: "#7B8595", use: "input border 3.7:1" }, { name: "Focus", hex: "#2F8F3A", use: "ring 2 + 2 px" }, { name: "Error", hex: "#B42318", use: "errors, destructive" },
+        { name: "Easy", hex: "#1B7F3B", use: "tier" }, { name: "Medium", hex: "#1A5FB4", use: "tier" }, { name: "Hard", hex: "#A0272D", use: "tier" },
+        { name: "Physics", hex: "#0F3560", use: "subject" }, { name: "Chemistry", hex: "#134043", use: "subject" }, { name: "Maths", hex: "#2E1D65", use: "subject" },
+      ],
+      otp: ["4", "8", "1", "", "", ""].map((v, i) => ({ v, border: i === 3 ? "#0B2A5B" : "#7B8595" })),
+      statuses: [
+        { label: "AWAITING PAYMENT", line: "#C9A03A", fg: "#8A6508", bg: "transparent" },
+        { label: "PAID", line: "#1B7F3B", fg: "#1B7F3B", bg: "transparent" },
+        { label: "PACKED", line: "#1A5FB4", fg: "#1A5FB4", bg: "transparent" },
+        { label: "SHIPPED", line: "#1A5FB4", fg: "#FFFFFF", bg: "#1A5FB4" },
+        { label: "DELIVERED", line: "#1B7F3B", fg: "#FFFFFF", bg: "#1B7F3B" },
+        { label: "CANCELLED", line: "#7B8595", fg: "#5B6170", bg: "transparent" },
+        { label: "REFUNDED", line: "#7B8595", fg: "#5B6170", bg: "#F1ECE1" },
+      ],
+      alerts: [
+        { bg: "#EEF3FB", line: "#C9D8F0", fg: "#1A5FB4", icon: "i", title: "Keep your marks", text: "Registered students can save their marks after each paper and see their average for each tier." },
+        { bg: "#EBF5ED", line: "#C3E1CA", fg: "#1B7F3B", icon: "✓", title: "Payment received", text: "Razorpay confirmed ₹339.00. We email the invoice when the order is packed." },
+        { bg: "#FFF5D8", line: "#EED58C", fg: "#8A6508", icon: "!", title: "Waiting for your parent", text: "We sent the consent link to your parent. Until they confirm, you can read the solutions but not save marks or order books." },
+        { bg: "#FCEBE9", line: "#F1C2BC", fg: "#B42318", icon: "×", title: "The payment didn't go through", text: "No money was taken. Try again, or choose cash on delivery." },
+      ],
+      stepper: ["Address", "Delivery", "Payment", "Done"].map((label, i) => ({ label, bar: i < 2 ? "#0B2A5B" : i === 2 ? "#B3342A" : "#DCD4C4", weight: i === 2 ? 700 : 500, fg: i <= 2 ? "#1D2230" : "#5B6170" })),
+      chapters: [
+        { n: "1", t: "Electric Charges and Fields", m: "6", q: "14" },
+        { n: "2", t: "Electrostatic Potential and Capacitance", m: "5", q: "11" },
+        { n: "3", t: "Current Electricity", m: "7", q: "16" },
+        { n: "4", t: "Moving Charges and Magnetism", m: "6", q: "12" },
+      ],
+      timeline: [
+        { label: "Order placed", when: "8 Oct 2026, 10:42", dot: "#0B2A5B", ring: "#0B2A5B", fg: "#1D2230" },
+        { label: "Paid", when: "8 Oct 2026, 10:44 · Razorpay UPI", dot: "#0B2A5B", ring: "#0B2A5B", fg: "#1D2230" },
+        { label: "Packed", when: "Today", dot: "#FFFFFF", ring: "#B3342A", fg: "#1D2230" },
+        { label: "Shipped", when: "Next", dot: "#FFFFFF", ring: "#DCD4C4", fg: "#5B6170" },
+        { label: "Delivered", when: "", dot: "#FFFFFF", ring: "#DCD4C4", fg: "#5B6170" },
+      ],
+      motion: [
+        { name: "Tick lands", what: "On the solutions page, when a student records their marks, the score is circled in red ink. The circle scales from 0.9 and fades in. It plays once, after the server confirms the save, never before.", spec: "220 ms · enter ease · opacity + scale" },
+        { name: "Margin follows", what: "On long papers the current question number in the left margin turns red as its row reaches the top third of the screen. The colour change is instant. It is scroll-linked (no JavaScript loop) where animation-timeline is supported, and static elsewhere.", spec: "colour only · 0 ms" },
+        { name: "Cover morph", what: "A subject row's cover morphs into the book page cover, and a product card's cover into the product page cover (React ViewTransition, existing Morph).", spec: "360 ms · skipped after form posts" },
+        { name: "Press", what: "Buttons and rows move down 1 px on press. Releasing early, or pressing several times, always ends in the resting state.", spec: "120 ms · :active only" },
+        { name: "Stepper + timeline", what: "In checkout, the current step's bar draws in from the left. Order timeline items rise 8 px and fade in, 40 ms apart, six at most.", spec: "220 ms · page load only" },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

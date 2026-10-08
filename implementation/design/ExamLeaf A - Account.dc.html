@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Hind+Siliguri:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#E4E1DA;-webkit-font-smoothing:antialiased}
+a{color:#0B2A5B;text-underline-offset:3px}
+a:hover{color:#B3342A}
+</style>
+</helmet>
+<section id="6a" style="padding:64px;display:flex;flex-direction:column;gap:40px;font-family:'Public Sans','Hind Siliguri',sans-serif;color:#1D2230;">
+  <div style="display:flex;align-items:flex-start;gap:24px;">
+    <span style="flex:none;font:600 15px/1 'IBM Plex Mono',monospace;background:#1D2230;color:#F8F5EE;padding:10px 12px;border-radius:3px;">6a</span>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <h1 style="margin:0;font:600 40px/1.1 'Source Serif 4',serif;">Student and customer area</h1>
+      <p style="margin:0;font-size:17px;color:#4A5060;max-width:64em;line-height:1.6;">My account · My record (and editing one) · Learning · My orders · Details · Addresses · Log-in and security · Two-factor setup · Consent and your data · Teacher access · Revision course. Quieter than the public pages: no stamps, no large type, and nothing moves. All the student data shown is SAMPLE DATA (a fixture), not production.</p>
+    </div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:64px;align-items:flex-start;max-width:4100px;">
+    <!-- ============ ACCOUNT ============ -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <p style="margin:0;font:500 14px/1 'IBM Plex Mono',monospace;color:#5B6170;">MY ACCOUNT · /account/ · signed in · SAMPLE DATA (fixture, not production)</p>
+      <div data-screen-label="A Account" style="width:1280px;background:#F8F5EE;box-shadow:0 30px 60px -30px rgba(29,34,48,.35);overflow:hidden;">
+        <header style="display:flex;align-items:center;justify-content:space-between;height:72px;padding:0 40px;border-bottom:1px solid #DCD4C4;">
+          <span style="display:flex;align-items:center;gap:10px;">
+            <svg viewBox="0 0 64 64" width="30" height="30" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#0B2A5B"></rect><path d="M16 48C16 24 32 12 50 14C52 32 40 50 16 48Z" fill="#8FD694"></path><path d="M18 46C28 36 36 28 44 20" fill="none" stroke="#0B2A5B" stroke-width="3" stroke-linecap="round"></path></svg>
+            <span style="font:700 23px/1 'Source Serif 4',serif;">Exam<span style="color:#1A6E30;">Leaf</span></span>
+          </span>
+          <nav style="display:flex;align-items:center;gap:4px;font-size:16px;font-weight:600;">
+            <span style="padding:12px 14px;">Books</span><span style="padding:12px 14px;">Shop</span><span style="padding:12px 14px;">My record</span><span style="padding:12px 14px;box-shadow:inset 0 -2px 0 #B3342A;">Account</span>
+            <span style="width:1px;height:24px;background:#DCD4C4;margin:0 8px;"></span>
+            <span style="padding:12px 14px;display:flex;gap:8px;align-items:center;">Cart <span style="font:600 12px/1 'IBM Plex Mono',monospace;background:#1D2230;color:#FFFFFF;border-radius:999px;padding:4px 7px;">1</span></span>
+            <span style="padding:12px 14px;">Log out</span>
+          </nav>
+        </header>
+        <div style="display:grid;grid-template-columns:240px minmax(0,1fr);">
+          <nav style="padding:40px 24px 40px 40px;display:flex;flex-direction:column;font-size:15px;font-weight:600;">
+            <sc-for list="{{ accountNav }}" as="l" hint-placeholder-count="10">
+              <span style="padding:10px 0;border-bottom:1px solid #E6DFD1;color:#1D2230;">{{ l }}</span>
+            </sc-for>
+          </nav>
+          <div style="border-left:3px double #B3342A;padding:40px 48px 64px;display:flex;flex-direction:column;gap:32px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-end;">
+              <div style="display:flex;flex-direction:column;gap:8px;">
+                <h1 style="margin:0;font:600 48px/1 'Source Serif 4',serif;letter-spacing:-0.02em;">My account</h1>
+                <span style="font-size:16px;color:#5B6170;">Ananya Das · Class 12, ASSEB</span>
+              </div>
+              <span style="font-size:15px;color:#5B6170;">4 days of revision in a row.</span>
+            </div>
+
+            <div style="display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:24px;">
+              <div style="background:#FFFFFF;border:1px solid #DCD4C4;padding:24px;display:flex;gap:24px;">
+                <div style="flex:0 0 220px;height:124px;background:repeating-linear-gradient(135deg,#EFE9DC 0 8px,#E6DFD1 8px 16px);display:flex;align-items:center;justify-content:center;font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">clip poster</div>
+                <div style="display:flex;flex-direction:column;gap:8px;min-width:0;">
+                  <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#B3342A;letter-spacing:0.08em;">CONTINUE</span>
+                  <span style="font-size:14px;color:#5B6170;">Physics · Ch. 3 Current Electricity</span>
+                  <span style="font:600 22px/1.25 'Source Serif 4',serif;">Kirchhoff's loop rule in two steps</span>
+                  <span style="font-size:14px;color:#5B6170;">Concept · 4 min · Physics revision</span>
+                  <span style="margin-top:6px;display:inline-flex;align-self:flex-start;align-items:center;min-height:44px;padding:0 18px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Play it here</span>
+                </div>
+              </div>
+              <div style="background:#FFFFFF;border:1px solid #DCD4C4;padding:24px;display:flex;flex-direction:column;gap:6px;">
+                <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;letter-spacing:0.08em;">REVISE AGAIN TODAY</span>
+                <span style="font:600 56px/1 'Source Serif 4',serif;margin-top:6px;">6</span>
+                <span style="font-size:15px;color:#4A5060;">clips you watched before, due again. They are in the ExamLeaf app.</span>
+              </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 96px;border-top:1.5px solid #1D2230;">
+              <div style="padding:20px 0 4px;display:flex;justify-content:space-between;align-items:baseline;"><h2 style="margin:0;font:600 26px/1.2 'Source Serif 4',serif;">My record</h2><a href="#" style="font-weight:700;font-size:15px;">Open My record →</a></div>
+              <div style="padding:24px 0 0;font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;text-align:center;">AVERAGE</div>
+              <sc-for list="{{ record }}" as="r" hint-placeholder-count="3">
+                <div style="display:grid;grid-template-columns:24px 160px minmax(0,1fr);align-items:center;padding:14px 0;border-bottom:1px solid #DCD4C4;font-size:16px;">
+                  <span style="width:10px;height:10px;background:{{ r.color }};"></span>
+                  <strong>{{ r.tier }}</strong>
+                  <span style="color:#5B6170;">{{ r.detail }}</span>
+                </div>
+                <div style="border-bottom:1px solid #DCD4C4;display:flex;align-items:center;justify-content:center;font:600 18px/1 'IBM Plex Mono',monospace;color:#B3342A;">{{ r.avg }}</div>
+              </sc-for>
+            </div>
+
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;">
+              <div style="display:flex;flex-direction:column;gap:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;border-top:1.5px solid #1D2230;padding-top:18px;"><h2 style="margin:0;font:600 24px/1.2 'Source Serif 4',serif;">Your next days</h2><span style="font-size:14px;color:#5B6170;">Exam on 20 Feb 2027</span></div>
+                <sc-for list="{{ days }}" as="d" hint-placeholder-count="3">
+                  <div style="display:grid;grid-template-columns:120px minmax(0,1fr);gap:12px;padding:10px 0;border-bottom:1px solid #DCD4C4;font-size:15px;">
+                    <span style="font:500 14px/1.5 'IBM Plex Mono',monospace;">{{ d.date }}<br><span style="color:#5B6170;">{{ d.min }}</span></span>
+                    <span style="line-height:1.6;color:#3E4454;">{{ d.clips }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;border-top:1.5px solid #1D2230;padding-top:18px;"><h2 style="margin:0;font:600 24px/1.2 'Source Serif 4',serif;">My orders</h2><a href="#" style="font-weight:700;font-size:15px;">All my orders →</a></div>
+                <div style="background:#FFFFFF;border:1px solid #DCD4C4;padding:18px 20px;display:flex;flex-direction:column;gap:10px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;"><span style="font:600 16px/1 'IBM Plex Mono',monospace;">EL-2026-000003</span><span style="font:600 12px/1 'IBM Plex Mono',monospace;color:#8A6508;border:1.5px solid #C9A03A;padding:5px 8px;letter-spacing:0.04em;">AWAITING PAYMENT</span></div>
+                  <span style="font-size:15px;color:#5B6170;">8 Oct 2026 · ₹339.00 · Physics Sample Papers 2027</span>
+                  <div style="display:flex;gap:16px;align-items:center;margin-top:4px;"><span style="display:inline-flex;align-items:center;min-height:44px;padding:0 18px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Pay now</span><a href="#" style="font-weight:700;">View the order</a></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RECORD -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <p style="margin:0;font:500 14px/1 'IBM Plex Mono',monospace;color:#5B6170;">MY RECORD · /account/record/ · SAMPLE DATA</p>
+      <div data-screen-label="Record" style="width:1280px;background:#F8F5EE;box-shadow:0 30px 60px -30px rgba(29,34,48,.35);overflow:hidden;">
+        <dc-import name="A Header" signed-in="{{ true }}" current="My record" hint-size="1280px,72px"></dc-import>
+        <div style="display:grid;grid-template-columns:240px minmax(0,1fr);">
+          <dc-import name="A Account Nav" current="My record" hint-size="240px,520px"></dc-import>
+          <div style="border-left:3px double #B3342A;padding:40px 0 64px 48px;display:flex;flex-direction:column;gap:24px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-end;padding-right:48px;">
+              <div style="display:flex;flex-direction:column;gap:8px;"><h1 style="margin:0;font:600 48px/1 'Source Serif 4',serif;letter-spacing:-0.02em;">My record</h1><span style="font-size:16px;color:#5B6170;">The marks you saved for each paper, with your average for each tier.</span></div>
+              <a href="#" style="font-weight:700;">Download as CSV</a>
+            </div>
+            <div style="display:flex;border-bottom:1px solid #DCD4C4;font-weight:600;margin-right:48px;"><span style="padding:12px 16px 12px 0;box-shadow:inset 0 -2px 0 #B3342A;">Physics · 6</span><span style="padding:12px 16px;color:#5B6170;">Chemistry · 2</span><span style="padding:12px 16px;color:#5B6170;">Mathematics · 0</span><span style="padding:12px 16px;color:#5B6170;">Biology · 0</span></div>
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 140px;">
+              <div style="display:grid;grid-template-columns:100px 120px minmax(0,1fr) 100px;gap:16px;padding:0 0 10px;border-bottom:1.5px solid #1D2230;font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;letter-spacing:0.05em;"><span>PAPER</span><span>TIER</span><span>SAVED ON</span><span></span></div>
+              <div style="padding:0 0 10px;border-bottom:1.5px solid #1D2230;font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;text-align:center;">MARKS</div>
+              <sc-for list="{{ recordRows }}" as="r" hint-placeholder-count="8">
+                <div style="display:grid;grid-template-columns:100px 120px minmax(0,1fr) 100px;gap:16px;align-items:center;padding:14px 0;border-bottom:1px solid {{ r.line }};background:{{ r.bg }};font-size:16px;">
+                  <span style="font:{{ r.codeFont }};">{{ r.code }}</span>
+                  <span style="display:flex;gap:8px;align-items:center;"><span style="width:10px;height:10px;background:{{ r.color }};"></span>{{ r.tier }}</span>
+                  <span style="color:#5B6170;">{{ r.date }}</span>
+                  <a href="#" style="font-weight:600;font-size:15px;">{{ r.action }}</a>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:center;border-bottom:1px solid {{ r.line }};background:{{ r.bg }};font:600 17px/1 'IBM Plex Mono',monospace;color:#B3342A;">{{ r.marks }}</div>
+              </sc-for>
+            </div>
+            <span style="font-size:15px;color:#5B6170;padding-right:48px;">Hard papers: none saved yet. Start with H-01 when the Medium ten feel comfortable.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RECORD EDIT + ORDERS -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <p style="margin:0;font:500 14px/1 'IBM Plex Mono',monospace;color:#5B6170;">EDIT A RECORD · /account/record/&lt;id&gt;/edit/ · and MY ORDERS · /account/orders/ · SAMPLE DATA</p>
+      <div style="width:1280px;display:grid;grid-template-columns:480px minmax(0,1fr);gap:32px;align-items:start;">
+        <div data-screen-label="Record edit" style="background:#F8F5EE;box-shadow:0 30px 60px -30px rgba(29,34,48,.35);">
+          <div style="height:56px;display:flex;align-items:center;padding:0 28px;border-bottom:1px solid #DCD4C4;font:700 20px/1 'Source Serif 4',serif;">Exam<span style="color:#1A6E30;">Leaf</span></div>
+          <div style="display:grid;grid-template-columns:72px minmax(0,1fr);padding:36px 32px 44px 0;">
+            <span style="padding:8px 0 0 24px;font:600 14px/1 'IBM Plex Mono',monospace;color:#B3342A;">E-04</span>
+            <div style="border-left:3px double #B3342A;padding-left:28px;display:flex;flex-direction:column;gap:16px;">
+              <span style="font-size:15px;color:#5B6170;"><a href="#">My record</a> / Physics E-04</span>
+              <h2 style="margin:0;font:600 36px/1.05 'Source Serif 4',serif;">Physics, Paper E-04</h2>
+              <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Marks scored<span style="display:flex;align-items:center;gap:10px;font:500 22px/1 'IBM Plex Mono',monospace;"><span style="width:96px;height:52px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;display:flex;align-items:center;padding:0 14px;box-sizing:border-box;">61</span>/ 70</span><span style="font-weight:400;font-size:14px;color:#5B6170;">Out of 70. Half marks are fine: 52.5.</span></label>
+              <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Date you sat it<span style="height:48px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;display:flex;align-items:center;padding:0 14px;font-weight:400;">6 Oct 2026</span></label>
+              <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Time taken <span style="font-weight:400;color:#5B6170;">minutes, optional</span><span style="width:120px;height:48px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;display:flex;align-items:center;padding:0 14px;font:400 16px/1 'IBM Plex Mono',monospace;box-sizing:border-box;">165</span></label>
+              <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">What to revise <span style="font-weight:400;color:#5B6170;">optional</span><span style="height:72px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;padding:10px 12px;font:400 15px/1.5 'Source Serif 4',serif;box-sizing:border-box;">Sign convention in loops.</span></label>
+              <span style="display:inline-flex;justify-content:center;align-items:center;min-height:52px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Save</span>
+              <a href="#" style="font-weight:600;color:#B42318;">Delete this record</a>
+            </div>
+          </div>
+        </div>
+        <div data-screen-label="Orders" style="background:#F8F5EE;box-shadow:0 30px 60px -30px rgba(29,34,48,.35);overflow:hidden;">
+          <div style="display:grid;grid-template-columns:72px minmax(0,1fr);padding:40px 40px 48px 0;">
+            <span style="padding:8px 0 0 24px;font:600 14px/1 'IBM Plex Mono',monospace;color:#B3342A;">№</span>
+            <div style="border-left:3px double #B3342A;padding-left:32px;display:flex;flex-direction:column;gap:20px;">
+              <h1 style="margin:0;font:600 48px/1 'Source Serif 4',serif;letter-spacing:-0.02em;">My orders</h1>
+              <div style="border-top:1.5px solid #1D2230;">
+                <sc-for list="{{ orders }}" as="o" hint-placeholder-count="3">
+                  <div style="display:grid;grid-template-columns:200px 120px minmax(0,1fr) 180px 120px;gap:16px;align-items:center;padding:18px 0;border-bottom:1px solid #DCD4C4;">
+                    <span style="font:600 16px/1 'IBM Plex Mono',monospace;">{{ o.n }}</span>
+                    <span style="font-size:15px;color:#5B6170;">{{ o.date }}</span>
+                    <span style="font-size:15px;">{{ o.items }}</span>
+                    <span style="justify-self:start;font:600 12px/1 'IBM Plex Mono',monospace;letter-spacing:0.04em;padding:6px 8px;border:1.5px solid {{ o.line }};color:{{ o.fg }};background:{{ o.bg }};">{{ o.status }}</span>
+                    <span style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;"><strong style="font-family:'IBM Plex Mono',monospace;">{{ o.total }}</strong><a href="#" style="font-size:14px;font-weight:700;">{{ o.action }}</a></span>
+                  </div>
+                </sc-for>
+              </div>
+              <span style="font-size:15px;color:#5B6170;">An order's page shows its timeline, address, payment and GST invoice, and lets you cancel it until it is packed.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LEARNING -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <p style="margin:0;font:500 14px/1 'IBM Plex Mono',monospace;color:#5B6170;">LEARNING · /account/learning/ · GET me/learning/ · SAMPLE DATA</p>
+      <div data-screen-label="Learning" style="width:1280px;background:#F8F5EE;box-shadow:0 30px 60px -30px rgba(29,34,48,.35);overflow:hidden;">
+        <dc-import name="A Header" signed-in="{{ true }}" current="Account" hint-size="1280px,72px"></dc-import>
+        <div style="display:grid;grid-template-columns:240px minmax(0,1fr);">
+          <dc-import name="A Account Nav" current="Learning" hint-size="240px,520px"></dc-import>
+          <div style="border-left:3px double #B3342A;padding:40px 48px 64px;display:flex;flex-direction:column;gap:28px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-end;"><h1 style="margin:0;font:600 48px/1 'Source Serif 4',serif;letter-spacing:-0.02em;">Learning</h1><span style="font-size:15px;color:#5B6170;">4 days of revision in a row.</span></div>
+            <div style="display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:32px;">
+              <div style="display:flex;flex-direction:column;gap:12px;">
+                <div style="aspect-ratio:16 / 9;background:repeating-linear-gradient(135deg,#EFE9DC 0 8px,#E6DFD1 8px 16px);display:flex;align-items:center;justify-content:center;position:relative;"><span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">clip player (hls.js) · poster</span><span style="position:absolute;width:64px;height:64px;border-radius:50%;background:#1D2230;color:#FFFFFF;display:flex;align-items:center;justify-content:center;font-size:20px;">▶</span></div>
+                <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#B3342A;letter-spacing:0.08em;">CONTINUE</span>
+                <span style="font:600 26px/1.2 'Source Serif 4',serif;">Kirchhoff's loop rule in two steps</span>
+                <span style="font-size:15px;color:#5B6170;">Physics · Ch. 3 Current Electricity · Concept · 4 min · Physics revision</span>
+                <span style="font-size:15px;color:#5B6170;line-height:1.55;">Watching here is not counted: the ExamLeaf app keeps your progress, quiz and flash cards. <a href="#">Get the app</a></span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:14px;">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;border-top:1.5px solid #1D2230;padding-top:14px;"><h2 style="margin:0;font:600 24px/1.2 'Source Serif 4',serif;">Plan to your exam</h2></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                  <label style="display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:600;">Exam date<span style="height:44px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;display:flex;align-items:center;padding:0 12px;font-weight:400;">20 Feb 2027</span></label>
+                  <label style="display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:600;">Minutes a day<span style="height:44px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;display:flex;align-items:center;padding:0 12px;font-weight:400;">30</span></label>
+                </div>
+                <sc-for list="{{ days }}" as="d" hint-placeholder-count="3">
+                  <div style="display:grid;grid-template-columns:96px minmax(0,1fr);gap:12px;padding:10px 0;border-bottom:1px solid #DCD4C4;font-size:14px;"><span style="font:500 13px/1.5 'IBM Plex Mono',monospace;">{{ d.date }}<br><span style="color:#5B6170;">{{ d.min }}</span></span><span style="line-height:1.55;color:#3E4454;">{{ d.clips }}</span></div>
+                </sc-for>
+                <div style="display:flex;gap:12px;align-items:baseline;padding-top:4px;"><span style="font:600 36px/1 'Source Serif 4',serif;">6</span><span style="font-size:15px;color:#3E4454;">to revise again today, in the app</span></div>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 140px;border-top:1.5px solid #1D2230;">
+              <div style="padding:16px 0 8px;display:flex;align-items:baseline;gap:12px;"><h2 style="margin:0;font:600 26px/1.2 'Source Serif 4',serif;">Physics</h2><span style="font-size:15px;color:#5B6170;">12 of 48 clips watched, 61 min · last on 7 Oct</span></div>
+              <div style="padding:20px 0 0;font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;text-align:center;">QUIZ</div>
+              <sc-for list="{{ chapters }}" as="c" hint-placeholder-count="5">
+                <div style="display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:24px;align-items:center;padding:12px 0;border-bottom:1px solid #DCD4C4;"><span style="font-weight:600;">Ch. {{ c.n }} {{ c.t }}</span><span style="display:flex;align-items:center;gap:12px;"><span style="flex:1;height:8px;background:#E6DFD1;display:block;"><span style="display:block;height:100%;width:{{ c.pct }};background:#0B2A5B;"></span></span><span style="font-size:14px;color:#5B6170;width:90px;text-align:right;">{{ c.done }}</span></span></div>
+                <div style="display:flex;align-items:center;justify-content:center;border-bottom:1px solid #DCD4C4;font:600 15px/1 'IBM Plex Mono',monospace;color:{{ c.quizFg }};">{{ c.quiz }}</div>
+              </sc-for>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;">
+              <sc-for list="{{ otherSubjects }}" as="s" hint-placeholder-count="3">
+                <div style="border-top:1px solid #1D2230;padding-top:12px;display:flex;flex-direction:column;gap:8px;"><strong style="font:600 20px/1.2 'Source Serif 4',serif;">{{ s.name }}</strong><span style="display:flex;align-items:center;gap:10px;"><span style="flex:1;height:8px;background:#E6DFD1;display:block;"><span style="display:block;height:100%;width:{{ s.pct }};background:#0B2A5B;"></span></span><span style="font-size:14px;color:#5B6170;">{{ s.done }}</span></span><span style="font-size:14px;color:#5B6170;">{{ s.note }}</span></div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DETAILS + ADDRESSES -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <p style="margin:0;font:500 14px/1 'IBM Plex Mono',monospace;color:#5B6170;">DETAILS · /account/details/ · and ADDRESSES · /account/addresses/ · SAMPLE DATA</p>
+      <div data-screen-label="Details and addresses" style="width:1280px;background:#F8F5EE;box-shadow:0 30px 60px -30px rgba(29,34,48,.35);overflow:hidden;">
+        <dc-import name="A Header" signed-in="{{ true }}" current="Account" hint-size="1280px,72px"></dc-import>
+        <div style="display:grid;grid-template-columns:240px minmax(0,1fr);">
+          <dc-import name="A Account Nav" current="Details" hint-size="240px,520px"></dc-import>
+          <div style="border-left:3px double #B3342A;padding:40px 48px 64px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px;">
+            <div style="display:flex;flex-direction:column;gap:18px;">
+              <h1 style="margin:0;font:600 44px/1 'Source Serif 4',serif;letter-spacing:-0.02em;">Details</h1>
+              <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Full name<span style="height:48px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;display:flex;align-items:center;padding:0 14px;font-weight:400;">Ananya Das</span></label>
+              <div style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Email address<span style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid #DCD4C4;font-weight:400;">ananya@example.com <span style="font:600 11px/1 'IBM Plex Mono',monospace;color:#1B7F3B;border:1.5px solid #1B7F3B;padding:4px 6px;">VERIFIED</span></span><a href="#" style="font-size:14px;">Change, in Log-in and security</a></div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Board<span style="height:48px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-weight:400;">ASSEB <span>⌄</span></span></label>
+                <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Class<span style="height:48px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-weight:400;">Class 12 <span>⌄</span></span></label>
+              </div>
+              <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">School <span style="font-weight:400;color:#5B6170;">optional</span><span style="height:48px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;"></span></label>
+              <span style="display:inline-flex;align-self:flex-start;align-items:center;min-height:48px;padding:0 22px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Save changes</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:18px;">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;"><h2 style="margin:0;font:600 44px/1 'Source Serif 4',serif;letter-spacing:-0.02em;">Addresses</h2><a href="#" style="font-weight:700;">+ Add an address</a></div>
+              <div style="background:#FFFFFF;border:1.5px solid #1D2230;padding:20px;display:flex;flex-direction:column;gap:8px;"><span style="display:flex;justify-content:space-between;"><strong>Home</strong><span style="font:600 11px/1 'IBM Plex Mono',monospace;color:#5B6170;border:1px solid #7B8595;padding:4px 6px;">DEFAULT</span></span><span style="font-size:15px;line-height:1.6;">Ananya Das · +91 98•• •••• 21<br>House 12, Rajgarh Road, Chandmari<br>Guwahati, Assam 781003</span><span style="display:flex;gap:16px;font-size:14px;font-weight:600;"><a href="#">Edit</a><a href="#" style="color:#B42318;">Delete</a></span></div>
+              <div style="background:#FFFFFF;border:1px solid #DCD4C4;padding:20px;display:flex;flex-direction:column;gap:8px;"><strong>Hostel</strong><span style="font-size:15px;line-height:1.6;">Ananya Das · +91 98•• •••• 21<br>Girls' Hostel 2, Cotton University<br>Guwahati, Assam 781001</span><span style="display:flex;gap:16px;font-size:14px;font-weight:600;"><a href="#">Edit</a><a href="#">Make default</a><a href="#" style="color:#B42318;">Delete</a></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SECURITY + 2FA -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <p style="margin:0;font:500 14px/1 'IBM Plex Mono',monospace;color:#5B6170;">LOG-IN AND SECURITY · /account/security/ · and TWO-FACTOR SETUP · /account/2fa/ · SAMPLE DATA</p>
+      <div data-screen-label="Security" style="width:1280px;background:#F8F5EE;box-shadow:0 30px 60px -30px rgba(29,34,48,.35);overflow:hidden;">
+        <dc-import name="A Header" signed-in="{{ true }}" current="Account" hint-size="1280px,72px"></dc-import>
+        <div style="display:grid;grid-template-columns:240px minmax(0,1fr);">
+          <dc-import name="A Account Nav" current="Log-in and security" hint-size="240px,520px"></dc-import>
+          <div style="border-left:3px double #B3342A;padding:40px 48px 64px;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:48px;">
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <h1 style="margin:0 0 14px;font:600 44px/1 'Source Serif 4',serif;letter-spacing:-0.02em;">Log-in and security</h1>
+              <sc-for list="{{ security }}" as="s" hint-placeholder-count="6">
+                <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:center;padding:16px 0;border-top:1px solid #DCD4C4;">
+                  <span style="display:flex;flex-direction:column;gap:3px;"><strong style="font-size:16px;">{{ s.title }}</strong><span style="font-size:14px;color:#5B6170;">{{ s.value }}</span></span>
+                  <a href="#" style="font-weight:700;font-size:15px;color:{{ s.color }};">{{ s.action }}</a>
+                </div>
+              </sc-for>
+              <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;letter-spacing:0.06em;margin-top:18px;">DEVICES LOGGED IN</span>
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;padding:12px 0;border-bottom:1px solid #DCD4C4;font-size:15px;"><span>Chrome on Android · Guwahati · <strong>this device</strong></span><span style="color:#5B6170;">now</span></div>
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;padding:12px 0;border-bottom:1px solid #DCD4C4;font-size:15px;"><span>ExamLeaf app · Android</span><a href="#" style="font-weight:700;">Log out</a></div>
+            </div>
+            <div data-screen-label="2FA setup" style="background:#FFFFFF;border:1.5px solid #1D2230;padding:28px;display:flex;flex-direction:column;gap:14px;align-self:start;">
+              <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;letter-spacing:0.06em;">/account/2fa/</span>
+              <span style="font:600 26px/1.15 'Source Serif 4',serif;">Turn on two-step log-in</span>
+              <span style="font-size:15px;line-height:1.55;color:#3E4454;">Scan this with an authenticator app, then enter the 6-digit code it shows.</span>
+              <div style="display:flex;gap:18px;align-items:center;"><div style="width:140px;height:140px;background:repeating-linear-gradient(90deg,#1D2230 0 6px,#FFFFFF 6px 10px),#FFFFFF;opacity:.85;outline:8px solid #FFFFFF;border:1px solid #DCD4C4;flex:none;"></div><span style="font:500 13px/1.6 'IBM Plex Mono',monospace;color:#3E4454;word-break:break-all;">Can't scan?<br>JBSW Y3DP EHPK 3PXP</span></div>
+              <span style="font:500 11px/1 'IBM Plex Mono',monospace;color:#5B6170;">QR drawn in the browser by lean-qr; the secret never leaves the page</span>
+              <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Code from the app<span style="height:48px;border:1.5px solid #7B8595;border-radius:4px;"></span></label>
+              <span style="display:inline-flex;justify-content:center;align-items:center;min-height:52px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Turn on</span>
+              <span style="font-size:14px;color:#5B6170;">Next, we show 10 recovery codes once. Keep them somewhere safe.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRIVACY + TEACHER -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <p style="margin:0;font:500 14px/1 'IBM Plex Mono',monospace;color:#5B6170;">CONSENT AND YOUR DATA · /account/privacy/ · and TEACHER ACCESS · /account/teacher/ · SAMPLE DATA</p>
+      <div data-screen-label="Privacy" style="width:1280px;background:#F8F5EE;box-shadow:0 30px 60px -30px rgba(29,34,48,.35);overflow:hidden;">
+        <dc-import name="A Header" signed-in="{{ true }}" current="Account" hint-size="1280px,72px"></dc-import>
+        <div style="display:grid;grid-template-columns:240px minmax(0,1fr);">
+          <dc-import name="A Account Nav" current="Consent and your data" hint-size="240px,520px"></dc-import>
+          <div style="border-left:3px double #B3342A;padding:40px 48px 64px;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:48px;">
+            <div style="display:flex;flex-direction:column;gap:16px;">
+              <h1 style="margin:0 0 6px;font:600 44px/1 'Source Serif 4',serif;letter-spacing:-0.02em;">Consent and your data</h1>
+              <div style="display:grid;grid-template-columns:28px minmax(0,1fr);gap:12px;padding:14px 16px;background:#EBF5ED;border:1px solid #C3E1CA;"><span style="width:22px;height:22px;border-radius:50%;background:#1B7F3B;color:#FFFFFF;font-size:13px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;">✓</span><span style="display:flex;flex-direction:column;gap:2px;"><strong>Your parent confirmed on 9 Oct 2026</strong><span style="font-size:15px;color:#3E4454;">You can save marks and order books.</span></span></div>
+              <div style="border-top:1px solid #DCD4C4;padding-top:14px;display:flex;flex-direction:column;gap:12px;">
+                <span style="display:flex;justify-content:space-between;align-items:center;font-size:16px;">Order updates by SMS<span style="width:44px;height:26px;border-radius:999px;background:#0B2A5B;position:relative;"><span style="position:absolute;right:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#FFFFFF;"></span></span></span>
+                <span style="display:flex;justify-content:space-between;align-items:center;font-size:16px;">News about new books, by email<span style="width:44px;height:26px;border-radius:999px;background:#C9CCD2;position:relative;"><span style="position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#FFFFFF;"></span></span></span>
+              </div>
+              <div style="border-top:1px solid #DCD4C4;padding-top:14px;display:flex;justify-content:space-between;align-items:center;"><span style="display:flex;flex-direction:column;gap:2px;"><strong>Download your data</strong><span style="font-size:14px;color:#5B6170;">Your details, record and orders, as a file.</span></span><span style="display:inline-flex;align-items:center;min-height:44px;padding:0 16px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;">Download</span></div>
+              <div style="border-top:1px solid #DCD4C4;padding-top:14px;display:flex;justify-content:space-between;align-items:center;"><span style="display:flex;flex-direction:column;gap:2px;"><strong>Delete my account</strong><span style="font-size:14px;color:#5B6170;">Orders are kept as the law requires; everything else goes.</span></span><span style="display:inline-flex;align-items:center;min-height:44px;padding:0 16px;background:#B42318;color:#FFFFFF;font-weight:700;border-radius:4px;">Delete…</span></div>
+            </div>
+            <div data-screen-label="Teacher access" style="display:flex;flex-direction:column;gap:14px;">
+              <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;letter-spacing:0.06em;">/account/teacher/</span>
+              <h2 style="margin:0;font:600 34px/1.1 'Source Serif 4',serif;">Teacher access</h2>
+              <p style="margin:0;font-size:16px;line-height:1.6;color:#3E4454;">Tell us where you teach. We check with the school, then your account is marked as a teacher's.</p>
+              <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">School name<span style="height:48px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;"></span></label>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">District<span style="height:48px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;"></span></label><label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Subject<span style="height:48px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;display:flex;align-items:center;justify-content:space-between;padding:0 12px;font-weight:400;">Physics <span>⌄</span></span></label></div>
+              <span style="display:inline-flex;align-self:flex-start;align-items:center;min-height:48px;padding:0 18px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Ask for teacher access</span>
+              <span style="font-size:14px;color:#5B6170;line-height:1.5;">After asking: "We are checking your request", then "You are a verified teacher" (states in 10a).</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- REVISION -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <p style="margin:0;font:500 14px/1 'IBM Plex Mono',monospace;color:#5B6170;">REVISION COURSE · /revision/ · public, with the signed-in student's parts · chapter marks are SAMPLE DATA</p>
+      <div data-screen-label="Revision course" style="width:1280px;background:#F8F5EE;box-shadow:0 30px 60px -30px rgba(29,34,48,.35);overflow:hidden;">
+        <dc-import name="A Header" signed-in="{{ true }}" current="Revision course" hint-size="1280px,72px"></dc-import>
+        <div style="display:grid;grid-template-columns:120px minmax(0,1fr) 360px;">
+          <div style="padding:60px 0 0 40px;font:600 15px/1 'IBM Plex Mono',monospace;color:#B3342A;">▶</div>
+          <div style="border-left:3px double #B3342A;padding:48px 48px 64px;display:flex;flex-direction:column;gap:22px;">
+            <span style="font:500 13px/1 'IBM Plex Mono',monospace;color:#5B6170;letter-spacing:0.05em;">IN THE EXAMLEAF APP · ASSEB CLASS 12</span>
+            <h1 style="margin:0;font:600 60px/1 'Source Serif 4',serif;letter-spacing:-0.02em;">Revision course</h1>
+            <p style="margin:0;font-size:18px;line-height:1.65;color:#3E4454;max-width:36em;">Each chapter revised in 10 to 15 minutes: short clips on its concepts, formulas, shortcuts and the questions the Board likes to ask, then flash cards and one-mark quiz questions. The app plans what to watch each day until your exam, the chapters worth the most marks first.</p>
+            <h2 style="margin:16px 0 0;font:600 30px/1.15 'Source Serif 4',serif;">Chapters and their marks</h2>
+            <div style="border-top:1.5px solid #1D2230;">
+              <div style="padding:14px 0;display:flex;justify-content:space-between;font:600 20px/1.2 'Source Serif 4',serif;"><span>Physics · 14 chapters</span><span style="font-family:'IBM Plex Mono',monospace;color:#B3342A;">−</span></div>
+              <div style="display:grid;grid-template-columns:48px minmax(0,1fr) 70px 110px 150px;gap:12px;padding:8px 0;border-bottom:1px solid #1D2230;font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;"><span>CH.</span><span>CHAPTER</span><span style="text-align:right;">MARKS</span><span style="text-align:right;">PAST Qs</span><span>FOR YOU</span></div>
+              <sc-for list="{{ revRows }}" as="r" hint-placeholder-count="5">
+                <div style="display:grid;grid-template-columns:48px minmax(0,1fr) 70px 110px 150px;gap:12px;align-items:start;padding:12px 0;border-bottom:1px solid #DCD4C4;font-size:15px;">
+                  <span style="font-family:'IBM Plex Mono',monospace;">{{ r.n }}</span>
+                  <span style="display:flex;flex-direction:column;gap:2px;"><span style="font-weight:600;">{{ r.t }}</span><span style="color:#5B6170;font-size:14px;">{{ r.meta }}</span><a href="#" style="font-size:14px;font-weight:700;">{{ r.free }}</a></span>
+                  <span style="text-align:right;font-family:'IBM Plex Mono',monospace;">{{ r.m }}</span>
+                  <span style="text-align:right;font-family:'IBM Plex Mono',monospace;">{{ r.q }}</span>
+                  <span style="font-size:14px;color:{{ r.stateFg }};font-weight:600;">{{ r.state }}</span>
+                </div>
+              </sc-for>
+              <sc-for list="{{ revOther }}" as="o" hint-placeholder-count="3">
+                <div style="padding:14px 0;border-bottom:1px solid #DCD4C4;display:flex;justify-content:space-between;font:600 20px/1.2 'Source Serif 4',serif;"><span>{{ o }}</span><span style="font-family:'IBM Plex Mono',monospace;color:#B3342A;">+</span></div>
+              </sc-for>
+            </div>
+            <h2 style="margin:12px 0 0;font:600 26px/1.15 'Source Serif 4',serif;">What is free</h2>
+            <p style="margin:0;font-size:16px;line-height:1.7;color:#3E4454;max-width:40em;">Log in with your ExamLeaf account: the first clip of every chapter is free, and so are the flash cards of each subject's first chapter. A code printed in your ExamLeaf book, or the course bought in the shop, opens the whole subject for a year.</p>
+          </div>
+          <aside style="border-left:1px solid #DCD4C4;padding:48px 32px;display:flex;flex-direction:column;gap:28px;">
+            <div style="display:flex;flex-direction:column;gap:12px;">
+              <span style="font:600 22px/1.2 'Source Serif 4',serif;">Your course</span>
+              <div style="display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid #DCD4C4;border-bottom:1px solid #DCD4C4;font-size:15px;"><span><strong>Physics</strong> · open</span><span style="color:#5B6170;">until 7 Oct 2027</span></div>
+              <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Code from your book<span style="display:flex;gap:8px;"><span style="flex:1;height:48px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;"></span><span style="display:inline-flex;align-items:center;min-height:48px;padding:0 16px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Open</span></span></label>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <span style="font:600 22px/1.2 'Source Serif 4',serif;">Plan to your exam</span>
+              <span style="font-size:15px;color:#3E4454;line-height:1.55;">The clips you have not watched, day by day, the chapters worth the most marks first.</span>
+              <span style="font-weight:700;color:#0B2A5B;">See your plan in Learning →</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <span style="font:600 22px/1.2 'Source Serif 4',serif;">Get the app</span>
+              <span style="font-size:15px;color:#3E4454;">Log in there with the same email address as on this site.</span>
+              <span style="height:52px;border:1px dashed #C9C0AE;display:flex;align-items:center;justify-content:center;font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">store badges · from config.app_links</span>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const row = (code, tier, color, date, marks) => ({ code, tier, color, date, marks, action: "Edit", line: "#DCD4C4", bg: "transparent", codeFont: "500 15px/1 'IBM Plex Mono',monospace" });
+    const avg = (label, v) => ({ code: label, tier: "", color: "transparent", date: "", marks: v, action: "", line: "#1D2230", bg: "#F1ECE1", codeFont: "600 15px/1 'Public Sans',sans-serif" });
+    return {
+      accountNav: ["My account", "My record", "Learning", "My orders", "Details", "Addresses", "Log-in and security", "Consent and your data", "Teacher access", "Revision course"],
+      record: [
+        { tier: "Easy", color: "#1B7F3B", detail: "4 papers saved · latest E-04, 61 of 70 on 6 Oct", avg: "83%" },
+        { tier: "Medium", color: "#1A5FB4", detail: "2 papers saved · latest M-02, 47 of 70 on 7 Oct", avg: "70%" },
+        { tier: "Hard", color: "#A0272D", detail: "None saved yet", avg: "—" },
+      ],
+      days: [
+        { date: "Thu 9 Oct", min: "30 min", clips: "Ohm's law and resistivity (5 min) · Cells in series and parallel (6 min) · Wheatstone bridge (7 min)" },
+        { date: "Fri 10 Oct", min: "30 min", clips: "Electric field lines (4 min) · Gauss's law in one picture (8 min)" },
+        { date: "Sat 11 Oct", min: "30 min", clips: "Capacitors in series (6 min) · Energy stored in a capacitor (5 min)" },
+      ],
+      recordRows: [
+        row("E-01", "Easy", "#1B7F3B", "28 Sep 2026", "55/70"), row("E-02", "Easy", "#1B7F3B", "30 Sep 2026", "59/70"),
+        row("E-03", "Easy", "#1B7F3B", "3 Oct 2026", "57/70"), row("E-04", "Easy", "#1B7F3B", "6 Oct 2026", "61/70"),
+        avg("Easy average", "83%"),
+        row("M-01", "Medium", "#1A5FB4", "5 Oct 2026", "52/70"), row("M-02", "Medium", "#1A5FB4", "7 Oct 2026", "47/70"),
+        avg("Medium average", "70%"),
+      ],
+      orders: [
+        { n: "EL-2026-000003", date: "8 Oct 2026", items: "Physics Sample Papers 2027", status: "AWAITING PAYMENT", line: "#C9A03A", fg: "#8A6508", bg: "transparent", total: "₹339.00", action: "Pay now" },
+        { n: "EL-2026-000002", date: "2 Oct 2026", items: "Chemistry: both books", status: "DELIVERED", line: "#1B7F3B", fg: "#FFFFFF", bg: "#1B7F3B", total: "₹539.00", action: "Invoice" },
+        { n: "EL-2026-000001", date: "26 Sep 2026", items: "Biology Sample Papers 2027", status: "REFUNDED", line: "#7B8595", fg: "#5B6170", bg: "#F1ECE1", total: "₹339.00", action: "View" },
+      ],
+      chapters: [
+        { n: 1, t: "Electric Charges and Fields", pct: "75%", done: "6 of 8", quiz: "82%", quizFg: "#1B7F3B" },
+        { n: 2, t: "Electrostatic Potential and Capacitance", pct: "38%", done: "3 of 8", quiz: "64%", quizFg: "#1D2230" },
+        { n: 3, t: "Current Electricity", pct: "30%", done: "3 of 10", quiz: "—", quizFg: "#5B6170" },
+        { n: 4, t: "Moving Charges and Magnetism", pct: "0%", done: "0 of 8", quiz: "—", quizFg: "#5B6170" },
+        { n: 5, t: "Magnetism and Matter", pct: "0%", done: "0 of 6", quiz: "—", quizFg: "#5B6170" },
+      ],
+      otherSubjects: [
+        { name: "Chemistry", pct: "8%", done: "4 of 52", note: "Free clips only · Quiz 71% right" },
+        { name: "Mathematics", pct: "0%", done: "0 of 60", note: "Free clips only" },
+        { name: "Biology", pct: "0%", done: "0 of 44", note: "Free clips only" },
+      ],
+      security: [
+        { title: "Email address", value: "ananya@example.com · verified", action: "Change", color: "#0B2A5B" },
+        { title: "Mobile number", value: "+91 98•• •••• 21 · for codes by SMS", action: "Change", color: "#0B2A5B" },
+        { title: "Password", value: "Set 28 Sep 2026", action: "Change", color: "#0B2A5B" },
+        { title: "Google", value: "Not connected", action: "Connect", color: "#0B2A5B" },
+        { title: "Passkeys", value: "1 · Android phone, added 2 Oct", action: "Add", color: "#0B2A5B" },
+        { title: "Two-step log-in", value: "Off", action: "Turn on", color: "#0B2A5B" },
+      ],
+      revRows: [
+        { n: 1, t: "Electric Charges and Fields", meta: "8 clips, 14 min", free: "Watch its free clip", m: "6", q: "14", state: "Open · 75% watched", stateFg: "#1B7F3B" },
+        { n: 2, t: "Electrostatic Potential and Capacitance", meta: "8 clips, 13 min", free: "Watch its free clip", m: "5", q: "11", state: "Open · 38% watched", stateFg: "#1B7F3B" },
+        { n: 3, t: "Current Electricity", meta: "10 clips, 15 min", free: "Watch its free clip", m: "7", q: "16", state: "Open · 30% watched", stateFg: "#1B7F3B" },
+        { n: 4, t: "Moving Charges and Magnetism", meta: "8 clips, 12 min", free: "Watch its free clip", m: "6", q: "12", state: "Open", stateFg: "#1B7F3B" },
+        { n: 5, t: "Magnetism and Matter", meta: "Coming soon", free: "", m: "3", q: "6", state: "Coming soon", stateFg: "#5B6170" },
+      ],
+      revOther: ["Chemistry · 16 chapters", "Mathematics · 13 chapters", "Biology · 13 chapters"],
+    };
+  }
+}
+</script>
+</body>
+</html>

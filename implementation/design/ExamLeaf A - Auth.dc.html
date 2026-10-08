@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Hind+Siliguri:wght@400;600&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#E4E1DA;-webkit-font-smoothing:antialiased}
+a{color:#0B2A5B;text-underline-offset:3px}
+a:hover{color:#B3342A}
+</style>
+</helmet>
+<section id="5a" style="padding:64px;display:flex;flex-direction:column;gap:40px;font-family:'Public Sans','Hind Siliguri',sans-serif;color:#1D2230;">
+  <div style="display:flex;align-items:flex-start;gap:24px;">
+    <span style="flex:none;font:600 15px/1 'IBM Plex Mono',monospace;background:#1D2230;color:#F8F5EE;padding:10px 12px;border-radius:3px;">5a</span>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <h1 style="margin:0;font:600 40px/1.1 'Source Serif 4',serif;">Sign-in and onboarding</h1>
+      <p style="margin:0;font-size:17px;color:#4A5060;max-width:62em;line-height:1.6;">Log in · One-time code · Register (under-18 path open) · Verify email · Password reset and new password · Reauthenticate · Two-factor · Log out. Only the methods switched on in GET /config/ are shown. The page the student came from is carried as ?next= and shown, so a QR scan, a cart or a paper is never lost.</p>
+    </div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:64px;align-items:flex-start;max-width:4100px;">
+
+    <!-- LOGIN -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <p style="margin:0;font:500 14px/1 'IBM Plex Mono',monospace;color:#5B6170;">LOG IN · /account/login/?next=/s/PHY-M04/ · SMS first when SMS is on</p>
+      <div data-screen-label="Login" style="width:1280px;background:#F8F5EE;box-shadow:0 30px 60px -30px rgba(29,34,48,.35);overflow:hidden;">
+        <dc-import name="A Header" hint-size="1280px,72px"></dc-import>
+        <div style="display:grid;grid-template-columns:120px minmax(0,1fr) 120px;">
+          <div style="padding:68px 0 0 40px;font:600 15px/1 'IBM Plex Mono',monospace;color:#B3342A;">→</div>
+          <div style="border-left:3px double #B3342A;padding:56px 48px 80px;display:grid;grid-template-columns:480px minmax(0,1fr);gap:72px;">
+            <div style="display:flex;flex-direction:column;gap:18px;">
+              <h1 style="margin:0;font:600 56px/1 'Source Serif 4',serif;letter-spacing:-0.02em;">Log in</h1>
+              <div style="display:flex;gap:10px;align-items:center;padding:12px 14px;background:#F1ECE1;font-size:15px;"><span style="font:600 12px/1 'IBM Plex Mono',monospace;color:#B3342A;">NEXT</span>You'll go back to Physics Paper M-04</div>
+              <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Mobile number<span style="height:52px;border:1.5px solid #7B8595;border-radius:4px;background:#FFFFFF;display:flex;align-items:center;font-weight:400;"><span style="padding:0 12px;border-right:1px solid #DCD4C4;height:100%;display:flex;align-items:center;font-family:'IBM Plex Mono',monospace;">+91</span><span style="padding:0 12px;color:#7B8595;font-family:'IBM Plex Mono',monospace;">98765 43210</span></span></label>
+              <span style="display:inline-flex;justify-content:center;align-items:center;min-height:52px;background:#0B2A5B;color:#FFFFFF;font-weight:700;border-radius:4px;">Text me a code</span>
+              <div style="display:flex;align-items:center;gap:12px;color:#5B6170;font-size:14px;"><span style="flex:1;height:1px;background:#DCD4C4;"></span>or<span style="flex:1;height:1px;background:#DCD4C4;"></span></div>
+              <span style="display:inline-flex;justify-content:center;align-items:center;min-height:48px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;">Email me a code instead</span>
+              <span style="display:inline-flex;justify-content:center;align-items:center;gap:10px;min-height:48px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;"><span style="width:18px;height:18px;border-radius:50%;border:1.5px solid #1D2230;font:700 11px/1 'Public Sans',sans-serif;display:inline-flex;align-items:center;justify-content:center;">G</span>Continue with Google</span>
+              <span style="display:inline-flex;justify-content:center;align-items:center;min-height:48px;border:1.5px solid #1D2230;font-weight:700;border-radius:4px;">Use a passkey</span>
+              <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:600;"><a href="#">Use my password</a><a href="#">New here? Register</a></div>
+            </div>
+            <div style="border-left:1px solid #DCD4C4;padding-left:56px;display:flex;flex-direction:column;gap:18px;justify-content:center;">
+              <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;letter-spacing:0.06em;">WITH AN ACCOUNT</span>
+              <div style="display:grid;grid-template-columns:36px minmax(0,1fr);gap:12px;font-size:17px;line-height:1.55;"><span style="font:600 15px/1.6 'IBM Plex Mono',monospace;color:#B3342A;">i</span><span>Every QR code in your book opens its solutions.</span></div>
+              <div style="display:grid;grid-template-columns:36px minmax(0,1fr);gap:12px;font-size:17px;line-height:1.55;"><span style="font:600 15px/1.6 'IBM Plex Mono',monospace;color:#B3342A;">ii</span><span>Save your marks after each paper and see your average for each tier.</span></div>
+              <div style="display:grid;grid-template-columns:36px minmax(0,1fr);gap:12px;font-size:17px;line-height:1.55;"><span style="font:600 15px/1.6 'IBM Plex Mono',monospace;color:#B3342A;">iii</span><span>Watch the first clip of every chapter in the revision course, free.</span></div>
+              <div style="display:grid;grid-template-columns:36px minmax(0,1fr);gap:12px;font-size:17px;line-height:1.55;"><span style="font:600 15px/1.6 'IBM Plex Mono',monospace;color:#B3342A;">iv</span><span>Your orders, addresses and invoices in one place.</span></div>
+            </div>
+          </div>
+          <div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SIGNUP -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <p style="margin:0;font:500 14px/1 'IBM Plex Mono',monospace;color:#5B6170;">REGISTER · /account/signup/ · student under 18, consent by parent's link (PARENTAL_CONSENT_MODE=verified)</p>
+      <div data-screen-label="Signup" style="width:1280px;background:#F8F5EE;box-shadow:0 30px 60px -30px rgba(29,34,48,.35);overflow:hidden;">
+        <dc-import name="A Header" hint-size="1280px,72px"></dc-import>
+        <div style="display:grid;grid-template-columns:120px minmax(0,1fr) 120px;">
+          <div style="padding:68px 0 0 40px;font:600 15px/1 'IBM Plex Mono',monospace;color:#B3342A;">+</div>
+          <div style="border-left:3px double #B3342A;padding:56px 48px 80px;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:56px;">
+            <div style="display:flex;flex-direction:column;gap:20px;">
+              <h1 style="margin:0;font:600 56px/1 'Source Serif 4',serif;letter-spacing:-0.02em;">Register</h1>
+              <p style="margin:0;font-size:17px;color:#3E4454;">Free. One account for the solutions, your record, the course and your orders.</p>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+                <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;grid-column:1 / -1;">Your full name<span style="height:48px;border:1.5px solid #7B8595;border-radius:4px;background:#FFFFFF;display:flex;align-items:center;padding:0 14px;font-weight:400;">Ananya Das</span></label>
+                <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Email address<span style="height:48px;border:1.5px solid #7B8595;border-radius:4px;background:#FFFFFF;display:flex;align-items:center;padding:0 14px;font-weight:400;">ananya@example.com</span></label>
+                <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Mobile number <span style="font-weight:400;color:#5B6170;">optional</span><span style="height:48px;border:1.5px solid #7B8595;border-radius:4px;background:#FFFFFF;"></span></label>
+                <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Board<span style="height:48px;border:1.5px solid #7B8595;border-radius:4px;background:#FFFFFF;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-weight:400;">Assam Board (ASSEB) <span>⌄</span></span></label>
+                <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Class<span style="height:48px;border:1.5px solid #7B8595;border-radius:4px;background:#FFFFFF;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-weight:400;">Class 12 <span>⌄</span></span></label>
+              </div>
+              <fieldset style="margin:0;padding:0;border:0;display:flex;flex-direction:column;gap:10px;"><legend style="font-size:15px;font-weight:600;margin-bottom:10px;">Are you 18 or over?</legend>
+                <div style="display:flex;gap:10px;"><span style="flex:1;display:flex;gap:12px;align-items:center;padding:14px 16px;border:1px solid #DCD4C4;background:#FFFFFF;"><span style="width:20px;height:20px;border:1.5px solid #7B8595;border-radius:50%;"></span>Yes</span><span style="flex:1;display:flex;gap:12px;align-items:center;padding:14px 16px;border:2px solid #1D2230;background:#FFFFFF;"><span style="width:20px;height:20px;border:1.5px solid #0B2A5B;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;"><span style="width:10px;height:10px;border-radius:50%;background:#0B2A5B;"></span></span>No, I'm under 18</span></div>
+              </fieldset>
+              <div style="background:#FFFFFF;border:1px solid #DCD4C4;padding:20px;display:flex;flex-direction:column;gap:14px;">
+                <strong style="font:600 20px/1.2 'Source Serif 4',serif;">Your parent or guardian</strong>
+                <span style="font-size:15px;line-height:1.55;color:#3E4454;">We send them a link to confirm. Until they do, you can read the solutions but not save marks or order books.</span>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                  <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">Their email address<span style="height:48px;border:1.5px solid #7B8595;border-radius:4px;"></span></label>
+                  <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">or their mobile number<span style="height:48px;border:1.5px solid #7B8595;border-radius:4px;"></span></label>
+                </div>
+              </div>
+              <label style="display:flex;gap:12px;align-items:flex-start;font-size:16px;line-height:1.5;"><span style="flex:none;width:22px;height:22px;border:1.5px solid #7B8595;border-radius:3px;background:#FFFFFF;margin-top:1px;"></span>I have read the <a href="#">privacy notice</a> and the <a href="#">terms</a>.</label>
+              <span style="height:64px;border:1px dashed #C9C0AE;display:flex;align-items:center;justify-content:center;font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">Turnstile check (when its key is set)</span>
+              <span style="display:inline-flex;justify-content:center;align-items:center;min-height:56px;background:#0B2A5B;color:#FFFFFF;font-weight:700;font-size:17px;border-radius:4px;">Register</span>
+              <span style="font-size:15px;">Already registered? <a href="#" style="font-weight:700;">Log in</a> · or <a href="#" style="font-weight:700;">Continue with Google</a></span>
+            </div>
+            <div style="border-left:1px solid #DCD4C4;padding-left:32px;display:flex;flex-direction:column;gap:14px;font-size:15px;line-height:1.6;color:#3E4454;">
+              <span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;letter-spacing:0.06em;">WHAT WE KEEP</span>
+              <span>Your name, board and class, so the right books and papers show first.</span>
+              <span>Your email or mobile, to send codes and order updates.</span>
+              <span>The marks you choose to save.</span>
+              <span>Nothing is shared or sold. You can download or delete it all from <strong>Consent and your data</strong>.</span>
+            </div>
+          </div>
+          <div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SMALL CARDS -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <p style="margin:0;font:500 14px/1 'IBM Plex Mono',monospace;color:#5B6170;">THE NARROW STEPS · each is the same 560 px card under the header, centred</p>
+      <div style="width:1920px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:32px;">
+        <sc-for list="{{ cards }}" as="c" hint-placeholder-count="7">
+          <div data-screen-label="{{ c.label }}" style="background:#F8F5EE;box-shadow:0 30px 60px -30px rgba(29,34,48,.35);display:flex;flex-direction:column;">
+            <div style="height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;border-bottom:1px solid #DCD4C4;"><span style="font:700 20px/1 'Source Serif 4',serif;">Exam<span style="color:#1A6E30;">Leaf</span></span><span style="font:500 12px/1 'IBM Plex Mono',monospace;color:#5B6170;">{{ c.route }}</span></div>
+            <div style="display:grid;grid-template-columns:64px minmax(0,1fr);padding:36px 36px 44px 0;flex:1;">
+              <span style="padding:8px 0 0 24px;font:600 14px/1 'IBM Plex Mono',monospace;color:#B3342A;">{{ c.mark }}</span>
+              <div style="border-left:3px double #B3342A;padding-left:28px;display:flex;flex-direction:column;gap:16px;">
+                <h2 style="margin:0;font:600 36px/1.05 'Source Serif 4',serif;">{{ c.title }}</h2>
+                <p style="margin:0;font-size:16px;line-height:1.6;color:#3E4454;">{{ c.text }}</p>
+                <sc-if value="{{ c.otp }}" hint-placeholder-val="{{ false }}">
+                  <span style="display:flex;gap:8px;"><span style="width:46px;height:56px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;display:flex;align-items:center;justify-content:center;font:500 24px/1 'IBM Plex Mono',monospace;">4</span><span style="width:46px;height:56px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;display:flex;align-items:center;justify-content:center;font:500 24px/1 'IBM Plex Mono',monospace;">8</span><span style="width:46px;height:56px;border:1.5px solid #0B2A5B;outline:2px solid #2F8F3A;outline-offset:2px;background:#FFFFFF;border-radius:4px;"></span><span style="width:46px;height:56px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;"></span><span style="width:46px;height:56px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;"></span><span style="width:46px;height:56px;border:1.5px solid #7B8595;background:#FFFFFF;border-radius:4px;"></span></span>
+                </sc-if>
+                <sc-for list="{{ c.fields }}" as="f" hint-placeholder-count="1">
+                  <label style="display:flex;flex-direction:column;gap:6px;font-size:15px;font-weight:600;">{{ f.label }}<span style="height:48px;border:1.5px solid #7B8595;border-radius:4px;background:#FFFFFF;"></span><span style="font-weight:400;font-size:14px;color:#5B6170;">{{ f.help }}</span></label>
+                </sc-for>
+                <span style="display:inline-flex;justify-content:center;align-items:center;min-height:52px;background:{{ c.btnBg }};color:#FFFFFF;font-weight:700;border-radius:4px;">{{ c.button }}</span>
+                <span style="font-size:15px;font-weight:600;color:#0B2A5B;">{{ c.foot }}</span>
+              </div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const navy = "#0B2A5B";
+    return {
+      cards: [
+        { label: "Code", route: "/account/login/ · code", mark: "6#", title: "Enter the code", text: "We texted a 6-digit code to +91 98•• •••• 10. It works for 10 minutes.", otp: true, fields: [], button: "Log in", btnBg: navy, foot: "Send a new code in 0:45 · Change number" },
+        { label: "Verify email", route: "/account/verify-email/", mark: "@", title: "Check your email", text: "We sent a code to ananya@example.com. Enter it to confirm the address; your parent's link goes out next.", otp: true, fields: [], button: "Confirm my email", btnBg: navy, foot: "Didn't get it? Check spam, or send it again" },
+        { label: "Password reset", route: "/account/password/reset/", mark: "?", title: "Forgot your password?", text: "Enter your email address and we'll send a link to choose a new one. You can also log in with a code instead.", otp: false, fields: [{ label: "Email address", help: "" }], button: "Send the link", btnBg: navy, foot: "Log in with a code instead" },
+        { label: "New password", route: "/account/password/reset/key/…", mark: "**", title: "Choose a new password", text: "At least 10 characters. Avoid your name or your school's name.", otp: false, fields: [{ label: "New password", help: "Show password" }, { label: "Type it again", help: "" }], button: "Save the password", btnBg: navy, foot: "This link works once, for 3 days" },
+        { label: "Reauthenticate", route: "/account/reauthenticate/", mark: "↺", title: "Confirm it's you", text: "You're about to change how you log in. Type your password again, or ask for a code.", otp: false, fields: [{ label: "Password", help: "" }], button: "Confirm", btnBg: navy, foot: "Send me a code instead" },
+        { label: "2FA", route: "/account/2fa/authenticate/", mark: "2F", title: "Two-step check", text: "Open your authenticator app and enter the 6-digit code for ExamLeaf.", otp: true, fields: [], button: "Continue", btnBg: navy, foot: "Use a recovery code · Use a passkey" },
+        { label: "Logout", route: "/account/logout/", mark: "←", title: "Log out of ExamLeaf?", text: "Your cart and saved marks stay in your account. On a shared phone, always log out.", otp: false, fields: [], button: "Log out", btnBg: "#1D2230", foot: "Stay logged in" },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>
