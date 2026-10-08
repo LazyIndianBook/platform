@@ -1,12 +1,15 @@
 "use client";
 
 // When even the root layout fails: a self-contained page (no header, no data) with the site's fonts and the words of
-// the 500 page (error.tsx), and a way back.
+// the 500 page (error.tsx), on the same Sheet, and a way back.
 import "./globals.css";
+
+import { Sheet } from "@/components/ui/band";
+import { Button } from "@/components/ui/button";
 
 import { fontVariables } from "./fonts";
 
-export default function GlobalError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function GlobalError({ retry }: { error: Error & { digest?: string }; retry: () => void }) {
   return (
     <html lang="en" className={fontVariables}>
       <head>
@@ -14,17 +17,32 @@ export default function GlobalError({ reset }: { error: Error & { digest?: strin
         <meta name="robots" content="noindex" />
       </head>
       <body>
-        <main className="mx-auto my-12 flex w-[min(34rem,calc(100%-32px))] flex-col items-center gap-4 rounded-lg border-2 border-dashed border-border bg-card px-6 py-12 text-center">
-          <p className="m-0 text-[15px] font-semibold text-muted-foreground">Error 500</p>
-          <h1 className="m-0">Something went wrong on our side</h1>
-          <p className="m-0 text-muted-foreground">The page could not be shown. Please try again in a minute.</p>
-          <button
-            type="button"
-            onClick={reset}
-            className="inline-flex min-h-11 items-center rounded-btn bg-primary px-4 font-head font-bold text-primary-foreground"
+        <main>
+          <Sheet
+            margin={
+              <span aria-hidden="true" className="text-destructive">
+                !
+              </span>
+            }
+            className="max-nav:[&>.sheet-margin]:hidden"
+            bodyClassName="max-nav:pt-6"
           >
-            Try again
-          </button>
+            <div className="flex max-w-[44rem] flex-col gap-[18px] [&>*]:m-0">
+              <p className="font-head text-[23px] leading-none font-bold">
+                Exam<span className="text-leaf">Leaf</span>
+              </p>
+              <p className="label-mono uppercase">Error 500</p>
+              <h1 className="text-[clamp(32px,4vw,48px)] leading-[1.05]">Something went wrong on our side</h1>
+              <p className="max-w-[36em] text-lg leading-relaxed text-ink/85">
+                The page could not be shown. Please try again in a minute.
+              </p>
+              <div>
+                <Button size="lg" onClick={() => retry()}>
+                  Try again
+                </Button>
+              </div>
+            </div>
+          </Sheet>
         </main>
       </body>
     </html>
