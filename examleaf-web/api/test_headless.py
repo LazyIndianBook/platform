@@ -9,7 +9,6 @@ import pytest
 from allauth.mfa.totp.internal.auth import TOTP, format_hotp_value, generate_totp_secret, hotp_value
 from django.core import mail
 from django.test import Client
-from django.urls import reverse
 from rest_framework.test import APIClient
 
 from accounts import forms as account_forms
@@ -108,14 +107,14 @@ def test_staff_finish_the_second_step_before_the_exchange_and_set_up_an_app_firs
     assert response.status_code == 200 and app.exchange().status_code == 200
 
 
-def test_the_browser_client_keeps_the_staff_rule_in_json(client):
+def test_the_browser_client_keeps_the_staff_rule_in_json(client, settings):
     staff = student(is_staff=True, totp=False)
     response = client.post(BROWSER + "/auth/login", {"email": staff.email, "password": PASSWORD}, "application/json")
     assert response.status_code == 200
     assert client.get(BROWSER + "/account/authenticators/totp").status_code == 404  # open: the set-up's secret
     response = client.get("/api/v1/me/")
     assert response.status_code == 403 and response.json()["code"] == "mfa_setup_required"
-    assert client.get(reverse("account"))["Location"] == reverse("mfa_activate_totp")
+    assert client.get("/admin/")["Location"] == f"{settings.SITE_URL}/account/2fa/"  # the website's set-up
 
 
 def test_a_passkey_log_in_starts_with_a_challenge_for_the_sites_host(api, settings):
@@ -159,12 +158,7 @@ def test_sign_up_through_headless_asks_the_student_details_and_records_the_conse
 
 
 def test_emails_link_to_the_websites_pages_whichever_client_asked(api, settings):
-    urls = {**settings.HEADLESS_FRONTEND_URLS}
-    assert urls.pop("socialaccount_login_error") == settings.SITE_URL + "/account/login/"  # it shows ?error=
-    for name, url in urls.items():
-        kwargs = {"kwargs": {"uidb36": "UID", "key": "KEY"}} if "{key}" in url else {}
-        page = reverse(name, **kwargs).replace("UID-KEY", "{key}")
-        assert url == settings.SITE_URL + page, name
+    assert settings.HEADLESS_FRONTEND_URLS["socialaccount_login_error"] == settings.SITE_URL + "/account/login/"
     user = student()
     assert api.post(APP + "/auth/password/request", {"email": user.email}, format="json").status_code == 200
     link = re.search(r"https?://\S+", mail.outbox[-1].body).group()

@@ -3,7 +3,6 @@ attempts, ordering."""
 
 import pytest
 from django.core import mail
-from django.urls import reverse
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -56,7 +55,7 @@ def test_five_wrong_passwords_in_the_app_end_its_tokens(api):  # L6
     assert api.post("/api/v1/auth/token/refresh/", {"refresh": str(refresh)}).status_code == 401  # blacklisted
 
 
-def test_notes_and_new_attempts_a_day_are_limited_on_the_api_and_the_site(api, client):  # L12
+def test_notes_and_new_attempts_a_day_are_limited(api):  # L12 (the website saves marks through the API)
     paper, user = make_paper(), student()
     sign_in(api, user)
     too_long = {"paper": paper.code, "marks_obtained": "40", "notes": "x" * 2001}
@@ -66,13 +65,7 @@ def test_notes_and_new_attempts_a_day_are_limited_on_the_api_and_the_site(api, c
     assert response.status_code == 400 and "At most 20 attempts" in str(response.json())
     first = Attempt.objects.filter(user=user).first()
     assert api.patch(f"/api/v1/attempts/{first.pk}/", {"marks_obtained": "41"}).status_code == 200  # edits go on
-    client.force_login(user)
-    page = client.post(reverse("attempt_add", args=[paper.code]), {"date": "2026-10-01", "marks_obtained": "40"})
-    assert page.status_code == 200 and "At most 20 attempts" in page.text
-    page = client.post(
-        reverse("attempt_edit", args=[first.pk]), {"date": "2026-10-01", "marks_obtained": "40", **too_long}
-    )
-    assert "at most 2000 characters" in page.text
+    assert "no more than 2000 characters" in api.patch(f"/api/v1/attempts/{first.pk}/", too_long).json()["notes"][0]
 
 
 def test_boards_and_subjects_sort_only_by_their_listed_fields(api):  # I4

@@ -337,7 +337,8 @@ def test_request_bodies_are_limited_on_the_api_and_the_site(api, client, setting
     settings.DATA_UPLOAD_MAX_MEMORY_SIZE = 1000
     response = api.post("/api/v1/auth/login/", {"email": "a@example.com", "password": "x" * 2000})
     assert response.status_code == 413 and response.json() == {"detail": "The request body is too large."}
-    assert client.post("/account/login/", {"login": "a@example.com", "password": "x" * 2000}).status_code == 400
+    login = {"email": "a@example.com", "password": "x" * 2000}  # the website's log-in
+    assert client.post("/_allauth/browser/v1/auth/login", login, content_type="application/json").status_code == 400
     assert api.post("/api/v1/auth/login/", {"email": "a@example.com", "password": "x"}).status_code == 400  # parsed
 
 
