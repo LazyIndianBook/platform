@@ -6,9 +6,7 @@ from datetime import date
 import pytest
 import tablib
 from django.core import mail
-from django.core.cache import cache
 from django.core.exceptions import ValidationError
-from django.urls import reverse
 from rest_framework.test import APIClient
 
 from accounts.factories import UserFactory
@@ -16,7 +14,7 @@ from shop import services
 from shop.admin import CategoryResource
 from shop.cart import Line
 from shop.factories import ADDRESS, ProductFactory
-from shop.models import Attribute, AttributeValue, Category, PinCode, ProductType
+from shop.models import Attribute, AttributeValue, Category, ProductType
 
 pytestmark = pytest.mark.django_db
 
@@ -33,15 +31,6 @@ def test_number_filters_refuse_huge_exponents_and_a_request_takes_five_filters_a
     assert len(api.get("/api/v1/products/?attr_year=2027.0").json()["results"]) == 1
     many = "&".join(f"attr_x{n}=1" for n in range(6))
     assert api.get(f"/api/v1/products/?{many}").status_code == 400
-
-
-def test_the_pin_lookup_is_cached_by_browsers_not_on_the_server(client):
-    PinCode.objects.create(pin="781001", states=["AS"], districts=["Kamrup Metro"])
-    cache.clear()
-    for n in range(3):
-        response = client.get(reverse("shop:pin", args=["781001"]) + f"?x={n}")
-        assert response.json()["states"] == ["AS"] and "max-age=86400" in response["Cache-Control"]
-    assert not [key for key in cache._cache if "views.decorators.cache" in key]  # the local-memory cache of tests
 
 
 def test_staff_cannot_sell_to_a_student_whose_parent_has_not_confirmed(settings):

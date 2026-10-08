@@ -13,7 +13,7 @@ from accounts.factories import UserFactory
 from shop import services
 from shop.admin import OrderResource
 from shop.factories import ProductFactory, captured, make_order
-from shop.models import BundleItem, Coupon, Order, Product, Refund, Shipment, ShippingRate
+from shop.models import BundleItem, Coupon, Invoice, Order, Product, Refund, Shipment, ShippingRate
 
 pytestmark = pytest.mark.django_db
 CHANGELIST = reverse("admin:shop_order_changelist")
@@ -44,7 +44,11 @@ def test_support_sees_orders_but_cannot_change_them(client, paid):
     act(client, "mark_packed", [paid])
     paid.refresh_from_db()
     assert paid.status == Order.Status.PAID  # the action is not offered to view-only staff
-    assert client.get(reverse("shop:invoice", args=[paid.number])).status_code == 404  # no PDF yet, but allowed
+    invoice = Invoice.objects.create(order=paid, number="EL/2026-27/00001", financial_year="2026-27", serial=1)
+    pdf = reverse("admin:shop_invoice_pdf", args=[invoice.pk])
+    assert client.get(pdf).status_code == 404  # no PDF yet, but allowed
+    client.force_login(staff(roles.CONTENT_EDITOR))
+    assert client.get(pdf).status_code == 403  # staff who may not view invoices
 
 
 def test_sales_packs_ships_and_delivers(client, paid, commit):

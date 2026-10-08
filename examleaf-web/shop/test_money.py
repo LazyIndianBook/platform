@@ -4,7 +4,6 @@ from datetime import timedelta
 from decimal import Decimal
 
 import pytest
-from django.urls import reverse
 from django.utils import timezone
 from djmoney.money import Money
 
@@ -77,13 +76,12 @@ def test_coupon_rules():
 @pytest.mark.django_db
 def test_coupon_code_is_case_insensitive_and_explains_refusals(client):
     product = ProductFactory()
-    client.post(reverse("shop:cart_add", args=[product.pk]))
+    client.post("/api/v1/cart/items/", {"product": product.slug}, "application/json")  # the website's cart
     CouponFactory(code="Welcome10")
     assert Coupon.objects.get().code == "WELCOME10"
-    response = client.post(reverse("shop:cart"), {"action": "coupon", "code": " welcome10 "}, follow=True)
-    assert "Coupon WELCOME10 applied." in response.content.decode() and response.context["totals"].discount == Decimal(
-        "29.90"
-    )
-    client.post(reverse("shop:cart"), {"action": "remove-coupon"})
-    response = client.post(reverse("shop:cart"), {"action": "coupon", "code": "NOPE"}, follow=True)
-    assert "This code cannot be applied to this cart." in response.text and not response.context["totals"].discount
+    cart = client.post("/api/v1/cart/coupon/", {"code": " welcome10 "}, "application/json").json()
+    assert (cart["coupon"], cart["discount"]) == ("WELCOME10", "29.90")
+    assert client.delete("/api/v1/cart/coupon/").json()["coupon"] is None
+    response = client.post("/api/v1/cart/coupon/", {"code": "NOPE"}, "application/json")
+    assert response.status_code == 400 and "This code cannot be applied to this cart." in response.text
+    assert client.get("/api/v1/cart/").json()["discount"] == "0.00"

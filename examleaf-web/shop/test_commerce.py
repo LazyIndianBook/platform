@@ -1,4 +1,5 @@
-"""Phase 5 B: tracking links, reviews, school quotations, stock alerts and the GSTR-1 export."""
+"""Phase 5 B: tracking links, reviews, school quotations, stock alerts and the GSTR-1 export (the website's forms post
+to the API, as here; the bot check: shop/test_api_contract.py, test_api_guest.py)."""
 
 import csv
 import io
@@ -12,13 +13,12 @@ from django.core.management import call_command
 from django.urls import reverse
 from django.utils import timezone
 
-from accounts import forms as account_forms
 from accounts import roles
 from accounts.factories import UserFactory
 from accounts.models import DeletionRequest
 from ops import sms
 from shop import invoices, services, tasks
-from shop.factories import CouponFactory, ProductFactory, ShippingRateFactory, captured, make_order, verified_user
+from shop.factories import ProductFactory, ShippingRateFactory, captured, make_order, verified_user
 from shop.models import Product, QuoteRequest, Review, Shipment, StockAlert
 
 pytestmark = pytest.mark.django_db
@@ -53,31 +53,32 @@ def delivered(product, user):
 
 def test_buyers_review_after_delivery_and_staff_approve(client, cod):
     product, buyer = ProductFactory(slug="physics"), verified_user("buyer@example.com")
-    url, review_url = product.get_absolute_url(), reverse("shop:review", args=["physics"])
+    url = "/api/v1/products/physics/reviews/"  # the product page's reviews and form
+
+    def write(rating, text):
+        return client.post(url, {"rating": rating, "text": text}, content_type="application/json")
+
     client.force_login(buyer)
     order = placed((product, 1), user=buyer, email=buyer.email)
-    assert "Review this book" not in client.get(url).content.decode()  # not delivered yet
-    client.post(review_url, {"rating": 5, "text": "Too early"})
+    assert client.get(url).json()["can_review"] is False  # not delivered yet
+    write(5, "Too early")
     assert not Review.objects.exists()
     services.ship_order(services.pack_order(order), "India Post", "EA1IN")
     services.deliver_order(order)
-    assert "Review this book" in client.get(url).content.decode()
-    client.post(review_url, {"rating": 4, "text": "Good <b>papers</b>", "website": "spam"})  # the honeypot
-    assert not Review.objects.exists()
-    client.post(review_url, {"rating": 4, "text": "Good <b>papers</b>"})
-    client.post(review_url, {"rating": 1, "text": "Twice"})  # one review per book and account
+    assert client.get(url).json()["can_review"] is True
+    write(4, "Good <b>papers</b>")
+    write(1, "Twice")  # one review per book and account
     review = Review.objects.get()
     assert (review.rating, review.status) == (4, Review.Status.PENDING)
-    page = client.get(url).content.decode()
-    assert "Good &lt;b&gt;papers" not in page and '"aggregateRating"' not in page  # not approved yet
+    assert client.get(url).json()["count"] == 0  # not approved yet
     admin = UserFactory(is_staff=True, is_superuser=True)  # with an authenticator app
     client.force_login(admin)
     changelist = reverse("admin:shop_review_changelist")
     assert client.get(reverse("admin:shop_review_change", args=[review.pk])).status_code == 200
     client.post(changelist, {"action": "approve", "_selected_action": [review.pk]})
-    page = client.get(url).content.decode()
-    assert "Good &lt;b&gt;papers&lt;/b&gt;" in page and "Verified buyer" in page and "buyer@example.com" not in page
-    assert '"aggregateRating": {"@type": "AggregateRating", "ratingValue": "4.0", "reviewCount": 1}' in page
+    shown = client.get(url)
+    assert (shown.json()["average"], shown.json()["count"]) == ("4.0", 1)  # the page's rating
+    assert shown.json()["results"][0]["text"] == "Good <b>papers</b>" and "buyer@example.com" not in shown.text
     assert Review.history.filter(status=Review.Status.APPROVED, history_user=admin).exists()
 
 
@@ -101,20 +102,23 @@ QUOTE = {
 
 
 def test_schools_ask_for_a_quotation_and_staff_are_emailed(client, commit):
-    physics = ProductFactory(slug="physics", title="Physics Sample Papers")
+    ProductFactory(slug="physics", title="Physics Sample Papers")
     sales = UserFactory(email="sales@examleaf.in", is_staff=True)
     sales.groups.set([Group.objects.get(name=roles.SALES)])
-    url = reverse("shop:quote")
-    course = ProductFactory(slug="pass", title="Physics Revision Pass", kind=Product.Kind.DIGITAL, stock=0)
-    form = client.get(url).content.decode()
-    assert "Copies of Physics Sample Papers" in form and f"copies_{course.pk}" not in form  # courses go by book code
-    page = client.post(url, {**QUOTE, "gstin": "27AAPFU0939F1ZX", f"copies_{physics.pk}": 0}).content.decode()
-    assert "Enter a valid 15-character GSTIN" in page and "at least one book" in page
-    client.post(url, {**QUOTE, f"copies_{physics.pk}": 40, "website": "spam"})  # the honeypot
+    url = "/api/v1/quotes/"  # the website's school orders page
+
+    def ask(**data):
+        return client.post(url, {**QUOTE, **data}, content_type="application/json")
+
+    ProductFactory(slug="pass", title="Physics Revision Pass", kind=Product.Kind.DIGITAL, stock=0)
+    course = ask(items=[{"product": "pass", "quantity": 40}])  # courses go by book code
+    assert course.json() == {"non_field_errors": ["Enter the number of copies of at least one book."]}
+    books = [{"product": "physics", "quantity": 40}]
+    assert "Enter a valid 15-character GSTIN" in ask(gstin="27AAPFU0939F1ZX", items=books).text
     assert not QuoteRequest.objects.exists()
     with commit():
-        response = client.post(url, {**QUOTE, f"copies_{physics.pk}": 40})
-    assert response.url == url
+        response = ask(items=books)
+    assert response.status_code == 201
     quote = QuoteRequest.objects.get()
     assert (quote.gstin, quote.delivery_pin, quote.status) == ("27AAPFU0939F1ZV", "781001", QuoteRequest.Status.NEW)
     assert quote.items == [{"product": "physics", "title": "Physics Sample Papers", "quantity": 40}]
@@ -177,17 +181,17 @@ def test_quotation_pdf(real_seller):
 
 def test_stock_alerts_email_once_when_the_book_is_back(client, settings):
     product = ProductFactory(slug="physics", stock=0)
-    page = client.get(product.get_absolute_url()).content.decode()
-    assert "Email me when it is back" in page
-    url = reverse("shop:stock_alert", args=["physics"])
-    response = client.post(url, {"email": "stranger@example.com"})  # visitors log in first (L3)
-    assert response["Location"].startswith(reverse("account_login")) and not StockAlert.objects.exists()
+    url = "/api/v1/products/physics/stock-alert/"  # the product page's "Email me when it is back"
+
+    def ask(**data):
+        return client.post(url, data, content_type="application/json")
+
+    assert ask(email="stranger@example.com").status_code in (401, 403) and not StockAlert.objects.exists()  # L3
     client.force_login(verified_user("member@example.com"))
-    client.post(url, {"email": "ignored@example.com", "website": "spam"})  # the honeypot
-    client.post(url, {"email": "ignored@example.com"})  # an account: its own address
+    ask(email="ignored@example.com")  # an account: its own address
     client.force_login(verified_user("Rahul@Example.com"))
-    client.post(url)
-    client.post(url)  # once per address
+    ask()
+    ask()  # once per address
     assert sorted(StockAlert.objects.values_list("email", flat=True)) == ["member@example.com", "rahul@example.com"]
     tasks.send_stock_alerts()
     assert not mail.outbox  # still out of stock
@@ -264,23 +268,3 @@ def test_order_sms_go_out_from_the_notification_path(cod, commit, monkeypatch):
         services.ship_order(delivered_order, "Delhivery", "1234567")
         services.deliver_order(delivered_order)
     assert sent == [(order.number, "confirmation"), (order.number, "shipped"), (order.number, "delivered")]
-
-
-def test_turnstile_guards_the_quote_and_coupon_forms_when_on(client, settings, monkeypatch):
-    settings.TURNSTILE, settings.TURNSTILE_SITE_KEY = True, "site-key"
-    monkeypatch.setattr(account_forms, "turnstile_passed", lambda token: token == "good")  # Cloudflare's verdict
-    physics = ProductFactory()
-    url, quote = reverse("shop:quote"), {**QUOTE, f"copies_{physics.pk}": 40}
-    assert 'class="cf-turnstile" data-sitekey="site-key"' in client.get(url).content.decode()
-    assert "Wait until the check above says it is done" in client.post(url, quote).content.decode()
-    client.post(url, {**quote, "cf-turnstile-response": "good"})
-    assert QuoteRequest.objects.count() == 1
-    CouponFactory(code="SAVE10")
-    client.post(reverse("shop:cart_add", args=[physics.pk]))
-    assert 'class="cf-turnstile"' in client.get(reverse("shop:cart")).content.decode()
-    page = client.post(reverse("shop:cart"), {"action": "coupon", "code": "SAVE10"}, follow=True).content.decode()
-    assert "Wait until the check above says it is done" in page and "Coupon SAVE10 applied" not in page
-    page = client.post(
-        reverse("shop:cart"), {"action": "coupon", "code": "SAVE10", "cf-turnstile-response": "good"}, follow=True
-    ).content.decode()
-    assert "Coupon SAVE10 applied" in page
