@@ -64,7 +64,7 @@ NOT_PAYABLE = "This order is not waiting for an online payment."
 
 
 class ShopOpen(permissions.BasePermission):
-    """While SHOP_OPEN is off only staff change carts, check out and pay (shop.views.shop_open)."""
+    """While SHOP_OPEN is off only staff change carts, check out and pay (the website says "Shop opens soon")."""
 
     message = "The shop opens soon."
 

@@ -101,5 +101,3 @@ def test_a_double_click_on_delete_my_account_asks_once_and_does_not_crash(client
     second, created = request_deletion(request)
     assert (second, created) == (first, False) and DeletionRequest.objects.filter(user=user).count() == 1
     assert sum("will be deleted" in m.subject for m in mail.outbox) == 1  # one email, from the request that won
-
-

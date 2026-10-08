@@ -2,6 +2,8 @@
 
 Audit of every route of the Django site (`examleaf-web/`) against the journeys it serves, the screens' states and the redesign vocabulary of `direction.md` section 3. Written by the UX audit of 8 October 2026, 12:54 IST; the other deliverables are `baseline.md` and `screenshots/`.
 
+**Django pages removed on 2026-10-08.** The Next.js frontend (`examleaf-frontend/`) now serves every page route below at the same address (`parity-nextjs.md`), and Caddy sends it every path but Django's own. Django's page views, templates, page-only forms, its CSS, scripts, KaTeX and web-app files are gone, allauth runs headless only, and Django keeps the API, allauth.headless, the admin and its staff player, the webhooks, media, the QR PNGs, health and Google's callback. This matrix describes the site as audited before that; its routes, templates and counts are history.
+
 **Snapshot.** The audit began on commit `4e30e59` with 52 changed paths; at 11:45 IST another agent committed that work as `ba0b9dd`; the tree has 138 changed paths now. Other agents kept editing the templates, the API (a new headless-auth API, new endpoints for the app), the stylesheet (split into `site.css` and per-section files) and a migration throughout, so this is a snapshot, not a fixed point: routes that appeared during the audit are marked "in progress" and the numbers are from the tree as it stood when the audit ended. The scripts in section 6 re-measure everything; re-run them rather than trusting figures that are more than an hour old.
 
 ## 0. Summary

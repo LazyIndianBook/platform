@@ -103,5 +103,3 @@ def test_a_number_belongs_to_one_account_and_goes_with_the_deletion(rf):
     DeletionRequest.objects.create(user=new).complete()
     new.refresh_from_db()
     assert (new.login_phone, new.login_phone_verified) == ("", False)
-
-

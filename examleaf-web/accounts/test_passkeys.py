@@ -1,7 +1,6 @@
 """Passkeys (allauth.mfa WebAuthn): one relying party for every host name (the log-in's challenge:
 api/test_headless.py), a passkey enough for staff, gone with the account."""
 
-
 import pytest
 from allauth.mfa.models import Authenticator
 from django.urls import reverse

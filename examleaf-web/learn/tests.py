@@ -68,5 +68,3 @@ def test_every_learn_admin_page_opens(client):
             reverse(f"{name}_change", args=[model.objects.first().pk]),
         ]:
             assert client.get(url).status_code == 200, url
-
-

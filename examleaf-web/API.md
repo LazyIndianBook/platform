@@ -208,8 +208,8 @@ so an expired token left in it does no harm there.
 
 ## Frontend integration guide
 
-Any frontend (the app, or a web frontend of its own) can do what the website's pages do through these endpoints and
-allauth.headless; the server stays the authority for every rule (prices, stock, payments, permissions, what is open)
+Every frontend (the website, `../examleaf-frontend/`, and the app) does what the site does through these endpoints
+and allauth.headless (Django serves no page of its own); the server stays the authority for every rule (prices, stock, payments, permissions, what is open)
 and frontends show what it answers.
 
 **Feature flags.** Read `GET config/` at start-up: log-in methods, Google, passkeys, SMS, Turnstile's site key, the
@@ -220,7 +220,7 @@ support contacts. Never hard-code one.
 
 | Client | Signs in through | Then calls API v1 with |
 |---|---|---|
-| The website's pages, or a web frontend on the same origin | `/_allauth/browser/v1/` (the session cookie; `X-CSRFToken` from the `csrftoken` cookie on every POST, PUT, PATCH, DELETE) | the same cookie and header |
+| The website (Next.js, on the same origin) | `/_allauth/browser/v1/` (the session cookie; `X-CSRFToken` from the `csrftoken` cookie on every POST, PUT, PATCH, DELETE) | the same cookie and header |
 | The app | `/_allauth/app/v1/` (header `X-Session-Token`), then `POST auth/exchange/` once signed in | `Authorization: Bearer <access>`, refreshed with `auth/token/refresh/` |
 | The app, legacy-compatible | `auth/login/`, `auth/registration/`, `auth/phone/…` (dj-rest-auth, kept working) | the same Bearer tokens |
 
@@ -498,8 +498,8 @@ curl -X POST 'https://examleaf.in/api/v1/cart/coupon/?state=AS' -H "Authorizatio
 `city`, `district`, `state` (two-letter code, `AS`), `pin` (6 digits), `is_default` (one address at most), `created`,
 `modified`. Once the India Post directory is loaded, the state must be the PIN code's
 (`400 {"state": ["PIN code 781001 is in Assam."]}`; PIN codes missing from the directory are not checked). To fill in
-the district and state from a PIN code, call `GET shipping/quote/?pin=781001` (below; the website's
-`GET /shop/pin/781001/` answers the same `states` and `districts`); a few PIN codes lie in two states.
+the district and state from a PIN code, call `GET shipping/quote/?pin=781001` (below); a few PIN codes lie in two
+states.
 
 **Shipping**: `GET shipping/` (anyone, `Cache-Control: public, max-age=300`) lists the delivery rates the checkout
 uses: `rates` (`name`, `states`, two-letter codes, `[]` for every state no other rate names; `fee`; `free_above`, the
