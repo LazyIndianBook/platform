@@ -111,7 +111,7 @@ export default async function AccountPage() {
       {learning instanceof ApiError ? null : (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
           <ContinueCard next={learning.continue_watching} hasAppLinks={learning.has_app_links} compact />
-          <div className="flex flex-col gap-1.5 border border-border bg-card p-6 max-nav:p-4 [&>*]:m-0">
+          <div className="flex flex-col gap-1.5 border border-border bg-card p-6 max-nav:p-4">
             <h2 className="font-mono text-xs leading-none font-medium tracking-[0.08em] text-muted-foreground uppercase">
               Revise again today
             </h2>
@@ -131,7 +131,7 @@ export default async function AccountPage() {
             <h2 id="record-title" className="m-0 text-[26px] leading-[1.2] max-nav:text-[22px]">
               My record
             </h2>
-            <Link href="/account/record/" className={goLink}>
+            <Link href="/account/record/" className={`${goLink} -my-2.5`}>
               Open My record →
             </Link>
           </div>
@@ -200,14 +200,14 @@ export default async function AccountPage() {
         )}
         <section aria-labelledby="orders-title" className="flex flex-col gap-3">
           <SectionHead id="orders-title" title="My orders">
-            <Link href="/account/orders/" className={goLink}>
+            <Link href="/account/orders/" className={`${goLink} -my-2.5`}>
               All my orders →
             </Link>
           </SectionHead>
           {orders instanceof ApiError ? (
             <Problem error={orders} what="Your orders" retry={path} />
           ) : order ? (
-            <div className="flex flex-col gap-2.5 border border-border bg-card px-5 py-[18px] max-nav:p-4 [&_p]:m-0">
+            <div className="flex flex-col gap-2.5 border border-border bg-card px-5 py-[18px] max-nav:p-4">
               <p className="flex flex-wrap items-center justify-between gap-2">
                 <span className="font-mono text-base font-semibold max-nav:text-sm">{order.number}</span>
                 <Badge variant={order.status ? (STATUS_VARIANT[order.status] ?? "closed") : "closed"}>
@@ -252,7 +252,7 @@ export default async function AccountPage() {
 
       <section aria-labelledby="app-title" className="flex flex-col gap-3">
         <SectionHead id="app-title" title="The ExamLeaf app">
-          <Link href="/revision/" className={goLink}>
+          <Link href="/revision/" className={`${goLink} -my-2.5`}>
             Revision course →
           </Link>
         </SectionHead>
