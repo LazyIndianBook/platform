@@ -39,7 +39,7 @@
 	# Phase 8 (docs/examleaf-phase8-nextjs-plan.md): Django's own paths go to web; every other path is a page of the
 	# website, the Next.js frontend's (examleaf-frontend/): PAGES_UPSTREAM, frontend:3000 by default. Django serves no
 	# page of its own any more. Both sit on one origin, so the session and CSRF cookies are shared.
-	@django path /api/* /_allauth/* /admin/* /shop/webhooks/* /anymail/* /health /health/* /shop/media/* /learn/preview/* /learn/hls/* /account/google/* /qr/* /static/* /sitemap-django.xml
+	@django path /api/* /_allauth/* /admin/* /shop/webhooks/* /anymail/* /health /health/* /shop/media/* /learn/preview/* /learn/hls/* /account/google/* /qr/* /static/*
 	reverse_proxy @django web:8000 {
 		# The whole body (up to 10 MB) is read here before gunicorn sees the request: a client that sends it slowly
 		# holds a Caddy connection, never one of gunicorn's threads (H1).

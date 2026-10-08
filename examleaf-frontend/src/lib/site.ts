@@ -21,7 +21,6 @@ export const DJANGO_PREFIXES = [
   "/account/google/",
   "/qr/",
   "/static/",
-  "/sitemap-django.xml",
 ];
 
 /**

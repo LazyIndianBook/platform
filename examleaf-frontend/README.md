@@ -186,5 +186,6 @@ then `CI=1 npm run test:e2e`.
 `Dockerfile`: multi-stage, standalone output, the unprivileged `node` user, a health check on `/api/health/` (the
 process only). `../examleaf-web/docker-compose.yml` builds it as the `frontend` service (`NEXT_PUBLIC_*` as build
 arguments from `.env`: `DOMAIN`, `RAZORPAY_KEY_ID`, `TURNSTILE_SITE_KEY`, `PUBLIC_MEDIA_DOMAIN`). Caddy sends Django's
-paths to `web:8000` and every other path to `PAGES_UPSTREAM`: `web:8000` (the Django pages) until the frontend covers
-them after packages 8B to 8D, then `PAGES_UPSTREAM=frontend:3000` in `.env` and `docker compose up -d caddy`.
+paths to `web:8000` and every other path to `PAGES_UPSTREAM`, whose default is now `frontend:3000`: the Django
+server-rendered pages were removed on 8 October 2026. Set `PAGES_UPSTREAM=web:8000` only to serve an older backend
+image that still has them.
