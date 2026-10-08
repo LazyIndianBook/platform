@@ -1,7 +1,8 @@
 // .field, Direction A (Components board, 04): the label in Public Sans 600 15 (a star for required, "(optional)" in
 // muted), the control, help under it in 14, the error under that: 600 14 in the error red after a filled "!" (never
 // red ink). Field gives the control its id, aria-describedby (help and error) and aria-invalid, so callers write the
-// control only. A disabled control greys its label and help, and the help says why ("Disabled: set by your book").
+// control only. A disabled control greys its label (the board's grey; a disabled control's label needs no contrast)
+// while the help that says why stays readable at 5.9:1 ("Disabled: set by your book").
 // FieldSet/FieldLegend: a group on a white sheet, its number in the margin's red mono ("1 About you").
 import { cn } from "cn";
 import { CircleAlert } from "lucide-react";
@@ -47,10 +48,7 @@ function Field({ id, label, required, optional, help, error, className, children
       </label>
       {control}
       {help ? (
-        <p
-          id={`${id}-help`}
-          className="m-0 text-sm leading-normal text-muted-foreground group-has-disabled/field:text-input"
-        >
+        <p id={`${id}-help`} className="m-0 text-sm leading-normal text-muted-foreground">
           {help}
         </p>
       ) : null}
