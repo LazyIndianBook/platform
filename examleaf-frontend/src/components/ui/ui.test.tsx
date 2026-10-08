@@ -10,7 +10,7 @@ import { SiteHeader } from "@/components/site/site-header";
 
 import { Accordion } from "./accordion";
 import { Alert } from "./alert";
-import { Badge, BadgeLink } from "./badge";
+import { Badge, BadgeLink, STATUS_VARIANT } from "./badge";
 import { Band, Marker, NightBand, QRule } from "./band";
 import { Breadcrumb } from "./breadcrumb";
 import { Button, buttonVariants } from "./button";
@@ -27,6 +27,7 @@ import { OtpInput } from "./input-otp";
 import { Select } from "./native-select";
 import { Pagination, pageWindow } from "./pagination";
 import { Price } from "./price";
+import { Progress } from "./progress";
 import { QrCard } from "./qr-card";
 import { Skeleton } from "./skeleton";
 import { Stepper } from "./stepper";
@@ -68,6 +69,45 @@ describe("Button", () => {
     expect(press).not.toHaveBeenCalled();
   });
 
+  it("busy, a form's submit button sends nothing, pressed or by Enter in a field", async () => {
+    const sent = vi.fn((event: React.FormEvent) => event.preventDefault());
+    const form = (busy: boolean) => (
+      <form onSubmit={sent}>
+        <label>
+          Email <input name="email" />
+        </label>
+        <Button type="submit" busy={busy}>
+          Save
+        </Button>
+      </form>
+    );
+    const { rerender } = render(form(true));
+    const save = screen.getByRole("button", { name: "Save" });
+    expect(save).toHaveAttribute("aria-busy", "true");
+    expect(save).toHaveAttribute("aria-disabled", "true");
+    await userEvent.click(save);
+    await userEvent.type(screen.getByRole("textbox", { name: "Email" }), "ananya@example.com{Enter}");
+    expect(sent).not.toHaveBeenCalled();
+    rerender(form(false)); // the same presses send it once it is no longer busy
+    await userEvent.type(screen.getByRole("textbox", { name: "Email" }), "{Enter}");
+    await userEvent.click(save);
+    expect(sent).toHaveBeenCalledTimes(2);
+  });
+
+  it("disabled, it ignores presses and says so", async () => {
+    const press = vi.fn();
+    render(
+      <Button disabled onClick={press}>
+        Buy the books
+      </Button>,
+    );
+    const buy = screen.getByRole("button", { name: "Buy the books" });
+    expect(buy).toBeDisabled();
+    expect(buy).not.toHaveAttribute("aria-busy");
+    await userEvent.click(buy);
+    expect(press).not.toHaveBeenCalled();
+  });
+
   it("styles a link as a button, the caller's classes winning", () => {
     expect(buttonVariants({ variant: "secondary", className: "w-full" })).toContain("w-full");
     expect(buttonVariants({ variant: "secondary" })).not.toContain("border-transparent");
@@ -89,6 +129,21 @@ describe("Badge", () => {
     expect(screen.getByText("Physics")).toHaveClass("subject-physics");
     expect(screen.getByRole("link", { name: "Chemistry" })).toHaveClass("min-h-11");
   });
+
+  it("draws an order's status as the board lists them: cancelled an outline, refunded on paper 2", () => {
+    render(
+      <>
+        <Badge variant={STATUS_VARIANT.pending}>Awaiting payment</Badge>
+        <Badge variant={STATUS_VARIANT.shipped}>Shipped</Badge>
+        <Badge variant={STATUS_VARIANT.cancelled}>Cancelled</Badge>
+        <Badge variant={STATUS_VARIANT.refunded}>Refunded</Badge>
+      </>,
+    );
+    expect(screen.getByText("Awaiting payment")).toHaveClass("text-gold-text", "font-mono");
+    expect(screen.getByText("Shipped")).toHaveClass("bg-medium");
+    expect(screen.getByText("Cancelled")).toHaveClass("bg-transparent");
+    expect(screen.getByText("Refunded")).toHaveClass("bg-paper-2");
+  });
 });
 
 describe("Alert", () => {
@@ -101,6 +156,19 @@ describe("Alert", () => {
     );
     expect(screen.getByRole("status")).toHaveTextContent("Payment received");
     expect(screen.getByRole("alert")).toHaveTextContent("There is a problem");
+  });
+
+  it("says a success in its title and words, in its tint, the icon hidden from screen readers", () => {
+    render(
+      <Alert variant="success" title="Payment received">
+        <p>Razorpay confirmed ₹339.00. We email the invoice when the order is packed.</p>
+      </Alert>,
+    );
+    const news = screen.getByRole("status");
+    expect(news).toHaveClass("bg-success-bg", "border-success-line");
+    expect(news).toHaveTextContent("Payment received");
+    expect(news).toHaveTextContent("Razorpay confirmed ₹339.00.");
+    expect(news.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
   });
 });
 
@@ -134,6 +202,21 @@ describe("Field and controls", () => {
     expect(input).toBeRequired();
     expect(input).toHaveAttribute("aria-invalid", "true");
     expect(input).toHaveAccessibleDescription("6 digits, such as 781001. Enter the 6-digit PIN code.");
+    // the message itself is the field's own line, tied to the control by its id
+    expect(input.getAttribute("aria-describedby")?.split(" ")).toContain("pin-error");
+    expect(document.getElementById("pin-error")).toHaveTextContent("Enter the 6-digit PIN code.");
+    expect(document.getElementById("pin-error")?.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("leaves a valid field unmarked", () => {
+    render(
+      <Field id="email" label="Email address" help="We send the code here.">
+        <Input type="email" />
+      </Field>,
+    );
+    const input = screen.getByLabelText("Email address");
+    expect(input).not.toHaveAttribute("aria-invalid");
+    expect(input).toHaveAttribute("aria-describedby", "email-help");
   });
 
   it("renders the input, textarea, prefixed input and native select", () => {
@@ -196,12 +279,32 @@ describe("OtpInput", () => {
     expect(input).toHaveAttribute("inputmode", "numeric");
     expect(input).toHaveAttribute("maxlength", "6");
   });
+
+  it("fills all six boxes from a pasted code, spaces dropped, and a whole code replaces a typed digit", async () => {
+    // input-otp looks for a password manager's badge once the field has focus; jsdom has no elementFromPoint
+    Object.defineProperty(document, "elementFromPoint", { value: () => null, configurable: true });
+    const { container } = render(<OtpInput />);
+    const input = screen.getByRole("textbox");
+    const boxes = () => [...container.querySelectorAll('[data-slot="otp-box"]')].map((box) => box.textContent);
+    act(() => input.focus());
+    await userEvent.paste("482 913");
+    expect(input).toHaveValue("482913");
+    expect(boxes()).toEqual(["4", "8", "2", "9", "1", "3"]);
+    await userEvent.clear(input);
+    await userEvent.keyboard("7");
+    expect(input).toHaveValue("7");
+    await userEvent.paste("Your code: 105226");
+    expect(input).toHaveValue("105226");
+  });
 });
 
 describe("Skeleton, Table, Breadcrumb, Pagination, Stepper", () => {
-  it("keeps a skeleton out of the accessibility tree", () => {
+  it("keeps a skeleton still (no shimmer, no pulse) and out of the accessibility tree", () => {
     const { container } = render(<Skeleton className="w-40" />);
-    expect(container.firstChild).toHaveAttribute("aria-hidden", "true");
+    const skeleton = container.firstChild as HTMLElement;
+    expect(skeleton).toHaveAttribute("aria-hidden", "true");
+    expect(skeleton).toHaveClass("bg-paper-2");
+    expect(skeleton.className).not.toMatch(/animate|pulse|shimmer|transition/);
   });
 
   it("gives a table its caption and right-aligns numbers", () => {
@@ -233,10 +336,17 @@ describe("Skeleton, Table, Breadcrumb, Pagination, Stepper", () => {
 
   it("paginates with the current page marked and the ends disabled", () => {
     expect(pageWindow(5, 10)).toEqual([1, "…", 4, 5, 6, "…", 10]);
-    render(<Pagination page={1} pages={3} href={(n) => `?page=${n}`} />);
+    const { unmount } = render(<Pagination page={1} pages={3} href={(n) => `?page=${n}`} />);
     expect(screen.getByText("1")).toHaveAttribute("aria-current", "page");
-    expect(screen.getByText("Previous")).toHaveAttribute("aria-disabled", "true");
-    expect(screen.getByRole("link", { name: /Next/ })).toHaveAttribute("href", "?page=2");
+    // the arrows keep their words for screen readers; at the first page Previous is a disabled span, not a link
+    expect(screen.getByText("Previous").closest("[aria-disabled]")).toHaveAttribute("aria-disabled", "true");
+    expect(screen.queryByRole("link", { name: "Previous" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Next" })).toHaveAttribute("href", "?page=2");
+    expect(screen.getByRole("link", { name: "Page 2" })).toHaveAttribute("href", "?page=2");
+    unmount();
+    render(<Pagination page={3} pages={3} href={(n) => `?page=${n}`} />);
+    expect(screen.getByText("Next").closest("[aria-disabled]")).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("link", { name: "Previous" })).toHaveAttribute("href", "?page=2");
   });
 
   it("says which checkout step is current and links back to done ones", () => {
@@ -256,6 +366,16 @@ describe("Skeleton, Table, Breadcrumb, Pagination, Stepper", () => {
     expect(screen.getByText("2. Delivery").closest("[aria-current]")).toHaveAttribute("aria-current", "step");
     expect(screen.getByRole("link", { name: /1\. Address/ })).toHaveAttribute("href", "/checkout/");
   });
+
+  it("says progress in words beside the bar, and to screen readers as the bar's value", () => {
+    render(<Progress value={12} max={48} label="12 of 48 clips" name="Clips watched" />);
+    const bar = screen.getByRole("progressbar", { name: "Clips watched" });
+    expect(bar).toHaveAttribute("aria-valuenow", "12");
+    expect(bar).toHaveAttribute("aria-valuemax", "48");
+    expect(bar).toHaveAttribute("aria-valuetext", "12 of 48 clips");
+    expect(screen.getByText("12 of 48 clips")).toBeInTheDocument();
+    expect((bar.firstElementChild as HTMLElement).style.width).toBe("25%");
+  });
 });
 
 describe("Tabs, Accordion, Dialog, Drawer, Toaster", () => {
@@ -273,7 +393,29 @@ describe("Tabs, Accordion, Dialog, Drawer, Toaster", () => {
     expect(screen.getByRole("radio", { name: "All subjects" })).toBeChecked();
   });
 
-  it("opens an accordion item natively", () => {
+  it("moves between tabs with the arrow keys, as a radio group does", async () => {
+    render(
+      <Tabs
+        name="subject"
+        legend="Subject"
+        options={[
+          { value: "all", label: "All subjects" },
+          { value: "PHY", label: "Physics" },
+          { value: "CHE", label: "Chemistry" },
+        ]}
+      />,
+    );
+    await userEvent.tab();
+    expect(screen.getByRole("radio", { name: "All subjects" })).toHaveFocus();
+    await userEvent.keyboard("{ArrowRight}");
+    expect(screen.getByRole("radio", { name: "Physics" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Physics" })).toHaveFocus();
+    await userEvent.keyboard("{ArrowLeft}");
+    expect(screen.getByRole("radio", { name: "All subjects" })).toBeChecked();
+    expect(screen.getByRole("group", { name: "Subject" })).toBeInTheDocument();
+  });
+
+  it("opens an accordion item natively, its + / − sign hidden from screen readers", () => {
     const { container } = render(
       <Accordion summary="Are the solutions really free?" open>
         <p>Yes.</p>
@@ -281,6 +423,8 @@ describe("Tabs, Accordion, Dialog, Drawer, Toaster", () => {
     );
     expect(container.querySelector("details")).toHaveAttribute("open");
     expect(screen.getByText("Are the solutions really free?")).toBeInTheDocument();
+    expect(container.querySelector("summary")).toHaveTextContent(/^Are the solutions really free\?$/);
+    expect(container.querySelector("summary [data-sign]")).toHaveAttribute("aria-hidden", "true");
   });
 
   it("opens a dialog on its safe button and gives focus back to what opened it (accessibility review F6)", async () => {
@@ -301,9 +445,17 @@ describe("Tabs, Accordion, Dialog, Drawer, Toaster", () => {
     const opener = screen.getByRole("button", { name: "Remove" });
     await userEvent.click(opener);
     const dialog = screen.getByRole("dialog", { name: "Remove this book?" });
-    expect(within(dialog).getByRole("button", { name: "Close" })).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "Keep it" })).toHaveFocus();
     await userEvent.click(within(dialog).getByRole("button", { name: "Keep it" }));
+    expect(dialog).not.toHaveAttribute("open");
+    expect(opener).toHaveFocus();
+    // a click inside the box keeps it open (its padding too); a click on the backdrop closes it, focus back again
+    await userEvent.click(opener);
+    expect(dialog).toHaveAttribute("open");
+    fireEvent.click(within(dialog).getByText("It leaves your cart."));
+    fireEvent.click(dialog.firstElementChild!);
+    expect(dialog).toHaveAttribute("open");
+    fireEvent.click(dialog);
     expect(dialog).not.toHaveAttribute("open");
     expect(opener).toHaveFocus();
   });

@@ -1,7 +1,7 @@
-// .empty, Direction A: a dashed sheet on paper with the marks-voice glyph "[ — ]" in red ink instead of a drawing,
-// an optional eyebrow, the title (h1 on the 404, h2 elsewhere), a line of text and ONE action, with an optional text
-// link after it. `art` is still accepted so every caller compiles; it now picks the glyph's words for screen
-// readers only through the title, so it is decorative.
+// .empty, Direction A (Components board, 08; States, "Empty states"): a dashed sheet on paper with the marks-voice
+// glyph "[ — ]" in red ink instead of a drawing, an optional eyebrow, the title in the serif (h1 on the 404, a 20 px
+// h2 elsewhere), a line of text in 15 px and ONE action, with an optional text link after it. `art` is still accepted
+// so every caller compiles; it picks the glyph, which is decorative.
 import { cn } from "cn";
 import * as React from "react";
 
@@ -49,15 +49,17 @@ function EmptyState({
   return (
     <div
       className={cn(
-        "flex max-w-[760px] flex-col items-start gap-3 border-[1.5px] border-dashed border-[#c9c0ae] bg-transparent px-6 py-8 text-left [&>*]:m-0",
+        "flex max-w-[760px] flex-col items-start gap-2.5 border-[1.5px] border-dashed border-[#c9c0ae] bg-transparent p-6 text-left [&>*]:m-0",
         className,
       )}
     >
       <EmptyDrawing art={art} />
       {eyebrow ? <p className="label-mono uppercase">{eyebrow}</p> : null}
-      <Heading className={headingLevel === 1 ? "" : "text-[clamp(22px,2.4vw,28px)]"}>{title}</Heading>
+      <Heading className={headingLevel === 1 ? "" : "text-xl leading-tight tracking-normal"}>{title}</Heading>
       {children ? (
-        <div className="flex max-w-[34rem] flex-col gap-2 text-muted-foreground [&>p]:m-0">{children}</div>
+        <div className="flex max-w-[34rem] flex-col gap-2 text-[15px] leading-[1.55] text-[#4a5060] [&>p]:m-0">
+          {children}
+        </div>
       ) : null}
       {action ? <div className="mt-1">{action}</div> : null}
       {after}

@@ -1,12 +1,17 @@
-// .badge, Direction A: square chips (radius 3), Public Sans 700 13. Tiers and subjects keep their colour and their
-// words. New: order-status chips in the mono label voice (outline for in-progress states, filled for final ones),
-// and "stamp" for the one red-ink label of a screen (BEST VALUE). Existing variants and exports unchanged.
+// .badge, Direction A (Components board, 05): square chips (radius 3), Public Sans 700 13, 24 px tall. Tiers and
+// subjects keep their colour and their words; "code" is a paper code in mono on a control hairline. Order statuses in
+// the mono label voice, as the board lists them: an outline while the order moves (AWAITING PAYMENT gold, PAID green,
+// PACKED blue), filled when it got there (SHIPPED blue, DELIVERED green), grey when it stopped (CANCELLED an outline,
+// REFUNDED on paper 2). "stamp" is the one turned red-ink label of a screen; "gold" is the flat BEST VALUE chip of a
+// choice card. Existing variants and exports unchanged; "refunded" is new.
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "cn";
 import * as React from "react";
 
-const badgeVariants = cva(
-  "inline-flex min-h-6 items-center gap-1 rounded-[3px] px-2.5 py-1 font-body text-[13px] leading-none font-bold whitespace-nowrap no-underline [&_svg]:size-3.5",
+const STATUS = "border-[1.5px] bg-transparent px-2 py-1.5 font-mono text-xs font-semibold tracking-[0.04em] uppercase";
+
+const badgeCva = cva(
+  "inline-flex min-h-6 items-center gap-1.5 rounded-[3px] px-2.5 py-1 font-body text-[13px] leading-none font-bold whitespace-nowrap no-underline [&_svg]:size-3.5",
   {
     variants: {
       variant: {
@@ -14,33 +19,36 @@ const badgeVariants = cva(
         easy: "bg-easy text-white",
         medium: "bg-medium text-white",
         hard: "bg-hard text-white",
-        gold: "border-[1.5px] border-red-ink bg-transparent font-mono text-xs font-semibold tracking-[0.04em] text-red-ink uppercase",
+        gold: "min-h-0 border-[1.5px] border-red-ink bg-transparent px-1.5 font-mono text-[11px] font-semibold tracking-[0.04em] text-red-ink uppercase",
         stamp:
-          "-rotate-[4deg] border-[1.5px] border-red-ink bg-transparent font-mono text-xs font-semibold tracking-[0.04em] text-red-ink uppercase",
-        code: "border border-input bg-transparent font-mono text-[13px] font-medium text-foreground",
+          "-rotate-[4deg] border-[1.5px] border-red-ink bg-transparent py-[7px] font-mono text-[13px] font-semibold tracking-[0.04em] text-red-ink uppercase",
+        code: "border border-input bg-transparent px-2 py-1.5 font-mono text-[13px] font-medium text-foreground",
         physics: "subject-physics bg-(--base) text-white",
         chemistry: "subject-chemistry bg-(--base) text-white",
         maths: "subject-maths bg-(--base) text-white",
         biology: "subject-biology bg-(--base) text-white",
-        awaiting:
-          "border-[1.5px] border-[#c9a03a] bg-transparent font-mono text-xs font-semibold tracking-[0.04em] text-gold-text uppercase",
-        paid: "border-[1.5px] border-easy bg-transparent font-mono text-xs font-semibold tracking-[0.04em] text-easy uppercase",
-        progress:
-          "border-[1.5px] border-medium bg-transparent font-mono text-xs font-semibold tracking-[0.04em] text-medium uppercase",
-        shipped: "bg-medium font-mono text-xs font-semibold tracking-[0.04em] text-white uppercase",
-        delivered: "bg-easy font-mono text-xs font-semibold tracking-[0.04em] text-white uppercase",
-        closed:
-          "border-[1.5px] border-input bg-secondary font-mono text-xs font-semibold tracking-[0.04em] text-muted-foreground uppercase",
+        awaiting: cn(STATUS, "border-[#c9a03a] text-gold-text"),
+        paid: cn(STATUS, "border-easy text-easy"),
+        progress: cn(STATUS, "border-medium text-medium"),
+        shipped: cn(STATUS, "border-medium bg-medium text-white"),
+        delivered: cn(STATUS, "border-easy bg-easy text-white"),
+        closed: cn(STATUS, "border-input text-muted-foreground"),
+        refunded: cn(STATUS, "border-input bg-paper-2 text-muted-foreground"),
       },
     },
     defaultVariants: { variant: "muted" },
   },
 );
 
+/** The chip's classes, merged (a variant's padding replaces the base's), for a link drawn as a chip. */
+function badgeVariants(variants: VariantProps<typeof badgeCva> = {}) {
+  return cn(badgeCva(variants));
+}
+
 const TIER_VARIANT = { E: "easy", M: "medium", H: "hard" } as const;
 
 /** The chip for an order's status (shop API Order.status); unknown statuses fall back to "closed". */
-const STATUS_VARIANT: Record<string, VariantProps<typeof badgeVariants>["variant"]> = {
+const STATUS_VARIANT: Record<string, VariantProps<typeof badgeCva>["variant"]> = {
   awaiting_payment: "awaiting",
   pending: "awaiting",
   paid: "paid",
@@ -49,14 +57,14 @@ const STATUS_VARIANT: Record<string, VariantProps<typeof badgeVariants>["variant
   shipped: "shipped",
   delivered: "delivered",
   cancelled: "closed",
-  refunded: "closed",
+  refunded: "refunded",
 };
 
-function Badge({ className, variant, ...props }: React.ComponentProps<"span"> & VariantProps<typeof badgeVariants>) {
+function Badge({ className, variant, ...props }: React.ComponentProps<"span"> & VariantProps<typeof badgeCva>) {
   return <span data-slot="badge" className={cn(badgeVariants({ variant }), className)} {...props} />;
 }
 
-function BadgeLink({ className, variant, ...props }: React.ComponentProps<"a"> & VariantProps<typeof badgeVariants>) {
+function BadgeLink({ className, variant, ...props }: React.ComponentProps<"a"> & VariantProps<typeof badgeCva>) {
   return (
     <a
       data-slot="badge"

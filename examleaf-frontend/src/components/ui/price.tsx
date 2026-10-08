@@ -1,10 +1,14 @@
-// .price, Direction A: Source Serif 600 in tabular figures; the MRP struck through only when it differs, the saving
-// in words (success green). Display prices drop zero paise (₹299); totals keep them (inr in lib/format.ts).
+// .price, Direction A (Components board, 07): Source Serif 600 in tabular figures; the MRP struck through in muted only
+// when it differs, then the saving in words (success green, bold): "₹499 ₹548 Save ₹49 (9%)", 12 px apart on one
+// baseline. On a page the MRP is 18 px and the saving 16; on a card both are 15. Display prices drop zero paise
+// (₹299); totals keep them (inr in lib/format.ts).
 import { cn } from "cn";
 
 import { inrShort } from "@/lib/format";
 
 const SIZES = { card: "text-[22px]", offer: "text-[48px]", page: "text-[44px]" };
+const MRP = { card: "text-[15px]", offer: "text-lg", page: "text-lg" };
+const SAVING = { card: "text-[15px]", offer: "text-base", page: "text-base" };
 
 type PriceProps = {
   price: string | number;
@@ -24,11 +28,11 @@ function Price({ price, mrp, from = false, size = "card", as: Tag = "p", classNa
       <span className={cn("font-head leading-none font-semibold text-foreground", SIZES[size])}>{inrShort(price)}</span>
       {saving > 0 ? (
         <>
-          <s className="text-base font-normal text-muted-foreground">
+          <s className={cn("font-normal text-muted-foreground", MRP[size])}>
             <span className="sr-only">MRP </span>
             {inrShort(mrp!)}
           </s>
-          <span className="text-[15px] font-bold text-success-fg">
+          <span className={cn("font-bold text-success-fg", SAVING[size])}>
             Save {inrShort(saving)} ({percent}%)
           </span>
         </>

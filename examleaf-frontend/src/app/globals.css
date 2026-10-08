@@ -242,6 +242,11 @@
   --shadow-menu: 0 16px 24px rgba(29, 34, 48, 0.25);
 }
 
+/* Control states (button.tsx). live: neither disabled nor aria-disabled, so hover and press apply; off: disabled, or
+   aria-disabled while not busy (a busy control keeps its colour and shows the spinner). */
+@custom-variant live (&:not(:disabled):not([aria-disabled="true"]));
+@custom-variant off (&:is(:disabled, [aria-disabled="true"]):not([aria-busy="true"]));
+
 @utility container-site {
   width: 100%;
   max-width: calc(var(--container) + 48px);
@@ -489,7 +494,7 @@
     height: auto;
   }
 
-  /* kept for pages that still use the fan (404); Home now shows the solution sheet instead */
+  /* the cover row (cover-stage.tsx): quiet, the covers overlapping, nothing turns or lifts */
   .stage {
     display: flex;
     justify-content: center;
@@ -504,13 +509,13 @@
     margin-left: max(-48px, -9vw);
   }
 
-  /* the subject row (was the sticker tile): cover, name, the book's figures, one link */
+  /* the subject row (subject-tile.tsx, was the sticker tile): cover, name, the book's figures, one link */
   .tile {
     display: grid;
     grid-template-columns: 64px minmax(0, 1fr) auto;
     align-items: center;
-    gap: 20px;
-    padding: 14px 4px;
+    gap: 16px;
+    padding: 12px 0;
     border-bottom: 1px solid var(--border);
     color: var(--foreground);
     text-decoration: none;
@@ -521,6 +526,83 @@
   }
   .tile:active {
     translate: 0 1px;
+  }
+
+  /* choice controls (choice.tsx): the native checkbox, radio and switch drawn as the board draws them. 22 px boxes
+     with the control border (ink on hover), navy when checked; the switch a 44×26 track, the control grey off (3:1
+     on paper, unlike the board's paler grey) and navy on, its 20 px knob a gradient. Nothing animates. Disabled is
+     paper 2 with a pale border. In forced colours the browser draws its own (gradients would vanish there). */
+  input:is([data-slot="checkbox"], [data-slot="radio"], [data-slot="switch"]) {
+    flex: none;
+    margin: 0;
+    appearance: none;
+    cursor: pointer;
+  }
+  input:is([data-slot="checkbox"], [data-slot="radio"]) {
+    width: 22px;
+    height: 22px;
+    border: 1.5px solid var(--input);
+    background: var(--card) center / 14px no-repeat;
+  }
+  input[data-slot="checkbox"] {
+    border-radius: 3px;
+  }
+  input[data-slot="radio"] {
+    border-radius: 50%;
+  }
+  input:is([data-slot="checkbox"], [data-slot="radio"]):not(:checked, :disabled):hover {
+    border-color: var(--foreground);
+  }
+  input[data-slot="checkbox"]:checked {
+    border-color: var(--primary);
+    background-color: var(--primary);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+  }
+  input[data-slot="radio"]:checked {
+    border-color: var(--primary);
+    background-image: radial-gradient(circle, var(--primary) 5.5px, transparent 6px);
+  }
+  input:is([data-slot="checkbox"], [data-slot="radio"])[aria-invalid="true"] {
+    border-color: var(--destructive);
+  }
+  input:is([data-slot="checkbox"], [data-slot="radio"]):disabled {
+    cursor: not-allowed;
+    border-color: #c9ccd2;
+    background-color: var(--paper-2);
+  }
+  input[data-slot="checkbox"]:checked:disabled {
+    background-color: #c9ccd2;
+  }
+  input[data-slot="radio"]:checked:disabled {
+    background-image: radial-gradient(circle, #c9ccd2 5.5px, transparent 6px);
+  }
+  input[data-slot="switch"] {
+    width: 44px;
+    height: 26px;
+    border-radius: 999px;
+    background: var(--input) radial-gradient(circle at 13px 13px, #ffffff 10px, transparent 10.5px);
+  }
+  input[data-slot="switch"]:checked {
+    background-color: var(--primary);
+    background-image: radial-gradient(circle at 31px 13px, #ffffff 10px, transparent 10.5px);
+  }
+  input[data-slot="switch"]:disabled {
+    cursor: not-allowed;
+    background-color: #c9ccd2;
+  }
+  @media (forced-colors: active) {
+    input:is([data-slot="checkbox"], [data-slot="radio"], [data-slot="switch"]) {
+      appearance: auto;
+    }
+  }
+
+  /* a lucide circle icon drawn filled (Alert, FieldError): the circle in the current colour, its sign in white */
+  svg.icon-filled circle {
+    fill: currentColor;
+  }
+  svg.icon-filled :not(circle) {
+    stroke: #ffffff;
+    stroke-width: 2.5;
   }
 
   /* the one emphasis of a view: red ink, italic */
@@ -553,8 +635,10 @@
     text-transform: uppercase;
   }
 
+  /* details.accordion (accordion.tsx): hairline rows under an ink rule; the question in the serif, "+" closed and
+     "−" open in red mono (the sign is an aria-hidden span, so it is never read). Nothing turns or slides. */
   details.accordion {
-    border-top: 1px solid var(--border);
+    border-top: 1.5px solid var(--foreground);
     border-bottom: 1px solid var(--border);
   }
   details.accordion + details.accordion {
@@ -562,35 +646,48 @@
   }
   details.accordion > summary {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     justify-content: space-between;
     gap: 16px;
-    min-height: 60px;
-    padding: 8px 0;
+    min-height: 44px;
+    padding: 16px 0;
     list-style: none;
     cursor: pointer;
-    font: 600 20px/1.35 var(--font-head);
+    font: 600 19px/1.3 var(--font-head);
     color: var(--foreground);
+  }
+  details.accordion[open] > summary {
+    padding-bottom: 8px;
   }
   details.accordion > summary::-webkit-details-marker {
     display: none;
   }
-  details.accordion > summary > svg {
+  details.accordion > summary > [data-sign]::before {
+    content: "+";
+    font: 600 19px/1 var(--font-mono);
     color: var(--red-ink);
   }
-  details.accordion[open] > summary > svg {
-    rotate: 180deg;
+  details.accordion[open] > summary > [data-sign]::before {
+    content: "−";
   }
   details.accordion > div {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    padding-bottom: 20px;
+    gap: 8px;
+    padding-bottom: 16px;
+    font-size: 15px;
+    line-height: 1.6;
   }
   details.accordion > div > * {
     margin: 0;
   }
+  details.accordion > div > :is(p, ul, ol) {
+    color: #4a5060;
+  }
 
+  /* tables (table.tsx; .table-scroll is the solutions' Markdown): an ink rule on top, the head in the mono label voice
+     over an ink hairline, a hairline under every row, columns 12 px apart with the first and last flush to the rule.
+     The box scrolls sideways by itself; the head sticks while the box scrolls. */
   .table-wrap,
   .table-scroll {
     overflow-x: auto;
@@ -601,14 +698,14 @@
   .table-scroll table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 16px;
+    font-size: 15px;
     line-height: 1.6;
   }
   .table-wrap th,
   .table-scroll th {
     position: sticky;
     top: 0;
-    padding: 10px 12px;
+    padding: 10px 6px;
     border-bottom: 1px solid var(--foreground);
     background: var(--background);
     font: 500 12px/1.4 var(--font-mono);
@@ -618,16 +715,30 @@
     text-align: left;
     white-space: nowrap;
   }
+  [data-slot="card"] :is(.table-wrap, .table-scroll) th {
+    background: var(--card);
+  }
   .table-wrap td,
   .table-scroll td {
-    padding: 12px;
-    border-top: 1px solid var(--border);
+    padding: 12px 6px;
+    border-bottom: 1px solid var(--border);
     vertical-align: top;
+  }
+  :is(.table-wrap, .table-scroll) :is(th, td):first-child {
+    padding-left: 0;
+  }
+  :is(.table-wrap, .table-scroll) :is(th, td):last-child {
+    padding-right: 0;
   }
   .table-wrap tfoot td,
   .table-wrap tfoot th {
     border-top: 1.5px solid var(--foreground);
     font-weight: 700;
+  }
+  /* the total's ink rule, not the last row's hairline (collapsed borders round 1.5 px down at 1x, and then the upper
+     cell wins) */
+  .table-wrap table:has(tfoot) tbody tr:last-child > * {
+    border-bottom: 0;
   }
   .num,
   .table-wrap :is(th, td).num {
@@ -699,12 +810,8 @@
 /* Motion (motion.md + the two Answer Script moments). Everything that moves lives here; with reduced motion the
    default state is the final one. */
 @media (prefers-reduced-motion: no-preference) {
-  .tile,
-  .stage-cover {
+  .tile {
     transition: translate var(--t-fast) var(--ease-enter);
-  }
-  details.accordion > summary > svg {
-    transition: rotate var(--t-fast) var(--ease-enter);
   }
   [data-toast] {
     animation: el-rise var(--t-base) var(--ease-enter) both;

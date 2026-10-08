@@ -1,6 +1,6 @@
-// .stage: the four covers fanned (−8°, −3°, 3°, 8°); each is the link to its book and lifts 14 px with its spine
-// catching the light on hover, keyboard focus or tap (motion.md, a; globals.css). Nothing moves on load; the first
-// cover is the page's priority image.
+// .stage, Direction A: the four covers side by side, each overlapping the one before, kept for a page that wants the
+// books in a row (the 404 of old). Quiet: no fan, no lift, nothing moves (globals.css); each cover is the link to its
+// book, and the first cover is the page's priority image.
 import Link from "next/link";
 
 import { CoverPicture } from "./cover";

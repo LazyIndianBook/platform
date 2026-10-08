@@ -1,7 +1,9 @@
 // A book cover or a product picture, always with its width and height: a product's picture as the API gives it (its
 // AVIF and WebP sizes, then the uploaded original); one of the site's static covers with the AVIF and WebP at 320 and
-// 480 wide that Django's manage.py build_covers makes (direction.md, "Images"); no picture at all draws .no-cover in the
-// subject's colours. The static covers come at 240 too: a phone's 104 to 112 px box at 1.75x takes it, not the 320.
+// 480 wide that Django's manage.py build_covers makes (direction.md, "Images"); no picture at all draws NoCover, the
+// card of the Shop artboard: the subject's base colour, the mono eyebrow, the subject and the kind in the serif and
+// "cover coming" (decorative: the card names the product). The static covers come at 240 too: a phone's 104 to 112 px
+// box at 1.75x takes it, not the 320.
 import { cn } from "cn";
 
 import type { components } from "@/lib/api/schema";
@@ -71,17 +73,17 @@ function NoCover({ subject, name, kind }: { subject?: SubjectKey; name: string; 
       aria-hidden="true"
       className={cn(
         subject && `subject-${subject}`,
-        "flex aspect-[480/678] flex-col items-center justify-center gap-1.5 rounded-cover bg-(--base,var(--navy)) p-4 text-center text-white shadow-cover",
+        "flex aspect-[480/678] flex-col justify-between rounded-[3px] bg-(--base,var(--navy)) p-[18px] text-white",
       )}
     >
-      <span className="font-head text-[15px] leading-none font-extrabold">
-        Exam<span className="text-leaf-light">Leaf</span>
+      <span className="font-mono text-[11px] leading-none font-medium tracking-[0.08em] text-white/85 uppercase">
+        ExamLeaf · ASSEB 12
       </span>
-      <strong className="font-head text-2xl leading-tight font-extrabold text-white">{name}</strong>
-      <span className="rounded-pill bg-(--pill,var(--leaf-light)) px-2.5 py-0.5 font-head text-xs font-bold text-(--base,var(--navy))">
-        {kind}
+      <span className="flex flex-col font-head text-[26px] leading-[1.05] font-semibold">
+        <span>{name}</span>
+        <span>{kind}</span>
       </span>
-      <span className="text-sm font-semibold text-(--pill,var(--leaf-light))">Class 12 · 2027</span>
+      <span className="font-mono text-[11px] leading-none font-medium text-white/85">cover coming</span>
     </div>
   );
 }

@@ -1,7 +1,6 @@
-// details.accordion: native <details> (works without script; one name opens one at a time); the chevron turns as a
-// state, the turn itself animates only in the motion wrapper (globals.css).
-import { ChevronDown } from "lucide-react";
-
+// details.accordion, Direction A (Components board, 06): native <details> (works without script; one name opens one
+// at a time); hairline rows, the question in the serif, "+" closed and "−" open in red mono (globals.css draws the
+// sign in an aria-hidden span, so the question is all a screen reader hears). Nothing turns or slides.
 function Accordion({
   summary,
   name,
@@ -17,7 +16,7 @@ function Accordion({
     <details className="accordion" name={name} open={open}>
       <summary>
         <span>{summary}</span>
-        <ChevronDown aria-hidden="true" className="size-[22px] shrink-0" />
+        <span aria-hidden="true" data-sign="" />
       </summary>
       <div>{children}</div>
     </details>

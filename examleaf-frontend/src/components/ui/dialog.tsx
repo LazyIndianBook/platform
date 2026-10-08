@@ -1,13 +1,14 @@
 "use client";
 
-// dialog.dialog: for confirmations only (remove a cart line, cancel an order, remove a passkey or an address). The
-// browser's own modal <dialog> (showModal: the page behind is inert, Escape closes it, the box sits in the top layer),
-// so no dialog library ships to the page. The box is min(32rem, 100% - 32px), radius 12, the dialog shadow, never
-// taller than the screen and scrolling inside (400 % zoom: accessibility review F6); footer buttons right-aligned.
-// It opens on its safe button (the footer's DialogClose); closing gives focus back to what opened it, or, when that
-// is gone or unusable, to the page's heading. A click on the backdrop closes it.
+// dialog.dialog, Direction A (Components board, 08; States, "Cancel dialog"): for confirmations only (remove a cart
+// line, cancel an order, remove a passkey or an address). The browser's own modal <dialog> (showModal: the page behind
+// is inert, Escape closes it, the box sits in the top layer), so no dialog library ships to the page. A paper sheet
+// min(32rem, 100% - 32px) wide over rgba(29,34,48,.55), 26 px inside: the title in the serif, the body in 15 px, the
+// footer right-aligned with the safe button first and then the destructive or primary one. Never taller than the
+// screen, it scrolls inside (400 % zoom: accessibility review F6). No × (neither drawing has one): the safe button,
+// Escape and a click on the backdrop close it. It opens on its safe button (the footer's DialogClose); closing gives
+// focus back to what opened it, or, when that is gone or unusable, to the page's heading.
 import { cn } from "cn";
-import { X } from "lucide-react";
 import { Slot } from "radix-ui";
 import * as React from "react";
 
@@ -111,46 +112,42 @@ function DialogContent({ className, children, ...props }: React.ComponentProps<"
         restoreFocus(opener.current);
       }}
       onClick={(event) => {
-        if (event.target === event.currentTarget) setOpen(false); // the backdrop (the box's parts fill the box)
+        if (event.target === event.currentTarget) setOpen(false); // the backdrop (the box's wrapper fills the box)
       }}
       className={cn(
-        "m-auto max-h-[calc(100dvh-32px)] w-[min(32rem,calc(100%-32px))] flex-col overflow-y-auto rounded-lg border-0 bg-card p-0 text-card-foreground shadow-dialog open:flex",
+        "m-auto max-h-[calc(100dvh-32px)] w-[min(32rem,calc(100%-32px))] flex-col overflow-y-auto rounded-lg border-0 bg-background p-0 text-foreground shadow-dialog open:flex",
         // the backdrop's colour written out: older browsers do not give ::backdrop the page's custom properties
-        "backdrop:bg-[rgba(7,18,43,0.55)] motion-safe:open:animate-in motion-safe:open:duration-200 motion-safe:open:fade-in-0",
+        "backdrop:bg-[rgba(29,34,48,0.55)] motion-safe:open:animate-in motion-safe:open:duration-150 motion-safe:open:fade-in-0",
         className,
       )}
       {...props}
     >
-      {children}
+      {/* the padding is inside: a click on the dialog element itself is a click on the backdrop */}
+      <div className="flex flex-col gap-3.5 p-[26px]">{children}</div>
     </dialog>
   );
 }
 
 function DialogHeader({ children }: { children: React.ReactNode }) {
-  const { setOpen, id } = useDialog();
+  const { id } = useDialog();
   return (
-    <div className="flex items-center justify-between gap-3 pt-5 pr-3 pl-6">
-      <h2 id={`${id}-title`} className="m-0 font-head text-[22px] leading-tight font-extrabold text-heading">
-        {children}
-      </h2>
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={() => setOpen(false)}
-        className="inline-flex size-11 shrink-0 items-center justify-center rounded-btn text-primary hover:bg-secondary-hover"
-      >
-        <X aria-hidden="true" className="size-[22px]" />
-      </button>
-    </div>
+    <h2 id={`${id}-title`} className="m-0 font-head text-[26px] leading-[1.15] font-semibold text-heading">
+      {children}
+    </h2>
   );
 }
 
 function DialogBody({ className, ...props }: React.ComponentProps<"div">) {
-  return <div className={cn("flex flex-col gap-3 px-6 pt-2 [&>*]:m-0", className)} {...props} />;
+  return (
+    <div
+      className={cn("flex flex-col gap-3 text-[15px] leading-[1.6] text-[#3e4454] [&>*]:m-0", className)}
+      {...props}
+    />
+  );
 }
 
 function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
-  return <div className={cn("flex flex-wrap justify-end gap-3 p-6", className)} {...props} />;
+  return <div className={cn("flex flex-wrap justify-end gap-2.5 max-nav:[&>*]:grow", className)} {...props} />;
 }
 
 function DialogDescription(props: React.ComponentProps<"p">) {

@@ -1,7 +1,10 @@
 "use client";
 
-// .otp: six 48×56 boxes (Poppins 700 24) over one real input (input-otp), so Android's SMS autofill, a pasted code
-// and Backspace all work, and screen readers hear one field. Its value is posted as `name` (default "code").
+// .otp, Direction A (Components board, 04): six 44×54 boxes in Plex Mono 500 24 over one real input (input-otp), so
+// Android's SMS autofill, the numeric keypad, a pasted code and Backspace all work, and screen readers hear one field.
+// A paste keeps only its digits and a whole code replaces what was there, so "482 913" or "Your code: 482913" fills
+// all six. The box the next digit goes into is navy inside the focus ring; an error is the error red; disabled is
+// paper 2. Its value is posted as `name` (default "code").
 import { cn } from "cn";
 import { OTPInput, REGEXP_ONLY_DIGITS } from "input-otp";
 import * as React from "react";
@@ -19,6 +22,8 @@ type OtpInputProps = {
   required?: boolean;
 };
 
+const digitsOf = (pasted: string) => pasted.replace(/\D/g, "").slice(0, 6);
+
 function OtpInput({ name = "code", value, onChange, ...props }: OtpInputProps) {
   const [inner, setInner] = React.useState("");
   return (
@@ -26,22 +31,31 @@ function OtpInput({ name = "code", value, onChange, ...props }: OtpInputProps) {
       name={name}
       maxLength={6}
       pattern={REGEXP_ONLY_DIGITS}
+      pasteTransformer={digitsOf}
+      onPasteCapture={(event: React.ClipboardEvent<HTMLInputElement>) => {
+        // a whole code replaces what was typed, wherever the caret is (input-otp inserts at the caret)
+        const input = event.currentTarget;
+        if (digitsOf(event.clipboardData.getData("text/plain")).length === 6)
+          input.setSelectionRange(0, input.value.length);
+      }}
       inputMode="numeric"
       autoComplete="one-time-code"
       aria-label="6-digit code"
       value={value ?? inner}
       onChange={onChange ?? setInner}
-      containerClassName="flex items-center gap-2 has-disabled:opacity-55"
+      containerClassName="group/otp flex items-center gap-2"
       render={({ slots }) =>
         slots.map((slot, index) => (
           <div
             key={index}
+            data-slot="otp-box"
             data-active={slot.isActive || undefined}
             className={cn(
-              "relative flex h-14 w-12 items-center justify-center rounded-lg border-[1.5px] border-input bg-card",
-              "font-head text-2xl font-bold text-foreground",
-              "data-active:outline-2 data-active:outline-offset-2 data-active:outline-ring",
-              props["aria-invalid"] && "border-destructive",
+              "relative flex h-[54px] w-11 items-center justify-center rounded-lg border-[1.5px] border-input bg-card",
+              "font-mono text-2xl leading-none font-medium text-foreground",
+              props["aria-invalid"] && "border-destructive shadow-[inset_0_0_0_0.5px_var(--destructive)]",
+              "data-active:border-primary data-active:outline-2 data-active:outline-offset-2 data-active:outline-ring",
+              "group-has-disabled/otp:border-[#c9ccd2] group-has-disabled/otp:bg-paper-2 group-has-disabled/otp:text-input",
             )}
           >
             {slot.char}
