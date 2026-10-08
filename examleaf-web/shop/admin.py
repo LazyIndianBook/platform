@@ -59,6 +59,7 @@ from .models import (
     SlugHistory,
     StockAlert,
 )
+from .views import pdf_response
 
 admin.site.index_template = "shop/admin/index.html"  # the ops dashboard with the shop's numbers above it
 
@@ -560,8 +561,7 @@ class OrderAdmin(LoggedExportMixin, SimpleHistoryAdmin):  # export: shop.export_
         if not (invoice and invoice.pdf):
             return "—"
         notes = invoice.credit_notes.exclude(pdf="")
-        links = [(reverse("shop:invoice", args=[order.number]), invoice.number)]
-        links += [(reverse("shop:credit_note", args=[order.number, note.pk]), note.number) for note in notes]
+        links = [(pdf_url(document), document.number) for document in [invoice, *notes]]
         return format_html_join(" · ", '<a href="{}">{}</a>', links)
 
     def _each(self, request, queryset, step, done):
@@ -789,22 +789,40 @@ class RefundAdmin(ReadOnlyAdmin):
     list_select_related = ["order"]
 
 
+class DocumentAdmin(ReadOnlyAdmin):
+    """An invoice's or a credit note's PDF, for staff who may view them: <pk>/pdf/ (admin:shop_invoice_pdf,
+    admin:shop_creditnote_pdf), linked from the list and from the order."""
+
+    def get_urls(self):
+        name = f"{self.opts.app_label}_{self.opts.model_name}_pdf"
+        return [path("<int:pk>/pdf/", self.admin_site.admin_view(self.pdf_view), name=name), *super().get_urls()]
+
+    def pdf_view(self, request, pk):
+        if not self.has_view_permission(request):
+            raise PermissionDenied
+        return pdf_response(self.model.objects.filter(pk=pk).first())
+
+    @admin.display(description="PDF")
+    def pdf_link(self, document):
+        if not document.pdf:
+            return "being made"
+        return format_html('<a href="{}">download</a>', pdf_url(document))
+
+
+def pdf_url(document):
+    return reverse(f"admin:shop_{document._meta.model_name}_pdf", args=[document.pk])
+
+
 @admin.register(Invoice)
-class InvoiceAdmin(ReadOnlyAdmin):
+class InvoiceAdmin(DocumentAdmin):
     list_display = ["number", "order", "created", "pdf_link"]
     list_filter = ["financial_year", "created"]
     search_fields = ["number", "order__number"]
     list_select_related = ["order"]
 
-    @admin.display(description="PDF")
-    def pdf_link(self, invoice):
-        if not invoice.pdf:
-            return "being made"
-        return format_html('<a href="{}">download</a>', reverse("shop:invoice", args=[invoice.order.number]))
-
 
 @admin.register(CreditNote)
-class CreditNoteAdmin(ReadOnlyAdmin):
+class CreditNoteAdmin(DocumentAdmin):
     list_display = ["number", "invoice", "refund_amount", "created", "pdf_link"]
     list_filter = ["financial_year", "created"]
     search_fields = ["number", "invoice__number", "invoice__order__number"]
@@ -813,13 +831,6 @@ class CreditNoteAdmin(ReadOnlyAdmin):
     @admin.display(description="amount")
     def refund_amount(self, note):
         return note.refund.amount
-
-    @admin.display(description="PDF")
-    def pdf_link(self, note):
-        if not note.pdf:
-            return "being made"
-        url = reverse("shop:credit_note", args=[note.invoice.order.number, note.pk])
-        return format_html('<a href="{}">download</a>', url)
 
 
 @admin.register(Review)

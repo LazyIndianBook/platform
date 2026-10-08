@@ -1,4 +1,0 @@
-{% load allauth %}<form class="form-col" method="{{ attrs.method }}"{% if attrs.action %} action="{{ attrs.action }}"{% endif %}{% if attrs.id %} id="{{ attrs.id }}"{% endif %}{% if attrs.no_visible_fields and not slots.actions %} hidden{% endif %}>
-  {% slot body %}{% endslot %}
-  {% if slots.actions %}<div class="row">{% slot actions %}{% endslot %}</div>{% endif %}
-</form>

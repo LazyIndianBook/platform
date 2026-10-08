@@ -16,7 +16,6 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.sites.shortcuts import get_current_site
 from django.http import Http404
-from django.urls import reverse
 
 from ops.sms import queue_sms
 from ops.tasks import queue_email, queue_text_email
@@ -84,7 +83,7 @@ class AccountAdapter(DefaultAccountAdapter):
         others.update(login_phone="", login_phone_verified=False, sms_updates=False)
         new = not (user.login_phone == phone and user.login_phone_verified)  # also called at each log-in by SMS code
         self.set_phone(user, phone, True)
-        account = f"{settings.SITE_URL}{reverse('account')}"
+        account = f"{settings.SITE_URL}/account/"
         if new:
             queue_text_email(
                 user.email,

@@ -1,6 +1,6 @@
 """Pictures drawn with Pillow for the web platform: the Open Graph image of a link preview (1200x630 JPEG, not WebP or
 AVIF: not every crawler reads them), in a bundled font when static/fonts/og.ttf exists, else Pillow's own; and the
-app icons of the web app manifest."""
+product pictures' sizes (queue_picture_sizes)."""
 
 import io
 import logging
@@ -13,7 +13,7 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 logger = logging.getLogger(__name__)
 
-NIGHT, NAVY, LEAF, PAPER = "#07122B", "#0B2A5B", "#4CC265", "#FFFFFF"
+NIGHT, LEAF, PAPER = "#07122B", "#4CC265", "#FFFFFF"
 OG_SIZE = (1200, 630)
 MARGIN = 60
 
@@ -50,25 +50,6 @@ def og_image(covers, title):
     draw.multiline_text((MARGIN, MARGIN + 100), "\n".join(lines), font=face, fill=PAPER, spacing=14)
     buffer = io.BytesIO()
     canvas.save(buffer, "JPEG", quality=85, optimize=True)
-    return buffer.getvalue()
-
-
-def app_icon(size):
-    """A leaf on navy, size x size PNG. Maskable: the background fills the square and the leaf stays inside the
-    middle 80 % circle that every launcher's mask keeps. Drawn four times larger, then reduced (smooth edges)."""
-    big = size * 4
-    centre, radius, offset = big / 2, 0.3676 * big, 0.1976 * big  # two circles: their overlap is a leaf 0.62 x 0.34
-    leaf = Image.new("L", (big, big), 0)
-    first, second = Image.new("L", (big, big), 0), Image.new("L", (big, big), 0)
-    for mask, x in [(first, centre - offset), (second, centre + offset)]:
-        ImageDraw.Draw(mask).ellipse((x - radius, centre - radius, x + radius, centre + radius), fill=255)
-    leaf.paste(first, mask=second)
-    draw = ImageDraw.Draw(leaf)
-    draw.line((centre, centre - 0.26 * big, centre, centre + 0.36 * big), fill=0, width=round(0.025 * big))  # midrib
-    icon = Image.new("RGB", (big, big), NAVY)
-    icon.paste(LEAF, mask=leaf.rotate(-40, resample=Image.Resampling.BICUBIC, center=(centre, centre)))
-    buffer = io.BytesIO()
-    icon.resize((size, size), Image.Resampling.LANCZOS).save(buffer, "PNG", optimize=True)
     return buffer.getvalue()
 
 

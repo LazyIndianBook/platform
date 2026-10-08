@@ -13,7 +13,6 @@ django-anymail==15.2
 django-model-utils==5.0.0
 django-simple-history==3.13.0
 django-taggit==6.1.0
-django-widget-tweaks==1.5.1
 django-phonenumber-field[phonenumberslite]==8.5.0
 django-import-export==4.4.1
 django-filter==26.2

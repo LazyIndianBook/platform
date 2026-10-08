@@ -1,2 +1,0 @@
-{# allauth's forms in the site's vocabulary: the error summary, then each field as templates/_field.html draws it #}
-{% with form=attrs.form %}{% include "_form_errors.html" %}{% for field in form %}{% include "_field.html" %}{% endfor %}{% endwith %}

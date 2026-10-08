@@ -1,24 +1,15 @@
-{% extends "base.html" %}
-{% block head_title %}Not allowed{% endblock %}
-{% block meta_description %}You do not have access to this page of the ExamLeaf website.{% endblock %}
-{% block robots %}<meta name="robots" content="noindex">{% endblock %}
-{% block main_class %}{% endblock %}
-{% block content %}
-<section class="section section-top">
-  <div class="container">
-    <div class="empty">
-      <svg class="icon icon-lg" aria-hidden="true"><use href="#icon-lock"/></svg>
-      <p class="eyebrow">Error 403</p>
-      <h1>You are not allowed to open this page</h1>
-      {% if user.is_authenticated %}
-      <p>Your account does not have access to it. If you think it should, write to us from the <a href="{% url 'contact' %}">Contact</a> page.</p>
-      <a class="btn btn-primary btn-lg" href="{% url 'home' %}"><svg class="icon" aria-hidden="true"><use href="#icon-book"/></svg><span>See the books</span></a>
-      {% else %}
-      <p>Log in with the account that has access to it.</p>
-      <a class="btn btn-primary btn-lg" href="{% url 'account_login' %}">Log in</a>
-      <p>or <a href="{% url 'home' %}">see the books</a></p>
-      {% endif %}
-    </div>
-  </div>
-</section>
-{% endblock %}
+{# Plain on purpose: Django answers only its own paths (the API in JSON, the admin); the website's pages, errors included, are the frontend's. #}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Not allowed · ExamLeaf</title>
+</head>
+<body>
+<h1>You are not allowed to open this page</h1>
+<p>Log in with an account that has access to it.</p>
+<p><a href="/">ExamLeaf</a></p>
+</body>
+</html>

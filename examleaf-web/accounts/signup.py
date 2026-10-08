@@ -9,9 +9,7 @@ from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
-from django.urls import reverse
 from django.utils import timezone
-from django.utils.html import format_html
 from phonenumber_field.phonenumber import to_python as to_phone
 
 from content.models import Board
@@ -83,13 +81,6 @@ class StudentDetailsForm(forms.Form):
         if hasattr(self, "_signup_fields"):  # allauth's sign-up forms add the phone field after this __init__
             self._signup_fields = {name: spec for name, spec in self._signup_fields.items() if name != "phone"}
         super().__init__(*args, **kwargs)
-        self.fields["consent"].help_text = format_html(
-            '<a href="{}" target="_blank" rel="noopener">Read the privacy notice</a>', reverse("privacy")
-        )
-        if settings.PARENTAL_CONSENT_MODE == "verified":  # M9: the parent confirms through a link
-            contact = "email or mobile number" if settings.SMS_ENABLED else "email"
-            label = f"Parent's or guardian's {contact} (if you are under 18): we send them a link to confirm"
-            self.fields["parent_contact"].label = label
         if settings.TURNSTILE and not hasattr(self, "sociallogin"):
             from .forms import TurnstileField
 

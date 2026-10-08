@@ -1,6 +1,0 @@
-{% extends "account/signup.html" %}
-{# allauth's page after Google, with the site's words: the Register page with the student details of accounts.forms
-(no password: Google confirmed the address) #}
-{% block lead %}You are registering with your {{ account.get_provider.name }} account. A few details about your studies, and you
-are done.{% endblock %}
-{% block action %}{% url 'socialaccount_signup' %}{% endblock %}

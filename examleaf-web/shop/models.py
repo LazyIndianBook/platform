@@ -24,7 +24,6 @@ from django.db import models, transaction
 from django.db.models.functions import Lower
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import Truncator
 from django_fsm import ConcurrentTransitionMixin, FSMField, transition
@@ -166,8 +165,8 @@ class Product(TimeStampedModel):
     def __str__(self):
         return self.title
 
-    def get_absolute_url(self):
-        return reverse("shop:product", args=[self.slug])
+    def get_absolute_url(self):  # the website's page (examleaf-frontend), as are the URLs below
+        return f"/shop/{self.slug}/"
 
     def clean(self):
         if self.price and self.mrp and self.price > self.mrp:
@@ -298,7 +297,7 @@ class Category(MP_Node):
         return self.name
 
     def get_absolute_url(self):
-        return reverse("shop:category", args=[self.slug])
+        return f"/shop/category/{self.slug}/"
 
     def products_on_sale(self):
         return Product.objects.filter(is_active=True, categories__in=Category.objects.get_tree(self)).distinct()
@@ -320,7 +319,7 @@ class Collection(TimeStampedModel):
         return self.name
 
     def get_absolute_url(self):
-        return reverse("shop:collection", args=[self.slug])
+        return f"/shop/collection/{self.slug}/"
 
     def products_on_sale(self):
         items = self.items.filter(product__is_active=True).select_related("product")
@@ -795,10 +794,10 @@ class Order(ConcurrentTransitionMixin, TimeStampedModel):
             Order.objects.filter(pk=self.pk).update(number=self.number)
 
     def get_absolute_url(self):
-        return reverse("shop:order", args=[self.number])
+        return f"/account/orders/{self.number}/"
 
     def get_link_url(self):  # the emails' link, for guests and owners alike
-        return reverse("shop:order_link", args=[self.token])
+        return f"/orders/t/{self.token}/"
 
     @property
     def is_cod(self):

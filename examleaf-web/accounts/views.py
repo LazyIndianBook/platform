@@ -1,38 +1,24 @@
 import re
 import unicodedata
-from datetime import timedelta
 
-from allauth.account.decorators import reauthentication_required
 from allauth.headless.account import views as headless_views
 from allauth.headless.base.response import AuthenticationResponse
-from django import forms
 from django.conf import settings
-from django.contrib import messages
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.messages.views import SuccessMessageMixin
 from django.core import signing
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
-from django.core.serializers.json import DjangoJSONEncoder
 from django.db import IntegrityError, transaction
-from django.http import JsonResponse
-from django.shortcuts import redirect, render
-from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.utils.crypto import salted_hmac
 from django.utils.formats import date_format
-from django.utils.http import base36_to_int, int_to_base36
-from django.views.decorators.cache import never_cache
-from django.views.decorators.http import require_http_methods, require_POST
-from django.views.generic import CreateView, TemplateView
+from django.utils.http import int_to_base36
 
 from ops.models import EmailSuppression
 from ops.sms import queue_sms
 from ops.tasks import queue_text_email
 
-from .forms import TeacherRequestForm, parent_link_contact
-from .models import ConsentRecord, DeletionRequest, TeacherProfile, User
+from .forms import parent_link_contact
+from .models import ConsentRecord, DeletionRequest, TeacherProfile
 
 PROFILE_FIELDS = [
     "email",
@@ -50,32 +36,6 @@ PROFILE_FIELDS = [
     "created",
     "last_login",
 ]
-
-
-class AccountView(LoginRequiredMixin, TemplateView):
-    """/account/: the student's details, teacher access, and the DPDP self-service (download, delete)."""
-
-    template_name = "my_account.html"
-
-
-class TeacherRequestView(LoginRequiredMixin, SuccessMessageMixin, CreateView):
-    form_class = TeacherRequestForm
-    template_name = "teacher_request.html"
-    success_url = reverse_lazy("account")
-    success_message = "Thank you. Once we have checked with your school, this page shows you as a verified teacher."
-
-    def dispatch(self, request, *args, **kwargs):
-        if request.user.is_authenticated and TeacherProfile.objects.filter(user=request.user).exists():
-            return redirect("account")  # one request per account; its status is on the account page
-        return super().dispatch(request, *args, **kwargs)
-
-    def form_valid(self, form):
-        form.instance.user = self.request.user
-        try:
-            with transaction.atomic():
-                return super().form_valid(form)
-        except IntegrityError:  # a double click: the other request has made the profile
-            return redirect("account")
 
 
 def export_orders(user):
@@ -200,7 +160,7 @@ def export_user_data(user):
     }
 
 
-DATA_PARTS = {  # the parts of Download my data in words, for the page shown before the file
+DATA_PARTS = {  # the parts of Download my data in words, shown before the file (api/v1/me/export/summary/)
     "profile": "Your details: name, email address, class, board, district, date of birth, a parent's details",
     "email_addresses": "Email addresses",
     "passkeys_and_authenticators": "Passkeys and authenticator apps",
@@ -232,33 +192,12 @@ def how_many(value):
     return int(bool(value))
 
 
-@never_cache
-@login_required
-@reauthentication_required  # the password again unless it was entered in the last few minutes
-def data_export(request):
-    """Download my data: a page that says what the file holds, part by part, then the JSON file (?download=1)."""
-    data = export_user_data(request.user)
-    if "download" not in request.GET:
-        parts = [(label, how_many(data.get(key))) for key, label in DATA_PARTS.items()]
-        return render(request, "account_data.html", {"parts": parts})
-    response = JsonResponse(data, encoder=DjangoJSONEncoder, json_dumps_params={"indent": 2, "ensure_ascii": False})
-    response["Content-Disposition"] = f'attachment; filename="examleaf-my-data-{timezone.localdate()}.json"'
-    return response
-
-
-class DeleteAccountForm(forms.Form):
-    confirm = forms.BooleanField(
-        label=f"I understand that my account, my record and my details will be deleted "
-        f"{DeletionRequest.GRACE.days} days from now, unless I cancel before then."
-    )
-
-
 def deletion_day(deletion):
     return date_format(timezone.localtime(deletion.due_at), "j F Y")
 
 
 def request_deletion(request):
-    """Delete my account, for the website and the API: the request (due after DeletionRequest.GRACE), the consent
+    """Delete my account (api/v1/me/deletion/): the request (due after DeletionRequest.GRACE), the consent
     withdrawn and the email. Returns (deletion, created); a request already waiting is returned as it is."""
     user = request.user
     if deletion := user.pending_deletion:
@@ -274,13 +213,13 @@ def request_deletion(request):
         "Your account will be deleted",
         f"We have your request to delete your ExamLeaf account. It will be deleted on {deletion_day(deletion)}.\n\n"
         f'Changed your mind, or did not ask for this? Log in before then and press "Keep my '
-        f'account" on {settings.SITE_URL}{reverse("account")}',
+        f'account" on {settings.SITE_URL}/account/',
     )
     return deletion, True
 
 
 def keep_account(request):
-    """Cancel the waiting deletion, for the website and the API: consent given again and an email. Returns the
+    """Cancel the waiting deletion (Keep my account): consent given again and an email. Returns the
     cancelled request, or None if none was waiting."""
     if deletion := request.user.pending_deletion:
         deletion.status, deletion.closed_at = DeletionRequest.Status.CANCELLED, timezone.now()
@@ -292,39 +231,6 @@ def keep_account(request):
             "The deletion of your ExamLeaf account has been cancelled. Your account stays as it was.",
         )
     return deletion
-
-
-@login_required
-@reauthentication_required(allow_get=True)  # the page is shown; pressing Delete asks for the password
-def delete_account(request):
-    if request.user.pending_deletion:
-        return redirect("account")
-    form = DeleteAccountForm(request.POST or None)
-    if form.is_valid():
-        deletion, _ = request_deletion(request)
-        day = deletion_day(deletion)
-        messages.success(request, f"Your account will be deleted on {day}. Until then you can log in and cancel.")
-        return redirect("account")
-    return render(request, "account_delete.html", {"form": form})
-
-
-@login_required
-@require_POST
-def sms_updates(request):
-    """My account: order updates by SMS on or off (ops.sms.send_order_sms); only with a confirmed mobile number."""
-    user = request.user
-    user.sms_updates = user.login_phone_verified and "sms_updates" in request.POST
-    user.save(update_fields=["sms_updates"])
-    messages.success(request, f"Order updates by SMS: {'on' if user.sms_updates else 'off'}.")
-    return redirect("account")
-
-
-@login_required
-@require_POST
-def cancel_deletion(request):
-    if keep_account(request):
-        messages.success(request, "Your account will not be deleted.")
-    return redirect("account")
 
 
 PARENT_LINK_SALT, PARENT_LINK_DAYS = "accounts.parent-consent", 7
@@ -384,38 +290,15 @@ def send_parent_link(user):
         f"{name[0].upper()}{name[1:]} has registered at ExamLeaf, for the free solutions of the ExamLeaf sample "
         f"papers, and gave this address as their parent's or guardian's. The law asks for your consent before we keep "
         f"the details of a student under 18. Read what we keep, and confirm, here (the link works for "
-        f"{PARENT_LINK_DAYS} days):\n\n{settings.SITE_URL}{reverse('parent_consent', args=[token])}\n\n"
+        f"{PARENT_LINK_DAYS} days):\n\n{settings.SITE_URL}/c/{token}/\n\n"
         f"If you do not agree, do nothing: the account cannot save marks or order books. To have it deleted, write "
-        f"to us: {settings.SITE_URL}{reverse('contact')}",
+        f"to us: {settings.SITE_URL}/contact/",
     )
     return True
 
 
-@never_cache
-@require_http_methods(["GET", "POST"])
-def parent_consent(request, token):
-    """The parent's link (M9): the page says who registered and links the privacy notice; "I agree" records the
-    consent, verified by the link (ConsentRecord.Method EMAIL_LINK or SMS_LINK, with the time)."""
-    try:
-        student = User.objects.get(pk=base36_to_int(token.partition(".")[0]), is_active=True)
-        parent_signer(student.parent_contact).unsign(token, max_age=timedelta(days=PARENT_LINK_DAYS))
-    except (ValueError, signing.BadSignature, User.DoesNotExist) as error:
-        # a genuine link that is only too old names the student as its SMS does (shown_name), so that the parent knows
-        # whom to ask (G5)
-        name = shown_name(student.full_name) if isinstance(error, signing.SignatureExpired) else A_STUDENT
-        first_name = "" if name == A_STUDENT else name.split()[0][:30]
-        context = {"expired": True, "first_name": first_name, "days": PARENT_LINK_DAYS}
-        return render(request, "parent_consent.html", context, status=400)
-    done = not student.consent_pending
-    if request.method == "POST" and not done:
-        method = ConsentRecord.Method.EMAIL_LINK if "@" in student.parent_contact else ConsentRecord.Method.SMS_LINK
-        ConsentRecord.record(request, student, by_parent=True, method=method, verified_at=timezone.now())
-        done = True
-    return render(request, "parent_consent.html", {"student": student, "done": done})
-
-
 def resend_parent_link(user, value):
-    """While the parent's consent is pending (M9), for the website and the API: the link again, to the contact on
+    """While the parent's consent is pending (M9; api/v1/me/parent-consent/): the link again, to the contact on
     record or a corrected one. ValidationError: not a contact (or the student's own), or a link went less than ten
     minutes ago (code "too_soon"), or a limit stopped it (code "not_sent": never reported as sent, M2)."""
     contact = parent_link_contact(value)
@@ -429,22 +312,6 @@ def resend_parent_link(user, value):
     if not send_parent_link(user):
         message = "The link was not sent: that address or number has had several today. Try again tomorrow."
         raise ValidationError(message, code="not_sent")
-
-
-@login_required
-@require_POST
-def parent_consent_resend(request):
-    """While the parent's consent is pending: the link again, to the contact on record or a corrected one (M9)."""
-    user = request.user
-    if not user.consent_pending:
-        return redirect("account")
-    try:
-        resend_parent_link(user, request.POST.get("parent_contact"))
-    except ValidationError as error:
-        messages.error(request, error.message)
-    else:
-        messages.success(request, f"We have sent {user.parent_contact} a link to confirm.")
-    return redirect("account")
 
 
 class ManagePhoneView(headless_views.ManagePhoneView):

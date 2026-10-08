@@ -1,10 +1,9 @@
 import re
 
 from django.db import models
-from django.urls import reverse
 from simple_history.models import HistoricalRecords
 
-# Each slug is also the page's URL (/privacy/, /terms/, …) and its URL name; see examleaf/urls.py.
+# Each slug is also the page's URL on the website (/privacy/, /terms/, …).
 SLUGS = ["privacy", "terms", "refunds", "shipping", "contact"]
 # The drafts hold [places to fill in] (address, GSTIN, phone, Grievance Officer, delivery times ...): a [word in square
 # brackets] that is not the text of a Markdown link, [text](url).
@@ -33,7 +32,7 @@ class Page(models.Model):
         return self.title
 
     def get_absolute_url(self):
-        return reverse(self.slug)
+        return f"/{self.slug}/"  # the website's page (examleaf-frontend)
 
     @property
     def placeholders(self):

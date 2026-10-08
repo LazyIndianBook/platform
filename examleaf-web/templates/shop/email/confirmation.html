@@ -9,7 +9,7 @@
 {% include "shop/email/_order.html" %}
 <tr><td style="padding: 24px 32px 32px">
 {% if order.has_digital %}<p style="margin: 0 0 12px; {{ td|safe }}">The course is open in the ExamLeaf app: log in with {{ order.email }}.</p>{% endif %}
-{% if not order.is_digital %}<p style="margin: 0 0 12px; {{ td|safe }}">We email you the tracking number when the parcel is dispatched. Dispatch and delivery times are in our <a href="{{ site_url }}{% url 'shipping' %}" style="color: #0B2A5B; font-weight: 600">Shipping Policy</a>.</p>
+{% if not order.is_digital %}<p style="margin: 0 0 12px; {{ td|safe }}">We email you the tracking number when the parcel is dispatched. Dispatch and delivery times are in our <a href="{{ site_url }}/shipping/" style="color: #0B2A5B; font-weight: 600">Shipping Policy</a>.</p>
 <p style="margin: 0 0 20px; {{ td|safe }}">You can cancel the order on its page until it is packed.</p>{% endif %}
 <p style="margin: 0; font-family: Poppins, 'Segoe UI', Helvetica, Arial, sans-serif; font-weight: 700; font-size: 16px; color: #0B2A5B">ExamLeaf</p>
 </td></tr>

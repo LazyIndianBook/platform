@@ -50,8 +50,6 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "whitenoise.runserver_nostatic",
     "django.contrib.staticfiles",
-    "django.contrib.sitemaps",
-    "django.contrib.humanize",  # allauth's passkey pages
     "allauth",
     "allauth.account",
     "allauth.mfa",  # staff: an authenticator app (TOTP) and recovery codes; everyone: passkeys
@@ -61,7 +59,6 @@ INSTALLED_APPS = [
     "axes",
     "simple_history",
     "taggit",
-    "widget_tweaks",
     "phonenumber_field",
     "import_export",
     "django_filters",
@@ -118,7 +115,6 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                "examleaf.context_processors.site",
             ],
         },
     },
@@ -158,8 +154,9 @@ AUTH_PASSWORD_VALIDATORS = [  # L11: at least 10 characters, and none found in d
     {"NAME": "pwned_passwords_django.validators.PwnedPasswordsValidator"},
 ]
 PASSWORD_RESET_TIMEOUT = 3600  # a reset link works for an hour (Django's default: 3 days)
-LOGIN_URL = "account_login"
-LOGIN_REDIRECT_URL = "home"
+# The website's log-in page (examleaf-frontend); the admin sends there when signed out (examleaf/urls.py).
+LOGIN_URL = f"{SITE_URL}/account/login/"
+LOGIN_REDIRECT_URL = "/"
 
 # SMS (ops/sms.py): "console" prints them (development), "msg91" sends them through MSG91 with the DLT templates whose
 # ids are MSG91_TEMPLATE_<KIND> (DEPLOYMENT.md, RUNBOOK.md "SMS"). At most SMS_DAILY_CAP a day, counted in the database.
@@ -175,7 +172,7 @@ MSG91_TEMPLATES = {kind: env(f"MSG91_TEMPLATE_{kind.upper()}", default="") for k
 
 # django-allauth: email is the login, verified by a code typed on the same page (phone friendly). With SMS on, also a
 # mobile number confirmed on My account (never at sign-up: two codes in a row), with the password or a code by SMS
-# (accounts.adapter). "phone" in the sign-up fields makes allauth's /account/phone/ pages; the sign-up form drops it.
+# (accounts.adapter). "phone" in the sign-up fields lets allauth change a number; the sign-up form drops it.
 ACCOUNT_USER_MODEL_USERNAME_FIELD = None
 ACCOUNT_LOGIN_METHODS = {"email", "phone"} if SMS_ENABLED else {"email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", *(["phone"] if SMS_ENABLED else []), "password1*", "password2*"]
@@ -203,24 +200,17 @@ ACCOUNT_RATE_LIMITS = {
 }
 ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 ACCOUNT_EMAIL_VERIFICATION_BY_CODE_ENABLED = True
-ACCOUNT_FORMS = {
-    "signup": "accounts.forms.SignupForm",
-    "request_login_code": "accounts.forms.RequestLoginCodeForm",
-    "change_phone": "accounts.forms.ChangePhoneForm",
-    # three tries per code counted in the cache too (I7): allauth's count in the session lags behind parallel requests
-    "confirm_login_code": "accounts.forms.ConfirmLoginCodeForm",
-    "confirm_email_verification_code": "accounts.forms.ConfirmEmailVerificationCodeForm",
-    "verify_phone": "accounts.forms.VerifyPhoneForm",
-}
-# Every sign-up form is built on this one (the website's, after Google, and allauth.headless's for the app and the
-# browser): the student details, the consent and its record, the STUDENT role, no phone at sign-up, Turnstile.
+# Every sign-up form is built on this one (allauth.headless's for the website and the app, after Google too, and the
+# API's): the student details, the consent and its record, the STUDENT role, no phone at sign-up, Turnstile. The code
+# forms count three tries per code in the cache too (I7: allauth's count in the session lags behind parallel requests):
+# examleaf/urls.py gives them to allauth.headless.
 ACCOUNT_SIGNUP_FORM_CLASS = "accounts.signup.StudentDetailsForm"
 ACCOUNT_ADAPTER = "accounts.adapter.AccountAdapter"  # sends allauth's emails through a Celery task
 ACCOUNT_CHANGE_EMAIL = True  # one address: a new one replaces it only once its emailed code is confirmed
 ACCOUNT_EMAIL_NOTIFICATIONS = True  # the old address is told of email and password changes
 ACCOUNT_REAUTHENTICATION_REQUIRED = True  # password again (if not entered in the last 5 minutes) before such changes
 ACCOUNT_EMAIL_SUBJECT_PREFIX = "[ExamLeaf] "
-ACCOUNT_LOGOUT_REDIRECT_URL = "home"
+ACCOUNT_LOGOUT_REDIRECT_URL = "/"
 ACCOUNT_DEFAULT_HTTP_PROTOCOL = "https" if SITE_URL.startswith("https") else "http"
 # allauth.mfa (H2): every member of staff logs in with a code from an authenticator app (TOTP), a recovery code, or a
 # passkey; the admin's own login form goes through allauth (urls.py). Staff sessions end 8 hours after the log-in
@@ -229,22 +219,22 @@ ACCOUNT_DEFAULT_HTTP_PROTOCOL = "https" if SITE_URL.startswith("https") else "ht
 MFA_SUPPORTED_TYPES = ["totp", "webauthn", "recovery_codes"]
 MFA_PASSKEY_LOGIN_ENABLED = True
 MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN = DEBUG
-MFA_FORMS = {"add_webauthn": "accounts.forms.AddPasskeyForm"}
 MFA_TOTP_ISSUER = "ExamLeaf"
 MFA_ADAPTER = "accounts.adapter.MFAAdapter"
 # allauth.headless (API.md "Frontend integration guide"): allauth's flows as JSON at /_allauth/browser/v1/ (the session
 # cookie and the CSRF token; same origin only: CORS stays on /api/) and /_allauth/app/v1/ (the X-Session-Token header;
-# POST /api/v1/auth/exchange/ then gives the JWT pair), beside the website's pages. Their emails link to the website's
-# pages, whichever client asked (no confirmation link: addresses are confirmed by code). The OpenAPI files are
-# /_allauth/openapi.yaml and .json; no HTML page (allauth's loads Redoc from a CDN, which the CSP refuses).
-HEADLESS_ONLY = False
+# POST /api/v1/auth/exchange/ then gives the JWT pair). Headless only: the website's pages are the Next.js frontend's
+# (examleaf-frontend), so allauth serves no page of its own, only Google's callback (/account/google/login/callback/).
+# Its emails link to the website's pages, whichever client asked (no confirmation link: addresses are confirmed by
+# code). The OpenAPI files are /_allauth/openapi.yaml and .json; no HTML page (allauth's loads Redoc from a CDN, which
+# the CSP refuses).
+HEADLESS_ONLY = True
 HEADLESS_CLIENTS = ("app", "browser")
 HEADLESS_FRONTEND_URLS = {
     "account_reset_password": f"{SITE_URL}/account/password/reset/",
     "account_reset_password_from_key": f"{SITE_URL}/account/password/reset/key/{{key}}/",
     "account_signup": f"{SITE_URL}/account/signup/",
-    # where a failed Google log-in lands when its own callback_url is lost: the log-in page shows ?error= (the
-    # Next.js frontend's does; it serves the website's paths, but not allauth's /account/3rdparty/login/error/)
+    # where a failed Google log-in lands when its own callback_url is lost: the log-in page shows ?error=
     "socialaccount_login_error": f"{SITE_URL}/account/login/",
 }
 HEADLESS_SERVE_SPECIFICATION = True
@@ -276,9 +266,9 @@ if not DEBUG:  # secure by default; behind a proxy that already redirects, SECUR
     SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool("SECURE_HSTS_INCLUDE_SUBDOMAINS", default=False)
     SECURE_HSTS_PRELOAD = env.bool("SECURE_HSTS_PRELOAD", default=False)
 
-# Content-Security-Policy: scripts, styles and fonts only from this site (KaTeX too: static/katex/). 'unsafe-inline' is
-# for styles only, and stays (I6): KaTeX draws every formula with style attributes (heights, offsets) and the admin
-# add-ons use them too; hashes cannot cover attributes that change with every formula. Scripts never get it.
+# Content-Security-Policy of Django's own pages (the admin, the staff clip player, the API docs; the website's pages
+# have the frontend's): scripts, styles and fonts only from this site. 'unsafe-inline' is for styles only, and stays
+# (I6): the admin and its add-ons use style attributes. Scripts never get it.
 CONTENT_SECURITY_POLICY = {
     "default-src": [CSP.SELF],
     "script-src": [CSP.SELF],
@@ -289,30 +279,22 @@ CONTENT_SECURITY_POLICY = {
     "base-uri": [CSP.SELF],
     "form-action": [CSP.SELF],
     "frame-ancestors": [CSP.NONE],
-    "manifest-src": [CSP.SELF],  # /manifest.webmanifest and /sw.js (examleaf/views.py): said outright, not by default
-    "worker-src": [CSP.SELF],
 }
-# Google sign-in (allauth.socialaccount), on the log-in page only when both GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET
-# are set (DEPLOYMENT.md). A new student always fills in our form after Google (class, board, date of birth, parent,
-# consent: Google gives none of them); an address with an account logs in as before and connects Google from there.
-# The redirect to Google follows a form, so form-action names it (Chrome and Safari apply it to that redirect).
+# Google sign-in (allauth.socialaccount), offered only when both GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are set
+# (DEPLOYMENT.md). A new student always fills in our form after Google (class, board, date of birth, parent, consent:
+# Google gives none of them); an address with an account logs in as before and connects Google from there.
 GOOGLE_CLIENT_ID = env("GOOGLE_CLIENT_ID", default="")
 GOOGLE_CLIENT_SECRET = env("GOOGLE_CLIENT_SECRET", default="")
 SOCIALACCOUNT_AUTO_SIGNUP = False
 SOCIALACCOUNT_ADAPTER = "accounts.adapter.SocialAccountAdapter"  # Google's URLs are 404 without its keys
-SOCIALACCOUNT_FORMS = {"signup": "accounts.forms.SocialSignupForm"}
 SOCIALACCOUNT_PROVIDERS = {"google": {"SCOPE": ["profile", "email"], "OAUTH_PKCE_ENABLED": True}}
 if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
     SOCIALACCOUNT_PROVIDERS["google"]["APPS"] = [{"client_id": GOOGLE_CLIENT_ID, "secret": GOOGLE_CLIENT_SECRET}]
-    CONTENT_SECURITY_POLICY["form-action"].append("https://accounts.google.com")
-# Cloudflare Turnstile (a check for bots, mostly without a puzzle) on sign-up and code requests (accounts.forms
-# TurnstileMixin), only when both keys are set; its script and frame come from challenges.cloudflare.com.
+# Cloudflare Turnstile (a check for bots, mostly without a puzzle) on sign-up, code requests and the public forms
+# (accounts.forms TurnstileMixin), only when both keys are set: the frontend shows the widget, Django checks its token.
 TURNSTILE_SITE_KEY = env("TURNSTILE_SITE_KEY", default="")
 TURNSTILE_SECRET_KEY = env("TURNSTILE_SECRET_KEY", default="")
 TURNSTILE = bool(TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY)
-if TURNSTILE:
-    CONTENT_SECURITY_POLICY["script-src"].append("https://challenges.cloudflare.com")
-    CONTENT_SECURITY_POLICY["frame-src"] = [CSP.SELF, "https://challenges.cloudflare.com"]
 # report-only in development: the debug toolbar needs inline scripts; the browser console still lists violations
 if DEBUG:
     SECURE_CSP_REPORT_ONLY = CONTENT_SECURITY_POLICY

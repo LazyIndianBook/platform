@@ -27,7 +27,6 @@ from dj_rest_auth.utils import jwt_encode
 from django.conf import settings
 from django.contrib.auth.signals import user_logged_in
 from django.core.cache import cache
-from django.urls import reverse
 from drf_spectacular.extensions import OpenApiAuthenticationExtension
 from drf_spectacular.utils import OpenApiExample, extend_schema, extend_schema_serializer
 from rest_framework import exceptions, serializers, status
@@ -402,9 +401,10 @@ class LoginSerializer(rest_auth.LoginSerializer):
 
 
 def reset_url(request, user, temp_key):
-    """The emailed link opens the website's own "new password" page; an app can read uid and token from it."""
-    path = reverse("account_reset_password_from_key", kwargs={"uidb36": user_pk_to_url_str(user), "key": temp_key})
-    return settings.SITE_URL + path
+    """The emailed link opens the website's own "new password" page (as allauth.headless's emails do); an app can
+    read uid and token from it."""
+    key = f"{user_pk_to_url_str(user)}-{temp_key}"
+    return settings.HEADLESS_FRONTEND_URLS["account_reset_password_from_key"].format(key=key)
 
 
 class PasswordResetSerializer(rest_auth.PasswordResetSerializer):

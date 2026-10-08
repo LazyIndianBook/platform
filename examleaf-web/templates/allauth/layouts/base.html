@@ -1,8 +1,0 @@
-{% extends "base.html" %}{% load static %}
-{# allauth pages (log in, register, codes, password reset, passkeys) render inside the site layout. Their content goes
-straight into <main>, so <main class="entrance"> is the card, on the alternate paper (account.css); allauth/layouts/manage.html
-widens it. The log-in and register pages draw their own (account/login.html, account/signup.html). #}
-{% block meta_description %}Log in or register to ExamLeaf, or change the email address or password of your account.{% endblock %}
-{% block robots %}<meta name="robots" content="noindex">{% endblock %}
-{% block main_class %}entrance{% endblock %}
-{% block area_css %}<link rel="stylesheet" href="{% static 'css/account.css' %}">{% endblock %}

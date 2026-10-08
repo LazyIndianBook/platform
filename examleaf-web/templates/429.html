@@ -1,18 +1,15 @@
-{% extends "base.html" %}
-{% block head_title %}Too many tries{% endblock %}
-{% block meta_description %}Too many requests from your address. Please wait a few minutes and try again.{% endblock %}
-{% block robots %}<meta name="robots" content="noindex">{% endblock %}
-{% block main_class %}{% endblock %}
-{% block content %}
-<section class="section section-top">
-  <div class="container">
-    <div class="empty">
-      <svg class="icon icon-lg" aria-hidden="true"><use href="#icon-clock"/></svg>
-      <p class="eyebrow">Error 429</p>
-      <h1>Too many tries</h1>
-      <p>Please wait a few minutes and try again.</p>
-      <a class="btn btn-primary btn-lg" href="{% url 'home' %}"><svg class="icon" aria-hidden="true"><use href="#icon-book"/></svg><span>See the books</span></a>
-    </div>
-  </div>
-</section>
-{% endblock %}
+{# Plain on purpose: Django answers only its own paths (the API in JSON, the admin); the website's pages, errors included, are the frontend's. #}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Too many tries · ExamLeaf</title>
+</head>
+<body>
+<h1>Too many tries</h1>
+<p>Please wait a few minutes and try again.</p>
+<p><a href="/">ExamLeaf</a></p>
+</body>
+</html>

@@ -9,15 +9,11 @@ from allauth.account.forms import SignupForm as AllauthSignupForm
 from allauth.core import context as allauth_context
 from allauth.core import ratelimit
 from allauth.headless.account import inputs as headless_inputs
-from allauth.mfa.webauthn.forms import AddWebAuthnForm
-from allauth.socialaccount.forms import SignupForm as AllauthSocialSignupForm
 from django import forms
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.utils.html import format_html
-
-from .models import TeacherProfile
 
 logger = logging.getLogger(__name__)
 TURNSTILE = "https://challenges.cloudflare.com/turnstile/v0/"
@@ -110,23 +106,14 @@ class IndianPhoneField(PhoneField):
 
 
 class ChangePhoneForm(allauth_forms.ChangePhoneForm):
-    """My account's mobile number: "wait a minute" when a code went to the number a moment ago (allauth's limit raises
-    an exception on this page, a server error)."""
+    """A new mobile number (ChangePhoneInput): "wait a minute" when a code went to the number a moment ago (allauth's
+    limit raises an exception there, a server error)."""
 
     def clean_phone(self):
         phone = super().clean_phone()
         if not ratelimit.consume(allauth_context.request, action="verify_phone", key=phone, dry_run=True):
             raise ValidationError("A code went to this number a moment ago: wait a minute before asking again.")
         return phone
-
-
-class AddPasskeyForm(AddWebAuthnForm):
-    """allauth's "add a security key" form with Passwordless ticked: a passkey to log in with ("Use a passkey").
-    Unticked, the key becomes a second step after the password."""
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields["passwordless"].initial = True
 
 
 class RequestLoginCodeForm(TurnstileMixin, allauth_forms.RequestLoginCodeForm):
@@ -171,31 +158,6 @@ class SignupForm(AllauthSignupForm):
             self.fields["email"].error_messages["invalid"] = "Enter an email address, such as name@example.com."
 
 
-class SocialSignupForm(AllauthSocialSignupForm):
-    """After Google: the address comes from Google (confirmed there), the name as a suggestion."""
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.initial.setdefault("full_name", self.sociallogin.account.extra_data.get("name", ""))
-
-
-class TeacherRequestForm(forms.ModelForm):
-    class Meta:
-        model = TeacherProfile
-        fields = ["school_name", "district", "subject"]
-        labels = {"school_name": "School or college", "subject": "Subject you teach"}
-
-
-# allauth.headless takes allauth's own forms, not ACCOUNT_FORMS: examleaf/urls.py routes these two of its endpoints
-# (/_allauth/<client>/v1/auth/code/request and account/phone) to inputs on the website's forms.
-class RequestLoginCodeInput(RequestLoginCodeForm, headless_inputs.RequestLoginCodeInput):
-    """Turnstile while it is on; an email address or a mobile number."""
-
-
-class ChangePhoneInput(ChangePhoneForm, headless_inputs.ChangePhoneInput):
-    """ "Wait a minute" rather than allauth's limit failing with a server error."""
-
-
 NO_TRIES_LEFT = "Too many tries for this code: ask for a new one."
 
 
@@ -208,7 +170,7 @@ def spend_try(request, code):
 
 
 class CodeTriesMixin:
-    """allauth's code forms (log-in code, email and phone confirmation; ACCOUNT_FORMS) with spend_try first."""
+    """allauth's code forms (log-in code, email and phone confirmation) with spend_try first."""
 
     def clean_code(self):
         if self.expected_code and not spend_try(allauth_context.request, self.expected_code):
@@ -226,3 +188,30 @@ class ConfirmEmailVerificationCodeForm(CodeTriesMixin, allauth_forms.ConfirmEmai
 
 class VerifyPhoneForm(CodeTriesMixin, allauth_forms.VerifyPhoneForm):
     pass
+
+
+# allauth.headless takes allauth's own forms, not ACCOUNT_FORMS: examleaf/urls.py routes these endpoints of it
+# (/_allauth/<client>/v1/...) to inputs on the forms above.
+class RequestLoginCodeInput(RequestLoginCodeForm, headless_inputs.RequestLoginCodeInput):
+    """auth/code/request: Turnstile while it is on; an email address or a mobile number."""
+
+
+class ConfirmLoginCodeInput(ConfirmLoginCodeForm, headless_inputs.ConfirmLoginCodeInput):
+    """auth/code/confirm: three tries per code, counted in the cache too (I7)."""
+
+
+class VerifyPhoneInput(VerifyPhoneForm, headless_inputs.VerifyPhoneInput):
+    """auth/phone/verify: three tries per code, counted in the cache too (I7)."""
+
+
+class VerifyEmailInput(headless_inputs.VerifyEmailInput):
+    """auth/email/verify: three tries per code, counted in the cache too (I7)."""
+
+    def clean_key(self):
+        if self.process and not spend_try(allauth_context.request, self.process.code):
+            raise ValidationError(NO_TRIES_LEFT, code="too_many_tries")
+        return super().clean_key()
+
+
+class ChangePhoneInput(ChangePhoneForm, headless_inputs.ChangePhoneInput):
+    """account/phone: "wait a minute" rather than allauth's limit failing with a server error."""

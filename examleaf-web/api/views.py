@@ -258,7 +258,7 @@ class RecordSerializer(serializers.Serializer):
 
 
 def average(attempts):
-    """Their percentages' mean, rounded as My record rounds it (practice.views.RecordView)."""
+    """Their percentages' mean, rounded as My record rounds it (the record's averages per tier)."""
     return round(sum(attempt.percent for attempt in attempts) / len(attempts))
 
 
