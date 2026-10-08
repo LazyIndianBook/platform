@@ -1,0 +1,12 @@
+import { launch, open, sleep, SP } from './lib.mjs';
+const b = await launch();
+const { ctx, page } = await open(b, '/s/PHY-E02/', { auth: true });
+await sleep(600);
+await page.evaluate(() => document.querySelector('#record').scrollIntoView());
+await page.click('input[name=marks_obtained]'); await page.keyboard.type('48');
+const btn = await page.evaluateHandle(() => [...document.querySelectorAll('#record button')].find((e) => /Save/i.test(e.textContent)));
+await btn.asElement().click(); await sleep(2500);
+console.log(await page.evaluate(() => ({ text: document.querySelector('#record').innerText.replace(/\s+/g, ' ').slice(0, 300), alerts: [...document.querySelectorAll('[role=status],[role=alert]')].map((a) => a.textContent.trim().slice(0, 100)), active: document.activeElement.tagName + '#' + document.activeElement.id })));
+await page.goto('http://localhost:3003/account/record/', { waitUntil: 'networkidle0' });
+console.log(await page.evaluate(() => [...document.querySelectorAll('main a')].filter((a) => /edit/i.test(a.getAttribute('href') || '') || /Edit/.test(a.textContent)).map((a) => a.getAttribute('href'))));
+await b.close();

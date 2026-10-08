@@ -1,0 +1,21 @@
+const { load } = require('./ts-run.cjs');
+const FE = (process.env.FRONTEND_DIR || require('path').resolve(__dirname, '../../../../examleaf-frontend')) + '/src/lib';
+const { buildCsp, RAZORPAY_ROUTES } = load(FE + '/security/csp.ts');
+const show = (label, o) => console.log(label.padEnd(44), '|', buildCsp(o).split('; ').filter((d) => /^(script-src|frame-src|connect-src|img-src|form-action|frame-ancestors|upgrade)/.test(d)).join(' ; '));
+const base = { nonce: 'NONCE' };
+show('home', { ...base, pathname: '/' });
+show('/checkout/', { ...base, pathname: '/checkout/' });
+show('/checkout/5/pay/', { ...base, pathname: '/checkout/5/pay/' });
+show('/checkout/5/done/', { ...base, pathname: '/checkout/5/done/' });
+show('/checkout/t/tok/pay/', { ...base, pathname: '/checkout/t/tok/pay/' });
+show('/checkouts (prefix lookalike)', { ...base, pathname: '/checkouts/' });
+show('/orders/t/x/ (pay now link page)', { ...base, pathname: '/orders/t/x/' });
+show('home, Turnstile on', { ...base, pathname: '/', turnstile: true });
+show('/checkout/5/pay/, Turnstile on, https, media', { ...base, pathname: '/checkout/5/pay/', turnstile: true, https: true, mediaHost: 'media.examleaf.in' });
+show('dev', { ...base, pathname: '/', dev: true });
+console.log('RAZORPAY_ROUTES', String(RAZORPAY_ROUTES));
+// safeNext vectors
+const { safeNext, withNext } = load(FE + '/auth/next-url.ts');
+const vectors = ['/account/', '//evil.com', '/\\evil.com', '/\t/evil.com', '/%09/evil.com', 'https://evil.com', 'javascript:alert(1)', '/account/logout/', '/account/login/?next=//evil.com', '/..//evil.com', '/ /evil.com', '\\\\evil.com', '/%5Cevil.com', '/?x=1#//evil.com', '/@evil.com', '/:@evil.com', '///evil.com', '/s/PHY-E02/#record', '/checkout/', '/a%0d%0aSet-Cookie:x=1', '/\u0000evil', '/%2F%2Fevil.com', 'data:text/html,x', '', null, undefined, ['/shop/', '//evil.com']];
+for (const v of vectors) console.log('safeNext', JSON.stringify(v).padEnd(40), '->', JSON.stringify(safeNext(v)));
+console.log('withNext', withNext('/account/login/', '/s/PHY-E02/'), withNext('/account/login/', '//evil.com'), withNext('/account/login/', '/'));
