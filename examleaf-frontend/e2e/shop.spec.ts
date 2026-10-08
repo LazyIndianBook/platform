@@ -121,10 +121,10 @@ test("signed in, the bundle goes into the cart, a coupon is refused in the API's
 test("checkout with the saved address goes through Delivery to the pay page, which says honestly that payment is unavailable", async () => {
   await page.getByRole("link", { name: "Go to checkout" }).click();
   await expect(page).toHaveURL(/\/checkout\/$/);
-  await expect(page.locator('[aria-current="step"]')).toHaveText("1. Address");
+  await expect(page.locator('[aria-current="step"]')).toContainText("1. Address"); // the step's words for screen readers
   await expect(page.getByRole("radio", { name: /E2E Shopper/ })).toBeChecked(); // the default address
   await page.getByRole("button", { name: "Continue to delivery" }).click();
-  await expect(page.locator('[aria-current="step"]')).toHaveText("2. Delivery");
+  await expect(page.locator('[aria-current="step"]')).toContainText("2. Delivery"); // the step's words for screen readers
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Delivery to Assam");
   await expect(page.getByText("Delivery by courier")).toBeVisible();
   // the API's fee: over Assam's threshold (the folded summary of a phone holds the same words, hidden here)
@@ -133,7 +133,7 @@ test("checkout with the saved address goes through Delivery to the pay page, whi
 
   await expect(page).toHaveURL(/\/checkout\/(EL-[\d-]+)\/pay\/$/);
   number = /\/checkout\/(EL-[\d-]+)\/pay\//.exec(page.url())![1];
-  await expect(page.locator('[aria-current="step"]')).toHaveText("3. Payment");
+  await expect(page.locator('[aria-current="step"]')).toContainText("3. Payment"); // the step's words for screen readers
   // its own document, whose CSP lets Razorpay in (security review S2), and nothing of Razorpay's before Pay (S3)
   expect(await page.evaluate(() => performance.getEntriesByType("navigation")[0].name)).toBe(page.url());
   await expect(page.locator('script[src*="checkout.razorpay.com"]')).toHaveCount(0);

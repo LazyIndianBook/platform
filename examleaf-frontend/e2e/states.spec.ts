@@ -118,7 +118,7 @@ test.describe("cash on delivery, Turnstile, the contact form, a parent's consent
     await expect(page.getByText(/For accounts with a confirmed email address, on orders up to ₹1,500/)).toBeVisible();
     await page.getByRole("button", { name: /Place the order: pay ₹[\d,.]+ on delivery/ }).click();
     await expect(page).toHaveURL(/\/checkout\/EL-[\d-]+\/done\/$/);
-    await expect(page.getByText("Your order is placed")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Thank you. Your order is placed."); // not the route announcer's copy
   });
 
   test("a student whose parent has not confirmed is told why a save is refused, and what to do", async ({ page }) => {
