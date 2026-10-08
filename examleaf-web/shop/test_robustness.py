@@ -37,7 +37,7 @@ from shop.factories import (
 from shop.models import Address, Cart, CartItem, Invoice, Order, Payment, Product
 from shop.templatetags.shop import shop_stats
 from shop.test_api import customer
-from shop.test_razorpay import as_customer, return_from_checkout
+from shop.test_razorpay import return_from_checkout
 
 pytestmark = [
     pytest.mark.django_db,
@@ -91,12 +91,12 @@ def test_a_payment_after_the_coupon_ran_out_is_refunded_and_the_customer_told(cl
 def test_the_payment_page_takes_no_payment_for_a_coupon_that_is_gone(client, rzp, commit):
     product, coupon = ProductFactory(), CouponFactory(max_uses=1, max_uses_per_customer=None)
     first, second = two_open_orders(product, coupon)
-    as_customer(client, second)
-    assert "razorpay-options" in client.get(reverse("shop:pay", args=[second.number])).text
+    pay = f"/api/v1/orders/t/{second.token}/payment/"  # the website's pay page asks for Checkout's options
+    assert client.post(pay).status_code == 200
     with commit():
         post_webhook(client, "payment.captured", captured(first))
-    page = client.get(reverse("shop:pay", args=[second.number])).text
-    assert "used up" in page and "Nothing has been charged" in page and "razorpay-options" not in page
+    refused = client.post(pay)
+    assert refused.status_code == 400 and "used up" in refused.json()["non_field_errors"][0]
 
 
 def test_the_return_after_a_payment_that_could_not_be_used_says_so_and_keeps_the_cart(client, rzp, commit):
@@ -104,28 +104,13 @@ def test_the_return_after_a_payment_that_could_not_be_used_says_so_and_keeps_the
     first, second = two_open_orders(product, coupon)
     with commit():
         post_webhook(client, "payment.captured", captured(first))
-    client.post(reverse("shop:cart_add", args=[product.pk]))  # the customer's cart
-    as_customer(client, second)
+    client.post("/api/v1/cart/items/", {"product": product.slug}, "application/json")  # the customer's cart
     rzp.payment.fetch.return_value = captured(second)
     with commit():
         response = return_from_checkout(client, second)
-    assert response.url == reverse("shop:done", args=[second.number])
-    page = client.get(response.url).text
-    assert "We could not complete this order" in page and "Thank you" not in page
-    assert client.session["shop_cart_count"] == 1  # not emptied: the order did not go through
-
-
-def test_a_cash_on_delivery_order_that_cannot_be_placed_is_cancelled_with_a_message(client, settings):
-    settings.SHOP_COD_ENABLED = True
-    product, coupon = ProductFactory(stock=5), CouponFactory(max_uses=1, max_uses_per_customer=None)
-    first, second = two_open_orders(product, coupon, method="cod")
-    services.place_cod(first)
-    as_customer(client, second)
-    response = client.post(reverse("shop:pay", args=[second.number]), follow=True)
-    assert response.redirect_chain[-1][0] == reverse("shop:cart")
-    assert "used up. Please remove the coupon from your cart." in response.text
-    second.refresh_from_db()
-    assert second.status == Order.Status.CANCELLED and not Payment.objects.filter(order=second, status="captured")
+    assert response.status_code == 200 and response.json()["status"] == "cancelled"  # "we could not complete it"
+    cart = Cart.objects.get(pk=client.session["shop_cart"])  # this browser's, not emptied: the order did not go through
+    assert list(cart.items.values_list("product", flat=True)) == [product.pk]
 
 
 def test_the_api_refuses_a_payment_and_a_cash_order_for_a_coupon_that_is_gone(settings):

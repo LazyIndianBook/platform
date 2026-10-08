@@ -7,6 +7,7 @@ from importlib import import_module
 import pytest
 import requests
 import yaml
+from allauth.account.models import EmailAddress
 from django.apps import apps
 from django.core import mail
 from django.core.cache import cache
@@ -20,8 +21,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from accounts.factories import UserFactory
 from shop import invoices, payments, services, tasks
-from shop.factories import CouponFactory, ProductFactory, captured, make_order, post_webhook
-from shop.forms import CheckoutForm
+from shop.factories import CouponFactory, ProductFactory, captured, make_order, post_webhook, verified_user
 from shop.models import Cart, Invoice, Order, Payment, Refund
 from shop.test_api import customer
 
@@ -99,15 +99,10 @@ def test_m3_orders_keep_their_mode_and_test_ones_change_nothing_once_live(client
 def test_m3_a_closed_shop_shows_its_books_and_lets_only_staff_buy(client, settings):
     settings.SHOP_OPEN = False  # Razorpay's review on test keys
     product = ProductFactory()
-    assert "Shop opens soon" in client.get(reverse("shop:catalogue")).text
-    page = client.get(product.get_absolute_url()).text
-    assert "Shop opens soon" in page and "Add to cart" not in page
-    for response in [
-        client.post(reverse("shop:cart_add", args=[product.pk])),
-        client.get(reverse("shop:cart")),
-        client.get(reverse("shop:checkout")),
-    ]:
-        assert response.url == reverse("shop:catalogue")
+    assert client.get("/api/v1/config/").json()["shop"]["open"] is False  # the website says "Shop opens soon"
+    assert client.get(f"/api/v1/products/{product.slug}/").status_code == 200  # the books are shown
+    refused = client.post("/api/v1/cart/items/", {"product": product.slug}, content_type="application/json")
+    assert refused.status_code == 403  # a visitor's cart
     api = APIClient()
     customer(api)
     assert api.get("/api/v1/cart/").status_code == 200
@@ -115,9 +110,9 @@ def test_m3_a_closed_shop_shows_its_books_and_lets_only_staff_buy(client, settin
     assert refused.status_code == 403 and refused.json() == {"detail": "The shop opens soon."}
     assert api.post("/api/v1/orders/", {"address": 1, "payment_method": "razorpay"}).status_code == 403
     assert not Cart.objects.exists()
-    client.force_login(UserFactory(is_staff=True))  # staff try the shop out
-    client.post(reverse("shop:cart_add", args=[product.pk]))
-    assert client.get(reverse("shop:cart")).status_code == 200 and Cart.objects.exists()
+    client.force_login(verified_user(UserFactory(is_staff=True).email))  # staff try the shop out
+    response = client.post("/api/v1/cart/items/", {"product": product.slug}, content_type="application/json")
+    assert response.status_code == 200 and Cart.objects.exists()
 
 
 def test_m2_the_emails_link_shows_the_order_and_cancels_it_only_until_it_is_packed(client, rzp, commit):
@@ -126,23 +121,24 @@ def test_m2_the_emails_link_shows_the_order_and_cancels_it_only_until_it_is_pack
         services.record_capture(captured(order))  # paid: the confirmation is emailed and the invoice made
         services.record_capture(captured(shipped))
         services.ship_order(services.pack_order(shipped), "India Post", "EA1")
-    link = order.get_link_url()
-    assert link in mail.outbox[0].body and len(order.token) == 22 and order.token not in order.number
-    invoice = reverse("shop:order_link_invoice", args=[order.token])
-    assert invoice in client.get(link).text and client.get(invoice)["Content-Type"] == "application/pdf"
-    assert client.get(reverse("shop:order_link", args=["A" * 22])).status_code == 404
+    assert order.get_link_url() in mail.outbox[0].body and len(order.token) == 22 and order.token not in order.number
+    link = f"/api/v1/orders/t/{order.token}/"  # what the website's page of the emails' link asks
+    invoice = client.get(link).json()["invoice"]["url"]
+    assert invoice == f"http://testserver{link}invoice/" and client.get(invoice)["Content-Type"] == "application/pdf"
+    assert client.get(f"/api/v1/orders/t/{'A' * 22}/").status_code == 404
     with commit():
-        response = client.post(reverse("shop:order_link_cancel", args=[order.token]))
+        response = client.post(link + "cancel/")
     order.refresh_from_db()
-    assert response.url == link and order.status == Order.Status.REFUNDED
-    response = client.post(reverse("shop:order_link_cancel", args=[shipped.token]), follow=True)
+    assert response.status_code == 200 and order.status == Order.Status.REFUNDED
+    response = client.post(f"/api/v1/orders/t/{shipped.token}/cancel/")
     assert "can no longer be cancelled" in response.text and Order.objects.get(pk=shipped.pk).status == "shipped"
-    assert client.get(shipped.get_absolute_url()).status_code == 404  # the link opened only its own page
+    assert client.get(f"/api/v1/orders/{shipped.number}/").status_code in (401, 403)  # the link opens only its own
 
 
 def test_m2_lookups_are_limited_per_email_and_number_and_refused_when_they_cannot_be_counted(rzp, monkeypatch):
     def ask(number, email, address):
-        return Client(REMOTE_ADDR=address).post(reverse("shop:lookup"), {"number": number, "email": email}).status_code
+        lookup = {"number": number, "email": email}
+        return APIClient(REMOTE_ADDR=address).post("/api/v1/orders/lookup/", lookup).status_code
 
     assert [ask(f"EL-2026-{n:06d}", "child@example.com", f"10.0.0.{n}") for n in range(11)] == [200] * 10 + [429]
     assert [ask("EL-2026-000777", f"guess{n}@example.com", f"10.0.1.{n}") for n in range(11)] == [200] * 10 + [429]
@@ -155,8 +151,7 @@ def test_m2_lookups_are_limited_per_email_and_number_and_refused_when_they_canno
 
 
 def test_m8_cash_on_delivery_for_confirmed_accounts_two_at_a_time_up_to_a_value(settings):
-    settings.SHOP_COD_ENABLED = True
-    assert [value for value, label in CheckoutForm(user=None).fields["payment_method"].choices] == ["razorpay"]
+    settings.SHOP_COD_ENABLED = True  # never for a visitor's checkout: shop/test_api.py
     with pytest.raises(services.ShopError, match="confirmed email address"):
         make_order((ProductFactory(), 1), method="cod", user=UserFactory())  # its address not confirmed
     with pytest.raises(services.ShopError, match="up to ₹1,500"):
@@ -172,12 +167,11 @@ def test_m8_cash_on_delivery_for_confirmed_accounts_two_at_a_time_up_to_a_value(
     assert services.place_cod(third).placed_at
 
 
-def test_m8_checkout_and_place_order_are_limited_per_address_and_refused_uncounted(client, monkeypatch):
-    statuses = [client.post(reverse("shop:checkout")).status_code for _ in range(11)]
-    assert statuses == [302] * 10 + [429]  # the cart is empty: sent back to it, ten times in ten minutes
-    assert client.post(reverse("shop:pay", args=["EL-2026-000001"])).status_code == 404  # its own count
+def test_m8_checkout_is_limited_per_address_and_refused_uncounted(client, monkeypatch):
+    statuses = [client.post("/api/v1/orders/", {}, content_type="application/json").status_code for _ in range(11)]
+    assert statuses == [400] * 10 + [429]  # the cart is empty: refused, ten times in ten minutes
     monkeypatch.setattr(cache, "incr", lambda *args, **kwargs: None)  # Redis down
-    assert Client().post(reverse("shop:pay", args=["EL-2026-000001"])).status_code == 429
+    assert Client().post("/api/v1/orders/", {}, content_type="application/json").status_code == 429
 
 
 def test_l1_a_refund_whose_answer_was_lost_is_found_at_razorpay_not_sent_again(rzp, commit):
@@ -224,18 +218,18 @@ def test_l3_a_second_payment_for_a_paid_order_is_recorded_and_refunded_once(clie
 
 def test_l4_coupon_codes_are_refused_alike_and_tried_ten_times_an_hour(client, monkeypatch):
     product = ProductFactory()
-    client.post(reverse("shop:cart_add", args=[product.pk]))
+    client.post("/api/v1/cart/items/", {"product": product.slug}, content_type="application/json")
     CouponFactory(code="OLD", valid_until=timezone.now() - timedelta(days=1))
     CouponFactory(code="BIG", min_order=Decimal("1000"))
     CouponFactory(code="WELCOME10")
 
-    def try_code(code):
-        return client.post(reverse("shop:cart"), {"action": "coupon", "code": code}, follow=True).text
+    def try_code(code):  # the website's cart page
+        return client.post("/api/v1/cart/coupon/", {"code": code}, content_type="application/json")
 
-    assert all("This code cannot be applied to this cart." in try_code(code) for code in ["NOPE", "OLD", "BIG"])
+    assert all("This code cannot be applied to this cart." in try_code(code).text for code in ["NOPE", "OLD", "BIG"])
     for _ in range(7):
         try_code("GUESS")
-    assert "Too many codes tried" in try_code("WELCOME10")  # the eleventh in the hour, even a good one
+    assert try_code("WELCOME10").status_code == 429  # the eleventh in the hour, even a good one
     monkeypatch.setitem(SimpleRateThrottle.THROTTLE_RATES, "coupon", "2/hour")
     api = APIClient()
     customer(api)
@@ -280,11 +274,11 @@ def test_i6_pdfs_take_static_files_and_data_urls_only(settings):
         fetcher = invoices.static_files_only()
     except OSError:
         pytest.skip("WeasyPrint's system libraries (Pango) are not installed")
-    css = settings.BASE_DIR / "static" / "css" / "site.css"
+    css = settings.BASE_DIR / "static" / "css" / "staff.css"
     assert fetcher(css.as_uri()).read().strip() and fetcher("data:text/plain,ok").read() == b"ok"
     for url in [
         (settings.BASE_DIR / ".env.example").as_uri(),  # a file outside the static folders
-        css.as_uri().replace("/css/site.css", "/css/../../.env.example"),
+        css.as_uri().replace("/css/staff.css", "/css/../../.env.example"),
         "http://169.254.169.254/latest/meta-data/",  # the network
         "ftp://example.com/x",
     ]:
@@ -319,14 +313,12 @@ def test_m9_a_student_whose_parent_has_not_confirmed_cannot_check_out(client, se
     book = ProductFactory()
     user = UserFactory(date_of_birth=timezone.localdate() - timedelta(days=16 * 365))
     assert user.consent_pending
-    client.force_login(user)
-    client.post(reverse("shop:cart_add", args=[book.pk]))
-    response = client.get(reverse("shop:checkout"))
-    assert response.status_code == 302 and response.url == reverse("account")
-    assert "has not confirmed your account yet" in client.get(reverse("account")).text
-    assert not Order.objects.exists()
+    EmailAddress.objects.create(user=user, email=user.email, verified=True, primary=True)
     api.credentials(HTTP_AUTHORIZATION=f"Bearer {RefreshToken.for_user(user).access_token}")
-    assert api.post("/api/v1/orders/", {"address": 1, "payment_method": "razorpay"}).status_code == 403
+    api.post("/api/v1/cart/items/", {"product": book.slug})
+    response = api.post("/api/v1/orders/", {"address": 1, "payment_method": "razorpay"})
+    assert response.status_code == 403 and "has not confirmed this account yet" in response.json()["detail"]
+    assert not Order.objects.exists()
     settings.PARENTAL_CONSENT_MODE = "declared"
     del user.consent_pending
     assert not user.consent_pending

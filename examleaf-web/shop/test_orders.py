@@ -1,18 +1,18 @@
 """Checkout, stock, cash on delivery, the order state machine, cancellation and refunds, invoices, guest lookup,
-the session cart, and account deletion."""
+the session cart, and account deletion. The website's pages do these through the API (examleaf-frontend), as here."""
 
 from datetime import timedelta
 from decimal import Decimal
 
 import pytest
 import requests
-from allauth.account.models import EmailAddress
 from celery.exceptions import Retry
 from django.core import mail
 from django.urls import reverse
 from django.utils import timezone
 from django_fsm import TransitionNotAllowed
 from razorpay.errors import BadRequestError
+from rest_framework.test import APIClient
 
 from accounts.factories import PASSWORD, UserFactory
 from accounts.models import DeletionRequest, User
@@ -29,75 +29,58 @@ from shop.factories import (
     verified_user,
 )
 from shop.models import Address, BundleItem, Cart, CreditNote, Invoice, Order, Payment, Product, Refund, WebhookEvent
+from shop.test_api import checkout as account_checkout
+from shop.test_api import customer
 
 pytestmark = pytest.mark.django_db
 GUEST = {
     "email": "guest@example.com",
-    "name": "Rahul Das",
-    "phone": "98640 12345",
-    "line1": "House 4",
-    "city": "Guwahati",
-    "district": "Kamrup Metro",
-    "state": "AS",
-    "pin": "781 001",
+    "shipping_address": {**ADDRESS, "line1": "House 4", "phone": "98640 12345"},
     "payment_method": "razorpay",
 }
 
 
+def add_to_cart(client, product, quantity=1):
+    """The website's cart: this browser's session, through the API."""
+    data = {"product": product.slug, "quantity": quantity}
+    return client.post("/api/v1/cart/items/", data, content_type="application/json")
+
+
+def check_out(client, data):
+    return client.post("/api/v1/orders/", data, content_type="application/json")
+
+
 def test_guest_checkout_checks_email_pin_and_mobile_then_makes_a_pending_order(client):
     product = ProductFactory(price=299)
-    client.post(reverse("shop:cart_add", args=[product.pk]), {"quantity": 2})
-    bad = client.post(reverse("shop:checkout"), {**GUEST, "email": "x", "pin": "012345", "phone": "12345"})
-    assert bad.context["form"].errors["email"] and not Order.objects.exists()
-    assert bad.context["address_form"].errors == {
-        "pin": ["Enter the 6-digit PIN code."],
-        "phone": ["Enter a 10-digit Indian mobile number."],
-    }
-    empty = client.post(reverse("shop:checkout"), {"payment_method": "cod"}).text  # each problem named and linked
-    assert '<a href="#id_name">Full name: Enter the name of the person who receives the parcel.</a>' in empty
-    assert '<a href="#id_email">Email address: Enter your email address: the order&#x27;s emails go there.</a>' in empty
-    assert '<a href="#id_payment_method_0">Payment: Choose one of the ways to pay shown.</a>' in empty  # a radio group
-    assert 'href="#"' not in empty
-    response = client.post(reverse("shop:checkout"), GUEST)
+    add_to_cart(client, product, 2)
+    address = {**GUEST["shipping_address"], "pin": "012345", "phone": "12345"}
+    bad = check_out(client, {**GUEST, "email": "x", "shipping_address": address}).json()
+    assert set(bad) == {"email", "shipping_address"} and set(bad["shipping_address"]) == {"pin", "phone"}
+    assert not Order.objects.exists()
+    response = check_out(client, GUEST)
     order = Order.objects.get()
-    assert response.url == reverse("shop:pay", args=[order.number])
+    assert response.status_code == 201 and response.json()["number"] == order.number
     assert order.status == Order.Status.PENDING and not order.placed_at and order.email == "guest@example.com"
     assert order.shipping_address["pin"] == "781001" and order.shipping_address["phone"] == "+919864012345"
     assert order.items.get().quantity == 2 and order.total.amount == Decimal("598.00")
 
 
-def test_logged_in_checkout_saves_the_address_once_and_offers_it_next_time(client):
-    user = UserFactory()
-    client.force_login(user)
-    product = ProductFactory(stock=1)
-    client.post(reverse("shop:cart_add", args=[product.pk]), {"quantity": 2})
-    fields = {k: v for k, v in GUEST.items() if k != "email"}
-    assert "Only 1 copy" in client.post(reverse("shop:checkout"), {**fields, "save_address": "on"}).content.decode()
-    assert not Address.objects.exists()  # nothing saved for an order that was not made
-    client.post(reverse("shop:cart"), {"action": "update", f"qty-{product.pk}": "1", "remove": "x"})
-    client.post(reverse("shop:checkout"), {**fields, "save_address": "on"})
-    address = Address.objects.get()
-    assert address.user == user and address.is_default and Order.objects.get().email == user.email
-    page = client.get(reverse("shop:checkout"))
-    assert page.context["form"].fields["saved_address"].initial == address
-
-
 def test_checkout_charges_todays_price_not_the_carts(client, rzp):
     product = ProductFactory(price=299)
-    client.post(reverse("shop:cart_add", args=[product.pk]))
+    add_to_cart(client, product)
     Product.objects.filter(pk=product.pk).update(price=Decimal("319.00"))  # changed while the cart page was open
-    client.post(reverse("shop:checkout"), GUEST)
+    check_out(client, GUEST)
     order = Order.objects.get()
     assert order.items.get().unit_price.amount == Decimal("319.00") and order.total.amount == Decimal("319.00")
-    page = client.get(reverse("shop:pay", args=[order.number]))
-    assert page.context["checkout"]["amount"] == 31900 and rzp.order.create.call_args.args[0]["amount"] == 31900
+    start = client.post(f"/api/v1/orders/t/{order.token}/payment/").json()  # the pay page's Checkout options
+    assert start["amount"] == 31900 and rzp.order.create.call_args.args[0]["amount"] == 31900
 
 
 def test_stock_is_checked_at_checkout_and_never_goes_negative(client):
     product = ProductFactory(stock=1)
-    client.post(reverse("shop:cart_add", args=[product.pk]), {"quantity": 3})
-    response = client.post(reverse("shop:checkout"), GUEST)
-    assert "Only 1 copy of" in response.content.decode() and not Order.objects.exists()
+    add_to_cart(client, product, 3)
+    response = check_out(client, GUEST)
+    assert response.status_code == 400 and "Only 1 copy of" in response.text and not Order.objects.exists()
     first, second = make_order((product, 1)), make_order((product, 1))
     services.reserve_stock(first)
     with pytest.raises(services.OutOfStock):
@@ -123,24 +106,22 @@ def test_a_bundle_sells_its_books_copies():
     assert papers.stock == 4
 
 
-def test_cash_on_delivery(client, settings, commit):
+def test_cash_on_delivery(settings, commit):
     settings.SHOP_COD_ENABLED = True
-    product = ProductFactory(stock=2)
-    client.force_login(verified_user("rahul@example.com"))  # an account with a confirmed address (M8)
-    client.post(reverse("shop:cart_add", args=[product.pk]))
-    client.post(reverse("shop:checkout"), {**GUEST, "email": "", "payment_method": "cod"})
-    order = Order.objects.get()
+    product, api = ProductFactory(stock=2), APIClient()
+    customer(api)  # an account with a confirmed address (M8)
+    add_to_cart(api, product)
     with commit():
-        response = client.post(reverse("shop:pay", args=[order.number]))
-    assert response.url == reverse("shop:done", args=[order.number])
-    order.refresh_from_db()
+        response = account_checkout(api, "cod")  # placed at once
+    order = Order.objects.get()
+    assert response.status_code == 201 and response.json()["number"] == order.number
     product.refresh_from_db()
     assert order.placed_at and order.status_label == "placed (pay on delivery)" and product.stock == 1
     assert (
         mail.outbox[0].subject == f"[ExamLeaf] Order {order.number} confirmed"
         and "pay on delivery" in mail.outbox[0].body
     )
-    assert client.session["shop_cart_count"] == 0 and not Cart.objects.exists()
+    assert not Cart.objects.exists()
     with commit():
         services.pack_order(order)
         services.ship_order(order, "India Post", "EA123456789IN")
@@ -148,13 +129,6 @@ def test_cash_on_delivery(client, settings, commit):
     order.refresh_from_db()
     assert order.status == Order.Status.DELIVERED and order.payments.get().status == Payment.Status.CAPTURED
     assert order.invoice.pdf  # made at dispatch for cash on delivery
-
-
-def test_cash_on_delivery_can_be_switched_off(client, settings):
-    settings.SHOP_COD_ENABLED = False
-    client.post(reverse("shop:cart_add", args=[ProductFactory().pk]))
-    response = client.post(reverse("shop:checkout"), {**GUEST, "payment_method": "cod"})
-    assert "payment_method" in response.context["form"].errors and not Order.objects.exists()
 
 
 def test_state_machine_guards():
@@ -175,18 +149,18 @@ def test_state_machine_guards():
 
 
 def test_customer_cancels_a_paid_order_and_is_refunded(client, rzp, commit):
-    user = UserFactory()
+    api = APIClient()
+    user = customer(api)
     product = ProductFactory(stock=5)
     order = make_order((product, 2), user=user, email=user.email)
     with commit():
         post_webhook(client, "payment.captured", captured(order))
-    client.force_login(user)
-    assert order.number in client.get(reverse("shop:orders")).content.decode()
+    assert [o["number"] for o in api.get("/api/v1/orders/").json()["results"]] == [order.number]  # My orders
     with commit():
-        response = client.post(reverse("shop:order_cancel", args=[order.number]), follow=True)
+        response = api.post(f"/api/v1/orders/{order.number}/cancel/")
     order.refresh_from_db()
     product.refresh_from_db()
-    assert "will be refunded" in response.content.decode() and product.stock == 5
+    assert response.status_code == 200 and product.stock == 5
     assert order.status == Order.Status.REFUNDED and order.payments.get().status == Payment.Status.REFUNDED
     rzp.payment.refund.assert_called_once()
     assert rzp.payment.refund.call_args.args[:2] == (
@@ -205,7 +179,7 @@ def test_customer_cancels_a_paid_order_and_is_refunded(client, rzp, commit):
     ]
     labels = [label for label, when in order.timeline()]
     assert labels == ["ordered", "paid", "cancelled", "refunded"]
-    assert client.post(reverse("shop:order_cancel", args=[order.number])).status_code == 302  # too late: nothing
+    assert api.post(f"/api/v1/orders/{order.number}/cancel/").status_code == 400  # too late: nothing
     assert order.refunds.count() == 1
 
 
@@ -254,27 +228,24 @@ def test_invoice_and_credit_note_are_pdfs_with_gst_columns_even_at_zero(rzp, set
     assert (line["taxable"], line["cgst"], line["sgst"]) == (Decimal("89.29"), Decimal("5.36"), Decimal("5.35"))
 
 
-def test_invoice_link_appears_once_the_pdf_exists(client, rzp, monkeypatch):
-    user = UserFactory()
+def test_invoice_link_appears_once_the_pdf_exists(rzp, monkeypatch):
+    api = APIClient()
+    user = customer(api)
     order = make_order((ProductFactory(), 1), user=user, email=user.email)
-    client.force_login(user)
+    url = f"/api/v1/orders/{order.number}/"
     monkeypatch.setattr(invoices, "render_pdf", lambda invoice: 1 / 0)
     services.record_capture(captured(order))
     with pytest.raises(ZeroDivisionError):  # called directly the task raises; a worker retries it
         tasks.generate_invoice(order.pk)
-    page = client.get(order.get_absolute_url()).content.decode()
-    assert (
-        "invoice will appear here" in page
-        and client.get(reverse("shop:invoice", args=[order.number])).status_code == 404
-    )
+    assert api.get(url).json()["invoice"] is None and api.get(url + "invoice/").status_code == 404
     monkeypatch.setattr(invoices, "render_pdf", lambda invoice: b"%PDF-1.7 ok")
     tasks.generate_invoice(order.pk)
-    assert "Download the invoice" in client.get(order.get_absolute_url()).content.decode()
-    response = client.get(reverse("shop:invoice", args=[order.number]))
+    assert api.get(url).json()["invoice"]["url"] == f"http://testserver{url}invoice/"
+    response = api.get(url + "invoice/", HTTP_ACCEPT="application/pdf")
     assert response["Content-Type"] == "application/pdf" and Invoice.objects.count() == 1
     invoice = Invoice.objects.get()
     invoice.pdf.storage.delete(invoice.pdf.name)  # the file lost (or the storage down): a 404, not a server error
-    assert client.get(reverse("shop:invoice", args=[order.number])).status_code == 404
+    assert api.get(url + "invoice/").status_code == 404
 
 
 def test_refunds_of_invoiced_orders_get_credit_notes(client, rzp, commit, settings, real_seller):
@@ -291,9 +262,10 @@ def test_refunds_of_invoiced_orders_get_credit_notes(client, rzp, commit, settin
     assert note.number == f"TC/{year}/00001" and note.invoice.order == order and note.pdf  # test keys: test series
     context = invoices.credit_note_context(note)
     assert (context["books_credit"], context["shipping_credit"], context["total_credit"]) == (299, 0, 299)
-    client.force_login(user)
-    assert f"Credit note {note.number}" in client.get(order.get_absolute_url()).content.decode()
-    response = client.get(reverse("shop:credit_note", args=[order.number, note.pk]))
+    api = APIClient()
+    api.force_authenticate(verified_user(user.email))
+    assert api.get(f"/api/v1/orders/{order.number}/").json()["credit_notes"][0]["number"] == note.number
+    response = api.get(f"/api/v1/orders/{order.number}/credit-notes/{note.pk}/", HTTP_ACCEPT="application/pdf")
     assert response["Content-Type"] == "application/pdf"
     client.force_login(UserFactory(is_staff=True, is_superuser=True))
     assert note.number in client.get(reverse("admin:shop_order_change", args=[order.pk])).content.decode()
@@ -314,48 +286,36 @@ def test_refunds_of_invoiced_orders_get_credit_notes(client, rzp, commit, settin
     assert context["tax_total"] == Decimal("10.71")
 
 
-def test_the_order_lookup_says_what_it_needs(client):
-    page = client.post(reverse("shop:lookup"), {"number": "", "email": ""}).text  # as a browser sends it
-    assert "Order number: Enter the order number from its email, such as EL-2026-000123." in page
-    assert "Email address used for the order: Enter the email address you ordered with." in page
-    assert "This field is required" not in page
-
-
 def test_guest_gets_the_orders_link_by_email_never_in_the_browser(client, commit):
+    """The per-address limit: shop/test_api.py."""
     order = make_order((ProductFactory(), 1), email="guest@example.com")
     owned = make_order((ProductFactory(), 1), user=UserFactory(), email="owner@example.com")
-    assert client.get(order.get_absolute_url()).status_code == 404  # another browser
     with commit():
         for number, email in [
             (order.number, "other@example.com"),
             (owned.number, "owner@example.com"),  # an account's order: its owner logs in
             (order.number.lower(), "GUEST@example.com"),
         ]:
-            response = client.post(reverse("shop:lookup"), {"number": number, "email": email})
-            assert "If an order matches, we have emailed you a link." in response.text and "781001" not in response.text
+            response = client.post("/api/v1/orders/lookup/", {"number": number, "email": email}, "application/json")
+            assert response.json() == {"detail": "If an order matches, we have emailed you a link."}
     [sent] = mail.outbox  # the guest order only: owners of accounts log in
     assert sent.to == ["guest@example.com"] and order.get_link_url() in sent.body
-    assert client.get(order.get_absolute_url()).status_code == 404  # the browser that asked got nothing
-    page = client.get(order.get_link_url())
-    assert page.status_code == 200 and "Rahul Das" in page.text and "Pay now" not in page.text  # read-only
-    for _ in range(8):
-        response = client.post(reverse("shop:lookup"), {"number": "EL-2026-999999", "email": "x@example.com"})
-    assert response.status_code == 429  # 10 an hour from one address
+    assert client.get(f"/api/v1/orders/{order.number}/").status_code in (401, 403)  # the browser that asked: nothing
+    assert client.get(f"/api/v1/orders/t/{order.token}/").json()["shipping_address"]["name"] == "Rahul Das"
 
 
 def test_guest_cart_joins_the_account_cart_at_log_in(client):
-    user = UserFactory()
+    user = verified_user("rahul@example.com")
     mine, both = ProductFactory(), ProductFactory()
     client.force_login(user)
-    client.post(reverse("shop:cart_add", args=[both.pk]))
+    add_to_cart(client, both)
     client.logout()
-    client.post(reverse("shop:cart_add", args=[mine.pk]), {"quantity": 2})
-    client.post(reverse("shop:cart_add", args=[both.pk]))
-    EmailAddress.objects.create(user=user, email=user.email, verified=True, primary=True)
-    client.post(reverse("account_login"), {"login": user.email, "password": PASSWORD})
+    add_to_cart(client, mine, 2)
+    add_to_cart(client, both)
+    log_in = {"email": user.email, "password": PASSWORD}
+    assert client.post("/_allauth/browser/v1/auth/login", log_in, "application/json").status_code == 200
     cart = Cart.objects.get()
     assert cart.user == user and {i.product_id: i.quantity for i in cart.items.all()} == {mine.pk: 2, both.pk: 2}
-    assert client.session["shop_cart_count"] == 4
 
 
 def test_guest_orders_join_the_account_of_their_address_once_it_is_confirmed(client):
@@ -366,31 +326,12 @@ def test_guest_orders_join_the_account_of_their_address_once_it_is_confirmed(cli
     confirm_own_address(client, "guest@example.com")
     user = User.objects.get(email="guest@example.com")
     assert list(user.orders.all()) == [order] and Order.objects.get(pk=someone.pk).user is None
-    assert order.number in client.get(reverse("shop:orders")).text  # My orders
+    assert [o["number"] for o in client.get("/api/v1/orders/").json()["results"]] == [order.number]  # My orders
     later = make_order((ProductFactory(), 1), email="GUEST@example.com")  # bought again without logging in
     client.logout()
-    client.post(reverse("account_login"), {"login": "guest@example.com", "password": "Brahmaputra-2027"})
+    log_in = {"email": "guest@example.com", "password": "Brahmaputra-2027"}
+    assert client.post("/_allauth/browser/v1/auth/login", log_in, "application/json").status_code == 200
     assert Order.objects.get(pk=later.pk).user == user
-
-
-def test_address_book_on_my_account(client):
-    user, other = UserFactory(), UserFactory()
-    theirs = Address.objects.create(user=other, **{**ADDRESS, "phone": "+919864012345"})
-    client.force_login(user)
-    page = client.get(reverse("account")).content.decode()
-    assert reverse("shop:orders") in page and "No saved addresses" in page  # My orders is linked
-    data = {**ADDRESS, "phone": "98640 12345", "pin": "781 001", "is_default": "on"}
-    assert client.post(reverse("shop:address_add"), {**data, "pin": "012345"}).status_code == 200  # refused
-    assert client.post(reverse("shop:address_add"), data).url == reverse("account")
-    address = user.addresses.get()
-    assert address.is_default and address.pin == "781001" and "Zoo Road" in client.get(reverse("account")).text
-    client.post(reverse("shop:address_edit", args=[address.pk]), {**data, "city": "Jorhat"})
-    address.refresh_from_db()
-    assert address.city == "Jorhat"
-    assert client.get(reverse("shop:address_edit", args=[theirs.pk])).status_code == 404  # someone else's
-    assert client.post(reverse("shop:address_delete", args=[theirs.pk])).status_code == 404
-    client.post(reverse("shop:address_delete", args=[address.pk]))
-    assert not user.addresses.exists() and Address.objects.filter(pk=theirs.pk).exists()
 
 
 def test_account_deletion_removes_addresses_and_keeps_orders(client):

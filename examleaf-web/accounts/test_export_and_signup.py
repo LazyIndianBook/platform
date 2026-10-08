@@ -1,21 +1,21 @@
 """What Download my data holds beyond the basics (roles, cart, payments, timeline), a sign-up that cannot be used to
 find out which email addresses have an account (same answer, and no quicker for an address that has one), what the
-deletion of an account leaves in the admin history, and double clicks that must not end in a server error."""
+deletion of an account leaves in the admin history, and a double click that must not end in a server error (teacher
+access: api/test_contract.py)."""
 
 import pytest
 from allauth.account.models import EmailAddress
 from django.contrib.admin.models import CHANGE, LogEntry
-from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.models import Group
 from django.contrib.contenttypes.models import ContentType
 from django.core import mail
 from django.test import Client
-from django.urls import reverse
 
 from accounts import roles
 from accounts.factories import UserFactory
-from accounts.models import DeletionRequest, TeacherProfile, User
-from accounts.views import TeacherRequestView, export_user_data, request_deletion
+from accounts.models import DeletionRequest, User
+from accounts.views import export_user_data, request_deletion
+from api.test_headless import pending
 from content.models import Board
 from content.tests import make_paper
 from practice.models import Attempt
@@ -55,21 +55,14 @@ def test_the_export_holds_the_roles_the_cart_and_each_orders_payment_and_timelin
 
 
 def signup(client, email):
+    """The website's sign-up (allauth.headless, the browser client)."""
     if not Board.objects.exists():
         make_paper()
-    return client.post(
-        reverse("account_signup"),
-        {
-            "full_name": "Rahul Das",
-            "email": email,
-            "password1": "Brahmaputra-2027",
-            "password2": "Brahmaputra-2027",
-            "class_level": 12,
-            "board": Board.objects.get().pk,
-            "date_of_birth": "2000-01-01",
-            "consent": "on",
-        },
-    )
+    data = {
+        **{"full_name": "Rahul Das", "email": email, "password": "Brahmaputra-2027", "class_level": 12},
+        **{"board": Board.objects.get().pk, "date_of_birth": "2000-01-01", "consent": True},
+    }
+    return client.post("/_allauth/browser/v1/auth/signup", data, "application/json")
 
 
 def test_an_address_that_has_an_account_gets_the_same_answer_and_the_same_hashing_work(client, monkeypatch):
@@ -80,7 +73,7 @@ def test_an_address_that_has_an_account_gets_the_same_answer_and_the_same_hashin
     new = signup(client, "new@example.com")
     assert hashed == []  # the new account's password is hashed by allauth itself
     again = signup(Client(), "TAKEN@example.com")  # another browser: the first is waiting for its code
-    assert (again.status_code, again.url) == (new.status_code, new.url) == (302, "/account/confirm-email/")
+    assert (again.status_code, pending(again)) == (new.status_code, pending(new)) == (401, ["verify_email"])
     assert hashed == ["Brahmaputra-2027"]  # an address with an account: no account made, but the time is spent
     assert User.objects.filter(email__iexact="taken@example.com").count() == 1
 
@@ -110,11 +103,3 @@ def test_a_double_click_on_delete_my_account_asks_once_and_does_not_crash(client
     assert sum("will be deleted" in m.subject for m in mail.outbox) == 1  # one email, from the request that won
 
 
-def test_a_double_click_on_ask_for_teacher_access_does_not_crash(client, monkeypatch):
-    user = UserFactory()
-    client.force_login(user)
-    data = {"school_name": "Cotton University", "district": "Kamrup Metro", "subject": "Physics"}
-    assert client.post(reverse("teacher_request"), data).status_code == 302
-    monkeypatch.setattr(TeacherRequestView, "dispatch", LoginRequiredMixin.dispatch)  # past its "already asked" check
-    response = client.post(reverse("teacher_request"), data)
-    assert response.status_code == 302 and TeacherProfile.objects.filter(user=user).count() == 1
