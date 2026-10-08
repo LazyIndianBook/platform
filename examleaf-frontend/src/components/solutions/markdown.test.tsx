@@ -3,7 +3,7 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { isMinor } from "@/components/auth/signup-form";
+import { isMinor } from "@/lib/dates";
 
 import { MarkdownBlock, MarkdownInline } from "./markdown";
 

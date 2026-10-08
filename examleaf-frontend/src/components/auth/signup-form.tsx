@@ -25,7 +25,6 @@ import { Turnstile } from "./turnstile";
 import { fieldError, useAuthAction } from "./use-auth-action";
 
 export type BoardOption = { id: number; label: string };
-export { isMinor };
 
 const CONSENT =
   "I have read the privacy notice and I agree that ExamLeaf may keep these details so that I can use the free solutions. If I am under 18, my parent or guardian reads the notice and ticks this box.";
