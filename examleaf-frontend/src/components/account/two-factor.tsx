@@ -142,14 +142,7 @@ export function AuthenticatorApp({ active }: { active: boolean }) {
           If you lose your phone, each of these codes lets you in once. Keep them somewhere safe.
         </p>
         <RecoveryBoard codes={codes}>
-          <Button
-            onClick={() => {
-              setCodes(null);
-              router.refresh();
-            }}
-          >
-            I&apos;ve saved them
-          </Button>
+          <Button onClick={() => setCodes(null)}>I&apos;ve saved them</Button>
         </RecoveryBoard>
       </SetupCard>
     );
@@ -230,10 +223,8 @@ export function AuthenticatorApp({ active }: { active: boolean }) {
           // the first second step makes the recovery codes: shown now, as the board
           const made = await account.recoveryCodes().catch(() => null);
           if (made?.unused_codes?.length) setCodes(made.unused_codes);
-          else {
-            toast.success("The authenticator app is on. Keep your recovery codes somewhere safe.");
-            router.refresh();
-          }
+          else toast.success("The authenticator app is on. Keep your recovery codes somewhere safe.");
+          router.refresh(); // the page behind the board (its recovery codes' count) reads it as on
         }}
       >
         <Field id="code" label="Code from the app" required error={fieldError(error, "code")}>
