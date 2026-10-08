@@ -36,9 +36,17 @@
 		not expression `"{$HEALTH_CHECK_TOKEN}" != "" && {http.request.header.X-Health-Token} == "{$HEALTH_CHECK_TOKEN}"`
 	}
 	respond @health_denied 404
-	reverse_proxy web:8000 {
+	# Phase 8 (docs/examleaf-phase8-nextjs-plan.md): Django's own paths always go to web; every other path goes to
+	# PAGES_UPSTREAM, the Django pages (web:8000, the default) until the Next.js frontend (examleaf-frontend/) covers
+	# them, then frontend:3000 (.env: PAGES_UPSTREAM=frontend:3000). Both sit on one origin, so the session and CSRF
+	# cookies are shared.
+	@django path /api/* /_allauth/* /admin/* /shop/webhooks/* /anymail/* /health /health/* /shop/media/* /learn/preview/* /learn/hls/* /account/google/* /qr/* /static/* /sitemap-django.xml
+	reverse_proxy @django web:8000 {
 		# The whole body (up to 10 MB) is read here before gunicorn sees the request: a client that sends it slowly
 		# holds a Caddy connection, never one of gunicorn's threads (H1).
+		request_buffers 10MB
+	}
+	reverse_proxy {$PAGES_UPSTREAM:web:8000} {
 		request_buffers 10MB
 	}
 	log {

@@ -1,0 +1,324 @@
+/* The paper page (/s/<code>/): the Django site's solutions rules (site.css "Solutions") and print.css, under
+   .paper-page so they stay on this page. */
+.paper-page .part {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 40px 0 0;
+  font: 800 16px/1.3 var(--font-head);
+  color: var(--primary);
+  text-align: center;
+}
+.paper-page .part::before,
+.paper-page .part::after,
+.paper-page .or::before,
+.paper-page .or::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.paper-page .group {
+  margin: 24px 0 0;
+  padding: 20px 0 12px;
+  border-bottom: 2px solid var(--primary);
+  font: 700 18px/1.4 var(--font-head);
+  color: var(--primary);
+  scroll-margin-top: 16px;
+}
+.paper-page .group code {
+  float: right;
+  margin-left: 16px;
+  font: 600 16px/1.6 var(--font-body);
+  color: var(--foreground);
+  white-space: nowrap;
+}
+.paper-page .question {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  gap: 0 12px;
+  padding: 24px 0;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scroll-margin-top: 16px;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 360px;
+}
+.paper-page .qno {
+  font: 800 17px/1.7 var(--font-head);
+  color: var(--primary);
+}
+.paper-page .qtext {
+  min-width: 0;
+  max-width: var(--measure);
+  overflow-wrap: break-word;
+  line-height: 1.7;
+}
+.paper-page .qtext > :first-child {
+  margin-top: 0;
+}
+.paper-page .qtext > :last-child {
+  margin-bottom: 0;
+}
+.paper-page .qtext p {
+  margin: 0 0 12px;
+}
+.paper-page .marks {
+  margin: 0;
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+.paper-page .options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr));
+  gap: 4px 16px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.paper-page .solution {
+  grid-column: 2 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  overflow-wrap: break-word;
+}
+.paper-page .solution > * {
+  margin: 0;
+}
+.paper-page .solution > :is(p, ul, ol) {
+  max-width: var(--measure);
+}
+.paper-page .solution ul,
+.paper-page .solution ol,
+.paper-page .qtext ul:not(.options),
+.paper-page .qtext ol {
+  padding-left: 24px;
+  list-style: revert;
+}
+.paper-page .final {
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--secondary);
+}
+.paper-page .also,
+.paper-page blockquote {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--muted);
+}
+.paper-page blockquote p {
+  margin: 0;
+}
+.paper-page blockquote.diagram {
+  position: relative;
+  padding: 12px 14px 12px 48px;
+  border: 2px dashed var(--input);
+  background: transparent;
+}
+.paper-page blockquote.diagram::before {
+  content: "";
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  width: 22px;
+  height: 22px;
+  background: var(--primary);
+  --chart: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 4v16h16'/%3E%3Cpath d='M7 15l4-5 3 3 5-6'/%3E%3C/svg%3E");
+  -webkit-mask: var(--chart) center / contain no-repeat;
+  mask: var(--chart) center / contain no-repeat;
+}
+.paper-page .or {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 0;
+  padding: 8px 0;
+  font: 800 15px/1 var(--font-head);
+  color: var(--primary);
+}
+/* marking tables: the Marks column stays in view while the step scrolls; the Total row closes the table */
+.paper-page table.steps th:last-child,
+.paper-page table.steps td:last-child {
+  position: sticky;
+  right: 0;
+  text-align: right;
+  white-space: nowrap;
+  box-shadow: -1px 0 0 var(--border);
+}
+.paper-page table.steps td:last-child {
+  background: var(--card);
+  font-variant-numeric: tabular-nums;
+}
+.paper-page table.steps tr:last-child:has(strong) td {
+  border-top: 2px solid var(--foreground);
+  font-family: var(--font-head);
+  font-weight: 700;
+}
+.paper-page .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.paper-page .katex {
+  font-size: 1.05em;
+}
+@media (min-width: 900px) {
+  .paper-page .rail {
+    align-self: stretch;
+  }
+  .paper-page .rail > div {
+    position: sticky;
+    top: 16px;
+  }
+}
+@media (max-width: 899.98px) {
+  .paper-page .group {
+    padding: 16px 0 10px;
+    font-size: 16px;
+  }
+  .paper-page .question {
+    grid-template-columns: 40px minmax(0, 1fr) auto;
+    gap: 0 8px;
+    padding: 20px 0;
+  }
+  .paper-page .solution {
+    grid-column: 1 / -1;
+    margin-top: 14px;
+    padding: 14px;
+  }
+  .paper-page .rail {
+    display: none;
+  }
+}
+
+/* Printing: the paper's header, the instructions, every question with its marks and solution; no site around them;
+   a new page for each question group. */
+@media print {
+  @page {
+    margin: 14mm 14mm 16mm;
+  }
+  body {
+    display: block;
+    background: #ffffff;
+    color: #000000;
+    font-size: 11pt;
+    line-height: 1.5;
+  }
+  .skip-link,
+  body > header,
+  body > footer,
+  [data-sonner-toaster],
+  .paper-page nav[aria-label="Breadcrumb"],
+  .paper-page .paper-actions,
+  .paper-page .rail,
+  .paper-page .record-card,
+  .paper-page .seal {
+    display: none !important;
+  }
+  .paper-page,
+  .paper-page .container-site {
+    padding: 0;
+    max-width: none;
+  }
+  .paper-page a {
+    color: inherit;
+    text-decoration: none;
+  }
+  .paper-page .qr-card {
+    display: block;
+    padding: 0 0 8pt;
+    border-bottom: 2pt solid #000000;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    color: #000000;
+  }
+  .paper-page .qr-card * {
+    color: #000000 !important;
+  }
+  .paper-page .qr-card [data-slot="badge"] {
+    height: auto;
+    padding: 1pt 6pt;
+    border: 1px solid #000000;
+    background: none;
+  }
+  .paper-page details.accordion {
+    border: 0;
+  }
+  .paper-page details.accordion::details-content {
+    content-visibility: visible;
+  }
+  .paper-page details.accordion > summary {
+    min-height: 0;
+    padding: 8pt 0 4pt;
+    color: #000000;
+  }
+  .paper-page details.accordion > summary > svg {
+    display: none;
+  }
+  .paper-page .part,
+  .paper-page .group,
+  .paper-page .qno,
+  .paper-page .solution-label {
+    color: #000000;
+  }
+  .paper-page .part,
+  .paper-page .group {
+    break-after: avoid;
+  }
+  .paper-page .group {
+    border-bottom-color: #000000;
+  }
+  .paper-page .group ~ .group {
+    break-before: page;
+  }
+  .paper-page .question {
+    content-visibility: visible;
+    grid-template-columns: 26pt minmax(0, 1fr) auto;
+    padding: 8pt 0;
+    overflow: visible;
+  }
+  .paper-page .qtext {
+    max-width: none;
+  }
+  .paper-page .qtext > *,
+  .paper-page .solution > *,
+  .paper-page table,
+  .paper-page blockquote,
+  .paper-page .final {
+    break-inside: avoid;
+  }
+  .paper-page .solution {
+    padding: 6pt 8pt;
+    border-color: #999999;
+    background: none;
+  }
+  .paper-page .final,
+  .paper-page .also,
+  .paper-page blockquote {
+    border: 1px solid #999999;
+    background: none;
+  }
+  .paper-page .table-scroll,
+  .paper-page .table-wrap,
+  .paper-page .katex-display {
+    overflow: visible;
+  }
+  .paper-page th,
+  .paper-page table.steps th:last-child,
+  .paper-page table.steps td:last-child {
+    position: static;
+    background: none;
+    box-shadow: none;
+  }
+}

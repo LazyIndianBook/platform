@@ -109,6 +109,9 @@ services:
       GUNICORN_CMD_ARGS: ${GUNICORN_CMD_ARGS:---worker-class gthread --threads 8 --timeout 60}
       <<: *app-env
       DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+      # the frontend's server-side calls come straight from the frontend container with the site's host in
+      # X-Forwarded-Host (as Caddy's do): Django builds its links and checks ALLOWED_HOSTS with it
+      USE_X_FORWARDED_HOST: 1
     volumes:
       - media:/app/media
       - ${BOOK_SOURCE:-..}/production:/book/production:ro  # the Markdown papers, for import_papers
@@ -151,12 +154,39 @@ services:
       DOMAIN: ${DOMAIN:?set DOMAIN in .env}
       # /health/ answers only requests carrying this token (the uptime monitor); see DEPLOYMENT.md.
       HEALTH_CHECK_TOKEN: ${HEALTH_CHECK_TOKEN:?set HEALTH_CHECK_TOKEN in .env}
+      # who answers the pages (Caddyfile): web:8000 (Django) until the switch to frontend:3000 (Phase 8)
+      PAGES_UPSTREAM: ${PAGES_UPSTREAM:-web:8000}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
       - web
+      - frontend
+    logging: *logging
+
+  frontend:  # the Next.js frontend (../examleaf-frontend, Phase 8): its own image, health check and rollout
+    build:
+      context: ../examleaf-frontend
+      args:  # compiled into the build: change one, then `docker compose build frontend`
+        NEXT_PUBLIC_SITE_URL: https://${DOMAIN:?set DOMAIN in .env}
+        NEXT_PUBLIC_RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+        NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
+        NEXT_PUBLIC_MEDIA_HOST: ${PUBLIC_MEDIA_DOMAIN:-}
+    image: examleaf-frontend
+    restart: unless-stopped
+    environment:
+      API_INTERNAL_BASE: http://web:8000  # server components call Django over the compose network
+      NEXT_PUBLIC_SITE_URL: https://${DOMAIN:?set DOMAIN in .env}
+      NEXT_PUBLIC_RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
+      NEXT_PUBLIC_MEDIA_HOST: ${PUBLIC_MEDIA_DOMAIN:-}
+    depends_on:
+      web: {condition: service_healthy}
+    read_only: true
+    tmpfs: ["/tmp", "/app/.next/cache:mode=1777"]  # Next.js keeps its data cache here
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
     logging: *logging
 
 volumes:
