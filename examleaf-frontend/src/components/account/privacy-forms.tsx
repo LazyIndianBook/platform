@@ -165,7 +165,8 @@ function LogInAgain({ error }: { error: ApiError | null }) {
 
 /** What the file holds, part by part (me/export/summary/), then the download: the password, the file, its link. */
 export function DataExport({ hasPassword, summary }: { hasPassword: boolean; summary: ExportPart[] | null }) {
-  const { run, busy, error } = useAction();
+  const { run, busy, error: raw } = useAction();
+  const error = throttled(raw); // the file is made at most so often (dj_rest_auth's rate)
   const [file, setFile] = useState<string | null>(null);
   useEffect(() => () => (file ? URL.revokeObjectURL(file) : undefined), [file]);
 
@@ -251,7 +252,8 @@ export function DataExport({ hasPassword, summary }: { hasPassword: boolean; sum
  *  button stays disabled until it matches) and the password when the account has one (the API asks for it). */
 export function DeleteAccountForm({ hasPassword, email }: { hasPassword: boolean; email: string }) {
   const router = useRouter();
-  const { run, busy, error } = useAction();
+  const { run, busy, error: raw } = useAction();
+  const error = throttled(raw);
   const [open, setOpen] = useState(false);
   const [closed, setClosed] = useState(false); // closed by the student: the focus goes back to Delete…
   const [typed, setTyped] = useState("");
