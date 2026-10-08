@@ -1,9 +1,13 @@
-// /orders/lookup/ (Django's shop/lookup.html): a guest asks for the link to their order again (LookupForm). Signed
-// in, the orders are in My orders.
+// /orders/lookup/ (Order lookup artboard, Phone lookup and school): on the sheet with "?" in the margin, a guest asks
+// for the link to their order again (LookupForm: the same answer whether an order matched or not). Signed in, the
+// orders are in My orders.
+import "@/app/(shop)/shop/shop.css";
+
 import type { Metadata } from "next";
 import Link from "next/link";
 
 import { LookupForm } from "@/components/shop/lookup-form";
+import { Sheet } from "@/components/ui/band";
 import { getSessionUser } from "@/lib/auth/session";
 
 export const metadata: Metadata = {
@@ -16,20 +20,19 @@ export const metadata: Metadata = {
 export default async function LookupPage() {
   const user = await getSessionUser();
   return (
-    <section className="pt-7 pb-(--section)">
-      <div className="container-site flex max-w-[calc(38rem+2*var(--gutter))] flex-col gap-4 [&>h1]:m-0 [&>p]:m-0">
-        <h1>Find your order</h1>
-        <p>
-          Ordered without an account? Every email about your order has a link to it. Lost them? Type the order number
-          and the email address you used: we email the link to that address.
+    <Sheet margin="?" className="shop-page" bodyClassName="nav:pt-11 nav:pb-16">
+      <div className="flex max-w-[34rem] flex-col gap-4 [&>*]:m-0">
+        <h1 className="text-[32px] leading-none nav:text-[44px] nav:leading-[1.05]">Find your order</h1>
+        <p className="text-base leading-relaxed text-ink/85">
+          No account needed. Use the number from your confirmation email.
         </p>
         <LookupForm />
         {user ? (
-          <p>
+          <p className="text-[15px]">
             Orders placed while logged in are in <Link href="/account/orders/">My orders</Link>.
           </p>
         ) : null}
       </div>
-    </section>
+    </Sheet>
   );
 }

@@ -1,5 +1,7 @@
 // /checkout/<number>/done/: the stepper at Done and the order as the API answers it now: paid, placed (cash on
 // delivery), still being confirmed (Razorpay's webhook finishes it), or not completed (sold out while paying).
+import "@/app/(shop)/shop/shop.css";
+
 import type { Metadata } from "next";
 
 import { ShopProblem } from "@/components/shop/notices";

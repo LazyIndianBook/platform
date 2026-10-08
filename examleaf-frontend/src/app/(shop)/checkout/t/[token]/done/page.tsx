@@ -1,5 +1,7 @@
 // /checkout/t/<token>/done/: a guest's order after paying, as the API answers it now (paid, still being confirmed,
 // or not completed), with the reminder that its emails' link opens it again.
+import "@/app/(shop)/shop/shop.css";
+
 import type { Metadata } from "next";
 
 import { ShopProblem } from "@/components/shop/notices";

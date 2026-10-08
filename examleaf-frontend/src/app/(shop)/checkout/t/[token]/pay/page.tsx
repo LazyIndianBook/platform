@@ -1,5 +1,7 @@
 // /checkout/t/<token>/pay/: a guest's order at the pay step (PayView), by the secret its checkout answered (the same
 // as its emails' link). Once it is not waiting for a payment, its page by the link.
+import "@/app/(shop)/shop/shop.css";
+
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 

@@ -1,6 +1,8 @@
-// /cart/ (Cart artboard; Django's shop/cart.html): the account's cart, or a visitor's guest cart (the session's), as
-// the API answers it (CartView does the changes). Personal: not indexed, never cached. While the shop is closed it
-// says so above the cart (its changes and the checkout are the API's to refuse).
+// /cart/ (Cart artboard, Phone cart): the account's cart, or a visitor's guest cart (the session's), as the API answers
+// it (CartView draws the sheet and does the changes). Personal: not indexed, never cached. While the shop is closed it
+// says so under the heading (its changes and the checkout are the API's to refuse).
+import "../shop/shop.css";
+
 import type { Metadata } from "next";
 
 import { CartView, type LineInfo } from "@/components/shop/cart-view";
@@ -36,13 +38,5 @@ export default async function CartPage() {
       };
   }
 
-  return (
-    <section className="pt-7 pb-(--section)">
-      <div className="container-site flex flex-col gap-4 [&>h1]:m-0">
-        <h1>Your cart</h1>
-        <ShopClosed open={config?.shop.open} />
-        <CartView initial={cart} info={info} guest={!user} />
-      </div>
-    </section>
-  );
+  return <CartView initial={cart} info={info} guest={!user} notice={<ShopClosed open={config?.shop.open} />} />;
 }

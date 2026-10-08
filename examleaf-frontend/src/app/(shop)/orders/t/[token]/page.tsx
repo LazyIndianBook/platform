@@ -1,6 +1,8 @@
 // /orders/t/<token>/: the order of the link in its emails, without signing in (GET orders/t/<token>/: no cookie sent,
 // never cached, never indexed; the URL holds the secret and the Referrer-Policy keeps it on this origin): status,
 // books, address, tracking, refunds, the PDFs by the link, Cancel while allowed and Pay for a guest's unpaid order.
+import "@/app/(shop)/shop/shop.css";
+
 import type { Metadata } from "next";
 
 import { ShopProblem } from "@/components/shop/notices";

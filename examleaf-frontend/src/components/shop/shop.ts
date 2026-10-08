@@ -231,5 +231,8 @@ export function cancelledMessage(number: string, refund?: string | null) {
   return `Order ${number} is cancelled.${back}`;
 }
 
+/** The shop's dialogs (States, "Cancel dialog"): on paper, the title in Source Serif. */
+export const SHOP_DIALOG = "bg-background [&_h2]:text-[24px] [&_h2]:font-semibold";
+
 /** The path of an absolute URL the API built (invoice links): links stay on this origin. */
 export const pathOf = (url: string) => url.replace(/^https?:\/\/[^/]+/, "");

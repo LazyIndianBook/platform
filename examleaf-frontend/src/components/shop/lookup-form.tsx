@@ -1,9 +1,8 @@
 "use client";
 
-// "Find your order" (Django's shop/lookup.html): the order number and the email address it was placed with; the
-// API emails the order's link to that address if an order matches, and answers the same either way, so this page
-// says the same whatever happened (only a typing mistake or too many tries is told apart).
-import { Mail } from "lucide-react";
+// "Find your order" (Order lookup artboard): the order number and the email address it was placed with; the API emails
+// the order's link to that address if an order matches, and answers the same either way, so this page says the same
+// whatever happened (only a typing mistake or too many tries is told apart). The API takes the email address only.
 import { useState } from "react";
 
 import { ErrorSummary } from "@/components/auth/error-summary";
@@ -22,6 +21,7 @@ export function LookupForm() {
 
   async function send(event: React.FormEvent) {
     event.preventDefault();
+    if (busy) return;
     setBusy(true);
     setError(null);
     try {
@@ -59,17 +59,27 @@ export function LookupForm() {
         <Input
           autoComplete="off"
           autoCapitalize="characters"
+          placeholder="EL-2026-"
           value={number}
           onChange={(event) => setNumber(event.target.value)}
+          className="font-mono"
         />
       </Field>
-      <Field id="email" label="Email address" required help="The one you ordered with." error={error?.fields.email}>
+      <Field
+        id="email"
+        label="Email address used"
+        required
+        help="The one you ordered with."
+        error={error?.fields.email}
+      >
         <Input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} />
       </Field>
-      <Button type="submit" className="self-start" busy={busy}>
-        <Mail aria-hidden="true" />
-        Email me the link
+      <Button type="submit" size="lg" block busy={busy}>
+        Send me the link
       </Button>
+      <p className="m-0 text-sm leading-normal text-muted-foreground">
+        We send a private link to the order&apos;s page. For your safety we don&apos;t say whether the order exists.
+      </p>
     </form>
   );
 }

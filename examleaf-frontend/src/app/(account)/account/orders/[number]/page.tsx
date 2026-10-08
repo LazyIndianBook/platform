@@ -1,6 +1,8 @@
 // /account/orders/<number>/ (the URL the API's web_url and the emails' account links give), in the account's frame:
 // the signed-in owner's order, with Pay now while unpaid and Cancel while allowed. Another customer's order is a 404
 // from the API, answered as a real 404: this page is outside the streamed group (its placeholder would fix a 200).
+import "@/app/(shop)/shop/shop.css";
+
 import type { Metadata } from "next";
 
 import { PageHead, Problem } from "@/components/account/parts";

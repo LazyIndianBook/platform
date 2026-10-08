@@ -1,5 +1,7 @@
 // /checkout/<number>/pay/: the signed-in owner's order at the pay step (PayView). An order that is not waiting for
 // an online payment goes to its page.
+import "@/app/(shop)/shop/shop.css";
+
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 

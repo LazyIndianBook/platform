@@ -7,6 +7,9 @@
 // confirmed, or not completed); this button never claims success itself. Busy until the options are ready.
 // Unavailable (503), not payable (400), a failed or refused payment: said in words, the order kept and the cart with
 // it. A pay page that is not its own document reloads once first: only the pay page's CSP lets Razorpay in (S2).
+// Direction A (Pay artboard; States "Payment failed"): when Razorpay reports a failure, the order is said to be kept,
+// Try again opens Razorpay again, and cash on delivery is offered when the server allows it for this order (at the
+// checkout: a new order, as the API cannot change this one's way of paying).
 import { Lock, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -30,18 +33,22 @@ export function PayButton({
   token,
   total,
   nonce,
+  codInstead = false,
 }: {
   number: string;
   /** a guest's order: paid by its link's secret */
   token?: string;
   total: string;
   nonce: string;
+  /** after a failed payment, offer cash on delivery (the checkout, with it chosen) */
+  codInstead?: boolean;
 }) {
   const router = useRouter();
   const [state, setState] = useState<State>({ kind: "loading" });
   const [scriptFailed, setScriptFailed] = useState(false);
   const [paying, setPaying] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  const [declined, setDeclined] = useState(false); // the problem is Razorpay's failure: nothing reached us to check
 
   useEffect(() => {
     if (!documentIsPayPage()) {
@@ -96,6 +103,7 @@ export function PayButton({
   async function pay() {
     if (state.kind !== "ready" || paying) return;
     setProblem(null);
+    setDeclined(false);
     setScriptFailed(false);
     setPaying(true);
     const Razorpay = await loadRazorpay(nonce).catch(() => null);
@@ -108,6 +116,7 @@ export function PayButton({
       success: (response) => void confirm(response),
       failure: (message) => {
         setProblem(message);
+        setDeclined(true);
         setPaying(false);
       },
       dismiss: () => setPaying(false),
@@ -141,7 +150,7 @@ export function PayButton({
   }
 
   return (
-    <div className="flex flex-col gap-3 [&>*]:m-0">
+    <div className="flex flex-col gap-3.5 [&>*]:m-0">
       {state.kind === "ready" && state.options.test_mode ? (
         <Alert variant="warning" title="Test mode">
           <p>No real money is taken. Use Razorpay&apos;s test card or UPI ID.</p>
@@ -153,22 +162,38 @@ export function PayButton({
         </Alert>
       ) : null}
       {problem ? (
-        <Alert variant="error" role="alert">
-          <p>{problem}</p>
+        <Alert variant="error" role="alert" title={declined ? problem : undefined}>
+          {declined ? <p>Your order {number} is kept: you can pay it again for two days.</p> : <p>{problem}</p>}
         </Alert>
       ) : null}
-      <Button type="button" variant="accent" size="lg" block busy={state.kind !== "ready" || paying} onClick={pay}>
-        <Lock aria-hidden="true" />
-        Pay {inr(total)}
+      <Button type="button" size="lg" block busy={state.kind !== "ready" || paying} onClick={pay} className="min-h-14">
+        {declined ? null : <Lock aria-hidden="true" />}
+        {declined ? "Try again" : `Pay ${inr(total)}`}
       </Button>
+      {declined && codInstead ? (
+        <>
+          <Link href="/checkout/?pay=cod" className={buttonVariants({ variant: "secondary", block: true })}>
+            Pay cash on delivery instead
+          </Link>
+          <p className="text-sm leading-normal text-muted-foreground">
+            Cash on delivery makes a new order at the checkout; this one is then left unpaid.
+          </p>
+        </>
+      ) : null}
       <noscript>
         <Alert variant="error">
           <p>The payment window needs JavaScript.</p>
         </Alert>
       </noscript>
-      <p className="text-[15px] text-muted-foreground">
-        UPI, cards, net banking and wallets, through Razorpay. Nothing is charged until you confirm in the Razorpay
-        window.
+      <p className="text-sm leading-normal text-muted-foreground">
+        {declined ? (
+          <>
+            If money did leave your account, it is refunded automatically. <Link href="/contact/">Contact us</Link> with
+            the order number.
+          </>
+        ) : (
+          "The button stays busy until Razorpay's window opens, and again while we check the payment. Closing the window doesn't charge you."
+        )}
       </p>
     </div>
   );
