@@ -19,7 +19,7 @@ always without JavaScript). socialaccount/signup.html (after Google) extends thi
           <div class="form-grid">
             {% include "_field.html" with field=form.full_name %}
             {% include "_field.html" with field=form.email help="We email you a code to confirm it." %}
-            {% if form.password1 %}{% include "_field.html" with field=form.password1 %}
+            {% if form.password1 %}{% include "_field.html" with field=form.password1 help="At least 10 characters: not only numbers, not a common password, not like your name or email." %}
             {% include "_field.html" with field=form.password2 label="Password again" %}{% endif %}
           </div>
         </fieldset>

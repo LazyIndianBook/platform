@@ -4,6 +4,7 @@ related products, and digital products (no shipping, stock or cash on delivery; 
 import logging
 import sys
 import types
+from decimal import Decimal
 
 import pytest
 from django.core.exceptions import ValidationError
@@ -233,6 +234,18 @@ def test_a_refunded_or_cancelled_course_order_closes_the_course_and_a_bundle_sel
         services.cancel_order(paid, "Cancelled by the customer.")
     book.refresh_from_db()
     assert hooks.revoked[-1] == paid and book.stock == 5
+
+
+def test_a_part_refund_leaves_the_course_open(course, hooks, rzp, commit):
+    """Only a refund in full closes a course; a goodwill part-refund (or a refused parcel refunded less its shipping)
+    marks the order refunded and leaves what it opened."""
+    order = make_order((course, 1), user=verified_user("rahul@example.com"))
+    with commit():
+        services.record_capture(captured(order))
+    with commit():
+        refund = services.refund_order(Order.objects.get(pk=order.pk), "Goodwill.", amount=Decimal("10"))
+    assert refund.amount.amount == 10 and Order.objects.get(pk=order.pk).status == Order.Status.REFUNDED
+    assert hooks.revoked == [] and not services.refunded_in_full(order)
 
 
 def test_without_the_learn_app_a_course_order_is_still_paid_and_logged(course, rzp, monkeypatch, caplog):

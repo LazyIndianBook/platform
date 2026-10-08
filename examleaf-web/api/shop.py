@@ -607,7 +607,7 @@ class OrderSerializer(OrderBriefSerializer):
 
 class CheckoutSerializer(serializers.Serializer):
     address = serializers.IntegerField(help_text="the id of one of the customer's addresses (addresses/)")
-    payment_method = serializers.ChoiceField(choices=Order.Method.choices)
+    payment_method = serializers.ChoiceField(choices=services.CUSTOMER_METHOD_CHOICES)
 
     def validate_address(self, value):
         if address := self.context["request"].user.addresses.filter(pk=value).first():

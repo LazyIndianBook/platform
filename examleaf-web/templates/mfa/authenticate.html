@@ -1,0 +1,49 @@
+{% extends "mfa/base_entrance.html" %}
+{% load allauth %}
+{# allauth's second step with the site's words (Log in, not Sign In); its forms, ids and scripts as allauth has them #}
+{% block head_title %}Log in{% endblock head_title %}
+{% block content %}
+    <h1>Log in: second step</h1>
+    <p class="muted">Your account is protected by a second step. Enter the code your authenticator app shows, or one of your recovery codes.</p>
+    {% url 'mfa_authenticate' as action_url %}
+    {% element form form=form method="post" action=action_url %}
+        {% slot body %}
+            {% csrf_token %}
+            {% element fields form=form %}
+            {% endelement %}
+        {% endslot %}
+        {% slot actions %}
+            {% element button type="submit" tags="prominent,mfa,login" %}Log in{% endelement %}
+        {% endslot %}
+    {% endelement %}
+    {% if "webauthn" in MFA_SUPPORTED_TYPES %}
+        <div class="or-line"><span>or</span></div>
+        {% element button_group vertical=True %}
+            {% element button form="webauthn_form" id="mfa_webauthn_authenticate" type="button" tags="outline,primary" %}Use a passkey or security key{% endelement %}
+            {% element button type="submit" form="logout-from-stage" tags="link,mfa,cancel" %}Cancel{% endelement %}
+        {% endelement %}
+        {% element form id="webauthn_form" form=webauthn_form method="post" action=action_url no_visible_fields=True %}
+            {% slot body %}
+                {% csrf_token %}
+                {% element fields form=webauthn_form %}
+                {% endelement %}
+            {% endslot %}
+        {% endelement %}
+        {{ js_data|json_script:"js_data" }}
+        {% include "mfa/webauthn/snippets/scripts.html" %}
+        <script data-allauth-onload="allauth.webauthn.forms.authenticateForm" type="application/json">{
+    "ids": {
+        "authenticate": "mfa_webauthn_authenticate",
+        "credential": "{{ webauthn_form.credential.auto_id }}",
+        "data": "js_data"
+    }
+}
+        </script>
+    {% else %}
+        <p class="entrance-foot"><button class="link-button" type="submit" form="logout-from-stage">Cancel</button></p>
+    {% endif %}
+    <form id="logout-from-stage" method="post" action="{% url 'account_logout' %}" hidden>
+        <input type="hidden" name="next" value="{% url 'account_login' %}">
+        {% csrf_token %}
+    </form>
+{% endblock content %}

@@ -24,14 +24,14 @@ JavaScript it stays one box), a new code, cancel, and the change of address or n
   {{ redirect_field }}
   <button type="submit" class="btn btn-primary btn-lg btn-block">{{ confirm_ }}</button>
 </form>
-<form id="resend" method="post" action="{{ action_url }}">
+<form id="resend" method="post" action="{{ action_url }}" hidden>
   <input type="hidden" name="action" value="resend">
   {{ redirect_field }}
   {% csrf_token %}
 </form>
 <p class="entrance-foot">{% if cancel_url %}<a href="{{ cancel_url }}">Cancel</a>{% else %}<button class="link-button" type="submit" form="logout-from-stage">Cancel</button>{% endif %}</p>
 {% if not cancel_url %}
-<form id="logout-from-stage" method="post" action="{% url 'account_logout' %}">
+<form id="logout-from-stage" method="post" action="{% url 'account_logout' %}" hidden>
   <input type="hidden" name="next" value="{% url 'account_login' %}">
   {% csrf_token %}
 </form>

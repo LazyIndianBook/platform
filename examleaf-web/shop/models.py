@@ -211,6 +211,10 @@ class Product(TimeStampedModel):
         return self.stock
 
     @property
+    def saving(self):  # the .price "Save ₹49 (9%)" line
+        return self.mrp - self.price
+
+    @property
     def saving_percent(self):
         return round((self.mrp.amount - self.price.amount) * 100 / self.mrp.amount) if self.mrp.amount else 0
 

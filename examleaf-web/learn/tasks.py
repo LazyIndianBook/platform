@@ -75,8 +75,10 @@ def send_reminders():
     from firebase_admin import messaging
 
     today, sent = timezone.localdate(), 0
-    devices = list(
-        Device.objects.filter(user__learner__reminders=True, user__is_active=True).select_related("user__learner")
+    devices = list(  # in id order: the batches of 500 are the same on every database
+        Device.objects.filter(user__learner__reminders=True, user__is_active=True)
+        .select_related("user__learner")
+        .order_by("pk")
     )
     for start in range(0, len(devices), 500):  # send_each takes at most 500
         batch = devices[start : start + 500]

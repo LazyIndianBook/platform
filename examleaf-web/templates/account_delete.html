@@ -2,15 +2,27 @@
 {% block head_title %}Delete my account{% endblock %}
 {% block meta_description %}Delete your ExamLeaf account and the personal details we keep about you.{% endblock %}
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block main_class %}{% endblock %}
 {% block content %}
-<h1>Delete my account</h1>
-<p>Your account, your record and your details (name, email, date of birth, parent's details) will be deleted seven days
-from now. Until then you can log in and keep your account. After that it cannot be undone. Orders and their invoices stay, as tax law requires, with the delivery address you gave for them.</p>
-<p>Want a copy first? <a href="{% url 'data_export' %}">Download my data</a>.</p>
-<form method="post" class="narrow">
-  {% csrf_token %}
-  {{ form }}
-  <button type="submit">Delete my account</button>
-</form>
-<p><a href="{% url 'account' %}">Back to my account</a></p>
+<section class="section section-top">
+  <div class="container narrow">
+    <div class="card">
+      <div class="card-header"><h1>Delete my account</h1></div>
+      <form method="post">
+        {% csrf_token %}
+        <div class="card-body">
+          <div class="alert alert-warning"><svg class="icon" aria-hidden="true"><use href="#icon-alert"/></svg><div><p>Your account, your record and your details (name, email, date of birth, parent's details) will be deleted seven days
+          from now. Until then you can log in and keep your account. After that it cannot be undone. Orders and their invoices stay, as tax law requires, with the delivery address you gave for them.</p></div></div>
+          <p>Want a copy first? <a href="{% url 'data_export' %}">Download my data</a>.</p>
+          {% include "_form_errors.html" %}
+          {% for field in form %}{% include "_field.html" %}{% endfor %}
+        </div>
+        <div class="card-footer">
+          <button type="submit" class="btn btn-destructive"><svg class="icon" aria-hidden="true"><use href="#icon-trash"/></svg><span>Delete my account</span></button>
+          <a href="{% url 'account' %}">Back to my account</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
 {% endblock %}

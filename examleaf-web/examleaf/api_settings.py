@@ -99,6 +99,8 @@ SPECTACULAR_SETTINGS = {
     "ENUM_NAME_OVERRIDES": {  # two models have a "status" with choices
         "OrderStatusEnum": "shop.models.Order.Status",
         "DeletionStatusEnum": "accounts.models.DeletionRequest.Status",
+        "PaymentMethodEnum": "shop.models.Order.Method",  # an order's; checkout offers two of the three
+        "CheckoutMethodEnum": "shop.services.CUSTOMER_METHOD_CHOICES",
     },
 }
 

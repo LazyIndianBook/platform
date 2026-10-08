@@ -1,26 +1,63 @@
-{% extends "base.html" %}{% load shop markdown %}
+{% extends "base.html" %}{% load markdown pictures %}
 {% block head_title %}{% if heading %}{{ heading }}: ExamLeaf shop{% else %}Shop: printed books{% endif %}{% endblock %}
 {% block meta_description %}{% if heading %}{{ heading }}: ExamLeaf books for the Assam Board (ASSEB) Class 12 examination, delivered across India.{% else %}Buy ExamLeaf Sample Papers and Solutions books for the Assam Board (ASSEB) Class 12 examination, delivered across India.{% endif %}{% endblock %}
+{% block main_class %}catalogue{% endblock %}
 {% block content %}
-<section class="hero">
-  {% if heading %}
-  <nav class="breadcrumb" aria-label="Breadcrumb"><ol><li><a href="{% url 'shop:catalogue' %}">Shop</a></li>{% for name, url in crumbs %}<li><a href="{{ url }}">{{ name }}</a></li>{% endfor %}<li aria-current="page">{{ heading }}</li></ol></nav>
-  <h1>{{ heading }}</h1>
-  {% if intro %}<div class="prose">{{ intro|markdown }}</div>{% endif %}
-  {% else %}
-  <h1>Buy the books</h1>
-  <p class="lead">Printed Sample Papers and Solutions books, delivered anywhere in India. Pay online with UPI, a card or net banking.</p>
-  {% endif %}
-  {% if not shop_open %}<p class="notice-line">Shop opens soon: the books and their prices are here, orders open in a few days.</p>{% endif %}
+<section class="section section-top">
+  <div class="container">
+    <div class="shop-head">
+      {% if heading %}
+      <nav class="breadcrumb" aria-label="Breadcrumb"><ol><li><a href="{% url 'shop:catalogue' %}">Shop</a><svg class="icon" aria-hidden="true"><use href="#icon-chevron-right"/></svg></li>{% for name, url in crumbs %}<li><a href="{{ url }}">{{ name }}</a><svg class="icon" aria-hidden="true"><use href="#icon-chevron-right"/></svg></li>{% endfor %}<li><span aria-current="page">{{ heading }}</span></li></ol></nav>
+      <h1>{{ heading }}</h1>
+      {% if intro %}<div class="prose lead">{{ intro|markdown }}</div>{% endif %}
+      {% else %}
+      <p class="eyebrow">Shop · ASSEB Class 12</p>
+      <h1>Buy the books</h1>
+      <p class="lead">Printed Sample Papers and Solutions books, delivered anywhere in India. Pay online with UPI, a card or net banking.</p>
+      {% endif %}
+      <ul class="trust shop-trust">
+        <li><svg class="icon" aria-hidden="true"><use href="#icon-truck"/></svg>Delivered anywhere in India</li>
+        <li><svg class="icon" aria-hidden="true"><use href="#icon-lock"/></svg>Secure payment through Razorpay</li>
+        <li><svg class="icon" aria-hidden="true"><use href="#icon-package"/></svg>Cancel until it is packed</li>
+      </ul>
+      {% if not shop_open %}<div class="alert alert-info" role="status"><svg class="icon" aria-hidden="true"><use href="#icon-info"/></svg><div><p class="alert-title">Shop opens soon</p><p>The books and their prices are here; orders open in a few days.</p></div></div>{% endif %}
+      {% if shelves %}<nav class="shop-links" aria-label="Shelves"><span>Shelves</span><ul>{% for shelf in shelves %}<li><a href="{{ shelf.get_absolute_url }}">{{ shelf.name }}</a></li>{% endfor %}</ul></nav>{% endif %}
+      {% if collections %}<nav class="shop-links" aria-label="Collections"><span>Collections</span><ul>{% for collection in collections %}<li><a href="{{ collection.get_absolute_url }}">{{ collection.name }}</a></li>{% endfor %}</ul></nav>{% endif %}
+    </div>
+
+    {% if object_list %}
+    {% if not heading %}
+    {# Subject tabs: CSS only (:has), so browsers without it show every book and no tabs #}
+    <fieldset class="tabs subject-tabs"><legend class="sr-only">Subject</legend><div>
+      <label><input type="radio" name="subject" value="all" checked> All subjects</label>
+      <label><input type="radio" name="subject" value="physics"> Physics</label>
+      <label><input type="radio" name="subject" value="chemistry"> Chemistry</label>
+      <label><input type="radio" name="subject" value="mathematics"> Mathematics</label>
+      <label><input type="radio" name="subject" value="biology"> Biology</label>
+    </div></fieldset>
+    {% for product in object_list %}{% if product.kind == "bundle" %}
+    <div class="card featured"{% if product.subject %} data-subject="{{ product.subject.name|lower }}"{% endif %}><div class="card-body">
+      <div class="fan" aria-hidden="true">{% for item in product.bundle_items.all|slice:":2" %}<span class="cover pcover">{% if item.product.cover %}{% picture item.product.cover img_alt="" img_loading="lazy" ratio="2/3" s=4 m=2 l=2 %}{% else %}{% include "shop/no_cover.html" with product=item.product %}{% endif %}</span>{% empty %}<span class="cover pcover">{% if product.cover %}{% picture product.cover img_alt="" img_loading="lazy" ratio="2/3" s=4 m=2 l=2 %}{% else %}{% include "shop/no_cover.html" %}{% endif %}</span>{% endfor %}</div>
+      <div class="featured-text">
+        <div class="chips">{% if product.mrp != product.price %}<span class="badge badge-gold">Best value</span>{% endif %}<span class="badge badge-muted">{{ product.get_kind_display }}</span>{% if product.subject %}<span class="badge badge-{{ product.subject.name|lower }}">{{ product.subject.name }}</span>{% endif %}</div>
+        <h2>{{ product.title }}</h2>
+        <p class="muted">{% if product.subject %}Both {{ product.subject.name }} books together: {% endif %}{% for item in product.bundle_items.all %}{% if not forloop.first %}{% if forloop.last %} and {% else %}, {% endif %}{% endif %}{{ item.product.get_kind_display }}{% endfor %}.</p>
+        {% include "shop/_price.html" %}
+        <div class="row">
+          {% if shop_open and product.available %}<form method="post" action="{% url 'shop:cart_add' product.pk %}">{% csrf_token %}<button type="submit" class="btn btn-accent btn-lg"><svg class="icon" aria-hidden="true"><use href="#icon-bag"/></svg><span>Add to cart</span></button></form>{% endif %}
+          <a class="btn btn-secondary btn-lg" href="{{ product.get_absolute_url }}">See the bundle</a>
+        </div>
+      </div>
+    </div></div>
+    {% endif %}{% endfor %}
+    {% endif %}
+    <ul class="grid products">
+      {% for product in object_list %}{% if heading or product.kind != "bundle" %}{% include "shop/_product_card.html" %}{% endif %}{% endfor %}
+    </ul>
+    {% else %}
+    <div class="empty"><svg class="icon icon-lg" aria-hidden="true"><use href="#icon-book"/></svg><h2>No books here yet</h2><p>The books are being prepared. Please come back soon.</p>{% if heading %}<a class="btn btn-primary" href="{% url 'shop:catalogue' %}">All books</a>{% endif %}</div>
+    {% endif %}
+    <p class="shop-foot">Ordered without an account? <a href="{% url 'shop:lookup' %}">Find your order</a>. For a school or a bookshop: <a href="{% url 'shop:quote' %}">school and bulk orders</a>.</p>
+  </div>
 </section>
-{% if shelves %}<nav class="shelves" aria-label="Categories"><ul>{% for shelf in shelves %}<li><a href="{{ shelf.get_absolute_url }}">{{ shelf.name }}</a></li>{% endfor %}</ul></nav>{% endif %}
-{% if collections %}<nav class="collections" aria-label="Collections"><ul>{% for collection in collections %}<li><a href="{{ collection.get_absolute_url }}">{{ collection.name }}</a></li>{% endfor %}</ul></nav>{% endif %}
-<ul class="products">
-  {% for product in object_list %}
-  {% include "shop/_product_card.html" %}
-  {% empty %}
-  <li>No books on sale yet.</li>
-  {% endfor %}
-</ul>
-<p class="muted">Ordered without an account? <a href="{% url 'shop:lookup' %}">Find your order</a>. For a school or a bookshop: <a href="{% url 'shop:quote' %}">school and bulk orders</a>.</p>
 {% endblock %}

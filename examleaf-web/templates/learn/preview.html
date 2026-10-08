@@ -1,25 +1,49 @@
-{% extends "admin/base_site.html" %}
+{% extends "base.html" %}
 {% load static markdown %}
-{# The staff player (learn.views.preview): hls.js from this site (static/learn/), started by static/learn/preview.js. #}
-{% block extrahead %}{{ block.super }}
+{# The staff player (learn.views.preview), on the site's layout: hls.js from this site (static/learn/), started by
+static/learn/preview.js (it fills #clip-levels, #clip-pick and #clip-error). #}
+{% block head_title %}Preview: {{ clip.title }}{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block extra_head %}
 <script src="{% static 'learn/hls.min.js' %}" defer></script>
 <script src="{% static 'learn/preview.js' %}" defer></script>
 {% endblock %}
-{% block breadcrumbs %}<div class="breadcrumbs"><a href="{% url 'admin:index' %}">Home</a> › <a href="{% url 'admin:learn_clip_changelist' %}">Clips</a> › <a href="{% url 'admin:learn_clip_change' clip.pk %}">{{ clip }}</a> › Preview</div>{% endblock %}
+{% block main_class %}{% endblock %}
 {% block content %}
-<h1>{{ clip.title }}</h1>
-<p>{{ clip.revision.chapter }} · {{ clip.revision.get_status_display }} · {{ clip.get_kind_display }} · processing: {{ clip.get_processing_display }}{% if clip.duration %} · {{ clip.duration }} s{% endif %}</p>
-{% if playback %}
-<video id="clip-video" data-src="{{ playback.hls_url }}" poster="{{ playback.poster_url }}" controls playsinline preload="metadata" style="width: 360px; max-width: 100%; aspect-ratio: 9 / 16; background: #000"></video>
-<p>Renditions: <span id="clip-levels">…</span> <span id="clip-pick"></span></p>
-<p id="clip-error" role="alert"></p>
-<p>The links work for 10 minutes: reload the page after that.</p>
-{% elif clip.processing == "failed" %}
-<p>ffmpeg could not process the video. The end of its messages:</p>
-<pre style="white-space: pre-wrap">{{ clip.processing_error }}</pre>
-<p>Upload a new video on the clip, or process it again (Clips, action "Process the video again").</p>
-{% else %}
-<p>Not ready yet: the media worker processes the video (a minute or two for a short clip). Reload this page.</p>
-{% endif %}
-{% if clip.notes %}<h2>Notes</h2><div>{{ clip.notes|markdown }}</div>{% endif %}
+<section class="section section-top">
+  <div class="container">
+    <nav class="breadcrumb" aria-label="Breadcrumb"><ol>
+      <li><a href="{% url 'admin:index' %}">Admin</a><svg class="icon" aria-hidden="true"><use href="#icon-chevron-right"/></svg></li>
+      <li><a href="{% url 'admin:learn_clip_changelist' %}">Clips</a><svg class="icon" aria-hidden="true"><use href="#icon-chevron-right"/></svg></li>
+      <li><a href="{% url 'admin:learn_clip_change' clip.pk %}">{{ clip }}</a><svg class="icon" aria-hidden="true"><use href="#icon-chevron-right"/></svg></li>
+      <li><span aria-current="page">Preview</span></li>
+    </ol></nav>
+    <h1>{{ clip.title }}</h1>
+    <p class="chips clip-facts"><span class="badge badge-muted">{{ clip.revision.chapter }}</span><span class="badge badge-muted">{{ clip.revision.get_status_display }}</span><span class="badge badge-muted">{{ clip.get_kind_display }}</span><span class="badge badge-muted">Processing: {{ clip.get_processing_display }}</span>{% if clip.duration %}<span class="badge badge-muted">{{ clip.duration }} s</span>{% endif %}</p>
+    <div class="clip-layout">
+      <div class="clip-player">
+        {% if playback %}
+        <video id="clip-video" class="clip-video" data-src="{{ playback.hls_url }}" poster="{{ playback.poster_url }}" controls playsinline preload="metadata"></video>
+        <p class="muted">Renditions: <span id="clip-levels">…</span></p>
+        <div id="clip-pick" class="row clip-pick"></div>
+        <p id="clip-error" class="field-error" role="alert"></p>
+        <p class="caption">The links work for 10 minutes: reload the page after that.</p>
+        {% elif clip.processing == "failed" %}
+        <div class="alert alert-error"><svg class="icon" aria-hidden="true"><use href="#icon-alert"/></svg><div>
+          <p class="alert-title">ffmpeg could not process the video.</p>
+          <p>The end of its messages:</p>
+          <pre class="clip-log">{{ clip.processing_error }}</pre>
+          <p>Upload a new video on the clip, or process it again (Clips, action "Process the video again").</p>
+        </div></div>
+        {% else %}
+        <div class="alert alert-info" role="status"><svg class="icon" aria-hidden="true"><use href="#icon-clock"/></svg><div>
+          <p class="alert-title">Not ready yet</p>
+          <p>The media worker processes the video (a minute or two for a short clip). Reload this page.</p>
+        </div></div>
+        {% endif %}
+      </div>
+      {% if clip.notes %}<div class="card clip-notes"><div class="card-header"><h2>Notes</h2></div><div class="card-body prose">{{ clip.notes|markdown }}</div></div>{% endif %}
+    </div>
+  </div>
+</section>
 {% endblock %}

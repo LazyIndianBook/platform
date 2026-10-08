@@ -3,51 +3,85 @@
 {% block meta_description %}The status, delivery and invoice of your ExamLeaf order.{% endblock %}
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
 {% block content %}
-{% if thanks %}
-<section class="landing thanks">
-  {% if order.status == "cancelled" or order.status == "refunded" %}
-    <h1>We could not complete this order</h1>
-    <p>Order <strong>{{ order.number }}</strong> was cancelled: the last copies sold, or a coupon ran out, while you were paying. Any money taken is refunded in full, and we email you when it is sent. Your cart is as you left it.</p>
-  {% elif order.status == "pending" and not order.placed_at %}
-    <h1>Thank you!</h1>
-    <p>We are confirming your payment with the bank. This page and your email show it in a few minutes; nothing more to do.</p>
-  {% else %}
-    <h1>Thank you!</h1>
-    <p>Order <strong>{{ order.number }}</strong> is placed. A confirmation is on its way to {{ order.email }}.</p>
-  {% endif %}
-  {% if not user.is_authenticated %}<p class="muted">Every email about this order has a link that opens this page again (lost them? <a href="{% url 'shop:lookup' %}">Find your order</a>).</p>{% endif %}
+<section class="section section-top">
+  <div class="container">
+    {% if thanks %}{% include "shop/_stepper.html" with current=4 %}{% endif %}
+    <div class="page-head order-head">
+      <div>
+        <p class="eyebrow">Order {{ order.number }}</p>
+        {% if thanks and order.status == "cancelled" or thanks and order.status == "refunded" %}<h1>We could not complete this order</h1>
+        {% elif thanks %}<h1>Thank you!</h1>
+        {% else %}<h1>Your order is {{ order.status_label }}</h1>{% endif %}
+      </div>
+      <span class="badge badge-muted badge-lg">{% if order.placed_at and order.status != "cancelled" and order.status != "refunded" %}<svg class="icon" aria-hidden="true"><use href="#icon-check"/></svg>{% endif %}{{ order.status_label|capfirst }}</span>
+    </div>
+    {% if thanks %}
+    {% if order.status == "cancelled" or order.status == "refunded" %}
+    <div class="alert alert-warning" role="status"><svg class="icon" aria-hidden="true"><use href="#icon-alert"/></svg><div><p>Order <strong>{{ order.number }}</strong> was cancelled: the last copies sold, or a coupon ran out, while you were paying. Any money taken is refunded in full, and we email you when it is sent. Your cart is as you left it.</p></div></div>
+    {% elif order.status == "pending" and not order.placed_at %}
+    <div class="alert alert-info" role="status"><svg class="icon" aria-hidden="true"><use href="#icon-clock"/></svg><div><p class="alert-title">We are confirming your payment</p><p>The bank is telling us. This page and your email show it in a few minutes; nothing more to do.</p></div></div>
+    {% else %}
+    <div class="alert alert-success" role="status"><svg class="icon" aria-hidden="true"><use href="#icon-check-circle"/></svg><div><p class="alert-title">{% if order.is_cod %}Order placed{% else %}Payment received{% endif %}</p><p>Order <strong>{{ order.number }}</strong> is placed. A confirmation is on its way to {{ order.email }}.</p></div></div>
+    {% endif %}
+    {% if not user.is_authenticated %}<p class="small muted">Every email about this order has a link that opens this page again (lost them? <a href="{% url 'shop:lookup' %}">Find your order</a>).</p>{% endif %}
+    {% endif %}
+
+    <div class="two-col order-cols">
+      <div class="main-col stack">
+        <div class="card">
+          <div class="card-header"><h2>Where it is</h2></div>
+          <div class="card-body">
+            <ol class="timeline">
+              {% for label, when in order.timeline %}{% if forloop.last and order.status != "delivered" and order.status != "cancelled" and order.status != "refunded" %}<li class="timeline-item current" aria-current="step"><span class="dot"></span>{% else %}<li class="timeline-item done"><span class="dot"><svg class="icon" aria-hidden="true"><use href="#icon-check"/></svg></span>{% endif %}<span><strong>{{ label|capfirst }}</strong><time datetime="{{ when|date:'c' }}">{{ when|date:"j M Y, H:i" }}</time></span></li>
+              {% endfor %}
+              {% if order.status == "pending" and not order.placed_at and not order.is_cod %}<li class="timeline-item"><span class="dot"></span><span><strong>Paid</strong></span></li>{% endif %}
+              {% if not order.is_digital %}
+              {% if order.status == "pending" or order.status == "paid" %}<li class="timeline-item"><span class="dot"></span><span><strong>Packed</strong></span></li>{% endif %}
+              {% if order.status == "pending" or order.status == "paid" or order.status == "packed" %}<li class="timeline-item"><span class="dot"></span><span><strong>Shipped</strong><small>We email you the tracking number.</small></span></li>{% endif %}
+              {% endif %}
+              {% if order.status == "pending" or order.status == "paid" or order.status == "packed" or order.status == "shipped" %}<li class="timeline-item"><span class="dot"></span><span><strong>Delivered</strong></span></li>{% endif %}
+            </ol>
+            {% for shipment in shipments %}
+            <p class="note-line"><svg class="icon" aria-hidden="true"><use href="#icon-truck"/></svg><span>Sent by {{ shipment.courier }} on {{ shipment.shipped_at|date:"j M Y" }}, tracking number <strong>{{ shipment.tracking_number }}</strong>{% if shipment.tracking_url %} · <a href="{{ shipment.tracking_url }}" rel="noopener" target="_blank">track the parcel</a>{% endif %}{% if shipment.delivered_at %} · delivered {{ shipment.delivered_at|date:"j M Y" }}{% endif %}</span></p>
+            {% endfor %}
+            {% for refund in refunds %}
+            <p class="note-line"><svg class="icon" aria-hidden="true"><use href="#icon-refresh"/></svg><span>Refund of {{ refund.amount|inr }}: {% if refund.status == "processed" %}sent on {{ refund.processed_at|date:"j M Y" }}; your bank may take 5–7 working days to show it{% elif refund.status == "pending" %}on its way to the account you paid from (5–7 working days){% else %}delayed; we are on it and will email you{% endif %}.</span></p>
+            {% endfor %}
+            {% if order.can_cancel %}
+            <form method="post" action="{% if token %}{% url 'shop:order_link_cancel' token %}{% else %}{% url 'shop:order_cancel' order.number %}{% endif %}" id="cancel-form" class="cancel-box">{% csrf_token %}
+              <button type="submit" class="btn btn-secondary" data-dialog="cancel-dialog"><svg class="icon" aria-hidden="true"><use href="#icon-x"/></svg><span>Cancel the order</span></button>
+              <p class="small muted">You can cancel until it is packed. {% if order.status == "paid" %}The full amount is refunded to the account, card or UPI ID you paid from, within 5–7 working days.{% else %}Nothing has been charged.{% endif %}</p>
+            </form>
+            {% endif %}
+          </div>
+        </div>
+        {% if token %}<p class="note-line"><svg class="icon" aria-hidden="true"><use href="#icon-lock"/></svg><span>This page opens from the link in your emails, without an account: keep the link to yourself. Lost it? <a href="{% url 'shop:lookup' %}">Find your order</a>.</span></p>{% endif %}
+      </div>
+      <aside class="card summary-card" aria-labelledby="summary-title">
+        <div class="card-header"><h2 id="summary-title">Order summary</h2></div>
+        <div class="card-body">
+          {% include "shop/order_summary.html" %}
+          <h3>Delivery to</h3>
+          <p class="address">{% for line in order.address_lines %}{{ line }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</p>
+          <p class="small muted">Payment: {{ order.get_payment_method_display }}{% if order.placed_at %} · ordered {{ order.placed_at|date:"j M Y" }}{% endif %}</p>
+          {% if order.status == "pending" and not order.placed_at and not token %}<a class="btn btn-accent btn-block" href="{% url 'shop:pay' order.number %}"><svg class="icon" aria-hidden="true"><use href="#icon-lock"/></svg><span>Pay now</span></a>{% endif %}
+          {% if invoice %}<a class="btn btn-secondary btn-block" href="{% if token %}{% url 'shop:order_link_invoice' token %}{% else %}{% url 'shop:invoice' order.number %}{% endif %}"><svg class="icon" aria-hidden="true"><use href="#icon-download"/></svg><span>Download the invoice</span></a>
+          {% elif order.placed_at and not order.is_cod %}<div class="invoice-slot"><span class="skeleton" aria-hidden="true"></span><span class="skeleton" aria-hidden="true"></span><p class="small muted">The invoice will appear here in a few minutes.</p></div>{% endif %}
+          {% for note in credit_notes %}<a class="btn btn-secondary btn-block" href="{% if token %}{% url 'shop:order_link_credit_note' token note.pk %}{% else %}{% url 'shop:credit_note' order.number note.pk %}{% endif %}"><svg class="icon" aria-hidden="true"><use href="#icon-file"/></svg><span>Credit note {{ note.number }}</span></a>{% endfor %}
+        </div>
+        <div class="card-footer">
+          <a class="link-go" href="{% if user.is_authenticated %}{% url 'shop:orders' %}{% else %}{% url 'shop:catalogue' %}{% endif %}"><svg class="icon" aria-hidden="true"><use href="#icon-arrow-left"/></svg>{% if user.is_authenticated %}My orders{% else %}Back to the shop{% endif %}</a>
+          <p class="small muted">Questions? <a href="{% url 'contact' %}">Contact us</a> with the order number.</p>
+        </div>
+      </aside>
+    </div>
+    {% if order.can_cancel %}
+    <dialog class="dialog" id="cancel-dialog" aria-labelledby="cancel-title">
+      <div class="card-header"><h2 id="cancel-title">Cancel this order?</h2><form method="dialog"><button class="btn btn-ghost btn-icon" aria-label="Close"><svg class="icon" aria-hidden="true"><use href="#icon-x"/></svg></button></form></div>
+      <div class="card-body"><p>Order <strong>{{ order.number }}</strong> is cancelled and its books are not sent. {% if order.status == "paid" %}The full amount is refunded to the account, card or UPI ID you paid from.{% else %}Nothing has been charged.{% endif %}</p></div>
+      <div class="card-footer"><form method="dialog"><button class="btn btn-secondary">Keep the order</button></form><button type="submit" form="cancel-form" class="btn btn-destructive">Cancel the order</button></div>
+    </dialog>
+    {% endif %}
+  </div>
 </section>
-{% else %}
-<h1>Order {{ order.number }}</h1>
-{% endif %}
-
-<p class="status status-{{ order.status }}">{{ order.status_label|capfirst }}</p>
-<ol class="timeline">
-  {% for label, when in order.timeline %}<li><strong>{{ label|capfirst }}</strong> <time datetime="{{ when|date:'c' }}">{{ when|date:"j M Y, H:i" }}</time></li>{% endfor %}
-</ol>
-
-{% for shipment in shipments %}
-<p class="shipment">Sent by {{ shipment.courier }} on {{ shipment.shipped_at|date:"j M Y" }}, tracking number <strong>{{ shipment.tracking_number }}</strong>{% if shipment.tracking_url %} · <a href="{{ shipment.tracking_url }}" rel="noopener" target="_blank">track the parcel</a>{% endif %}{% if shipment.delivered_at %} · delivered {{ shipment.delivered_at|date:"j M Y" }}{% endif %}</p>
-{% endfor %}
-{% for refund in refunds %}
-<p class="shipment">Refund of {{ refund.amount|inr }}: {% if refund.status == "processed" %}sent on {{ refund.processed_at|date:"j M Y" }}; your bank may take 5–7 working days to show it{% elif refund.status == "pending" %}on its way to the account you paid from (5–7 working days){% else %}delayed; we are on it and will email you{% endif %}.</p>
-{% endfor %}
-
-{% include "shop/order_summary.html" %}
-<h2>Delivery to</h2>
-<p class="address">{% for line in order.address_lines %}{{ line }}<br>{% endfor %}</p>
-<p class="muted">Payment: {{ order.get_payment_method_display }}{% if order.placed_at %} · ordered {{ order.placed_at|date:"j M Y" }}{% endif %}</p>
-
-<p class="actions">
-  {% if order.status == "pending" and not order.placed_at and not token %}<a class="button" href="{% url 'shop:pay' order.number %}">Pay now</a>{% endif %}
-  {% if invoice %}<a class="button secondary" href="{% if token %}{% url 'shop:order_link_invoice' token %}{% else %}{% url 'shop:invoice' order.number %}{% endif %}">Download the invoice</a>{% elif order.placed_at and not order.is_cod %}<span class="muted">The invoice will appear here in a few minutes.</span>{% endif %}
-  {% for note in credit_notes %}<a class="button secondary" href="{% if token %}{% url 'shop:order_link_credit_note' token note.pk %}{% else %}{% url 'shop:credit_note' order.number note.pk %}{% endif %}">Credit note {{ note.number }}</a>{% endfor %}
-</p>
-{% if order.can_cancel %}
-<form method="post" action="{% if token %}{% url 'shop:order_link_cancel' token %}{% else %}{% url 'shop:order_cancel' order.number %}{% endif %}" class="cancel">{% csrf_token %}
-  <button type="submit" class="secondary">Cancel the order</button>
-  <span class="helptext">{% if order.status == "paid" %}The full amount is refunded to the account, card or UPI ID you paid from, within 5–7 working days.{% else %}Nothing has been charged.{% endif %}</span>
-</form>
-{% endif %}
-<p><a href="{% if user.is_authenticated %}{% url 'shop:orders' %}{% else %}{% url 'shop:catalogue' %}{% endif %}">{% if user.is_authenticated %}My orders{% else %}Back to the shop{% endif %}</a> · Questions? <a href="{% url 'contact' %}">Contact us</a> with the order number.</p>
 {% endblock %}

@@ -43,8 +43,7 @@
 {% if messages %}<ul class="toast" aria-live="polite">{% for message in messages %}
   <li><details class="toast-item {{ message.tags }}" open><summary class="btn btn-ghost btn-icon" aria-label="Dismiss"><svg class="icon" aria-hidden="true"><use href="#icon-x"/></svg></summary><svg class="icon" aria-hidden="true"><use href="#icon-{% if 'error' in message.tags or 'warning' in message.tags %}alert{% elif 'success' in message.tags %}check-circle{% else %}info{% endif %}"/></svg><p>{{ message }}</p></details></li>
 {% endfor %}</ul>{% endif %}
-{# "legacy" keeps a page without a container of its own (shop, account) in the old centred column until stage 2 #}
-<main id="main" class="{% block main_class %}legacy{% endblock %}">{% block content %}{% endblock %}</main>
+<main id="main" class="{% block main_class %}{% endblock %}">{% block content %}{% endblock %}</main>
 <footer class="footer band band-night">
   <div class="container">
     <div class="footer-top">

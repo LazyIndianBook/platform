@@ -1,0 +1,1 @@
+A log-in code has gone to {{ recipient }}.

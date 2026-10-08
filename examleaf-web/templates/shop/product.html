@@ -1,98 +1,132 @@
 {% extends "base.html" %}{% load shop markdown pictures %}
 {% block head_title %}{{ product.seo_title|default:product.title }}{% endblock %}
 {% block meta_description %}{% if product.seo_description %}{{ product.seo_description }}{% else %}{{ product.title }}{% if product.subject %} for the {{ product.subject.board }} {{ product.subject.class_level }} examination{% endif %}: {{ product.price|inr }}, delivered across India.{% endif %}{% endblock %}
+{% block main_class %}shop-page{% endblock %}
 {% block content %}
-<div class="book-head">
-  {% if product.cover %}{% picture product.cover img_alt="Cover of "|add:product.title ratio="2/3" s=4 m=3 l=3 %}{% else %}{% include "shop/no_cover.html" %}{% endif %}
-  <div>
-    <p class="eyebrow">{{ product.get_kind_display }}{% if product.subject %} · {{ product.subject.board }} · {{ product.subject.class_level }}{% endif %}</p>
-    <h1>{{ product.title }}</h1>
-    <p class="price big">{{ product.price|inr }}
-      {% if product.mrp != product.price %}<s>{{ product.mrp|inr }}</s> <span class="save">{{ product.saving_percent }}% off</span>{% endif %}</p>
-    {% with left=product.available %}
-    {% if not shop_open %}
-      <p class="notice-line">Shop opens soon.</p>
-    {% elif left %}
-      <form method="post" action="{% url 'shop:cart_add' product.pk %}" class="add-to-cart">{% csrf_token %}
-        <label for="quantity">Copies</label>
-        <input id="quantity" name="quantity" type="number" min="1" max="{{ left|stringformat:'d' }}" value="1" inputmode="numeric">
-        <button type="submit">Add to cart</button>
-      </form>
-      {% if left < 10 and not product.is_digital %}<p class="stock">Only {{ left }} left.</p>{% endif %}
-    {% else %}
-      <p class="stock out">Out of stock for now.</p>
-      <form method="post" action="{% url 'shop:stock_alert' product.slug %}" class="field">{% csrf_token %}
-        {% if not user.is_authenticated %}<label for="alert-email">Email me once when it is back</label>
-        <input id="alert-email" class="input" name="email" type="email" autocomplete="email" required>{% endif %}
-        <p hidden><label>Leave this empty <input name="website" tabindex="-1" autocomplete="off"></label></p>
-        <button type="submit" class="btn btn-secondary">Email me when it is back</button>
-      </form>
-    {% endif %}
-    {% endwith %}
+<section class="section section-top">
+  <div class="container">
+    <nav class="breadcrumb" aria-label="Breadcrumb"><ol><li><a href="{% url 'shop:catalogue' %}">Shop</a><svg class="icon" aria-hidden="true"><use href="#icon-chevron-right"/></svg></li>{% if product.book %}<li><a href="{{ product.book.get_absolute_url }}">{{ product.subject.name }}</a><svg class="icon" aria-hidden="true"><use href="#icon-chevron-right"/></svg></li><li><span aria-current="page">{{ product.get_kind_display }}</span></li>{% else %}<li><span aria-current="page">{{ product.title }}</span></li>{% endif %}</ol></nav>
+    <div class="product-hero">
+      <div class="product-cover"><span class="cover pcover">{% if product.cover %}{% picture product.cover img_alt="Cover of "|add:product.title img_fetchpriority="high" ratio="2/3" s=6 m=4 l=4 %}{% else %}{% include "shop/no_cover.html" %}{% endif %}</span></div>
+      <div class="product-buy">
+        <div class="chips"><span class="badge badge-muted">{{ product.get_kind_display }}</span>{% if product.subject %}<span class="badge badge-{{ product.subject.name|lower }}">{{ product.subject.name }}</span>{% endif %}</div>
+        {% if product.subject %}<p class="eyebrow">{{ product.subject.board }} · {{ product.subject.class_level }}</p>{% endif %}
+        <h1>{{ product.title }}</h1>
+        {% include "shop/_price.html" %}
+        {% if product.description %}<div class="prose">{{ product.description|markdown }}</div>{% endif %}
+        {% with left=product.available %}
+        {% if not shop_open %}
+        <div class="alert alert-info" role="status"><svg class="icon" aria-hidden="true"><use href="#icon-info"/></svg><div><p class="alert-title">Shop opens soon</p><p>Orders open in a few days.</p></div></div>
+        {% elif left %}
+        <form method="post" action="{% url 'shop:cart_add' product.pk %}" class="buy-row">{% csrf_token %}
+          <div class="field"><label for="quantity">Copies</label>
+            <div class="qty"><button type="button" class="btn btn-ghost" data-step="down" aria-label="One copy fewer" hidden><svg class="icon" aria-hidden="true"><use href="#icon-minus"/></svg></button><input id="quantity" name="quantity" type="number" min="1" max="{{ left|stringformat:'d' }}" value="1" inputmode="numeric"><button type="button" class="btn btn-ghost" data-step="up" aria-label="One copy more" hidden><svg class="icon" aria-hidden="true"><use href="#icon-plus"/></svg></button></div>
+          </div>
+          <button type="submit" class="btn btn-accent btn-lg"><svg class="icon" aria-hidden="true"><use href="#icon-bag"/></svg><span>Add to cart</span></button>
+        </form>
+        {% if left < 10 and not product.is_digital %}<p class="stock-left">Only {{ left }} left.</p>{% endif %}
+        {% else %}
+        <div class="alert alert-warning" role="status"><svg class="icon" aria-hidden="true"><use href="#icon-alert"/></svg><div><p class="alert-title">Out of stock for now</p><p>We email you once, when it is back. Nothing else is sent to that address.</p></div></div>
+        <form method="post" action="{% url 'shop:stock_alert' product.slug %}" class="buy-row">{% csrf_token %}
+          {% if not user.is_authenticated %}<div class="field"><label for="alert-email">Email me once when it is back</label><input id="alert-email" class="input" name="email" type="email" autocomplete="email" required></div>{% endif %}
+          <p hidden><label>Leave this empty <input name="website" tabindex="-1" autocomplete="off"></label></p>
+          <button type="submit" class="btn btn-secondary"><svg class="icon" aria-hidden="true"><use href="#icon-mail"/></svg><span>Email me when it is back</span></button>
+        </form>
+        {% endif %}
+        {% endwith %}
+        <ul class="trust trust-stack">
+          {% if product.is_digital %}<li><svg class="icon" aria-hidden="true"><use href="#icon-phone"/></svg>Opens in the ExamLeaf app as soon as you have paid</li>
+          {% else %}<li><svg class="icon" aria-hidden="true"><use href="#icon-truck"/></svg><span>Delivered anywhere in India: charges in the <a href="{% url 'shipping' %}">Shipping Policy</a></span></li>{% endif %}
+          {% if product.kind == "sample-papers" or product.kind == "bundle" %}<li><svg class="icon" aria-hidden="true"><use href="#icon-qr"/></svg>A QR code on every paper opens its solutions on this site, free</li>{% endif %}
+          {% if not product.is_digital %}<li><svg class="icon" aria-hidden="true"><use href="#icon-package"/></svg>Cancel on the order's page until it is packed</li>{% endif %}
+        </ul>
+      </div>
+    </div>
   </div>
-</div>
-
-{% if product.description %}<div class="prose">{{ product.description|markdown }}</div>{% endif %}
+</section>
 
 {% if bundle_items %}
-<h2>In this bundle</h2>
-<ul>{% for item in bundle_items %}<li>{{ item.quantity }} × <a href="{{ item.product.get_absolute_url }}">{{ item.product }}</a></li>{% endfor %}</ul>
+<section class="section">
+  <div class="container">
+    <div class="q-rule"><span class="qn"></span><span aria-hidden="true"></span><span>In the bundle</span></div>
+    <h2>In this bundle</h2>
+    <ul class="link-list">{% for item in bundle_items %}<li><a href="{{ item.product.get_absolute_url }}">{{ item.quantity }} × {{ item.product }}<svg class="icon" aria-hidden="true"><use href="#icon-arrow-right"/></svg></a></li>{% endfor %}</ul>
+  </div>
+</section>
 {% endif %}
 
 {% if tiers %}
-<h2>What's inside</h2>
-<ul>
-  {% for label, count in tiers %}<li>{{ count }} {{ label }} paper{{ count|pluralize }}</li>{% endfor %}
-  {% if sample_paper %}<li>Each paper: {{ sample_paper.full_marks }} marks, {{ sample_paper.time_text }}, in the board's pattern</li>{% endif %}
-  {% if product.kind == "sample-papers" %}<li>A QR code on every paper opens its full marking-scheme solutions on this site, free</li>{% endif %}
-</ul>
-{% if sample_paper %}<p>See a sample: <a href="{{ sample_paper.get_absolute_url }}">Paper {{ sample_paper.short_code }}</a> · <a href="{{ product.book.get_absolute_url }}">all the papers in the book</a></p>{% endif %}
+<section class="section">
+  <div class="container">
+    <div class="q-rule"><span class="qn"></span><span aria-hidden="true"></span><span>In the book</span></div>
+    <h2>What's inside</h2>
+    <ul class="grid inside">
+      {% for label, count in tiers %}<li class="card"><div class="card-body"><span class="numeral">{{ count }}</span><span class="chips"><span class="badge badge-{{ label|lower }}">{{ label }}</span></span><h3>{{ label }} paper{{ count|pluralize }}</h3></div></li>{% endfor %}
+      {% if sample_paper %}<li class="card"><div class="card-body"><span class="numeral">{{ sample_paper.full_marks }}</span><h3>marks, {{ sample_paper.time_text }}</h3><p>Each paper, in the board's pattern.</p></div></li>{% endif %}
+      {% if product.kind == "sample-papers" %}<li class="card"><div class="card-body"><span class="feature-icon"><svg class="icon" aria-hidden="true"><use href="#icon-qr"/></svg></span><h3>Free solutions</h3><p>A QR code on every paper opens its full marking-scheme solutions on this site, free.</p></div></li>{% endif %}
+    </ul>
+    {% if sample_paper %}<p class="inside-more">See a sample: <a href="{{ sample_paper.get_absolute_url }}">Paper {{ sample_paper.short_code }}</a> · <a href="{{ product.book.get_absolute_url }}">all the papers in the book</a></p>{% endif %}
+  </div>
+</section>
 {% endif %}
 
-<h2>Details</h2>
-<dl class="details">
-  {% if product.subject %}<dt>Subject</dt><dd>{{ product.subject.name }}</dd><dt>Board</dt><dd>{{ product.subject.board.name }}</dd><dt>Class</dt><dd>{{ product.subject.class_level.number }}</dd>{% endif %}
-  {% if product.book.edition %}<dt>Edition</dt><dd>{{ product.book.edition }}</dd>{% endif %}
-  {% if product.pages %}<dt>Pages</dt><dd>{{ product.pages }}</dd>{% endif %}
-  {% if product.isbn %}<dt>ISBN</dt><dd>{{ product.isbn }}</dd>{% endif %}
-  {% for value in attributes %}<dt>{{ value.attribute.name }}</dt><dd>{{ value.value }}</dd>{% endfor %}
-  {% if product.weight_grams %}<dt>Weight</dt><dd>{{ product.weight_grams }} g</dd>{% endif %}
-  {% if categories %}<dt>Shelves</dt><dd>{% for category in categories %}<a href="{{ category.get_absolute_url }}">{{ category.name }}</a>{% if not forloop.last %} · {% endif %}{% endfor %}</dd>{% endif %}
-  {% if product.is_digital %}<dt>Delivery</dt><dd>In the ExamLeaf app, for the account you buy with, as soon as you have paid · <a href="{% url 'refunds' %}">Refund and Cancellation Policy</a></dd>
-  {% else %}<dt>Delivery</dt><dd>Anywhere in India. Dispatch times and charges: <a href="{% url 'shipping' %}">Shipping Policy</a> · returns: <a href="{% url 'refunds' %}">Refund and Cancellation Policy</a></dd>{% endif %}
-</dl>
+<section class="section">
+  <div class="container">
+    <div class="q-rule"><span class="qn"></span><span aria-hidden="true"></span><span>About the book</span></div>
+    <h2>Details</h2>
+    <dl class="dl-rows spec">
+      {% if product.subject %}<div><dt>Subject</dt><dd>{{ product.subject.name }}</dd></div><div><dt>Board</dt><dd>{{ product.subject.board.name }}</dd></div><div><dt>Class</dt><dd>{{ product.subject.class_level.number }}</dd></div>{% endif %}
+      {% if product.book.edition %}<div><dt>Edition</dt><dd>{{ product.book.edition }}</dd></div>{% endif %}
+      {% if product.pages %}<div><dt>Pages</dt><dd>{{ product.pages }}</dd></div>{% endif %}
+      {% if product.isbn %}<div><dt>ISBN</dt><dd>{{ product.isbn }}</dd></div>{% endif %}
+      {% for value in attributes %}<div><dt>{{ value.attribute.name }}</dt><dd>{{ value.value }}</dd></div>{% endfor %}
+      {% if product.weight_grams %}<div><dt>Weight</dt><dd>{{ product.weight_grams }} g</dd></div>{% endif %}
+      {% if categories %}<div><dt>Shelves</dt><dd>{% for category in categories %}<a href="{{ category.get_absolute_url }}">{{ category.name }}</a>{% if not forloop.last %} · {% endif %}{% endfor %}</dd></div>{% endif %}
+      {% if product.is_digital %}<div><dt>Delivery</dt><dd>In the ExamLeaf app, for the account you buy with, as soon as you have paid · <a href="{% url 'refunds' %}">Refund and Cancellation Policy</a></dd></div>
+      {% else %}<div><dt>Delivery</dt><dd>Anywhere in India. Dispatch times and charges: <a href="{% url 'shipping' %}">Shipping Policy</a> · returns: <a href="{% url 'refunds' %}">Refund and Cancellation Policy</a></dd></div>{% endif %}
+    </dl>
+    {% with images=product.images.all %}{% if images %}
+    <div class="grid gallery">{% for image in images %}<figure>{% picture image.image img_alt=image.alt img_loading="lazy" s=12 m=6 l=4 %}{% if image.alt %}<figcaption>{{ image.alt }}</figcaption>{% endif %}</figure>{% endfor %}</div>
+    {% endif %}{% endwith %}
+  </div>
+</section>
 
 {% if related %}
-<h2>You may also need</h2>
-<ul class="products">{% for product in related %}{% include "shop/_product_card.html" %}{% endfor %}</ul>
+<section class="section">
+  <div class="container">
+    <div class="q-rule"><span class="qn"></span><span aria-hidden="true"></span><span>With this book</span></div>
+    <h2>You may also need</h2>
+    <ul class="grid products">{% for product in related %}{% include "shop/_product_card.html" %}{% endfor %}</ul>
+  </div>
+</section>
 {% endif %}
 
-{% for image in product.images.all %}
-<figure class="gallery">{% picture image.image img_alt=image.alt img_loading="lazy" s=12 m=8 l=6 %}{% if image.alt %}<figcaption>{{ image.alt }}</figcaption>{% endif %}</figure>
-{% endfor %}
-
-<section id="reviews" class="reviews">
-  <h2>Reviews</h2>
-  {% if rating %}<p><strong>{{ rating.0|floatformat:1 }} out of 5</strong> from {{ rating.1 }} review{{ rating.1|pluralize }} by buyers</p>{% endif %}
-  {% for review in reviews %}
-  <article class="card"><div class="card-body">
-    <p><span aria-hidden="true">{{ review.stars }}</span> <span class="badge badge-muted">{{ review.rating }} out of 5</span></p>
-    {% if review.text %}<p>{{ review.text|linebreaksbr }}</p>{% endif %}
-    <p class="field-help">Verified buyer · {{ review.created|date:"j F Y" }}</p>
-  </div></article>
-  {% empty %}
-  <p class="field-help">No reviews yet.</p>
-  {% endfor %}
-  {% if review_form %}
-  <form method="post" action="{% url 'shop:review' product.slug %}" class="card">{% csrf_token %}
-    <div class="card-header"><h3>Review this book</h3></div>
-    <div class="card-body">
-      {% for field in review_form %}<div class="field">{{ field.label_tag }} {{ field }}{% if field.help_text %}<p class="field-help">{{ field.help_text }}</p>{% endif %}</div>{% endfor %}
-      <p hidden><label>Leave this empty <input name="website" tabindex="-1" autocomplete="off"></label></p>
-    </div>
-    <div class="card-footer"><button type="submit" class="btn btn-primary">Send the review</button></div>
-  </form>
-  {% endif %}
+<section class="section" id="reviews">
+  <div class="container">
+    <div class="q-rule"><span class="qn"></span><span aria-hidden="true"></span><span>From buyers</span></div>
+    <h2>Reviews</h2>
+    {% if rating %}<p class="lead"><strong>{{ rating.0|floatformat:1 }} out of 5</strong> from {{ rating.1 }} review{{ rating.1|pluralize }} by buyers</p>{% endif %}
+    {% if reviews %}
+    <div class="grid reviews">{% for review in reviews %}
+      <article class="card"><div class="card-body">
+        <p class="chips"><span class="stars" aria-hidden="true">{{ review.stars }}</span><span class="badge badge-muted">{{ review.rating }} out of 5</span></p>
+        {% if review.text %}<p>{{ review.text|linebreaksbr }}</p>{% endif %}
+        <p class="field-help">Verified buyer · {{ review.created|date:"j F Y" }}</p>
+      </div></article>
+    {% endfor %}</div>
+    {% else %}<p class="muted">No reviews yet.</p>{% endif %}
+    {% if review_form %}
+    <form method="post" action="{% url 'shop:review' product.slug %}" class="card review-form">{% csrf_token %}
+      <div class="card-header"><h3>Review this book</h3><p>From buyers whose order of it has been delivered.</p></div>
+      <div class="card-body">
+        <fieldset class="choice"><legend>{{ review_form.rating.label }}<span aria-hidden="true"> *</span></legend>{% for radio in review_form.rating %}<label for="{{ radio.id_for_label }}">{{ radio.tag }}<span>{{ radio.choice_label }}</span></label>{% endfor %}</fieldset>
+        {% include "_field.html" with field=review_form.text %}
+        <p hidden><label>Leave this empty <input name="website" tabindex="-1" autocomplete="off"></label></p>
+      </div>
+      <div class="card-footer"><button type="submit" class="btn btn-primary">Send the review</button></div>
+    </form>
+    {% endif %}
+    <p><a class="link-go" href="{% url 'shop:catalogue' %}"><svg class="icon" aria-hidden="true"><use href="#icon-arrow-left"/></svg>All books</a></p>
+  </div>
 </section>
-<p><a href="{% url 'shop:catalogue' %}">All books</a></p>
 {% endblock %}

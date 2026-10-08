@@ -11,6 +11,7 @@ from allauth.account.utils import has_verified_email
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
+from django.core.mail import EmailMultiAlternatives
 from django.db import transaction
 from django.db.models import F
 from django.template.loader import render_to_string
@@ -18,7 +19,7 @@ from django.utils import timezone
 from django_fsm import can_proceed
 
 from accounts.roles import SALES
-from ops.tasks import queue_text_email
+from ops.tasks import queue_email, queue_text_email
 
 from . import invoices, tasks
 from .cart import price
@@ -72,13 +73,24 @@ SUBJECTS = {
 }
 
 
+HTML_EMAILS = {"confirmation", "shipped", "payment_link"}  # with the order's lines: <kind>.html, the drawn layout
+
+
 def notify(order, kind, **context):
     """Email the customer (templates/shop/email/<kind>.txt) once the transaction is committed, and an SMS for the
-    kinds ops.sms.send_order_sms sends (confirmation, shipped, delivered) to accounts that asked for them."""
+    kinds ops.sms.send_order_sms sends (confirmation, shipped, delivered) to accounts that asked for them. The kinds
+    in HTML_EMAILS have an HTML part of their own; the others get the one queue_email makes from the text."""
 
     def send():
-        body = render_to_string(f"shop/email/{kind}.txt", {"order": order, "site_url": settings.SITE_URL, **context})
-        queue_text_email(order.email, SUBJECTS[kind].format(order.number), body)
+        context_ = {"order": order, "site_url": settings.SITE_URL, "seller": settings.SHOP_SELLER, **context}
+        body, subject = render_to_string(f"shop/email/{kind}.txt", context_), SUBJECTS[kind].format(order.number)
+        if kind in HTML_EMAILS:
+            html = render_to_string(f"shop/email/{kind}.html", {**context_, "title": subject})
+            message = EmailMultiAlternatives(settings.ACCOUNT_EMAIL_SUBJECT_PREFIX + subject, body, to=[order.email])
+            message.attach_alternative(html, "text/html")
+            queue_email(message)
+        else:
+            queue_text_email(order.email, subject, body)
         try:
             from ops.sms import send_order_sms
         except ImportError:  # the SMS gateway (work package A) not installed
@@ -143,6 +155,8 @@ def release_stock(order):
 
 
 COD_OPEN_ORDERS = 2  # placed with cash on delivery and not yet delivered, per account
+CUSTOMER_METHODS = (Order.Method.RAZORPAY, Order.Method.COD)  # what a customer may choose at checkout
+CUSTOMER_METHOD_CHOICES = [(method.value, method.label) for method in CUSTOMER_METHODS]
 
 
 def cod_problem(user):
@@ -160,6 +174,8 @@ def cod_problem(user):
 def create_order(cart, *, user, email, address, method):
     """A pending order made from the cart at today's prices, with its payment. `address` is an Address snapshot.
     Raises ShopError with what the customer must change first."""
+    if method not in CUSTOMER_METHODS:  # "offline" is recorded by staff (record_offline_payment), never chosen
+        raise ShopError("Choose online payment or cash on delivery.")
     if method == Order.Method.COD and not settings.SHOP_COD_ENABLED:
         raise ShopError("Cash on delivery is not available.")
     if method == Order.Method.COD and (problem := cod_problem(user)):
@@ -435,11 +451,18 @@ def refund_processed(refund_id, razorpay_refund_id=None):
         if can_proceed(order.mark_refunded) and not order.payments.filter(status=Payment.Status.CAPTURED).exists():
             order.mark_refunded()
             order.save()
-            if order.has_digital:
+            if order.has_digital and refunded_in_full(order):  # a goodwill part-refund leaves the course open
                 revoke_course(order)
         notify(order, "refunded", refund=refund)
         transaction.on_commit(lambda: tasks.generate_credit_note.delay(refund.pk), robust=True)  # if invoiced
     return refund
+
+
+def refunded_in_full(order):
+    """Whether the processed refunds of the order add up to what it cost (a refused parcel refunded less the shipping,
+    or a goodwill part-refund, is not)."""
+    refunded = sum((refund.amount.amount for refund in order.refunds.filter(status=Refund.Status.PROCESSED)), Decimal(0))
+    return refunded >= order.total.amount
 
 
 def refund_failed(refund_id, error):

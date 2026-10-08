@@ -3,49 +3,69 @@
 {% block meta_description %}Your ExamLeaf cart: the books you chose, the copies of each, a coupon code and the way to checkout.{% endblock %}
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
 {% block content %}
-<h1>Your cart</h1>
-{% if totals.lines %}
-<form method="post" action="{% url 'shop:cart' %}">{% csrf_token %}
-<div class="table-scroll">
-<table class="cart">
-  <thead><tr><th>Book</th><th class="num">Copies</th><th class="num">Amount</th></tr></thead>
-  <tbody>
-  {% for line in totals.lines %}
-    <tr>
-      <td><a href="{{ line.product.get_absolute_url }}">{{ line.product }}</a><br><small>{{ line.product.price|inr }} each</small>
-        <button type="submit" name="remove" value="{{ line.product.pk }}" class="link">Remove</button></td>
-      <td class="num"><input name="qty-{{ line.product.pk }}" type="number" min="0" max="20" value="{{ line.quantity }}" inputmode="numeric" aria-label="Copies of {{ line.product }}"></td>
-      <td class="num">{{ line.total|inr }}</td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
-</div>
-<p><button type="submit" name="action" value="update" class="secondary">Update copies</button></p>
-</form>
-
-{% for problem in totals.problems %}<p class="notice-line">{{ problem }}</p>{% endfor %}
-
-<dl class="totals">
-  <dt>Books</dt><dd>{{ totals.subtotal|inr }}</dd>
-  {% for saving in totals.savings %}<dt>{{ saving.label }}</dt><dd>−{{ saving.amount|inr }}</dd>{% endfor %}
-  <dt>Shipping</dt><dd class="muted">at checkout, from your state</dd>
-</dl>
-
-{% if cart.coupon %}
-  {% if totals.coupon_problem %}<p class="notice-line">Coupon {{ cart.coupon }}: {{ totals.coupon_problem }}</p>{% endif %}
-  <form method="post" action="{% url 'shop:cart' %}">{% csrf_token %}<button type="submit" name="action" value="remove-coupon" class="link">Remove coupon {{ cart.coupon }}</button></form>
-{% else %}
-  <form method="post" action="{% url 'shop:cart' %}" class="coupon">{% csrf_token %}
-    {{ coupon_form.code.label_tag }}
-    {{ coupon_form.turnstile }}
-    <div class="inline">{{ coupon_form.code }}<button type="submit" name="action" value="coupon" class="secondary">Apply</button></div>
-  </form>
-{% endif %}
-
-<p class="actions"><a class="button" href="{% url 'shop:checkout' %}">Checkout</a> <a href="{% url 'shop:catalogue' %}">Add more books</a></p>
-{% if not user.is_authenticated %}<p class="muted">No account needed. Have one? <a href="{% url 'account_login' %}?next={% url 'shop:checkout' %}">Log in</a> first to use your saved addresses.</p>{% endif %}
-{% else %}
-<p>Your cart is empty. <a href="{% url 'shop:catalogue' %}">See the books</a>.</p>
-{% endif %}
+<section class="section section-top">
+  <div class="container">
+    <h1>Your cart</h1>
+    {% if totals.lines %}
+    <p class="lead page-lead">{{ totals.count }} book{{ totals.count|pluralize }} in your cart.</p>
+    <div class="two-col">
+      <div class="main-col stack">
+        <form method="post" action="{% url 'shop:cart' %}" id="cart-form" class="stack">{% csrf_token %}
+          {# first in the form, so Enter in a Copies box updates the copies instead of pressing the first Remove #}
+          <button type="submit" name="action" value="update" class="sr-only" tabindex="-1" aria-hidden="true">Update copies</button>
+          <div class="table-wrap"><table class="table cart-table">
+            <caption class="sr-only">Books in your cart</caption>
+            <thead><tr><th scope="col">Book</th><th scope="col">Copies</th><th scope="col" class="num">Amount</th></tr></thead>
+            <tbody>
+            {% for line in totals.lines %}
+              <tr>
+                <td><div class="line">{% include "shop/_thumb.html" with product=line.product %}<div class="line-text"><a href="{{ line.product.get_absolute_url }}">{{ line.product }}</a><span class="muted">{{ line.product.price|inr }} each</span><button type="submit" name="remove" value="{{ line.product.pk }}" class="btn btn-ghost btn-sm line-remove" data-dialog="remove-{{ line.product.pk }}"><svg class="icon" aria-hidden="true"><use href="#icon-trash"/></svg><span>Remove</span></button></div></div></td>
+                <td><div class="qty"><button type="button" class="btn btn-ghost" data-step="down" aria-label="One copy fewer" hidden><svg class="icon" aria-hidden="true"><use href="#icon-minus"/></svg></button><input name="qty-{{ line.product.pk }}" type="number" min="0" max="20" value="{{ line.quantity }}" inputmode="numeric" aria-label="Copies of {{ line.product }}"><button type="button" class="btn btn-ghost" data-step="up" aria-label="One copy more" hidden><svg class="icon" aria-hidden="true"><use href="#icon-plus"/></svg></button></div></td>
+                <td class="num">{{ line.total|inr }}</td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table></div>
+          <div class="row"><button type="submit" name="action" value="update" class="btn btn-secondary btn-sm"><svg class="icon" aria-hidden="true"><use href="#icon-refresh"/></svg><span>Update copies</span></button><span class="small muted">Changed a number? Update before checkout.</span></div>
+        </form>
+        {% for problem in totals.problems %}<div class="alert alert-warning" role="status"><svg class="icon" aria-hidden="true"><use href="#icon-alert"/></svg><div><p>{{ problem }}</p></div></div>{% endfor %}
+        {% for line in totals.lines %}
+        <dialog class="dialog" id="remove-{{ line.product.pk }}" aria-labelledby="remove-{{ line.product.pk }}-title">
+          <div class="card-header"><h2 id="remove-{{ line.product.pk }}-title">Remove this book?</h2><form method="dialog"><button class="btn btn-ghost btn-icon" aria-label="Close"><svg class="icon" aria-hidden="true"><use href="#icon-x"/></svg></button></form></div>
+          <div class="card-body"><p><strong>{{ line.product }}</strong> leaves your cart. You can add it again from the shop.</p></div>
+          <div class="card-footer"><form method="dialog"><button class="btn btn-secondary">Keep it</button></form><button type="submit" form="cart-form" name="remove" value="{{ line.product.pk }}" class="btn btn-destructive">Remove</button></div>
+        </dialog>
+        {% endfor %}
+      </div>
+      <aside class="card summary-card" aria-labelledby="summary-title">
+        <div class="card-header"><h2 id="summary-title">Summary</h2></div>
+        <div class="card-body">
+          <dl class="totals">
+            <div><dt>Books</dt><dd>{{ totals.subtotal|inr }}</dd></div>
+            {% for saving in totals.savings %}<div><dt>{{ saving.label }}</dt><dd>−{{ saving.amount|inr }}</dd></div>{% endfor %}
+            <div class="muted"><dt>Shipping</dt><dd>at checkout, from your state</dd></div>
+            <div class="grand"><dt>Total before shipping</dt><dd>{{ totals.total|inr }}</dd></div>
+          </dl>
+          {% if cart.coupon %}
+          {% if totals.coupon_problem %}<div class="alert alert-warning" role="status"><svg class="icon" aria-hidden="true"><use href="#icon-alert"/></svg><div><p>Coupon {{ cart.coupon }}: {{ totals.coupon_problem }}</p></div></div>{% endif %}
+          <form method="post" action="{% url 'shop:cart' %}" class="row coupon-applied">{% csrf_token %}<span class="badge badge-muted"><svg class="icon" aria-hidden="true"><use href="#icon-tag"/></svg>{{ cart.coupon }}{% if not totals.coupon_problem %} applied{% endif %}</span><button type="submit" name="action" value="remove-coupon" class="btn btn-ghost btn-sm">Remove coupon</button></form>
+          {% else %}
+          <form method="post" action="{% url 'shop:cart' %}" class="coupon stack">{% csrf_token %}
+            <div class="coupon-row">{% include "_field.html" with field=coupon_form.code %}<button type="submit" name="action" value="coupon" class="btn btn-secondary">Apply</button></div>
+            {% if coupon_form.turnstile %}{% include "_field.html" with field=coupon_form.turnstile %}{% endif %}
+          </form>
+          {% endif %}
+        </div>
+        <div class="card-footer summary-actions">
+          <a class="btn btn-accent btn-lg btn-block" href="{% url 'shop:checkout' %}"><span>Checkout</span><svg class="icon" aria-hidden="true"><use href="#icon-arrow-right"/></svg></a>
+          <a class="link-go" href="{% url 'shop:catalogue' %}">Add more books</a>
+          {% if not user.is_authenticated %}<p class="small muted">No account needed. Have one? <a href="{% url 'account_login' %}?next={% url 'shop:checkout' %}">Log in</a> first to use your saved addresses.</p>{% endif %}
+        </div>
+      </aside>
+    </div>
+    {% else %}
+    <div class="empty"><svg class="icon icon-lg" aria-hidden="true"><use href="#icon-bag"/></svg><h2>Your cart is empty.</h2><p>Each subject has a Sample Papers book and a Solutions book, delivered anywhere in India.</p><a class="btn btn-primary" href="{% url 'shop:catalogue' %}">See the books</a></div>
+    {% endif %}
+  </div>
+</section>
 {% endblock %}

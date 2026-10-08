@@ -21,3 +21,20 @@ document.querySelectorAll("input[data-pin-lookup]").forEach((input) => {
       .catch(() => {});  // offline: the customer types them
   });
 });
+
+// Copies (product page, cart): the − and + buttons beside the number box, hidden until this script works them.
+document.querySelectorAll("[data-step]").forEach((button) => {
+  const input = button.parentElement.querySelector("input");
+  button.hidden = false;
+  button.addEventListener("click", () => (button.dataset.step === "up" ? input.stepUp() : input.stepDown()));
+});
+
+// Confirmations (a cart line's Remove, Cancel the order): a submit button with data-dialog opens that <dialog>, whose
+// own button submits the form. Without JavaScript, or without <dialog>, the button simply submits.
+document.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-dialog]");
+  const dialog = button && document.getElementById(button.dataset.dialog);
+  if (!dialog || typeof dialog.showModal !== "function") return;
+  event.preventDefault();
+  dialog.showModal();
+});

@@ -384,3 +384,13 @@ def test_daily_clean_up(client, rzp, commit):
     assert unpaid.status == Order.Status.CANCELLED and not mail.outbox  # expired quietly
     assert Invoice.objects.get().order == paid and paid.invoice.pdf
     assert not WebhookEvent.objects.exists()  # too old to be accepted again anyway
+
+
+def test_the_order_confirmation_has_its_own_html_part(rzp, commit):
+    order = make_order((ProductFactory(title="Physics Sample Papers"), 2))
+    with commit():
+        services.record_capture(captured(order))
+    message = mail.outbox[-1]
+    html = dict((mimetype, content) for content, mimetype in message.alternatives)["text/html"]
+    assert f"Thank you for your order {order.number}" in message.body  # the text part stays the body
+    assert "2 × Physics Sample Papers" in html and order.get_link_url() in html and "Open your order" in html

@@ -1,0 +1,27 @@
+<!doctype html>{# The HTML part of every email (the EmailOrder artboard): 600 px tables, inline styles only (mail programs drop <style>), a navy header band, a paper footer; fonts fall back to Segoe UI, Helvetica, Arial. Blocks: preheader (the preview line), label (the header's right side), content (rows: <tr><td style="padding: … 32px">), footer. With: title, site_url, seller (settings.SHOP_SELLER). The plain-text part stays the email's body (ops.tasks.queue_email). #}
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>{{ title }}</title>
+</head>
+<body style="margin: 0; padding: 0; background: #F4EFE3">
+<div style="display: none; max-height: 0; overflow: hidden">{% block preheader %}{% endblock %}</div>
+<table role="presentation" width="100%" style="width: 100%; border-collapse: collapse; background: #F4EFE3"><tr><td align="center" style="padding: 24px 8px">
+<table role="presentation" width="600" style="width: 100%; max-width: 600px; border-collapse: collapse; border-spacing: 0; background: #FFFFFF">
+<tr><td style="background: #0B2A5B; padding: 24px 32px">
+  <table role="presentation" width="100%" style="width: 100%; border-collapse: collapse"><tr>
+    <td style="font-family: Poppins, 'Segoe UI', Helvetica, Arial, sans-serif; font-weight: 800; font-size: 24px; line-height: 1.2; color: #FFFFFF">Exam<span style="color: #8FD694">Leaf</span></td>
+    <td align="right" style="font-family: 'Hind Siliguri', 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 15px; color: #A9B8D6">{% block label %}{% endblock %}</td>
+  </tr></table>
+</td></tr>
+{% block content %}{% endblock %}
+<tr><td style="background: #F4EFE3; padding: 20px 32px 28px">
+  {% block footer %}<p style="margin: 0 0 6px; font-family: 'Hind Siliguri', 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #5D6675">{{ seller.name }} · {{ seller.address }}</p>
+  <p style="margin: 0; font-family: 'Hind Siliguri', 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #5D6675"><a href="{{ site_url }}{% url 'privacy' %}" style="color: #0B2A5B">Privacy</a> · <a href="{{ site_url }}{% url 'refunds' %}" style="color: #0B2A5B">Refunds</a> · <a href="{{ site_url }}{% url 'contact' %}" style="color: #0B2A5B">Contact</a></p>{% endblock %}
+</td></tr>
+</table>
+</td></tr></table>
+</body>
+</html>

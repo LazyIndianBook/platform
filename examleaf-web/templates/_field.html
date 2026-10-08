@@ -4,6 +4,6 @@
   {% if field.widget_type == "checkbox" %}<label class="checkbox">{% if help_text and field.errors %}{% render_field control aria-describedby=both %}{% elif help_text %}{% render_field control aria-describedby=help_id %}{% else %}{{ control }}{% endif %}<span>{% firstof label field.label %}</span></label>
   {% else %}{% if label or field.label %}<label for="{{ field.id_for_label }}">{% firstof label field.label %}{% if field.field.required %}<span aria-hidden="true"> *</span>{% endif %}</label>{% endif %}
   {% if prefix %}<div class="input-prefix"><span aria-hidden="true">{{ prefix }}</span>{% endif %}{% if help_text and field.errors %}{% render_field control aria-describedby=both %}{% elif help_text %}{% render_field control aria-describedby=help_id %}{% else %}{{ control }}{% endif %}{% if prefix %}</div>{% endif %}{% endif %}
-  {% if help_text %}<p class="field-help" id="{{ help_id }}">{{ help_text|safe }}</p>{% endif %}
+  {% if help_text %}<div class="field-help" id="{{ help_id }}">{{ help_text|safe }}</div>{% endif %}
   {% if field.errors %}<p class="field-error" id="{{ error_id }}"><svg class="icon" aria-hidden="true"><use href="#icon-alert"/></svg><span>{{ field.errors|join:" " }}</span></p>{% endif %}
 </div>{% endwith %}{% endwith %}{% endif %}

@@ -1,9 +1,11 @@
-{% load shop pictures %}<li>
-    <a href="{{ product.get_absolute_url }}">
-      {% if product.cover %}{% picture product.cover img_alt="" img_loading="lazy" ratio="2/3" s=6 m=4 l=3 %}{% else %}{% include "shop/no_cover.html" %}{% endif %}
-      <span class="kind">{{ product.get_kind_display }}</span>
-      <strong>{{ product.title }}</strong>
-    </a>
-    <p class="price">{{ product.price|inr }}{% if product.mrp != product.price %} <s>{{ product.mrp|inr }}</s>{% endif %}</p>
-    {% if not product.available %}<p class="stock out">Out of stock</p>{% endif %}
-  </li>
+{% load pictures %}{# A product card (components.md, .card-interactive): the whole card is the one link to the product. With: product. data-subject feeds the catalogue's subject tabs. #}
+<li{% if product.subject %} data-subject="{{ product.subject.name|lower }}"{% endif %}>
+  <a class="card card-interactive product-card" href="{{ product.get_absolute_url }}">
+    <div class="card-body">
+      <span class="cover pcover">{% if product.cover %}{% picture product.cover img_alt="" img_loading="lazy" ratio="2/3" s=6 m=4 l=3 %}{% else %}{% include "shop/no_cover.html" %}{% endif %}</span>
+      <span class="chips"><span class="badge badge-muted">{{ product.get_kind_display }}</span>{% if product.subject %}<span class="badge badge-{{ product.subject.name|lower }}">{{ product.subject.name }}</span>{% endif %}{% if not product.available %}<span class="badge badge-out">Out of stock</span>{% endif %}</span>
+      <h3>{{ product.title }}</h3>
+      {% include "shop/_price.html" %}
+    </div>
+  </a>
+</li>

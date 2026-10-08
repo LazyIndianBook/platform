@@ -3,25 +3,29 @@
 {% block meta_description %}The ExamLeaf orders you placed while logged in, with their status.{% endblock %}
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
 {% block content %}
-<h1>My orders</h1>
-{% if object_list %}
-<div class="table-scroll">
-<table class="record">
-  <thead><tr><th>Order</th><th>Date</th><th>Books</th><th class="num">Total</th><th>Status</th></tr></thead>
-  <tbody>
-  {% for order in object_list %}
-    <tr>
-      <td><a href="{{ order.get_absolute_url }}">{{ order.number }}</a></td>
-      <td>{{ order.created|date:"j M Y" }}</td>
-      <td>{% for item in order.items.all %}{{ item.quantity }} × {{ item.title }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</td>
-      <td class="num">{{ order.total|inr }}</td>
-      <td>{{ order.status_label|capfirst }}</td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
-</div>
-{% else %}
-<p>No orders yet. <a href="{% url 'shop:catalogue' %}">See the books</a>.</p>
-{% endif %}
+<section class="section section-top">
+  <div class="container">
+    <h1>My orders</h1>
+    {% if object_list %}
+    <p class="lead page-lead">Open an order for its status, tracking and invoice.</p>
+    <div class="table-wrap"><table class="table orders-table">
+      <caption class="sr-only">Your orders, newest first</caption>
+      <thead><tr><th scope="col">Order</th><th scope="col">Date</th><th scope="col">Books</th><th scope="col" class="num">Total</th><th scope="col">Status</th></tr></thead>
+      <tbody>
+      {% for order in object_list %}
+        <tr>
+          <td><a href="{{ order.get_absolute_url }}">{{ order.number }}</a></td>
+          <td>{{ order.created|date:"j M Y" }}</td>
+          <td>{% for item in order.items.all %}{{ item.quantity }} × {{ item.title }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</td>
+          <td class="num">{{ order.total|inr }}</td>
+          <td><span class="badge badge-muted">{{ order.status_label|capfirst }}</span></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    {% else %}
+    <div class="empty"><svg class="icon icon-lg" aria-hidden="true"><use href="#icon-package"/></svg><h2>No orders yet</h2><p>Orders you place while logged in show here, with their status and invoice.</p><a class="btn btn-primary" href="{% url 'shop:catalogue' %}">See the books</a></div>
+    {% endif %}
+  </div>
+</section>
 {% endblock %}

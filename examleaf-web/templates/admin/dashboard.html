@@ -1,14 +1,16 @@
 {% extends "admin/index.html" %}{% load dashboard %}
 {% block extrastyle %}{{ block.super }}
-<style>{# colours and spacing from docs/design/tokens.css; the module colours come from the admin theme #}
-#dashboard { margin-bottom: 24px; }
-#dashboard table { width: 100%; }
-#dashboard th, #dashboard td { padding: 10px 14px; }
-#dashboard thead th { background: #F4EFE3; color: #1B2330; }
-#dashboard td { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; color: #1B2330; }
-#dashboard p { margin: 0; padding: 12px 14px; line-height: 2; border-top: 1px solid #D9DDE3; }
-#dashboard p a { font-weight: 600; color: #1A6E30; }
-#dashboard p a:hover { color: #0B2A5B; }
+<style>{# colours and spacing from docs/design/tokens.css (--secondary, --foreground, --border, --primary, --accent); the module colours come from the admin theme (ops/migrations/0004_admin_theme_tokens.py) #}
+#dashboard { margin-bottom: 24px; border: 1px solid #D9DDE3; border-radius: 12px; overflow: hidden; }
+#dashboard table { width: 100%; border-collapse: collapse; }
+#dashboard caption { padding: 12px 14px; font-weight: 700; }
+#dashboard th, #dashboard td { padding: 10px 14px; border-bottom: 1px solid #D9DDE3; }
+#dashboard thead th { background: #F4EFE3; color: #1B2330; font-weight: 600; }
+#dashboard tbody th { color: #1B2330; font-weight: 600; }
+#dashboard td { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; color: #0B2A5B; }
+#dashboard p { margin: 0; padding: 12px 14px; line-height: 2; }
+#dashboard p a { display: inline-block; padding: 4px 0; font-weight: 600; color: #0B2A5B; text-decoration: underline; text-underline-offset: 3px; }
+#dashboard p a:hover { color: #1A6E30; }
 </style>
 {% endblock %}
 {% block content %}
