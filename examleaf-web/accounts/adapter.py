@@ -1,7 +1,5 @@
-import io
 from urllib.parse import urlparse
 
-import segno
 from allauth.account.adapter import DefaultAccountAdapter
 from allauth.account.internal.flows.login import AUTHENTICATION_METHODS_SESSION_KEY
 from allauth.core import context as allauth_context
@@ -123,12 +121,6 @@ class MFAAdapter(DefaultMFAAdapter):
         """Passkeys belong to the host of SITE_URL, whichever host name the page was opened on (allauth's default is
         the request's host: www. and the bare domain would not share passkeys)."""
         return {"id": urlparse(settings.SITE_URL).hostname, "name": "ExamLeaf"}
-
-    def build_totp_svg(self, url):
-        """The authenticator app's QR code, drawn by segno (the papers' QR codes) rather than the qrcode package."""
-        svg = io.BytesIO()
-        segno.make(url).save(svg, kind="svg", xmldecl=False, scale=4)
-        return svg.getvalue().decode()
 
 
 class SocialAccountAdapter(DefaultSocialAccountAdapter):

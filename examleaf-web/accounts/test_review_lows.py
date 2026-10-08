@@ -38,7 +38,7 @@ def test_api_log_ins_with_one_step_refuse_staff_and_accounts_with_a_second_step(
 
 
 def staff_page_request(rf, user):
-    request = rf.post("/account/login/")
+    request = rf.post("/_allauth/browser/v1/auth/webauthn/login")
     request.session, request.user = SessionStore(), user
     request._messages = FallbackStorage(request)
     record_authentication(request, user, method="mfa", type="webauthn", passwordless=True)
@@ -50,7 +50,7 @@ def test_staff_may_not_log_in_with_a_passkey_alone(rf):
     staff = UserFactory(is_staff=True)
     request = staff_page_request(rf, staff)
     response = get_adapter(request).pre_login(request, staff, redirect_url=None, **hooks)
-    assert response.status_code == 302 and get_authentication_records(request) == []  # the password comes next
+    assert response is not None and get_authentication_records(request) == []  # stopped: the password comes first
     learner = UserFactory()
     request = staff_page_request(rf, learner)
     assert get_adapter(request).pre_login(request, learner, redirect_url=None, **hooks) is None
@@ -93,9 +93,10 @@ def test_a_code_request_that_failed_turnstile_spends_none_of_the_numbers_three(c
         return forms.httpx.Response(200, json={"success": data["response"] == "solved"})
 
     monkeypatch.setattr(forms.httpx, "post", siteverify)
-    code = "/account/login/code/"
+    code = "/_allauth/browser/v1/auth/code/request"  # the website's "Log in with a code"
     for _ in range(4):
-        page = client.post(code, {"phone": "98640 12345", "cf-turnstile-response": "not-solved"})
-        assert "Wait until the check above says it is done" in page.text
-    assert client.post(code, {"phone": "98640 12345", "cf-turnstile-response": "solved"}).status_code == 302
+        response = client.post(code, {"phone": "98640 12345", "turnstile": "not-solved"}, "application/json")
+        assert "Wait until the check above says it is done" in response.text
+    response = client.post(code, {"phone": "98640 12345", "turnstile": "solved"}, "application/json")
+    assert response.status_code == 401  # no refusal: the code's page comes next (flow login_by_code)
     assert sent[0]["remoteip"] == "127.0.0.1"

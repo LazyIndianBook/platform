@@ -3,6 +3,7 @@ from datetime import timedelta
 from allauth.account.decorators import secure_admin_login
 from allauth.headless.account.views import (
     ConfirmLoginCodeView,
+    LoginView,
     RequestLoginCodeView,
     VerifyEmailView,
     VerifyPhoneView,
@@ -16,6 +17,7 @@ from accounts import views as accounts
 from accounts.forms import (
     ChangePhoneInput,
     ConfirmLoginCodeInput,
+    LoginInput,
     RequestLoginCodeInput,
     VerifyEmailInput,
     VerifyPhoneInput,
@@ -57,11 +59,12 @@ urlpatterns = [
     path("", include("shop.urls")),  # Razorpay's webhook and the product pictures (shop/urls.py)
     path("account/", include("allauth.urls")),  # HEADLESS_ONLY: Google's log-in callback, /account/google/…
     # allauth.headless: allauth's flows as JSON for the app and the website (API.md "Frontend integration guide"); its
-    # code request, code tries and phone change take the site's rules (accounts/forms.py), the rest is allauth's.
+    # log-in, code request, code tries and phone change keep the site's rules (accounts/forms.py), the rest allauth's.
     *[
         path(f"_allauth/{client}/v1/{route}", view.as_api_view(client=Client(client), input_class=form))
         for client in settings.HEADLESS_CLIENTS
         for route, view, form in [
+            ("auth/login", LoginView, LoginInput),
             ("auth/code/request", RequestLoginCodeView, RequestLoginCodeInput),
             ("auth/code/confirm", ConfirmLoginCodeView, ConfirmLoginCodeInput),
             ("auth/email/verify", VerifyEmailView, VerifyEmailInput),

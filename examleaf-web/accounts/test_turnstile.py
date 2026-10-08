@@ -6,11 +6,10 @@ import logging
 import httpx
 import pytest
 from django.test import Client
-from django.urls import reverse
 
 from accounts import forms
 from accounts.models import User
-from accounts.test_security import sign_up
+from accounts.test_security import errors, sign_up
 from content.tests import make_paper
 
 pytestmark = pytest.mark.django_db
@@ -36,28 +35,27 @@ def turnstile(settings, monkeypatch):
     return answers
 
 
-def test_off_without_its_keys(client, settings):
-    assert "cf-turnstile" not in client.get(reverse("account_signup")).text
-    assert "https://challenges.cloudflare.com" not in settings.CONTENT_SECURITY_POLICY["script-src"]
+def test_off_without_its_keys(client):
+    make_paper()  # a board
+    assert client.get("/api/v1/config/").json()["auth"]["turnstile_site_key"] is None  # the website shows no widget
+    assert sign_up(client, parent_contact="anita@example.com").status_code == 401 and User.objects.exists()
 
 
 def test_sign_up_needs_cloudflares_yes(client, turnstile):
     make_paper()  # a board
-    page = client.get(reverse("account_signup")).text
-    assert 'data-sitekey="0x4AAA-site"' in page and "turnstile/v0/api.js" in page
-    assert "turnstile" in sign_up(client, parent_contact="anita@example.com").context["form"].errors  # no token
+    assert client.get("/api/v1/config/").json()["auth"]["turnstile_site_key"] == "0x4AAA-site"  # the widget's key
+    assert errors(sign_up(client, parent_contact="anita@example.com")) == {"turnstile"}  # no token
     turnstile.append({"success": False, "error-codes": ["invalid-input-response"]})
-    sign_up(client, parent_contact="anita@example.com", **{"cf-turnstile-response": "forged"})
+    sign_up(client, parent_contact="anita@example.com", turnstile="forged")
     assert not User.objects.exists()
     turnstile.append({"success": True})
-    sign_up(client, parent_contact="anita@example.com", **{"cf-turnstile-response": "token"})
+    sign_up(client, parent_contact="anita@example.com", turnstile="token")
     assert User.objects.exists()
 
 
 def test_cloudflare_out_of_reach_lets_the_code_request_through_and_says_so(turnstile, caplog):
     turnstile.append(httpx.ConnectTimeout("no answer"))
     with caplog.at_level(logging.WARNING, logger="accounts.forms"):
-        response = Client().post(
-            reverse("account_request_login_code"), {"email": "rahul@example.com", "cf-turnstile-response": "token"}
-        )
-    assert response["Location"] == reverse("account_confirm_login_code") and "could not be reached" in caplog.text
+        data = {"email": "rahul@example.com", "turnstile": "token"}
+        response = Client().post("/_allauth/browser/v1/auth/code/request", data, "application/json")
+    assert response.status_code == 401 and "could not be reached" in caplog.text  # on to the code's page

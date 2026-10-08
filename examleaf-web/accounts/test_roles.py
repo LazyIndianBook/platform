@@ -1,6 +1,7 @@
 """Roles (groups and their permissions), sign-up as a student, and teacher access."""
 
 import pytest
+from allauth.account.models import EmailAddress
 from django.contrib.auth.models import Group, Permission
 from django.core.management import call_command
 from django.urls import reverse
@@ -71,19 +72,19 @@ def test_role_helpers_follow_group_membership():
 def test_signup_makes_a_student_and_records_the_consent(client):
     board = make_paper().book.subject.board
     client.post(
-        reverse("account_signup"),
+        "/_allauth/browser/v1/auth/signup",  # the website's sign-up
         {
             "full_name": "Rahul Das",
             "email": "rahul@example.com",
-            "password1": "Brahmaputra-2027",
-            "password2": "Brahmaputra-2027",
+            "password": "Brahmaputra-2027",
             "class_level": 12,
             "board": board.pk,
             "date_of_birth": "2010-05-01",
             "parent_name": "Anita Das",
             "parent_contact": "98640 12345",
-            "consent": "on",
+            "consent": True,
         },
+        content_type="application/json",
     )
     consent = ConsentRecord.objects.get()
     assert consent.user.is_student
@@ -117,14 +118,12 @@ def test_support_staff_cannot_hand_out_roles(client):
 
 def test_teacher_asks_for_access_and_staff_verify_it(client):
     teacher = member(roles.STUDENT)
+    EmailAddress.objects.create(user=teacher, email=teacher.email, verified=True, primary=True)
     client.force_login(teacher)
-    response = client.post(
-        reverse("teacher_request"),
-        {"school_name": "Cotton Collegiate HS School", "district": "Kamrup Metro", "subject": "Physics"},
-    )
-    assert response.url == reverse("account")
-    assert "We are checking your request" in client.get(reverse("account")).text
-    assert client.get(reverse("teacher_request")).url == reverse("account")  # one request per account
+    asked = {"school_name": "Cotton Collegiate HS School", "district": "Kamrup Metro", "subject": "Physics"}
+    response = client.post("/api/v1/me/teacher/", asked, content_type="application/json")  # My account's request
+    assert response.status_code == 201 and client.get("/api/v1/me/teacher/").json()["verified"] is False  # checking
+    assert client.post("/api/v1/me/teacher/", asked, content_type="application/json").status_code == 400  # once
     profile = TeacherProfile.objects.get(user=teacher)
     assert not profile.verified and not teacher.is_teacher
 
@@ -134,5 +133,5 @@ def test_teacher_asks_for_access_and_staff_verify_it(client):
     profile.refresh_from_db()
     assert profile.verified and profile.verified_by == staff
     client.force_login(teacher)
-    assert "You are a verified teacher" in client.get(reverse("account")).text
+    assert client.get("/api/v1/me/teacher/").json()["verified"] is True  # "You are a verified teacher"
     assert teacher.__class__.objects.get(pk=teacher.pk).is_teacher

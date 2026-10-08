@@ -192,6 +192,15 @@ class VerifyPhoneForm(CodeTriesMixin, allauth_forms.VerifyPhoneForm):
 
 # allauth.headless takes allauth's own forms, not ACCOUNT_FORMS: examleaf/urls.py routes these endpoints of it
 # (/_allauth/<client>/v1/...) to inputs on the forms above.
+class LoginInput(headless_inputs.LoginInput):
+    """auth/login: a mobile number as people type it, as on the code request (allauth.headless asks for +91…)."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if "phone" in self.fields:
+            self.fields["phone"] = IndianPhoneField(required=self.fields["phone"].required)
+
+
 class RequestLoginCodeInput(RequestLoginCodeForm, headless_inputs.RequestLoginCodeInput):
     """auth/code/request: Turnstile while it is on; an email address or a mobile number."""
 
