@@ -44,10 +44,13 @@ def context(invoice):
     intra_state = buyer_state == seller["state"]
     items = list(order.items.all())
     subtotal, discount_left = order.subtotal.amount, order.discount.amount
+    kept = all(item.discount is not None for item in items)  # the split made at checkout (cart.split)
     lines = []
     for index, item in enumerate(items):
         value = item.line_total.amount
-        if index == len(items) - 1:
+        if kept:
+            share = item.discount.amount
+        elif index == len(items) - 1:  # orders made before the split was kept: shared out as their invoices were
             share = discount_left  # the last line takes the rounding remainder
         else:
             share = rupees(order.discount.amount * value / subtotal) if subtotal else Decimal("0.00")

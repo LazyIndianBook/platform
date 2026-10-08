@@ -11,7 +11,24 @@
   </tbody>
 </table>
 <p>Waiting: <a href="{% url 'admin:shop_order_changelist' %}?status__exact=paid">{{ shop.to_pack }} order{{ shop.to_pack|pluralize }} to pack</a> (paid, or cash on delivery placed)
- · <a href="{% url 'admin:shop_order_changelist' %}?status__exact=shipped">{{ shop.to_deliver }} on the way</a></p>
+ · <a href="{% url 'admin:shop_order_changelist' %}?status__exact=shipped">{{ shop.to_deliver }} on the way</a>
+ · <a href="{% url 'admin:shop_review_changelist' %}?status__exact=pending">{{ shop.reviews_waiting }} review{{ shop.reviews_waiting|pluralize }} to read</a>
+ · <a href="{% url 'admin:shop_quoterequest_changelist' %}?status__exact=new">{{ shop.quotes_waiting }} quotation request{{ shop.quotes_waiting|pluralize }}</a></p>
+<table>
+  <caption>Sales by day (two weeks)</caption>
+  <thead><tr><th scope="col">Day</th><th scope="col">Orders</th><th scope="col">Value</th></tr></thead>
+  <tbody>{% for day, orders, value in shop.by_day %}<tr><th scope="row">{{ day|date:"D j M" }}</th><td>{{ orders }}</td><td>{{ value }}</td></tr>{% empty %}<tr><td colspan="3">No orders.</td></tr>{% endfor %}</tbody>
+</table>
+<table>
+  <caption>Most sold (last 30 days)</caption>
+  <thead><tr><th scope="col">Book</th><th scope="col">Copies</th></tr></thead>
+  <tbody>{% for row in shop.top_products %}<tr><th scope="row">{{ row.title }}</th><td>{{ row.copies }}</td></tr>{% empty %}<tr><td colspan="2">None yet.</td></tr>{% endfor %}</tbody>
+</table>
+<table>
+  <caption>Running out</caption>
+  <thead><tr><th scope="col">Book</th><th scope="col">Copies left</th></tr></thead>
+  <tbody>{% for product in shop.low_stock %}<tr><th scope="row"><a href="{% url 'admin:shop_product_change' product.pk %}">{{ product }}</a></th><td>{{ product.stock }}</td></tr>{% empty %}<tr><td colspan="2">Nothing is running out.</td></tr>{% endfor %}</tbody>
+</table>
 </div>
 {% endif %}
 {{ block.super }}

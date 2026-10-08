@@ -173,7 +173,8 @@ class ProductSerializer(serializers.ModelSerializer):
             return True
         if product.kind != Product.Kind.BUNDLE:
             return product.stock > 0
-        return min((item.product.stock // item.quantity for item in product.bundle_items.all()), default=0) > 0
+        books = [item for item in product.bundle_items.all() if not item.product.is_digital]  # a course has no copies
+        return min((item.product.stock // item.quantity for item in books), default=0) > 0
 
     def get_related(self, product) -> list[str]:
         return [other.slug for other in product.related.all() if other.is_active]
@@ -184,7 +185,9 @@ class ProductSerializer(serializers.ModelSerializer):
 
 class ProductFilter(django_filters.FilterSet):
     category = django_filters.CharFilter(method="in_category", help_text="a category's slug (with its sub-categories)")
-    collection = django_filters.CharFilter(field_name="collection_items__collection__slug", help_text="a collection's slug")
+    collection = django_filters.CharFilter(
+        field_name="collection_items__collection__slug", help_text="a collection's slug"
+    )
 
     class Meta:
         model = Product
@@ -211,8 +214,8 @@ def attribute_match(code, value):
 class ProductViewSet(viewsets.ReadOnlyModelViewSet):
     """The products on sale, with their prices, pictures, what a bundle holds, whether they are in stock, their
     categories and attributes. Filters: `?kind=`, `?subject=`, `?category=<slug>` (with its sub-categories),
-    `?collection=<slug>`, and `?attr_<code>=<value>` for any attribute (e.g. `?attr_language=Assamese`, `?attr_year=2027`;
-    several are combined with AND)."""
+    `?collection=<slug>`, and `?attr_<code>=<value>` for any attribute (e.g. `?attr_language=Assamese`,
+    `?attr_year=2027`; several are combined with AND)."""
 
     permission_classes = [permissions.AllowAny]
     queryset = (
@@ -313,14 +316,21 @@ class CartLineSerializer(serializers.Serializer):
     total = rupees()
 
 
+class SavingSerializer(serializers.Serializer):
+    label = serializers.CharField(help_text='"Coupon WELCOME10", an offer\'s name, "Discount"')
+    amount = rupees()
+
+
 class CartSerializer(serializers.Serializer):
-    """The cart at today's prices (shop.cart.totals, as the website)."""
+    """The cart at today's prices (shop.cart.totals, as the website): `savings` are the coupon's and the automatic
+    offers' discounts, `discount` their sum."""
 
     items = CartLineSerializer(source="lines", many=True)
     count = serializers.IntegerField(help_text="copies")
     coupon = serializers.SerializerMethodField()
     coupon_problem = serializers.CharField(allow_null=True, help_text="why the coupon does not apply now")
     subtotal = rupees()
+    savings = SavingSerializer(many=True)
     discount = rupees()
     shipping = rupees(allow_null=True, help_text="null without ?state=")
     total = rupees()
@@ -532,6 +542,7 @@ class OrderSerializer(OrderBriefSerializer):
     copied at checkout, shipments with tracking, refunds, and the invoice and credit notes once their PDFs exist."""
 
     subtotal = rupees("subtotal.amount")
+    savings = serializers.SerializerMethodField()
     discount = rupees("discount.amount")
     shipping_fee = rupees("shipping_fee.amount")
     items = OrderItemSerializer(many=True, read_only=True)
@@ -547,9 +558,14 @@ class OrderSerializer(OrderBriefSerializer):
     class Meta(OrderBriefSerializer.Meta):
         fields = [
             *OrderBriefSerializer.Meta.fields,
-            *["email", "shipping_address", "subtotal", "discount", "shipping_fee", "coupon_code"],
+            *["email", "shipping_address", "subtotal", "savings", "discount", "shipping_fee", "coupon_code"],
             *["timeline", "shipments", "refunds", "can_cancel", "can_pay", "invoice", "credit_notes", "web_url"],
         ]
+
+    @extend_schema_field(SavingSerializer(many=True))
+    def get_savings(self, order):
+        lines = [{"label": label, "amount": amount.amount} for label, amount in order.savings]
+        return SavingSerializer(lines, many=True).data
 
     @extend_schema_field(TimelineSerializer(many=True))
     def get_timeline(self, order):

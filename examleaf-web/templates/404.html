@@ -15,14 +15,13 @@
       <a class="btn btn-primary btn-lg" href="{% url 'home' %}"><svg class="icon" aria-hidden="true"><use href="#icon-book"/></svg><span>The books</span></a>
       <p>or <a href="{% url 'shop:catalogue' %}">open the shop</a></p>
     </div>
+    {% if site_books %}
     <h2 class="tiles-title">Open a book</h2>
-    {# The error page has no books in its context: the four printed books, by their slugs #}
+    {# the books of the footer (examleaf.context_processors.site), as the home page shows them #}
     <div class="grid tiles">
-      {% url 'book' 'physics-2027' as physics %}{% include "_tile.html" with key="physics" name="Physics" url=physics marks=70 time="3 hours" cover="img/physics.png" %}
-      {% url 'book' 'chemistry-2027' as chemistry %}{% include "_tile.html" with key="chemistry" name="Chemistry" url=chemistry marks=70 time="3 hours" cover="img/chemistry.png" %}
-      {% url 'book' 'mathematics-2027' as mathematics %}{% include "_tile.html" with key="mathematics" name="Mathematics" url=mathematics marks=80 time="3 hours" cover="img/mathematics.png" %}
-      {% url 'book' 'biology-2027' as biology %}{% include "_tile.html" with key="biology" name="Biology" url=biology marks=70 time="3 hours" cover="img/biology.png" %}
+      {% for book in site_books %}{% with paper=book.papers.first %}{% include "_tile.html" with key=book.subject.name|lower name=book.subject.name url=book.get_absolute_url marks=paper.full_marks time=paper.time_text cover=book.cover %}{% endwith %}{% endfor %}
     </div>
+    {% endif %}
   </div>
 </section>
 {% endblock %}

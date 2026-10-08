@@ -126,6 +126,31 @@ def export_cart(user):
     return None
 
 
+def export_shop_requests(user):
+    """The user's reviews, and what the shop keeps under the account's email address: school quotation requests and
+    "email me when it is back" requests."""
+    from shop.models import QuoteRequest, StockAlert
+
+    quote_fields = ["school", "contact_name", "email", "gstin", "items", "delivery_pin", "note", "status", "created"]
+    return {
+        "reviews": list(user.reviews.values("product__title", "rating", "text", "status", "created")),
+        "quote_requests": [
+            {**{name: getattr(quote, name) for name in quote_fields}, "phone": str(quote.phone)}
+            for quote in QuoteRequest.objects.filter(email__iexact=user.email)
+        ],
+        "stock_alerts": list(StockAlert.objects.filter(email__iexact=user.email).values("product__title", "created")),
+    }
+
+
+def export_course(user):
+    """The revision course's data (learn.services.export_learning), while that app is installed."""
+    try:
+        from learn.services import export_learning
+    except ImportError:
+        return None
+    return export_learning(user)
+
+
 def export_user_data(user):
     """Everything kept about a user (Download my data; staff use it for a data request by letter, see RUNBOOK.md)."""
     return {
@@ -155,6 +180,8 @@ def export_user_data(user):
         "addresses": [{**a.snapshot(), "is_default": a.is_default, "created": a.created} for a in user.addresses.all()],
         "cart": export_cart(user),
         "orders": export_orders(user),
+        **export_shop_requests(user),
+        "learning": export_course(user),
     }
 
 

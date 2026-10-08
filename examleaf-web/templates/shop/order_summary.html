@@ -8,7 +8,7 @@
 </div>
 <dl class="totals">
   <dt>Books</dt><dd>{{ order.subtotal|inr }}</dd>
-  {% if order.discount.amount %}<dt>Coupon {{ order.coupon_code }}</dt><dd>−{{ order.discount|inr }}</dd>{% endif %}
+  {% for label, amount in order.savings %}<dt>{{ label }}</dt><dd>−{{ amount|inr }}</dd>{% endfor %}
   <dt>Shipping</dt><dd>{% if order.shipping_fee.amount %}{{ order.shipping_fee|inr }}{% else %}free{% endif %}</dd>
   <dt class="grand">Total</dt><dd class="grand">{{ order.total|inr }}</dd>
 </dl>

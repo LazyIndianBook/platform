@@ -82,7 +82,7 @@ def send_reminders():
         batch = devices[start : start + 500]
         notes = [
             messaging.Message(
-                token=device.token,
+                fid=device.token,  # FCM's installation ID (firebase-admin 7.7 deprecates token=)
                 notification=messaging.Notification(
                     title="ExamLeaf revision", body=reminder(device.user.learner, today)
                 ),

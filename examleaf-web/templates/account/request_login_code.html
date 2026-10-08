@@ -1,18 +1,19 @@
 {% extends "account/base_entrance.html" %}
-{# allauth's "send me a code" page with the site's words #}
+{% load widget_tweaks %}
+{# allauth's "send me a code" page with the site's words (the log-in page's code form lands here with its errors) #}
 {% block head_title %}Log in with a code{% endblock head_title %}
 {% block content %}
 <h1>Log in with a code</h1>
-<p>{% if sms_enabled %}Enter your email address, or the mobile number you confirmed on My account (one is enough):
+<p class="muted">{% if sms_enabled %}Enter your email address, or the mobile number you confirmed on My account (one is enough):
 we send you a 6-digit code.{% else %}Enter your email address: we email you a 6-digit code.{% endif %} No password needed.</p>
-<form method="post" action="{{ request_login_code_url }}">
+<form class="form-col" method="post" action="{{ request_login_code_url }}">
   {% csrf_token %}
-  {{ form.non_field_errors }}
-  {% for field in form %}
-  <div class="field">{% if field.label %}{{ field.label_tag }} {% endif %}{{ field }} {{ field.errors }}</div>
-  {% endfor %}
+  {% include "_form_errors.html" %}
+  {% include "_field.html" with field=form.email %}
+  {% if form.phone %}{% include "_field.html" with field=form.phone|attr:"autocomplete:tel-national"|attr:"inputmode:tel" prefix="+91" %}{% endif %}
+  {% if form.turnstile %}{% include "_field.html" with field=form.turnstile %}{% endif %}
   {{ redirect_field }}
-  <button type="submit" class="btn btn-primary">Send the code</button>
+  <button type="submit" class="btn btn-primary btn-lg btn-block">Send the code</button>
 </form>
-<p><a href="{{ login_url }}">Log in with your password</a></p>
+<p class="entrance-foot"><a href="{{ login_url }}">Log in with your password</a></p>
 {% endblock content %}

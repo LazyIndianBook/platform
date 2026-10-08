@@ -5,4 +5,5 @@ from . import views
 app_name = "learn"
 urlpatterns = [
     path("hls/<str:token>/<path:name>", views.hls, name="hls"),
+    path("preview/<int:pk>/", views.preview, name="preview"),
 ]

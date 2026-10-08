@@ -1,20 +1,58 @@
 {% extends "account/base_entrance.html" %}
-{% load allauth %}
-{# allauth's page with the site's words: Log in and Register (as in the header), not Sign In and Sign Up #}
+{% load static widget_tweaks %}
+{# allauth's page with the site's words: Log in and Register (as in the header), not Sign In and Sign Up. The Register
+artboard: the error summary, then numbered fieldsets; the parent's fields show for a student under 18 (static/js/account.js;
+always without JavaScript). socialaccount/signup.html (after Google) extends this page. #}
 {% block head_title %}Register{% endblock head_title %}
+{% block main_class %}page-alt{% endblock %}
 {% block content %}
-    {% element h1 %}Register{% endelement %}
-    {% element p %}Already registered? <a href="{{ login_url }}">Log in</a>.{% endelement %}
-    {% url 'account_signup' as action_url %}
-    {% element form form=form method="post" action=action_url tags="entrance,signup" %}
-        {% slot body %}
-            {% csrf_token %}
-            {% element fields form=form unlabeled=True %}
-            {% endelement %}
-            {{ redirect_field }}
-        {% endslot %}
-        {% slot actions %}
-            {% element button tags="prominent,signup" type="submit" %}Register{% endelement %}
-        {% endslot %}
-    {% endelement %}
+<section class="section entrance-section">
+  <div class="container entrance-row">
+    <div class="card register-card"><div class="card-body">
+      <h1>Register</h1>
+      <p class="muted">{% block lead %}Already registered? <a href="{{ login_url }}">Log in</a>. Registering is free.{% endblock %}</p>
+      {% include "_form_errors.html" %}
+      <form class="steps-form" method="post" action="{% block action %}{% url 'account_signup' %}{% endblock %}">
+        {% csrf_token %}
+        <fieldset>
+          <legend><span class="legend-no" aria-hidden="true">1</span>About you</legend>
+          <div class="form-grid">
+            {% include "_field.html" with field=form.full_name %}
+            {% include "_field.html" with field=form.email help="We email you a code to confirm it." %}
+            {% if form.password1 %}{% include "_field.html" with field=form.password1 %}
+            {% include "_field.html" with field=form.password2 label="Password again" %}{% endif %}
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend><span class="legend-no" aria-hidden="true">2</span>Your class</legend>
+          <div class="form-grid">
+            {% include "_field.html" with field=form.class_level %}
+            {% include "_field.html" with field=form.board %}
+            {% include "_field.html" with field=form.district|attr:"autocomplete:address-level2" %}
+            {% include "_field.html" with field=form.date_of_birth|attr:"autocomplete:bday" help="Under 18? Your parent or guardian confirms your account." %}
+          </div>
+        </fieldset>
+        <fieldset class="minor" data-minor>
+          <legend><span class="legend-no" aria-hidden="true">3</span>If you are under 18</legend>
+          <p class="muted">{% if consent_by_link %}We send your parent or guardian a link to confirm your account. Until they do, you can read the solutions but not save marks or order books.{% else %}Your parent or guardian reads the privacy notice and ticks the box below for you.{% endif %}</p>
+          <div class="form-grid">
+            {% include "_field.html" with field=form.parent_name label=form.parent_name.label|cut:" (if you are under 18)" %}
+            {% include "_field.html" with field=form.parent_contact label=form.parent_contact.label|cut:" (if you are under 18)" %}
+          </div>
+        </fieldset>
+        <div class="consent-box">{% include "_field.html" with field=form.consent %}</div>
+        {% if form.turnstile %}{% include "_field.html" with field=form.turnstile %}{% endif %}
+        {{ redirect_field }}
+        <div class="row"><button type="submit" class="btn btn-accent btn-lg">Register</button><span class="muted small">We email you a code to confirm your address.</span></div>
+      </form>
+    </div></div>
+    <aside class="card keep-card"><div class="card-body">
+      <h2>What we keep</h2>
+      <p>Your name, email address, class, board, district and date of birth, and the marks you save, so that you can use the free solutions.</p>
+      <p class="muted">You can see everything we keep, download it, or delete your account, from My account.</p>
+      <a class="link-go" href="{% url 'privacy' %}">Read the privacy notice <svg class="icon" aria-hidden="true"><use href="#icon-arrow-right"/></svg></a>
+    </div></aside>
+  </div>
+</section>
 {% endblock content %}
+{% block extra_body %}{{ block.super }}<script src="{% static 'js/account.js' %}" defer></script>{% endblock %}

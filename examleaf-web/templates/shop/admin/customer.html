@@ -1,0 +1,29 @@
+{% extends "admin/base_site.html" %}{% load shop %}
+{% block content %}
+<div class="module"><h2>Account</h2>
+  <p>{{ customer.full_name }} · {{ customer.email }}{% if customer.login_phone_verified %} · {{ customer.login_phone }}{% endif %}{% if not customer.is_active %} · <strong>inactive</strong>{% endif %}
+  {% if perms.accounts.view_user %} · <a href="{% url 'admin:accounts_user_change' customer.pk %}">account record</a>{% endif %}</p>
+</div>
+
+<div class="module"><h2>Orders (the account's, and guest orders with its email address)</h2>
+<table>
+  <thead><tr><th scope="col">Order</th><th scope="col">Made</th><th scope="col">Status</th><th scope="col">Payment</th><th scope="col">Total</th></tr></thead>
+  <tbody>{% for order in orders %}<tr><td><a href="{% url 'admin:shop_order_change' order.pk %}">{{ order.number }}</a></td><td>{{ order.created|date:"j M Y" }}</td><td>{{ order.status_label }}</td><td>{{ order.get_payment_method_display }}</td><td>{{ order.total|inr }}</td></tr>
+  {% empty %}<tr><td colspan="5">None.</td></tr>{% endfor %}</tbody>
+</table></div>
+
+{% if perms.shop.view_address %}<div class="module"><h2>Saved addresses</h2>
+<ul>{% for address in addresses %}<li>{{ address.lines|join:", " }}{% if address.is_default %} (default){% endif %}</li>{% empty %}<li>None.</li>{% endfor %}</ul></div>{% endif %}
+
+{% if perms.shop.view_review %}<div class="module"><h2>Reviews</h2>
+<ul>{% for review in reviews %}<li><a href="{% url 'admin:shop_review_change' review.pk %}">{{ review.rating }}/5 for {{ review.product }}</a> · {{ review.get_status_display }}</li>{% empty %}<li>None.</li>{% endfor %}</ul></div>{% endif %}
+
+{% if perms.shop.view_quoterequest %}<div class="module"><h2>School and bulk quotation requests (by email address)</h2>
+<ul>{% for quote in quotes %}<li><a href="{% url 'admin:shop_quoterequest_change' quote.pk %}">{{ quote.number }} {{ quote.school }}</a> · {{ quote.copies }} copies · {{ quote.get_status_display }}</li>{% empty %}<li>None.</li>{% endfor %}</ul></div>{% endif %}
+
+{% if perms.shop.view_stockalert %}<div class="module"><h2>Waiting for books to be back in stock</h2>
+<ul>{% for alert in alerts %}<li>{{ alert.product }} (since {{ alert.created|date:"j M Y" }})</li>{% empty %}<li>None.</li>{% endfor %}</ul></div>{% endif %}
+
+{% if entitlements is not None and perms.learn.view_entitlement %}<div class="module"><h2>Courses open to the account</h2>
+<ul>{% for entitlement in entitlements %}<li>{{ entitlement }}</li>{% empty %}<li>None.</li>{% endfor %}</ul></div>{% endif %}
+{% endblock %}

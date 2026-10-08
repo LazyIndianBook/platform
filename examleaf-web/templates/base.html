@@ -55,10 +55,8 @@
       <div class="footer-col">
         <h2>Books</h2>
         <ul>
-          <li><a href="{% url 'book' 'physics-2027' %}">Physics</a></li>
-          <li><a href="{% url 'book' 'chemistry-2027' %}">Chemistry</a></li>
-          <li><a href="{% url 'book' 'mathematics-2027' %}">Mathematics</a></li>
-          <li><a href="{% url 'book' 'biology-2027' %}">Biology</a></li>
+          {% for book in site_books %}<li><a href="{{ book.get_absolute_url }}">{{ book.subject.name }}</a></li>
+          {% endfor %}
         </ul>
       </div>
       <div class="footer-col">

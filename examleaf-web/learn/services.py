@@ -9,7 +9,7 @@ from django.db import transaction
 from django.db.models import Min, Q
 from django.utils import timezone
 
-from .models import CODE_ALPHABET, CODE_LENGTH, BookCode, Chapter, Entitlement, clean_code, code_digest
+from .models import CODE_ALPHABET, CODE_LENGTH, BookCode, Chapter, Entitlement, Learner, clean_code, code_digest
 
 logger = logging.getLogger(__name__)
 
@@ -36,9 +36,10 @@ def entitled_subjects(user):
     return Every() if None in ids else ids
 
 
-def is_free_clip(clip):
-    """The first clip of every revision (and any clip marked as a free preview), while LEARN_FREE_PREVIEW is on."""
-    first = clip.revision.clips.order_by("order", "pk").values_list("pk", flat=True).first()
+def is_free_clip(clip, first=None):
+    """The first clip of every revision (and any clip marked as a free preview), while LEARN_FREE_PREVIEW is on.
+    `first`: the pk of the revision's first clip, when the caller has it."""
+    first = first or clip.revision.clips.order_by("order", "pk").values_list("pk", flat=True).first()
     return settings.LEARN_FREE_PREVIEW and (clip.is_free_preview or clip.pk == first)
 
 
@@ -118,3 +119,18 @@ def grant_for_order(order):
 def revoke_for_order(order):
     """For the shop to call when a paid order is cancelled or refunded: what it opened closes. Returns how many."""
     return Entitlement.objects.filter(source=Entitlement.Source.PURCHASE, reference=order.number).delete()[0]
+
+
+def export_learning(user):
+    """The course data kept about a user, for Download my data (accounts.views.export_user_data, key "learning")."""
+    return {
+        "settings": Learner.objects.filter(user=user).values("exam_date", "minutes_per_day", "reminders").first(),
+        "entitlements": list(
+            user.entitlements.values("subject__name", "source", "reference", "valid_until", "note", "created")
+        ),
+        "book_codes_redeemed": list(BookCode.objects.filter(redeemed_by=user).values("batch", "redeemed_at")),
+        "progress": list(user.clip_progress.values("clip__title", "seconds_watched", "completed", "updated")),
+        "quiz_answers": list(user.quiz_attempts.values("item__text", "correct", "created")),
+        "flash_card_reviews": list(user.card_reviews.values("card__front", "known", "created")),
+        "devices": list(user.devices.values("platform", "created", "last_seen")),  # not the ID itself: a credential
+    }

@@ -1,0 +1,9 @@
+{% autoescape off %}Here is your ExamLeaf order {{ order.number }}, as agreed with us:
+
+{% include "shop/email/_order.txt" %}
+Pay online with UPI, a card or net banking (Razorpay), within 15 days:
+{{ url }}
+
+{% if order.is_digital %}The course opens in your account once it is paid.{% else %}We dispatch the books once it is paid, and email you the tracking number.{% endif %} Questions: reply to this email.
+
+ExamLeaf{% endautoescape %}

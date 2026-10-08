@@ -2,6 +2,7 @@
 {# allauth's page with the site's words #}
 {% block head_title %}Mobile number{% endblock head_title %}
 {% block title %}Enter the code we texted you{% endblock %}
+{% block confirm %}Confirm the number{% endblock %}
 {% block recipient %}{{ phone }}{% endblock %}
 {% block action_url %}{% url 'account_verify_phone' %}{% endblock %}
 {% block change_title %}Use a different number{% endblock %}

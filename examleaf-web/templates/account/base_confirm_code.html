@@ -1,0 +1,54 @@
+{% extends "account/base_entrance.html" %}
+{% load allauth account static widget_tweaks %}
+{# allauth's code page (log-in, email, password reset and mobile number codes; its blocks as allauth has them) in the
+vocabulary: the 6 boxes of .otp (static/js/account.js turns the one "code" box into six and joins them; without
+JavaScript it stays one box), a new code, cancel, and the change of address or number. #}
+{% block content %}
+{% setvar title_ %}{% block title %}{% endblock %}{% endsetvar %}
+{% setvar action_url %}{% block action_url %}{% endblock %}{% endsetvar %}
+{% setvar recipient %}{% block recipient %}{% endblock %}{% endsetvar %}
+{% setvar confirm_ %}{% block confirm %}Confirm{% endblock %}{% endsetvar %}
+{% setvar summary_ %}{% block change_title %}{% endblock %}{% endsetvar %}
+<h1>{{ title_ }}</h1>
+<form class="form-col" method="post" action="{{ action_url }}">
+  {% csrf_token %}
+  {% include "_form_errors.html" with form=verify_form %}
+  {% with code=verify_form.code|remove_attr:"placeholder" error_id=verify_form.code.auto_id|add:"_error" %}{% with both="code-sent "|add:error_id %}
+  <div class="field">
+    <label for="{{ code.id_for_label }}">6-digit code</label>
+    {% if code.errors %}{% render_field code class="otp-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" data-otp="" aria-describedby=both %}{% else %}{% render_field code class="otp-code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" data-otp="" aria-describedby="code-sent" %}{% endif %}
+    <p class="field-help" id="code-sent">Sent to {{ recipient }}. It works for a few minutes.{% if can_resend %} <button class="link-button" type="submit" form="resend">Send a new code</button>{% endif %}</p>
+    {% if code.errors %}<p class="field-error" id="{{ error_id }}"><svg class="icon" aria-hidden="true"><use href="#icon-alert"/></svg><span>{{ code.errors|join:" " }}</span></p>{% endif %}
+  </div>
+  {% endwith %}{% endwith %}
+  {{ redirect_field }}
+  <button type="submit" class="btn btn-primary btn-lg btn-block">{{ confirm_ }}</button>
+</form>
+<form id="resend" method="post" action="{{ action_url }}">
+  <input type="hidden" name="action" value="resend">
+  {{ redirect_field }}
+  {% csrf_token %}
+</form>
+<p class="entrance-foot">{% if cancel_url %}<a href="{{ cancel_url }}">Cancel</a>{% else %}<button class="link-button" type="submit" form="logout-from-stage">Cancel</button>{% endif %}</p>
+{% if not cancel_url %}
+<form id="logout-from-stage" method="post" action="{% url 'account_logout' %}">
+  <input type="hidden" name="next" value="{% url 'account_login' %}">
+  {% csrf_token %}
+</form>
+{% endif %}
+{% if can_change %}
+<details class="accordion"{% if change_form.errors %} open{% endif %}>
+  <summary><span>{{ summary_ }}</span><svg class="icon" aria-hidden="true"><use href="#icon-chevron-down"/></svg></summary>
+  <div>
+    <form class="form-col" method="post" action="{{ action_url }}">
+      {% csrf_token %}
+      {% include "_form_errors.html" with form=change_form %}
+      {% for field in change_form %}{% if field.name == "phone" %}{% include "_field.html" with prefix="+91" %}{% else %}{% include "_field.html" %}{% endif %}{% endfor %}
+      {{ redirect_field }}
+      <div class="row"><button class="btn btn-secondary" name="action" value="change" type="submit">Change</button></div>
+    </form>
+  </div>
+</details>
+{% endif %}
+{% endblock content %}
+{% block extra_body %}{{ block.super }}<script src="{% static 'js/account.js' %}" defer></script>{% endblock %}

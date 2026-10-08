@@ -28,7 +28,7 @@
 
 <dl class="totals">
   <dt>Books</dt><dd>{{ totals.subtotal|inr }}</dd>
-  {% if totals.coupon %}<dt>Coupon {{ totals.coupon }}</dt><dd>−{{ totals.discount|inr }}</dd>{% endif %}
+  {% for saving in totals.savings %}<dt>{{ saving.label }}</dt><dd>−{{ saving.amount|inr }}</dd>{% endfor %}
   <dt>Shipping</dt><dd class="muted">at checkout, from your state</dd>
 </dl>
 

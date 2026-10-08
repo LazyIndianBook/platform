@@ -1,0 +1,16 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p>A phone or school order at today's prices; automatic offers apply, then your discount. It waits for payment: a Razorpay payment link (emailed now if ticked, or later with the action), or a bank transfer or UPI payment recorded with the action "Record a payment received offline".</p>
+<form method="post">{% csrf_token %}
+  <fieldset class="module aligned"><h2>Customer and payment</h2>{{ form.as_div }}</fieldset>
+  <fieldset class="module aligned"><h2>Delivery address</h2>{{ address_form.as_div }}</fieldset>
+  <fieldset class="module"><h2>Products</h2>
+    {{ lines.management_form }}{{ lines.non_form_errors }}
+    <table>
+      <thead><tr><th scope="col">Product</th><th scope="col">Copies</th></tr></thead>
+      <tbody>{% for line in lines %}<tr><td>{{ line.product.errors }}{{ line.product }}</td><td>{{ line.quantity.errors }}{{ line.quantity }}</td></tr>{% endfor %}</tbody>
+    </table>
+  </fieldset>
+  <div class="submit-row"><input type="submit" value="Make the order" class="default"></div>
+</form>
+{% endblock %}

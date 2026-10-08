@@ -89,4 +89,5 @@ def test_digital_products_open_the_course_once_paid_and_close_when_refunded():
     grant_for_order(order)  # a repeated webhook
     assert user.entitlements.count() == 1 and physics.pk in entitled_subjects(user)
     assert revoke_for_order(order) == 1 and not user.entitlements.exists()
-    assert grant_for_order(make_order((ProductFactory(kind="digital"), 1))) == []  # a guest: no account
+    order.user = None  # a guest order (the checkout asks for a log-in first): nobody to open it for
+    assert grant_for_order(order) == []

@@ -1,0 +1,9 @@
+{% load allauth %}{% comment %} djlint:off {% endcomment %}{# allauth's single field (email and phone pages) as templates/_field.html draws a form's: label, control, help, error #}
+<div class="field">
+  {% if attrs.type == "checkbox" or attrs.type == "radio" %}<label class="checkbox"><input type="{{ attrs.type }}"{% include "allauth/elements/_attrs.html" %}><span>{% slot label %}{% endslot %}</span></label>
+  {% else %}<label for="{{ attrs.id }}">{% slot label %}{% endslot %}</label>
+  {% if attrs.type == "textarea" %}<textarea class="textarea"{% if attrs.rows %} rows="{{ attrs.rows }}"{% endif %}{% include "allauth/elements/_attrs.html" %}>{% slot value %}{% endslot %}</textarea>
+  {% else %}<input class="input" type="{{ attrs.type }}"{% include "allauth/elements/_attrs.html" %}>{% endif %}{% endif %}
+  {% if slots.help_text %}<div class="field-help" id="{{ attrs.id }}_helptext">{% slot help_text %}{% endslot %}</div>{% endif %}
+  {% if attrs.errors %}<p class="field-error" id="{{ attrs.id }}_error"><svg class="icon" aria-hidden="true"><use href="#icon-alert"/></svg><span>{{ attrs.errors|join:" " }}</span></p>{% endif %}
+</div>

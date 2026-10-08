@@ -1,15 +1,26 @@
+from collections import Counter
+
+from allauth.account.models import EmailAddress
 from django import forms
+from django.apps import apps
 from django.contrib import admin, messages
+from django.contrib.admin.helpers import ActionForm
+from django.contrib.auth import get_user_model
+from django.core.exceptions import PermissionDenied
 from django.core.files.uploadedfile import UploadedFile
+from django.db.models import Q
 from django.forms import formset_factory
 from django.http import FileResponse, Http404
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import path, reverse
+from django.utils import timezone
 from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
 from django.utils.text import Truncator
 from django_fsm import TransitionNotAllowed
-from import_export import fields, resources
+from djmoney.money import Money
+from import_export import fields, resources, widgets
+from import_export.admin import ExportActionMixin, ImportMixin
 from import_export.formats.base_formats import CSV, XLSX
 from localflavor.in_.in_states import STATE_CHOICES
 from simple_history.admin import SimpleHistoryAdmin
@@ -18,8 +29,9 @@ from treebeard.forms import movenodeform_factory
 
 from ops.admin import LoggedExportMixin
 
-from . import services
-from .forms import RefundForm, ShipForm
+from . import payments, services
+from .cart import Line
+from .forms import AddressForm, OfflinePaymentForm, RefundForm, ShipForm, StaffOrderForm, StaffOrderLineForm
 from .models import (
     Attribute,
     AttributeValue,
@@ -30,8 +42,11 @@ from .models import (
     Coupon,
     CreditNote,
     Invoice,
+    Offer,
     Order,
+    OrderDiscount,
     OrderItem,
+    OrderNote,
     Payment,
     Product,
     ProductImage,
@@ -42,6 +57,7 @@ from .models import (
     Shipment,
     ShippingRate,
     SlugHistory,
+    StockAlert,
 )
 
 admin.site.index_template = "shop/admin/index.html"  # the ops dashboard with the shop's numbers above it
@@ -103,6 +119,75 @@ class ProductForm(forms.ModelForm):
         return small_picture(self.cleaned_data["cover"])
 
 
+class RupeesWidget(widgets.DecimalWidget):
+    """A money field as a plain number of rupees (INR) in the file."""
+
+    def render(self, value, obj=None, **kwargs):
+        return super().render(value.amount if isinstance(value, Money) else value, obj, **kwargs)
+
+
+class ProductResource(resources.ModelResource):
+    """Products in a spreadsheet (CSV, XLSX), matched by slug: export, change prices or texts, import (ADMIN; checked
+    as the form checks them). Stock is exported but never imported: use "Set stock", sales go on meanwhile."""
+
+    mrp = fields.Field(attribute="mrp", column_name="mrp", widget=RupeesWidget())
+    price = fields.Field(attribute="price", column_name="price", widget=RupeesWidget())
+    stock = fields.Field(attribute="stock", column_name="stock", readonly=True)
+    book = fields.Field(attribute="book", column_name="book", widget=widgets.ForeignKeyWidget("content.Book", "slug"))
+    product_type = fields.Field(
+        attribute="product_type", column_name="product_type", widget=widgets.ForeignKeyWidget(ProductType, "name")
+    )
+    categories = fields.Field(
+        attribute="categories", column_name="categories", widget=widgets.ManyToManyWidget(Category, "|", "slug")
+    )
+
+    class Meta:
+        model = Product
+        import_id_fields = ["slug"]
+        clean_model_instances = True
+        fields = [
+            *["slug", "title", "kind", "is_active", "subject", "book", "mrp", "price", "stock", "gst_rate"],
+            *["hsn_code", "isbn", "pages", "weight_grams", "description", "seo_title", "seo_description"],
+            *["product_type", "categories"],
+        ]
+
+
+class CategoryResource(resources.ModelResource):
+    """The category tree in a spreadsheet, a parent before its children (`parent`: its slug, empty at the top). An
+    import adds new categories where their parent says and updates names and descriptions; it moves none (drag
+    them in the admin)."""
+
+    parent = fields.Field(column_name="parent", readonly=True)
+
+    class Meta:
+        model = Category
+        import_id_fields = ["slug"]
+        fields = ["slug", "name", "description", "parent"]
+
+    def get_export_queryset(self, request):
+        return Category.objects.order_by("path")
+
+    def dehydrate_parent(self, category):
+        parent = Category.objects.get_parent(category)
+        return parent.slug if parent else ""
+
+    def before_save_instance(self, instance, row, **kwargs):
+        self.parent_slug = row.get("parent") or ""
+
+    def do_instance_save(self, instance, is_create):
+        if not is_create:
+            return super().do_instance_save(instance, is_create)
+        if not self.parent_slug:
+            return Category.objects.add_root(instance=instance)
+        if parent := Category.objects.filter(slug=self.parent_slug).first():
+            return Category.objects.add_child(parent, instance=instance)
+        raise ValueError(f"No category {self.parent_slug} to put it under: add that one first (an earlier row).")
+
+
+class ProductActionForm(ActionForm):
+    stock = forms.IntegerField(label="Copies (for “Set stock”)", required=False, min_value=0)
+
+
 class BundleItemInline(admin.TabularInline):
     model = BundleItem
     fk_name = "bundle"
@@ -123,7 +208,13 @@ class SlugHistoryInline(ReadOnlyInline):
 
 
 @admin.register(Product)
-class ProductAdmin(admin.ModelAdmin):
+class ProductAdmin(ImportMixin, ExportActionMixin, LoggedExportMixin, admin.ModelAdmin):
+    """Products; import and export (ADMIN: shop.import_product, shop.export_product, logged), bulk actions."""
+
+    resource_classes = [ProductResource]
+    import_formats = export_formats = [CSV, XLSX]
+    action_form = ProductActionForm
+    actions = ["publish", "unpublish", "set_stock"]
     form = ProductForm
     list_display = ["title", "kind", "subject", "price", "mrp", "stock", "is_active"]
     list_filter = ["is_active", "kind", "subject", "product_type", "categories"]
@@ -140,6 +231,23 @@ class ProductAdmin(admin.ModelAdmin):
         ("Search engines", {"fields": ["seo_title", "seo_description"], "classes": ["collapse"]}),
     ]
 
+    @admin.action(description="Put on sale", permissions=["change"])
+    def publish(self, request, queryset):
+        self.message_user(request, f"{queryset.update(is_active=True)} product(s) on sale.", messages.SUCCESS)
+
+    @admin.action(description="Take off sale", permissions=["change"])
+    def unpublish(self, request, queryset):
+        self.message_user(request, f"{queryset.update(is_active=False)} product(s) off sale.", messages.SUCCESS)
+
+    @admin.action(description="Set stock to the copies typed beside the action", permissions=["change"])
+    def set_stock(self, request, queryset):
+        copies = request.POST.get("stock", "")
+        if not copies.isdigit():
+            self.message_user(request, "Type the number of copies in hand beside the action first.", messages.ERROR)
+            return
+        books = queryset.exclude(kind__in=[Product.Kind.BUNDLE, Product.Kind.DIGITAL])  # no copies of their own
+        self.message_user(request, f"Stock set to {copies} for {books.update(stock=int(copies))} book(s).")
+
     def save_model(self, request, obj, form, change):
         if change and "stock" not in form.changed_data:
             # The page may have been open while customers bought: saving it must not put its old copy count back.
@@ -148,9 +256,12 @@ class ProductAdmin(admin.ModelAdmin):
 
 
 @admin.register(Category)
-class CategoryAdmin(TreeAdmin):
-    """The shop's shelves as a tree: drag a row to move it (with its sub-categories), or set its place in the form."""
+class CategoryAdmin(ImportMixin, LoggedExportMixin, TreeAdmin):
+    """The shop's shelves as a tree: drag a row to move it (with its sub-categories), or set its place in the form.
+    Import and export: ADMIN (shop.import_category, shop.export_category)."""
 
+    resource_classes = [CategoryResource]
+    import_formats = export_formats = [CSV, XLSX]
     form = movenodeform_factory(Category)
     list_display = ["name", "slug", "product_count"]
     search_fields = ["name", "slug"]
@@ -211,6 +322,26 @@ class CouponAdmin(admin.ModelAdmin):
         return coupon.orders.counted().count()
 
 
+@admin.register(Offer)
+class OfferAdmin(admin.ModelAdmin):
+    """Automatic discounts, no code needed (RUNBOOK.md "Offers"); the cart applies them after the coupon."""
+
+    list_display = ["name", "kind", "value", "scope", "valid_from", "valid_until", "uses", "max_uses", "is_active"]
+    list_filter = ["is_active", "scope", "kind", "combinable", "valid_from"]
+    search_fields = ["name", "products__title", "categories__name", "collections__name"]
+    filter_horizontal = ["products", "categories", "collections"]
+    fieldsets = [
+        (None, {"fields": ["name", "is_active", "kind", "value", "combinable"]}),
+        ("What it covers", {"fields": ["scope", "products", "categories", "collections"]}),
+        ("When it applies", {"fields": ["min_quantity", "min_value", "valid_from", "valid_until"]}),
+        ("Limits", {"fields": ["max_uses", "max_uses_per_customer"]}),
+    ]
+
+    @admin.display(description="used")
+    def uses(self, offer):
+        return Order.objects.counted().filter(discount_lines__offer=offer).count()
+
+
 class ShippingRateForm(forms.ModelForm):
     states = forms.MultipleChoiceField(
         choices=sorted(STATE_CHOICES, key=lambda choice: choice[1]),
@@ -228,6 +359,8 @@ class ShippingRateForm(forms.ModelForm):
 class ShippingRateAdmin(admin.ModelAdmin):
     form = ShippingRateForm
     list_display = ["name", "fee", "free_above", "state_list", "is_active"]
+    list_filter = ["is_active"]
+    search_fields = ["name"]
 
     @admin.display(description="states")
     def state_list(self, rate):
@@ -236,7 +369,13 @@ class ShippingRateAdmin(admin.ModelAdmin):
 
 class OrderItemInline(ReadOnlyInline):
     model = OrderItem
-    fields = readonly_fields = ["title", "hsn_code", "gst_rate", "mrp", "unit_price", "quantity"]
+    fields = readonly_fields = ["title", "hsn_code", "gst_rate", "mrp", "unit_price", "quantity", "discount"]
+
+
+class OrderDiscountInline(ReadOnlyInline):
+    model = OrderDiscount
+    fields = readonly_fields = ["label", "amount", "offer"]
+    verbose_name_plural = "discounts"
 
 
 class PaymentInline(ReadOnlyInline):
@@ -257,6 +396,16 @@ class ShipmentInline(admin.TabularInline):  # created by "mark shipped"; editabl
 class RefundInline(ReadOnlyInline):
     model = Refund
     fields = readonly_fields = ["amount", "status", "reason", "razorpay_refund_id", "error", "created", "created_by"]
+
+
+class OrderNoteInline(admin.TabularInline):
+    """Staff's internal notes (never shown to the customer); OrderAdmin.save_formset signs new ones."""
+
+    model = OrderNote
+    extra = 1
+    fields = ["text", "author", "created"]
+    readonly_fields = ["author", "created"]
+    verbose_name_plural = "internal notes (the customer never sees them)"
 
 
 ADDRESS_COLUMNS = ["name", "phone", "city", "district", "state", "pin"]
@@ -297,7 +446,14 @@ class OrderAdmin(LoggedExportMixin, SimpleHistoryAdmin):  # export: shop.export_
     resource_classes = [OrderResource]
     export_formats = [CSV, XLSX]
     list_display = ["order_number", "created", "customer", "total", "payment_method", "status", "placed_at"]
-    list_filter = ["status", "payment_method", "livemode", "placed_at", "created"]
+    list_filter = [
+        "status",
+        "payment_method",
+        ("created_by", admin.EmptyFieldListFilter),  # not empty: made by staff (phone and school orders)
+        "livemode",
+        "placed_at",
+        "created",
+    ]
     search_fields = [
         "number",
         "email",
@@ -307,21 +463,52 @@ class OrderAdmin(LoggedExportMixin, SimpleHistoryAdmin):  # export: shop.export_
     ]
     date_hierarchy = "created"
     readonly_fields = [
-        *["order_number", "status", "user", "email", "delivery_address", "subtotal", "discount", "shipping_fee"],
-        *["total", "coupon_code", "payment_method", "livemode", "placed_at", "invoice_link", "created", "modified"],
+        *["order_number", "status", "customer_page", "email", "delivery_address", "subtotal", "discount"],
+        *["shipping_fee", "total", "coupon_code", "payment_method", "livemode", "placed_at", "invoice_link"],
+        *["created_by", "status_timeline", "created", "modified"],
     ]
     fields = readonly_fields
-    inlines = [OrderItemInline, PaymentInline, ShipmentInline, RefundInline]
-    actions = ["mark_packed", "mark_shipped", "mark_delivered", "cancel", "refund"]
-
-    def has_add_permission(self, request):  # orders come from the checkout
-        return False
+    inlines = [OrderItemInline, OrderDiscountInline, PaymentInline, ShipmentInline, RefundInline, OrderNoteInline]
+    actions = [
+        *["mark_packed", "mark_shipped", "mark_delivered", "cancel", "refund", "payment_link"],
+        "offline_payment",
+    ]
 
     def has_delete_permission(self, request, obj=None):  # tax records
         return False
 
     def has_refund_permission(self, request):
         return request.user.has_perm("shop.add_refund")
+
+    def has_record_payment_permission(self, request):
+        return request.user.has_perm("shop.add_payment")
+
+    def get_urls(self):
+        customer = self.admin_site.admin_view(self.customer_view)
+        return [path("customer/<int:user_id>/", customer, name="shop_customer"), *super().get_urls()]
+
+    def save_formset(self, request, form, formset, change):
+        if formset.model is not OrderNote:
+            return super().save_formset(request, form, formset, change)
+        for note in formset.save(commit=False):  # signed by its author; the history keeps every change
+            if note._state.adding:
+                note.author = request.user
+            note.save()
+        for note in formset.deleted_objects:
+            note.delete()
+        return None
+
+    @admin.display(description="customer")
+    def customer_page(self, order):
+        if not order.user_id:
+            return "a guest (no account)"
+        url = reverse("admin:shop_customer", args=[order.user_id])
+        return format_html('<a href="{}">{}</a> (orders, addresses, reviews…)', url, order.user)
+
+    @admin.display(description="timeline")
+    def status_timeline(self, order):
+        rows = ((label, timezone.localtime(when).strftime("%d %b %Y %H:%M")) for label, when in order.timeline())
+        return format_html_join(mark_safe("<br>"), "{} · {}", rows)
 
     @admin.display(description="number", ordering="number")
     def order_number(self, order):
@@ -427,6 +614,110 @@ class OrderAdmin(LoggedExportMixin, SimpleHistoryAdmin):  # export: shop.export_
             return None
         return self._form_page(request, queryset, "refund", "Refund in full", [(form, None)], None)
 
+    def add_view(self, request, form_url="", extra_context=None):
+        """ "Add order": a phone or school order at today's prices (services.create_staff_order), then its payment
+        link, or a payment recorded offline later (RUNBOOK.md "Staff orders")."""
+        if not self.has_add_permission(request):
+            raise PermissionDenied
+        data = request.POST or None
+        lines = formset_factory(StaffOrderLineForm, extra=5)(data, prefix="lines")
+        form, address = StaffOrderForm(data), AddressForm(data, prefix="address")
+        if request.method == "POST" and all([form.is_valid(), address.is_valid(), lines.is_valid()]):
+            chosen = Counter()
+            for row in lines.cleaned_data:
+                if row:
+                    chosen[row["product"]] += row["quantity"]
+            email = form.cleaned_data["email"]
+            confirmed = EmailAddress.objects.filter(email__iexact=email, verified=True).select_related("user").first()
+            try:
+                if not chosen:
+                    raise services.ShopError("Choose at least one product.")
+                order = services.create_staff_order(
+                    [Line(product, quantity) for product, quantity in chosen.items()],
+                    by=request.user,
+                    email=email,
+                    address=address.save(commit=False).snapshot(),
+                    user=confirmed.user if confirmed else None,
+                    discount=form.cleaned_data["discount"] or 0,
+                    shipping=form.cleaned_data["shipping"],
+                )
+            except services.ShopError as error:
+                form.add_error(None, str(error))
+            else:
+                self.log_addition(request, order, [{"added": {}}])
+                if note := form.cleaned_data["note"]:
+                    OrderNote.objects.create(order=order, author=request.user, text=note)
+                if form.cleaned_data["send_link"]:
+                    self._send_link(request, order)
+                return redirect("admin:shop_order_change", order.pk)
+        context = {
+            **self.admin_site.each_context(request),
+            "title": "New phone or school order",
+            "opts": self.model._meta,
+            "form": form,
+            "address_form": address,
+            "lines": lines,
+        }
+        return render(request, "shop/admin/staff_order.html", context)
+
+    def _send_link(self, request, order):
+        if order.status != Order.Status.PENDING or order.placed_at or order.is_cod:
+            self.message_user(request, f"{order} is not waiting for an online payment.", messages.WARNING)
+            return
+        try:
+            payment = payments.send_payment_link(order)
+        except payments.Unavailable as error:
+            self.message_user(request, f"No payment link for {order}: {error}", messages.ERROR)
+        else:
+            text = f"Payment link for {order} emailed to {order.email}: {payment.payment_link_url}"
+            self.message_user(request, text, messages.SUCCESS)
+
+    @admin.action(description="Email a Razorpay payment link (orders waiting for payment)", permissions=["change"])
+    def payment_link(self, request, queryset):
+        for order in queryset:
+            self._send_link(request, order)
+
+    @admin.action(description="Record a payment received offline (bank transfer, UPI)", permissions=["record_payment"])
+    def offline_payment(self, request, queryset):
+        if queryset.count() != 1:
+            self.message_user(request, "Choose one order: a reference belongs to one payment.", messages.WARNING)
+            return None
+        form = OfflinePaymentForm(request.POST if "apply" in request.POST else None)
+        if form.is_valid():
+            order = queryset.get()
+            try:
+                services.record_offline_payment(order, form.cleaned_data["reference"])
+            except services.ShopError as error:
+                self.message_user(request, f"{order}: {error}", messages.ERROR)
+            else:
+                self.message_user(request, f"{order} is paid (customer emailed, invoice on its way).", messages.SUCCESS)
+            return None
+        return self._form_page(request, queryset, "offline_payment", "Record the payment", [(form, None)], None)
+
+    def customer_view(self, request, user_id):
+        """One customer: the account, its orders (and guest orders with its address), saved addresses, reviews,
+        quotation requests, stock alerts and course entitlements, each shown to staff who may view them."""
+        if not self.has_view_permission(request):
+            raise PermissionDenied
+        customer = get_object_or_404(get_user_model(), pk=user_id)
+        try:
+            entitlements = apps.get_model("learn", "Entitlement").objects.filter(user=customer)
+        except LookupError:  # the learn app (Phase 6 D) is not installed
+            entitlements = None
+        context = {
+            **self.admin_site.each_context(request),
+            "title": f"Customer: {customer}",
+            "opts": self.model._meta,
+            "customer": customer,
+            "orders": Order.objects.filter(Q(user=customer) | Q(email__iexact=customer.email)),
+            "addresses": customer.addresses.all(),
+            "reviews": customer.reviews.select_related("product"),
+            "quotes": QuoteRequest.objects.filter(email__iexact=customer.email),
+            "alerts": StockAlert.objects.filter(email__iexact=customer.email).select_related("product"),
+            "entitlements": entitlements,
+        }
+        return render(request, "shop/admin/customer.html", context)
+
     def _form_page(self, request, queryset, action, title, rows, formset):
         context = {
             **self.admin_site.each_context(request),
@@ -471,6 +762,7 @@ class RefundAdmin(ReadOnlyAdmin):
 @admin.register(Invoice)
 class InvoiceAdmin(ReadOnlyAdmin):
     list_display = ["number", "order", "created", "pdf_link"]
+    list_filter = ["financial_year", "created"]
     search_fields = ["number", "order__number"]
     list_select_related = ["order"]
 
@@ -484,6 +776,7 @@ class InvoiceAdmin(ReadOnlyAdmin):
 @admin.register(CreditNote)
 class CreditNoteAdmin(ReadOnlyAdmin):
     list_display = ["number", "invoice", "refund_amount", "created", "pdf_link"]
+    list_filter = ["financial_year", "created"]
     search_fields = ["number", "invoice__number", "invoice__order__number"]
     list_select_related = ["invoice__order", "refund"]
 
@@ -578,3 +871,19 @@ class QuoteRequestAdmin(admin.ModelAdmin):
     def make_quotation(self, request, queryset):
         quotes = [services.make_quotation(quote) for quote in queryset]
         self.message_user(request, f"Quotation made: {', '.join(q.number for q in quotes)}.", messages.SUCCESS)
+
+
+@admin.register(StockAlert)
+class StockAlertAdmin(admin.ModelAdmin):
+    """Who waits for which book to be back (tasks.send_stock_alerts emails them once, hourly): what to reprint first."""
+
+    list_display = ["product", "email", "created"]
+    list_filter = ["product", "created"]
+    search_fields = ["email", "product__title"]
+    list_select_related = ["product"]
+
+    def has_add_permission(self, request):  # from the product pages
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False

@@ -59,6 +59,9 @@ def product_jsonld(product, rating=None):
             "hasMerchantReturnPolicy": {**RETURN_POLICY, "merchantReturnLink": absolute(reverse("refunds"))},
         },
     }
+    if product.is_digital:  # a course in the app: not a book, nothing shipped
+        data["@type"] = "Product"
+        del data["bookFormat"], data["offers"]["shippingDetails"]
     if product.isbn:
         data["isbn"] = product.isbn
         if len(digits := product.isbn.replace("-", "")) == 13:  # an ISBN-13 is a GTIN-13

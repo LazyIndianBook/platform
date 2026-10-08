@@ -1,11 +1,13 @@
 from datetime import timedelta
 
 from django import template
+from django.conf import settings
 from django.db.models import Count, Q, Sum
+from django.db.models.functions import TruncDate
 from django.utils import timezone
 from djmoney.money import Money
 
-from shop.models import INR, Order, Refund
+from shop.models import INR, Order, OrderItem, Product, QuoteRequest, Refund, Review
 
 register = template.Library()
 
@@ -49,4 +51,32 @@ def shop_stats():
             ("Revenue", inr(revenue["today"] - refunded["today"]), inr(revenue["month"] - refunded["month"])),
         ],
         **waiting,
+        **store_stats(since),
+    }
+
+
+def store_stats(since):
+    """The store's section: orders and their value by day (two weeks), the books most sold in `since`, books running
+    out (below SHOP_LOW_STOCK), reviews and quotation requests waiting for staff."""
+    counted = Order.objects.counted()
+    by_day = (
+        counted.filter(placed_at__gte=timezone.now() - timedelta(days=14))
+        .annotate(day=TruncDate("placed_at"))
+        .values("day")
+        .annotate(orders=Count("pk"), value=Sum("total"))
+        .order_by("-day")
+    )
+    top = (
+        OrderItem.objects.filter(order__in=counted.filter(placed_at__gte=since))
+        .values("title")
+        .annotate(copies=Sum("quantity"))
+        .order_by("-copies", "title")[:5]
+    )
+    low = Product.objects.filter(is_active=True, stock__lt=settings.SHOP_LOW_STOCK)
+    return {
+        "by_day": [(row["day"], row["orders"], inr(row["value"])) for row in by_day],
+        "top_products": list(top),
+        "low_stock": low.exclude(kind__in=[Product.Kind.BUNDLE, Product.Kind.DIGITAL]).order_by("stock", "title")[:10],
+        "reviews_waiting": Review.objects.filter(status=Review.Status.PENDING).count(),
+        "quotes_waiting": QuoteRequest.objects.filter(status=QuoteRequest.Status.NEW).count(),
     }

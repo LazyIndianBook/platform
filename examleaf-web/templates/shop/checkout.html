@@ -6,7 +6,7 @@
 <h1>Checkout</h1>
 <ul class="summary">
   {% for line in totals.lines %}<li>{{ line.quantity }} × {{ line.product }} <span>{{ line.total|inr }}</span></li>{% endfor %}
-  {% if totals.coupon %}<li>Coupon {{ totals.coupon }} <span>−{{ totals.discount|inr }}</span></li>{% endif %}
+  {% for saving in totals.savings %}<li>{{ saving.label }} <span>−{{ saving.amount|inr }}</span></li>{% endfor %}
 </ul>
 <p class="muted">Shipping{% for rate in rates %}{% if forloop.first %}: {% else %} · {% endif %}{{ rate.name }} {{ rate.fee|inr }}{% if rate.free_above %} (free from {{ rate.free_above|inr }}){% endif %}{% endfor %}. The total is shown on the next page, before you pay.</p>
 {% if not user.is_authenticated %}<p>Have an account? <a href="{% url 'account_login' %}?next={{ request.path|urlencode }}">Log in</a> to use your saved addresses and see the order in your account. Or go on as a guest:</p>{% endif %}

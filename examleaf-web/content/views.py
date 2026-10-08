@@ -6,6 +6,7 @@ from django.views.decorators.cache import cache_page
 from django.views.generic import DetailView, ListView
 
 from practice.forms import AttemptForm
+from shop.models import Product, ShippingRate
 from shop.seo import organization_jsonld
 
 from .models import Book, Paper
@@ -16,7 +17,27 @@ class HomeView(ListView):
     queryset = Book.objects.select_related("subject").order_by("id")
 
     def get_context_data(self, **kwargs):
-        return super().get_context_data(jsonld=[organization_jsonld()], **kwargs)  # templates/_head_meta.html
+        offers = home_offers()
+        return super().get_context_data(
+            jsonld=[organization_jsonld()],  # templates/_head_meta.html
+            offers=offers,
+            same_price=not any(offer["from"] for offer in offers),
+            shipping_rates=ShippingRate.objects.filter(is_active=True),  # the FAQ's delivery fees
+            **kwargs,
+        )
+
+
+def home_offers():
+    """Q.4 of the home page, one card for each kind of printed book: the cheapest one on sale, what it saves on the
+    MRP, and whether others of the kind cost more (the card then says "from")."""
+    offers = {}
+    kinds = [Product.Kind.SAMPLE_PAPERS, Product.Kind.SOLUTIONS, Product.Kind.BUNDLE]
+    for product in Product.objects.filter(is_active=True, kind__in=kinds).select_related("subject").order_by("price"):
+        if product.kind in offers:
+            offers[product.kind]["from"] |= product.price != offers[product.kind]["product"].price
+        else:
+            offers[product.kind] = {"product": product, "from": False, "saving": product.mrp - product.price}
+    return [offers[kind] for kind in kinds if kind in offers]
 
 
 class BookView(DetailView):

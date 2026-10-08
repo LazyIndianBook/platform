@@ -100,6 +100,41 @@ class ShipForm(forms.Form):  # admin: "mark shipped", one row per order
     )
 
 
+class StaffOrderForm(forms.Form):  # admin: "Add order", a phone or school order (services.create_staff_order)
+    email = forms.EmailField(
+        help_text="The customer's: the order, the payment link and the invoice go there. An account whose confirmed "
+        "address it is gets the order (a course needs one)."
+    )
+    discount = forms.DecimalField(
+        label="Discount (₹)",
+        required=False,
+        min_value=0,
+        decimal_places=2,
+        help_text="Off the books, after the offers.",
+    )
+    shipping = forms.DecimalField(
+        label="Shipping (₹)", required=False, min_value=0, decimal_places=2, help_text="Empty: the shipping rates'."
+    )
+    send_link = forms.BooleanField(label="Email a Razorpay payment link now", required=False, initial=True)
+    note = forms.CharField(
+        label="Internal note", required=False, max_length=2000, widget=forms.Textarea(attrs={"rows": 3})
+    )
+
+
+class StaffOrderLineForm(forms.Form):
+    product = forms.ModelChoiceField(Product.objects.filter(is_active=True))
+    quantity = forms.IntegerField(min_value=1, max_value=5000)  # no initial value: rows left empty are skipped
+
+
+class OfflinePaymentForm(forms.Form):  # admin: "record a payment received offline"
+    reference = forms.CharField(
+        label="Bank or UPI reference",
+        max_length=60,
+        help_text="The UTR of the NEFT/IMPS transfer, or the UPI reference, as on the bank statement. Printed on the "
+        "invoice. Check that the whole total has arrived first.",
+    )
+
+
 class RefundForm(forms.Form):  # admin: "refund"
     reason = forms.CharField(max_length=200, initial="Refunded by ExamLeaf.")
     amount = forms.DecimalField(

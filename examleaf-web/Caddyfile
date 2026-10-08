@@ -4,7 +4,14 @@
 	encode zstd gzip
 	# One ID per request, in Caddy's access log and in every Django log line for the request (django-guid).
 	request_header X-Request-ID {http.request.uuid}
-	request_body {
+	# Clip videos for the revision course are uploaded through the admin (LEARN_MAX_UPLOAD_MB, default 500); every other
+	# request body stays at 10 MB. gunicorn's worker timeout is raised to match (GUNICORN_CMD_ARGS in docker-compose.yml).
+	@clip_upload path /admin/learn/clip/* /admin/learn/revision/*
+	request_body @clip_upload {
+		max_size 500MB
+	}
+	@other not path /admin/learn/clip/* /admin/learn/revision/*
+	request_body @other {
 		max_size 10MB
 	}
 	header -Server

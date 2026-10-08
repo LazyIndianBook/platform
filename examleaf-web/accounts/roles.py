@@ -25,6 +25,12 @@ def crud(app, models, actions=("view", "add", "change")):
     return [f"{app}.{action}_{model}" for model in models for action in actions]
 
 
+CATALOGUE = [  # the shop's catalogue structure (CONTENT_EDITOR's; SALES sees it)
+    *["category", "collection", "collectionitem", "producttype", "attribute", "attributevalue"],
+    *["productimage", "bundleitem"],
+]
+
+
 ROLES = {
     STUDENT: [],  # every registration; uses the site, not the admin
     TEACHER: [],  # verified teachers (TeacherProfile); site features for teachers come later
@@ -32,14 +38,24 @@ ROLES = {
         *crud("content", ["book", "paper", "question", "solution"]),
         *crud("content", ["board", "classlevel", "subject"], ["view"]),
         *crud("pages", ["page"], ["view", "change"]),
+        # the shop's catalogue (Phase 6 E): products, shelves, collections, product types and attributes, pictures
+        *crud("shop", ["product"]),
+        *crud("shop", CATALOGUE, ["view", "add", "change", "delete"]),
+        "shop.view_slughistory",
+        # the revision course's content (learn, Phase 6 D); not its learners' data (entitlements, progress, devices)
+        *crud("learn", ["chapter", "revision", "clip", "flashcard", "quizitem"], ["view", "add", "change", "delete"]),
     ],
-    SALES: [  # the shop: catalogue, prices and stock, coupons, shipping rates; orders, shipments and refunds
+    SALES: [  # the shop: prices and stock, coupons, offers, shipping rates; orders, payments, shipments and refunds
         "content.view_book",
         *crud("shop", ["product", "coupon", "shippingrate", "shipment"]),
-        *crud("shop", ["productimage", "bundleitem"], ["view", "add", "change", "delete"]),
-        *crud("shop", ["order"], ["view", "change"]),  # change: the pack / ship / deliver actions
+        *crud("shop", ["productimage", "bundleitem", "offer"], ["view", "add", "change", "delete"]),
+        *crud("shop", ["order"]),  # add: phone and school orders; change: pack / ship / deliver, payment links
         *crud("shop", ["refund"], ["view", "add"]),  # add: the refund action (Razorpay refund)
-        *crud("shop", ["orderitem", "payment", "invoice", "creditnote"], ["view"]),
+        *crud("shop", ["payment"], ["view", "add"]),  # add: a payment received offline (bank transfer, UPI)
+        *crud("shop", ["ordernote"]),
+        *crud("shop", ["orderitem", "orderdiscount", "invoice", "creditnote", "stockalert", "address"], ["view"]),
+        *crud("shop", ["review", "quoterequest"], ["view", "change"]),  # approve reviews; quotations
+        *crud("shop", [name for name in CATALOGUE if name not in ("productimage", "bundleitem")], ["view"]),
     ],
     SUPPORT: [  # help students: look up accounts and records, verify teachers, answer data requests
         *crud("accounts", ["user", "consentrecord", "deletionrequest"], ["view"]),
@@ -54,6 +70,9 @@ ROLES = {
             ["order", "orderitem", "payment", "shipment", "refund", "invoice", "creditnote", "product", "address"],
             ["view"],
         ),
+        *crud("shop", ["orderdiscount", "ordernote", "review", "quoterequest", "stockalert"], ["view"]),
+        *crud("learn", ["entitlement"]),  # a course opened by hand (a lost book code, a school's pupils)
+        "learn.view_bookcode",
     ],
     ADMIN: ALL,  # but SUPERUSER_ONLY
 }

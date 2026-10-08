@@ -4,6 +4,77 @@ What changed in the ExamLeaf web platform, newest first, by phase. Phases 0 to 3
 8 October 2026); phase 4 is the QA pass, the working tree on top of phase 3b until it is committed. Details of each
 feature are in README.md; the numbers of the tests are those of `pytest` at the end of the phase.
 
+## Phase 6 E — store flexibility (26 tests more, in `shop/`)
+
+Work package E of `docs/examleaf-phase6-plan.md`; its Status section has a line per item. Our shop grows the ideas
+of django-oscar and Saleor that matter for a publisher (neither is installed).
+
+- **Catalogue:** a category tree (django-treebeard, drag and drop in the admin), products on several shelves, category
+  pages `/shop/category/<slug>/` with their sub-shelves' products, collections in the staff's order
+  (`/shop/collection/<slug>/`), the shop page listing both and filtering by `?kind=`; product types with attributes
+  (text, number, list, yes/no; values checked by kind) shown under "Details"; related products ("You may also need");
+  a renamed product's old address redirects (301, `SlugHistory`); `GET /api/v1/categories/`, `/collections/`, and
+  product filters `?category=`, `?collection=`, `?attr_<code>=`.
+- **Digital products:** kind "Digital (in the app)", alone or in a bundle with a book: no shipping, stock or cash on
+  delivery, one per order, an account needed; paid, it opens the course (`learn.services.grant_for_order`) and an order
+  of digital products only is delivered at once; cancelled or refunded in full, it closes it (`revoke_for_order`). No
+  "Book" or shipping in its JSON-LD; the form refuses the books' HSN code for it.
+- **Offers:** automatic discounts (per cent or rupees; on the cart, products, categories or collections; minimum copies
+  or value; dates; limits in all and per customer; combinable or alone) applied after the coupon and shown as their own
+  lines everywhere ("savings" in the API). Each order line keeps its share of the discounts (`OrderItem.discount`,
+  `OrderDiscount` lines), which invoices and credit notes print; orders made before keep their old split.
+- **Staff orders:** "Add order" in the admin for phone and school orders (offers, a staff discount, shipping set by
+  hand, a note), Razorpay Payment Links emailed by us and completed once by the `payment_link.paid` webhook (and by the
+  clean-up's check of the link), payments received offline recorded with their bank or UPI reference (printed on the
+  invoice), internal order notes with history, the order's timeline, and a customer page (orders, addresses, reviews,
+  quotations, stock alerts, courses).
+- **Admin:** filters and search on every store model, stock alerts listed, bulk "Put on sale", "Take off sale" and
+  "Set stock", product and category import and export for ADMIN only (logged), inline attribute values, and the
+  dashboard's store section (sales by day, most sold, running out, reviews and quotations waiting).
+  django-admin-sortable2 2.3.1 was left out (no Django 6.1 templates): pictures keep position numbers.
+- **Roles:** CONTENT_EDITOR the catalogue and the course content; SALES offers, staff orders, offline payments, notes,
+  reviews, quotations and stock alerts; SUPPORT course entitlements and book codes (migration 0019 and
+  `bootstrap_roles`).
+- **Download my data** adds reviews, quotation requests, stock alerts and the course's data.
+
+## Phase 6 D — revision course (35 tests more, in `learn/`)
+
+Work package D of `docs/examleaf-phase6-plan.md`; its Status section has a line per item. A new app, `learn`, for the
+mobile app's short-video revision (the app itself is a separate project).
+
+- **Content:** chapters (subject, number, Board marks, previous-year questions, must-do note), one revision per
+  chapter (target 10 to 15 minutes, draft or published, order), clips (order, kind: concept, trick, shortcut, formula,
+  pattern, mistake, previous-year question; the video; notes in Markdown; free preview; linked questions; tags), flash
+  cards and one-mark quiz items (multiple choice, true or false, fill in the blank). Admin: clips inline on the
+  revision with their processing status and a Preview link, Move up / Move down, publish and back to draft, "Process
+  the video again". django-admin-sortable2 2.3.1 was left out: it has no Django 6.1 templates or actions script.
+- **Video:** ffmpeg (Dockerfile) on a `media` queue (docker-compose.yml `media-worker`, one at a time) makes each
+  upload into HLS for low-end phones: 480×854 at about 700 kbps and 720×1280 at about 1.5 Mbps, AAC 64 kbps, 4-second
+  segments, a poster at 1 s; a bad file fails with the end of ffmpeg's messages, storage trouble is tried 3 times;
+  `manage.py reprocess_clips`. Files in the private storage behind links signed for 10 minutes (`/learn/hls/…`,
+  segments redirected to the bucket), or the public bucket with `LEARN_PUBLIC_VIDEO=1`; uploads up to
+  `LEARN_MAX_UPLOAD_MB`.
+- **Data:** `manage.py import_chapter_insights` (marks per chapter from `format.json`, question counts from `pyq/`;
+  51 chapters, 70/70/80/70 marks) and `manage.py build_quiz_items` (664 quiz items from the one-mark questions whose
+  options and answer parse unambiguously; the rest counted and skipped).
+- **Access:** entitlements per subject or all (book code, purchase, staff grant; a year by default); book codes of 12
+  characters without 0/O/1/I, kept as a keyed hash (`LEARN_CODE_SECRET`), redeemed once, 5 tries an hour per user and
+  per address, logged; `manage.py make_book_codes` writes the printer's CSV; `learn.services.grant_for_order` and
+  `revoke_for_order` for the shop's digital products. Free: the first clip of every revision and the first chapter's
+  flash cards (`LEARN_FREE_PREVIEW`).
+- **Pass plan:** chapters by Board marks × past-paper questions × (1 + share of wrong quiz answers), unwatched clips
+  packed into the student's minutes a day until the exam, the minimum to pass (most marks per minute up to 1.5 times
+  the pass marks); revise-again with wrong answers back after 1, 3 and 7 days.
+- **API** (`api/learn.py`, API.md "Revision course"): chapters, clips with signed links and progress, quiz checked on
+  the server, flash cards, plan, revise-again, redeem, entitlements, settings, devices. Throttles `learn_redeem`,
+  `learn_redeem_address` (5 an hour), `learn_quiz` (600 an hour).
+- **Reminders:** a daily push (18:00) through Firebase Cloud Messaging with firebase-admin 7.7.0, to students who turn
+  it on, only with `FCM_SERVICE_ACCOUNT_JSON`; addressed to the app's Firebase installation ID.
+- **Privacy:** progress, quiz answers, card reviews, settings, entitlements and devices are deleted with the account
+  (receiver on the deletion request); `learn.services.export_learning` for Download my data. No video analytics.
+- **Staff player:** `/learn/preview/<clip>/` with hls.js 1.7.3 served by the site (`static/learn/`, its licence beside
+  it); CSP `media-src 'self' blob:` and, with buckets, the bucket hosts.
+
 ## Phase 5 B — storage, media, shop and web platform (21 tests more)
 
 Work package B of `docs/examleaf-phase5-plan.md`; its Status section has a line per item.

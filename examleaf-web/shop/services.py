@@ -21,11 +21,27 @@ from accounts.roles import SALES
 from ops.tasks import queue_text_email
 
 from . import invoices, tasks
+from .cart import price
 from .cart import totals as cart_totals
-from .models import INR, Coupon, Order, OrderItem, Payment, Product, QuoteRequest, Refund, Shipment, live_mode, paise
+from .models import (
+    INR,
+    Coupon,
+    Order,
+    OrderDiscount,
+    OrderItem,
+    OrderNote,
+    Payment,
+    Product,
+    QuoteRequest,
+    Refund,
+    Shipment,
+    live_mode,
+    paise,
+)
 
 logger = logging.getLogger(__name__)
 UNPAID_ORDERS_EXPIRE = timedelta(days=2)
+STAFF_ORDERS_EXPIRE = timedelta(days=16)  # a day after their payment link (payments.LINK_DAYS)
 
 
 class ShopError(Exception):
@@ -52,6 +68,7 @@ SUBJECTS = {
     "cancelled": "Order {} cancelled",
     "refunded": "Refund for order {}",
     "link": "Your link to order {}",
+    "payment_link": "Pay for order {}",
 }
 
 
@@ -152,7 +169,7 @@ def create_order(cart, *, user, email, address, method):
         raise ShopError("Your cart is empty.")
     if problems := result.problems():
         raise ShopError(" ".join(problems))
-    if any(line.product.is_digital for line in result.lines):
+    if any(line.product.has_digital for line in result.lines):
         if method == Order.Method.COD:
             raise ShopError("Cash on delivery is for printed books: please pay online for the course.")
         if user is None:
@@ -162,12 +179,27 @@ def create_order(cart, *, user, email, address, method):
     if method == Order.Method.COD and result.total > settings.SHOP_COD_MAX_VALUE:
         limit = f"₹{settings.SHOP_COD_MAX_VALUE:,}"
         raise ShopError(f"Cash on delivery is for orders up to {limit}: please pay this one online.")
+    return save_order(result, user=user, email=email, shipping_address=address, payment_method=method)
+
+
+def create_staff_order(lines, *, by, email, address, user=None, discount=0, shipping=None):
+    """A phone or school order made by staff in the admin: `lines` (cart.Line) at today's prices with the offers, a
+    staff discount in rupees and the shipping of the rates (or `shipping` rupees), waiting for a Razorpay Payment Link
+    (payments.send_payment_link) or a payment recorded offline (record_offline_payment). Raises ShopError."""
+    result = price(lines, state=address["state"], user=user, email=email, staff_discount=discount)
+    if shipping is not None:
+        result.shipping = shipping
+    if problems := result.problems():
+        raise ShopError(" ".join(problems))
+    if user is None and any(line.product.has_digital for line in lines):
+        raise ShopError("A course opens in an account: give the email address of the customer's account.")
+    return save_order(result, user=user, email=email, shipping_address=address, created_by=by)
+
+
+def save_order(result, **fields):
+    """The order, its lines, its discounts and its payment, from cart.Totals."""
     with transaction.atomic():
         order = Order.objects.create(
-            user=user,
-            email=email,
-            shipping_address=address,
-            payment_method=method,
             subtotal=result.subtotal,
             discount=result.discount,
             shipping_fee=result.shipping,
@@ -175,6 +207,7 @@ def create_order(cart, *, user, email, address, method):
             coupon=result.coupon,
             coupon_code=result.coupon.code if result.coupon else "",
             livemode=live_mode(),  # online: set again from the keys that make its Razorpay order (payments)
+            **fields,
         )
         OrderItem.objects.bulk_create(
             OrderItem(
@@ -186,10 +219,15 @@ def create_order(cart, *, user, email, address, method):
                 mrp=line.product.mrp,
                 unit_price=line.product.price,
                 quantity=line.quantity,
+                discount=line.discount,
             )
             for line in result.lines
         )
-        Payment.objects.create(order=order, method=method, amount=order.total, livemode=order.livemode)
+        OrderDiscount.objects.bulk_create(
+            OrderDiscount(order=order, offer=saving.offer, label=saving.label, amount=saving.amount)
+            for saving in result.savings
+        )
+        Payment.objects.create(order=order, method=order.payment_method, amount=order.total, livemode=order.livemode)
     return order
 
 
@@ -294,6 +332,45 @@ def grant_course(order):
     grant_for_order(order)
 
 
+def revoke_course(order):
+    """What a paid order with a digital product opened closes once it is cancelled or refunded in full
+    (learn.services.revoke_for_order). Skipped while the app is not installed."""
+    try:
+        from learn.services import revoke_for_order
+    except ImportError:
+        return
+    revoke_for_order(order)
+
+
+def record_link_payment(link_id, entity, payload=None):
+    """A payment made through one of our Razorpay Payment Links (the payment_link.paid webhook, or reconcile): the
+    Razorpay order the link made is noted on the link's Payment, then the payment is recorded as any other
+    (record_capture: amount checked, order paid once, refunded if it can no longer be paid). Other links: None."""
+    payment = Payment.objects.filter(razorpay_payment_link_id=link_id).first()
+    if payment is None or not same_mode(payment, "payment_link.paid"):
+        return None
+    Payment.objects.filter(pk=payment.pk, razorpay_order_id=None).update(razorpay_order_id=entity["order_id"])
+    return record_capture(entity, payload)
+
+
+def record_offline_payment(order, reference):
+    """Staff record a payment received outside Razorpay (NEFT, IMPS or UPI to the bank account, e.g. for a school's
+    quotation): a captured Payment with its reference (printed on the invoice), and the order paid (mark_paid).
+    Raises ShopError when the order is not waiting for a payment, OutOfStock or CouponUsedUp (nothing recorded)."""
+    with transaction.atomic():
+        order = _lock(order)
+        if order.status != Order.Status.PENDING or order.placed_at or order.is_cod:
+            raise ShopError(f"Order {order.number} is not waiting for a payment.")
+        payment = Payment.objects.create(
+            order=order, method=Order.Method.OFFLINE, amount=order.total, reference=reference, livemode=order.livemode
+        )
+        payment.capture()
+        payment.save()
+        order.payment_method = Order.Method.OFFLINE
+        mark_paid(order)
+    return order
+
+
 def _refund_second_payment(first, entity):
     """A captured payment of a Razorpay order that another payment has paid already (a late or repeated UPI payment):
     recorded as a Payment of its own and refunded in full, once."""
@@ -358,6 +435,8 @@ def refund_processed(refund_id, razorpay_refund_id=None):
         if can_proceed(order.mark_refunded) and not order.payments.filter(status=Payment.Status.CAPTURED).exists():
             order.mark_refunded()
             order.save()
+            if order.has_digital:
+                revoke_course(order)
         notify(order, "refunded", refund=refund)
         transaction.on_commit(lambda: tasks.generate_credit_note.delay(refund.pk), robust=True)  # if invoiced
     return refund
@@ -378,6 +457,8 @@ def cancel_order(order, reason, by=None, email=True):
         order.cancel()
         release_stock(order)
         order.save()
+        if order.placed_at and order.has_digital:  # paid: its course was opened
+            revoke_course(order)
         for payment in order.payments.select_for_update().filter(method=Order.Method.COD):
             if can_proceed(payment.fail):
                 payment.fail("Order cancelled.")
@@ -446,7 +527,8 @@ FORGET_UNSOLD_AFTER = timedelta(days=30)  # after the cancellation of an order t
 
 def forget_orders(orders):
     """The customer's details leave these orders and their history: name, phone and address lines, and the email
-    address, become "deleted" (town, district, state and PIN code stay, for the books). The orders themselves stay.
+    address, become "deleted" (town, district, state and PIN code stay, for the books), and staff's notes on them go.
+    The orders themselves stay.
     Used by the daily clean-up for orders never paid or placed, and once a year by hand for invoiced orders past their
     eight years (RUNBOOK.md). Returns how many."""
     pks = list(orders.exclude(email=DELETED).values_list("pk", flat=True))
@@ -454,6 +536,8 @@ def forget_orders(orders):
         address = {**order.shipping_address, **dict.fromkeys(["name", "phone", "line1", "line2"], DELETED)}
         Order.objects.filter(pk=order.pk).update(email=DELETED, shipping_address=address)
     Order.history.filter(id__in=pks).update(email=DELETED)
+    OrderNote.history.filter(order_id__in=pks).delete()  # staff's notes may name the customer
+    OrderNote.objects.filter(order__in=pks).delete()
     return len(pks)
 
 
@@ -465,7 +549,7 @@ def expire_unpaid_orders(reconcile=None):
     run. Returns how many were cancelled."""
     stale = Order.objects.filter(
         status=Order.Status.PENDING, placed_at__isnull=True, created__lt=timezone.now() - UNPAID_ORDERS_EXPIRE
-    )
+    ).exclude(created_by__isnull=False, created__gte=timezone.now() - STAFF_ORDERS_EXPIRE)  # their links live longer
     cancelled = 0
     for order in stale:
         try:

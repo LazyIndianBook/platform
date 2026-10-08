@@ -1,0 +1,25 @@
+{% extends "admin/base_site.html" %}
+{% load static markdown %}
+{# The staff player (learn.views.preview): hls.js from this site (static/learn/), started by static/learn/preview.js. #}
+{% block extrahead %}{{ block.super }}
+<script src="{% static 'learn/hls.min.js' %}" defer></script>
+<script src="{% static 'learn/preview.js' %}" defer></script>
+{% endblock %}
+{% block breadcrumbs %}<div class="breadcrumbs"><a href="{% url 'admin:index' %}">Home</a> › <a href="{% url 'admin:learn_clip_changelist' %}">Clips</a> › <a href="{% url 'admin:learn_clip_change' clip.pk %}">{{ clip }}</a> › Preview</div>{% endblock %}
+{% block content %}
+<h1>{{ clip.title }}</h1>
+<p>{{ clip.revision.chapter }} · {{ clip.revision.get_status_display }} · {{ clip.get_kind_display }} · processing: {{ clip.get_processing_display }}{% if clip.duration %} · {{ clip.duration }} s{% endif %}</p>
+{% if playback %}
+<video id="clip-video" data-src="{{ playback.hls_url }}" poster="{{ playback.poster_url }}" controls playsinline preload="metadata" style="width: 360px; max-width: 100%; aspect-ratio: 9 / 16; background: #000"></video>
+<p>Renditions: <span id="clip-levels">…</span> <span id="clip-pick"></span></p>
+<p id="clip-error" role="alert"></p>
+<p>The links work for 10 minutes: reload the page after that.</p>
+{% elif clip.processing == "failed" %}
+<p>ffmpeg could not process the video. The end of its messages:</p>
+<pre style="white-space: pre-wrap">{{ clip.processing_error }}</pre>
+<p>Upload a new video on the clip, or process it again (Clips, action "Process the video again").</p>
+{% else %}
+<p>Not ready yet: the media worker processes the video (a minute or two for a short clip). Reload this page.</p>
+{% endif %}
+{% if clip.notes %}<h2>Notes</h2><div>{{ clip.notes|markdown }}</div>{% endif %}
+{% endblock %}

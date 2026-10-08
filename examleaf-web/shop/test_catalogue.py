@@ -14,6 +14,7 @@ from shop.factories import ProductFactory, ShippingRateFactory, captured, make_c
 from shop.models import (
     Attribute,
     AttributeValue,
+    BundleItem,
     Cart,
     Category,
     Collection,
@@ -153,10 +154,11 @@ def course():
 
 
 @pytest.fixture
-def granted(monkeypatch):
-    """learn.services.grant_for_order replaced: the orders it was called with."""
-    calls = []
-    monkeypatch.setitem(sys.modules, "learn.services", types.SimpleNamespace(grant_for_order=calls.append))
+def hooks(monkeypatch):
+    """learn.services' hooks for the shop replaced: the orders each one was called with."""
+    calls = types.SimpleNamespace(granted=[], revoked=[])
+    module = types.SimpleNamespace(grant_for_order=calls.granted.append, revoke_for_order=calls.revoked.append)
+    monkeypatch.setitem(sys.modules, "learn.services", module)
     return calls
 
 
@@ -176,7 +178,14 @@ def test_a_digital_product_has_one_copy_no_shipping_and_no_cash_on_delivery(cour
         make_order((course, 1))  # a guest: the course needs an account
 
 
-def test_paying_for_a_course_opens_it_and_delivers_an_order_of_digital_products_only(course, granted, rzp, commit):
+def test_a_course_page_says_it_opens_in_the_app_and_claims_no_book_or_shipping(course, client):
+    page = client.get("/shop/physics-pass/").content.decode()
+    assert "In the ExamLeaf app" in page and "Only 1 left" not in page
+    assert '"Book"' not in page and "shippingDetails" not in page and '"@type": "Product"' in page
+
+
+def test_paying_for_a_course_opens_it_and_delivers_an_order_of_digital_products_only(course, hooks, rzp, commit):
+    granted = hooks.granted
     user, book = verified_user("rahul@example.com"), ProductFactory(stock=5)
     order = make_order((course, 1), user=user)
     with commit():
@@ -192,6 +201,38 @@ def test_paying_for_a_course_opens_it_and_delivers_an_order_of_digital_products_
     assert granted[-1] == mixed and mixed.status == Order.Status.PAID  # the books still go by post
     book.refresh_from_db()
     assert book.stock == 3
+
+
+def test_a_refunded_or_cancelled_course_order_closes_the_course_and_a_bundle_sells_book_and_course(
+    course, hooks, rzp, commit, settings
+):
+    settings.SHOP_COD_ENABLED = True
+    user = verified_user("rahul@example.com")
+    order = make_order((course, 1), user=user)
+    with commit():
+        services.record_capture(captured(order))
+    with commit():
+        services.refund_order(Order.objects.get(pk=order.pk), "Changed my mind.")
+    assert Order.objects.get(pk=order.pk).status == Order.Status.REFUNDED and hooks.revoked == [order]
+    book = ProductFactory(stock=5)
+    bundle = ProductFactory(slug="physics-with-course", kind=Product.Kind.BUNDLE, stock=0)
+    BundleItem.objects.create(bundle=bundle, product=book)
+    BundleItem.objects.create(bundle=bundle, product=course)
+    assert bundle.available == 5 and bundle.has_digital and not book.has_digital
+    Cart.objects.filter(user=user).delete()
+    with pytest.raises(services.ShopError, match="Cash on delivery"):
+        make_order((bundle, 1), method="cod", user=user)
+    Cart.objects.filter(user=user).delete()
+    paid = make_order((bundle, 3), user=user)
+    assert paid.items.get().quantity == 1  # one course per order
+    with commit():
+        services.record_capture(captured(paid))
+    book.refresh_from_db()
+    assert hooks.granted[-1] == paid and book.stock == 4 and Order.objects.get(pk=paid.pk).status == "paid"
+    with commit():
+        services.cancel_order(paid, "Cancelled by the customer.")
+    book.refresh_from_db()
+    assert hooks.revoked[-1] == paid and book.stock == 5
 
 
 def test_without_the_learn_app_a_course_order_is_still_paid_and_logged(course, rzp, monkeypatch, caplog):

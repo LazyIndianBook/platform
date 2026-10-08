@@ -1,0 +1,2 @@
+{# After a failed submit, at the top of the form (components.md, .field): every problem, each a link to its field. With: form #}
+{% if form.errors %}<div class="alert alert-error" role="alert"><svg class="icon" aria-hidden="true"><use href="#icon-alert"/></svg><div><p class="alert-title">There is a problem</p><ul class="error-summary">{% for error in form.non_field_errors %}<li>{{ error }}</li>{% endfor %}{% for field in form %}{% for error in field.errors %}<li><a href="#{{ field.id_for_label }}">{{ error }}</a></li>{% endfor %}{% endfor %}</ul></div></div>{% endif %}

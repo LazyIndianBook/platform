@@ -132,3 +132,27 @@ zopfli==0.4.3
 # Store flexibility (Phase 6 E): the shop's category tree (django-oscar's choice; Django 6.1 in its classifiers).
 # django-admin-sortable2 2.3.1 has no Django 6.1 templates: product pictures keep their position numbers.
 django-treebeard==7.0.2
+
+# Revision course (learn/, Phase 6 D): the daily reminder through Firebase Cloud Messaging (HTTP v1; only with
+# FCM_SERVICE_ACCOUNT_JSON), then its indirect dependencies. ffmpeg is a system package (Dockerfile).
+firebase-admin==7.7.0
+CacheControl==0.14.4
+google-api-core==2.41.0
+google-auth==2.61.0
+google-cloud-core==2.8.0
+google-cloud-firestore==2.34.0
+google-cloud-storage==3.16.0
+google-crc32c==1.9.0
+google-resumable-media==2.11.0
+googleapis-common-protos==1.75.5
+grpcio==1.84.0
+grpcio-status==1.84.0
+h2==4.4.1
+hpack==4.2.0
+hyperframe==6.1.0
+msgpack==1.2.3
+opentelemetry-api==1.45.1
+proto-plus==1.29.0
+protobuf==7.36.2
+pyasn1==0.6.4
+pyasn1_modules==0.4.2

@@ -1,7 +1,8 @@
 """REST API v1 of the revision course (learn/; API.md "Revision course"). Chapters are public; a clip's links, the
 quiz, flash cards, progress, the plan, book codes and settings need a signed-in student with a confirmed address."""
 
-from django.db.models import Count, Q, Sum
+from django.conf import settings
+from django.db.models import Count, Min, Q, Sum
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_field
@@ -64,7 +65,7 @@ class ChapterSerializer(serializers.ModelSerializer):
         return chapter.subject_id in self.context["subjects"]
 
     def get_free_cards(self, chapter) -> bool:
-        return services.is_free_chapter(chapter)
+        return settings.LEARN_FREE_PREVIEW and chapter.number == self.context["firsts"].get(chapter.subject_id)
 
     def get_progress(self, chapter) -> int | None:
         if self.context["done"] is None:
@@ -100,9 +101,10 @@ class RevisionSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(ClipRowSerializer(many=True))
     def get_clips(self, revision):
-        clips = list(revision.clips.order_by("order", "pk").select_related("revision"))
+        clips = list(revision.clips.order_by("order", "pk"))
         for clip in clips:
-            clip.free = services.is_free_clip(clip)
+            clip.revision = revision  # its chapter is loaded already
+            clip.free = services.is_free_clip(clip, first=clips[0].pk)
         ready = [clip for clip in clips if clip.processing == Clip.Processing.READY]
         return ClipRowSerializer(ready, many=True, context=self.context).data
 
@@ -124,6 +126,7 @@ def course_context(request):
     done = progress.values("clip__revision__chapter").annotate(n=Count("pk"))
     return {
         "subjects": services.entitled_subjects(user),
+        "firsts": dict(Chapter.objects.values_list("subject").annotate(Min("number"))),  # free cards
         "watched": set(progress.values_list("clip_id", flat=True)),
         "done": {row["clip__revision__chapter"]: row["n"] for row in done} if signed_in else None,
     }
@@ -186,7 +189,7 @@ class ClipViewSet(mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     serializer_class = ClipSerializer
     queryset = Clip.objects.filter(
         processing=Clip.Processing.READY, revision__status=Revision.Status.PUBLISHED
-    ).select_related("revision")
+    ).select_related("revision__chapter")
 
     def get_object(self):
         clip = super().get_object()
@@ -385,11 +388,11 @@ class PlanView(views.APIView):
                 ],
                 "not_scheduled": [chapter.pk for chapter in made["not_scheduled"]],
                 "minimum_to_pass": [
-                    {"subject": row["subject"].pk, "pass_marks": row["pass_marks"], "marks": row["marks"],
+                    {"subject": row["subject"].pk, "pass_marks": row["pass_marks"], "marks": f"{row['marks']:.1f}",
                      "chapters": [
                          {"id": pick["chapter"].pk, "number": pick["chapter"].number, "title": pick["chapter"].title,
-                          "weight": pick["chapter"].weight, "minutes": pick["minutes"],
-                          "marks_per_minute": round(pick["marks_per_minute"], 2),
+                          "weight": str(pick["chapter"].weight), "minutes": pick["minutes"],
+                          "marks_per_minute": f"{pick['marks_per_minute']:.2f}",
                           "clips": [clip_row(clip) for clip in pick["clips"]]}
                          for pick in row["chapters"]
                      ]}

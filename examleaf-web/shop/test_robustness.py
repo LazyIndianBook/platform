@@ -410,9 +410,9 @@ def test_saving_a_product_page_opened_before_a_sale_keeps_the_copies_left(client
     assert product.stock == 30
 
 
-ADMIN_INLINES = {  # the two inline formsets (books in the bundle, pictures), empty
+ADMIN_INLINES = {  # the inline formsets (books in the bundle, attributes, pictures, earlier slugs), empty
     f"{prefix}-{name}": value
-    for prefix in ("bundle_items", "images")
+    for prefix in ("bundle_items", "attribute_values", "images", "old_slugs")
     for name, value in (("TOTAL_FORMS", "0"), ("INITIAL_FORMS", "0"), ("MIN_NUM_FORMS", "0"), ("MAX_NUM_FORMS", "1000"))
 }
 

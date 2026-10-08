@@ -23,6 +23,7 @@ from .models import INR, Order, Payment, Refund, WebhookEvent, live_mode, paise
 logger = logging.getLogger(__name__)
 TIMEOUT = 10  # seconds per Razorpay call: an unreachable Razorpay must not hang a page
 WEBHOOK_MAX_AGE = timedelta(days=7)  # Razorpay retries a webhook for 24 hours; older signed events are replays
+LINK_DAYS = 15  # a payment link's life, as a quotation's (QuoteRequest.VALID_DAYS)
 API_ERRORS = (requests.RequestException, BadRequestError, GatewayError, ServerError)
 
 
@@ -64,7 +65,7 @@ def razorpay_order_id(payment):
 def checkout_options(order):
     """What Razorpay Checkout (the payment page) or the mobile SDK (the API) needs to pay an online order. Raises
     Unavailable."""
-    payment = order.payments.filter(method=Order.Method.RAZORPAY).first()
+    payment = order.payments.filter(method=Order.Method.RAZORPAY, razorpay_payment_link_id=None).first()
     address = order.shipping_address
     return {
         "key": settings.RAZORPAY_KEY_ID,
@@ -77,6 +78,46 @@ def checkout_options(order):
         "notes": {"order": order.number},
         "theme": {"color": "#0b2a5b"},
     }
+
+
+def send_payment_link(order):
+    """A Razorpay Payment Link for a pending order made by staff, made once (later calls email the same link again)
+    and emailed to the customer by us (services.notify; ops.sms has no template for it, so no SMS), valid LINK_DAYS.
+    It gets a Payment of its own, apart from the website's checkout. Raises Unavailable."""
+    payment = order.payments.exclude(razorpay_payment_link_id=None).first()
+    if payment is None:
+        if not (settings.RAZORPAY_KEY_ID and settings.RAZORPAY_KEY_SECRET):
+            raise Unavailable("Online payment is not set up yet.")
+        address = order.shipping_address
+        try:
+            data = client().payment_link.create(
+                {
+                    "amount": paise(order.total),
+                    "currency": INR,
+                    "accept_partial": False,
+                    "reference_id": order.number,
+                    "description": f"ExamLeaf order {order.number}",
+                    "customer": {"name": address["name"], "email": order.email, "contact": address["phone"]},
+                    "notify": {"sms": False, "email": False},  # we email it
+                    "reminder_enable": False,
+                    "expire_by": int(time.time() + LINK_DAYS * 86400),
+                    "notes": {"order": order.number},
+                },
+                timeout=TIMEOUT,
+            )
+        except API_ERRORS as error:
+            logger.warning("Razorpay payment link for %s not created: %s", order.number, error)
+            raise Unavailable("The payment service could not be reached.") from error
+        payment = Payment.objects.create(
+            order=order,
+            method=Order.Method.RAZORPAY,
+            amount=order.total,
+            livemode=live_mode(),
+            razorpay_payment_link_id=data["id"],
+            payment_link_url=data["short_url"],
+        )
+    services.notify(order, "payment_link", url=payment.payment_link_url)
+    return payment
 
 
 def confirm_return(payment, data):
@@ -116,6 +157,18 @@ def reconcile(order):
     and never come back, and the webhook may have been lost) and record a captured one, capturing an authorized one
     first. Returns True if the order has been paid, False if Razorpay has no payment for it, None if Razorpay could not
     be asked (nothing is known then)."""
+    link = order.payments.exclude(razorpay_payment_link_id=None).filter(razorpay_order_id=None).first()
+    if link is not None and link.livemode == live_mode():  # a staff order's link, paid with its webhook lost?
+        try:
+            data = client().payment_link.fetch(link.razorpay_payment_link_id, timeout=TIMEOUT)
+            paid = (data.get("payments") or []) if data.get("status") == "paid" else []
+            for entity in (client().payment.fetch(item["payment_id"], timeout=TIMEOUT) for item in paid):
+                if entity.get("status") == "captured":
+                    services.record_link_payment(link.razorpay_payment_link_id, entity)
+                    return True
+        except API_ERRORS as error:
+            logger.warning("Razorpay could not be asked about the link of order %s: %s", order.number, error)
+            return None
     payment = order.payments.filter(method=Order.Method.RAZORPAY).exclude(razorpay_order_id=None).first()
     if payment is None or payment.livemode != live_mode():
         return False  # never reached the payment page, or made with the other mode's keys: these keys see no payment
@@ -172,6 +225,8 @@ def _dispatch(event):
                 services.record_failure(entity, payload=event)
             else:
                 services.record_capture(entity, payload=event)
+    elif name == "payment_link.paid":
+        services.record_link_payment(payload["payment_link"]["entity"].get("id"), payload["payment"]["entity"], event)
     elif name in ("refund.processed", "refund.failed"):
         entity = payload["refund"]["entity"]
         notes = entity.get("notes") if isinstance(entity.get("notes"), dict) else {}  # Razorpay sends [] when empty

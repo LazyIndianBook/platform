@@ -28,7 +28,7 @@
   <div>
     <h1>{{ title }}{% if document.is_test %} (test: not a tax document){% endif %}</h1>
     <p><strong>{{ document.number }}</strong> · {{ document.created|date:"j F Y" }}</p>
-    {% block reference %}<p>Order {{ order.number }}{% if order.placed_at %} of {{ order.placed_at|date:"j F Y" }}{% endif %} · {{ order.get_payment_method_display }}</p>{% endblock %}
+    {% block reference %}<p>Order {{ order.number }}{% if order.placed_at %} of {{ order.placed_at|date:"j F Y" }}{% endif %} · {{ order.get_payment_method_display }}{% if order.payment_reference %}, reference {{ order.payment_reference }}{% endif %}</p>{% endblock %}
   </div>
   <div style="text-align: right">
     <p><strong>{{ seller.name }}</strong></p>
@@ -86,7 +86,8 @@
 
 <table class="totals">
   <tr><th>Books (prices include tax)</th><td class="num">₹{{ order.subtotal.amount }}</td></tr>
-  {% if order.discount.amount %}<tr><th>Discount{% if order.coupon_code %} ({{ order.coupon_code }}){% endif %}</th><td class="num">−₹{{ order.discount.amount }}</td></tr>{% endif %}
+  {% with savings=order.discount_lines.all %}{% for saving in savings %}<tr><th>{{ saving.label }}</th><td class="num">−₹{{ saving.amount.amount }}</td></tr>
+  {% empty %}{% if order.discount.amount %}<tr><th>Discount{% if order.coupon_code %} ({{ order.coupon_code }}){% endif %}</th><td class="num">−₹{{ order.discount.amount }}</td></tr>{% endif %}{% endfor %}{% endwith %}
   <tr><th>Taxable value</th><td class="num">₹{{ taxable_total }}</td></tr>
   <tr><th>GST</th><td class="num">₹{{ tax_total }}</td></tr>
   <tr><th>Shipping (part of the supply)</th><td class="num">₹{{ order.shipping_fee.amount }}</td></tr>

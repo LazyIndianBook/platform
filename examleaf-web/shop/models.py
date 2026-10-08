@@ -22,6 +22,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.text import Truncator
 from django_fsm import ConcurrentTransitionMixin, FSMField, transition
 from djmoney.models.fields import MoneyField
 from djmoney.money import Money
@@ -170,7 +171,7 @@ class Product(TimeStampedModel):
         if self.slug in self.RESERVED_SLUGS:
             raise ValidationError({"slug": "This address belongs to a page of the shop: choose another."})
         if self.is_digital and self.hsn_code == "4901":
-            raise ValidationError({"hsn_code": "4901 is for printed books: enter the SAC code and GST rate of the course."})
+            raise ValidationError({"hsn_code": "4901 is for printed books: enter the course's SAC code and GST rate."})
 
     def save(self, *args, **kwargs):
         """A changed slug leaves its old one in SlugHistory: the old address redirects to the new one (301)."""
@@ -183,10 +184,19 @@ class Product(TimeStampedModel):
     def is_digital(self):
         return self.kind == self.Kind.DIGITAL
 
-    def stock_lines(self, quantity):
-        """{product id: copies} that selling `quantity` of this product takes from stock."""
+    @property
+    def has_digital(self):
+        """A digital product, or a bundle with one (a book and its course): it opens a course, so it needs an account,
+        is paid online and is sold one at a time."""
         if self.kind == self.Kind.BUNDLE:
-            return {item.product_id: item.quantity * quantity for item in self.bundle_items.all()}
+            return any(item.product.is_digital for item in self.bundle_items.select_related("product"))
+        return self.is_digital
+
+    def stock_lines(self, quantity):
+        """{product id: copies} that selling `quantity` of this product takes from stock (digital ones have none)."""
+        if self.kind == self.Kind.BUNDLE:
+            items = self.bundle_items.select_related("product")
+            return {item.product_id: item.quantity * quantity for item in items if not item.product.is_digital}
         if self.is_digital:
             return {}
         return {self.pk: quantity}
@@ -196,7 +206,7 @@ class Product(TimeStampedModel):
         if self.is_digital:  # one per order: it opens the course for the buyer's account
             return 1
         if self.kind == self.Kind.BUNDLE:
-            items = self.bundle_items.select_related("product")
+            items = [item for item in self.bundle_items.select_related("product") if not item.product.is_digital]
             return min((item.product.stock // item.quantity for item in items), default=0)
         return self.stock
 
@@ -428,8 +438,7 @@ class Coupon(TimeStampedModel):
 
     def discount_on(self, amount):
         """The discount on books worth `amount` rupees, never more than the amount."""
-        off = amount * self.value / 100 if self.kind == self.Kind.PERCENT else self.value
-        return min(rupees(off), amount)
+        return money_off(self.kind, self.value, amount)
 
     def problem(self, amount, user=None, email=""):
         """Why the coupon cannot be used on books worth `amount` (a message for the customer), or None."""
@@ -450,10 +459,106 @@ class Coupon(TimeStampedModel):
         if self.max_uses is not None and used.count() >= self.max_uses:
             return "This coupon has been used up."
         if self.max_uses_per_customer is not None and (user or email):
-            mine = models.Q(email__iexact=email or user.email) | (models.Q(user=user) if user else models.Q())
-            if used.filter(mine).count() >= self.max_uses_per_customer:
+            if customers_orders(used, user, email).count() >= self.max_uses_per_customer:
                 return "You have already used this coupon."
         return None
+
+
+def money_off(kind, value, amount):
+    """A coupon's or an offer's discount on `amount` rupees: `value` per cent or rupees, never more than the amount."""
+    off = amount * value / 100 if kind == Coupon.Kind.PERCENT else value
+    return min(rupees(off), amount)
+
+
+def customers_orders(orders, user=None, email=""):
+    """Those of `orders` made by this account or with this email address (per-customer limits)."""
+    mine = models.Q(email__iexact=email or user.email) | (models.Q(user=user) if user else models.Q())
+    return orders.filter(mine)
+
+
+class OfferQuerySet(models.QuerySet):
+    def live(self):
+        now = timezone.now()
+        return self.filter(models.Q(valid_until__isnull=True) | models.Q(valid_until__gte=now), valid_from__lte=now)
+
+
+class Offer(TimeStampedModel):
+    """An automatic discount, no code needed (cart.totals applies it after the coupon): per cent or rupees off the
+    products it covers, once they reach a number of copies or a value. A combinable offer adds to the coupon and the
+    other offers; one that is not applies alone, never with a coupon (the customer gets whichever saves more). Each use
+    is an OrderDiscount line of the order; RUNBOOK.md "Offers"."""
+
+    class Scope(models.TextChoices):
+        CART = "cart", "the whole cart"
+        PRODUCTS = "products", "the products chosen below"
+        CATEGORIES = "categories", "the products of the categories below (with their sub-categories)"
+        COLLECTIONS = "collections", "the products of the collections below"
+
+    name = models.CharField(max_length=80, help_text="Customers see it on the saving's line: “Board 2027 offer”.")
+    kind = models.CharField(max_length=10, choices=Coupon.Kind.choices, default=Coupon.Kind.PERCENT)
+    value = models.DecimalField(max_digits=8, decimal_places=2, validators=[MinValueValidator(0)])
+    scope = models.CharField("on", max_length=12, choices=Scope.choices, default=Scope.CART)
+    products = models.ManyToManyField(Product, blank=True, related_name="offers")
+    categories = models.ManyToManyField(Category, blank=True, related_name="offers")
+    collections = models.ManyToManyField(Collection, blank=True, related_name="offers")
+    min_quantity = models.PositiveSmallIntegerField("minimum copies", default=0, help_text="Of the products covered.")
+    min_value = money_field("minimum value", default=0, help_text="Of the products covered, after the coupon.")
+    valid_from = models.DateTimeField(default=timezone.now)
+    valid_until = models.DateTimeField(null=True, blank=True)
+    max_uses = models.PositiveIntegerField(
+        null=True, blank=True, help_text="Orders, all customers together. Empty: no limit."
+    )
+    max_uses_per_customer = models.PositiveIntegerField(
+        null=True, blank=True, help_text="Per account and per email address. Empty: no limit."
+    )
+    combinable = models.BooleanField(
+        "with coupons and other offers", default=True, help_text="Off: it applies alone, never with a coupon."
+    )
+    is_active = models.BooleanField(default=True)
+
+    objects = OfferQuerySet.as_manager()
+
+    class Meta:
+        ordering = ["-valid_from"]
+
+    def __str__(self):
+        return self.name
+
+    def clean(self):
+        if self.kind == Coupon.Kind.PERCENT and self.value is not None and self.value > 100:
+            raise ValidationError({"value": "At most 100 per cent."})
+
+    def covered(self, product_ids):
+        """Which of these products (ids) the offer covers."""
+        if self.scope == self.Scope.CART:
+            return set(product_ids)
+        products = Product.objects.filter(pk__in=product_ids)
+        if self.scope == self.Scope.PRODUCTS:
+            products = products.filter(offers=self)
+        elif self.scope == self.Scope.COLLECTIONS:
+            products = products.filter(collection_items__collection__offers=self)
+        else:
+            shelves = models.Q(pk__in=[])
+            for path in self.categories.values_list("path", flat=True):
+                shelves |= models.Q(categories__path__startswith=path)
+            products = products.filter(shelves)
+        return set(products.values_list("pk", flat=True))
+
+    def limit_problem(self, user=None, email=""):
+        """Why the offer's usage limits stop this customer now, or None. Orders count once placed (paid, or cash on
+        delivery placed) and not undone."""
+        # ponytail: checked when the order is made, not again under a lock when it is placed (as coupons are): a few
+        # orders paid at the same moment may pass a limit; an automatic offer is ours to give, so that is acceptable
+        used = Order.objects.counted().filter(discount_lines__offer=self)
+        if self.max_uses is not None and used.count() >= self.max_uses:
+            return "used up"
+        if self.max_uses_per_customer is not None and (user or email):
+            if customers_orders(used, user, email).count() >= self.max_uses_per_customer:
+                return "used by this customer"
+        return None
+
+    def discount_on(self, amount):
+        return money_off(self.kind, self.value, amount)
 
 
 class ShippingRate(models.Model):
@@ -605,6 +710,7 @@ class Order(ConcurrentTransitionMixin, TimeStampedModel):
     class Method(models.TextChoices):
         RAZORPAY = "razorpay", "online (UPI, card, net banking)"
         COD = "cod", "cash on delivery"
+        OFFLINE = "offline", "bank transfer or UPI to our account"  # recorded by staff: services.record_offline_payment
 
     number = models.CharField(max_length=20, unique=True, null=True, editable=False)  # noqa: DJ001  null until saved
     # The secret of the link in the order's emails (/orders/t/<token>/): it opens the order without an account.
@@ -628,6 +734,9 @@ class Order(ConcurrentTransitionMixin, TimeStampedModel):
     stock_reserved = models.BooleanField(default=False, editable=False)
     livemode = models.BooleanField(
         "live mode", default=False, editable=False, help_text="Made with live Razorpay keys (its payment's mode)."
+    )
+    created_by = models.ForeignKey(  # a phone or school order made in the admin (services.create_staff_order)
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", editable=False
     )
     history = HistoricalRecords(excluded_fields=["shipping_address", "token"])
 
@@ -682,7 +791,24 @@ class Order(ConcurrentTransitionMixin, TimeStampedModel):
 
     @property
     def has_digital(self):
-        return self.items.filter(product__kind=Product.Kind.DIGITAL).exists()
+        """A digital product among its lines, alone or in a bundle (learn.services.grant_for_order opens both)."""
+        digital = models.Q(product__kind=Product.Kind.DIGITAL)
+        return self.items.filter(digital | models.Q(product__bundle_items__product__kind=Product.Kind.DIGITAL)).exists()
+
+    @property
+    def payment_reference(self):
+        """The bank or UPI reference of a payment recorded by staff (printed on the invoice), or ""."""
+        offline = self.payments.filter(method=self.Method.OFFLINE, status=Payment.Status.CAPTURED)
+        return offline.values_list("reference", flat=True).first() or ""
+
+    @property
+    def savings(self):
+        """(label, Money) for each of its discounts: coupon, offers, staff discount. Orders made before these lines
+        were kept have their coupon only."""
+        lines = [(line.label, line.amount) for line in self.discount_lines.all()]
+        if not lines and self.discount.amount:
+            lines = [(f"Coupon {self.coupon_code}" if self.coupon_code else "Discount", self.discount)]
+        return lines
 
     def ready_to_pack(self):
         return (self.status == self.Status.PAID or (self.is_cod and self.placed_at is not None)) and not self.is_test
@@ -741,6 +867,9 @@ class OrderItem(models.Model):
     mrp = money_field("MRP")
     unit_price = money_field("price")
     quantity = models.PositiveSmallIntegerField()
+    # the line's share of the order's discounts, as cart.totals split them (invoices print it); empty on orders made
+    # before it was kept, whose documents share the discount out as they always did (invoices.context)
+    discount = money_field("discount", null=True, blank=True)
 
     class Meta:
         ordering = ["pk"]
@@ -751,6 +880,22 @@ class OrderItem(models.Model):
     @property
     def line_total(self):
         return self.unit_price * self.quantity
+
+
+class OrderDiscount(models.Model):
+    """One saving of an order as the customer saw it: its coupon, an automatic offer, a staff discount. The offers'
+    usage limits count these lines."""
+
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="discount_lines")
+    offer = models.ForeignKey(Offer, on_delete=models.SET_NULL, null=True, blank=True, related_name="order_lines")
+    label = models.CharField(max_length=100)
+    amount = money_field("amount")
+
+    class Meta:
+        ordering = ["pk"]
+
+    def __str__(self):
+        return f"{self.label} −{self.amount}"
 
 
 class Payment(ConcurrentTransitionMixin, TimeStampedModel):
@@ -769,6 +914,13 @@ class Payment(ConcurrentTransitionMixin, TimeStampedModel):
     razorpay_order_id = models.CharField(max_length=40, unique=True, null=True, blank=True)
     razorpay_payment_id = models.CharField(max_length=40, unique=True, null=True, blank=True)
     razorpay_signature = models.CharField(max_length=128, blank=True)
+    # a Razorpay Payment Link sent for a staff order (payments.send_payment_link): its own Payment, whose Razorpay order
+    # (made by the link) is known once it is paid (services.record_link_payment)
+    razorpay_payment_link_id = models.CharField(max_length=40, unique=True, null=True, blank=True)
+    payment_link_url = models.URLField(blank=True)
+    reference = models.CharField(
+        "bank or UPI reference", max_length=60, blank=True, help_text="A payment recorded by staff (offline)."
+    )
     status = FSMField(default=Status.CREATED, choices=Status.choices, protected=True)
     error = models.CharField(max_length=255, blank=True, help_text="Why the last attempt failed (from Razorpay).")
     livemode = models.BooleanField(
@@ -802,6 +954,24 @@ class Payment(ConcurrentTransitionMixin, TimeStampedModel):
     @transition(status, source=Status.CAPTURED, target=Status.REFUNDED)
     def refund(self):
         pass
+
+
+class OrderNote(TimeStampedModel):
+    """Staff's internal note on an order (a phone call, a promise, a school's purchase order): never shown to the
+    customer; its changes are kept (history). Deleted with the order's customer details (services.forget_orders)."""
+
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="notes")
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", editable=False
+    )
+    text = models.TextField(max_length=2000)
+    history = HistoricalRecords()
+
+    class Meta:
+        ordering = ["created"]
+
+    def __str__(self):
+        return Truncator(self.text).chars(60)
 
 
 class Refund(TimeStampedModel):

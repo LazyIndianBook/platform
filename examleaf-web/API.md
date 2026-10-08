@@ -130,6 +130,14 @@ so an expired token left in it does no harm there.
 | `POST orders/<number>/payment/`, `orders/<number>/payment/confirm/` | signed in, email confirmed | options for Razorpay's SDK; its answer, checked |
 | `GET orders/<number>/invoice/`, `orders/<number>/credit-notes/<id>/` | signed in, email confirmed | PDF files, not JSON |
 | `POST orders/lookup/` | anyone | a guest's order by number and email |
+| `GET learn/chapters/` (`?subject=`), `learn/chapters/<id>/` | anyone (flags for the signed-in user) | the revision course: chapters with Board marks, previous-year questions, what is open; one chapter with its clips |
+| `GET learn/clips/<id>/`, `POST learn/clips/<id>/progress/` | signed in, email confirmed | a clip's HLS and poster links (10 minutes), notes, questions; how far it was watched |
+| `GET learn/quiz/?chapter=`, `POST learn/quiz/<id>/attempt/` | signed in, email confirmed | one-mark quiz items (no answers); an answer, checked |
+| `GET learn/flash-cards/?chapter=`, `POST learn/flash-cards/<id>/review/` | signed in, email confirmed | flash cards; "I knew it" or not |
+| `GET learn/plan/`, `GET learn/revise-again/` | signed in, email confirmed | the day-by-day pass plan and the minimum to pass; wrong answers due again |
+| `POST learn/redeem/`, `GET learn/entitlements/` | signed in, email confirmed | a book code; what the user may watch |
+| `GET PUT PATCH learn/settings/` | signed in, email confirmed | exam date, minutes a day, the daily reminder |
+| `POST DELETE devices/` | signed in | the app's Firebase installation ID, for the reminder |
 
 Only published papers appear, as on the website. The email address, date of birth and parent details are read-only
 here (the email changes on the website, after a code; the others decide the consent rules). The QR codes in the books
@@ -274,6 +282,107 @@ in phase 4: the lookup used to return the order, or 404.)
 `/orders/t/<token>/credit-notes/<id>/`) and, while the order is pending or paid, a cancel button
 (`POST /orders/t/<token>/cancel/`). The API does not give the token.
 
+## Revision course
+
+Short revision videos per chapter (10 to 15 minutes in clips of a few minutes: concepts, tricks, shortcuts, formulas,
+question patterns, common mistakes, previous-year questions), flash cards and a one-mark quiz, for the app only. Code:
+`learn/` (models, ffmpeg, plan) and `api/learn.py`.
+
+**What is open.** A subject opens with the code printed in the book (`learn/redeem/`), by buying the course in the
+shop (a digital product, opened when paid) or by a staff grant; each lasts a year (`LEARN_ACCESS_DAYS`) unless staff
+set otherwise. Free for everyone signed in (`LEARN_FREE_PREVIEW`): the first clip of every revision and the flash
+cards of each subject's first chapter. Anything else answers `403 {"detail": "Unlock this subject with the code
+printed in your book."}`; chapters and clip lists say beforehand (`entitled`, `free`, `locked`, `free_cards`).
+
+```sh
+curl 'https://examleaf.in/api/v1/learn/chapters/?subject=1'
+# 200 {"count": 14, ..., "results": [{"id": 3, "subject": 1, "number": 1, "title": "Electric Charges and Fields",
+#      "weight": "4.5", "frequency": 23, "must_do": "...", "must_do_html": "<p>...</p>", "clips": 6, "minutes": 13,
+#      "entitled": false, "free_cards": true, "progress": null}, ...]}      progress: % of its clips watched (signed in)
+curl https://examleaf.in/api/v1/learn/chapters/3/
+# 200 {..., "revision": {"title": "Electric charges in 13 minutes", "target_minutes": 12, "clips": [{"id": 41,
+#      "order": 1, "title": "Coulomb's law in one picture", "kind": "concept", "duration": 140, "free": true,
+#      "locked": false, "completed": false}, ...]}, "flash_cards": 12, "quiz_items": 9}
+```
+
+`weight` is the chapter's share of the Board's marks (a unit's marks shared by its chapters) and `frequency` the
+number of questions the Board asked on it in past papers. `kind`: `concept`, `trick`, `shortcut`, `formula`,
+`pattern`, `mistake`, `pyq`.
+
+**Playing a clip.** `learn/clips/<id>/` gives `hls_url` (the HLS master playlist: 480×854 at about 700 kbps and
+720×1280 at about 1.5 Mbps, AAC sound, 4-second segments; give it to ExoPlayer/Media3 or AVPlayer as it is),
+`poster_url` and `expires_at`. The links work for 10 minutes; a clip started within them plays to the end. On a 403
+from a link, ask for the clip again. Also `notes` and `notes_html` (Markdown and HTML, `$…$` maths for KaTeX),
+`questions` (the Board-style questions it prepares for: `paper`, `label`, `web_url`), `seconds_watched`, `completed`.
+Send progress now and then and at the end; `completed` once true stays true.
+
+```sh
+curl https://examleaf.in/api/v1/learn/clips/41/ -H "Authorization: Bearer $ACCESS"
+# 200 {"id": 41, "chapter": 3, "title": "...", "kind": "concept", "duration": 140, "notes": "...", "notes_html": "...",
+#      "questions": [{"paper": "PHY-E01", "label": "1(a)", "web_url": "https://examleaf.in/s/PHY-E01/"}],
+#      "hls_url": "https://examleaf.in/learn/hls/MTI:1v2Lk.../master.m3u8", "poster_url": ".../poster.jpg",
+#      "expires_at": "2026-10-15T10:10:00+05:30", "seconds_watched": 0, "completed": false}
+curl -X POST https://examleaf.in/api/v1/learn/clips/41/progress/ -H "Authorization: Bearer $ACCESS" \
+  -H 'Content-Type: application/json' -d '{"seconds_watched": 140, "completed": true}'
+# 200 {"seconds_watched": 140, "completed": true}
+```
+
+**Quiz and flash cards** are listed per chapter (`?chapter=<id>` is required: 400 without it). Quiz items carry
+`kind` (`mcq`, `true_false`, `fill_blank`), `text`, `text_html` and `options` (multiple choice), never the answer. An
+answer is checked on the server: the option's number from 1, `true`/`false`, or the word(s) of the blank (case,
+punctuation and a leading "the" do not matter). Every answer is kept for the plan and revise-again. Flash cards:
+`front`, `back` (and their `_html`); after turning one over, send whether the student knew it.
+
+```sh
+curl 'https://examleaf.in/api/v1/learn/quiz/?chapter=3' -H "Authorization: Bearer $ACCESS"
+curl -X POST https://examleaf.in/api/v1/learn/quiz/77/attempt/ -H "Authorization: Bearer $ACCESS" \
+  -H 'Content-Type: application/json' -d '{"answer": "2"}'
+# 200 {"correct": false, "right_answer": "(iv) Radio waves", "explanation": "", "explanation_html": ""}
+curl -X POST https://examleaf.in/api/v1/learn/flash-cards/12/review/ -H "Authorization: Bearer $ACCESS" \
+  -H 'Content-Type: application/json' -d '{"known": false}'
+# 201
+```
+
+**The pass plan** (`learn/plan/`): from today until the day before the exam, the clips not yet watched, packed into
+days of the student's minutes (a clip longer than that gets a day of its own). Chapters come by priority: Board marks
+× previous-year questions (at least 1) × (1 + the share of the student's wrong quiz answers in the chapter), so weak
+chapters move up. Parameters: `exam_date` and `minutes` (10 to 300) override the saved settings; `subject` (repeat it
+for several) defaults to the subjects open to the student, or all. `not_scheduled` lists chapters that did not fit.
+`minimum_to_pass` gives per subject the chapters with the most marks per minute of video until they are worth 1.5
+times the pass marks, each with its clips of the quickest kinds (`pyq`, `formula`, `shortcut`, `trick`). 400 without
+an exam date after today.
+
+```sh
+curl 'https://examleaf.in/api/v1/learn/plan/?exam_date=2027-02-20&minutes=30' -H "Authorization: Bearer $ACCESS"
+# 200 {"exam_date": "2027-02-20", "days_left": 135, "minutes_per_day": 30,
+#      "days": [{"date": "2026-10-08", "minutes": 28, "clips": [{"id": 41, "chapter": 3, "title": "...",
+#                "kind": "concept", "duration": 140}, ...]}, ...],
+#      "not_scheduled": [],
+#      "minimum_to_pass": [{"subject": 1, "pass_marks": 21, "marks": "32.0", "chapters": [{"id": 9, "number": 9,
+#          "title": "Ray Optics and Optical Instruments", "weight": "7.0", "minutes": 14, "marks_per_minute": "0.50",
+#          "clips": [...]}, ...]}]}
+```
+
+**Revise again** (`learn/revise-again/`): the quiz items and flash cards the student got wrong, due again 1 day after
+the wrong answer, then 3 and 7 days after each right one (a wrong one starts again at 1 day); after the third right
+answer they leave the list. Each has the item's fields and `due`, the longest waiting first:
+`{"quiz_items": [...], "flash_cards": [...]}`.
+
+**Book codes** (`learn/redeem/`, `{"code": "7KQM-3XPA-9TRW"}`, any case, spaces or dashes) answer the entitlement
+(`id`, `subject`, `subject_name`, `source`, `valid_until`, `created`; `subject` null: every subject). A code works
+once; the same student sending it again gets the same answer. Refusals are `400 {"code": ["..."]}` (not 12 letters
+and digits, not valid, used already). At most 5 tries an hour per user and per client address (429).
+`learn/entitlements/` lists them all, expired ones too.
+
+**Settings** (`learn/settings/`): `exam_date` (null until set), `minutes_per_day` (10 to 300, default 30),
+`reminders` (the daily reminder at 18:00, off until turned on).
+
+**Devices** (`devices/`): after log-in, and whenever Firebase gives a new one, `POST {"token": "<Firebase installation
+ID>", "platform": "android"}` (or `ios`): the ID of `FirebaseInstallations.getId()`, which Firebase Cloud Messaging
+addresses messages to (firebase-admin 7.7 sends to it; the old registration tokens are deprecated). An ID registered
+by another account moves to this one (a shared phone). At log-out `DELETE` with `{"token": "..."}` (204). Reminders
+are sent only while the server has `FCM_SERVICE_ACCOUNT_JSON`; IDs Firebase no longer knows are dropped.
+
 ## Lists
 
 Lists are paginated: `{"count": 120, "next": "<url>", "previous": null, "results": [...]}`, 50 a page,
@@ -310,6 +419,8 @@ Counted in the cache (Redis in production), per client address for anonymous req
 | guests' order lookup (`orders/lookup/`), per client address | 10 an hour | `API_THROTTLE_ORDER_LOOKUP` |
 | starting and confirming payments (`orders/<number>/payment/…`) | 30 a minute | `API_THROTTLE_PAYMENT` |
 | coupon codes tried (`POST cart/coupon/`), per user | 10 an hour | `API_THROTTLE_COUPON` |
+| book codes tried (`POST learn/redeem/`), per user / per client address | 5 an hour each | `API_THROTTLE_LEARN_REDEEM`, `API_THROTTLE_LEARN_REDEEM_ADDRESS` |
+| quiz answers (`POST learn/quiz/<id>/attempt/`), per user | 600 an hour | `API_THROTTLE_LEARN_QUIZ` |
 | guests' order lookup, per email address and per order number (any address) | 10 an hour | fixed |
 | checkout (`POST orders/`), per client address, the website's included | 10 in 10 minutes | fixed |
 
@@ -352,4 +463,52 @@ least six months, announced in the app). `ALLOWED_VERSIONS` in `examleaf/api_set
 - Tests: `api/tests.py` (sign-up rules, codes, tokens, gated solutions, attempts, data rights, query counts,
   limits, body size, CORS, schema validity) and `shop/test_api.py` (products, cart, addresses, checkout, payment and
   a bad signature, cancellation, the PDFs, other customers' orders, cash on delivery, lookup and its limit) and
-  `shop/test_security.py` (the security review's shop fixes: order links, test and live mode, limits, refunds). `manage.py spectacular --validate --fail-on-warn --file schema.yml` checks the schema.
+  `shop/test_security.py` (the security review's shop fixes: order links, test and live mode, limits, refunds), and
+  `learn/test_api.py` (the revision course: locks and free previews, signed links, progress, quiz, cards, plan, codes
+  and their limits, devices, reminders). `manage.py spectacular --validate --fail-on-warn --file schema.yml` checks the schema.
+
+## Store: categories, collections, attributes, offers and digital products (phase 6 E)
+
+| Method and path | Who | What |
+|---|---|---|
+| `GET categories/`, `categories/<slug>/` | anyone | the shop's category tree, in tree order |
+| `GET collections/`, `collections/<slug>/` | anyone | hand-picked lists of products, in the staff's order |
+
+**Categories**: `slug`, `name`, `description` (Markdown), `depth` (1 at the top), `parent` (the slug of the category
+above it, null at the top), `web_url`. **Collections**: `slug`, `name`, `description`, `products` (slugs, in order;
+products off sale left out), `web_url`. Both are cached for 15 minutes, as the books are.
+
+**Products** also have `categories` (slugs), `attributes` (`code`, `name`, `value`: what their product type defines,
+e.g. edition year, language, board) and `related` (slugs of the products shown with it). Filters besides `?kind=`,
+`?subject=` and `?search=`: `?category=<slug>` (its sub-categories included), `?collection=<slug>`, and
+`?attr_<code>=<value>` for any attribute, several combined with AND. Values are compared as the attribute keeps them:
+numbers as numbers (`?attr_year=2027.0` finds 2027), text and choices in any case, yes/no attributes as `yes`/`no`
+(`true`, `false`, `1`, `0` too). An unknown attribute, or a value of the wrong kind, finds nothing.
+
+```sh
+curl 'https://examleaf.in/api/v1/products/?category=class-12&attr_language=Assamese&attr_year=2027'
+curl https://examleaf.in/api/v1/categories/
+# 200 {"count": 4, ..., "results": [{"slug": "books", "name": "Books", "description": "", "depth": 1, "parent": null,
+#      "web_url": "https://examleaf.in/shop/category/books/"}, {"slug": "class-12", ..., "depth": 2, "parent": "books"}, ...]}
+```
+
+**Digital products** (`kind` `digital`: a revision pass, alone or in a bundle with a book): `in_stock` is always true;
+the cart keeps one of each (quantity 1); a cart of digital products only has no shipping; cash on delivery answers 400
+(`"Cash on delivery is for printed books: please pay online for the course."`). Once paid, the course opens in the
+buyer's account (`GET learn/entitlements/`) and an order of digital products only reads "delivered" at once;
+cancelling it, or a full refund, closes the course again.
+
+**Savings**: the cart and each order have `savings`, a list of `{"label", "amount"}`: the coupon ("Coupon
+WELCOME10"), each automatic offer by its name ("Board 2027 offer"), and "Discount" on orders made by staff; `discount`
+is their sum. Offers apply by themselves, after the coupon (no code to type); the cart answers with them as soon as
+they apply. An order's `payment_method` may also be `offline` (a bank transfer or UPI payment that staff recorded,
+for school orders).
+
+```json
+{"items": [...], "count": 3, "coupon": "WELCOME10", "coupon_problem": null, "subtotal": "897.00",
+ "savings": [{"label": "Coupon WELCOME10", "amount": "89.70"}, {"label": "Board 2027 offer", "amount": "80.73"}],
+ "discount": "170.43", "shipping": "0.00", "total": "726.57", "problems": []}
+```
+
+Tests: `shop/test_catalogue.py` (categories, collections, attributes and their filters, digital products and the
+course hooks) and `shop/test_offers.py` (offers, the savings in the cart's answer).

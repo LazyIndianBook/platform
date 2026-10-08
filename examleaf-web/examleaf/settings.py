@@ -536,7 +536,7 @@ CELERY_BEAT_SCHEDULE["learn-reminders"] = {"task": "learn.tasks.send_reminders",
 # The staff player (hls.js: media from blob: URLs) and, with buckets, the storage hosts its requests are sent on to.
 _media_origins = []
 if env("MEDIA_BUCKET", default=""):
-    _host = (_s3["endpoint_url"] or "https://s3.amazonaws.com").split("://")[-1].rstrip("/")
+    _host = (_s3["endpoint_url"] or f"https://s3.{_s3['region_name']}.amazonaws.com").split("://")[-1].rstrip("/")
     _media_origins = [f"https://{_host}", f"https://*.{_host}"]
     if LEARN_PUBLIC_VIDEO:
         _media_origins.append(f"https://{env('PUBLIC_MEDIA_DOMAIN')}")

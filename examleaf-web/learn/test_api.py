@@ -8,13 +8,15 @@ from unittest import mock
 import pytest
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from rest_framework.test import APIClient
 from rest_framework.throttling import SimpleRateThrottle
 
 from api.tests import sign_in, student
 
-from .models import Chapter, Clip, Device, Entitlement, FlashCard, Learner, QuizAttempt, QuizItem
+from .models import Chapter, Clip, Device, Entitlement, FlashCard, Learner, QuizAttempt, QuizItem, Revision
 from .services import make_codes
 from .tasks import send_reminders
 from .tests import make_course
@@ -49,8 +51,7 @@ def test_chapters_are_public_and_say_what_is_open(api, course):
         ("Clip 1.1", True, False),
         ("Clip 1.2", False, True),
     ]
-    Chapter.objects.filter(number=2).update(title="Draft")
-    Chapter.objects.get(number=2).revision.__class__.objects.filter(chapter__number=2).update(status="draft")
+    Revision.objects.filter(chapter__number=2).update(status="draft")
     assert api.get(url("chapters/")).json()["count"] == 1  # drafts are not listed
 
 
@@ -136,11 +137,20 @@ def test_the_plan_and_what_to_revise_again(api, course):
     assert "exam_date" in api.get(url("plan/")).json()
     exam = timezone.localdate() + timedelta(days=20)
     assert api.patch(url("settings/"), {"exam_date": exam.isoformat(), "minutes_per_day": 10}).status_code == 200
+    Clip.objects.update(duration=300)
     plan = api.get(url("plan/")).json()
-    assert (plan["days_left"], plan["minutes_per_day"], len(plan["days"])) == (20, 10, 1)
-    assert [c["title"] for c in plan["days"][0]["clips"]] == ["Clip 1.1", "Clip 1.2", "Clip 2.1", "Clip 2.2"]
-    assert plan["minimum_to_pass"][0]["pass_marks"] == 21
-    assert api.get(url("plan/"), {"minutes": 4}).json()["days"][1]["clips"][0]["title"] == "Clip 2.1"
+    assert (plan["days_left"], plan["minutes_per_day"], plan["minimum_to_pass"][0]["pass_marks"]) == (20, 10, 21)
+    assert [[c["title"] for c in day["clips"]] for day in plan["days"]] == [
+        ["Clip 1.1", "Clip 1.2"],
+        ["Clip 2.1", "Clip 2.2"],
+    ]
+    assert len(api.get(url("plan/"), {"minutes": 20}).json()["days"]) == 1
+    minimum = plan["minimum_to_pass"][0]  # decimals as strings, as everywhere in the API
+    assert (minimum["marks"], minimum["chapters"][0]["weight"], minimum["chapters"][0]["marks_per_minute"]) == (
+        "14.0",
+        "7.0",
+        "0.70",
+    )
     assert api.get(url("plan/"), {"exam_date": timezone.localdate().isoformat()}).status_code == 400
 
     item = QuizItem.objects.get(chapter__number=1)
@@ -188,5 +198,26 @@ def test_devices_and_the_daily_reminder(api, course, settings):
     with mock.patch("learn.tasks.firebase"), mock.patch.object(messaging, "send_each", return_value=answers) as send:
         assert send_reminders() == 1
     [notes] = send.call_args.args
-    assert [n.token for n in notes] == ["tok-1", "tok-3"] and notes[0].notification.body.startswith("9 days")
+    assert [n.fid for n in notes] == ["tok-1", "tok-3"] and notes[0].notification.body.startswith("9 days")
     assert list(Device.objects.values_list("token", flat=True)) == ["tok-1"]
+
+
+def test_chapter_answers_take_as_many_queries_for_more_chapters_and_clips(api):
+    subject = make_course(chapters=2, clips=2)
+    sign_in(api, student())
+    first = Chapter.objects.get(number=1)
+
+    def queries(path):
+        with CaptureQueriesContext(connection) as captured:
+            assert api.get(path).status_code == 200
+        return len(captured)
+
+    before = queries(url("chapters/")), queries(url(f"chapters/{first.pk}/"))
+    for number in (3, 4):
+        chapter = Chapter.objects.create(subject=subject, number=number, title=f"Chapter {number}")
+        Revision.objects.create(chapter=chapter, title="More", status="published")
+    for order in range(3, 7):
+        Clip.objects.create(
+            revision=first.revision, order=order, title=f"More {order}", processing="ready", duration=60
+        )
+    assert (queries(url("chapters/")), queries(url(f"chapters/{first.pk}/"))) == before

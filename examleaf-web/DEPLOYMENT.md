@@ -516,3 +516,95 @@ Jazzband, which publishes django-axes, django-model-utils, django-taggit, django
 djangorestframework-simplejwt, is winding down (archived in early 2027; PyPI ownership moves to each project's leads
 through December 2026): before merging a bump of one of them, check on PyPI who published the release.
 
+
+## 18. Revision course (phase 6 D)
+
+The app's short revision videos, flash cards and quiz (`learn/`; API.md "Revision course"; RUNBOOK.md "The revision
+course"). Nothing is needed to start; what each part needs:
+
+**ffmpeg and the media worker.** The image installs `ffmpeg` (Dockerfile). Clip videos are processed by the
+`media-worker` service (docker-compose.yml): a Celery worker on the queue `media` only, one video at a time
+(`--concurrency 1`), so a long encode never holds up emails, invoices or refunds on `worker`. A clip of a few minutes
+takes a minute or two on two CPU cores; give the server 1 GB of memory more for ffmpeg. `docker compose up -d` starts
+it with the rest; `docker compose logs media-worker` shows its work. In development the clips are processed in the
+web process when saved (`brew install ffmpeg`; without it the clip shows "failed: ffmpeg is not installed").
+
+**Uploads.** Editors upload a clip's video in the admin (at most `LEARN_MAX_UPLOAD_MB`, default 500; mp4, mov, m4v,
+webm or mkv). Two limits stand in the way of large files and must be raised for the admin's clip pages only:
+Caddy's request body limit (10 MB) and gunicorn's 30-second worker timeout (an upload is read inside the request).
+Both are already raised in the shipped files: the Caddyfile allows 500 MB on the clip and revision admin pages only,
+and docker-compose.yml gives gunicorn `--timeout 600` through `GUNICORN_CMD_ARGS` (override it in `.env` if needed).
+For reference, the Caddyfile block is:
+
+```
+@clip_upload path /admin/learn/clip/* /admin/learn/revision/*
+request_body @clip_upload {
+	max_size 500MB
+}
+@other not path /admin/learn/clip/* /admin/learn/revision/*
+request_body @other {
+	max_size 10MB
+}
+```
+
+If you run gunicorn outside compose, set `GUNICORN_CMD_ARGS="--timeout 600"` yourself; otherwise keep clip videos
+under 10 MB or upload from a fast connection.
+
+**Where the videos live.** The uploaded video (`learn/sources/`) and the processed HLS files (`learn/hls/<clip>/…`:
+two renditions, 480×854 and 720×1280, 4-second segments, a poster) go to the private storage: the `media` volume, or
+the private bucket once `MEDIA_BUCKET` is set (section 15). The app gets links signed for 10 minutes; playlists are
+read through the site (`/learn/hls/…`), segments are a redirect to the bucket's own signed link, so the video traffic
+does not pass through the server once the bucket is in use. Sizes: the two renditions take about 1 MB per 4 seconds
+(15 minutes for each of the 51 chapters: about 13 GB); the uploaded videos are kept for processing again (a phone's
+1080p is about 1 GB per 15 minutes): on R2 all of it costs about a dollar a month. `LEARN_PUBLIC_VIDEO=1` puts the processed files in the public bucket
+instead (plain links on `PUBLIC_MEDIA_DOMAIN`, cached by Cloudflare: cheaper and faster, but anyone with a link can
+watch); after switching, `manage.py reprocess_clips --all`.
+
+**The staff player** (`/learn/preview/<clip>/`, the "Preview" link on a clip in the admin) uses hls.js from the site
+(`static/learn/hls.min.js`, 1.7.3, with its licence). With buckets, the browser fetches the segments from the
+bucket: the CSP allows its host (settings.py), and the bucket needs a CORS rule (R2 → bucket → Settings → CORS
+policy): `[{"AllowedOrigins": ["https://examleaf.in"], "AllowedMethods": ["GET"], "AllowedHeaders": ["*"]}]` on
+`examleaf-private` (and on `examleaf-public` with `LEARN_PUBLIC_VIDEO=1`). The app's own player needs none of this.
+
+**Settings** (`.env`, all optional): `LEARN_MAX_UPLOAD_MB`, `LEARN_PUBLIC_VIDEO`, `LEARN_FREE_PREVIEW` (1: the first
+clip of every revision and the first chapter's flash cards are free), `LEARN_ACCESS_DAYS` (365: what a book code or a
+purchase opens), `API_THROTTLE_LEARN_REDEEM`, `API_THROTTLE_LEARN_REDEEM_ADDRESS` (5 book codes an hour per user and
+per address: raise the second before a teacher has a classroom redeem together), `API_THROTTLE_LEARN_QUIZ`.
+
+**Book codes.** Set `LEARN_CODE_SECRET` (a random string of 50 characters or more, like `SECRET_KEY`) before the first
+print run and never change it: the database keeps only a keyed hash of each code, and codes printed under one key work
+only with it. Keep a copy in the password manager with the other secrets.
+
+**Push reminders (Firebase).** Optional. Firebase console → a project for ExamLeaf → add the Android (and iOS) app
+(the app's developers need its `google-services.json`) → Project settings → Service accounts → Generate new private
+key. Put the JSON in `.env` as `FCM_SERVICE_ACCOUNT_JSON` (on one line), or the path of the file inside the container.
+Celery beat sends the reminder at 18:00 to students who turned it on in the app, through firebase-admin (FCM HTTP v1).
+Without the variable nothing is sent.
+
+**First content.** After `import_papers`: `manage.py import_chapter_insights` (the chapters with the Board's marks and
+the past papers' question counts, from `production/<subject>/format.json` and `pyq/`) and `manage.py build_quiz_items`
+(about 660 one-mark quiz items from the imported papers; the rest are skipped and counted). Then RUNBOOK.md for the
+first revision.
+
+## 19. Store: categories, offers, staff orders and digital products (phase 6 E)
+
+No new environment variables. What the release needs:
+
+1. **Packages and migrations.** `requirements.txt` adds `django-treebeard` (the category tree; `treebeard` is in
+   `INSTALLED_APPS` for its admin templates). `migrate` adds shop 0016–0019 (categories, collections, product types and
+   attributes, slug history, offers, order discount lines, staff orders and payment links, order notes; 0019 gives the
+   roles their new permissions); `bootstrap_roles` after it, as on every deploy (the Makefile and docker-compose.yml do
+   both). `IMPORT_EXPORT_IMPORT_PERMISSION_CODE = "import"` (settings.py): product and category imports need
+   `shop.import_product` / `shop.import_category`, which only ADMIN holds, like the exports (M5).
+2. **Razorpay webhook.** Add the event `payment_link.paid` to the webhook of section 12 (test and live): it completes
+   orders made by staff and paid through a Payment Link (handled once, through the same signature check and
+   `WebhookEvent` table). Payment Links must be enabled on the Razorpay account (Dashboard → Payment Links); we email
+   the link ourselves, so Razorpay's own SMS and email for links stay off (`notify: false`). A link lives 15 days
+   (`shop.payments.LINK_DAYS`); a staff order waits 16 days before the daily clean-up cancels it (after asking Razorpay
+   whether its link was paid).
+3. **Digital products.** A product of kind "Digital (in the app)" opens a course of the `learn` app when paid
+   (`learn.services.grant_for_order`; section 18). The product form refuses the books' HSN code 4901 for it: enter the
+   SAC code and GST rate your accountant gives for the course (founder decision, see RUNBOOK.md "The store").
+4. **Bank details for offline payments.** The quotation asks schools to pay "to the account we send with it": keep
+   the account name, number, IFSC and UPI ID ready for that email (they are not on the site). Staff record each
+   payment with its reference (RUNBOOK.md "The store"), which the invoice prints.

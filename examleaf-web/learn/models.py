@@ -317,7 +317,7 @@ class Device(models.Model):
         IOS = "ios", "iOS"
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="devices")
-    token = models.CharField("FCM registration token", max_length=512, unique=True)
+    token = models.CharField("Firebase installation ID", max_length=512, unique=True, help_text="FCM sends to it.")
     platform = models.CharField(max_length=10, choices=Platform.choices, blank=True)
     created = models.DateTimeField(auto_now_add=True)
     last_seen = models.DateTimeField(auto_now=True)

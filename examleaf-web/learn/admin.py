@@ -1,5 +1,7 @@
 from django.contrib import admin, messages
 from django.db.models import Count
+from django.urls import reverse
+from django.utils.html import format_html
 
 from .models import (
     CODE_LENGTH,
@@ -28,6 +30,12 @@ def move(clips, step):
                 sibling.save(update_fields=["order"])
 
 
+@admin.display(description="preview")
+def preview(clip):
+    """The staff player (learn.views.preview), once the clip has been saved."""
+    return format_html('<a href="{}">Preview</a>', reverse("learn:preview", args=[clip.pk])) if clip.pk else "—"
+
+
 class FlashCardInline(admin.TabularInline):
     model = FlashCard
     fields = ["order", "front", "back"]
@@ -52,8 +60,8 @@ class ChapterAdmin(admin.ModelAdmin):
 
 class ClipInline(admin.TabularInline):
     model = Clip
-    fields = ["order", "title", "kind", "source", "is_free_preview", "processing", "duration"]
-    readonly_fields = ["processing", "duration"]
+    fields = ["order", "title", "kind", "source", "is_free_preview", "processing", "duration", preview]
+    readonly_fields = ["processing", "duration", preview]
     extra = 0
     show_change_link = True
 
@@ -99,10 +107,10 @@ class RevisionAdmin(admin.ModelAdmin):
 
 @admin.register(Clip)
 class ClipAdmin(admin.ModelAdmin):
-    list_display = ["title", "revision", "order", "kind", "processing", "duration", "is_free_preview"]
+    list_display = ["title", "revision", "order", "kind", "processing", "duration", "is_free_preview", preview]
     list_filter = ["processing", "kind", "revision__chapter__subject"]
     search_fields = ["title", "revision__title"]
-    readonly_fields = ["processing", "processing_error", "hls_path", "duration"]
+    readonly_fields = ["processing", "processing_error", "hls_path", "duration", preview]
     raw_id_fields = ["questions"]
     actions = ["move_up", "move_down", "process_again"]
 

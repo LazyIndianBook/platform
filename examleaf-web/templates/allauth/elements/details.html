@@ -1,0 +1,4 @@
+{% load allauth %}<details class="accordion"{% if attrs.open %} open{% endif %}>
+  <summary><span>{% slot summary %}{% endslot %}</span><svg class="icon" aria-hidden="true"><use href="#icon-chevron-down"/></svg></summary>
+  <div>{% slot body %}{% endslot %}</div>
+</details>

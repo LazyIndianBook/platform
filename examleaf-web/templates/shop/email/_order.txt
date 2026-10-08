@@ -1,6 +1,6 @@
 {% load shop %}{% for item in order.items.all %}{{ item.quantity }} × {{ item.title }}  {{ item.line_total|inr }}
-{% endfor %}{% if order.discount.amount %}Coupon {{ order.coupon_code }}  −{{ order.discount|inr }}
-{% endif %}Shipping  {% if order.shipping_fee.amount %}{{ order.shipping_fee|inr }}{% else %}free{% endif %}
+{% endfor %}{% for label, amount in order.savings %}{{ label }}  −{{ amount|inr }}
+{% endfor %}Shipping  {% if order.shipping_fee.amount %}{{ order.shipping_fee|inr }}{% else %}free{% endif %}
 Total  {{ order.total|inr }}{% if order.is_cod %} (pay on delivery){% endif %}
 
 Delivery to:

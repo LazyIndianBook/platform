@@ -5,11 +5,15 @@ from django import template
 from django.conf import settings
 from django.contrib.staticfiles import finders
 from django.core.serializers.json import DjangoJSONEncoder
+from django.forms.utils import flatatt
 from django.templatetags.static import static
 from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
 
+from accounts.forms import RequestLoginCodeForm
 from content.management.commands.build_covers import FORMATS, WIDTHS
+from content.models import Paper
+from shop.templatetags.shop import inr
 
 register = template.Library()
 
@@ -20,9 +24,10 @@ def _has_sizes(stem):
 
 
 @register.simple_tag
-def static_cover(path, alt="", sizes="(min-width: 900px) 25vw, 50vw"):
+def static_cover(path, alt="", sizes="(min-width: 900px) 25vw, 50vw", **attrs):
     """A book cover of static/img/ ("img/physics.png") as a <picture>: its AVIF and WebP sizes (manage.py
-    build_covers) when they exist, the PNG for the browsers that read neither."""
+    build_covers) when they exist, the PNG for the browsers that read neither. Keyword arguments become attributes of
+    the <img>: fetchpriority="high" on the first cover of the page, loading="lazy" on the others."""
     stem = path.rsplit(".", 1)[0]
     sources = ""
     if _has_sizes(stem):
@@ -31,8 +36,34 @@ def static_cover(path, alt="", sizes="(min-width: 900px) 25vw, 50vw"):
             for extension in FORMATS
         )
         sources = format_html_join("", '<source type="image/{}" srcset="{}" sizes="{}">', srcsets)
-    img = format_html('<img src="{}" alt="{}" width="480" height="678">', static(path), alt)
+    img = format_html('<img src="{}" alt="{}" width="480" height="678"{}>', static(path), alt, flatatt(attrs))
     return format_html("<picture>{}{}</picture>", sources, img)
+
+
+@register.filter
+def inr_short(value):
+    """A display price without zero paise (components.md, .price): ₹299, but ₹718.20. Totals keep `inr`."""
+    text = inr(value)
+    return text.removesuffix(".00")
+
+
+@register.simple_tag
+def login_code_form():
+    """The log-in page's mobile number box: allauth's code request form (posted to its own page), with Turnstile when
+    it is on."""
+    return RequestLoginCodeForm()
+
+
+@register.simple_tag
+def record_summary(user, latest=5):
+    """My account's "My record" card: the average for each tier (as My record counts it; None without a paper of the
+    tier) and the latest attempts."""
+    attempts = list(user.attempts.select_related("paper"))
+    averages = []
+    for tier, label in Paper.Tier.choices:
+        rows = [a.percent for a in attempts if a.paper.tier == tier]
+        averages.append((label, len(rows), round(sum(rows) / len(rows)) if rows else None))
+    return {"averages": averages, "latest": attempts[:latest], "count": len(attempts)}
 
 
 @register.simple_tag

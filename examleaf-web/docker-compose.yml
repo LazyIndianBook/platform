@@ -77,6 +77,8 @@ services:
       && python manage.py health_check health_web --no-http
       && exec gunicorn examleaf.wsgi --bind 0.0.0.0:8000 --max-requests 1000 --max-requests-jitter 100"
     environment:
+      # Clip uploads in the admin are read inside the request: a 10-minute worker timeout (gunicorn reads this variable).
+      GUNICORN_CMD_ARGS: ${GUNICORN_CMD_ARGS:---timeout 600}
       <<: *app-env
       DOMAIN: ${DOMAIN:?set DOMAIN in .env}
     volumes:

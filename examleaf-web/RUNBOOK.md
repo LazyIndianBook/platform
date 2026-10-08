@@ -425,3 +425,163 @@ Each month (or quarter), for the accountant:
 Only the real series is exported (`EL/…`, `CN/…`), never test-mode documents. Amounts are those printed on the
 invoices and credit notes (prices include tax; a coupon is shared over the lines). Orders the site does not invoice
 (school orders paid outside it) are not in the files.
+
+## The revision course (phase 6 D)
+
+Content editors (CONTENT_EDITOR) work in the admin under **Revision course**; DEPLOYMENT.md section 18 has the set-up.
+
+### Uploading and publishing a revision
+
+1. **Chapters** exist once `import_chapter_insights` has run (Board marks and past-paper counts; editors add the
+   must-do note). Open the chapter, add its flash cards (front and back, Markdown, `$…$` maths) in the table below it.
+2. **Revisions → Add:** the chapter, a title, the target minutes (10 to 15). Status stays draft.
+3. In the clip rows: order (1, 2, 3 …), title, kind, the video (vertical 9:16 from the phone is best; landscape is
+   letterboxed), "free preview" only for an extra free clip (the first clip is free anyway). Save. Each new video goes
+   to the media worker: processing → ready (or failed) a minute or two later; reload the page.
+4. On each clip (Clips, or the arrow beside the row): notes or transcript (Markdown), the Board questions it prepares
+   for (by id; the search in Questions finds them by paper code and label), then **Preview**: the clip as the app
+   plays it, both renditions (480p, 720p), the poster and the notes.
+5. **Revisions → select → "Publish the selected revisions"**: only revisions with at least one ready clip are
+   published. The app shows them at once. "Back to draft" hides one again; students keep their progress.
+6. Order of clips: change the numbers, or Clips → select → "Move up" / "Move down".
+7. Quiz items: `build_quiz_items` made them from the papers; check a few per chapter (Quiz items, filtered by subject)
+   and correct or delete what reads badly. Running the command again adds only new ones and keeps edits.
+
+### A clip that failed
+
+The clip shows "failed" and its page (or Preview) the end of ffmpeg's messages. Usual causes: the file is not a video
+or is cut short (re-export it from the phone and upload it again), a codec ffmpeg cannot read (export as H.264 mp4), or
+the media worker ran out of time or memory (more than an hour of encoding: split the video). After a new upload the
+clip is processed again by itself. To retry without a new upload (the bucket or the worker was down):
+
+```sh
+docker compose exec web python manage.py reprocess_clips            # the failed ones, and those "processing" for over an hour
+docker compose exec web python manage.py reprocess_clips 12 15      # these clips
+docker compose exec web python manage.py reprocess_clips --all      # every clip (after changing LEARN_PUBLIC_VIDEO)
+```
+
+or Clips → select → "Process the video again". Clips stuck in "processing" mean the queue lost the task (Redis or the
+worker restarted): `docker compose ps media-worker`, then the first command.
+
+### Printing book codes
+
+Each book can carry a code that opens the course in the app (a sticker or a printed slip inside the cover). Make them
+for the print run, one batch per run, and send the CSV to the printer:
+
+```sh
+docker compose exec web python manage.py make_book_codes PHY 5000 --batch PHY-2027-1 --out /app/media/PHY-2027-1.csv
+docker compose cp web:/app/media/PHY-2027-1.csv . && docker compose exec web rm /app/media/PHY-2027-1.csv
+```
+
+`ALL` instead of `PHY` makes codes that open every subject (a four-book set). The CSV is the only copy of the codes
+(the database keeps a keyed hash): send it to the printer over a private channel and delete it once the print run is
+checked. Codes look like `7KQM-3XPA-9TRW` (no 0, O, 1 or I). Set `LEARN_CODE_SECRET` before the first batch and never
+change it (DEPLOYMENT.md section 18). A batch printed by mistake: Book codes → filter by batch → delete them (a code
+already redeemed keeps its entitlement).
+
+### Granting access
+
+Entitlements → Add: the student (by id: find it in Users), the subject (empty: every subject), the last day (empty: no
+end), and why in the note (a school order, a complaint, a reviewer). The app shows the subject open at once. Purchases
+of a digital product in the shop grant themselves when paid; an entitlement is never needed for the free previews.
+
+### A lost code, or "my code says used already"
+
+1. Ask for the code (a photo of the slip) and look for it: Book codes → search with the whole code. Not found: a typo
+   (0/O and 1/I are not used), or a code from another batch or a fake.
+2. **Found and not redeemed:** the student can type it again; after 5 wrong tries an hour the app must wait an hour.
+3. **Redeemed by this student:** nothing to do (Entitlements, search by the email, shows it).
+4. **Redeemed by someone else:** ask for proof of purchase (the book, the bill). If it holds, grant access as above
+   with the note "code #<id> used by another account" and keep the other entitlement unless the code was clearly stolen
+   (then delete that entitlement; its owner will contact you if it was theirs).
+5. **No code at all** (lost slip): proof of purchase, then a grant until the end of the exam season.
+
+## The store (phase 6 E)
+
+Who does what (accounts/roles.py; `dj bootstrap_roles` after a change): CONTENT_EDITOR keeps the catalogue (products,
+categories, collections, product types and attributes, pictures) and the course content; SALES the orders (staff orders,
+payment links, offline payments, notes), offers, coupons, prices and stock, reviews, quotations and stock alerts;
+SUPPORT sees orders, notes and reviews and opens courses by hand (entitlements); ADMIN everything, imports and exports
+included.
+
+### Categories, collections, attributes
+
+- **Categories** (Shop → Categories) form a tree: "Add category" with its place (first child of a category, or a
+  sibling), or drag a row to move it with its sub-categories. A product is put on its shelves in its own form
+  ("Shelves, type and related products"), several allowed; a category's page (`/shop/category/<slug>/`) shows the
+  products of its sub-categories too. The shop's main page lists the top categories.
+- **Collections** are hand-picked lists ("Board 2027 essentials"): add the products in the collection's form; their
+  `position` numbers give the order, the collection's own number the order of the collections. Untick "shown" to hide
+  one (its page then answers 404).
+- **Product types** say which attributes their products have (a printed book: edition year, language, board…). Each
+  attribute has a code (the app's filter `?attr_<code>=`; do not change it once the app uses it) and a kind: text,
+  number, one of a list (one choice per line) or yes/no. Give a product its type, save, then fill in the attribute
+  rows; a value of the wrong kind, or an attribute of another type, is refused. They show under "Details" on its page.
+- **Related products** (both ways) show as "You may also need" on each other's pages.
+- **Changing a slug** (a product's address): the old address keeps working, redirecting (301) to the new one; the
+  product's form lists its earlier addresses. Another product may take an old slug: then that address is its own.
+  The slugs `category`, `collection` and `school-orders` are refused (pages of the shop).
+- **Bulk actions** on Products: "Put on sale", "Take off sale", and "Set stock": type the copies in the box beside the
+  action, tick the books, run it (bundles and digital products have no copies of their own and are skipped).
+- **Spreadsheets (ADMIN):** Products → Export (all, or "Export selected" from the action list) and Import, matched by
+  slug: change titles, prices, texts, categories (slugs separated by `|`) and import; a row whose price is above the MRP
+  is refused, and stock is never imported (sales go on meanwhile: use "Set stock"). Categories → Export/Import: one row
+  per category, a parent before its children (`parent` is its slug); an import adds new categories and renames, it
+  moves none. Every export is written to the admin log (M5).
+
+### Digital products (the revision course)
+
+A product of kind "Digital (in the app)" opens the course of the `learn` app in the buyer's account once paid
+(section "The revision course"): a pass alone, or in a bundle with a book (the bundle's copies are the book's).
+Customers need an account, pay online (no cash on delivery), buy one at a time and pay no shipping for it; an order of
+digital products only is marked delivered at once (no packing). Cancelling a paid order, or refunding it in full,
+closes the course again. Set the SAC code and GST rate your accountant gives (the form refuses 4901, the books' HSN).
+
+### Offers
+
+Shop → Offers: automatic discounts, no code. Per cent or rupees off what the offer covers ("on": the whole cart,
+chosen products, the products of chosen categories with their sub-categories, or of chosen collections), once those
+reach a number of copies or a value (after the coupon), between two dates, with limits of orders in all and per
+customer. They apply after the coupon and show as their own line, under the offer's name, in the cart, the checkout,
+the emails, the order and the invoice. "With coupons and other offers" off: the offer applies alone, never with a
+coupon; without a coupon the customer gets whichever saves more, all the combinable offers together or the best
+single one. The "used" column counts orders placed (paid, or cash on delivery placed); the limits are checked when the
+order is made, so a few orders paid at the same moment can pass one by an order or two. Each order line keeps its
+share of every discount, and invoices and credit notes print those shares (orders made before this release keep the
+split they were invoiced with).
+
+### Staff orders and payment links
+
+For a phone order or a school's quotation accepted: Orders → "Add order" (the button reads "Add order"; it opens "New
+phone or school order"): the customer's email (an account whose confirmed address it is gets the order: needed for a
+course), the delivery address, the products and copies (rows left empty are skipped), a discount in rupees (after the
+offers), the shipping (empty: the shipping rates'), an internal note. With "Email a Razorpay payment link now" ticked,
+Razorpay makes a Payment Link for the total and we email it; the action "Email a Razorpay payment link" sends the same
+link again. When the customer pays, Razorpay's `payment_link.paid` webhook pays the order: copies taken, confirmation
+email, invoice, as for the website's orders (a book sold out meanwhile: cancelled and refunded, as there). A link
+lives 15 days; a staff order not paid in 16 days is cancelled by the daily clean-up, which first asks Razorpay
+whether its link was paid. The order list's filter "created by → not empty" lists the staff orders.
+
+### Payments received offline (NEFT, IMPS, UPI)
+
+1. Check on the bank statement that the whole total has arrived; note its reference (UTR or UPI reference).
+2. Orders → tick the order (one) → "Record a payment received offline" → type the reference → "Record the payment".
+3. The order is paid (copies taken, the customer emailed, the invoice made with "bank transfer or UPI to our account,
+   reference …"). Refused if the order is no longer waiting for payment or a book has sold out (nothing recorded).
+
+Refunds of such payments are made by bank transfer by hand: the refund action does nothing for them; cancelling the
+order puts its copies back and emails the customer.
+
+### Notes, the customer page, the dashboard
+
+- **Notes** (an order's page, "internal notes"): what was promised on the phone, a school's purchase order. Signed with
+  your name; their History keeps every change; the customer never sees them. They are deleted with the order's
+  customer details (eight years on, or 30 days after an unpaid order's cancellation).
+- **The customer page**: an order's "customer" link (accounts only) gathers the account's orders (and guest orders
+  with its email address), saved addresses, reviews, quotation requests, stock alerts and courses, each part for staff
+  allowed to see it.
+- **The dashboard** (admin home) adds sales by day for two weeks, the most sold books of the month, the books running
+  out (below `SHOP_LOW_STOCK`), and the reviews and quotation requests waiting. Stock alerts (who waits for which book)
+  are under Shop → Stock alerts.
+- **Product pictures** keep their `position` numbers (no drag and drop: django-admin-sortable2 does not support Django
+  6.1 yet).
