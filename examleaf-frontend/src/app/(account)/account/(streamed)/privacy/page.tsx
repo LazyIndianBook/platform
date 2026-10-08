@@ -1,24 +1,39 @@
-// /account/privacy/: Consent and your data (Django's my_account.html #consent and #data, account_data.html,
-// account_delete.html): whether the privacy notice was accepted (by a parent for a student under 18) or a parent's
-// confirmation is awaited, with their link sent again; Download my data; Delete my account with its seven days, or
-// Keep my account while a deletion waits.
-import { CircleCheck, Clock } from "lucide-react";
-import Link from "next/link";
-
+// /account/privacy/: Consent and your data (Account artboard "Privacy"; Gaps "Data summary and deletion"; Phone
+// "Phone privacy and teacher"): whether the privacy notice was accepted (by a parent for a student under 18) or a
+// parent's confirmation is awaited, with their link sent again; order updates by SMS; what the data file holds
+// (me/export/summary/) before its download; Delete my account, confirmed by typing the email address, with its seven
+// days, or Keep my account while a deletion waits.
 import { PageHead, Problem } from "@/components/account/parts";
 import { DataExport, DeleteAccountForm, KeepAccountButton, ParentResendForm } from "@/components/account/privacy-forms";
+import { SmsUpdatesSwitch } from "@/components/account/security-forms";
 import { Alert } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getMe, settle } from "@/lib/api/account";
 import { getConfig } from "@/lib/api/config";
-import { personalFetch, serverApi } from "@/lib/api/server";
 import { ApiError, unwrap } from "@/lib/api/errors";
+import { personalFetch, serverApi } from "@/lib/api/server";
 import { getSessionUser } from "@/lib/auth/session";
 import { formatDate, isMinor } from "@/lib/dates";
 import { pageMetadata } from "@/lib/seo/metadata";
 
 export const metadata = pageMetadata({ title: "Consent and your data", path: "/account/privacy/", noindex: true });
+
+function Part({ id, title, text, children }: { id: string; title: string; text: string; children: React.ReactNode }) {
+  return (
+    <section
+      id={id}
+      aria-labelledby={`${id}-title`}
+      className="flex scroll-mt-4 flex-col gap-3 border-t border-border pt-4"
+    >
+      <div className="flex flex-col gap-0.5 [&>*]:m-0">
+        <h2 id={`${id}-title`} className="font-body text-base leading-snug font-bold">
+          {title}
+        </h2>
+        <p className="text-sm text-muted-foreground">{text}</p>
+      </div>
+      {children}
+    </section>
+  );
+}
 
 export default async function PrivacyPage() {
   const path = "/account/privacy/";
@@ -28,7 +43,7 @@ export default async function PrivacyPage() {
     getConfig(),
     personalFetch()
       .then((options) => unwrap(serverApi.GET("/api/v1/me/export/summary/", options)))
-      .catch(() => null), // without it the card offers the file alone
+      .catch(() => null), // without it the section offers the file alone
   ]);
   const head = <PageHead title="Consent and your data" />;
   if (me instanceof ApiError) {
@@ -41,72 +56,57 @@ export default async function PrivacyPage() {
   }
   const minor = isMinor(me.date_of_birth ?? "");
   const hasPassword = user?.has_usable_password ?? true;
+  const consentDate = me.consent_at ? formatDate(me.consent_at) : null;
 
   return (
     <>
       {head}
-      {me.consent_at || me.consent_pending ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>{minor ? "Parent's consent" : "Your consent"}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {me.consent_pending ? (
-              <>
-                <p className="flex flex-wrap items-center gap-3">
-                  <Badge>
-                    <Clock aria-hidden="true" />
-                    Waiting
-                  </Badge>
-                  <span>We have sent your parent or guardian a link to confirm your account.</span>
-                </p>
-                <p>
-                  Until they do, you can read the solutions but not save marks, order books or use a book code. Not
-                  arrived? Check the {config?.auth.sms ? "email address or mobile number" : "address"} and send it
-                  again:
-                </p>
-                <ParentResendForm contact={me.parent_contact} sms={Boolean(config?.auth.sms)} />
-              </>
-            ) : (
-              <>
-                <p className="flex flex-wrap items-center gap-3">
-                  <Badge>
-                    <CircleCheck aria-hidden="true" />
-                    Confirmed
-                  </Badge>
-                  <span>
-                    {minor
-                      ? `${me.parent_name || "Your parent or guardian"} agreed to the privacy notice for you.`
-                      : `You agreed to the privacy notice on ${formatDate(me.consent_at!, "long")}.`}
-                  </span>
-                </p>
-                <p className="text-muted-foreground">
-                  {minor ? "You can save marks and order books. " : ""}Deleting your account (below) withdraws the
-                  consent.
-                </p>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      ) : null}
+      <div className="flex max-w-[44rem] flex-col gap-6">
+        {me.consent_pending ? (
+          <section id="consent" aria-label="Your parent's consent" className="flex scroll-mt-4 flex-col gap-4">
+            <Alert variant="warning" title="Waiting for your parent">
+              <p>
+                We have sent your parent or guardian a link to confirm your account. Until they do, you can read the
+                solutions but not save marks, order books or use a book code.
+              </p>
+            </Alert>
+            <p className="m-0 text-[15px]">
+              Not arrived? Check the {config?.auth.sms ? "email address or mobile number" : "address"}, change it if it
+              is wrong, and send the link again:
+            </p>
+            <ParentResendForm contact={me.parent_contact} sms={Boolean(config?.auth.sms)} />
+          </section>
+        ) : consentDate ? (
+          <section id="consent" aria-label={minor ? "Your parent's consent" : "Your consent"} className="scroll-mt-4">
+            <Alert
+              variant="success"
+              title={
+                !minor
+                  ? `You agreed to the privacy notice on ${consentDate}`
+                  : config?.parental_consent === "verified"
+                    ? `Your parent confirmed on ${consentDate}`
+                    : `${me.parent_name || "Your parent or guardian"} agreed to the privacy notice for you on ${consentDate}`
+              }
+            >
+              <p>
+                {minor ? "You can save marks and order books. " : ""}Deleting your account (below) withdraws the
+                consent.
+              </p>
+            </Alert>
+          </section>
+        ) : null}
 
-      <Card id="data">
-        <CardHeader>
-          <CardTitle>Download my data</CardTitle>
-          <CardDescription>
-            Under the <Link href="/privacy/">Privacy Policy</Link> you can see everything we keep about you.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+        {config?.auth.sms && me.login_phone_verified ? (
+          <div className="border-t border-border pt-1">
+            <SmsUpdatesSwitch on={Boolean(me.sms_updates)} />
+          </div>
+        ) : null}
+
+        <Part id="data" title="Download your data" text="Your details, record, course progress and orders, as a file.">
           <DataExport hasPassword={hasPassword} summary={summary} />
-        </CardContent>
-      </Card>
+        </Part>
 
-      <Card id="delete">
-        <CardHeader>
-          <CardTitle>Delete my account</CardTitle>
-        </CardHeader>
-        <CardContent>
+        <Part id="delete" title="Delete my account" text="Orders are kept as the law requires; everything else goes.">
           {me.deletion_due_at ? (
             <Alert
               variant="warning"
@@ -116,19 +116,10 @@ export default async function PrivacyPage() {
               <KeepAccountButton />
             </Alert>
           ) : (
-            <>
-              <Alert variant="warning" title="Deleting is final after seven days">
-                <p>
-                  Your account, your record and your details (name, email, date of birth, parent&apos;s details) are
-                  deleted seven days after you ask. Until then you can log in and keep it. Orders and their invoices
-                  stay, as tax law requires, with the delivery address you gave for them.
-                </p>
-              </Alert>
-              <DeleteAccountForm hasPassword={hasPassword} />
-            </>
+            <DeleteAccountForm hasPassword={hasPassword} email={me.email} />
           )}
-        </CardContent>
-      </Card>
+        </Part>
+      </div>
     </>
   );
 }

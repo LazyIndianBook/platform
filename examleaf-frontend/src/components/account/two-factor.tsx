@@ -1,11 +1,10 @@
 "use client";
 
-// Two-step log-in (Django's allauth mfa pages; required for staff): the authenticator app set up with its key and a
-// first code, or turned off; the recovery codes shown, saved as a text file, or made again. allauth may first want
-// the password again (src/lib/auth/account.ts sends the visitor to type it, then back here). The setup's QR code is
-// drawn here from the otpauth:// link (lean-qr: the link holds the secret, so it never goes to an image service).
-import { generate } from "lean-qr";
-import { Download, KeyRound } from "lucide-react";
+// Two-step log-in (Account artboard "2FA setup", States "Recovery codes"; allauth mfa): the authenticator app set up
+// with its QR code and a first code, then its recovery codes shown as the board; or turned off. The recovery codes
+// shown, saved as a text file, copied, or made again. allauth may first want the password again
+// (src/lib/auth/account.ts sends the visitor to type it, then back here). The QR code is drawn here from the
+// otpauth:// link (lean-qr: the link holds the secret, so it never goes to an image service).
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "@/components/ui/toaster";
@@ -27,6 +26,7 @@ import { Field } from "@/components/ui/field";
 import { OtpInput } from "@/components/ui/input-otp";
 import { account, type Authenticator } from "@/lib/auth/account";
 
+import { QrCode } from "./qr-code";
 import { useAction } from "./use-action";
 
 /** A dangerous action behind a dialog that opens on its safe button. */
@@ -71,32 +71,60 @@ function Confirm({
   );
 }
 
-/** The otpauth:// link as a QR code for the phone's camera: dark runs of each row as one SVG path, 4 modules of quiet
- *  zone on white. */
-function SetupQr({ url }: { url: string }) {
-  const code = generate(url);
-  let path = "";
-  for (let y = 0; y < code.size; y++) {
-    for (let x = 0; x < code.size; x++) {
-      if (!code.get(x, y)) continue;
-      const start = x;
-      while (x + 1 < code.size && code.get(x + 1, y)) x++;
-      path += `M${start} ${y}h${x - start + 1}v1h-${x - start + 1}z`;
-    }
-  }
-  const side = code.size + 8;
+/** The setup's sheet: white, an ink border, the title in the serif. */
+function SetupCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <svg
-      role="img"
-      aria-label="QR code of the key, for the authenticator app"
-      viewBox={`-4 -4 ${side} ${side}`}
-      width={176}
-      height={176}
-      shapeRendering="crispEdges"
-      className="rounded-lg border border-border bg-white"
+    <section
+      aria-labelledby="totp-title"
+      className="flex max-w-[30rem] flex-col gap-3.5 border-[1.5px] border-foreground bg-card p-7 max-nav:p-5 [&_p]:m-0"
     >
-      <path d={path} fill="#000" />
-    </svg>
+      <h2 id="totp-title" className="m-0 text-[26px] leading-tight max-nav:text-[22px]">
+        {title}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
+/** The recovery codes as the board: two columns of mono codes in a dashed box, then Download and Copy. */
+export function RecoveryBoard({ codes, children }: { codes: string[]; children?: React.ReactNode }) {
+  const [copied, setCopied] = useState<string | null>(null);
+  const text = `ExamLeaf recovery codes\n\n${codes.join("\n")}\n`;
+  return (
+    <div className="flex flex-col gap-3.5">
+      <ul
+        aria-label="Your recovery codes"
+        className="m-0 grid list-none grid-cols-2 gap-x-6 gap-y-2 border-[1.5px] border-dashed border-input bg-card p-4 font-mono text-base leading-snug font-medium max-[359px]:grid-cols-1"
+      >
+        {codes.map((code) => (
+          <li key={code}>{code}</li>
+        ))}
+      </ul>
+      <div className="flex flex-wrap gap-3">
+        <a
+          href={`data:text/plain;charset=utf-8,${encodeURIComponent(text)}`}
+          download="examleaf-recovery-codes.txt"
+          className={buttonVariants({ variant: "secondary" })}
+        >
+          Download
+        </a>
+        <Button
+          variant="secondary"
+          onClick={() =>
+            navigator.clipboard
+              ?.writeText(codes.join("\n"))
+              .then(() => setCopied("Copied: paste them somewhere safe."))
+              .catch(() => setCopied("This browser would not copy them: download them instead."))
+          }
+        >
+          Copy
+        </Button>
+        {children}
+      </div>
+      <p role="status" className="m-0 text-sm text-muted-foreground">
+        {copied}
+      </p>
+    </div>
   );
 }
 
@@ -104,12 +132,34 @@ export function AuthenticatorApp({ active }: { active: boolean }) {
   const router = useRouter();
   const [setup, setSetup] = useState<{ secret: string; url: string } | null>(null);
   const [code, setCode] = useState("");
+  const [codes, setCodes] = useState<string[] | null>(null);
   const { run, busy, error } = useAction();
 
+  if (codes) {
+    return (
+      <SetupCard title="Two-step log-in is on">
+        <p className="text-base leading-relaxed text-ink/85">
+          If you lose your phone, each of these codes lets you in once. Keep them somewhere safe.
+        </p>
+        <RecoveryBoard codes={codes}>
+          <Button
+            onClick={() => {
+              setCodes(null);
+              router.refresh();
+            }}
+          >
+            I&apos;ve saved them
+          </Button>
+        </RecoveryBoard>
+      </SetupCard>
+    );
+  }
   if (active) {
     return (
-      <>
-        <p>The authenticator app is on: after your password, Log in asks for the code it shows.</p>
+      <SetupCard title="Two-step log-in is on">
+        <p className="text-[15px] leading-relaxed text-ink/85">
+          After your password, Log in asks for the 6-digit code your authenticator app shows.
+        </p>
         <div>
           <Confirm
             trigger="Turn it off"
@@ -124,13 +174,13 @@ export function AuthenticatorApp({ active }: { active: boolean }) {
             Log in will no longer ask for its code. Staff accounts must set one up again before they can use the admin.
           </Confirm>
         </div>
-      </>
+      </SetupCard>
     );
   }
   if (!setup) {
     return (
-      <>
-        <p>
+      <SetupCard title="Turn on two-step log-in">
+        <p className="text-[15px] leading-relaxed text-ink/85">
           An app on your phone (Google Authenticator, Microsoft Authenticator, Aegis) shows a new 6-digit code every 30
           seconds; Log in asks for it after your password.
         </p>
@@ -146,34 +196,41 @@ export function AuthenticatorApp({ active }: { active: boolean }) {
               })
             }
           >
-            <KeyRound aria-hidden="true" />
-            <span>Set up the authenticator app</span>
+            Set up the authenticator app
           </Button>
         </div>
-      </>
+      </SetupCard>
     );
   }
   return (
-    <>
-      <SetupQr url={setup.url} />
-      <ol className="m-0 flex flex-col gap-2 pl-5">
-        <li>
-          Scan the QR code with your authenticator app, or add an account with this key:{" "}
-          <code className="rounded-sm bg-muted px-1.5 py-0.5 text-base break-all">
-            {setup.secret.replace(/(.{4})/g, "$1 ").trim()}
-          </code>
-          . On this phone, <a href={setup.url}>open it in the app</a> instead.
-        </li>
-        <li>Type the 6-digit code the app shows for ExamLeaf.</li>
-      </ol>
-      <ErrorSummary error={error} labels={{ code: "Code" }} />
+    <SetupCard title="Turn on two-step log-in">
+      <p className="text-[15px] leading-relaxed text-ink/85">
+        Scan this with an authenticator app, then enter the 6-digit code it shows.
+      </p>
+      <div className="flex flex-wrap items-center gap-[18px]">
+        <QrCode text={setup.url} label="QR code of the key, for the authenticator app" size={140} />
+        <p className="font-mono text-[13px] leading-relaxed font-medium break-all text-ink/85">
+          Can&apos;t scan?
+          <br />
+          <span className="text-foreground">{setup.secret.replace(/(.{4})/g, "$1 ").trim()}</span>
+          <br />
+          <a href={setup.url} className="font-body text-sm font-bold">
+            Open it in the app on this phone
+          </a>
+        </p>
+      </div>
+      <ErrorSummary error={error} labels={{ code: "Code from the app" }} />
       <form
-        className="flex flex-col gap-4"
+        className="flex flex-col gap-3.5"
         noValidate
         onSubmit={async (event) => {
           event.preventDefault();
           const ok = await run(() => account.activateTotp(code));
-          if (ok) {
+          if (!ok) return;
+          // the first second step makes the recovery codes: shown now, as the board
+          const made = await account.recoveryCodes().catch(() => null);
+          if (made?.unused_codes?.length) setCodes(made.unused_codes);
+          else {
             toast.success("The authenticator app is on. Keep your recovery codes somewhere safe.");
             router.refresh();
           }
@@ -182,13 +239,12 @@ export function AuthenticatorApp({ active }: { active: boolean }) {
         <Field id="code" label="Code from the app" required error={fieldError(error, "code")}>
           <OtpInput value={code} onChange={setCode} autoFocus />
         </Field>
-        <div>
-          <Button type="submit" busy={busy} disabled={code.length < 6}>
-            Turn it on
-          </Button>
-        </div>
+        <Button type="submit" size="lg" block busy={busy} disabled={code.length < 6}>
+          Turn on
+        </Button>
       </form>
-    </>
+      <p className="text-sm text-muted-foreground">Next, we show your recovery codes. Keep them somewhere safe.</p>
+    </SetupCard>
   );
 }
 
@@ -197,10 +253,12 @@ export function RecoveryCodes({ summary }: { summary: Authenticator | null }) {
   const { run, busy, error } = useAction();
   const unused = codes?.unused_codes ?? [];
   const counts = codes ?? summary;
-  const file = `data:text/plain;charset=utf-8,${encodeURIComponent(`ExamLeaf recovery codes\n\n${unused.join("\n")}\n`)}`;
   return (
-    <>
-      <p>
+    <section aria-labelledby="codes-title" className="flex max-w-[30rem] flex-col gap-3.5 [&_p]:m-0">
+      <h2 id="codes-title" className="m-0 border-t-[1.5px] border-foreground pt-[18px] text-2xl leading-[1.2]">
+        Recovery codes
+      </h2>
+      <p className="text-[15px] leading-relaxed text-ink/85">
         Each recovery code logs you in once when you do not have your phone.
         {counts?.total_code_count
           ? ` ${counts.unused_code_count} of ${counts.total_code_count} are unused.`
@@ -208,29 +266,16 @@ export function RecoveryCodes({ summary }: { summary: Authenticator | null }) {
       </p>
       <ErrorSummary error={error} />
       {unused.length ? (
-        <>
-          <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-2 p-0 font-mono text-base">
-            {unused.map((code) => (
-              <li key={code} className="rounded-sm bg-muted px-2 py-1">
-                {code}
-              </li>
-            ))}
-          </ul>
-          <div className="flex flex-wrap gap-3">
-            <a href={file} download="examleaf-recovery-codes.txt" className={buttonVariants({ variant: "secondary" })}>
-              <Download aria-hidden="true" />
-              <span>Save them as a file</span>
-            </a>
-            <Confirm
-              trigger="Make new codes"
-              title="Make new recovery codes?"
-              action="Make new codes"
-              onConfirm={async () => setCodes(await account.newRecoveryCodes())}
-            >
-              The codes you have now stop working.
-            </Confirm>
-          </div>
-        </>
+        <RecoveryBoard codes={unused}>
+          <Confirm
+            trigger="Make new codes"
+            title="Make new recovery codes?"
+            action="Make new codes"
+            onConfirm={async () => setCodes(await account.newRecoveryCodes())}
+          >
+            The codes you have now stop working.
+          </Confirm>
+        </RecoveryBoard>
       ) : summary ? (
         <div>
           <Button
@@ -242,6 +287,6 @@ export function RecoveryCodes({ summary }: { summary: Authenticator | null }) {
           </Button>
         </div>
       ) : null}
-    </>
+    </section>
   );
 }
