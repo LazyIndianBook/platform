@@ -1,6 +1,6 @@
 // The account tests' fixtures in the Django backend (manage.py shell): a student with a confirmed email address and
-// a password, a book code from manage.py make_book_codes, and the clean-up of both (the student's attempts, consents
-// and entitlements go with the account).
+// a password, a book code from manage.py make_book_codes, a teacher request verified as staff would, and the clean-up
+// of both (the student's attempts, consents, entitlements and teacher request go with the account).
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 
@@ -78,6 +78,19 @@ export function deleteLearning(emails: string[], title: string) {
 from accounts.models import User
 from learn.models import Chapter
 print(User.objects.filter(email__in=${JSON.stringify(emails)}, is_staff=False).delete(), Chapter.objects.filter(title=${py(title)}).delete())
+`,
+  );
+}
+
+/** Staff's step of teacher access, as the admin does it: the request verified (the TEACHER role is the admin's). */
+export function verifyTeacher(email: string) {
+  manage(
+    "shell",
+    "-c",
+    `
+from django.utils import timezone
+from accounts.models import TeacherProfile
+print(TeacherProfile.objects.filter(user__email=${py(email)}).update(verified=True, verified_at=timezone.now()))
 `,
   );
 }
