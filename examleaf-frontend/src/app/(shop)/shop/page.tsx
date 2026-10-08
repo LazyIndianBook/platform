@@ -87,7 +87,10 @@ export default async function ShopPage({ searchParams }: Props) {
             Printed books for ASSEB Class 12, delivered anywhere in India.
           </p>
         </div>
-        <Link href="/shop/school-orders/" className="text-[15px] font-bold nav:text-base">
+        <Link
+          href="/shop/school-orders/"
+          className="inline-flex min-h-11 items-center self-start text-[15px] font-bold nav:self-auto nav:text-base"
+        >
           Ordering for a school? Get a quote →
         </Link>
       </div>
@@ -107,8 +110,8 @@ export default async function ShopPage({ searchParams }: Props) {
                       aria-current={current ? "page" : undefined}
                       scroll={false}
                       className={cn(
-                        "inline-flex min-h-11 shrink-0 items-center border border-input px-3 text-sm leading-tight font-semibold whitespace-nowrap text-foreground no-underline hover:text-foreground",
-                        "nav:border-0 nav:px-4 nav:text-base nav:text-muted-foreground nav:first:pl-0 nav:hover:text-foreground",
+                        "inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center border border-input px-3 text-sm leading-tight font-semibold whitespace-nowrap text-foreground no-underline hover:text-foreground",
+                        "nav:justify-start nav:border-0 nav:px-4 nav:text-base nav:text-muted-foreground nav:first:pl-0 nav:hover:text-foreground",
                         current &&
                           "border-foreground bg-foreground text-background hover:text-background nav:bg-transparent nav:text-foreground nav:shadow-[inset_0_-2px_0_var(--red-ink)]",
                       )}

@@ -301,7 +301,7 @@ function CheckoutSteps({
     setStep(next);
     requestAnimationFrame(() => {
       focusHere(heading.current);
-      heading.current?.scrollIntoView({ block: "center" });
+      heading.current?.scrollIntoView?.({ block: "center" }); // (jsdom has none)
     });
   }
 

@@ -166,9 +166,11 @@ export function AddToCart({
           aria-disabled={busy === "checkout" || undefined}
           disabled={!option.inStock}
         >
-          <span>
-            Add<span className="max-nav:sr-only"> to cart</span> · {line}
+          {/* "Add · ₹299" on a phone (Phone product), the whole words for everyone else and for screen readers */}
+          <span aria-hidden="true">
+            Add<span className="max-nav:hidden"> to cart</span> · {line}
           </span>
+          <span className="sr-only">Add to cart · {line}</span>
         </Button>
         {compact ? null : (
           <Button

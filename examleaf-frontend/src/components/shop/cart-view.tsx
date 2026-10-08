@@ -242,11 +242,11 @@ export function CartView({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className="col-start-2 row-start-4 -ml-4 justify-self-start text-sm font-semibold nav:row-start-3 nav:min-h-8"
+                  className="col-start-2 row-start-4 -ml-4 justify-self-start text-sm font-semibold nav:row-start-3"
                   onClick={() => busy === null && setRemoving(line)}
                   aria-disabled={busy !== null || undefined}
                 >
-                  Remove<span className="sr-only"> {line.title}</span>
+                  Remove <span className="sr-only">{line.title}</span>
                 </Button>
               </li>
             );
@@ -302,7 +302,7 @@ export function CartView({
                 busy={busy === "coupon"}
                 onClick={() => send("coupon", api.DELETE("/api/v1/cart/coupon/"))}
               >
-                Remove<span className="sr-only"> the coupon</span>
+                Remove <span className="sr-only">the coupon</span>
               </Button>
             </div>
           )

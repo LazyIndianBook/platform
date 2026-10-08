@@ -1,69 +1,71 @@
 /* The shop's pages, Direction A (design: ExamLeaf A - Shop.dc.html and its phone and state artboards), beside the
    answer booklet of globals.css (.sheet, .sheet-margin, .sheet-body). Imported by every shop page, and by the account's
-   order page, which shows an order too. */
-
-/* margin | content behind the red double rule | a side column on paper 2: the cart's summary, the checkout's and the
-   pay page's order, an order's items. Phones: one column with the rule at the left edge, the side column after the
-   content under an ink rule (Phone cart, Phone order). */
-.shop-sheet {
-  display: grid;
-  grid-template-columns: var(--margin-col) minmax(0, 1fr) clamp(300px, 30vw, 380px);
-  width: 100%;
-  max-width: calc(var(--container) + var(--margin-col) + var(--marks-col));
-  margin-inline: auto;
-}
-.shop-aside {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  min-width: 0;
-  padding: 52px 40px 64px;
-  border-left: 1px solid var(--border);
-  background: var(--paper-2);
-}
-.shop-aside > * {
-  margin: 0;
-}
-
-/* the product page's copies and Add to cart: on a phone they stay at the bottom of the screen while the hero is read
-   (Phone product), and a focused control is never hidden behind them */
-.buy-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 12px 16px;
-}
-
-@media (max-width: 899.98px) {
+   order page, which shows an order too. In the components layer, as globals.css's booklet: a page's utility classes
+   (nav:pt-11, max-nav:hidden) still win. */
+@layer components {
+  /* margin | content behind the red double rule | a side column on paper 2: the cart's summary, the checkout's and
+     the pay page's order, an order's items. Phones: one column with the rule at the left edge, the side column after
+     the content under an ink rule (Phone cart, Phone order). */
   .shop-sheet {
-    grid-template-columns: minmax(0, 1fr);
-    border-left: 3px double var(--red-ink);
+    display: grid;
+    grid-template-columns: var(--margin-col) minmax(0, 1fr) clamp(300px, 30vw, 380px);
+    width: 100%;
+    max-width: calc(var(--container) + var(--margin-col) + var(--marks-col));
+    margin-inline: auto;
   }
   .shop-aside {
-    padding: 16px var(--gutter) 28px;
-    border-left: 0;
-    border-top: 1.5px solid var(--foreground);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+    padding: 52px 40px 64px;
+    border-left: 1px solid var(--border);
+    background: var(--paper-2);
   }
-  /* the phone artboards keep the margin's numbers out: the stepper, the heading and the lines say them */
-  :is(.shop-sheet, .shop-page) > .sheet-margin {
-    display: none;
+  .shop-aside > * {
+    margin: 0;
   }
-  :is(.shop-sheet, .shop-page) > .sheet-body {
-    padding-top: 20px;
-  }
+
+  /* the product page's copies and Add to cart: on a phone they stay at the bottom of the screen while the hero is
+     read (Phone product), and a focused control is never hidden behind them */
   .buy-bar {
-    position: sticky;
-    bottom: 0;
-    z-index: 10;
-    flex-wrap: nowrap;
-    align-items: center;
-    gap: 10px;
-    margin-inline: calc(-1 * var(--gutter));
-    padding: 12px var(--gutter);
-    border-top: 1.5px solid var(--foreground);
-    background: var(--card);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px 16px;
   }
-  html:has(.buy-bar) {
-    scroll-padding-bottom: 96px;
+
+  @media (max-width: 899.98px) {
+    .shop-sheet {
+      grid-template-columns: minmax(0, 1fr);
+      border-left: 3px double var(--red-ink);
+    }
+    .shop-aside {
+      padding: 16px var(--gutter) 28px;
+      border-left: 0;
+      border-top: 1.5px solid var(--foreground);
+    }
+    /* the phone artboards keep the margin's numbers out: the stepper, the heading and the lines say them */
+    :is(.shop-sheet, .shop-page) > .sheet-margin {
+      display: none;
+    }
+    :is(.shop-sheet, .shop-page) > .sheet-body {
+      padding-top: 20px;
+    }
+    .buy-bar {
+      position: sticky;
+      bottom: 0;
+      z-index: 10;
+      flex-wrap: nowrap;
+      align-items: center;
+      gap: 10px;
+      margin-inline: calc(-1 * var(--gutter));
+      padding: 12px var(--gutter);
+      border-top: 1.5px solid var(--foreground);
+      background: var(--card);
+    }
+    html:has(.buy-bar) {
+      scroll-padding-bottom: 96px;
+    }
   }
 }

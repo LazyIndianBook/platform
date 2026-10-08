@@ -340,7 +340,7 @@ export default async function ProductPage({ params }: Props) {
                   type="button"
                   size="lg"
                   disabled
-                  className="self-stretch disabled:border-[#c9ccd2] disabled:bg-[#c9ccd2] disabled:text-[#4a5060] disabled:opacity-100 nav:self-start"
+                  className="self-stretch disabled:border-[#c9ccd2] disabled:bg-[#c9ccd2] disabled:text-[#4a5060] disabled:not-aria-busy:opacity-100 nav:self-start"
                 >
                   Add to cart
                 </Button>
