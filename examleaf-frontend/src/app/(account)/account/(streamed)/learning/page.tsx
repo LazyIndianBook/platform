@@ -14,6 +14,7 @@ import {
   SubjectSummary,
 } from "@/components/account/learning";
 import { CompactEmpty, ConsentPending, goLink, PageHead, Problem, SectionHead } from "@/components/account/parts";
+import { ReviseAgainLink } from "@/components/course/course-links";
 import { ExamDateForm } from "@/components/revision/islands";
 import { settle } from "@/lib/api/account";
 import { ApiError, unwrap } from "@/lib/api/errors";
@@ -79,6 +80,8 @@ export default async function LearningPage() {
               {revise.later} more {revise.later === 1 ? "comes" : "come"} back on later days.
             </p>
           ) : null}
+          {/* the web course's Revise again page: drawn only while config.web_course is on */}
+          <ReviseAgainLink className={goLink}>Revise again here →</ReviseAgainLink>
           <Link href="/revision/#plan" className={goLink}>
             The whole plan, and the minimum to pass →
           </Link>

@@ -9,6 +9,7 @@ import "./revision.css";
 import Link from "next/link";
 
 import { ConsentPending, goLink, Problem } from "@/components/account/parts";
+import { ChapterLink } from "@/components/course/course-links";
 import { AppLinks, EntitlementList, LogInToUse } from "@/components/revision/course";
 import { FreeClip, PlanPreview, RedeemForm } from "@/components/revision/islands";
 import { Accordion } from "@/components/ui/accordion";
@@ -61,6 +62,7 @@ export default async function RevisionPage() {
     getConfig(),
   ]);
   const name = (id: number) => subjects.find((subject) => subject.id === id)?.name ?? "Subject";
+  const code = (id: number) => subjects.find((subject) => subject.id === id)?.code;
   const bySubject = new Map<number, Chapter[]>();
   if (!(chapters instanceof ApiError)) {
     for (const chapter of chapters.results)
@@ -197,9 +199,6 @@ export default async function RevisionPage() {
                       >
                         <span className="font-mono max-nav:hidden">{chapter.number}</span>
                         <span className="flex min-w-0 flex-col items-start gap-0.5">
-                          {/* WEB COURSE (config.web_course): the LMS package mounts the chapter's own page here, the
-                              title becoming <Link href={`/revision/<subject>/${chapter.number}/`}>, with <subject>
-                              the subject's slug in its routes. Not linked yet: nothing is handed over. */}
                           <span className="font-semibold">
                             <span className="nav:hidden">{chapter.number}. </span>
                             {chapter.title}
@@ -209,6 +208,16 @@ export default async function RevisionPage() {
                               ? `${chapter.clips} clip${chapter.clips === 1 ? "" : "s"}, ${chapter.minutes} min`
                               : "Coming soon"}
                           </span>
+                          {/* the chapter's page on the website: drawn only while config.web_course is on */}
+                          {chapter.has_revision && code(subject) ? (
+                            <ChapterLink
+                              subject={code(subject)!}
+                              chapter={chapter.number}
+                              className="inline-flex min-h-11 items-center text-sm font-bold"
+                            >
+                              Open the chapter →
+                            </ChapterLink>
+                          ) : null}
                           {user || !chapter.has_revision ? (
                             <span className={`text-[13px] nav:hidden ${state.tone}`}>{state.text}</span>
                           ) : null}
