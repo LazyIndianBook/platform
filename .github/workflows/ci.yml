@@ -1,12 +1,14 @@
-# ExamLeaf web: lint and tests on PostgreSQL 17 for every push and pull request that touches the site or the papers
-# (the import tests read production/).
+# ExamLeaf web: lint and tests on PostgreSQL 17 for every push to main and every pull request that touches the site.
+# The import tests and the Playwright backend read the test papers committed in examleaf-web/content/fixtures/papers/:
+# no checkout of the books repository (LazyIndianBook/Class-12-Assam) is needed.
 name: examleaf-web
 
 on:
   push:
-    paths: ["examleaf-web/**", "examleaf-frontend/**", "production/**", ".github/workflows/ci.yml"]
+    branches: [main]
+    paths: ["examleaf-web/**", "examleaf-frontend/**", ".github/workflows/ci.yml"]
   pull_request:
-    paths: ["examleaf-web/**", "examleaf-frontend/**", "production/**", ".github/workflows/ci.yml"]
+    paths: ["examleaf-web/**", "examleaf-frontend/**", ".github/workflows/ci.yml"]
 
 permissions:
   contents: read  # the jobs only read the code
@@ -77,7 +79,8 @@ jobs:
   frontend:
     # The Next.js frontend (examleaf-frontend/, Phase 8): lint and formatting, types, Vitest, the production build,
     # then the Playwright smoke tests against that build and a Django backend that scripts/e2e-backend.sh seeds from
-    # examleaf-web (a fresh SQLite database: the papers of production/, the shop's starting catalogue, an open sample).
+    # examleaf-web (a fresh SQLite database: the test papers of content/fixtures/papers/, the shop's starting catalogue,
+    # an open sample).
     runs-on: ubuntu-latest
     defaults:
       run:

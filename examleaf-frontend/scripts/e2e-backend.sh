@@ -1,7 +1,8 @@
 #!/usr/bin/env sh
 # The Django backend for the Playwright smoke tests (playwright.config.ts starts it; CI too): a fresh database with
-# the four books' papers, the shop's starting catalogue and an open sample paper, email and SMS printed to the log
-# (the tests read the codes there), the frontend's origin trusted. Runs from the repository's examleaf-web/.
+# the test papers of examleaf-web/content/fixtures/papers/ (three or four of each book's, PHY-E01 and PHY-E02 among
+# them; no checkout of the books repository), the shop's starting catalogue and an open sample paper, email and SMS
+# printed to the log (the tests read the codes there), the frontend's origin trusted. Runs from examleaf-web/.
 set -eu
 cd "$(dirname "$0")/../../examleaf-web"
 PY="${DJANGO_PYTHON:-python}"
@@ -10,7 +11,7 @@ mkdir -p "$(dirname "$LOG")"
 
 $PY manage.py migrate --noinput
 $PY manage.py bootstrap_roles
-$PY manage.py import_papers --all
+$PY manage.py import_papers --all --fixtures
 # copies of each book: seed_shop makes a fresh catalogue out of stock (stock is set in the admin), and the shop's
 # journeys buy them
 $PY manage.py seed_shop --stock 100

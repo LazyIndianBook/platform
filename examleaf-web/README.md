@@ -74,7 +74,7 @@ cd examleaf-web
 make install                              # .venv with the pinned requirements and the test tools (requirements-dev.txt)
 cp .env.example .env                      # DEBUG=1, SQLite, console email and SMS, tasks inline; every variable is explained
 make migrate                              # migrate + bootstrap_roles (the role groups)
-.venv/bin/python manage.py import_papers --all
+.venv/bin/python manage.py import_papers --all   # the books checked out beside this repository; or --root, --fixtures
 .venv/bin/python manage.py createsuperuser
 make run                                  # http://localhost:8000: the API; the admin at /admin/ logs in on the website
 ```
@@ -167,7 +167,7 @@ docker-compose stack):
 
 | Command | What it does |
 |---|---|
-| `import_papers --all` (or `--subject physics`; `--root`) | read the Markdown papers and solutions of `production/` into the database; changes only what changed |
+| `import_papers --all` (or `--subject physics`; `--root`, `--fixtures`) | read the Markdown papers and solutions of the books repository's `production/` (`PAPERS_ROOT`) into the database; changes only what changed |
 | `export_qr --out qr/` | write every paper's QR code as PNG and SVG; refuses `localhost` and http addresses unless `--force` |
 | `bootstrap_roles` | create the role groups and set their permissions from `accounts/roles.py`; run it after every `migrate` |
 | `seed_shop [--stock N]` | create the starting catalogue: the books, the Physics bundle, coupon WELCOME10, three shipping rates |
@@ -175,7 +175,7 @@ docker-compose stack):
 | `import_pincodes <csv>` | replace the PIN code table with India Post's directory from data.gov.in |
 | `export_gstr1 --from DATE --to DATE [--out DIR]` | the accountant's GSTR-1 working files: B2C, HSN summary, credit notes (CSV) |
 | `build_covers` | draw the AVIF and WebP sizes of the four covers and the default link-preview picture into `static/img/` (the website shows them); run it after a cover changes and commit the files |
-| `import_chapter_insights [--root] [--subject]` | fill the course's chapters with the Board's marks and the number of past-paper questions from `production/<subject>/` |
+| `import_chapter_insights [--root] [--fixtures] [--subject]` | fill the course's chapters with the Board's marks and the number of past-paper questions from the books repository's `production/<subject>/` |
 | `build_quiz_items` | make quiz items from the imported one-mark questions whose options and answer parse; keeps edited items |
 | `make_book_codes <PHY\|CHE\|MAT\|BIO\|ALL> <count> --batch NAME [--out FILE]` | make book codes for a print run as a CSV; the only copy of the codes |
 | `reprocess_clips [ids] [--all]` | queue clips for ffmpeg again (the failed and the stuck ones by default) |
@@ -192,12 +192,23 @@ schema).
 
 ```sh
 .venv/bin/python manage.py import_papers --root "/Users/chinmoybhuyan/Desktop/Personal/Book/Class 12" --subject physics
-.venv/bin/python manage.py import_papers --all          # --root defaults to the folder above examleaf-web (BOOK_ROOT)
+.venv/bin/python manage.py import_papers --all             # --root: PAPERS_ROOT, else "Class 12" beside the repo
+.venv/bin/python manage.py import_papers --all --fixtures  # the test papers of content/fixtures/papers/
 ```
+
+The papers live in the books repository `LazyIndianBook/Class-12-Assam` (private), not in this one: `--root` (or the
+setting `PAPERS_ROOT`) is a checkout of it, the folder that holds `production/`. Without either, the command uses
+`Class 12` beside this repository's folder when it is there (the founder's machine), and otherwise stops and says so.
+On a server: DEPLOYMENT.md section 4. `--fixtures` imports the copies in `content/fixtures/papers/` instead: E01, M01
+and H01 of each subject and PHY-E02, 13 papers and 637 questions with their solutions, the chapter tags, the four
+`format.json` and one `pyq/` file each (its README says from which commit); the tests and the Playwright backend use
+them, so CI needs no second repository.
 
 The command creates the board ASSEB (Assam), Class 12, the subject and its book, and reads
 `production/<subject>/papers_md/<CODE>-<T><NN>.md` and `-solutions.md` with `parse_paper`, `parse_solutions` and
-`split_marks` from `production/build/book.py` (imported by path, not copied). Question labels are derived from the
+`split_marks` from `content/papers_parser.py`: a copy of those functions of the books repository's
+`production/build/book.py`, which stays the source of truth (copy them again when it changes how a paper is written,
+and refresh the test papers). Question labels are derived from the
 paper's structure the way the solutions file names them: `9`, `1(a)`, `9 OR`, `B9(a)`/`Z3 OR` (Biology's Botany and
 Zoology parts), and the plain numbered sections of Mathematics papers 08–10. A lettered line under a numbered
 question that is not a group heading is a sub-part of that question (Chemistry table questions). Chapter and textbook
@@ -206,8 +217,9 @@ section tags come from the work orders (`production/<subject>/orders/ch*.md`).
 It reports, per subject, papers, questions, solutions matched, tags, created/updated/unchanged records, and lists every
 solution label it could not match and every question without a solution (it exits with an error if there are any).
 Re-running it changes only what changed in the Markdown, so the edit history stays meaningful.
-Current result: 30 papers per subject; Physics 1650, Chemistry 1260, Mathematics 1383, Biology 1590 questions,
-every one with its solution and tags; 0 unmatched.
+Current result on the books: 30 papers per subject; Physics 1650, Chemistry 1260, Mathematics 1383, Biology 1590
+questions, every one with its solution and tags; 0 unmatched. On the test papers: 220, 126, 132 and 159 questions;
+then `import_chapter_insights --fixtures` makes the 51 chapters and `build_quiz_items` 69 quiz items.
 
 ## QR codes
 

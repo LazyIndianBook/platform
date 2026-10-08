@@ -45,7 +45,7 @@ x-app: &app
     CACHE_URL: redis://redis-cache:6379/0
     CELERY_BROKER_URL: redis://redis:6379/0
     PROXY_COUNT: 1  # Caddy
-    BOOK_ROOT: /book
+    PAPERS_ROOT: /book  # the books checkout (BOOK_SOURCE), mounted below
     AWS_REQUEST_CHECKSUM_CALCULATION: when_required  # boto3 with Cloudflare R2 (settings.py, "Two S3-compatible buckets")
     AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
   depends_on:
@@ -114,7 +114,7 @@ services:
       USE_X_FORWARDED_HOST: 1
     volumes:
       - media:/app/media
-      - ${BOOK_SOURCE:-..}/production:/book/production:ro  # the Markdown papers, for import_papers
+      - ${BOOK_SOURCE:-../../Class 12}/production:/book/production:ro  # the books' Markdown papers, for import_papers
     healthcheck:
       test: ["CMD", "python", "-c", "import os, urllib.request as u; u.urlopen(u.Request('http://127.0.0.1:8000/health/web/', headers={'Host': os.environ['DOMAIN'], 'X-Forwarded-Proto': 'https', 'Accept': 'application/json'}), timeout=10)"]
       interval: 30s
