@@ -48,6 +48,25 @@ export function MarkdownBlock({ children }: { children: string }) {
   return <>{render(children, false)}</>;
 }
 
+/** A group heading as the papers print it, "1. Answer any eight … : `1×8=8`", in its three places on the page: the
+ *  number for the margin, the words, the marks for the marks column. Either end may be missing. */
+export function splitGroup(label: string): { number: string | null; text: string; marks: string | null } {
+  const [, number, text, marks] = /^\s*(?:(\d+)\.\s+)?([\s\S]*?)\s*(?:`([^`]+)`)?\s*$/.exec(label)!;
+  return { number: number ? `${number}.` : null, text, marks: marks ?? null };
+}
+
+/** The marking steps of a solution: the rows of its marking tables (last column "Marks"), the Total row left out. */
+export function stepCount(markdown: string): number {
+  const lines = markdown.split("\n").map((line) => line.trim());
+  let count = 0;
+  lines.forEach((line, index) => {
+    if (!/^\|[\s:|-]+\|$/.test(line) || !/\|\s*\**marks\**\s*\|$/i.test(lines[index - 1] ?? "")) return;
+    for (let row = index + 1; lines[row]?.startsWith("|"); row++)
+      if (!/^\|\s*\**total\**\s*\|/i.test(lines[row])) count++;
+  });
+  return count;
+}
+
 export function MarkdownInline({ children }: { children: string }) {
   return <>{render(children, true)}</>;
 }

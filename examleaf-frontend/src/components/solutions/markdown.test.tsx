@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { isMinor } from "@/lib/dates";
 
-import { MarkdownBlock, MarkdownInline } from "./markdown";
+import { MarkdownBlock, MarkdownInline, splitGroup, stepCount } from "./markdown";
 
 const SOLUTION = [
   "| Step | Marks |",
@@ -47,6 +47,28 @@ describe("MarkdownBlock", () => {
     const { container } = render(<MarkdownInline>{"1. Answer any eight questions : `1×8=8`"}</MarkdownInline>);
     expect(container.querySelector("ol, p")).toBeNull();
     expect(container.querySelector("code")).toHaveTextContent("1×8=8");
+  });
+});
+
+describe("the solutions page's reading of the text", () => {
+  it("splits a group heading into its margin number, words and marks", () => {
+    expect(splitGroup("1. Answer any eight questions from the following as directed : `1×8=8`")).toEqual({
+      number: "1.",
+      text: "Answer any eight questions from the following as directed :",
+      marks: "1×8=8",
+    });
+    expect(splitGroup("Answer the following questions :")).toEqual({
+      number: null,
+      text: "Answer the following questions :",
+      marks: null,
+    });
+  });
+
+  it("counts a solution's marking steps, without its Total row", () => {
+    expect(stepCount(SOLUTION)).toBe(1);
+    expect(stepCount("| Step | **Marks** |\n| --- | :---: |\n| a | 1 |\n| b | 1 |\n| **Total** | **2** |")).toBe(2);
+    expect(stepCount("**Ans.** square *(1)*")).toBe(0);
+    expect(stepCount("| Item | Value |\n|---|---|\n| a | 1 |")).toBe(0); // a table that is not a marking table
   });
 });
 
