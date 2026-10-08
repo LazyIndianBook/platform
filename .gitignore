@@ -8,3 +8,6 @@ __pycache__/
 .DS_Store
 .claude/
 dist/
+
+# page atlases are published as release assets, not committed
+docs/design/*.pdf

@@ -2,6 +2,8 @@
 
 Eight pages at two sizes, before the redesign and now. Taken 8 October 2026, 12:54 IST.
 
+The atlas, every page at both sizes (signed out, as a student, as staff, with the Django admin), as one PDF: [`../examleaf-pages-2026-10-09.pdf`](../examleaf-pages-2026-10-09.pdf) (not in git, like every PDF under `docs/`). Regenerate it with [`../atlas/capture.mjs`](../atlas/capture.mjs) (the pictures; [`../atlas/seed.py`](../atlas/seed.py) makes the temporary accounts and rows, [`../atlas/manifest.json`](../atlas/manifest.json) is what the last run took) and [`../atlas/build.py`](../atlas/build.py) (the PDF); the header of `capture.mjs` says how to run them.
+
 - **before** is the site as of commit `9b4c3f2` (Phase 3b, the last commit before the redesign began), run from a git worktree with the current virtualenv, a copy of the current development database and a copy of `media/products` (the old code reads covers from there), on `[::1]:8070`.
 - **after** is the working tree (HEAD `ba0b9dd` plus uncommitted work by other agents; `site.css` 54,392 bytes, with account.css, shop.css, staff.css and print.css beside it), on `[::1]:8060`, with its own copy of the same database, migrated to the tree's schema. The tree was still being edited: a later capture may differ.
 - Both servers use development settings with `DEBUG` switched off at run time, so that error pages are the site's own and the debug toolbar is not in the picture.
@@ -49,3 +51,5 @@ Ten pages at two sizes, the same ten as the Django craft pass's `after-craft/` s
 Side by side with the Django craft pass: `after-craft/<page>-<width>.png` (Django) and `nextjs/<page>-<width>.png` (Next.js) have the same names. At 375 px the pairs are close to identical in layout, type and colour for home, shop (apart from the tabs), product, login, 404 and solutions; the cart differs in detail (copies change at once, so there is no "Update copies" button, and the lines are not boxed), and the rest differ by the data above and by the account's chip strip. The Lighthouse and accessibility files give the numbers behind the pictures: [audit-nextjs-lighthouse.md](../audit-nextjs-lighthouse.md), [audit-nextjs-accessibility.md](../audit-nextjs-accessibility.md).
 
 How they were made: a small Puppeteer script ([`shots.mjs`](../audit-scripts/nextjs/shots.mjs), with the set-up in [its README](../audit-scripts/nextjs/README.md)) driving headless Chrome against the running servers; it can be re-run against any build.
+
+The complete page atlas PDF (1,195 pages, 54 MB) is attached to the GitHub release `pages-atlas-2026-10-09` of this repository rather than committed; `docs/design/atlas/` regenerates it.
