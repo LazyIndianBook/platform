@@ -15,7 +15,7 @@ test("home renders with the books and prices from the API", async ({ page }) => 
   await expect(page.getByRole("heading", { level: 1, name: "Sample papers with free solutions" })).toBeVisible();
   await expect(page.getByRole("link", { name: /Physics/ }).first()).toBeVisible();
   await expect(page.locator("#prices")).toContainText("₹299"); // seed_shop's Sample Papers price
-  await expect(page.locator("#books li")).toHaveCount(4); // one ruled row per book
+  await expect(page.locator("#books").getByRole("link", { name: /Open the book/ })).toHaveCount(4); // one ruled row per book
 });
 
 test("pages carry a nonce CSP; personal ones are never stored, the others by the browser alone", async ({
