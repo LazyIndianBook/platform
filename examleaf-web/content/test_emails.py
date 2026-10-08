@@ -15,7 +15,7 @@ def test_every_email_gets_an_html_part_made_from_its_text(mailoutbox):
     html, mimetype = message.alternatives[0]
     assert message.body == text and mimetype == "text/html"
     assert ">Your code</h1>" in html and "Hello &lt;b&gt;!" in html and "<b>" not in html
-    assert 'color: #0B2A5B">483920</p>' in html and '<a href="https://examleaf.in/c/x.y/"' in html
+    assert 'color: #1D2230">483920</p>' in html and '<a href="https://examleaf.in/c/x.y/"' in html
     own = EmailMultiAlternatives("Hi", "text", to=["a@example.com"])
     own.attach_alternative("<p>mine</p>", "text/html")
     tasks.queue_email(own)
