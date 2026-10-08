@@ -325,6 +325,9 @@
 .paper-page table.steps tr:last-child:has(strong) td {
   padding-top: 10px;
   border-top: 1px dashed var(--border);
+  /* its own paper: a cell far down the page has no rendered background under content-visibility: auto, and axe
+     then reads the footer's ink behind it (a 2.55:1 misread of the real 5.9:1) */
+  background: var(--background);
 }
 .paper-page table.steps tr:last-child:has(strong) td:first-child {
   font: 600 14px/1.4 var(--font-body);

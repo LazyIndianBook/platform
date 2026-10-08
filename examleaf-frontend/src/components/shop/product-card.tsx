@@ -85,7 +85,7 @@ export function CardPrice({ price, mrp, className }: { price: string; mrp?: stri
   );
 }
 
-export function ProductCard({ product }: { product: Product }) {
+export function ProductCard({ product, priority = false }: { product: Product; priority?: boolean }) {
   const best = product.kind === "bundle" && Number(product.mrp) > Number(product.price);
   return (
     <li data-subject={product.subject ?? undefined} className="flex">
@@ -96,7 +96,7 @@ export function ProductCard({ product }: { product: Product }) {
         <span className="flex flex-col gap-1.5 nav:gap-2.5">
           <span className="relative block">
             <Morph name={`cover-${product.slug}`}>
-              <ProductCover product={product} />
+              <ProductCover product={product} priority={priority} />
             </Morph>
             {product.in_stock ? null : (
               <span className="absolute top-2.5 left-2.5 border-[1.5px] border-hard bg-background px-[7px] py-[5px] font-mono text-[11px] leading-none font-semibold text-hard uppercase">
@@ -124,8 +124,9 @@ export function ProductGrid({ products, label }: { products: Product[]; label: s
       aria-label={label}
       className="m-0 grid list-none grid-cols-2 gap-x-3.5 gap-y-5 p-0 nav:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] nav:gap-x-6 nav:gap-y-7"
     >
-      {products.map((product) => (
-        <ProductCard key={product.slug} product={product} />
+      {products.map((product, index) => (
+        // the first row's covers are the catalogue's largest paint: fetched early, the rest lazily
+        <ProductCard key={product.slug} product={product} priority={index < 4} />
       ))}
     </ul>
   );
