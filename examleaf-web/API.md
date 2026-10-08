@@ -68,19 +68,25 @@ valid access token (or the website's session); **confirmed** also needs a confir
 | GET | `products/`, `products/<slug>/` | anyone | the books and courses on sale: prices, pictures, a bundle's books, categories, attributes |
 | GET | `categories/`, `categories/<slug>/` | anyone | the shop's category tree, in tree order |
 | GET | `collections/`, `collections/<slug>/` | anyone | hand-picked lists of products, in the staff's order |
-| GET | `cart/` | confirmed | the account's cart (`?state=` adds the shipping) |
-| POST | `cart/items/` | confirmed, shop open | add copies of a book |
-| PUT PATCH DELETE | `cart/items/<slug>/` | confirmed, shop open | set the copies; remove the book |
-| POST DELETE | `cart/coupon/` | confirmed, shop open | use a coupon code; remove it |
+| GET | `cart/` | confirmed, or a visitor | the account's cart, or the visitor's guest cart (`?state=` adds the shipping) |
+| POST | `cart/` | a visitor, shop open | a new guest cart and its `token`, for clients without cookies (`X-Cart-Token`) |
+| POST | `cart/items/` | confirmed or a visitor, shop open | add copies of a book |
+| PUT PATCH DELETE | `cart/items/<slug>/` | confirmed or a visitor, shop open | set the copies; remove the book |
+| POST DELETE | `cart/coupon/` | confirmed or a visitor, shop open | use a coupon code; remove it |
+| GET | `shipping/` | anyone | the delivery rates: a fee per group of states, free from a value |
+| GET | `shipping/quote/` (`?pin=` or `?state=`, `?amount=`) | anyone | the delivery fee for a PIN code or state (the caller's cart, or an amount), with the PIN code's states and districts |
 | GET POST | `addresses/` | confirmed | saved delivery addresses |
 | GET PUT PATCH DELETE | `addresses/<id>/` | confirmed | one address |
-| GET POST | `orders/` | confirmed; POST also shop open | the customer's orders; POST is the checkout |
+| GET POST | `orders/` | confirmed; POST also shop open, and a visitor may POST | the customer's orders; POST is the checkout (a visitor's too) |
 | GET | `orders/<number>/` | confirmed | one order |
 | POST | `orders/<number>/cancel/` | confirmed | cancel (an online payment is refunded); also while the shop is closed |
 | POST | `orders/<number>/payment/`, `orders/<number>/payment/confirm/` | confirmed, shop open | the options for Razorpay's SDK; its answer, checked |
 | GET | `orders/<number>/invoice/`, `orders/<number>/credit-notes/<id>/` | confirmed | PDF files, not JSON |
 | POST | `orders/lookup/` | anyone | a guest's order link, emailed by number and email |
 | GET | `orders/t/<token>/` | anyone with the link | the order of the link in its emails, read-only |
+| POST | `orders/t/<token>/payment/`, `orders/t/<token>/payment/confirm/` | anyone with the link, shop open | a guest's order: Razorpay's options; its answer, checked |
+| POST | `orders/t/<token>/cancel/` | anyone with the link | cancel, as the link's page does (an online payment is refunded) |
+| GET | `orders/t/<token>/invoice/`, `orders/t/<token>/credit-notes/<id>/` | anyone with the link | PDF files, not JSON |
 | GET POST | `products/<slug>/reviews/` | anyone; POST confirmed buyers | approved reviews and their average; write one |
 | POST | `products/<slug>/stock-alert/` | signed in | "email me when it is back", to the account's address |
 | POST | `quotes/` | anyone | a school's or bookseller's request for a quotation |
@@ -99,6 +105,7 @@ valid access token (or the website's session); **confirmed** also needs a confir
 | POST DELETE | `devices/` | signed in | the app's Firebase installation ID, for the reminder |
 | GET | `config/` | anyone | what the server has switched on: log-in methods, Turnstile, the shop, consent mode |
 | GET | `pages/`, `pages/<slug>/` | anyone | the legal pages: Markdown, the website's HTML, version, last change |
+| POST | `contact/` | anyone | the contact form: a message emailed to the support address |
 | GET | `/api/schema/`, `/api/docs/`, `/api/redoc/` | anyone | the OpenAPI schema, Swagger UI, Redoc |
 | any | `/_allauth/app/v1/…`, `/_allauth/browser/v1/…` | anyone; the account and authenticator endpoints need the signed-in session | allauth.headless: log-in, sign-up, codes, passkeys, Google, second step, email, phone, password; its OpenAPI file `/_allauth/openapi.json` (and `.yaml`) |
 
@@ -204,8 +211,8 @@ allauth.headless; the server stays the authority for every rule (prices, stock, 
 and frontends show what it answers.
 
 **Feature flags.** Read `GET config/` at start-up: log-in methods, Google, passkeys, SMS, Turnstile's site key, the
-shop, cash on delivery, whether the solutions need an account, the parent's consent mode, the support contacts. Never
-hard-code one.
+shop, cash on delivery, the lowest delivery fee, whether the solutions need an account, the parent's consent mode, the
+support contacts. Never hard-code one.
 
 **Authentication boundaries.**
 
@@ -248,7 +255,8 @@ without an authenticator app, 403. The session stays (allauth's account endpoint
    `verify_email` pending → `POST auth/email/verify {"key": "<the emailed code>"}` → exchange.
 
 **Turnstile.** While `config/` gives a site key, send the widget's token as `turnstile` with `auth/signup`,
-`auth/code/request` and `quotes/` (400 without it). The legacy endpoints do not ask for it.
+`auth/code/request`, `quotes/` and `contact/`, and a visitor's `cart/coupon/` and `orders/` (400 without it). The legacy endpoints
+do not ask for it.
 
 **Errors, pages, limits.** API v1 errors are DRF's ([Errors](#errors)); allauth.headless's are
 `{"status": 400, "errors": [{"message", "code", "param"}]}`. Lists are paginated ([Lists](#lists)). Over a limit the
@@ -404,8 +412,8 @@ it, or a full refund, closes the course again.
 
 The website's shop, for the app: the same prices, stock, coupons, offers, shipping rates, emails and order pages.
 Customer data (cart, addresses, orders) needs a signed-in account with a confirmed email address; another customer's
-address or order answers 404. Visitors without an account shop on the website: the API keeps no session carts. While the
-shop is closed (`SHOP_OPEN=0`) the endpoints that change the cart, check out or pay answer 403 (see "Endpoints");
+address or order answers 404. Visitors without an account have a guest cart and check out as guests (see "Guests"
+below); a signed-in user whose email address is not confirmed still gets 403 for the cart. While the shop is closed (`SHOP_OPEN=0`) the endpoints that change the cart, check out or pay answer 403 (see "Endpoints");
 products, the cart, addresses and orders can still be read, and an order can still be cancelled.
 
 **Cart**: every answer is the whole cart at today's prices: `items` (`product`, `title`, `price`, `quantity`, `total`),
@@ -433,9 +441,27 @@ curl -X POST 'https://examleaf.in/api/v1/cart/coupon/?state=AS' -H "Authorizatio
 `city`, `district`, `state` (two-letter code, `AS`), `pin` (6 digits), `is_default` (one address at most), `created`,
 `modified`. Once the India Post directory is loaded, the state must be the PIN code's
 (`400 {"state": ["PIN code 781001 is in Assam."]}`; PIN codes missing from the directory are not checked). To fill in
-the district and state from a PIN code, the app may call the website's `GET https://examleaf.in/shop/pin/781001/` (no
-log-in; `200 {"pin": "781001", "states": ["AS"], "districts": ["Kamrup Metro"]}`, 404 when unknown; cached a day by
-browsers); a few PIN codes lie in two states.
+the district and state from a PIN code, call `GET shipping/quote/?pin=781001` (below; the website's
+`GET /shop/pin/781001/` answers the same `states` and `districts`); a few PIN codes lie in two states.
+
+**Shipping**: `GET shipping/` (anyone, `Cache-Control: public, max-age=300`) lists the delivery rates the checkout
+uses: `rates` (`name`, `states`, two-letter codes, `[]` for every state no other rate names; `fee`; `free_above`, the
+value of books from which it ships free, or null), and `fee_from` and `free_above`, the lowest of each (null without
+rates; `config/` repeats these two as `shipping`). The fee is flat per order: there is no weight. Courses alone ship
+free.
+`GET shipping/quote/` (anyone; never cached) is the checkout's delivery step: `?pin=` (6 digits) and/or `?state=`
+(a two-letter code; 400 when it is not the PIN code's) and optionally `?amount=` (rupees of books after discounts;
+without it, the caller's cart: the account's, or a visitor's by the session or `X-Cart-Token`). The answer: `pin`,
+`states` and `districts` (the PIN code's in the India Post directory, `[]` when it is not there or none is loaded),
+`state` (the one the fee is for: `?state=`, or the PIN code's only state; null when unknown or when the PIN code lies
+in two states: ask), `amount`, `fee` (null while `state` is), `free_above` (that state's rate's). The cart's own
+`?state=` gives the same fee inside the cart's totals.
+
+```sh
+curl 'https://examleaf.in/api/v1/shipping/quote/?pin=781001'
+# 200 {"pin": "781001", "states": ["AS"], "districts": ["Kamrup Metro"], "state": "AS", "amount": "299.00",
+#      "fee": "40.00", "free_above": "499.00"}
+```
 
 **Checkout**: `POST orders/` with `address` (an id from `addresses/`) and `payment_method` (`razorpay`, or `cod` when
 the site offers cash on delivery) makes an order from the cart; the address is copied into it. An online order is
@@ -491,7 +517,54 @@ curl -X POST https://examleaf.in/api/v1/orders/EL-2026-000123/payment/confirm/ -
 (the `url`s in the order) answer `application/pdf` as a download whatever the `Accept` header; 404 (JSON) until the
 file exists. Each refund of an invoiced order gets a credit note.
 
-**Guests** (who ordered on the website without an account): `POST orders/lookup/` with `number` and `email` never
+**Guests** (visitors without an account), as on the website:
+
+- *Their cart* is a guest cart, held one of two ways. A browser on the site's origin (the website, or a web frontend
+  served from the same origin) uses the session cookie: the first `POST cart/items/` makes the cart and the
+  `sessionid` cookie, and every change (`POST`, `PUT`, `PATCH`, `DELETE`) carries `X-CSRFToken` from the `csrftoken`
+  cookie (403 `{"detail": "CSRF Failed: ..."}` without it; allauth.headless's `GET /_allauth/browser/v1/auth/session`
+  sets the cookie). A client without cookies calls `POST cart/` once: `201` with the empty cart and its `token`, shown
+  this once; it sends `X-Cart-Token: <token>` with every cart call, `orders/` (checkout) and `shipping/quote/`, and
+  needs no CSRF token. The token lasts 30 days (only its hash is kept); an expired or unknown one answers
+  `404 {"detail": "This cart has expired: start a new one (POST cart/)."}`. Signed in, `POST cart/` answers 400.
+- *Log-in* brings the guest cart into the account's (quantities add up; the coupon carries over unless the account's
+  cart has one): by itself for the session (the website's log-in and allauth.headless's browser client alike); a
+  client with a token sends `X-Cart-Token` along with its first signed-in cart call (any of them), which merges it
+  once.
+- *Coupons* (`POST cart/coupon/`): a visitor sends Turnstile's token as `turnstile` while `config/` gives a site key
+  (400 `{"turnstile": [...]}` without it), and tries at most 10 codes an hour per client address, the website's cart
+  page included (429 after, and while the count cannot be read).
+- *Checkout* (`POST orders/`, the guest cart): `email` (the order's emails go there), `shipping_address` (`name`,
+  `phone`, `line1`, `line2`, `city`, `district`, `state`, `pin`: the rules of `addresses/`, the PIN code's state
+  included once the directory is loaded; errors as `{"shipping_address": {"pin": [...]}}`), `payment_method`
+  (`razorpay`: cash on delivery is for signed-in accounts with a confirmed email address, `400 {"non_field_errors":
+  ["Cash on delivery is for accounts with a confirmed email address: log in, or pay online."]}`), and `turnstile`
+  while the bot check is on. A course needs an account (400 "Please log in first: the course opens in your
+  account."). 10 checkouts per 10 minutes per client address, the website's and the accounts' included. The answer,
+  `201`, is the order as `orders/t/<token>/` shows it plus its `token`, given only here and in the order's emails:
+  keep it for the status page (`orders/t/<token>/`) and the payment.
+- *Paying* a guest's order: `POST orders/t/<token>/payment/` (Razorpay's options, as `orders/<number>/payment/`; on
+  the web, the options of checkout.js) and `POST orders/t/<token>/payment/confirm/` with Checkout's
+  `razorpay_order_id`, `razorpay_payment_id` and `razorpay_signature`: the order (as `orders/t/<token>/`), `paid`, and
+  the visitor's guest cart (the session's, or `X-Cart-Token`'s) emptied; the same errors and limits as an account's.
+  An account's order answers 404 there (its owner pays it signed in).
+
+```sh
+curl -X POST https://examleaf.in/api/v1/cart/
+# 201 {"items": [], "count": 0, ..., "total": "0.00", "problems": [], "token": "q9Xr...43 characters"}
+curl -X POST https://examleaf.in/api/v1/cart/items/ -H "X-Cart-Token: $CART" -H 'Content-Type: application/json' \
+  -d '{"product": "physics-sample-papers-2027"}'
+curl -X POST https://examleaf.in/api/v1/orders/ -H "X-Cart-Token: $CART" -H 'Content-Type: application/json' -d '{
+  "email": "rahul@example.com", "payment_method": "razorpay", "turnstile": "0.Zx...",
+  "shipping_address": {"name": "Rahul Das", "phone": "98640 12345", "line1": "House 12, Zoo Road", "line2": "",
+                       "city": "Guwahati", "district": "Kamrup Metro", "state": "AS", "pin": "781024"}}'
+# 201 {"number": "EL-2026-000124", "status": "pending", "can_pay": true, ..., "web_url": "https://examleaf.in/orders/t/k2Lm.../",
+#      "token": "k2Lm..."}
+curl -X POST https://examleaf.in/api/v1/orders/t/k2Lm.../payment/
+# 200 {"key": "rzp_live_...", "order_id": "order_N6...", "amount": 30910, ...}
+```
+
+*The order's lookup* (a guest who has lost the link): `POST orders/lookup/` with `number` and `email` never
 returns the order. If a guest order has that number and email address, the link to it is emailed to that address;
 the answer is always `200 {"detail": "If an order matches, we have emailed you a link."}`. Orders of accounts are
 left out (their owners sign in). Limited to 10 an hour per client address (`API_THROTTLE_ORDER_LOOKUP`), and to 10 an
@@ -500,11 +573,14 @@ hour per email address and per order number from any address; 429 also while the
 **The order's link**: every email about an order carries `https://examleaf.in/orders/t/<token>/`, a secret of 22
 characters per order. The website's page shows the order without signing in (status, books, address, tracking,
 refunds; no payment), its PDFs (`/orders/t/<token>/invoice/`, `/orders/t/<token>/credit-notes/<id>/`) and, while the
-order is pending or paid, a cancel button (`POST /orders/t/<token>/cancel/`). An app that opens such links reads the
-same through `GET orders/t/<token>/` (no sign-in; an `Authorization` header is ignored): the order as `orders/<number>/`
-gives it, with `invoice.url` and `credit_notes[].url` on the website's link (no account needed), `can_pay` false and
-`web_url` the link itself; read-only (cancelling stays on the website's page), never cached. The API never gives a
-token: it comes from the email.
+order is pending or paid, a cancel button (`POST /orders/t/<token>/cancel/`). A frontend or an app that opens such
+links does the same through the API, without signing in (an `Authorization` header is ignored; nothing is cached):
+`GET orders/t/<token>/` is the order as `orders/<number>/` gives it, with `invoice.url` and `credit_notes[].url` by the
+link (`orders/t/<token>/invoice/`, `orders/t/<token>/credit-notes/<id>/`: PDFs, no account needed), `can_pay` true
+only for a guest's order awaiting payment (paid through `orders/t/<token>/payment/`) and `web_url` the link itself;
+`POST orders/t/<token>/cancel/` cancels while `can_cancel` (pending or paid; an online payment is refunded in full;
+later, 400 as for an account's order), also while the shop is closed, and answers the order. The token comes from the
+email, or from a guest's checkout.
 
 **Reviews** (`products/<slug>/reviews/`): `GET` (anyone) answers the approved reviews, newest first (`rating`, `text`,
 `status`, `created`; "Verified buyer", never a name), their `average` (one decimal, null without reviews), `count` and
@@ -652,9 +728,11 @@ server has `FCM_SERVICE_ACCOUNT_JSON`; IDs Firebase no longer knows are dropped.
 
 `config/` (anyone, `Cache-Control: public, max-age=300`) is what this server has switched on, for frontends to follow
 rather than hard-code: `auth` (`login_methods`, `login_by_code`, `sms`, `google`, `passkeys`, `turnstile_site_key`,
-null while the bot check is off), `shop` (`open`, `cod`, `cod_max_value`, `currency`), `solutions_require_login`,
-`parental_consent` (`declared` or `verified`) and `support` (`email`, `phone`: null while the seller's details still
-hold a `[placeholder]`). allauth.headless's `/_allauth/<client>/v1/config` adds allauth's own view (the providers, the
+null while the bot check is off), `shop` (`open`, `cod`, `cod_max_value`, `currency`), `shipping` (`fee_from`,
+`free_above`: the lowest delivery fee and free-delivery value of `shipping/`, null without rates),
+`solutions_require_login`,
+`parental_consent` (`declared` or `verified`) and `support` (`email`: `SUPPORT_EMAIL`, else `SELLER_EMAIL`; `phone`:
+`SELLER_PHONE`; each null while it still holds a `[placeholder]`). allauth.headless's `/_allauth/<client>/v1/config` adds allauth's own view (the providers, the
 authenticator types).
 
 `pages/` and `pages/<slug>/` (anyone; cached 15 minutes) are the legal and policy pages, `privacy`, `terms`, `refunds`,
@@ -662,11 +740,20 @@ authenticator types).
 change, as in the page's history), `markdown`, `html` (the website's rendering; a `[placeholder]` still to fill in is
 marked `<mark class="placeholder">`) and `web_url`.
 
+`contact/` (anyone) is the website's contact form: `name` (80 characters at most), `email` (we reply to it), `message`
+(2,000 at most) and `turnstile` while the bot check is on. The message is emailed to the support address with
+`Reply-To` the sender; nothing is stored. `200 {"detail": "Thank you: your message is on its way to us. We reply by
+email."}`; 400 with the fields' errors; 429 after 5 an hour per client address, the website's form included (and while
+the count cannot be read); `503 {"detail": "The contact form is not set up yet: please write to us by email."}` while
+the support address is still a `[placeholder]` (`support.email` of `config/` is null then: show no form). `website` is
+a honeypot: a form never sends it (a message with it is thanked and dropped).
+
 ```sh
 curl https://examleaf.in/api/v1/config/
 # 200 {"auth": {"login_methods": ["email", "phone"], "login_by_code": true, "sms": true, "google": true, "passkeys": true,
 #      "turnstile_site_key": "0x4AAAAAAA..."}, "shop": {"open": true, "cod": true, "cod_max_value": "1500.00",
-#      "currency": "INR"}, "solutions_require_login": true, "parental_consent": "verified",
+#      "currency": "INR"}, "shipping": {"fee_from": "40.00", "free_above": "499.00"},
+#      "solutions_require_login": true, "parental_consent": "verified",
 #      "support": {"email": "help@examleaf.in", "phone": null}}
 curl https://examleaf.in/api/v1/pages/privacy/
 # 200 {"slug": "privacy", "title": "Privacy Policy", "version": "2026-10-08", "updated": "...", "markdown": "...",
@@ -714,17 +801,18 @@ Counted in the cache (Redis in production), per client address for anonymous req
 | signed in | 600 a minute | `API_THROTTLE_USER` |
 | log-in, log-out, sign-up, codes (`verify-email`, `phone/code`, `phone/confirm`), passwords, data export, deletion | 30 a minute | `API_THROTTLE_AUTH` |
 | guests' order lookup (`orders/lookup/`), per client address | 10 an hour | `API_THROTTLE_ORDER_LOOKUP` |
-| starting and confirming payments (`orders/<number>/payment/…`) | 30 a minute | `API_THROTTLE_PAYMENT` |
-| coupon codes tried (`POST cart/coupon/`), per user | 10 an hour | `API_THROTTLE_COUPON` |
+| starting and confirming payments (`orders/<number>/payment/…`, `orders/t/<token>/payment/…`) | 30 a minute | `API_THROTTLE_PAYMENT` |
+| coupon codes tried (`POST cart/coupon/`), per user (a visitor: per client address) | 10 an hour | `API_THROTTLE_COUPON` |
 | book codes tried (`POST learn/redeem/`), per user (`learn_redeem`) and per client address (`learn_redeem_address`) | 5 an hour each | `API_THROTTLE_LEARN_REDEEM`, `API_THROTTLE_LEARN_REDEEM_ADDRESS` |
 | quiz answers (`POST learn/quiz/<id>/attempt/`), per user (`learn_quiz`) | 600 an hour | `API_THROTTLE_LEARN_QUIZ` |
 | guests' order lookup, per email address and per order number (any address) | 10 an hour | fixed |
-| checkout (`POST orders/`), per client address, the website's included | 10 in 10 minutes | fixed |
+| checkout (`POST orders/`, accounts' and visitors'), per client address, the website's included | 10 in 10 minutes | fixed |
+| a visitor's coupon codes (`POST cart/coupon/`), per client address, the website's cart page included | 10 an hour | fixed |
 | reviews (`POST products/<slug>/reviews/`), per client address, the website's included | 5 an hour | fixed |
 | back-in-stock alerts (`POST products/<slug>/stock-alert/`), per client address, the website's included | 10 an hour | fixed |
 | quotation requests (`POST quotes/`), per client address, the website's included | 5 an hour | fixed |
 
-The last five are counted by the shop itself and refuse (429) while the cache cannot be read (Redis down); the others
+The rows marked "fixed" are counted by the shop itself and refuse (429) while the cache cannot be read (Redis down); the others
 let requests through meanwhile. `auth/exchange/`, `me/parent-consent/` count in the log-in scope (`API_THROTTLE_AUTH`).
 allauth.headless (`/_allauth/`) has allauth's limits only, the website's (`ACCOUNT_RATE_LIMITS` and the per-account
 ones below): its answers over them are 429 too.
@@ -759,8 +847,9 @@ The website's limits, counted together with it:
 
 ## CORS
 
-None is needed by the app or the website. A web client on another origin must be listed in `CORS_ALLOWED_ORIGINS`;
-only `/api/` answers CORS requests, without cookies (send the access token). allauth.headless's browser client is for
+None is needed by the app, the website or a web frontend served from the site's own origin (the Next.js frontend: Caddy
+in production, its proxy in development). A web client on another origin must be listed in `CORS_ALLOWED_ORIGINS`;
+only `/api/` answers CORS requests, without cookies (send the access token; a visitor's cart: `X-Cart-Token`). allauth.headless's browser client is for
 the site's own origin: `/_allauth/` answers no CORS request; an app client needs none (no browser).
 
 ## Versioning
@@ -787,6 +876,7 @@ least six months, announced in the app). `ALLOWED_VERSIONS` in `examleaf/api_set
   pair, a mobile number added with its code, the second step and staff without an authenticator, a passkey's
   challenge, Google listed only with its keys,
   sign-up with the student details, the website's links in emails), `api/test_contract.py` (config, legal pages,
-  teacher access, a parent's link, SMS updates) and `shop/test_api_contract.py` (reviews, back in stock, quotations,
-  the order's link). `manage.py spectacular --validate --fail-on-warn --file schema.yml` checks the schema; the
+  teacher access, a parent's link, SMS updates, the contact form), `shop/test_api_contract.py` (reviews, back in
+  stock, quotations, the order's link, shipping) and `shop/test_api_guest.py` (a visitor's cart by session and CSRF or
+  by `X-Cart-Token`, coupons, checkout, payment, cancel and PDFs by the link, the cart joining the account's at log-in). `manage.py spectacular --validate --fail-on-warn --file schema.yml` checks the schema; the
   operations are tagged by area (`api/schema.py`).

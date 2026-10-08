@@ -596,13 +596,29 @@ class ShippingRate(models.Model):
         return self.name
 
     @classmethod
+    def rate_for(cls, state):
+        """The active rate of `state`: the one naming it, else the one for every other state; None when neither."""
+        rates = list(cls.objects.filter(is_active=True))
+        return next((r for r in rates if state in r.states), None) or next((r for r in rates if not r.states), None)
+
+    @classmethod
     def fee_for(cls, state, amount):
         """Shipping (Decimal rupees) to `state` for books worth `amount`; 0 when no rate applies."""
-        rates = list(cls.objects.filter(is_active=True))
-        rate = next((r for r in rates if state in r.states), None) or next((r for r in rates if not r.states), None)
+        rate = cls.rate_for(state)
         if rate is None or (rate.free_above is not None and amount >= rate.free_above.amount):
             return Decimal("0.00")
         return rate.fee.amount
+
+    @classmethod
+    def summary(cls):
+        """For "delivery from ₹40": the lowest fee and the lowest value that ships free of the active rates, as
+        strings in rupees (None without rates, or without a free threshold)."""
+        rates = list(cls.objects.filter(is_active=True))
+        lowest = {
+            "fee_from": min((r.fee.amount for r in rates), default=None),
+            "free_above": min((r.free_above.amount for r in rates if r.free_above is not None), default=None),
+        }
+        return {key: None if value is None else f"{value:.2f}" for key, value in lowest.items()}
 
 
 class PinCode(models.Model):
@@ -680,12 +696,16 @@ def address_lines(snapshot):
 
 
 class Cart(TimeStampedModel):
-    """A user's cart, or a guest's (no user; its id is kept in the session and joins the user's cart at log-in)."""
+    """A user's cart, or a guest's (no user; its id is kept in the session and joins the user's cart at log-in). An API
+    client without cookies holds a guest cart by a token instead (X-Cart-Token, shop.cart.issue_token): only its hash
+    is kept, until `token_expires`."""
 
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name="cart"
     )
     coupon = models.ForeignKey(Coupon, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    token = models.CharField(max_length=64, unique=True, null=True, blank=True, editable=False)  # SHA-256, hex
+    token_expires = models.DateTimeField(null=True, blank=True, editable=False)
 
     def __str__(self):
         return f"Cart #{self.pk}"

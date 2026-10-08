@@ -243,7 +243,9 @@ HEADLESS_FRONTEND_URLS = {
     "account_reset_password": f"{SITE_URL}/account/password/reset/",
     "account_reset_password_from_key": f"{SITE_URL}/account/password/reset/key/{{key}}/",
     "account_signup": f"{SITE_URL}/account/signup/",
-    "socialaccount_login_error": f"{SITE_URL}/account/3rdparty/login/error/",
+    # where a failed Google log-in lands when its own callback_url is lost: the log-in page shows ?error= (the
+    # Next.js frontend's does; it serves the website's paths, but not allauth's /account/3rdparty/login/error/)
+    "socialaccount_login_error": f"{SITE_URL}/account/login/",
 }
 HEADLESS_SERVE_SPECIFICATION = True
 HEADLESS_SPECIFICATION_TEMPLATE_NAME = None
@@ -391,6 +393,9 @@ SHOP_SELLER = {
     "email": env("SELLER_EMAIL", default="[email]"),
     "phone": env("SELLER_PHONE", default="[phone]"),
 }
+# Where the contact form (website and POST /api/v1/contact/) sends messages and what config/ gives as the support email;
+# empty: SELLER_EMAIL. While it is a [placeholder] the form is off (the API answers 503).
+SUPPORT_EMAIL = env("SUPPORT_EMAIL", default="")
 # django-pictures: each uploaded product picture is also saved in AVIF and WebP sizes (<source> order: the browser takes
 # the first it supports) by the Celery worker, which reads only the default queue "celery" (no -Q in
 # docker-compose.yml), never in the request. Django 6's default processor would need a TASKS queue "pictures".

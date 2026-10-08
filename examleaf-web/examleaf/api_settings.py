@@ -123,7 +123,7 @@ SPECTACULAR_SETTINGS = {
 # CORS, for browser clients on other origins only (the app and the site itself need none); /api/ only.
 CORS_ALLOWED_ORIGINS = _env.list("CORS_ALLOWED_ORIGINS", default=[])
 CORS_URLS_REGEX = r"^/api/.*$"
-CORS_ALLOW_HEADERS = (*_cors_default_headers, "x-request-id")
+CORS_ALLOW_HEADERS = (*_cors_default_headers, "x-request-id", "x-cart-token")  # no cookies: a visitor's cart by token
 
 # The revision course (api/learn.py): book codes tried per user and per client address (a classroom shares one: raise
 # the second while a teacher has a class redeem their codes together), and quiz answers per user.

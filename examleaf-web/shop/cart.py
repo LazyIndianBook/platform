@@ -4,17 +4,22 @@ order is made (so a price changed in between is never charged from an old page).
 coupon, then the automatic offers (models.Offer), then a staff discount; each is shared out over the lines it covers
 (`split`), so that every order line keeps its exact share for the invoice and credit notes."""
 
+import hashlib
+import secrets
 from dataclasses import dataclass, field
+from datetime import timedelta
 from decimal import Decimal
 
 from django.contrib.auth.signals import user_logged_in
 from django.db import transaction
 from django.dispatch import receiver
+from django.utils import timezone
 
 from .models import Cart, CartItem, Coupon, Offer, Product, ShippingRate, rupees
 
 SESSION_KEY = "shop_cart"
 COUNT_KEY = "shop_cart_count"  # the header's "Cart (n)" without a query on every page
+TOKEN_DAYS = 30  # a guest cart's token (API clients without cookies); the cart itself goes after 30 days unchanged
 
 
 def get_cart(request, create=False):
@@ -27,6 +32,24 @@ def get_cart(request, create=False):
         cart = Cart.objects.create()
         request.session[SESSION_KEY] = cart.pk
     return cart
+
+
+def hash_token(token):
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def issue_token(cart):
+    """A secret for an API client without cookies to hold this guest cart by (the X-Cart-Token header), for TOKEN_DAYS.
+    Only its hash is kept: the token is shown once."""
+    token = secrets.token_urlsafe(32)
+    cart.token, cart.token_expires = hash_token(token), timezone.now() + timedelta(days=TOKEN_DAYS)
+    cart.save(update_fields=["token", "token_expires", "modified"])
+    return token
+
+
+def cart_by_token(token):
+    """The guest cart of an X-Cart-Token, while the token lasts; None otherwise."""
+    return Cart.objects.filter(token=hash_token(token), token_expires__gt=timezone.now(), user=None).first()
 
 
 def remember_count(request, cart):
@@ -191,12 +214,9 @@ def apply_offers(result, user=None, email=""):
     result.lines, result.savings = best.lines, best.savings
 
 
-@receiver(user_logged_in)
-def merge_guest_cart(sender, request, user, **kwargs):
-    """The cart filled before logging in joins the account's cart (quantities add up, the coupon carries over)."""
-    if request is None or not hasattr(request, "session"):
-        return
-    guest = Cart.objects.filter(pk=request.session.pop(SESSION_KEY, None), user=None).first()
+def merge_carts(guest, user):
+    """A guest cart (or None) joins the account's cart: quantities add up, the coupon carries over. Returns the
+    account's cart (None if it has none and there was nothing to add)."""
     with transaction.atomic():
         cart = Cart.objects.filter(user=user).first()
         if guest is not None:
@@ -207,4 +227,14 @@ def merge_guest_cart(sender, request, user, **kwargs):
                 cart.coupon = guest.coupon
                 cart.save(update_fields=["coupon"])
             guest.delete()
-    remember_count(request, cart)
+    return cart
+
+
+@receiver(user_logged_in)
+def merge_guest_cart(sender, request, user, **kwargs):
+    """The cart filled before logging in (this session's) joins the account's cart, website and allauth.headless alike;
+    the API merges a cart held by X-Cart-Token itself (api.shop.caller_cart)."""
+    if request is None or not hasattr(request, "session"):
+        return
+    guest = Cart.objects.filter(pk=request.session.pop(SESSION_KEY, None), user=None).first()
+    remember_count(request, merge_carts(guest, user))

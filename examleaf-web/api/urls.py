@@ -25,6 +25,7 @@ router.register("learn/flash-cards", learn.FlashCardViewSet)
 router.register("learn/entitlements", learn.EntitlementViewSet, basename="entitlement")
 cart = shop.CartViewSet.as_view  # one cart per account: its own routes, not a collection
 CART_LINE = {"put": "change", "patch": "change", "delete": "remove"}
+link = shop.OrderLinkViewSet.as_view  # what the order's link does without signing in
 
 NO_AUTH = {"authentication_classes": []}  # an expired token left in the header must not stop these
 
@@ -53,10 +54,18 @@ urlpatterns = [
     path("me/parent-consent/", views.ParentConsentView.as_view(), name="me-parent-consent"),
     path("parent-consent/<str:token>/", parent_link.ParentLinkView.as_view(), name="parent-link"),  # the parent's link
     path("config/", views.ConfigView.as_view(), name="config"),
+    path("contact/", views.ContactView.as_view(), name="contact"),  # the contact form
     path("qr/<str:code>/", views.QrView.as_view(), name="qr"),
     path("orders/t/<slug:token>/", shop.OrderLinkView.as_view(), name="order-link"),  # the emails' link
+    path("orders/t/<slug:token>/payment/", link({"post": "payment"}), name="order-link-payment"),  # a guest's order
+    path("orders/t/<slug:token>/payment/confirm/", link({"post": "payment_confirm"}), name="order-link-confirm"),
+    path("orders/t/<slug:token>/cancel/", link({"post": "cancel"}), name="order-link-cancel"),
+    path("orders/t/<slug:token>/invoice/", link({"get": "invoice"}), name="order-link-invoice"),
+    path("orders/t/<slug:token>/credit-notes/<int:note>/", link({"get": "credit_note"}), name="order-link-credit-note"),
     path("quotes/", shop.QuoteView.as_view(), name="quotes"),  # school and bulk orders
-    path("cart/", cart({"get": "retrieve"}), name="cart"),
+    path("shipping/", shop.ShippingView.as_view(), name="shipping"),  # the delivery rates
+    path("shipping/quote/", shop.ShippingQuoteView.as_view(), name="shipping-quote"),  # the checkout's delivery step
+    path("cart/", cart({"get": "retrieve", "post": "start"}), name="cart"),  # POST: a visitor's cart and its token
     path("cart/items/", cart({"post": "add"}), name="cart-items"),
     path("cart/items/<slug:product>/", cart(CART_LINE), name="cart-line"),
     path("cart/coupon/", cart({"post": "apply_coupon", "delete": "remove_coupon"}), name="cart-coupon"),

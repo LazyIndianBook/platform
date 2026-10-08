@@ -74,7 +74,7 @@ def test_the_cart_belongs_to_a_confirmed_account_and_keeps_the_website_rules(api
     book, sold_out = ProductFactory(slug="physics", price=299, stock=5), ProductFactory(slug="gone", stock=0)
     CouponFactory(code="WELCOME10")
     ShippingRateFactory()  # Assam: ₹40 below ₹499
-    assert api.get("/api/v1/cart/").status_code == 401  # no session carts for API clients
+    assert api.get("/api/v1/cart/").json()["items"] == []  # a visitor's: shop/test_api_guest.py
     customer(api, verified=False)
     assert api.get("/api/v1/cart/").json() == {"detail": "Confirm your email address first."}
     user = customer(api)

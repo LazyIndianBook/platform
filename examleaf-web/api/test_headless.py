@@ -159,7 +159,9 @@ def test_sign_up_through_headless_asks_the_student_details_and_records_the_conse
 
 
 def test_emails_link_to_the_websites_pages_whichever_client_asked(api, settings):
-    for name, url in settings.HEADLESS_FRONTEND_URLS.items():
+    urls = {**settings.HEADLESS_FRONTEND_URLS}
+    assert urls.pop("socialaccount_login_error") == settings.SITE_URL + "/account/login/"  # it shows ?error=
+    for name, url in urls.items():
         kwargs = {"kwargs": {"uidb36": "UID", "key": "KEY"}} if "{key}" in url else {}
         page = reverse(name, **kwargs).replace("UID-KEY", "{key}")
         assert url == settings.SITE_URL + page, name

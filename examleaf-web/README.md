@@ -86,6 +86,23 @@ ffmpeg is not installed". To run the whole stack in Docker on a laptop, set `DOM
 and `HEALTH_CHECK_TOKEN` in `.env` and run `make up`; Caddy then uses its own certificate, which
 `docker compose exec caddy caddy trust` makes your browser accept (once).
 
+### The Next.js frontend in development
+
+The new frontend (`../examleaf-frontend/`, its README) runs on http://localhost:3000 and passes Django's paths (`/api/`,
+`/_allauth/`, `/admin/`, `/static/` …) to Django on port 8100, so the browser sees one origin, as behind Caddy. Run
+Django for it with the frontend's origin and host:
+
+```sh
+SITE_URL=http://localhost:3000 CSRF_TRUSTED_ORIGINS=http://localhost:3000 USE_X_FORWARDED_HOST=1 \
+  .venv/bin/python manage.py runserver 8100
+```
+
+`SITE_URL` makes every email link (password reset, the parent's link, orders) point at the frontend, which serves the
+website's paths; `CSRF_TRUSTED_ORIGINS` accepts its `Origin`; `USE_X_FORWARDED_HOST` lets its server-side calls name
+the site's host (`X-Forwarded-Host`), as Caddy does. No CORS: open only http://localhost:3000, never 8100, so that the
+session and CSRF cookies stay on one origin (`CORS_ALLOWED_ORIGINS` stays empty). The frontend's typed API client is
+made from `/api/schema/?format=json` of this server (`npm run api:snapshot` there).
+
 ### Background tasks (Celery)
 
 Emails (verification codes, password resets, order mails), SMS, invoices and refunds, picture sizes and the clip videos
@@ -434,11 +451,14 @@ endpoint, request and answer examples, the error format, rate limits and the ver
   attempts need a confirmed email address; Download my data and Delete my account reuse the website's functions and ask
   for the password; teacher access (`me/teacher/`), the parent's link again (`me/parent-consent/`) and the legal pages
   (`pages/`) are there too.
-- The shop (`api/shop.py`): products with their categories and attributes, categories and collections (public), and for
-  a confirmed account the cart, saved addresses and orders: checkout, payment with Razorpay's mobile SDK
-  (`orders/<number>/payment/` gives the SDK its options, `…/payment/confirm/` checks the signature), cancellation, the
-  invoice and credit note PDFs; guests ask for an order's link by number and email (its own rate limit), and the link in
-  an order's email opens it read only (`orders/t/<token>/`); reviews, "email me when it is back" and school quotations
+- The shop (`api/shop.py`): products with their categories and attributes, categories and collections (public), the
+  delivery rates and a quote by PIN code (`shipping/`), and for a confirmed account the cart, saved addresses and orders:
+  checkout, payment with Razorpay's mobile SDK (`orders/<number>/payment/` gives the SDK its options,
+  `…/payment/confirm/` checks the signature), cancellation, the invoice and credit note PDFs. Visitors have a guest cart
+  (the session cookie with the CSRF token, or `X-Cart-Token` from `POST cart/`), check out as guests with an address
+  typed in and pay through the order's link (`orders/t/<token>/payment/`); the guest cart joins the account's at
+  log-in. Guests ask for an order's link by number and email (its own rate limit), and the link in an order's email
+  opens it (`orders/t/<token>/`); the contact form is `contact/`; reviews, "email me when it is back" and school quotations
   (`quotes/`) work as on the website. Everything runs through `shop.services`, `shop.cart` and `shop.payments`, and the
   Razorpay webhook stays `/shop/webhooks/razorpay/`.
 - The revision course (`api/learn.py`): chapters (public), clips, progress, the quiz, flash cards, the plan, book

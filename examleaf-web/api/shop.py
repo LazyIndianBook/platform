@@ -1,20 +1,22 @@
-"""REST API v1 for the shop: the books on sale (public); for a signed-in customer with a confirmed email address the
-cart, the saved addresses and the orders, paid with Razorpay's mobile SDK or cash on delivery; and the guests' order
-lookup. Every step goes through shop.cart, shop.services and shop.payments, as on the website. The Razorpay webhook
-stays the website's (/shop/webhooks/razorpay/): it completes an order whatever the client did."""
+"""REST API v1 for the shop: the books on sale and the delivery rates (public); for a signed-in customer with a
+confirmed email address the cart, the saved addresses and the orders, paid with Razorpay's mobile SDK or cash on
+delivery; for a visitor a guest cart (the session, or X-Cart-Token) and a guest's checkout paid through the order's
+link; and the guests' order lookup. Every step goes through shop.cart, shop.services and shop.payments, as on the
+website. The Razorpay webhook stays the website's (/shop/webhooks/razorpay/): it completes an order whatever the client
+did."""
 
 import django_filters
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Avg, Count, Prefetch, Q
-from django.urls import reverse as django_reverse
-from django.utils.cache import add_never_cache_headers
+from django.utils.cache import add_never_cache_headers, patch_cache_control
 from django_fsm import TransitionNotAllowed
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import (
     OpenApiExample,
     OpenApiParameter,
+    PolymorphicProxySerializer,
     extend_schema,
     extend_schema_field,
     extend_schema_serializer,
@@ -22,12 +24,13 @@ from drf_spectacular.utils import (
 from localflavor.in_.in_states import STATE_CHOICES
 from phonenumber_field.serializerfields import PhoneNumberField
 from rest_framework import exceptions, generics, mixins, negotiation, permissions, serializers, status, viewsets
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.reverse import reverse
 
 from shop import payments, services
-from shop.cart import get_cart, set_quantity, totals
+from shop.cart import cart_by_token, get_cart, issue_token, merge_carts, set_quantity, totals
 from shop.forms import QuoteRequestForm
 from shop.models import (
     Address,
@@ -46,12 +49,13 @@ from shop.models import (
     PinCode,
     Product,
     Review,
+    ShippingRate,
     StockAlert,
     validate_indian_mobile,
 )
 from shop.views import QUOTE_SENT, lookup_allowed, over_limit, pdf_response
 
-from .views import DetailSerializer, VerifiedEmail, cached
+from .views import DetailSerializer, VerifiedEmail, cached, check_turnstile
 
 CUSTOMER = [permissions.IsAuthenticated, VerifiedEmail]
 NOT_PAYABLE = "This order is not waiting for an online payment."
@@ -63,7 +67,58 @@ class ShopOpen(permissions.BasePermission):
     message = "The shop opens soon."
 
     def has_permission(self, request, view):
-        return settings.SHOP_OPEN or request.method in permissions.SAFE_METHODS or request.user.is_staff
+        if settings.SHOP_OPEN or request.method in permissions.SAFE_METHODS or request.user.is_staff:
+            return True
+        raise exceptions.PermissionDenied(self.message)  # 403 for visitors too (DRF would answer them 401)
+
+
+CART_TOKEN = "X-Cart-Token"
+
+
+class GuestOrCustomer(permissions.BasePermission):
+    """Signed in: a confirmed email address, as before. A visitor: their guest cart, held by the X-Cart-Token header
+    or, in a browser, by the session cookie with the CSRF token (X-CSRFToken) on every change, as for a signed-in
+    session (DRF checks CSRF only for signed-in sessions)."""
+
+    message = VerifiedEmail.message
+
+    def has_permission(self, request, view):
+        if request.user.is_authenticated:
+            return VerifiedEmail().has_permission(request, view)
+        changes = request.method not in permissions.SAFE_METHODS and getattr(view, "action", None) != "start"
+        if changes and CART_TOKEN not in request.headers:
+            SessionAuthentication().enforce_csrf(request)  # 403 "CSRF Failed: ..."
+        return True
+
+
+def caller_cart(request, create=False):
+    """The caller's cart: the account's (a guest cart sent along by X-Cart-Token joins it first: the log-in of a
+    client without cookies), else the guest cart of X-Cart-Token (404 once expired), else the session's (a browser)."""
+    token = request.headers.get(CART_TOKEN)
+    if request.user.is_authenticated:
+        if token and (guest := cart_by_token(token)):
+            merge_carts(guest, request.user)
+        return get_cart(request, create=create)
+    if not token:
+        return get_cart(request, create=create)
+    if cart := cart_by_token(token):
+        return cart
+    raise exceptions.NotFound("This cart has expired: start a new one (POST cart/).")
+
+
+def buyer(request):
+    """(user, email) for prices and coupons: the signed-in user, or a visitor (None, "")."""
+    user = request.user if request.user.is_authenticated else None
+    return user, user.email if user else ""
+
+
+class Private:
+    """A visitor's cart and orders are as personal as an account's: never kept by a browser or a proxy."""
+
+    def finalize_response(self, request, response, *args, **kwargs):
+        response = super().finalize_response(request, response, *args, **kwargs)
+        add_never_cache_headers(response)
+        return response
 
 
 NOT_CONFIRMED = (
@@ -450,31 +505,56 @@ class QuantitySerializer(serializers.Serializer):
 
 class CouponSerializer(serializers.Serializer):
     code = serializers.CharField(max_length=30)
+    turnstile = serializers.CharField(
+        required=False, allow_blank=True, write_only=True, help_text="a visitor's: Turnstile's token while it is on"
+    )
+
+
+class CartStartSerializer(CartSerializer):
+    token = serializers.CharField(help_text="send it as X-Cart-Token; shown once, valid 30 days")
 
 
 STATE = OpenApiParameter("state", str, description="two-letter state code (AS): adds the shipping for it")
 PRODUCT = OpenApiParameter("product", str, OpenApiParameter.PATH, description="the product's slug")
+HELD = OpenApiParameter(
+    CART_TOKEN,
+    str,
+    OpenApiParameter.HEADER,
+    description="a visitor's cart token (POST cart/), for clients without cookies",
+)
 
 
-class CartViewSet(viewsets.GenericViewSet):
-    """The signed-in customer's cart, the same as on the website. Every answer is the whole cart; `?state=` adds the
-    shipping. Carts of visitors without an account stay on the website."""
+@extend_schema(parameters=[HELD])
+class CartViewSet(Private, viewsets.GenericViewSet):
+    """The cart, the same as on the website: a signed-in customer's (confirmed email address), or a visitor's, held by
+    the session cookie (a browser on the site's origin; CSRF token on changes) or by X-Cart-Token (POST cart/). Every
+    answer is the whole cart; `?state=` adds the shipping."""
 
-    permission_classes = [*CUSTOMER, ShopOpen]
+    permission_classes = [GuestOrCustomer, ShopOpen]
     serializer_class = CartSerializer
     pagination_class = None
     filter_backends = []
 
-    def answer(self, cart):
-        user, state = self.request.user, self.request.query_params.get("state") or None
+    def answer(self, cart, code=status.HTTP_200_OK, **extra):
+        (user, email), state = buyer(self.request), self.request.query_params.get("state") or None
         if state and state not in dict(STATE_CHOICES):
             raise serializers.ValidationError({"state": ["Unknown state code."]})
-        result = totals(cart, state=state, user=user, email=user.email)
-        return Response(CartSerializer(result, context={"cart": cart}).data)
+        result = totals(cart, state=state, user=user, email=email)
+        return Response({**CartSerializer(result, context={"cart": cart}).data, **extra}, status=code)
 
     @extend_schema(parameters=[STATE])
     def retrieve(self, request, **kwargs):
-        return self.answer(get_cart(request))
+        return self.answer(caller_cart(request))
+
+    @extend_schema(request=None, responses={201: CartStartSerializer})
+    def start(self, request, **kwargs):
+        """A new, empty guest cart for a client without cookies, and its `token` (shown once): send it as X-Cart-Token
+        with every cart, shipping quote and checkout call, for 30 days. At log-in, sending it along once with the
+        account's credentials adds its books to the account's cart. Signed in: 400 (the account has its cart)."""
+        if request.user.is_authenticated:
+            raise refuse("You are signed in: your account's cart needs no token.")
+        cart = Cart.objects.create()
+        return self.answer(cart, status.HTTP_201_CREATED, token=issue_token(cart))
 
     @extend_schema(request=CartItemSerializer, responses=CartSerializer, parameters=[STATE])
     def add(self, request, **kwargs):
@@ -484,12 +564,12 @@ class CartViewSet(viewsets.GenericViewSet):
         product = data.validated_data["product"]
         if product.available < 1:
             raise serializers.ValidationError({"product": [f"{product} is out of stock."]})
-        cart = get_cart(request, create=True)
+        cart = caller_cart(request, create=True)
         set_quantity(cart, product, data.validated_data["quantity"], add=True)
         return self.answer(cart)
 
     def item(self, request, product):
-        cart = get_cart(request)
+        cart = caller_cart(request)
         item = cart.items.select_related("product").filter(product__slug=product).first() if cart else None
         if item is None:
             raise exceptions.NotFound("This book is not in the cart.")
@@ -517,12 +597,18 @@ class CartViewSet(viewsets.GenericViewSet):
     @extend_schema(request=CouponSerializer, responses=CartSerializer, parameters=[STATE])
     def apply_coupon(self, request, **kwargs):
         """Use a coupon code (any case). Refused with one message whatever the reason (unknown, expired, used up, too
-        small a cart); limited per user (API_THROTTLE_COUPON)."""
+        small a cart); limited per user (API_THROTTLE_COUPON). A visitor, as on the website: Turnstile's token while
+        the bot check is on, and 10 codes an hour per client address, the website's included."""
         data = CouponSerializer(data=request.data)
         data.is_valid(raise_exception=True)
-        cart, user = get_cart(request, create=True), request.user
+        user, email = buyer(request)
+        if user is None:
+            check_turnstile(data.validated_data)
+            if over_limit(request, "coupon", 10, 3600):  # shared with the website's cart page
+                raise exceptions.Throttled(wait=3600)
+        cart = caller_cart(request, create=True)
         coupon = Coupon.objects.filter(code__iexact=data.validated_data["code"].strip()).first()
-        if coupon is None or coupon.problem(totals(cart).subtotal, user=user, email=user.email):
+        if coupon is None or coupon.problem(totals(cart).subtotal, user=user, email=email):
             raise serializers.ValidationError({"code": [services.COUPON_REFUSED]})
         cart.coupon = coupon
         cart.save(update_fields=["coupon", "modified"])
@@ -530,11 +616,103 @@ class CartViewSet(viewsets.GenericViewSet):
 
     @extend_schema(request=None, responses=CartSerializer, parameters=[STATE])
     def remove_coupon(self, request, **kwargs):
-        cart = get_cart(request)
+        cart = caller_cart(request)
         if cart and cart.coupon:
             cart.coupon = None
             cart.save(update_fields=["coupon", "modified"])
         return self.answer(cart)
+
+
+# Shipping
+
+
+class ShippingRateSerializer(serializers.ModelSerializer):
+    states = serializers.ListField(
+        child=serializers.CharField(), help_text="two-letter codes; [] for every state no other rate names"
+    )
+    fee = rupees("fee.amount")
+    free_above = rupees("free_above.amount", allow_null=True, help_text="books worth this much or more ship free")
+
+    class Meta:
+        model = ShippingRate
+        fields = ["name", "states", "fee", "free_above"]
+
+
+class ShippingSerializer(serializers.Serializer):
+    fee_from = rupees(allow_null=True, help_text='the lowest fee: "delivery from ₹40"')
+    free_above = rupees(allow_null=True, help_text="the lowest value from which a rate ships free")
+    rates = ShippingRateSerializer(many=True)
+
+
+class ShippingView(generics.GenericAPIView):
+    """The delivery rates, as the website's checkout and Shipping Policy use them: a flat fee per group of states (a
+    rate without states: every state no other rate names), free from a value of books when the rate says so. No
+    weights. Cacheable for 5 minutes."""
+
+    permission_classes = [permissions.AllowAny]
+    authentication_classes = []
+    serializer_class = ShippingSerializer
+
+    def get(self, request, *args, **kwargs):
+        rates = ShippingRate.objects.filter(is_active=True)
+        response = Response(ShippingSerializer({**ShippingRate.summary(), "rates": rates}).data)
+        patch_cache_control(response, public=True, max_age=300)
+        return response
+
+
+class ShippingQuoteQuery(serializers.Serializer):
+    pin = serializers.RegexField(r"^\d{6}$", required=False, help_text="6 digits: its state, from the PIN directory")
+    state = serializers.ChoiceField(choices=STATE_CHOICES, required=False, help_text="two-letter code, as typed")
+    amount = serializers.DecimalField(
+        max_digits=10, decimal_places=2, min_value=0, required=False, help_text="books' value; default: the cart's"
+    )
+
+    def validate(self, attrs):
+        pin, state = attrs.get("pin"), attrs.get("state")
+        if not pin and not state:
+            raise serializers.ValidationError({"pin": ["Give a PIN code (?pin=) or a state (?state=)."]})
+        if pin and state and (problem := PinCode.state_problem(pin, state)):
+            raise serializers.ValidationError({"state": [problem]})
+        return attrs
+
+
+class ShippingQuoteSerializer(serializers.Serializer):
+    pin = serializers.CharField(allow_null=True)
+    states = serializers.ListField(child=serializers.CharField(), help_text="the PIN's (a few lie in two); [] unknown")
+    districts = serializers.ListField(child=serializers.CharField(), help_text="the PIN's, to fill in the address")
+    state = serializers.CharField(allow_null=True, help_text="the fee's: ?state=, or the PIN's only one; null: ask")
+    amount = rupees(help_text="the books' value the fee is for: ?amount=, or the cart's after discounts")
+    fee = rupees(allow_null=True, help_text="null until the state is known")
+    free_above = rupees(allow_null=True, help_text="the state's rate ships free from this value")
+
+
+class ShippingQuoteView(Private, generics.GenericAPIView):
+    """The checkout's delivery step: the fee to a PIN code (its state from the India Post directory, once loaded) or a
+    state, for `amount` or for the caller's cart (the account's, or a visitor's by the session or X-Cart-Token; courses
+    alone ship free), with the PIN code's states and districts to fill in the address. Rates are flat per state:
+    there is no weight."""
+
+    permission_classes = [permissions.AllowAny]
+    serializer_class = ShippingQuoteSerializer
+
+    @extend_schema(parameters=[ShippingQuoteQuery, HELD])
+    def get(self, request, *args, **kwargs):
+        query = ShippingQuoteQuery(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        pin, state, amount = (query.validated_data.get(name) for name in ("pin", "state", "amount"))
+        entry, fee = PinCode.objects.filter(pin=pin).first() if pin else None, None
+        states = entry.states if entry else []
+        state = state or (states[0] if len(states) == 1 else None)
+        if amount is None:
+            user, email = buyer(request)
+            result = totals(caller_cart(request), state=state, user=user, email=email)
+            amount, fee = result.subtotal - result.discount, result.shipping if result.lines else None
+        if state and fee is None:
+            fee = ShippingRate.fee_for(state, amount)
+        rate = ShippingRate.rate_for(state) if state else None
+        quote = {"pin": pin, "states": states, "districts": entry.districts if entry else [], "state": state}
+        free = rate.free_above.amount if rate and rate.free_above is not None else None
+        return Response(ShippingQuoteSerializer({**quote, "amount": amount, "fee": fee, "free_above": free}).data)
 
 
 # Addresses
@@ -716,6 +894,78 @@ class CheckoutSerializer(serializers.Serializer):
         raise serializers.ValidationError("Not one of your addresses.")
 
 
+class ShippingAddressSerializer(AddressSerializer):
+    """A guest's delivery address, typed at checkout: the rules of saved addresses (and of the website's form)."""
+
+    class Meta(AddressSerializer.Meta):
+        fields = Address.FIELDS
+
+
+@extend_schema_serializer(
+    examples=[
+        OpenApiExample(
+            "A guest",
+            request_only=True,
+            value={
+                "email": "rahul@example.com",
+                "shipping_address": {
+                    "name": "Rahul Das",
+                    "phone": "98640 12345",
+                    "line1": "House 12, Zoo Road",
+                    "line2": "",
+                    "city": "Guwahati",
+                    "district": "Kamrup Metro",
+                    "state": "AS",
+                    "pin": "781024",
+                },
+                "payment_method": "razorpay",
+                "turnstile": "0.Zx…",
+            },
+        )
+    ]
+)
+class GuestCheckoutSerializer(serializers.Serializer):
+    """A visitor's checkout (no account): the email address for the order's emails, the delivery address, online
+    payment (cash on delivery is for signed-in accounts with a confirmed email address) and the bot check."""
+
+    email = serializers.EmailField(help_text="the order's emails (confirmation, tracking, invoice) go there")
+    shipping_address = ShippingAddressSerializer()
+    payment_method = serializers.ChoiceField(choices=services.CUSTOMER_METHOD_CHOICES, help_text="razorpay")
+    turnstile = serializers.CharField(
+        required=False, allow_blank=True, write_only=True, help_text="Turnstile's token while the bot check is on"
+    )
+
+    def validate(self, attrs):
+        check_turnstile(attrs)
+        return attrs
+
+
+class OrderLinkSerializer(OrderSerializer):
+    """The order by the link in its emails, as the website's page shows it: its PDFs by the link (no account needed);
+    `can_pay` for a guest's order awaiting payment (orders/t/<token>/payment/); an account's order is paid by its
+    owner, signed in."""
+
+    LINK_PDF = {"api:order-invoice": "api:order-link-invoice", "api:order-credit-note": "api:order-link-credit-note"}
+
+    def pdf_url(self, name, order, **kwargs):
+        return reverse(self.LINK_PDF[name], kwargs={"token": order.token, **kwargs}, request=self.context["request"])
+
+    def get_can_pay(self, order) -> bool:
+        return order.user_id is None and can_pay(order)
+
+    def get_web_url(self, order) -> str:
+        return self.context["request"].build_absolute_uri(order.get_link_url())
+
+
+class GuestOrderSerializer(OrderLinkSerializer):
+    """A guest's new order, as its link shows it, with the link's secret: the only time the API gives it."""
+
+    token = serializers.CharField(read_only=True, help_text="for orders/t/<token>/ and its payment; also in the emails")
+
+    class Meta(OrderLinkSerializer.Meta):
+        fields = [*OrderLinkSerializer.Meta.fields, "token"]
+
+
 class PaymentStartSerializer(serializers.Serializer):
     """The options of Razorpay's Checkout and mobile SDKs."""
 
@@ -766,8 +1016,52 @@ PDF = {(200, "application/pdf"): OpenApiTypes.BINARY}
 NOTE = OpenApiParameter("note", int, OpenApiParameter.PATH, description="the credit note's id (credit_notes[].url)")
 
 
-class OrderViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
-    """The signed-in customer's own orders (another customer's: 404), checkout, payment and cancellation."""
+def cancel_by_customer(order):
+    """Cancel while pending or paid (can_cancel); an online payment is refunded in full. Later: 400."""
+    try:
+        if not order.can_cancel:
+            raise TransitionNotAllowed
+        return services.cancel_order(order, "Cancelled by the customer.")
+    except TransitionNotAllowed as error:  # also when changed meanwhile (packed by staff)
+        raise refuse("This order can no longer be cancelled; see the Refund Policy.") from error
+
+
+def start_payment(order):
+    """The options of Razorpay's SDKs for an order awaiting online payment, with its Razorpay order (made on the first
+    call; the same one afterwards). 503 while Razorpay cannot be reached."""
+    if not can_pay(order):
+        raise refuse(NOT_PAYABLE)
+    if problem := services.coupon_problem(order):  # a payment would only be refunded
+        raise refuse(f"{problem} Cancel this order and check out again without the coupon.")
+    try:
+        options = payments.checkout_options(order)
+    except payments.Unavailable as error:
+        raise PaymentServiceUnavailable(str(error)) from error
+    return Response({**options, "test_mode": payments.test_mode()})
+
+
+def confirm_payment(request, order):
+    """The SDK's success callback for `order`, checked (signature) and confirmed with Razorpay; 400 otherwise."""
+    data = PaymentConfirmSerializer(data=request.data)
+    data.is_valid(raise_exception=True)
+    payment = order.payments.filter(razorpay_order_id=data.validated_data["razorpay_order_id"]).first()
+    if payment is None or not payments.confirm_return(payment, data.validated_data):
+        raise refuse(NOT_CONFIRMED)
+
+
+CHECKOUT = PolymorphicProxySerializer(
+    component_name="CheckoutAny",
+    serializers=[CheckoutSerializer, GuestCheckoutSerializer],
+    resource_type_field_name=None,
+)
+CHECKED_OUT = PolymorphicProxySerializer(
+    component_name="CheckedOut", serializers=[OrderSerializer, GuestOrderSerializer], resource_type_field_name=None
+)
+
+
+class OrderViewSet(Private, mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
+    """The signed-in customer's own orders (another customer's: 404), checkout (a visitor's too), payment and
+    cancellation."""
 
     permission_classes = [*CUSTOMER, ShopOpen]
     throttle_scope = None  # the payment and lookup actions set theirs
@@ -788,27 +1082,39 @@ class OrderViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.Ge
     def get_serializer_class(self):
         return OrderBriefSerializer if self.action == "list" else OrderSerializer
 
+    def get_permissions(self):
+        if self.action == "create":  # a visitor checks out their guest cart
+            return [GuestOrCustomer(), ShopOpen()]
+        return super().get_permissions()
+
     def answer(self, order, code=status.HTTP_200_OK):
         return Response(OrderSerializer(order, context=self.get_serializer_context()).data, status=code)
 
-    @extend_schema(request=CheckoutSerializer, responses={201: OrderSerializer})
+    @extend_schema(request=CHECKOUT, responses={201: CHECKED_OUT}, parameters=[HELD])
     def create(self, request, *args, **kwargs):
-        """Checkout: an order from the cart at today's prices, to a saved address. Online: pending until paid
-        (payment/). Cash on delivery: placed at once and the cart emptied."""
-        if request.user.consent_pending:
+        """Checkout: an order from the cart at today's prices. Signed in: to a saved address (`address`); online,
+        pending until paid (payment/), or cash on delivery, placed at once and the cart emptied. A visitor (guest
+        cart): with `email` and `shipping_address`, online only, and Turnstile's token while the bot check is on; the
+        answer is the order as its link shows it, with the link's `token` (shown here only): pay through
+        orders/t/<token>/payment/."""
+        user, email = buyer(request)
+        if user and user.consent_pending:
             raise exceptions.PermissionDenied("A parent or guardian has not confirmed this account yet.")
         if over_limit(request, "checkout", 10, 600):  # shared with the website's checkout, per client address
             raise exceptions.Throttled(wait=600)
-        data = CheckoutSerializer(data=request.data, context={"request": request})
-        data.is_valid(raise_exception=True)
-        user, cart = request.user, get_cart(request)
+        if user:
+            data = CheckoutSerializer(data=request.data, context={"request": request})
+            data.is_valid(raise_exception=True)
+            address = data.validated_data["address"].snapshot()
+        else:
+            data = GuestCheckoutSerializer(data=request.data)
+            data.is_valid(raise_exception=True)
+            email, address = data.validated_data["email"], data.validated_data["shipping_address"]
+            address = Address(**address).snapshot()
+        cart = caller_cart(request)
         try:
             order = services.create_order(
-                cart,
-                user=user,
-                email=user.email,
-                address=data.validated_data["address"].snapshot(),
-                method=data.validated_data["payment_method"],
+                cart, user=user, email=email, address=address, method=data.validated_data["payment_method"]
             )
             if order.is_cod:
                 try:
@@ -819,48 +1125,30 @@ class OrderViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.Ge
                 cart.delete()
         except services.ShopError as error:
             raise refuse(str(error)) from error
+        if user is None:
+            guest = GuestOrderSerializer(order, context=self.get_serializer_context())
+            return Response(guest.data, status=status.HTTP_201_CREATED)
         return self.answer(order, status.HTTP_201_CREATED)
 
     @extend_schema(request=None, responses=OrderSerializer)
     @action(detail=True, methods=["post"], permission_classes=CUSTOMER)  # also while the shop is closed
     def cancel(self, request, **kwargs):
         """Cancel while pending or paid; an online payment is refunded in full (5–7 working days)."""
-        order = self.get_object()
-        try:
-            if not order.can_cancel:
-                raise TransitionNotAllowed
-            order = services.cancel_order(order, "Cancelled by the customer.")
-        except TransitionNotAllowed as error:
-            raise refuse("This order can no longer be cancelled; see the Refund Policy.") from error
-        return self.answer(order)
+        return self.answer(cancel_by_customer(self.get_object()))
 
     @extend_schema(request=None, responses=PaymentStartSerializer)
     @action(detail=True, methods=["post"], throttle_scope="payment")
     def payment(self, request, **kwargs):
         """Start paying online: the options for Razorpay's mobile SDK, with the Razorpay order for this order (made
         on the first call; the same one afterwards). 503 while Razorpay cannot be reached: try again."""
-        order = self.get_object()
-        if not can_pay(order):
-            raise refuse(NOT_PAYABLE)
-        if problem := services.coupon_problem(order):  # a payment would only be refunded
-            raise refuse(f"{problem} Cancel this order and check out again without the coupon.")
-        try:
-            options = payments.checkout_options(order)
-        except payments.Unavailable as error:
-            raise PaymentServiceUnavailable(str(error)) from error
-        return Response({**options, "test_mode": payments.test_mode()})
+        return start_payment(self.get_object())
 
     @extend_schema(request=PaymentConfirmSerializer, responses=OrderSerializer)
     @action(detail=True, methods=["post"], url_path="payment/confirm", throttle_scope="payment")
     def payment_confirm(self, request, **kwargs):
         """The SDK's success callback, checked (signature) and confirmed with Razorpay: the order is paid and the cart
         emptied. If Razorpay cannot be asked now the order stays pending a few minutes until its webhook arrives."""
-        order = self.get_object()
-        data = PaymentConfirmSerializer(data=request.data)
-        data.is_valid(raise_exception=True)
-        payment = order.payments.filter(razorpay_order_id=data.validated_data["razorpay_order_id"]).first()
-        if payment is None or not payments.confirm_return(payment, data.validated_data):
-            raise refuse(NOT_CONFIRMED)
+        confirm_payment(request, self.get_object())
         order = self.get_object()
         if order.status != Order.Status.CANCELLED:  # cancelled: sold out or coupon used up while paying (refunded)
             Cart.objects.filter(user=request.user).delete()
@@ -903,23 +1191,6 @@ class OrderViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.Ge
         return Response({"detail": services.LINK_SENT})
 
 
-class OrderLinkSerializer(OrderSerializer):
-    """The order by the link in its emails, as the website's page shows it: its PDFs on the website's links (no account
-    needed), never payable here (`can_pay` false); cancelling stays on the website's page (`web_url`)."""
-
-    WEB_PDF = {"api:order-invoice": "shop:order_link_invoice", "api:order-credit-note": "shop:order_link_credit_note"}
-
-    def pdf_url(self, name, order, **kwargs):
-        path = django_reverse(self.WEB_PDF[name], kwargs={"token": order.token, **kwargs})
-        return self.context["request"].build_absolute_uri(path)
-
-    def get_can_pay(self, order) -> bool:
-        return False
-
-    def get_web_url(self, order) -> str:
-        return self.context["request"].build_absolute_uri(order.get_link_url())
-
-
 class OrderLinkView(generics.RetrieveAPIView):
     """An order by the secret of the link in its emails (`https://<domain>/orders/t/<token>/`), without signing in, as
     the website's page: status, books, address, tracking, refunds and the PDFs; read-only. Any order's link works,
@@ -937,6 +1208,67 @@ class OrderLinkView(generics.RetrieveAPIView):
         response = super().retrieve(request, *args, **kwargs)
         add_never_cache_headers(response)
         return response
+
+
+class OrderLinkViewSet(Private, viewsets.GenericViewSet):
+    """What the order's link (`token`: the emails', or a guest's checkout's) does without signing in, as the website's
+    page: pay a guest's order (the steps of an account's payment/ and payment/confirm/; an account's order is paid by
+    its owner, signed in: 404), cancel any order while pending or paid, and download its PDFs."""
+
+    authentication_classes = []
+    serializer_class = OrderLinkSerializer
+    lookup_field = "token"
+    queryset = OrderLinkView.queryset
+    content_negotiation_class = AnyAccept  # the PDFs answer whatever the client accepts
+
+    def paying(self):
+        return getattr(self, "action", None) in ("payment", "payment_confirm")
+
+    def get_queryset(self):
+        return super().get_queryset().filter(user__isnull=True) if self.paying() else super().get_queryset()
+
+    def get_permissions(self):
+        return [permissions.AllowAny(), *([ShopOpen()] if self.paying() else [])]  # cancelling: also while closed
+
+    @property
+    def throttle_scope(self):
+        return "payment" if self.paying() else None
+
+    @extend_schema(request=None, responses=PaymentStartSerializer)
+    def payment(self, request, **kwargs):
+        """Start paying online: the options of Razorpay's Checkout (checkout.js) or mobile SDK. 400 when `can_pay` is
+        false; 503 while Razorpay cannot be reached: try again."""
+        return start_payment(self.get_object())
+
+    @extend_schema(request=PaymentConfirmSerializer, responses=OrderLinkSerializer, parameters=[HELD])
+    def payment_confirm(self, request, **kwargs):
+        """Checkout's success callback, checked (signature) and confirmed with Razorpay: the order, paid, and the
+        visitor's guest cart (session or X-Cart-Token) emptied; or still pending a few minutes until Razorpay's webhook
+        completes it (read orders/t/<token>/ again)."""
+        confirm_payment(request, self.get_object())
+        order = self.get_object()
+        if order.status != Order.Status.CANCELLED:  # cancelled: sold out or coupon used up while paying (refunded)
+            token = request.headers.get(CART_TOKEN)
+            if cart := cart_by_token(token) if token else get_cart(request):
+                cart.delete()
+        return Response(self.get_serializer(order).data)
+
+    @extend_schema(request=None, responses=OrderLinkSerializer)
+    def cancel(self, request, **kwargs):
+        """Cancel while pending or paid (`can_cancel`), as the link's page does; an online payment is refunded in full
+        (5–7 working days). Later: 400, see the Refund Policy."""
+        cancel_by_customer(self.get_object())
+        return Response(self.get_serializer(self.get_object()).data)
+
+    @extend_schema(responses=PDF)
+    def invoice(self, request, **kwargs):
+        """The invoice PDF (404 until it has been made, a few minutes after payment)."""
+        return pdf_response(getattr(self.get_object(), "invoice", None))
+
+    @extend_schema(responses=PDF, parameters=[NOTE])
+    def credit_note(self, request, note, **kwargs):
+        """A credit note PDF (for a refund of an invoiced order)."""
+        return pdf_response(CreditNote.objects.filter(invoice__order=self.get_object(), pk=note).first())
 
 
 class QuoteItemSerializer(serializers.Serializer):

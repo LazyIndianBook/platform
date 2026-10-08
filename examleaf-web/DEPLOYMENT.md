@@ -297,7 +297,7 @@ list any variable its clip task comes to need. After a change: `docker compose u
 | Variable | Default | Required | What it does; where to get the value |
 |---|---|---|---|
 | `PROXY_COUNT` | `0` (compose sets `1`) | set by compose | proxies in front of the site: trusts `X-Forwarded-Proto` and `-For` from Caddy; also the client address for axes, allauth and the API |
-| `USE_X_FORWARDED_HOST` | `0` | no | take the host name from `X-Forwarded-Host` (Caddy does not need it) |
+| `USE_X_FORWARDED_HOST` | `0` (compose sets `1`) | set by compose | take the host name from `X-Forwarded-Host`: the Next.js frontend's server-side calls to `web:8000` name the site's host there (Caddy's requests carry it too) |
 | `SECURE_SSL_REDIRECT` | `1` with `DEBUG=0` | no | redirect http to https |
 | `SECURE_HSTS_SECONDS` | `31536000` | no | HSTS lifetime |
 | `SECURE_HSTS_INCLUDE_SUBDOMAINS`, `SECURE_HSTS_PRELOAD` | `0` | no | on only when every subdomain is https (they are the two `check --deploy` warnings, W005 and W021) |
@@ -780,7 +780,7 @@ then use API v1 (API.md, "Frontend integration guide"). The settings are in `exa
 |---|---|---|
 | `HEADLESS_ONLY` | `False` | the website's pages stay |
 | `HEADLESS_CLIENTS` | `("app", "browser")` | `/_allauth/app/v1/` (header `X-Session-Token`; `POST /api/v1/auth/exchange/` turns the session into the API's JWT pair) and `/_allauth/browser/v1/` (the session cookie and the CSRF token, same origin only: CORS stays on `/api/`) |
-| `HEADLESS_FRONTEND_URLS` | the website's pages under `SITE_URL` | emails link to them whichever client asked: the new-password page, sign-up, Google's error page (addresses are confirmed by code: no link) |
+| `HEADLESS_FRONTEND_URLS` | the website's pages under `SITE_URL`, which the Next.js frontend serves at the same paths | emails link to them whichever client asked: the new-password page, sign-up; a Google log-in that failed without its own `callback_url` lands on `/account/login/?error=…` (addresses are confirmed by code: no link) |
 | `HEADLESS_SERVE_SPECIFICATION` | `True` | allauth's OpenAPI file at `/_allauth/openapi.json` and `.yaml`; no HTML page (`HEADLESS_SPECIFICATION_TEMPLATE_NAME = None`: allauth's loads Redoc from a CDN, which the CSP refuses) |
 | `ACCOUNT_SIGNUP_FORM_CLASS` | `accounts.signup.StudentDetailsForm` | every sign-up (the website's, after Google, allauth.headless's) asks the student details, records the consent and checks Turnstile (except after Google) |
 
@@ -788,6 +788,15 @@ Everything else follows the settings already set: the log-in methods, SMS, Googl
 limits, the SMS cap, and staff's authenticator app (StaffMFAMiddleware; a member of staff without one gets 403 from
 `auth/exchange/` and from `/api/` with the session, and sets one up through `/_allauth/…/account/authenticators/totp`).
 Caddy passes `/_allauth/` on like any page; every answer there is `Cache-Control: private, no-store`.
+
+**The Next.js frontend** (`examleaf-frontend/`) shares the site's origin: Caddy sends Django's prefixes (`/api/`,
+`/_allauth/`, `/admin/`, `/static/`, `/shop/webhooks/`, `/shop/media/`, `/qr/`, `/health/` …) to `web` and the other
+paths to the frontend, so the browser calls the API and allauth.headless on its own origin with the session and CSRF
+cookies (a visitor's guest cart included: API.md, "Guests"). Nothing changes in `.env`: `SITE_URL` stays the domain
+(every email links there, and the frontend serves the same paths), `CSRF_TRUSTED_ORIGINS` defaults to it, compose sets
+`USE_X_FORWARDED_HOST=1` on `web` for the frontend's server-side calls, and `CORS_ALLOWED_ORIGINS` stays empty: CORS
+is for other origins, and there are none. In development run Django for the frontend on port 8100 with the frontend's
+origin in place of the domain (README.md, "The Next.js frontend in development").
 
 After a deploy: `curl -s https://examleaf.in/_allauth/app/v1/config` answers 200 (Google among the providers only with
 `GOOGLE_*` set) and `curl -s https://examleaf.in/api/v1/config/` shows what section 16 switched on.

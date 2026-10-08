@@ -23,15 +23,18 @@ from rest_framework import exceptions, generics, permissions, serializers, statu
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from accounts.forms import TurnstileField
 from accounts.models import DeletionRequest, TeacherProfile
 from accounts.views import export_user_data, keep_account, request_deletion, resend_parent_link
 from content.models import Board, Book, Paper, Subject
 from content.views import cache_solutions
 from pages.models import Page
 from pages.templatetags.pages import page_html
+from pages.views import CONTACT_SENT, send_contact, support_email
 from practice.forms import AttemptFilter
 from practice.models import Attempt
-from shop.models import INR
+from shop.models import INR, ShippingRate
+from shop.views import over_limit
 
 from .auth import check_password
 from .serializers import (
@@ -69,6 +72,15 @@ class VerifiedEmail(permissions.BasePermission):
 
     def has_permission(self, request, view):
         return bool(request.user and request.user.is_authenticated and has_verified_email(request.user))
+
+
+def check_turnstile(attrs):
+    """The website's bot check (Cloudflare Turnstile) while it is on: the token sent as `turnstile`."""
+    if settings.TURNSTILE:
+        try:
+            TurnstileField().clean(attrs.get("turnstile", ""))
+        except DjangoValidationError as error:
+            raise serializers.ValidationError({"turnstile": error.messages}) from error
 
 
 class CanReadSolutions(VerifiedEmail):
@@ -330,6 +342,67 @@ class ParentConsentView(generics.GenericAPIView):
         return Response({"detail": f"We have sent {user.parent_contact} a link to confirm."})
 
 
+@extend_schema_serializer(
+    examples=[
+        OpenApiExample(
+            "A question",
+            request_only=True,
+            value={
+                "name": "Rahul Das",
+                "email": "rahul@example.com",
+                "message": "Order EL-2026-000123 has not come yet.",
+                "turnstile": "0.Zx…",
+            },
+        )
+    ]
+)
+class ContactSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=80)
+    email = serializers.EmailField(help_text="we reply to this address")
+    message = serializers.CharField(max_length=2000)
+    website = serializers.CharField(
+        required=False, allow_blank=True, write_only=True, help_text="the honeypot: a field people never see; send none"
+    )
+    turnstile = serializers.CharField(
+        required=False, allow_blank=True, write_only=True, help_text="Turnstile's token while the bot check is on"
+    )
+
+    def validate_name(self, value):
+        return " ".join(value.split())  # one line: it is the email's subject
+
+    def validate(self, attrs):
+        check_turnstile(attrs)
+        return attrs
+
+
+class ContactUnavailable(exceptions.APIException):
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    default_detail = "The contact form is not set up yet: please write to us by email."
+
+
+class ContactView(generics.GenericAPIView):
+    """The contact form, as on the website's /contact/: the message is emailed to the support address (SUPPORT_EMAIL,
+    else SELLER_EMAIL) with Reply-To the sender, and nothing is stored. Turnstile's token while the bot check is on; 5
+    an hour per client address, the website's form included; a filled-in `website` (the honeypot) is thanked and
+    dropped. 503 while the support address is still a [placeholder]."""
+
+    permission_classes = [permissions.AllowAny]
+    authentication_classes = []
+    serializer_class = ContactSerializer
+
+    @extend_schema(responses={200: DetailSerializer})
+    def post(self, request, *args, **kwargs):
+        if not support_email():
+            raise ContactUnavailable()
+        if over_limit(request, "contact", 5, 3600):  # counted with the website's form
+            raise exceptions.Throttled(wait=3600)
+        data = self.get_serializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        if not data.validated_data.get("website"):
+            send_contact(*(data.validated_data[name] for name in ("name", "email", "message")))
+        return Response({"detail": CONTACT_SENT})
+
+
 CONFIG = inline_serializer(
     "Config",
     {
@@ -355,6 +428,17 @@ CONFIG = inline_serializer(
                     max_digits=10, decimal_places=2, help_text="the most an order may be worth, shipping included"
                 ),
                 "currency": serializers.CharField(),
+            },
+        ),
+        "shipping": inline_serializer(
+            "ShippingConfig",
+            {
+                "fee_from": serializers.DecimalField(
+                    max_digits=10, decimal_places=2, allow_null=True, help_text='the lowest delivery fee: "from ₹40"'
+                ),
+                "free_above": serializers.DecimalField(
+                    max_digits=10, decimal_places=2, allow_null=True, help_text="the lowest value that ships free"
+                ),
             },
         ),
         "solutions_require_login": serializers.BooleanField(),
@@ -395,6 +479,7 @@ class ConfigView(generics.GenericAPIView):
                         "turnstile_site_key": "0x4AAAAAAA…",
                     },
                     "shop": {"open": True, "cod": True, "cod_max_value": "1500.00", "currency": "INR"},
+                    "shipping": {"fee_from": "40.00", "free_above": "499.00"},
                     "solutions_require_login": True,
                     "parental_consent": "verified",
                     "support": {"email": "help@examleaf.in", "phone": None},
@@ -420,9 +505,13 @@ class ConfigView(generics.GenericAPIView):
                     "cod_max_value": f"{settings.SHOP_COD_MAX_VALUE:.2f}",
                     "currency": INR,
                 },
+                "shipping": ShippingRate.summary(),  # the rates: shipping/
                 "solutions_require_login": settings.SOLUTIONS_REQUIRE_LOGIN,
                 "parental_consent": settings.PARENTAL_CONSENT_MODE,
-                "support": {key: None if "[" in seller[key] else seller[key] or None for key in ("email", "phone")},
+                "support": {
+                    "email": support_email() or None,  # SUPPORT_EMAIL, else SELLER_EMAIL
+                    "phone": None if "[" in seller["phone"] else seller["phone"] or None,
+                },
             }
         )
         patch_cache_control(response, public=True, max_age=300)

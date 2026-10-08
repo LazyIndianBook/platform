@@ -90,3 +90,27 @@ def test_sms_updates_need_a_confirmed_number(api):
     sign_in(api, student(login_phone="+919864012345", login_phone_verified=True))
     data = api.patch("/api/v1/me/", {"sms_updates": True, "login_phone": "+919000000000"}, format="json").json()
     assert (data["sms_updates"], data["login_phone"], data["login_phone_verified"]) == (True, "+919864012345", True)
+
+
+def test_the_contact_form_emails_support_with_the_websites_limits(api, settings, monkeypatch):
+    from accounts import forms as account_forms
+
+    data = {"name": "Rahul  Das\n", "email": "rahul@example.com", "message": "Order EL-2026-000123 has not come."}
+    response = api.post("/api/v1/contact/", data)  # SELLER_EMAIL is still a [placeholder]
+    assert response.status_code == 503 and "not set up yet" in response.json()["detail"]
+    settings.SUPPORT_EMAIL = "help@examleaf.in"
+    assert api.get("/api/v1/config/").json()["support"]["email"] == "help@examleaf.in"
+    bad = api.post("/api/v1/contact/", {"name": "x" * 81, "email": "rahul@", "message": "y" * 2001}).json()
+    assert set(bad) == {"name", "email", "message"}
+    assert api.post("/api/v1/contact/", {**data, "website": "spam"}).status_code == 200 and not mail.outbox
+    assert api.post("/api/v1/contact/", data).json() == {
+        "detail": "Thank you: your message is on its way to us. We reply by email."
+    }
+    [sent] = mail.outbox
+    assert sent.to == ["help@examleaf.in"] and sent.extra_headers["Reply-To"] == "rahul@example.com"
+    assert sent.subject == "[ExamLeaf] Contact form: Rahul Das" and data["message"] in sent.body
+    settings.TURNSTILE, settings.TURNSTILE_SITE_KEY = True, "site-key"
+    monkeypatch.setattr(account_forms, "turnstile_passed", lambda token: token == "passed")
+    assert set(api.post("/api/v1/contact/", data).json()) == {"turnstile"}
+    assert api.post("/api/v1/contact/", {**data, "turnstile": "passed"}).status_code == 200
+    assert api.post("/api/v1/contact/", {**data, "turnstile": "passed"}).status_code == 429  # 5 an hour per address

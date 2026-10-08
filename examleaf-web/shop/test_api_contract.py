@@ -106,7 +106,51 @@ def test_the_order_link_from_the_emails_opens_the_order_read_only(api, commit):
     response = api.get(f"/api/v1/orders/t/{token}/", HTTP_AUTHORIZATION="Bearer expired.or.stale")  # ignored
     data = response.json()
     assert response.status_code == 200 and data["number"] == order.number and data["email"] == "guest@example.com"
-    assert (data["can_pay"], data["web_url"]) == (False, f"http://testserver/orders/t/{token}/")
+    assert (data["can_pay"], data["web_url"]) == (True, f"http://testserver/orders/t/{token}/")  # a guest's: payment/
     assert "no-store" in response["Cache-Control"] and data["invoice"] is None
     assert api.get("/api/v1/orders/t/not-a-real-token-at-all/").status_code == 404
     assert api.post(f"/api/v1/orders/t/{token}/").status_code == 405
+
+
+def test_shipping_rates_and_a_quote_for_the_checkouts_delivery_step(api):
+    from shop.factories import ShippingRateFactory
+    from shop.models import PinCode, Product
+
+    assert api.get("/api/v1/shipping/").json() == {"fee_from": None, "free_above": None, "rates": []}
+    ShippingRateFactory()  # Assam: ₹40 below ₹499
+    ShippingRateFactory(name="Rest of India", states=[], fee=80, free_above=None)
+    response = api.get("/api/v1/shipping/")
+    assert response.json() == {
+        "fee_from": "40.00",
+        "free_above": "499.00",
+        "rates": [
+            {"name": "Assam", "states": ["AS"], "fee": "40.00", "free_above": "499.00"},
+            {"name": "Rest of India", "states": [], "fee": "80.00", "free_above": None},
+        ],
+    }
+    assert response["Cache-Control"] == "public, max-age=300"
+    assert api.get("/api/v1/config/").json()["shipping"] == {"fee_from": "40.00", "free_above": "499.00"}
+    PinCode.objects.create(pin="781001", states=["AS"], districts=["Kamrup Metro"])
+    PinCode.objects.create(pin="793001", states=["ML", "AS"], districts=["East Khasi Hills"])
+    quote = api.get("/api/v1/shipping/quote/?pin=781001&weight=500").json()  # no cart yet; weights do not count
+    assert quote == {
+        "pin": "781001", "states": ["AS"], "districts": ["Kamrup Metro"], "state": "AS", "amount": "0.00",
+        "fee": "40.00", "free_above": "499.00",
+    }  # fmt: skip
+    assert api.get("/api/v1/shipping/quote/?pin=781001&amount=500").json()["fee"] == "0.00"
+    assert api.get("/api/v1/shipping/quote/?state=WB&amount=500").json()["fee"] == "80.00"
+    both = api.get("/api/v1/shipping/quote/?pin=793001").json()  # two states: the visitor chooses
+    assert (both["states"], both["state"], both["fee"]) == (["ML", "AS"], None, None)
+    assert api.get("/api/v1/shipping/quote/?pin=999999").json()["state"] is None  # not in the directory
+    assert api.get("/api/v1/shipping/quote/?pin=781001&state=WB").json() == {"state": ["PIN code 781001 is in Assam."]}
+    assert set(api.get("/api/v1/shipping/quote/?pin=78100").json()) == {"pin"}
+    assert set(api.get("/api/v1/shipping/quote/").json()) == {"pin"}
+    ProductFactory(slug="physics", price=299, stock=5)
+    api.post("/api/v1/cart/items/", {"product": "physics", "quantity": 2}, format="json")
+    response = api.get("/api/v1/shipping/quote/?pin=781001")  # the visitor's cart: ₹598 ships free in Assam
+    assert (response.json()["amount"], response.json()["fee"]) == ("598.00", "0.00")
+    assert "no-store" in response["Cache-Control"]
+    course = ProductFactory(slug="course", kind=Product.Kind.DIGITAL)
+    user = verified_user("rahul@example.com")
+    assert signed_in(user).post("/api/v1/cart/items/", {"product": course.slug}, format="json").status_code == 200
+    assert signed_in(user).get("/api/v1/shipping/quote/?state=WB").json()["fee"] == "0.00"  # a course ships nothing

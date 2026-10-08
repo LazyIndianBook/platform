@@ -27,6 +27,13 @@ def support_email():
     return "" if not address or PLACEHOLDER.search(address) else address
 
 
+def send_contact(name, email, message):
+    """The contact form's message, emailed to support_email() with the sender to reply to; nothing is stored."""
+    body = f"{message}\n\n{name} <{email}>, through the contact form."
+    subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX}Contact form: {name}"
+    queue_email(EmailMessage(subject, body, to=[support_email()], headers={"Reply-To": email}))
+
+
 class ContactForm(TurnstileMixin, forms.Form):
     name = forms.CharField(label="Your name", max_length=120, error_messages={"required": "Tell us your name."})
     email = forms.EmailField(
@@ -59,9 +66,7 @@ class ContactView(PageView):
             return redirect("contact")
         if not form.is_valid():
             return self.render_to_response(self.get_context_data(form=form))
-        data = form.cleaned_data
-        body = f"{data['message']}\n\n{data['name']} <{data['email']}>, through the contact form."
-        subject = f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX}Contact form: {data['name']}"
-        queue_email(EmailMessage(subject, body, to=[support_email()], headers={"Reply-To": data["email"]}))
+        data = form.cleaned_data  # with "turnstile" while the bot check is on
+        send_contact(data["name"], data["email"], data["message"])
         messages.success(request, CONTACT_SENT)
         return redirect("contact")

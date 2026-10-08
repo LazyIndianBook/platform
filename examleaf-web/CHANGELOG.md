@@ -5,6 +5,42 @@ commits are in `git log` (phase 4: abffe6f and e5abda5; phase 5 A and B with the
 and E: 4e30e59; the redesign's stage 2 so far: ba0b9dd). Details of each feature are in README.md; the numbers of the
 tests are those of `pytest` at the end of the phase.
 
+## Phase 8 backend (8 October 2026)
+
+What the Next.js frontend (docs/examleaf-phase8-nextjs-plan.md) needed from the API, with the website's rules. 459
+tests pass (7 skipped).
+
+- **Guest cart and checkout through the API:** `cart/`, `cart/items/…` and `cart/coupon/` serve visitors too: a browser
+  on the site's origin by the session cookie (the CSRF token on every change; DRF checks it only for signed-in
+  sessions, so `api.shop.GuestOrCustomer` does), a client without cookies by `X-Cart-Token`, issued once by
+  `POST cart/` (`Cart.token`: its SHA-256, 30 days; migration `shop.0020_cart_token`; `CORS_ALLOW_HEADERS` lists it).
+  Signed-in callers are unchanged (a confirmed email address). A visitor's coupons ask for Turnstile and count 10 an
+  hour per client address with the website's cart page. `POST orders/` takes a visitor's `email`, `shipping_address`
+  (the rules of `addresses/`, the PIN code's state included), `payment_method` and `turnstile`: cash on delivery
+  refused (M8), a course needs an account, 10 checkouts per 10 minutes per address (shared); the answer is the order
+  as its link shows it with the link's `token`, once. `POST orders/t/<token>/payment/` and `…/payment/confirm/` pay a
+  guest's order (an account's: 404) and empty the visitor's cart; `can_pay` of `orders/t/<token>/` is true for a
+  guest's pending order. The guest cart joins the account's at log-in: the session's by the existing signal
+  (`shop.cart.merge_carts`, now shared), a token's on the first signed-in cart call carrying it. While the shop is
+  closed visitors get 403 "The shop opens soon." like everyone.
+- **The order's link without Django's pages:** `POST orders/t/<token>/cancel/`, `GET orders/t/<token>/invoice/` and
+  `…/credit-notes/<id>/`; the link's `invoice.url` and `credit_notes[].url` point there (the frontend serves
+  `/orders/t/…` once Caddy switches).
+- **Contact form:** `POST contact/` (name 80, message 2,000 characters, Turnstile, honeypot, 5 an hour per address with
+  the website's form), emailed by `pages.views.send_contact` (now shared) with Reply-To the sender, nothing stored; 503
+  while the support address is a `[placeholder]`. New setting `SUPPORT_EMAIL` (empty: `SELLER_EMAIL`), which
+  `config/`'s `support.email` now follows.
+- **Shipping:** `GET shipping/` (the rates and the lowest fee and free-delivery value), `GET shipping/quote/` (the fee
+  to a PIN code or state for the caller's cart or an amount, with the PIN code's states and districts: the frontend's
+  PIN autofill), and `shipping` in `config/` for "delivery from ₹40". `ShippingRate.rate_for` and `.summary`.
+- **Frontend development:** README.md "The Next.js frontend in development" (Django on 8100 with
+  `SITE_URL=http://localhost:3000`, `CSRF_TRUSTED_ORIGINS`, `USE_X_FORWARDED_HOST=1`; no CORS: one origin) and
+  DEPLOYMENT.md section 20; `HEADLESS_FRONTEND_URLS`' fallback for a failed Google log-in is `/account/login/` (it shows
+  `?error=`), the other entries and every email link are paths the frontend serves.
+- Tests: `shop/test_api_guest.py` (browse, cart, coupon, order, mocked payment, confirm, the status page, cancel and
+  PDFs by the link; the token client and its merge; CSRF and the merge at a headless log-in; the website's checks),
+  and in `api/test_contract.py` (contact) and `shop/test_api_contract.py` (shipping).
+
 ## Phase 7 journeys (8 October 2026)
 
 The user-journey gaps of docs/design/coverage-matrix.md closed where they were contained; what needs a founder's
