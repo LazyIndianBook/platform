@@ -276,13 +276,43 @@ describe("after a session ended", () => {
     expect(screen.getByText("/account/record/12/edit/")).toBeVisible();
   });
 
-  it("says nothing it cannot know: no draft, or no destination, no notice", () => {
+  it("also finds the draft of a paper's own page (a new score)", () => {
+    window.sessionStorage.setItem("examleaf:marks-draft:PHY-E02:new", draft);
+    renderLogin(everything, { next: "/s/PHY-E02/#record" });
+    expect(screen.getByText("You were logged out")).toBeVisible();
+  });
+
+  it("says nothing it cannot know: no draft, no destination, or a draft that belongs to another page", () => {
     const { unmount } = renderLogin(everything, { next: "/s/PHY-E02/" });
     expect(screen.queryByText("You were logged out")).not.toBeInTheDocument();
     unmount();
     window.sessionStorage.setItem("examleaf:marks-draft:PHY-E04:12", draft);
-    renderLogin(everything);
+    const second = renderLogin(everything);
     expect(screen.queryByText("You were logged out")).not.toBeInTheDocument();
+    second.unmount();
+    renderLogin(everything, { next: "/s/PHY-E02/" }); // the draft is for PHY-E04's edit page: left over, not this visit's
+    expect(screen.queryByText("You were logged out")).not.toBeInTheDocument();
+  });
+});
+
+describe("while the backend cannot be reached (no config)", () => {
+  it("says log in and Register are not available, and offers no form that would fail", () => {
+    const { unmount } = render(
+      <ConfigProvider value={null}>
+        <LoginForm next={null} />
+      </ConfigProvider>,
+    );
+    expect(screen.getByText("Log in is not available just now")).toBeVisible();
+    expect(screen.queryByRole("button", { name: /code/ })).not.toBeInTheDocument();
+    unmount();
+
+    render(
+      <ConfigProvider value={null}>
+        <SignupForm next={null} boards={[]} />
+      </ConfigProvider>,
+    );
+    expect(screen.getByText("Registering is not available just now")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Register" })).not.toBeInTheDocument();
   });
 });
 

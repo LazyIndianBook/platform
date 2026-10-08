@@ -29,13 +29,17 @@ import { fieldError, useAuthAction } from "./use-auth-action";
 const DRAFT_PREFIX = "examleaf:marks-draft:";
 const nothing = () => () => undefined;
 
-/** The marks typed on a page whose save found the session ended (marks-form.tsx keeps the draft in sessionStorage
- *  until a save works): null when no draft waits, else the marks as typed ("" when that box was empty). */
-function keptMarks(): string | null {
+/** The marks typed on the page `going` leads to, by a save that found the session ended: marks-form.tsx keeps the
+ *  draft in sessionStorage, under examleaf:marks-draft:<paper>:<attempt's id, or "new">, until a save works. null when
+ *  none waits for that page, else the marks as typed ("" when that box was empty). */
+function keptMarks(going: string): string | null {
+  const here = going.toLowerCase();
   try {
     for (let index = 0; index < window.sessionStorage.length; index++) {
       const key = window.sessionStorage.key(index);
       if (!key?.startsWith(DRAFT_PREFIX)) continue;
+      const [paper, attempt] = key.slice(DRAFT_PREFIX.length).toLowerCase().split(":");
+      if (!here.startsWith(`/s/${paper}/`) && !here.startsWith(`/account/record/${attempt}/edit/`)) continue;
       const draft = JSON.parse(window.sessionStorage.getItem(key) ?? "null") as { marks_obtained?: unknown } | null;
       return typeof draft?.marks_obtained === "string" ? draft.marks_obtained.trim() : "";
     }
@@ -73,7 +77,12 @@ export function LoginForm({ next, providerError }: { next: string | null; provid
   const { run, busy, error, setError } = useAuthAction(next);
   const bot = useTurnstile(step === "start" ? siteKey : null, error);
   const passkey = useAuthAction(next); // its own busy state: the passkey prompt is not the code request
-  const draft = useSyncExternalStore(nothing, keptMarks, () => null);
+  const going = safeNext(next, "");
+  const draft = useSyncExternalStore(
+    nothing,
+    () => keptMarks(going),
+    () => null,
+  );
 
   useEffect(() => {
     auth
@@ -160,10 +169,9 @@ export function LoginForm({ next, providerError }: { next: string | null; provid
   }
 
   const cancelled = providerError === "cancelled";
-  const going = safeNext(next, "");
   return (
     <>
-      {going && going !== "/" && draft !== null ? (
+      {draft !== null ? (
         <Alert variant="info" title="You were logged out">
           <p>
             For your safety, sessions end after a while. Log in and we&apos;ll take you back to where you were.{" "}
