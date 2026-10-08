@@ -602,6 +602,9 @@ CONFIG = inline_serializer(
                 "ios": serializers.URLField(allow_null=True, help_text="the App Store's page; null until out"),
             },
         ),
+        "web_course": serializers.BooleanField(
+            help_text="the revision course's chapter, flash-card and quiz pages on the website; off: the app only"
+        ),
     },
 )
 
@@ -610,7 +613,8 @@ class ConfigView(generics.GenericAPIView):
     """What this server has switched on, so that a frontend never hard-codes a feature flag: the ways to log in
     (allauth.headless's /_allauth/<client>/v1/config has allauth's own view of them), the bot check, the shop, whether
     the solutions need an account, the parent's consent mode, the support contacts (null while the seller's details
-    still hold a [placeholder]) and the app's store pages (null until set). Public, cacheable for 5 minutes."""
+    still hold a [placeholder]), the app's store pages (null until set) and whether the revision course has pages on
+    the website (WEB_COURSE, off by default). Public, cacheable for 5 minutes."""
 
     permission_classes = [permissions.AllowAny]
     authentication_classes = []
@@ -636,6 +640,7 @@ class ConfigView(generics.GenericAPIView):
                     "parental_consent": "verified",
                     "support": {"email": "help@examleaf.in", "phone": None},
                     "app_links": {"android": "https://play.google.com/store/apps/details?id=…", "ios": None},
+                    "web_course": False,
                 },
             )
         ],
@@ -666,6 +671,7 @@ class ConfigView(generics.GenericAPIView):
                     "phone": None if "[" in seller["phone"] else seller["phone"] or None,
                 },
                 "app_links": {"android": settings.APP_LINK_ANDROID or None, "ios": settings.APP_LINK_IOS or None},
+                "web_course": settings.WEB_COURSE,
             }
         )
         patch_cache_control(response, public=True, max_age=300)

@@ -830,7 +830,9 @@ null while the bot check is off), `shop` (`open`, `cod`, `cod_max_value`, `curre
 `solutions_require_login`,
 `parental_consent` (`declared` or `verified`) and `support` (`email`: `SUPPORT_EMAIL`, else `SELLER_EMAIL`; `phone`:
 `SELLER_PHONE`; each null while it still holds a `[placeholder]`) and `app_links` (`android`, `ios`: the app's pages on
-Google Play and the App Store, `APP_LINK_ANDROID` and `APP_LINK_IOS`; null until set). allauth.headless's
+Google Play and the App Store, `APP_LINK_ANDROID` and `APP_LINK_IOS`; null until set) and `web_course` (`WEB_COURSE`,
+off by default: whether the website draws the revision course's chapter, flash-card and quiz pages, which read the
+same `learn/` endpoints as the app; off, the website shows the course's outline and points to the app). allauth.headless's
 `/_allauth/<client>/v1/config` adds allauth's own view (the providers, the authenticator types, `usersessions`).
 
 `pages/` and `pages/<slug>/` (anyone; cached 15 minutes) are the legal and policy pages, `privacy`, `terms`, `refunds`,
@@ -852,7 +854,8 @@ curl https://examleaf.in/api/v1/config/
 #      "turnstile_site_key": "0x4AAAAAAA..."}, "shop": {"open": true, "cod": true, "cod_max_value": "1500.00",
 #      "currency": "INR"}, "shipping": {"fee_from": "40.00", "free_above": "499.00"},
 #      "solutions_require_login": true, "parental_consent": "verified",
-#      "support": {"email": "help@examleaf.in", "phone": null}, "app_links": {"android": null, "ios": null}}
+#      "support": {"email": "help@examleaf.in", "phone": null}, "app_links": {"android": null, "ios": null},
+#      "web_course": false}
 curl https://examleaf.in/api/v1/pages/privacy/
 # 200 {"slug": "privacy", "title": "Privacy Policy", "version": "2026-10-08", "updated": "...", "markdown": "...",
 #      "html": "<h2>...", "web_url": "https://examleaf.in/privacy/"}

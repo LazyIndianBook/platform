@@ -1941,7 +1941,7 @@
         "/api/v1/config/": {
             "get": {
                 "operationId": "config_retrieve",
-                "description": "What this server has switched on, so that a frontend never hard-codes a feature flag: the ways to log in\n(allauth.headless's /_allauth/<client>/v1/config has allauth's own view of them), the bot check, the shop, whether\nthe solutions need an account, the parent's consent mode, the support contacts (null while the seller's details\nstill hold a [placeholder]) and the app's store pages (null until set). Public, cacheable for 5 minutes.",
+                "description": "What this server has switched on, so that a frontend never hard-codes a feature flag: the ways to log in\n(allauth.headless's /_allauth/<client>/v1/config has allauth's own view of them), the bot check, the shop, whether\nthe solutions need an account, the parent's consent mode, the support contacts (null while the seller's details\nstill hold a [placeholder]), the app's store pages (null until set) and whether the revision course has pages on\nthe website (WEB_COURSE, off by default). Public, cacheable for 5 minutes.",
                 "tags": [
                     "site"
                 ],
@@ -1988,7 +1988,8 @@
                                             "app_links": {
                                                 "android": "https://play.google.com/store/apps/details?id=…",
                                                 "ios": null
-                                            }
+                                            },
+                                            "web_course": false
                                         }
                                     }
                                 }
@@ -6327,6 +6328,10 @@
                     },
                     "app_links": {
                         "$ref": "#/components/schemas/AppLinksConfig"
+                    },
+                    "web_course": {
+                        "type": "boolean",
+                        "description": "the revision course's chapter, flash-card and quiz pages on the website; off: the app only"
                     }
                 },
                 "required": [
@@ -6336,7 +6341,8 @@
                     "shipping",
                     "shop",
                     "solutions_require_login",
-                    "support"
+                    "support",
+                    "web_course"
                 ]
             },
             "ContactEnum": {

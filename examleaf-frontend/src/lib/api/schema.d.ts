@@ -581,7 +581,8 @@ export interface paths {
          * @description What this server has switched on, so that a frontend never hard-codes a feature flag: the ways to log in
          *     (allauth.headless's /_allauth/<client>/v1/config has allauth's own view of them), the bot check, the shop, whether
          *     the solutions need an account, the parent's consent mode, the support contacts (null while the seller's details
-         *     still hold a [placeholder]) and the app's store pages (null until set). Public, cacheable for 5 minutes.
+         *     still hold a [placeholder]), the app's store pages (null until set) and whether the revision course has pages on
+         *     the website (WEB_COURSE, off by default). Public, cacheable for 5 minutes.
          */
         get: operations["config_retrieve"];
         put?: never;
@@ -2062,6 +2063,8 @@ export interface components {
             parental_consent: components["schemas"]["ParentalConsentEnum"];
             support: components["schemas"]["SupportConfig"];
             app_links: components["schemas"]["AppLinksConfig"];
+            /** @description the revision course's chapter, flash-card and quiz pages on the website; off: the app only */
+            web_course: boolean;
         };
         /**
          * @description * `email` - email

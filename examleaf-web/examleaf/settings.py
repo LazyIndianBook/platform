@@ -586,3 +586,6 @@ USERSESSIONS_TRACK_ACTIVITY = True
 # The app's store pages (config/ app_links); empty until the app is out.
 APP_LINK_ANDROID = env("APP_LINK_ANDROID", default="")
 APP_LINK_IOS = env("APP_LINK_IOS", default="")
+# The revision course's pages on the website (config/ web_course): off until the product decision is made; the
+# course stays in the app. The frontend draws /revision/<subject>/<chapter>/, its flash cards and quiz only when on.
+WEB_COURSE = env.bool("WEB_COURSE", default=False)
