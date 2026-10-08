@@ -30,6 +30,9 @@ describe("MarkdownBlock", () => {
     expect(container.querySelector("p.also")).not.toBeNull();
     expect(container.querySelector("blockquote.diagram")).toHaveTextContent("Diagram expected: the circuit.");
     expect(container.querySelectorAll(".katex").length).toBe(2);
+    // KaTeX's HTML only: no MathML copy of each formula (Lighthouse review L4)
+    expect(container.querySelectorAll(".katex-html").length).toBe(2);
+    expect(container.querySelector("math, .katex-mathml")).toBeNull();
     expect(container.querySelector("script")).toBeNull();
     expect(container.innerHTML).not.toContain("alert(1)");
     expect(container.innerHTML).not.toContain("editors");

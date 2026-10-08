@@ -9,7 +9,6 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 import { buttonVariants } from "@/components/ui/button";
-import { auth } from "@/lib/auth/headless";
 import { withNext } from "@/lib/auth/next-url";
 
 const linkClasses = cn(
@@ -45,6 +44,8 @@ function NavLinks({ signedIn }: { signedIn: boolean }) {
     const logout = async () => {
       setLeaving(true);
       try {
+        // the sign-in client (and the API client under it) loads on Log out only, not with every page
+        const { auth } = await import("@/lib/auth/headless");
         await auth.logout();
       } finally {
         // a full load: the header, the cart and every layout read the ended session

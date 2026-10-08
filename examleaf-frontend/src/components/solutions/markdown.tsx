@@ -1,5 +1,9 @@
 // Markdown with $…$ maths, rendered on the server (react-markdown + remark-math + rehype-katex): the page arrives with
-// its formulas already drawn, so no maths script runs on the phone. GitHub tables for the marking steps; raw HTML
+// its formulas already drawn, so no maths script runs on the phone. KaTeX's HTML only (output "html"): its MathML
+// copy doubled each formula in the page and in the RSC payload (Lighthouse review L4), and the browsers' own MathML
+// reads worse than KaTeX's HTML in both Chrome and Safari (vector arrows off their letters, "sin θ" run together, no
+// line breaks in a long inline formula); screen readers then read the formula's characters in order, not its MathML
+// structure. GitHub tables for the marking steps; raw HTML
 // (comments included) is dropped, as on the Django site. Each text is rendered once per server process (the Django
 // site keeps an lru_cache of its rendering the same way): a paper's KaTeX work is not repeated for every visitor.
 import Markdown, { type Components } from "react-markdown";
@@ -10,7 +14,10 @@ import remarkMath from "remark-math";
 import rehypeExamleaf from "./rehype-examleaf";
 
 const remarkPlugins = [remarkGfm, remarkMath];
-const rehypePlugins = [[rehypeKatex, { throwOnError: false, strict: "ignore" }], rehypeExamleaf] as const;
+const rehypePlugins = [
+  [rehypeKatex, { throwOnError: false, strict: "ignore", output: "html" }],
+  rehypeExamleaf,
+] as const;
 const INLINE: Components = { p: ({ children }) => <>{children}</> };
 
 // ponytail: a bounded per-process cache (oldest entry dropped first); a shared cache only if several servers run

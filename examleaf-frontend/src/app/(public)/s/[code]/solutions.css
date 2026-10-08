@@ -39,7 +39,6 @@
   gap: 0 12px;
   padding: 24px 0;
   border-bottom: 1px solid var(--border);
-  overflow-x: auto;
   scroll-margin-top: 16px;
   content-visibility: auto;
   contain-intrinsic-size: auto 360px;

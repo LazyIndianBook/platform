@@ -222,11 +222,8 @@ export default async function BookPage({ params }: Props) {
                   {group.papers.map((paper) => {
                     const open = paper.is_sample && requireLogin;
                     return (
-                      <CardLink
-                        key={paper.code}
-                        href={`/s/${paper.code}/`}
-                        aria-label={`Paper ${shortCode(paper.code)}, ${TIERS[group.tier]}: open the solutions${open ? ", no account needed" : ""}`}
-                      >
+                      // named by what it shows, then the tier and where it goes (label in name: review F7)
+                      <CardLink key={paper.code} href={`/s/${paper.code}/`}>
                         <span className="flex flex-col gap-1 p-4">
                           <span className="flex items-center justify-between gap-2 font-head text-[22px] leading-tight font-extrabold text-primary">
                             {shortCode(paper.code)}
@@ -238,6 +235,7 @@ export default async function BookPage({ params }: Props) {
                             </span>
                           ) : null}
                           {open ? <span className="text-[15px] text-muted-foreground">Open to everyone</span> : null}
+                          <span className="sr-only">, {TIERS[group.tier]} paper: open the solutions</span>
                         </span>
                       </CardLink>
                     );
