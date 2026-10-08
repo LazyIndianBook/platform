@@ -2,24 +2,33 @@
 {% block head_title %}A parent's consent{% endblock %}
 {% block meta_description %}A parent or guardian confirms the ExamLeaf account of a student under 18.{% endblock %}
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block main_class %}{% endblock %}
 {% block content %}
-<h1>A parent's consent</h1>
-{% if expired %}
-<p>This link has expired or is not valid any more. Your child can send a new one from their ExamLeaf account page
-(My account).</p>
-{% elif done %}
-<p>Thank you. {{ student.full_name }}'s account is confirmed: they can now save their marks and order books.</p>
-{% else %}
-<p><strong>{{ student.full_name }}</strong> ({{ student.email }}) has registered at ExamLeaf and gave your email address
-as their parent's or guardian's. ExamLeaf keeps their name, email address, class, board, district and date of birth,
+<section class="section section-top">
+  <div class="container narrow">
+    <div class="card consent">
+      <div class="card-header"><h1>A parent's consent</h1></div>
+      <div class="card-body">
+        {% if expired %}
+        <div class="alert alert-warning"><svg class="icon" aria-hidden="true"><use href="#icon-alert"/></svg><div><p>This link has expired or is not valid any more. Your child can send a new one from their ExamLeaf account page
+        (My account).</p></div></div>
+        {% elif done %}
+        <div class="alert alert-success" role="status"><svg class="icon" aria-hidden="true"><use href="#icon-check-circle"/></svg><div><p>Thank you. {{ student.full_name }}'s account is confirmed: they can now save their marks and order books.</p></div></div>
+        {% else %}
+        <p><strong>{{ student.full_name }}</strong> ({{ student.email }}) has registered at ExamLeaf and gave your
+{% if "@" in student.parent_contact %}email address{% else %}mobile number{% endif %} as their parent's or guardian's. ExamLeaf keeps their name, email address, class, board, district and date of birth,
 and the marks they save, so that they can use the free solutions of the ExamLeaf sample papers.</p>
-<p><a href="{% url 'privacy' %}" target="_blank" rel="noopener">Read the privacy notice</a>: what we keep, why, for how
-long, and how you can see, correct or delete it.</p>
-<form method="post">
-  {% csrf_token %}
-  <button type="submit">I am their parent or guardian, and I agree</button>
-</form>
-<p>If you do not agree, you need not do anything: the account cannot save marks or order books. To have it deleted,
-<a href="{% url 'contact' %}">write to us</a>.</p>
-{% endif %}
+        <p><a href="{% url 'privacy' %}" target="_blank" rel="noopener">Read the privacy notice</a>: what we keep, why, for how
+        long, and how you can see, correct or delete it.</p>
+        <form method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-primary btn-lg">I am their parent or guardian, and I agree</button>
+        </form>
+        <p class="muted">If you do not agree, you need not do anything: the account cannot save marks or order books. To have it deleted,
+        <a href="{% url 'contact' %}">write to us</a>.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</section>
 {% endblock %}

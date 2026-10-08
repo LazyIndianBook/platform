@@ -1,0 +1,21 @@
+circlename,regionname,divisionname,officename,pincode,officetype,delivery,district,statename,latitude,longitude
+Assam Circle,NA,Guwahati Division,Guwahati G.P.O.,781001,H.O,Delivery,KAMRUP METRO,ASSAM,26.1833,91.75
+Assam Circle,NA,Guwahati Division,Panbazar S.O,781001,S.O,Non Delivery,KAMRUP METRO,ASSAM,26.1858,91.7445
+Assam Circle,NA,Guwahati Division,Dispur S.O,781006,S.O,Delivery,KAMRUP METRO,ASSAM,26.1433,91.7898
+Assam Circle,NA,Guwahati Division,Rangia S.O,781354,S.O,Delivery,KAMRUP,ASSAM,26.4486,91.6123
+Assam Circle,NA,Dibrugarh Division,Jorhat H.O,785001,H.O,Delivery,JORHAT,ASSAM,26.75,94.2167
+Assam Circle,NA,Cachar Division,Silchar H.O,788001,H.O,Delivery,CACHAR,ASSAM,24.8333,92.7789
+Assam Circle,NA,Nagaon Division,Nagaon H.O,782001,H.O,Delivery,NAGAON,ASSAM,26.35,92.6833
+Assam Circle,NA,Dibrugarh Division,Dibrugarh H.O,786001,H.O,Delivery,DIBRUGARH,ASSAM,27.4728,94.912
+North Eastern Circle,NA,Shillong Division,Shillong G.P.O.,793001,H.O,Delivery,EAST KHASI HILLS,MEGHALAYA,25.5788,91.8933
+North Eastern Circle,NA,Agartala Division,Agartala H.O,799001,H.O,Delivery,WEST TRIPURA,TRIPURA,23.8315,91.2868
+North Eastern Circle,NA,Imphal Division,Imphal H.O,795001,H.O,Delivery,IMPHAL WEST,MANIPUR,24.817,93.9368
+West Bengal Circle,Kolkata Region,Kolkata GPO Division,Kolkata G.P.O.,700001,H.O,Delivery,KOLKATA,WEST BENGAL,22.5726,88.3639
+Delhi Circle,NA,New Delhi GPO Division,New Delhi G.P.O.,110001,H.O,Delivery,NEW DELHI,DELHI,28.6139,77.209
+Chhattisgarh Circle,NA,Raipur Division,Raipur H.O,492001,H.O,Delivery,RAIPUR,Chattisgarh,21.2514,81.6296
+Tamilnadu Circle,Puducherry Region,Pondicherry Division,Pondicherry H.O,605001,H.O,Delivery,PONDICHERRY,PUDUCHERRY,11.9416,79.8083
+Gujarat Circle,Vadodara Region,Valsad Division,Silvassa H.O,396230,H.O,Delivery,DADRA & NAGAR HAVELI,THE DADRA AND NAGAR HAVELI AND DAMAN AND DIU,20.2763,73.0083
+Gujarat Circle,Vadodara Region,Valsad Division,Velugam B.O,396230,B.O,Delivery,VALSAD,GUJARAT,20.29,73.04
+Jammu & Kashmir Circle,NA,Srinagar Division,Srinagar G.P.O.,190001,H.O,Delivery,SRINAGAR,JAMMU & KASHMIR,34.0837,74.7973
+Maharashtra Circle,Mumbai Region,Mumbai GPO Division,Mumbai G.P.O.,400001,H.O,Delivery,MUMBAI,MAHARASHTRA,18.9398,72.8355
+Karnataka Circle,Bangalore HQ Region,Bangalore GPO Division,Bangalore G.P.O.,560001,H.O,Delivery,BENGALURU URBAN,KARNATAKA,12.9716,77.5946

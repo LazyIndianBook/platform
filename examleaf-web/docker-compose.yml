@@ -14,6 +14,8 @@ x-app: &app
     CELERY_BROKER_URL: redis://redis:6379/0
     PROXY_COUNT: 1  # Caddy
     BOOK_ROOT: /book
+    AWS_REQUEST_CHECKSUM_CALCULATION: when_required  # boto3 with Cloudflare R2 (settings.py, "Two S3-compatible buckets")
+    AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
   volumes:
     - media:/app/media
   depends_on:
@@ -96,6 +98,12 @@ services:
   beat:
     <<: *app
     command: celery -A examleaf beat --loglevel INFO
+    depends_on:
+      web: {condition: service_healthy}
+
+  media-worker:  # ffmpeg for the revision course's clips (queue "media", learn/tasks.py): one video at a time
+    <<: *app
+    command: celery -A examleaf worker --queues media --hostname media@%h --loglevel INFO --concurrency 1
     depends_on:
       web: {condition: service_healthy}
 

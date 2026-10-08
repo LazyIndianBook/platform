@@ -28,7 +28,7 @@ instead (with the `X-CSRFToken` header on POST, PUT, PATCH and DELETE).
 
 **Sign up** with the same fields and rules as the website's form: class (10 or 12), board (an id from `boards/`),
 date of birth, and the consent box (`consent: true`) for everyone; under 18 also a parent's or guardian's name and
-phone or email (the parent ticks the consent). The answer carries a `verification_token`; a code (`ABCD-EFGH`) is
+phone or email (the parent ticks the consent). The answer carries a `verification_token`; a 6-digit code is
 emailed. Signing up with an address that already has an account gets the same answer (its owner gets an email), so
 nobody can find out who is registered.
 
@@ -47,7 +47,7 @@ Three wrong codes, or 15 minutes, end the token: then log in again for a new cod
 
 ```sh
 curl -X POST https://examleaf.in/api/v1/auth/registration/verify-email/ -H 'Content-Type: application/json' \
-  -d '{"verification_token": "q3k9w0d8m2...", "code": "ABCD-EFGH"}'
+  -d '{"verification_token": "q3k9w0d8m2...", "code": "483920"}'
 # 200 {"access": "eyJ...", "refresh": "eyJ...", "user": {"id": 7, "email": "rahul@example.com", "roles": ["STUDENT"], ...}}
 ```
 
@@ -58,6 +58,23 @@ three minutes): show the code screen and continue with verify-email.
 ```sh
 curl -X POST https://examleaf.in/api/v1/auth/login/ -H 'Content-Type: application/json' \
   -d '{"email": "rahul@example.com", "password": "Brahmaputra-2027"}'
+# 200 {"access": "eyJ...", "refresh": "eyJ...", "user": {...}}
+```
+
+**Log in with a code by SMS** (no password), for a student who confirmed a mobile number on the website (My account:
+the app cannot add or confirm one). `auth/phone/code/` takes the number as people type it ("98640 12345",
+"+91 98640 12345", "098640 12345") and texts a 6-digit code if an account confirmed that number; every other Indian
+mobile number gets the same answer and no SMS. `auth/phone/confirm/` takes the token and the code and answers as a
+log-in. A wrong code is `400 {"code": [...]}`; three wrong codes, or 3 minutes, end the token:
+`400 {"verification_token": ["Expired. Ask for a new code."]}`. At most 3 codes an hour per number (however it is
+typed) and 5 a minute per client address: 429 above it. `404` while the server sends no SMS (`SMS_BACKEND` not set).
+
+```sh
+curl -X POST https://examleaf.in/api/v1/auth/phone/code/ -H 'Content-Type: application/json' -d '{"phone": "98640 12345"}'
+# 200 {"detail": "Code sent by SMS.", "verification_token": "x8f2k1..."}
+# 400 {"phone": ["Enter a 10-digit Indian mobile number."]}
+curl -X POST https://examleaf.in/api/v1/auth/phone/confirm/ -H 'Content-Type: application/json' \
+  -d '{"verification_token": "x8f2k1...", "code": "483920"}'
 # 200 {"access": "eyJ...", "refresh": "eyJ...", "user": {...}}
 ```
 
@@ -83,8 +100,8 @@ website. `auth/password/reset/` (`email`) always answers 200 and emails a link t
 `new_password1` and `new_password2` to `auth/password/reset/confirm/`. When an account deletion is carried out
 (seven days after the request), every token of the account ends too.
 
-Log-in, log-out, sign-up, verify-email and password reset ignore the `Authorization` header, so an expired token left
-in it does no harm there.
+Log-in, log-out, sign-up, verify-email, the SMS code endpoints and password reset ignore the `Authorization` header,
+so an expired token left in it does no harm there.
 
 ## Endpoints
 
@@ -165,7 +182,9 @@ is closed (`SHOP_OPEN=0`, before the launch) changing the cart, checkout and pay
 slug in `books/`), `isbn`, `pages`, `description` (Markdown), `cover` and `images` (`url`, `alt`), `mrp`, `price`,
 `saving_percent`, `gst_rate`, `hsn_code`, `in_stock` (whether copies can be ordered; a bundle needs each of its
 books; the number of copies is not given), `bundle_items` (`product`, `title`, `quantity`), `web_url`. Filters:
-`?kind=`, `?subject=<id>`, `?search=`.
+`?kind=`, `?subject=<id>`, `?search=`. The picture URLs are the uploaded originals: on the media domain
+(`https://media.examleaf.in/products/…`, cached a year, a new upload gets a new name) once the site uses its buckets,
+under `https://examleaf.in/shop/media/products/…` before; the website shows AVIF and WebP sizes of them (phase 5 B).
 
 **Cart**: every answer is the whole cart at today's prices: `items` (`product`, `title`, `price`, `quantity`,
 `total`), `count`, `coupon`, `coupon_problem` (why the coupon does not apply now), `subtotal`, `discount`, `shipping`
@@ -186,7 +205,11 @@ curl -X POST 'https://examleaf.in/api/v1/cart/coupon/?state=AS' -H "Authorizatio
 ```
 
 **Addresses**: `name`, `phone` (a 10-digit Indian mobile number; answered as `+919864012345`), `line1`, `line2`,
-`city`, `district`, `state` (two-letter code, `AS`), `pin` (6 digits), `is_default` (one address at most).
+`city`, `district`, `state` (two-letter code, `AS`), `pin` (6 digits), `is_default` (one address at most). Once the
+India Post directory is loaded, the state must be the PIN code's (`400 {"state": ["PIN code 781001 is in Assam."]}`;
+PIN codes missing from the directory are not checked; phase 5 B). To fill in the district and state from a PIN code,
+the app may call the website's `GET https://examleaf.in/shop/pin/781001/` (no log-in; `200 {"pin": "781001", "states":
+["AS"], "districts": ["Kamrup Metro"]}`, 404 when unknown; cached a day); a few PIN codes lie in two states.
 
 **Checkout**: `POST orders/` with `address` (an id from `addresses/`) and `payment_method` (`razorpay`, or `cod` when
 the site offers cash on delivery) makes an order from the cart; the address is copied into it. An online order is
@@ -300,6 +323,8 @@ Per account, whatever the address (the website's limits, counted together with i
 - **log-in:** after 5 failed log-ins in 5 minutes, even the right password gets 400 "Too many failed login attempts.
   Try again later." for the rest of those 5 minutes;
 - **password reset:** 5 emails a minute per email address (`auth/password/reset/` answers 429 above it);
+- **SMS codes** (`auth/phone/code/`): 3 an hour per number and 5 a minute per client address (429 above it), and the
+  site sends at most `SMS_DAILY_CAP` SMS a day in all (counted in the database, so also while Redis is down);
 - **passwords of a signed-in user** (`auth/password/change/`, `me/export/`, `me/deletion/`): after 5 wrong ones in an
   hour every refresh token of the user is revoked (the app must log in again once the access token expires) and these
   answer 429 until the hour is over;

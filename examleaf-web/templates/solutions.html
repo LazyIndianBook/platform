@@ -7,52 +7,77 @@
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.19.0/dist/contrib/auto-render.min.js" integrity="sha256-5TctGZvNrotN5x0PfOunKkuhJ3SifGCm8fd9A7MijuQ=" crossorigin="anonymous"></script>
 <script defer src="{% static 'js/math.js' %}"></script>
 {% endblock %}
+{% block main_class %}{% endblock %}
 {% block content %}
-<div class="paperbar"><strong>{{ paper.code }}</strong> · {{ paper.book.subject.name }} · {{ paper.get_tier_display }} <a href="#record">Record marks</a></div>
-<header class="paper-head">
-  <p class="eyebrow">Sample Paper {{ paper.short_code }} · {{ paper.get_tier_display }}</p>
-  <h1>{{ paper.book.subject.name }} — solutions</h1>
-  <dl class="facts">
-    <div><dt>Full marks</dt><dd>{{ paper.full_marks }}</dd></div>
-    <div><dt>Pass marks</dt><dd>{{ paper.pass_marks }}</dd></div>
-    <div><dt>Time</dt><dd>{{ paper.time_text }}</dd></div>
-  </dl>
-  <details>
-    <summary>Instructions and allotment of marks</summary>
-    {% for line in paper.header_json.lines %}<p>{{ line|markdown_inline }}</p>{% endfor %}
-    {% for table in paper.header_json.allotment %}{{ table|markdown }}{% endfor %}
-  </details>
-</header>
+<section class="section section-top">
+  <div class="container">
+    <nav class="breadcrumb" aria-label="Breadcrumb"><ol>
+      <li><a href="{% url 'home' %}">Home</a></li>
+      <li><svg class="icon" aria-hidden="true"><use href="#icon-chevron-right"/></svg><a href="{{ paper.book.get_absolute_url }}">{{ paper.book.subject.name }}</a></li>
+      <li><svg class="icon" aria-hidden="true"><use href="#icon-chevron-right"/></svg><span aria-current="page">Paper {{ paper.short_code }}</span></li>
+    </ol></nav>
+    {% include "_qr_card.html" with title=paper.book.subject.name|add:": solutions" %}
+    <div class="row paper-actions">
+      <a class="btn btn-secondary" href="#record"><svg class="icon" aria-hidden="true"><use href="#icon-pencil"/></svg><span>Record your marks</span></a>
+      <a href="{{ paper.book.get_absolute_url }}"><span>All {{ paper.book.subject.name }} papers</span><svg class="icon" aria-hidden="true"><use href="#icon-arrow-right"/></svg></a>
+    </div>
+    {% if paper.header_json.lines or paper.header_json.allotment %}
+    <details class="accordion">
+      <summary><span>Instructions and allotment of marks</span><svg class="icon" aria-hidden="true"><use href="#icon-chevron-down"/></svg></summary>
+      <div>
+        {% for line in paper.header_json.lines %}<p>{{ line|markdown_inline }}</p>{% endfor %}
+        {% for table in paper.header_json.allotment %}{{ table|markdown }}{% endfor %}
+      </div>
+    </details>
+    {% endif %}
+    <div class="two-col">
+    <div class="main-col">
+      {% for q in questions %}
+        {% ifchanged q.part_label %}{% if q.part_label %}<h2 class="part">{{ q.part_label }}</h2>{% endif %}{% endifchanged %}
+        {% ifchanged q.part_label q.group_label %}{% if q.group_label %}{% with tag=q.part_label|yesno:"h3,h2" %}<{{ tag }} class="group" id="g-{{ q.label|slugify }}">{{ q.group_label|markdown_inline }}</{{ tag }}>{% endwith %}{% endif %}{% endifchanged %}
+        {% if q.is_alternative %}<p class="or">Or</p>{% endif %}
+        <article class="question" id="q-{{ q.label|slugify }}">
+          <span class="qno">{% if not q.is_alternative %}{{ q.number }}{% endif %}</span>
+          <div class="qtext">
+            {{ q.text_md|markdown }}
+            {% if q.table_md %}{{ q.table_md|markdown }}{% endif %}
+            {% if q.options_json %}<ul class="options">{% for option in q.options_json %}<li>{{ option|markdown_inline }}</li>{% endfor %}</ul>{% endif %}
+          </div>
+          {% if q.marks_text %}<p class="marks">[{{ q.marks_text }}]</p>{% endif %}
+          {% if q.solution %}<div class="solution"><p class="solution-label"><svg class="icon" aria-hidden="true"><use href="#icon-check-circle"/></svg>Solution</p>{{ q.solution.body_md|markdown }}</div>{% endif %}
+        </article>
+      {% endfor %}
 
-{% for q in questions %}
-  {% ifchanged q.part_label %}{% if q.part_label %}<h2 class="part">{{ q.part_label }}</h2>{% endif %}{% endifchanged %}
-  {% ifchanged q.group_label %}{% if q.group_label %}<p class="group">{{ q.group_label|markdown_inline }}</p>{% endif %}{% endifchanged %}
-  {% if q.is_alternative %}<div class="or"><span>Or</span></div>{% endif %}
-  <article class="question" id="q-{{ q.label|slugify }}">
-    <div class="q">
-      <span class="qno">{% if not q.is_alternative %}{{ q.number }}{% endif %}</span>
-      <div class="qtext">
-        {{ q.text_md|markdown }}
-        {% if q.table_md %}{{ q.table_md|markdown }}{% endif %}
-        {% if q.options_json %}<ul class="options">{% for option in q.options_json %}<li>{{ option|markdown_inline }}</li>{% endfor %}</ul>{% endif %}
-        {% if q.marks_text %}<p class="marks">[{{ q.marks_text }}]</p>{% endif %}
+      <div class="card record-card" id="record">
+        <div class="card-header">
+          <h2>Record your marks</h2>
+          {% if form %}<p>Mark your answers against these solutions, then save your score to <a href="{% url 'record' %}">My record</a>.</p>{% endif %}
+        </div>
+        {% if form %}
+        <form method="post" action="{% url 'attempt_add' paper.code %}">
+          {% csrf_token %}
+          <div class="card-body"><div class="form-grid">{{ form }}</div></div>
+          <div class="card-footer">
+            <button type="submit" class="btn btn-primary"><svg class="icon" aria-hidden="true"><use href="#icon-check"/></svg><span>Save to my record</span></button>
+            <a href="{% url 'record' %}">Open My record</a>
+          </div>
+        </form>
+        {% else %}
+        <div class="card-body"><p>Mark your answers against these solutions. To keep your scores in My record, <a href="{% url 'account_login' %}?next={{ request.path|urlencode }}">log in</a> or <a href="{% url 'account_signup' %}?next={{ request.path|urlencode }}">register</a> (free).</p></div>
+        {% endif %}
       </div>
     </div>
-    {% if q.solution %}<div class="solution">{{ q.solution.body_md|markdown }}</div>{% endif %}
-  </article>
-{% endfor %}
 
-<section class="record-form" id="record">
-  <h2>Record your marks</h2>
-  {% if form %}
-  <p>Mark your answers against these solutions, then save your score to <a href="{% url 'record' %}">My record</a>.</p>
-  <form method="post" action="{% url 'attempt_add' paper.code %}">
-    {% csrf_token %}
-    {{ form }}
-    <button type="submit">Save to my record</button>
-  </form>
-  {% else %}
-  <p>Mark your answers against these solutions. To keep your scores in My record, <a href="{% url 'account_login' %}?next={{ request.path|urlencode }}">log in</a> or <a href="{% url 'account_signup' %}?next={{ request.path|urlencode }}">register</a> (free).</p>
-  {% endif %}
+    <aside class="rail" aria-label="On this paper">
+      <div class="card"><div class="card-body">
+        <h2 class="rail-title">On this paper</h2>
+        <ul>
+          {% for q in questions %}{% ifchanged q.part_label q.group_label %}{% if q.group_label %}<li><a href="#g-{{ q.label|slugify }}">Questions from {{ q.number }}</a></li>{% endif %}{% endifchanged %}{% endfor %}
+          <li><a href="#record">Record your marks</a></li>
+        </ul>
+      </div></div>
+    </aside>
+    </div>
+  </div>
 </section>
 {% endblock %}

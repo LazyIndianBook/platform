@@ -2,15 +2,27 @@
 {% block head_title %}Page not found{% endblock %}
 {% block meta_description %}This page does not exist on the ExamLeaf website. Choose a book or open the shop.{% endblock %}
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block main_class %}{% endblock %}
 {% block content %}
-<section class="landing">
-  <p class="eyebrow">Error 404</p>
-  <h1>We could not find that page</h1>
-  <p>The address may have a typing mistake, or the page has moved.</p>
-  {% if request_path|slice:":3" == "/s/" %}<p>Looking for the solutions to a paper? Choose your book on the home page and open the paper from there, or scan the QR code on the paper again.</p>{% endif %}
-  <p class="actions">
-    <a class="button" href="{% url 'home' %}">The books</a>
-    <a class="button secondary" href="{% url 'shop:catalogue' %}">Shop</a>
-  </p>
+<section class="section section-top">
+  <div class="container">
+    <div class="empty">
+      <svg class="icon icon-lg icon-64" aria-hidden="true"><use href="#icon-missing"/></svg>
+      <p class="eyebrow">Error 404</p>
+      <h1>We could not find that page</h1>
+      <p>The address may have a typing mistake, or the page has moved.</p>
+      {% if request_path|slice:":3" == "/s/" %}<p class="empty-note">Looking for the solutions to a paper? Choose your book below and open the paper from there, or scan the QR code on the paper again.</p>{% endif %}
+      <a class="btn btn-primary btn-lg" href="{% url 'home' %}"><svg class="icon" aria-hidden="true"><use href="#icon-book"/></svg><span>The books</span></a>
+      <p>or <a href="{% url 'shop:catalogue' %}">open the shop</a></p>
+    </div>
+    <h2 class="tiles-title">Open a book</h2>
+    {# The error page has no books in its context: the four printed books, by their slugs #}
+    <div class="grid tiles">
+      {% url 'book' 'physics-2027' as physics %}{% include "_tile.html" with key="physics" name="Physics" url=physics marks=70 time="3 hours" cover="img/physics.png" %}
+      {% url 'book' 'chemistry-2027' as chemistry %}{% include "_tile.html" with key="chemistry" name="Chemistry" url=chemistry marks=70 time="3 hours" cover="img/chemistry.png" %}
+      {% url 'book' 'mathematics-2027' as mathematics %}{% include "_tile.html" with key="mathematics" name="Mathematics" url=mathematics marks=80 time="3 hours" cover="img/mathematics.png" %}
+      {% url 'book' 'biology-2027' as biology %}{% include "_tile.html" with key="biology" name="Biology" url=biology marks=70 time="3 hours" cover="img/biology.png" %}
+    </div>
+  </div>
 </section>
 {% endblock %}

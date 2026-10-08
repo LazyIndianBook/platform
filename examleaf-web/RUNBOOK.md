@@ -284,5 +284,144 @@ shows the confirmation ("confirmed through the link emailed to the parent", with
   After the switch this includes students under 18 who registered before it; email them that a parent must confirm.
 - **"My parent never got the link":** the student checks the address and sends it again from My account (also to a
   corrected address; one link every 10 minutes; a link sent to an old address stops working).
-- **A parent without email:** the site has no other way to verify yet; the account stays read-only.
+- **A parent without email:** with SMS on (`SMS_BACKEND=msg91`), the student gives the parent's mobile number instead
+  and the link goes by SMS (`/c/<token>/`; Consent records: "confirmed through the link texted to the parent"). Who
+  receives a link, by email or SMS, is not proof that they are the parent: the DPDP Rules, 2025 (rule 10) ask for
+  verification through reliable identity details or a token (such as DigiLocker), which the site does not do yet;
+  record this limit in the consent assessment. Without SMS the account stays read-only.
 - **A parent who does not agree:** delete the account on request ("A data request under the DPDP Act").
+
+## SMS
+
+The site texts through MSG91 (`ops/sms.py`, `SMS_BACKEND=msg91`): log-in codes, the code that confirms a mobile number,
+order updates for students who asked for them on My account, and parents' consent links. Every SMS is a row in
+Admin → Operations → SMS log (kind, status, MSG91's request id, last 4 digits; the number itself is kept only as a
+keyed hash). Search there with the whole number ("98640 12345") to see what went to it. Rows go after 90 days.
+
+**DLT, before the first SMS** (DEPLOYMENT.md section 15 has the steps): Principal Entity ID, header (e.g. `EXMLEF`),
+one template per kind, the URL whitelisted, MSG91 bound as telemarketer, the server's IP whitelisted for the authkey.
+The carriers compare a message with its template character by character and drop it silently if they differ, so
+register these texts exactly (`{#var#}` holds at most 30 characters):
+
+| Kind (`.env`) | Category | Template text | Variables sent |
+|---|---|---|---|
+| `MSG91_TEMPLATE_OTP` | Transactional | `{#var#} is your ExamLeaf code. It is valid for 5 minutes. Do not share it with anyone. -ExamLeaf` | the code (MSG91 OTP API) |
+| `MSG91_TEMPLATE_ORDER_PLACED` | Service Implicit | `Your ExamLeaf order {#var#} is confirmed. We will text you when it ships. -ExamLeaf` | `var1` order number |
+| `MSG91_TEMPLATE_ORDER_SHIPPED` | Service Implicit | `Your ExamLeaf order {#var#} has shipped: {#var#}. -ExamLeaf` | `var1` order number, `var2` courier and tracking number |
+| `MSG91_TEMPLATE_ORDER_DELIVERED` | Service Implicit | `Your ExamLeaf order {#var#} has been delivered. Thank you. -ExamLeaf` | `var1` order number |
+| `MSG91_TEMPLATE_PARENT_CONSENT` | Service Implicit | `{#var#} has registered at ExamLeaf and named you as parent or guardian. To agree, open https://examleaf.in/c/{#var#}/ within 7 days. -ExamLeaf` | `var1` the student's first name, `var2` the link's token |
+
+In MSG91 the DLT variables become `##var1##`, `##var2##` (the OTP template: `##OTP##`); keep those names. If the DLT
+portal wants the link as a `{#url#}` variable rather than in the text, register it so and tell the developer: the
+code then sends the whole link as `var2` (about 50 characters).
+
+**The daily cap.** At most `SMS_DAILY_CAP` (default 500) SMS are sent from midnight to midnight (India time), counted in
+the database: allauth's own limits (3 codes an hour per number, 5 a minute per address) live in Redis and let
+everything through while it is down. Once the cap is reached every further SMS is logged as "not sent: daily cap
+reached" and Sentry gets "SMS_DAILY_CAP reached". Then: look at the SMS log for one number or kind repeating (a bot
+pumping SMS: put Turnstile on, DEPLOYMENT.md section 15; block its addresses at Caddy); if it is real growth, raise
+`SMS_DAILY_CAP` in `.env` and `docker compose up -d`. Students can still log in with the password or an emailed code.
+
+**"My code never came".** SMS log: no row (the number is not confirmed on any account, or the student typed another
+one; log-in codes go only to a confirmed number), "refused by the provider" (Sentry has MSG91's reason: template, IP
+whitelist, balance) or "sent" (ask MSG91's report with the request id: DND, a switched-off phone). The student can
+always use "Log in with a code" with the email address instead.
+
+## Phone numbers and passkeys: support cases
+
+A mobile number for log-in is added and changed only on My account, after an SMS code; one number belongs to one
+account. Staff find it in Admin → Users ("Log-in by SMS"; searchable by number); SUPPORT sees it, ADMIN changes it.
+
+- **Lost or changed phone:** the student logs in with the email (password or emailed code) and changes the number on
+  My account. Without access to the email either: the usual identity checks of "A data request under the DPDP Act",
+  then in the admin empty "mobile number for log-in" and untick both boxes.
+- **The number belongs to someone else now** (a recycled number, a sibling, a parent's phone shared by two children):
+  the second account cannot confirm it ("A user is already registered with this phone number."). Call the number from
+  the support phone: if the person who answers is the claimant, and the first account's owner agrees by email or does
+  not answer within a week, empty the number on the old account in the admin; the claimant then adds it again. Never
+  move a number without such a check: the number opens the account.
+- **Order SMS unwanted:** My account → untick "Text me when an order is placed…", or staff untick "order updates by SMS".
+- **Passkey lost (phone replaced):** the student logs in with the password or a code and removes the old passkey under
+  My account → Passkeys. Staff: as "Staff accounts" (a superuser removes the authenticator in Admin → MFA).
+
+## Email bounces and complaints
+
+With `ANYMAIL_WEBHOOK_SECRET` set and the provider's webhook pointed at `/anymail/<esp>/tracking/` (DEPLOYMENT.md section
+15), a hard bounce, an invalid address or a spam complaint puts the address in Admin → Operations → Email
+suppressions, and the site sends it nothing more (allauth's codes included). Soft bounces (a full mailbox) do not.
+
+- **"I get no emails from you":** search the address there. Reason "hard bounce" or "invalid": the student corrects
+  the address on My account, or confirms that the mailbox works again; then delete the row (SUPPORT may). Reason
+  "complaint": the student marked an email as spam; delete the row only when they ask for emails again, in writing.
+- SES keeps an account-level suppression list too (hard bounces and complaints): remove the address there as well
+  (SES → Account dashboard → Suppression list), or SES drops the email anyway.
+- Many suppressions at once (a typo in a bulk import, a provider outage reported as bounces): check a few with the
+  provider, then delete the rows in the admin.
+
+## Shipping, reviews, school orders, stock and GST (phase 5 B)
+
+### Shipping with tracking links
+
+Orders → select the packed orders → "Mark shipped": choose the courier, type the tracking number (AWB) and leave the
+link empty. The site fills it in: Delhivery, Blue Dart and Ekart open their own tracking page; India Post (its page
+needs a CAPTCHA), DTDC, Xpressbees and "another courier" open 17TRACK with the number. The customer's email (and SMS,
+when they asked for SMS) carries the link, and the order page shows it. Type a link yourself only for a courier whose
+page you know takes the number in the address. A wrong number: correct it in the order's Shipments; correct the link
+too (empty is not refilled there). The first time each courier is used, open the emailed link once with a real number
+to check it.
+
+Courier APIs are not built. When the volume justifies one (about 30 to 50 parcels a day, or when "delivered", NDR
+and RTO should update by themselves), choose one aggregator: Shiprocket (15 to 25 couriers, no minimum) or a direct
+Delhivery contract (worth it from about 500 orders a month). The shape then: `shop/shipping.py` with
+`create_shipment(order)` and `track(awb)`, and one webhook view mapping the courier's statuses to the existing
+shipped and delivered transitions, its events recorded in `WebhookEvent` as the Razorpay webhook's are (details:
+`docs/research/2026-10-08-production-features/report.md`, section 6). A consignment above ₹50,000 needs an e-way bill.
+
+### Reviews
+
+Only an account whose order of the book was delivered can review it, once (stars and up to 1,000 characters). Admin →
+Shop → Reviews, filter "waiting for approval": read each, select, "Approve" (it shows on the product page as "Verified
+buyer", never a name) or "Reject" (never shown). Reject anything with a phone number, an email address, a name, a
+link, a complaint about an order (answer it instead: the customer's email is on the review's page) or abuse; approve
+critical reviews that are about the book. A review's History shows who changed it. The star rating appears in search
+results only from approved reviews. Reviews are deleted with the account.
+
+### School and bulk orders
+
+The form at `/shop/school-orders/` (linked from the shop) emails the SALES role (the superusers while SALES has no
+member). In Admin → Shop → Quote requests:
+
+1. Open the request; check the GSTIN (it is validated, not looked up: search it on the GST portal for a large order)
+   and the delivery PIN code. Set the discount (%) and the shipping (₹) for this order; save.
+2. Select it → "Make the quotation PDF": today's prices, valid 15 days, stored in the private bucket; status "quotation
+   made". Download it from the request's page and email it to the contact with the bank details (NEFT) or the UPI ID,
+   or a Razorpay Payment Link (Razorpay dashboard → Payment Links) for the total.
+3. When the money arrives, set the status to "ordered", and pack and ship from stock as usual: lower the stock by hand
+   (Products) and keep the payment proof with the accounts. The site does not make the order or its tax invoice yet:
+   the accountant invoices it outside the site. Close requests that come to nothing.
+
+### Stock alerts and the low-stock email
+
+- A product out of stock shows "Email me when it is back". Each address gets one email, within the hour after copies
+  are back (the stock raised in Products, or a cancelled order's copies returned), and is then forgotten; alerts
+  never sent are deleted after a year.
+- Each morning at 8 the SALES role is emailed the books on sale with fewer copies than `SHOP_LOW_STOCK` (5). Nothing
+  is sent when no book is low. Bundles have no stock of their own: their books are in the list.
+
+### GST returns (GSTR-1 export)
+
+Each month (or quarter), for the accountant:
+
+    docker compose exec web python manage.py export_gstr1 --from 2026-10-01 --to 2026-10-31 --out /tmp
+    docker compose cp web:/tmp/gstr1-20261001-20261031-b2c.csv .   # and -hsn.csv, -credit-notes.csv
+
+- `…-b2c.csv`: the invoices' supplies by place of supply ("18-Assam") and GST rate: taxable value, IGST, CGST, SGST,
+  the number of invoices and their shipping (in the row of each invoice's highest rate). Rows at 0 % are the exempt
+  books (GSTR-1 table 8); taxed rows go to B2CS (table 7).
+- `…-hsn.csv`: the HSN summary (table 12): quantity, total value, taxable value and tax per HSN code and rate.
+- `…-credit-notes.csv`: each credit note dated in the period, by rate, with its invoice; refunds of a shipping charge
+  in the last column.
+
+Only the real series is exported (`EL/…`, `CN/…`), never test-mode documents. Amounts are those printed on the
+invoices and credit notes (prices include tax; a coupon is shared over the lines). Orders the site does not invoice
+(school orders paid outside it) are not in the files.

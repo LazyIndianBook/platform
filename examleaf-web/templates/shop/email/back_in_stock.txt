@@ -1,0 +1,5 @@
+{% autoescape off %}{{ product }} is back in stock: {{ site_url }}{{ product.get_absolute_url }}
+
+You asked us to tell you once. This is the only email about it; we have deleted your address from the list.
+
+ExamLeaf{% endautoescape %}

@@ -1,0 +1,50 @@
+"""Parental consent by SMS (PARENTAL_CONSENT_MODE "verified"): a parent's Indian mobile number gets the short signed
+link (/c/<token>/, a token that fits a 30-character DLT variable), recorded as confirmed through the texted link."""
+
+import re
+
+import pytest
+from django.test import Client
+from django.urls import reverse
+
+from accounts.models import ConsentRecord, User
+from accounts.test_security import sign_up
+from content.tests import make_paper
+
+pytestmark = pytest.mark.django_db
+
+
+def texted_token(capsys):
+    return re.findall(
+        r"SMS parent_consent to \+919864012345: \{'var1': 'Rahul', 'var2': '([^']+)'\}", capsys.readouterr().out
+    )
+
+
+def test_a_parents_mobile_number_gets_the_link_by_sms(client, settings, capsys):
+    settings.PARENTAL_CONSENT_MODE = "verified"
+    make_paper()  # a board
+    sign_up(client, parent_contact="98640 12345")
+    student = User.objects.get()
+    assert student.parent_contact == "+919864012345" and student.consent_pending
+    [token] = texted_token(capsys)
+    assert len(token) <= 30 and re.fullmatch(r"[\w.-]+", token)
+    parent = Client()
+    assert "gave your\nmobile number" in parent.get(f"/c/{token}/").text
+    assert parent.get(f"/c/{token[:-1]}x/").status_code == 400  # a changed signature
+    parent.post(f"/c/{token}/")
+    record = ConsentRecord.objects.get(verified_at__isnull=False)
+    assert record.method == ConsentRecord.Method.SMS_LINK and not User.objects.get().consent_pending
+
+
+def test_a_corrected_number_voids_the_first_link_and_sms_off_means_email_only(client, settings, capsys):
+    settings.PARENTAL_CONSENT_MODE = "verified"
+    make_paper()
+    sign_up(client, parent_contact="98640 12345")
+    [first] = texted_token(capsys)
+    client.force_login(User.objects.get())
+    client.post(reverse("parent_consent_resend"), {"parent_contact": "98641 12345"})
+    assert "to +919864112345" in capsys.readouterr().out and Client().get(f"/c/{first}/").status_code == 400
+    settings.SMS_ENABLED = False
+    response = sign_up(Client(), email="other@example.com", parent_contact="98640 12345")
+    [error] = response.context["form"].errors["parent_contact"]
+    assert error == "Enter your parent's or guardian's email address: we send them a link to confirm."

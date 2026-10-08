@@ -16,8 +16,9 @@ STUDENT, TEACHER, CONTENT_EDITOR, SALES, SUPPORT, ADMIN = (
 STAFF_ROLES = {CONTENT_EDITOR, SALES, SUPPORT, ADMIN}  # members need is_staff to open the admin
 ALL = "__all__"
 # Left to superusers; ADMIN may only view them (I7): the periodic tasks (any task, any arguments: an email to anyone, a
-# real invoice number used up) and their results, who may do what (groups, permissions) and the second factors.
-SUPERUSER_ONLY = ["django_celery_beat", "django_celery_results", "auth", "mfa"]
+# real invoice number used up) and their results, who may do what (groups, permissions), the second factors and
+# passkeys, and the Google sign-in apps and accounts.
+SUPERUSER_ONLY = ["django_celery_beat", "django_celery_results", "auth", "mfa", "socialaccount"]
 
 
 def crud(app, models, actions=("view", "add", "change")):
@@ -44,6 +45,8 @@ ROLES = {
         *crud("accounts", ["user", "consentrecord", "deletionrequest"], ["view"]),
         *crud("accounts", ["teacherprofile"], ["view", "change"]),
         "account.view_emailaddress",  # allauth: is the address confirmed?
+        "ops.view_smslog",  # did the code go? (searched by the whole number; the log keeps no number)
+        *crud("ops", ["emailsuppression"], ["view", "delete"]),  # "I get no emails": delete to email it again
         "practice.view_attempt",
         # orders: view only (answer "where is my parcel?"; refunds and shipping are SALES')
         *crud(

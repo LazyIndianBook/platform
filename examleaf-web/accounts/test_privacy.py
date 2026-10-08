@@ -118,6 +118,6 @@ def test_a_new_email_address_is_used_only_after_its_code_is_confirmed(client, st
     )
     client.get(response.url)
     to_new = [m for m in mail.outbox if m.to == ["rahul.das@example.com"]]
-    assert to_new and re.search(r"^[A-Z0-9]{4}-[A-Z0-9]{4}$", to_new[0].body, re.M)
+    assert to_new and re.search(r"^\d{6}$", to_new[0].body, re.M)
     student.refresh_from_db()
     assert student.email == "rahul@example.com"  # unchanged until the code is typed

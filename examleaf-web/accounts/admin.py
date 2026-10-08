@@ -69,12 +69,14 @@ class UserAdmin(LoggedExportMixin, auth_admin.UserAdmin):
     ordering = ["-created"]
     list_display = ["email", "full_name", "class_level", "board", "district", "under_18", "created"]
     list_filter = ["groups", "class_level", "board", "is_staff", "is_active", "created"]
-    search_fields = ["email", "full_name"]
+    search_fields = ["email", "full_name", "login_phone"]
     readonly_fields = ["created", "modified", "last_login", "consent_at"]
     actions = [role_action(role, add) for add in (True, False) for role in roles.ROLES]
     fieldsets = [
         (None, {"fields": ["email", "password"]}),
         ("Student", {"fields": ["full_name", "phone", "class_level", "board", "district", "date_of_birth"]}),
+        # a lost or recycled number (RUNBOOK.md "SMS"): empty login_phone and untick both
+        ("Log-in by SMS", {"fields": ["login_phone", "login_phone_verified", "sms_updates"]}),
         ("Parent or guardian", {"fields": ["parent_name", "parent_contact", "consent_at"]}),
         ("Roles and permissions", {"fields": ["is_active", "is_staff", "is_superuser", "groups", "user_permissions"]}),
         ("Dates", {"fields": ["last_login", "created", "modified"]}),

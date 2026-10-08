@@ -16,7 +16,7 @@ from pages.views import PageView
 from practice import views as practice
 from shop.models import Product
 
-from .views import HealthView, RobotsView
+from .views import HealthView, RobotsView, ServiceWorkerView, manifest
 
 
 class PageSitemap(Sitemap):
@@ -77,19 +77,29 @@ urlpatterns = [
     path("account/delete/", accounts.delete_account, name="account_delete"),
     path("account/delete/cancel/", accounts.cancel_deletion, name="account_delete_cancel"),
     path("account/parent-consent/", accounts.parent_consent_resend, name="parent_consent_resend"),
-    path("consent/<str:token>/", accounts.parent_consent, name="parent_consent"),  # the link emailed to a parent
+    path("account/sms-updates/", accounts.sms_updates, name="sms_updates"),
+    path("c/<str:token>/", accounts.parent_consent, name="parent_consent"),  # a parent's link (email or SMS): short
     path("", include("shop.urls")),  # /shop/, /cart/, /checkout/, /account/orders/, /orders/lookup/ (shop/urls.py)
     path("account/", include("allauth.urls")),
     *[path(f"{slug}/", PageView.as_view(), {"slug": slug}, name=slug) for slug in PAGES],  # /privacy/, /terms/, …
     path("about/", TemplateView.as_view(template_name="about.html"), name="about"),
     path("robots.txt", RobotsView.as_view()),
+    path("manifest.webmanifest", manifest, name="manifest"),  # the web app (PWA): examleaf/views.py
+    path("sw.js", ServiceWorkerView.as_view(), name="sw"),
+    path("offline/", TemplateView.as_view(template_name="offline.html"), name="offline"),
     path("favicon.ico", RedirectView.as_view(url=settings.STATIC_URL + "img/favicon-32.png", permanent=True)),
     path("sitemap.xml", sitemap, {"sitemaps": {"pages": PageSitemap, "books": BookSitemap, "shop": ProductSitemap}}),
     path("health/", HealthView.as_view(checks=ALL_CHECKS), name="health"),
     path("health/web/", HealthView.as_view(checks=WEB_CHECKS), name="health_web"),
     path("api/", include("examleaf.api_urls")),  # REST API: api/, examleaf/api_urls.py
+    path("learn/", include("learn.urls")),  # revision course: clip files behind signed links, staff preview
     path("admin/", admin.site.urls),
 ]
+
+# The email provider's bounce and complaint webhooks (ops.models.EmailSuppression). Their only protection is the
+# HTTP basic auth of ANYMAIL_WEBHOOK_SECRET: without it Anymail would take events from anyone, so no URL then.
+if settings.ANYMAIL.get("WEBHOOK_SECRET"):
+    urlpatterns.append(path("anymail/", include("anymail.urls")))
 
 if settings.DEBUG_TOOLBAR:
     from debug_toolbar.toolbar import debug_toolbar_urls

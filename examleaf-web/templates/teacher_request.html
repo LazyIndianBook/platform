@@ -2,13 +2,24 @@
 {% block head_title %}Teacher access{% endblock %}
 {% block meta_description %}Ask for teacher access to ExamLeaf by telling us where you teach.{% endblock %}
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block main_class %}{% endblock %}
 {% block content %}
-<h1>Teacher access</h1>
-<p>Tell us where you teach. We check with the school, then your account is marked as a teacher's.</p>
-<form method="post" class="narrow">
-  {% csrf_token %}
-  {{ form }}
-  <button type="submit">Send</button>
-</form>
-<p><a href="{% url 'account' %}">Back to my account</a></p>
+<section class="section section-top">
+  <div class="container narrow">
+    <div class="card">
+      <div class="card-header">
+        <h1>Teacher access</h1>
+        <p>Tell us where you teach. We check with the school, then your account is marked as a teacher's.</p>
+      </div>
+      <form method="post">
+        {% csrf_token %}
+        <div class="card-body"><div class="form-stack">{{ form }}</div></div>
+        <div class="card-footer">
+          <button type="submit" class="btn btn-primary">Send</button>
+          <a href="{% url 'account' %}">Back to my account</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
 {% endblock %}

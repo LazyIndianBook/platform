@@ -1,0 +1,144 @@
+/* ExamLeaf token layer: direction.md section 2, as drawn on the Design canvas.
+   Include this first in static/css/site.css. Values are hex (old Android WebViews); rgba only where a hex copy sits beside it.
+   Component rules that use these tokens: docs/design/components.md. */
+
+/* ---------- Fonts: self-hosted and subset. Poppins: Latin + U+20B9 (the rupee sign for .price). Hind Siliguri: Latin + Bengali
+   (U+0980-09FE, U+200C-200D, U+25CC), which covers Assamese. Four files, about 60 KB. ---------- */
+@font-face { font-family: "Poppins"; font-style: normal; font-weight: 700; font-display: swap; src: url("/static/fonts/poppins-700.woff2") format("woff2"); }
+@font-face { font-family: "Poppins"; font-style: normal; font-weight: 800; font-display: swap; src: url("/static/fonts/poppins-800.woff2") format("woff2"); }
+@font-face { font-family: "Hind Siliguri"; font-style: normal; font-weight: 400; font-display: swap; src: url("/static/fonts/hind-siliguri-400.woff2") format("woff2"); }
+@font-face { font-family: "Hind Siliguri"; font-style: normal; font-weight: 600; font-display: swap; src: url("/static/fonts/hind-siliguri-600.woff2") format("woff2"); }
+
+:root {
+  color-scheme: light;
+
+  /* shadcn names */
+  --background: #FBFAF7;  --foreground: #1B2330;
+  --card: #FFFFFF;        --card-foreground: #1B2330;
+  --primary: #0B2A5B;     --primary-foreground: #FFFFFF;
+  --secondary: #F4EFE3;   --secondary-foreground: #1B2330;
+  --muted: #F1F3F6;       --muted-foreground: #5D6675;
+  --accent: #1A6E30;      --accent-foreground: #FFFFFF;
+  --destructive: #B42318; --destructive-foreground: #FFFFFF;
+  --border: #D9DDE3;      /* hairlines */
+  --input: #7B8595;       /* control borders, 3.7:1 */
+  --ring: #2F8F3A;        /* focus ring, 2 px + 2 px offset */
+  --heading: #0B2A5B;
+
+  /* hover: 6 % darker */
+  --primary-hover: #0A2856; --accent-hover: #18672D; --destructive-hover: #A92117; --secondary-hover: #F1F3F6;
+
+  /* brand */
+  --night: #07122B; --night-card: #0E1D42; --night-muted: #A9B8D6; --night-line: #2E3A54; --header-line: #425C86;
+  --gold: #EBC34A;        /* numerals and seals on dark, fills; never text on paper */
+  --gold-text: #8A6508;   /* gold as text on paper, 5.1:1 */
+  --marker: #FFE27A;
+  --leaf: #2F8F3A;        /* fills and focus rings only; never under white text */
+  --leaf-night: #4CC265;  --leaf-light: #8FD694;
+
+  /* subjects (base + pill) and tiers */
+  --physics: #0F3560;   --physics-pill: #88D4FA;
+  --chemistry: #134043; --chemistry-pill: #A0F4F9;
+  --maths: #2E1D65;     --maths-pill: #81D0FB;
+  --biology: #124931;   --biology-pill: #A2F8A6;
+  --easy: #1B7F3B; --medium: #1A5FB4; --hard: #A0272D;
+
+  /* alerts: tint, hairline, icon */
+  --info-bg: #EEF3FB;    --info-line: #C9D8F0;    --info-fg: #1A5FB4;
+  --success-bg: #EBF5ED; --success-line: #C3E1CA; --success-fg: #1B7F3B;
+  --warning-bg: #FFF5D8; --warning-line: #EED58C; --warning-fg: #8A6508;
+  --error-bg: #FCEBE9;   --error-line: #F1C2BC;   --error-fg: #B42318;
+
+  /* shape: one soft shadow on cards, a hard one on subject tiles only */
+  --radius: 12px; --radius-btn: 10px; --radius-pill: 999px; --radius-cover: 6px;
+  --shadow-card: 0 1px 2px rgba(11, 42, 91, .06), 0 8px 24px rgba(11, 42, 91, .08);
+  --shadow-hard: 4px 4px 0 #1B2330;
+  --shadow-cover: 0 14px 24px -14px #000000;
+  --shadow-dialog: 0 24px 48px rgba(7, 18, 43, .28);
+  --backdrop: rgba(7, 18, 43, .55);
+
+  /* type */
+  --font-head: Poppins, "Segoe UI", system-ui, sans-serif;
+  --font-body: "Hind Siliguri", "Segoe UI", system-ui, sans-serif;
+
+  /* layout */
+  --container: 1120px; --gutter: clamp(16px, 4vw, 24px); --gap: 24px;
+  --section: clamp(64px, 8vw, 96px); --header: 64px; --target: 44px; --control: 48px;
+
+  /* motion: transform and opacity only */
+  --t-press: 120ms; --t-hover: 200ms; --ease: cubic-bezier(.2, .7, .2, 1);
+}
+
+/* Full-bleed dark bands: header, hero, final call to action, footer. */
+.band-night {
+  --background: #07122B; --foreground: #FFFFFF;
+  --card: #0E1D42;       --card-foreground: #FFFFFF;
+  --primary: #FFFFFF;    --primary-foreground: #0B2A5B; --primary-hover: #EAF1FF;
+  --secondary: #0E1D42;  --secondary-foreground: #FFFFFF; --secondary-hover: #0E1D42;
+  --muted: #0E1D42;      --muted-foreground: #A9B8D6;
+  --accent: #4CC265;     --accent-foreground: #07122B; --accent-hover: #47B65F;
+  --border: #2E3A54; --input: #A9B8D6; --ring: #8FD694; --heading: #FFFFFF;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* Whole-site dark theme, if ever switched on (the brief keeps dark to bands by default). */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #07122B;  --foreground: #EAF1FF;
+  --card: #0E1D42;        --card-foreground: #EAF1FF;
+  --primary: #EAF1FF;     --primary-foreground: #07122B; --primary-hover: #DCE3F0;
+  --secondary: #13254F;   --secondary-foreground: #EAF1FF; --secondary-hover: #1A2F5E;
+  --muted: #13254F;       --muted-foreground: #A9B8D6;
+  --accent: #4CC265;      --accent-foreground: #07122B; --accent-hover: #47B65F;
+  --destructive: #F97066; --destructive-foreground: #07122B; --destructive-hover: #EA6A60;
+  --border: #2E3A54; --input: #8A9AB8; --ring: #8FD694; --heading: #EAF1FF;
+  --gold-text: #EBC34A;
+  --info-bg: #0F2346;    --info-line: #24406E;    --info-fg: #81D0FB;
+  --success-bg: #0D2A25; --success-line: #1F4A3A; --success-fg: #8FD694;
+  --warning-bg: #2A2410; --warning-line: #5A4A1A; --warning-fg: #EBC34A;
+  --error-bg: #2E1418;   --error-line: #5C2A2E;   --error-fg: #F97066;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .35);
+  --shadow-hard: 4px 4px 0 #000000;
+}
+
+/* Base */
+body { margin: 0; background: var(--background); color: var(--foreground); font: 400 17px/1.7 var(--font-body); }
+h1, h2, h3 { font-family: var(--font-head); color: var(--heading); line-height: 1.2; text-wrap: balance; }
+:lang(bn), :lang(as) { letter-spacing: 0; text-transform: none; }  /* Bangla and Assamese: never tracked, never uppercased */
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* Focus ring: visible on every interactive element, lighter on dark bands (the token changes, the rule does not). */
+:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+
+/* Press feedback stays even with reduced motion: it is instant, not animated. */
+.btn:active { translate: 0 1px; }
+.tile:active { translate: 3px 3px; box-shadow: 0 0 0 transparent; }
+details.accordion[open] > summary .icon { rotate: 180deg; }  /* a state, so outside the motion wrapper */
+
+/* Reduced-motion wrapper: everything that moves lives here, so the default state is the final, readable one.
+   At most two effects per view; never animate the largest content element. */
+@media (prefers-reduced-motion: no-preference) {
+  .btn, .tile, .card-interactive, .stage-cover { transition: translate var(--t-hover) var(--ease); }
+  .btn:active, .tile:active { transition-duration: var(--t-press); }
+  details.accordion > summary .icon { transition: rotate var(--t-hover) var(--ease); }
+  @media (hover: hover) {
+    .stage-cover:hover { translate: 0 -14px; }       /* the cover stage: one cover lifts */
+    .card-interactive:hover { translate: 0 -2px; }
+  }
+  .skeleton { animation: el-pulse 1.2s ease-in-out infinite alternate; }
+  .btn[aria-busy="true"] .spinner { animation: el-spin .8s linear infinite; }
+  @supports (animation-timeline: view()) {
+    .marker[data-draw] { background: none; position: relative; isolation: isolate; }
+    .marker[data-draw]::after {
+      content: ""; position: absolute; inset: 50% -2px 8% -2px; z-index: -1; background: var(--marker);
+      transform-origin: left; animation: el-mark linear both; animation-timeline: view(); animation-range: entry 10% entry 60%;
+    }
+  }
+  @view-transition { navigation: auto; }
+  ::view-transition-old(root) { animation-duration: 140ms; }
+  ::view-transition-new(root) { animation-duration: 220ms; }
+}
+@keyframes el-pulse { to { opacity: .55; } }
+@keyframes el-spin { to { rotate: 1turn; } }
+@keyframes el-mark { from { transform: scaleX(0); } }

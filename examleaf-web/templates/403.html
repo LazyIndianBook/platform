@@ -2,18 +2,23 @@
 {% block head_title %}Not allowed{% endblock %}
 {% block meta_description %}You do not have access to this page of the ExamLeaf website.{% endblock %}
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block main_class %}{% endblock %}
 {% block content %}
-<section class="landing">
-  <p class="eyebrow">Error 403</p>
-  <h1>You are not allowed to open this page</h1>
-  {% if user.is_authenticated %}
-  <p>Your account does not have access to it. If you think it should, write to us from the <a href="{% url 'contact' %}">Contact</a> page.</p>
-  {% else %}
-  <p>Log in with the account that has access to it.</p>
-  {% endif %}
-  <p class="actions">
-    {% if not user.is_authenticated %}<a class="button" href="{% url 'account_login' %}">Log in</a>{% endif %}
-    <a class="button secondary" href="{% url 'home' %}">The books</a>
-  </p>
+<section class="section section-top">
+  <div class="container">
+    <div class="empty">
+      <svg class="icon icon-lg" aria-hidden="true"><use href="#icon-lock"/></svg>
+      <p class="eyebrow">Error 403</p>
+      <h1>You are not allowed to open this page</h1>
+      {% if user.is_authenticated %}
+      <p>Your account does not have access to it. If you think it should, write to us from the <a href="{% url 'contact' %}">Contact</a> page.</p>
+      <a class="btn btn-primary btn-lg" href="{% url 'home' %}"><svg class="icon" aria-hidden="true"><use href="#icon-book"/></svg><span>The books</span></a>
+      {% else %}
+      <p>Log in with the account that has access to it.</p>
+      <a class="btn btn-primary btn-lg" href="{% url 'account_login' %}">Log in</a>
+      <p>or <a href="{% url 'home' %}">see the books</a></p>
+      {% endif %}
+    </div>
+  </div>
 </section>
 {% endblock %}

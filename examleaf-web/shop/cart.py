@@ -34,7 +34,8 @@ def remember_count(request, cart):
 def set_quantity(cart, product, quantity, add=False):
     """Set (or with add=True, increase) a product's quantity, within 0..CartItem.MAX_QUANTITY; 0 removes it."""
     item = cart.items.filter(product=product).first()
-    quantity = min(max(quantity + (item.quantity if item and add else 0), 0), CartItem.MAX_QUANTITY)
+    limit = 1 if product.is_digital else CartItem.MAX_QUANTITY  # a course opens once, for the buyer's account
+    quantity = min(max(quantity + (item.quantity if item and add else 0), 0), limit)
     if quantity == 0:
         cart.items.filter(product=product).delete()
     else:  # update_or_create: a double click sends two requests, and both may find no row to change
@@ -98,8 +99,9 @@ def totals(cart, state=None, user=None, email=""):
         result.coupon_problem = cart.coupon.problem(result.subtotal, user=user, email=email)
         if not result.coupon_problem:
             result.coupon, result.discount = cart.coupon, cart.coupon.discount_on(result.subtotal)
-    if state:
-        result.shipping = ShippingRate.fee_for(state, result.subtotal - result.discount)
+    if state:  # digital products alone ship nothing
+        physical = any(not line.product.is_digital for line in result.lines)
+        result.shipping = ShippingRate.fee_for(state, result.subtotal - result.discount) if physical else Decimal("0.00")
     return result
 
 

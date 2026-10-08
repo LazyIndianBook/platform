@@ -6,27 +6,38 @@
 <title>Something went wrong · ExamLeaf</title>
 <meta name="description" content="Something went wrong on the ExamLeaf website. Please try again in a few minutes.">
 <meta name="robots" content="noindex">
+{# Self-contained: it must render when the database, the cache or the static files are what failed. Colours from docs/design/tokens.css. #}
 <style>
-body{margin:0;font:17px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",sans-serif;color:#1b2330;background:#fbfaf7}
-header{background:#0b2a5b;padding:.2rem 1rem}
-header a{display:inline-flex;align-items:center;min-height:44px;color:#fff;font-weight:700;font-size:1.3rem;text-decoration:none}
-header span{color:#8fd694}
-main{max-width:34rem;margin:0 auto;padding:2rem 1rem;text-align:center}
-h1{font-size:1.6rem;line-height:1.25}
-.eyebrow{margin:0;text-transform:uppercase;letter-spacing:.08em;font-size:.8rem;color:#5d6675}
-.muted{color:#5d6675;font-size:.9rem}
-.button{display:inline-block;box-sizing:border-box;min-height:44px;padding:.65rem 1.2rem;border-radius:8px;background:#0b2a5b;color:#fff;font-weight:600;text-decoration:none}
+*{box-sizing:border-box}
+body{margin:0;display:flex;flex-direction:column;min-height:100vh;background:#FBFAF7;color:#1B2330;font:400 17px/1.7 "Hind Siliguri","Segoe UI",system-ui,sans-serif}
+.bar{background:#0B2A5B;border-bottom:1px solid #425C86;padding:0 clamp(16px,4vw,24px)}
+.bar a{display:inline-flex;align-items:center;gap:10px;min-height:64px;color:#FFFFFF;font:800 22px/1 Poppins,"Segoe UI",system-ui,sans-serif;text-decoration:none}
+.bar a span{color:#8FD694}
+main{flex:1 0 auto;padding:48px 16px 96px}
+.box{display:flex;flex-direction:column;align-items:center;gap:14px;max-width:760px;margin:0 auto;padding:48px 24px;border:2px dashed #D9DDE3;border-radius:12px;background:#FFFFFF;text-align:center;text-wrap:balance}
+.box>*{margin:0}
+.box p{max-width:34rem;color:#5D6675}
+h1{font:800 clamp(28px,4vw,44px)/1.15 Poppins,"Segoe UI",system-ui,sans-serif;color:#0B2A5B}
+.eyebrow{font-weight:600;font-size:15px}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:52px;margin-top:8px;padding:0 24px;border-radius:10px;background:#0B2A5B;color:#FFFFFF;font:700 17px/1.25 Poppins,"Segoe UI",system-ui,sans-serif;text-decoration:none}
+.btn:hover{background:#0A2856}
+:focus-visible{outline:2px solid #2F8F3A;outline-offset:2px}
+.bar :focus-visible{outline-color:#8FD694}
+small{font-size:14px}
 </style>
 </head>
 <body>
-<header><a href="/">Exam<span>Leaf</span></a></header>
+<header class="bar"><a href="/"><svg width="32" height="32" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#0B2A5B"/><path d="M16 48C16 24 32 12 50 14C52 32 40 50 16 48Z" fill="#8FD694"/><path d="M18 46C28 36 36 28 44 20" fill="none" stroke="#0B2A5B" stroke-width="3" stroke-linecap="round"/></svg>Exam<span>Leaf</span></a></header>
 <main>
+<div class="box">
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#0B2A5B" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 6h22l12 12v40H16z"/><path d="M38 6v12h12"/><path d="M33 26v13M33 46.5v.01"/></svg>
 <p class="eyebrow">Error 500</p>
 <h1>Something went wrong on our side</h1>
 <p>We have been told and will fix it. Please try again in a few minutes.</p>
 <p>Were you paying for an order? If money was taken from your account, we confirm the order or refund it by ourselves within a few minutes: look for our email.</p>
-<p><a class="button" href="/">Go to the home page</a></p>
-{% if request_id %}<p class="muted">Reference {{ request_id }}: quote it if you write to us.</p>{% endif %}
+<a class="btn" href="/">Go to the home page</a>
+{% if request_id %}<p><small>Reference {{ request_id }}: quote it if you write to us.</small></p>{% endif %}
+</div>
 </main>
 </body>
 </html>

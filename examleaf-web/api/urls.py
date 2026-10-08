@@ -6,7 +6,7 @@ from django.urls import path
 from rest_framework.routers import SimpleRouter
 from rest_framework_simplejwt.views import TokenVerifyView
 
-from . import auth, shop, views
+from . import auth, learn, shop, views
 
 router = SimpleRouter()
 router.register("boards", views.BoardViewSet)
@@ -17,6 +17,11 @@ router.register("attempts", views.AttemptViewSet, basename="attempt")
 router.register("products", shop.ProductViewSet)
 router.register("addresses", shop.AddressViewSet, basename="address")
 router.register("orders", shop.OrderViewSet, basename="order")
+router.register("learn/chapters", learn.ChapterViewSet)  # the revision course: api/learn.py
+router.register("learn/clips", learn.ClipViewSet)
+router.register("learn/quiz", learn.QuizViewSet)
+router.register("learn/flash-cards", learn.FlashCardViewSet)
+router.register("learn/entitlements", learn.EntitlementViewSet, basename="entitlement")
 cart = shop.CartViewSet.as_view  # one cart per account: its own routes, not a collection
 CART_LINE = {"put": "change", "patch": "change", "delete": "remove"}
 
@@ -25,6 +30,8 @@ NO_AUTH = {"authentication_classes": []}  # an expired token left in the header 
 urlpatterns = [
     path("auth/registration/", auth.RegisterView.as_view(**NO_AUTH), name="register"),
     path("auth/registration/verify-email/", auth.VerifyEmailView.as_view(**NO_AUTH), name="verify-email"),
+    path("auth/phone/code/", auth.PhoneCodeView.as_view(**NO_AUTH), name="phone-code"),
+    path("auth/phone/confirm/", auth.PhoneConfirmView.as_view(**NO_AUTH), name="phone-confirm"),
     # dj-rest-auth (its urls.py, listed here to drop the authentication where it gets in the way)
     path("auth/login/", rest_auth.LoginView.as_view(**NO_AUTH), name="rest_login"),
     path("auth/logout/", rest_auth.LogoutView.as_view(**NO_AUTH), name="rest_logout"),
@@ -45,5 +52,16 @@ urlpatterns = [
     path("cart/items/", cart({"post": "add"}), name="cart-items"),
     path("cart/items/<slug:product>/", cart(CART_LINE), name="cart-line"),
     path("cart/coupon/", cart({"post": "apply_coupon", "delete": "remove_coupon"}), name="cart-coupon"),
+    path("learn/plan/", learn.PlanView.as_view(), name="learn-plan"),
+    path("learn/revise-again/", learn.ReviseAgainView.as_view(), name="learn-revise-again"),
+    path("learn/redeem/", learn.RedeemView.as_view(), name="learn-redeem"),
+    path("learn/settings/", learn.LearnerView.as_view(), name="learn-settings"),
+    path("devices/", learn.DeviceView.as_view(), name="devices"),
     *router.urls,
 ]
+
+# The shop's category tree and collections (Phase 6 E)
+store_router = SimpleRouter()
+store_router.register("categories", shop.CategoryViewSet)
+store_router.register("collections", shop.CollectionViewSet)
+urlpatterns += store_router.urls

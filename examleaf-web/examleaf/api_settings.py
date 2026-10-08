@@ -106,3 +106,14 @@ SPECTACULAR_SETTINGS = {
 CORS_ALLOWED_ORIGINS = _env.list("CORS_ALLOWED_ORIGINS", default=[])
 CORS_URLS_REGEX = r"^/api/.*$"
 CORS_ALLOW_HEADERS = (*_cors_default_headers, "x-request-id")
+
+# The revision course (api/learn.py): book codes tried per user and per client address (a classroom shares one: raise
+# the second while a teacher has a class redeem their codes together), and quiz answers per user.
+REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"].update(
+    learn_redeem=_env("API_THROTTLE_LEARN_REDEEM", default="5/hour"),
+    learn_redeem_address=_env("API_THROTTLE_LEARN_REDEEM_ADDRESS", default="5/hour"),
+    learn_quiz=_env("API_THROTTLE_LEARN_QUIZ", default="600/hour"),
+)
+SPECTACULAR_SETTINGS["ENUM_NAME_OVERRIDES"].update(  # "kind" with choices: products, clips, quiz items
+    ClipKindEnum="learn.models.Clip.Kind", QuizItemKindEnum="learn.models.QuizItem.Kind"
+)

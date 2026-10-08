@@ -8,13 +8,13 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.core.cache import cache
-from django.core.files.storage import default_storage
-from django.db import transaction
-from django.http import FileResponse, Http404, HttpResponse
+from django.db import IntegrityError, transaction
+from django.db.models import Avg, Count
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from django.utils.decorators import method_decorator
-from django.views.decorators.cache import cache_control, never_cache
+from django.views.decorators.cache import cache_control, cache_page, never_cache
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
@@ -24,8 +24,31 @@ from content.models import Paper
 
 from . import payments, services
 from .cart import COUNT_KEY, SESSION_KEY, get_cart, remember_count, set_quantity, totals
-from .forms import AddressBookForm, AddressForm, CheckoutForm, CouponForm, LookupForm
-from .models import Coupon, CreditNote, Order, Product, ProductImage, ShippingRate
+from .forms import (
+    AddressBookForm,
+    AddressForm,
+    CheckoutForm,
+    CouponForm,
+    LookupForm,
+    QuoteRequestForm,
+    ReviewForm,
+    StockAlertForm,
+)
+from .models import (
+    Category,
+    Collection,
+    Coupon,
+    CreditNote,
+    Order,
+    PinCode,
+    Product,
+    Review,
+    ShippingRate,
+    SlugHistory,
+    StockAlert,
+    public_storage,
+)
+from .seo import breadcrumbs, product_jsonld
 
 ORDERS_KEY = "shop_orders"  # numbers of the orders this browser session placed or looked up (guests' access)
 # Razorpay Checkout: its script, its frames and its API calls, allowed on the payment page only.
@@ -140,38 +163,182 @@ def empty_cart(request):
 
 
 class CatalogueView(ListView):
+    """All products on sale (?kind= narrows them), with the top shelves of the category tree and the collections."""
+
     template_name = "shop/catalogue.html"
-    queryset = Product.objects.filter(is_active=True).select_related("subject__board", "subject__class_level")
+    related = ["subject__board", "subject__class_level"]
+
+    def products(self):
+        return Product.objects.filter(is_active=True)
+
+    def get_queryset(self):
+        products = self.products()
+        if (kind := self.request.GET.get("kind")) in Product.Kind.values:
+            products = products.filter(kind=kind)
+        return products.select_related(*self.related)
 
     def get_context_data(self, **kwargs):
-        return {**super().get_context_data(**kwargs), "shop_open": shop_is_open(self.request)}
+        shelves, collections = Category.objects.get_root_nodes(), Collection.objects.filter(is_active=True)
+        context = {"shelves": shelves, "collections": collections}
+        return {**super().get_context_data(**kwargs), "shop_open": shop_is_open(self.request), **context}
+
+
+class CategoryView(CatalogueView):
+    """A shelf: its products and those of its sub-shelves."""
+
+    def products(self):
+        self.category = get_object_or_404(Category, slug=self.kwargs["slug"])
+        return self.category.products_on_sale()
+
+    def get_context_data(self, **kwargs):
+        category, context = self.category, super().get_context_data(**kwargs)
+        crumbs = [(c.name, c.get_absolute_url()) for c in Category.objects.get_ancestors(category)]
+        context.update(heading=category.name, intro=category.description, crumbs=crumbs, collections=None)
+        context["shelves"] = Category.objects.get_children(category)
+        return context
+
+
+class CollectionView(CatalogueView):
+    """A collection's products, in the order staff gave them."""
+
+    def get_queryset(self):
+        self.collection = get_object_or_404(Collection, slug=self.kwargs["slug"], is_active=True)
+        return self.collection.products_on_sale()
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(heading=self.collection.name, intro=self.collection.description, crumbs=[], shelves=None)
+        return context
 
 
 class ProductView(DetailView):
     template_name = "shop/product.html"
     queryset = Product.objects.filter(is_active=True).select_related("subject__board", "subject__class_level", "book")
 
+    def get(self, request, *args, **kwargs):
+        try:
+            return super().get(request, *args, **kwargs)
+        except Http404:  # an old address of a renamed product: 301 to its page
+            moved = SlugHistory.objects.filter(slug=kwargs["slug"], product__is_active=True).first()
+            if moved is None:
+                raise
+            return redirect(moved.product, permanent=True)
+
     def get_context_data(self, **kwargs):
         product, context = self.object, super().get_context_data(**kwargs)
         context["shop_open"] = shop_is_open(self.request)
+        context["attributes"] = product.attribute_values.select_related("attribute")
+        context["categories"] = product.categories.all()
+        context["related"] = product.related.filter(is_active=True)
         if product.book:
             papers = list(product.book.papers.filter(is_published=True))  # by code: E01 first
             context["tiers"] = [(label, sum(p.tier == tier for p in papers)) for tier, label in Paper.Tier.choices]
             context["sample_paper"] = papers[0] if papers else None
         context["bundle_items"] = product.bundle_items.select_related("product")
+        context["reviews"] = product.reviews.filter(status=Review.Status.APPROVED)
+        rating = context["reviews"].aggregate(average=Avg("rating"), count=Count("pk"))
+        context["rating"] = (rating["average"], rating["count"]) if rating["count"] else None
+        if Review.can_review(self.request.user, product):
+            context["review_form"] = ReviewForm()
+        crumbs = [("Home", "/"), ("Shop", reverse("shop:catalogue")), (product.title, product.get_absolute_url())]
+        context["jsonld"] = [product_jsonld(product, context["rating"]), breadcrumbs(*crumbs)]  # _head_meta.html
+        context["og"] = {
+            "type": "product",
+            "title": product.title,
+            "description": product.seo_description or product.title,
+            "image": product.og_image.url if product.og_image else "",
+        }
         return context
+
+
+PUBLIC_FOLDERS = ("products/", "og/")  # the public storage's folders: pictures, their sizes, Open Graph images
 
 
 @cache_control(public=True, max_age=86400)
 def product_media(request, name):
-    """A product's cover or picture. Uploads are otherwise private (media/ is not served): only files that a product
-    names are sent."""
-    if not (Product.objects.filter(cover=name).exists() or ProductImage.objects.filter(image=name).exists()):
+    """The public storage's files while it is MEDIA_ROOT (no buckets: settings.STORAGES). Private uploads share that
+    folder, so only PUBLIC_FOLDERS are sent, and no name that climbs out of them."""
+    if not name.startswith(PUBLIC_FOLDERS) or ".." in name.split("/"):
         raise Http404
     try:
-        return FileResponse(default_storage.open(name))
+        return FileResponse(public_storage().open(name))
     except FileNotFoundError as error:
         raise Http404 from error
+
+
+@require_POST
+@rate_limit("stock-alert", 10, 3600)
+def stock_alert(request, slug):
+    """The "email me when it is back" button (StockAlert): to the account's address, or the one a visitor gives. A
+    filled-in "website" field is the honeypot."""
+    product = get_object_or_404(Product, slug=slug, is_active=True)
+    form = StockAlertForm(request.POST)
+    if request.user.is_authenticated:
+        email = request.user.email
+    elif form.is_valid():
+        email = form.cleaned_data["email"]
+    else:
+        messages.error(request, "Enter a valid email address.")
+        return redirect(product)
+    if not request.POST.get("website") and product.available < 1:
+        StockAlert.objects.get_or_create(email=email.lower(), product=product)
+    messages.success(request, f"We will email {email} once, when {product} is back in stock.")
+    return redirect(product)
+
+
+QUOTE_SENT = "Thank you: we will email you a quotation."
+
+
+@never_cache
+@rate_limit("quote", 5, 3600)
+def quote_request(request):
+    """School and bulk orders: the request form; staff are emailed. A filled-in "website" field is the honeypot."""
+    form = QuoteRequestForm(request.POST or None)
+    if request.method == "POST" and request.POST.get("website"):
+        messages.success(request, QUOTE_SENT)
+        return redirect("shop:quote")
+    if form.is_valid():
+        quote = form.save()
+        services.email_staff(f"Quotation asked for: {quote.school}", "shop/email/quote_request.txt", {"quote": quote})
+        messages.success(request, QUOTE_SENT)
+        return redirect("shop:quote")
+    return render(request, "shop/quote_request.html", {"form": form})
+
+
+REVIEW_THANKS = "Thank you: your review shows on this page once we have read it."
+
+
+@require_POST
+@login_required
+@rate_limit("review", 5, 3600)
+def review(request, slug):
+    """A review from the product page (Review.can_review). A filled-in "website" field is the honeypot: only bots see
+    it; they are thanked and nothing is saved."""
+    product = get_object_or_404(Product, slug=slug, is_active=True)
+    form = ReviewForm(request.POST)
+    if request.POST.get("website"):
+        messages.success(request, REVIEW_THANKS)
+    elif not Review.can_review(request.user, product):
+        messages.error(request, "Reviews are from buyers whose order of this book has been delivered, one each.")
+    elif form.is_valid():
+        form.instance.product, form.instance.user = product, request.user
+        try:
+            form.save()
+        except IntegrityError:  # sent twice at once
+            pass
+        messages.success(request, REVIEW_THANKS)
+    else:
+        messages.error(request, " ".join(error for errors in form.errors.values() for error in errors))
+    return redirect(f"{product.get_absolute_url()}#reviews")
+
+
+@cache_page(86400)  # public data: a day in the cache and in browsers (only answers 200 are kept)
+def pin_lookup(request, pin):
+    """The address form's autofill (static/js/site.js): the state(s) and districts of a PIN code in the directory
+    (manage.py import_pincodes)."""
+    if entry := PinCode.objects.filter(pin=pin).first():
+        return JsonResponse({"pin": entry.pin, "states": entry.states, "districts": entry.districts})
+    return JsonResponse({"detail": "Not in the PIN code directory."}, status=404)
 
 
 @require_POST
@@ -220,6 +387,8 @@ def cart_view(request):
                 cart.coupon = coupon
                 cart.save(update_fields=["coupon", "modified"])
                 messages.success(request, f"Coupon {coupon} applied.")
+        elif action == "coupon":  # no code typed, or the bot check (Turnstile) not passed
+            messages.error(request, " ".join(error for errors in coupon_form.errors.values() for error in errors))
         remember_count(request, cart)
         return redirect("shop:cart")
     result = totals(cart, user=user, email=user.email if user else "")

@@ -3,12 +3,11 @@ from zoneinfo import ZoneInfo
 
 from django.contrib.staticfiles import finders
 from django.core.files import File
-from django.core.files.storage import default_storage
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from content.models import Book
-from shop.models import BundleItem, Coupon, Product, ShippingRate
+from shop.models import BundleItem, Coupon, Product, ShippingRate, public_storage
 
 SUBJECTS = [("PHY", "Physics"), ("CHE", "Chemistry"), ("MAT", "Mathematics"), ("BIO", "Biology")]
 SAMPLE_PAPERS = (
@@ -77,11 +76,12 @@ class Command(BaseCommand):
             for item in [papers]:  # Solutions: no cover until its own is uploaded (static/img/ has the papers')
                 if not item.cover and (path := finders.find(f"img/{name.lower()}.png")):
                     name_in_storage = f"products/{name.lower()}.png"
-                    if not default_storage.exists(name_in_storage):
+                    if not public_storage().exists(name_in_storage):
                         with open(path, "rb") as cover:
-                            default_storage.save(name_in_storage, File(cover))
-                    item.cover.name = name_in_storage
-                    item.save(update_fields=["cover"])
+                            public_storage().save(name_in_storage, File(cover))
+                    item.cover = name_in_storage  # reads its width and height
+                    item.save(update_fields=["cover", "cover_width", "cover_height"])
+                    item.cover.save_all()  # the AVIF and WebP sizes (Celery, after the commit)
             if code == "PHY":
                 bundle = product(
                     "physics-bundle-2027",

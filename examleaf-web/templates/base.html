@@ -7,39 +7,83 @@
 <meta name="description" content="{% block meta_description %}ExamLeaf Sample Papers for the Assam Board (ASSEB) Class 12 examination: 30 practice papers in each book for Physics, Chemistry, Mathematics and Biology, with free worked solutions behind a QR code.{% endblock %}">
 <meta name="theme-color" content="#0b2a5b">
 {% block robots %}{% endblock %}
+<link rel="preload" href="{% static 'fonts/poppins-800.woff2' %}" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="{% static 'fonts/hind-siliguri-400.woff2' %}" as="font" type="font/woff2" crossorigin>
 <link rel="icon" href="{% static 'img/favicon.svg' %}" type="image/svg+xml">
 <link rel="icon" href="{% static 'img/favicon-32.png' %}" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}">
 <link rel="stylesheet" href="{% static 'css/site.css' %}">
+{% include "_head_meta.html" %}
 {% block extra_head %}{% endblock %}
 </head>
 <body>
-<header class="site-header">
-  <a class="brand" href="{% url 'home' %}" aria-label="ExamLeaf home">Exam<span>Leaf</span></a>
-  {% if request.session.shop_cart_count %}<a class="cart-bar" href="{% url 'shop:cart' %}">Cart ({{ request.session.shop_cart_count }})</a>{% endif %}
-  <input type="checkbox" id="menu-toggle" class="menu-toggle" aria-label="Menu" autocomplete="off">
-  <label class="menu-button" for="menu-toggle" aria-hidden="true"><span class="bars"></span><span class="open">Menu</span><span class="close">Close</span></label>
-  <nav aria-label="Main">
-    <a href="{% url 'shop:catalogue' %}">Shop</a>
-    {% if request.session.shop_cart_count %}<a class="cart-menu" href="{% url 'shop:cart' %}">Cart ({{ request.session.shop_cart_count }})</a>{% endif %}
-    {% if user.is_authenticated %}
-      <a href="{% url 'record' %}">My record</a>
-      <a href="{% url 'account' %}">Account</a>
-      <form method="post" action="{% url 'account_logout' %}">{% csrf_token %}<button type="submit" class="link">Log out</button></form>
-    {% else %}
-      <a href="{% url 'account_login' %}">Log in</a>
-      <a class="button small" href="{% url 'account_signup' %}">Register</a>
-    {% endif %}
-  </nav>
+<a class="skip-link" href="#main">Skip to the content</a>
+{% include "_icons.html" %}
+<header class="nav band-night">
+  <div class="container">
+    <a class="brand" href="{% url 'home' %}" aria-label="ExamLeaf home"><svg class="brand-mark" aria-hidden="true"><use href="#brand-mark"/></svg><span>Exam<span class="brand-leaf">Leaf</span></span></a>
+    {% with count=request.session.shop_cart_count %}{% if count %}<a class="cart" href="{% url 'shop:cart' %}" aria-label="Cart, {{ count }} book{{ count|pluralize }}"><svg class="icon" aria-hidden="true"><use href="#icon-bag"/></svg><span class="cart-label">Cart</span><span class="count">{{ count }}</span></a>{% endif %}{% endwith %}
+    {# Under 900 px the links fold behind Menu: the label of a visually hidden checkbox, so no JavaScript #}
+    <input type="checkbox" id="nav-check" class="nav-check" aria-label="Menu" aria-controls="site-menu" autocomplete="off">
+    <label class="nav-toggle" for="nav-check" aria-hidden="true"><svg class="icon when-closed" aria-hidden="true"><use href="#icon-menu"/></svg><svg class="icon when-open" aria-hidden="true"><use href="#icon-x"/></svg><span class="when-closed">Menu</span><span class="when-open">Close</span></label>
+    <nav class="nav-menu" id="site-menu" aria-label="Main">{% with view=request.resolver_match.view_name %}
+      <a class="nav-link" href="{% url 'shop:catalogue' %}"{% if view == "shop:catalogue" %} aria-current="page"{% endif %}><span>Shop</span><svg class="icon" aria-hidden="true"><use href="#icon-chevron-right"/></svg></a>
+      {% if user.is_authenticated %}
+      <a class="nav-link" href="{% url 'record' %}"{% if view == "record" %} aria-current="page"{% endif %}><span>My record</span><svg class="icon" aria-hidden="true"><use href="#icon-chevron-right"/></svg></a>
+      <a class="nav-link" href="{% url 'account' %}"{% if view == "account" %} aria-current="page"{% endif %}><span>Account</span><svg class="icon" aria-hidden="true"><use href="#icon-chevron-right"/></svg></a>
+      <form method="post" action="{% url 'account_logout' %}">{% csrf_token %}<button type="submit" class="nav-link"><span>Log out</span><svg class="icon" aria-hidden="true"><use href="#icon-chevron-right"/></svg></button></form>
+      {% else %}
+      <a class="nav-link nav-phone" href="{% url 'shop:lookup' %}"><span>Find your order</span><svg class="icon" aria-hidden="true"><use href="#icon-chevron-right"/></svg></a>
+      <a class="nav-link" href="{% url 'account_login' %}"{% if view == "account_login" %} aria-current="page"{% endif %}><span>Log in</span><svg class="icon" aria-hidden="true"><use href="#icon-chevron-right"/></svg></a>
+      <a class="btn btn-accent btn-sm" href="{% url 'account_signup' %}">Register</a>
+      {% endif %}
+    {% endwith %}</nav>
+  </div>
 </header>
-{% if messages %}<ul class="messages">{% for message in messages %}<li class="{{ message.tags }}">{{ message }}</li>{% endfor %}</ul>{% endif %}
-<main>{% block content %}{% endblock %}</main>
-<footer class="site-footer">
-  <a href="{% url 'about' %}">About</a> · <a href="{% url 'contact' %}">Contact</a> · <a href="{% url 'privacy' %}">Privacy</a> ·
-  <a href="{% url 'terms' %}">Terms</a> · <a href="{% url 'refunds' %}">Refunds</a> · <a href="{% url 'shipping' %}">Shipping</a> ·
-  {% if user.is_authenticated %}<a href="{% url 'shop:orders' %}">My orders</a>{% else %}<a href="{% url 'shop:lookup' %}">Find your order</a>{% endif %} ·
-  © ExamLeaf LLP
+{% if messages %}<ul class="toast" aria-live="polite">{% for message in messages %}
+  <li><details class="toast-item {{ message.tags }}" open><summary class="btn btn-ghost btn-icon" aria-label="Dismiss"><svg class="icon" aria-hidden="true"><use href="#icon-x"/></svg></summary><svg class="icon" aria-hidden="true"><use href="#icon-{% if 'error' in message.tags or 'warning' in message.tags %}alert{% elif 'success' in message.tags %}check-circle{% else %}info{% endif %}"/></svg><p>{{ message }}</p></details></li>
+{% endfor %}</ul>{% endif %}
+{# "legacy" keeps a page without a container of its own (shop, account) in the old centred column until stage 2 #}
+<main id="main" class="{% block main_class %}legacy{% endblock %}">{% block content %}{% endblock %}</main>
+<footer class="footer band band-night">
+  <div class="container">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <a class="brand" href="{% url 'home' %}" aria-label="ExamLeaf home"><svg class="brand-mark" aria-hidden="true"><use href="#brand-mark"/></svg><span>Exam<span class="brand-leaf">Leaf</span></span></a>
+        <p>Sample papers for the Assam Board (ASSEB) Class 12 examination, with free worked solutions behind a QR code.</p>
+      </div>
+      <div class="footer-col">
+        <h2>Books</h2>
+        <ul>
+          <li><a href="{% url 'book' 'physics-2027' %}">Physics</a></li>
+          <li><a href="{% url 'book' 'chemistry-2027' %}">Chemistry</a></li>
+          <li><a href="{% url 'book' 'mathematics-2027' %}">Mathematics</a></li>
+          <li><a href="{% url 'book' 'biology-2027' %}">Biology</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h2>Shop</h2>
+        <ul>
+          <li><a href="{% url 'shop:catalogue' %}">All books</a></li>
+          <li>{% if user.is_authenticated %}<a href="{% url 'shop:orders' %}">My orders</a>{% else %}<a href="{% url 'shop:lookup' %}">Find your order</a>{% endif %}</li>
+          <li><a href="{% url 'shipping' %}">Shipping</a></li>
+          <li><a href="{% url 'refunds' %}">Refunds</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h2>ExamLeaf</h2>
+        <ul>
+          <li><a href="{% url 'about' %}">About</a></li>
+          <li><a href="{% url 'contact' %}">Contact</a></li>
+          <li><a href="{% url 'privacy' %}">Privacy</a></li>
+          <li><a href="{% url 'terms' %}">Terms</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom"><span>© ExamLeaf LLP</span><span>Payments through Razorpay: UPI, cards, net banking</span></div>
+  </div>
 </footer>
 {% block extra_body %}{% endblock %}
+{% include "_body_end.html" %}
 </body>
 </html>

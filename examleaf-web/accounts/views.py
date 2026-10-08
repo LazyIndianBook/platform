@@ -16,19 +16,24 @@ from django.shortcuts import redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.utils.formats import date_format
+from django.utils.http import base36_to_int, int_to_base36
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods, require_POST
 from django.views.generic import CreateView, TemplateView
 
+from ops.sms import queue_sms
 from ops.tasks import queue_text_email
 
-from .forms import TeacherRequestForm
+from .forms import TeacherRequestForm, parent_link_contact
 from .models import ConsentRecord, DeletionRequest, TeacherProfile, User
 
 PROFILE_FIELDS = [
     "email",
     "full_name",
     "phone",
+    "login_phone",
+    "login_phone_verified",
+    "sms_updates",
     "class_level",
     "district",
     "date_of_birth",
@@ -132,6 +137,8 @@ def export_user_data(user):
             "roles": sorted(user.role_names),
         },
         "email_addresses": list(user.emailaddress_set.values("email", "verified", "primary")),
+        "passkeys_and_authenticators": list(user.authenticator_set.values("type", "created_at", "last_used_at")),
+        "google_accounts": list(user.socialaccount_set.values("provider", "uid", "extra_data", "date_joined")),
         "teacher_profile": TeacherProfile.objects.filter(user=user)
         .values("school_name", "district", "subject", "verified", "verified_at", "created")
         .first(),
@@ -226,6 +233,17 @@ def delete_account(request):
 
 @login_required
 @require_POST
+def sms_updates(request):
+    """My account: order updates by SMS on or off (ops.sms.send_order_sms); only with a confirmed mobile number."""
+    user = request.user
+    user.sms_updates = user.login_phone_verified and "sms_updates" in request.POST
+    user.save(update_fields=["sms_updates"])
+    messages.success(request, f"Order updates by SMS: {'on' if user.sms_updates else 'off'}.")
+    return redirect("account")
+
+
+@login_required
+@require_POST
 def cancel_deletion(request):
     if keep_account(request):
         messages.success(request, "Your account will not be deleted.")
@@ -235,10 +253,27 @@ def cancel_deletion(request):
 PARENT_LINK_SALT, PARENT_LINK_DAYS = "accounts.parent-consent", 7
 
 
+class ShortSigner(signing.TimestampSigner):
+    """Django's timestamped signature cut to 16 characters (96 bits), so that the link's token (about 28 characters)
+    fits a DLT SMS variable (30 at most)."""
+
+    def signature(self, value, key=None):
+        return super().signature(value, key)[:16]
+
+
+def parent_signer(contact):
+    """The parent's link names their contact: one sent before the contact was corrected stops working."""
+    return ShortSigner(salt=f"{PARENT_LINK_SALT}:{contact}", sep=".")
+
+
 def send_parent_link(user):
-    """PARENTAL_CONSENT_MODE "verified" (M9): email the parent a signed link to confirm, valid PARENT_LINK_DAYS days.
-    The link names the parent's address, so one sent before the address was corrected stops working."""
-    token = signing.dumps({"user": user.pk, "to": user.parent_contact}, salt=PARENT_LINK_SALT)
+    """PARENTAL_CONSENT_MODE "verified" (M9): the parent gets a signed link to confirm, valid PARENT_LINK_DAYS days, by
+    email, or by SMS when the contact is a mobile number. Who receives it is not proof of parenthood (DPDP rules: the
+    SMS, like the email, only reaches the contact the student gave; RUNBOOK.md "Parental consent")."""
+    token = parent_signer(user.parent_contact).sign(int_to_base36(user.pk))
+    if "@" not in user.parent_contact:
+        queue_sms("parent_consent", user.parent_contact, {"var1": user.full_name.split()[0][:30], "var2": token})
+        return
     queue_text_email(
         user.parent_contact,
         "Please confirm your child's account",
@@ -254,39 +289,35 @@ def send_parent_link(user):
 @never_cache
 @require_http_methods(["GET", "POST"])
 def parent_consent(request, token):
-    """The emailed link (M9): the page says who registered and links the privacy notice; "I agree" records the
-    consent, verified by the link (ConsentRecord.Method.EMAIL_LINK, with the time)."""
+    """The parent's link (M9): the page says who registered and links the privacy notice; "I agree" records the
+    consent, verified by the link (ConsentRecord.Method EMAIL_LINK or SMS_LINK, with the time)."""
     try:
-        data = signing.loads(token, salt=PARENT_LINK_SALT, max_age=timedelta(days=PARENT_LINK_DAYS))
-        student = User.objects.get(pk=data["user"], parent_contact=data["to"], is_active=True)
-    except signing.BadSignature, User.DoesNotExist:
+        student = User.objects.get(pk=base36_to_int(token.partition(".")[0]), is_active=True)
+        parent_signer(student.parent_contact).unsign(token, max_age=timedelta(days=PARENT_LINK_DAYS))
+    except ValueError, signing.BadSignature, User.DoesNotExist:
         return render(request, "parent_consent.html", {"expired": True}, status=400)
     done = not student.consent_pending
     if request.method == "POST" and not done:
-        verified = {"method": ConsentRecord.Method.EMAIL_LINK, "verified_at": timezone.now()}
-        ConsentRecord.record(request, student, by_parent=True, **verified)
+        method = ConsentRecord.Method.EMAIL_LINK if "@" in student.parent_contact else ConsentRecord.Method.SMS_LINK
+        ConsentRecord.record(request, student, by_parent=True, method=method, verified_at=timezone.now())
         done = True
     return render(request, "parent_consent.html", {"student": student, "done": done})
-
-
-class ParentEmailForm(forms.Form):
-    parent_email = forms.EmailField(label="Parent's or guardian's email")
 
 
 @login_required
 @require_POST
 def parent_consent_resend(request):
-    """While the parent's consent is pending: the link again, to the address on record or a corrected one (M9)."""
-    user, form = request.user, ParentEmailForm(request.POST)
+    """While the parent's consent is pending: the link again, to the contact on record or a corrected one (M9)."""
+    user, contact = request.user, parent_link_contact(request.POST.get("parent_contact"))
     if not user.consent_pending:
         return redirect("account")
-    if not form.is_valid() or form.cleaned_data["parent_email"].lower() == user.email:
-        messages.error(request, "Enter your parent's or guardian's email address (not your own).")
+    if not contact or contact in (user.email, user.login_phone):
+        messages.error(request, "Enter your parent's or guardian's email address or mobile number (not your own).")
     elif not cache.add(f"accounts:parent-link:{user.pk}", 1, 600):
         messages.error(request, "A link was sent a few minutes ago: wait ten minutes before asking for another.")
     else:
-        user.parent_contact = form.cleaned_data["parent_email"].lower()
+        user.parent_contact = contact
         user.save(update_fields=["parent_contact"])
         send_parent_link(user)
-        messages.success(request, f"We have emailed {user.parent_contact} a link to confirm.")
+        messages.success(request, f"We have sent {user.parent_contact} a link to confirm.")
     return redirect("account")

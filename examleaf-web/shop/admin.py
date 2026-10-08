@@ -2,21 +2,31 @@ from django import forms
 from django.contrib import admin, messages
 from django.core.files.uploadedfile import UploadedFile
 from django.forms import formset_factory
-from django.shortcuts import render
-from django.urls import reverse
+from django.http import FileResponse, Http404
+from django.shortcuts import get_object_or_404, render
+from django.urls import path, reverse
 from django.utils.html import format_html, format_html_join
+from django.utils.safestring import mark_safe
+from django.utils.text import Truncator
 from django_fsm import TransitionNotAllowed
 from import_export import fields, resources
 from import_export.formats.base_formats import CSV, XLSX
 from localflavor.in_.in_states import STATE_CHOICES
 from simple_history.admin import SimpleHistoryAdmin
+from treebeard.admin import TreeAdmin
+from treebeard.forms import movenodeform_factory
 
 from ops.admin import LoggedExportMixin
 
 from . import services
 from .forms import RefundForm, ShipForm
 from .models import (
+    Attribute,
+    AttributeValue,
     BundleItem,
+    Category,
+    Collection,
+    CollectionItem,
     Coupon,
     CreditNote,
     Invoice,
@@ -25,9 +35,13 @@ from .models import (
     Payment,
     Product,
     ProductImage,
+    ProductType,
+    QuoteRequest,
     Refund,
+    Review,
     Shipment,
     ShippingRate,
+    SlugHistory,
 )
 
 admin.site.index_template = "shop/admin/index.html"  # the ops dashboard with the shop's numbers above it
@@ -77,6 +91,7 @@ class ProductForm(forms.ModelForm):
         fields = [  # as in the admin's fieldsets
             *["title", "slug", "kind", "is_active", "subject", "book", "mrp", "price", "stock", "gst_rate"],
             *["hsn_code", "cover", "description", "isbn", "pages", "weight_grams", "seo_title", "seo_description"],
+            *["product_type", "categories", "related"],
         ]
 
     def __init__(self, *args, **kwargs):
@@ -95,19 +110,33 @@ class BundleItemInline(admin.TabularInline):
     verbose_name = verbose_name_plural = "books in the bundle (bundles only)"
 
 
+class AttributeValueInline(admin.TabularInline):
+    model = AttributeValue
+    extra = 0
+    verbose_name_plural = "attributes (those of its product type)"
+
+
+class SlugHistoryInline(ReadOnlyInline):
+    model = SlugHistory
+    fields = readonly_fields = ["slug", "created"]
+    verbose_name_plural = "earlier addresses (they redirect here)"
+
+
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
     form = ProductForm
     list_display = ["title", "kind", "subject", "price", "mrp", "stock", "is_active"]
-    list_filter = ["is_active", "kind", "subject"]
+    list_filter = ["is_active", "kind", "subject", "product_type", "categories"]
     search_fields = ["title", "isbn", "slug"]
     prepopulated_fields = {"slug": ["title"]}
     list_select_related = ["subject__board", "subject__class_level"]
-    inlines = [BundleItemInline, ProductImageInline]
+    filter_horizontal = ["categories", "related"]
+    inlines = [BundleItemInline, AttributeValueInline, ProductImageInline, SlugHistoryInline]
     fieldsets = [
         (None, {"fields": ["title", "slug", "kind", "is_active", "subject", "book"]}),
         ("Price and stock", {"fields": ["mrp", "price", "stock", "gst_rate", "hsn_code"]}),
         ("The book", {"fields": ["cover", "description", "isbn", "pages", "weight_grams"]}),
+        ("Shelves, type and related products", {"fields": ["categories", "product_type", "related"]}),
         ("Search engines", {"fields": ["seo_title", "seo_description"], "classes": ["collapse"]}),
     ]
 
@@ -116,6 +145,59 @@ class ProductAdmin(admin.ModelAdmin):
             # The page may have been open while customers bought: saving it must not put its old copy count back.
             obj.stock = Product.objects.values_list("stock", flat=True).get(pk=obj.pk)
         super().save_model(request, obj, form, change)
+
+
+@admin.register(Category)
+class CategoryAdmin(TreeAdmin):
+    """The shop's shelves as a tree: drag a row to move it (with its sub-categories), or set its place in the form."""
+
+    form = movenodeform_factory(Category)
+    list_display = ["name", "slug", "product_count"]
+    search_fields = ["name", "slug"]
+    prepopulated_fields = {"slug": ["name"]}
+
+    @admin.display(description="products")
+    def product_count(self, category):
+        return category.products.count()
+
+
+class CollectionItemInline(admin.TabularInline):
+    model = CollectionItem
+    extra = 0
+    verbose_name_plural = "products (in the order of their position)"
+
+
+@admin.register(Collection)
+class CollectionAdmin(admin.ModelAdmin):
+    list_display = ["name", "slug", "position", "is_active"]
+    list_editable = ["position", "is_active"]
+    list_filter = ["is_active"]
+    search_fields = ["name", "slug", "items__product__title"]
+    prepopulated_fields = {"slug": ["name"]}
+    inlines = [CollectionItemInline]
+
+
+class AttributeInline(admin.TabularInline):
+    model = Attribute
+    extra = 0
+    prepopulated_fields = {"code": ["name"]}
+
+
+@admin.register(ProductType)
+class ProductTypeAdmin(admin.ModelAdmin):
+    """What a kind of product has to say about itself (a printed book: edition year, language…): each product of the
+    type gets these attributes on its page (Products → attributes) and in the API's filters."""
+
+    list_display = ["name", "attribute_list"]
+    search_fields = ["name", "attributes__name", "attributes__code"]
+    inlines = [AttributeInline]
+
+    @admin.display(description="attributes")
+    def attribute_list(self, product_type):
+        return ", ".join(attribute.name for attribute in product_type.attributes.all())
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).prefetch_related("attributes")
 
 
 @admin.register(Coupon)
@@ -415,3 +497,84 @@ class CreditNoteAdmin(ReadOnlyAdmin):
             return "being made"
         url = reverse("shop:credit_note", args=[note.invoice.order.number, note.pk])
         return format_html('<a href="{}">download</a>', url)
+
+
+@admin.register(Review)
+class ReviewAdmin(SimpleHistoryAdmin):
+    """Buyers' reviews, shown on the product page once approved (RUNBOOK.md "Reviews")."""
+
+    list_display = ["product", "rating", "excerpt", "status", "created"]
+    list_filter = ["status", "rating", "product"]
+    search_fields = ["text", "product__title", "user__email"]
+    list_select_related = ["product"]
+    readonly_fields = ["product", "user", "rating", "text", "created"]
+    fields = [*readonly_fields, "status"]
+    actions = ["approve", "reject"]
+
+    def has_add_permission(self, request):  # reviews come from buyers
+        return False
+
+    @admin.display(description="review")
+    def excerpt(self, review):
+        return Truncator(review.text).chars(80)
+
+    @admin.action(description="Approve (shown on the product page)", permissions=["change"])
+    def approve(self, request, queryset):
+        self._set_status(request, queryset, Review.Status.APPROVED)
+
+    @admin.action(description="Reject (never shown)", permissions=["change"])
+    def reject(self, request, queryset):
+        self._set_status(request, queryset, Review.Status.REJECTED)
+
+    def _set_status(self, request, queryset, status):
+        reviews = list(queryset)
+        for review in reviews:  # one by one: the history records each change and who made it
+            review.status = status
+            review.save(update_fields=["status", "modified"])
+        self.message_user(request, f"{len(reviews)} review(s) {status}.", messages.SUCCESS)
+
+
+@admin.register(QuoteRequest)
+class QuoteRequestAdmin(admin.ModelAdmin):
+    """School and bulk orders: set the discount and shipping, make the quotation PDF, send it to the contact, record
+    the payment outside the site (RUNBOOK.md "School and bulk orders")."""
+
+    list_display = ["number", "school", "contact_name", "copies", "status", "created", "quotation_link"]
+    list_filter = ["status", "created"]
+    search_fields = ["school", "contact_name", "email", "gstin"]
+    readonly_fields = [
+        *["number", "school", "contact_name", "email", "phone", "gstin", "delivery_pin", "books", "note"],
+        *["created", "quoted_at", "quotation_link"],
+    ]
+    fields = [*readonly_fields, "status", "discount_percent", "shipping_fee"]
+    actions = ["make_quotation"]
+
+    def has_add_permission(self, request):  # requests come from the website's form
+        return False
+
+    @admin.display(description="books")
+    def books(self, quote):
+        return format_html_join(mark_safe("<br>"), "{} × {}", ((i["quantity"], i["title"]) for i in quote.items))
+
+    @admin.display(description="quotation")
+    def quotation_link(self, quote):
+        if not quote.quotation:
+            return "—"
+        url = reverse("admin:shop_quoterequest_quotation", args=[quote.pk])
+        until = f"{quote.valid_until:%d %b %Y}"  # format_html makes its arguments text first
+        return format_html('<a href="{}">{}.pdf</a>, valid until {}', url, quote.number, until)
+
+    def get_urls(self):
+        download = self.admin_site.admin_view(self.download_quotation)
+        return [path("<int:pk>/quotation/", download, name="shop_quoterequest_quotation"), *super().get_urls()]
+
+    def download_quotation(self, request, pk):
+        quote = get_object_or_404(QuoteRequest, pk=pk)
+        if not (self.has_view_permission(request, quote) and quote.quotation):
+            raise Http404
+        return FileResponse(quote.quotation.open("rb"), as_attachment=True, filename=f"ExamLeaf-{quote.number}.pdf")
+
+    @admin.action(description="Make the quotation PDF (today's prices, valid 15 days)", permissions=["change"])
+    def make_quotation(self, request, queryset):
+        quotes = [services.make_quotation(quote) for quote in queryset]
+        self.message_user(request, f"Quotation made: {', '.join(q.number for q in quotes)}.", messages.SUCCESS)

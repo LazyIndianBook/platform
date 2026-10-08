@@ -67,6 +67,11 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedModel):
     consent_at = models.DateTimeField(
         null=True, blank=True, help_text="When the privacy notice was accepted (by the parent if under 18)."
     )
+    # Log-in by SMS code (allauth, accounts.adapter): the mobile number is stored only once its code was confirmed on
+    # My account, as +91XXXXXXXXXX; one account per number. `phone` above stays a contact detail only.
+    login_phone = models.CharField("mobile number for log-in", max_length=16, blank=True)
+    login_phone_verified = models.BooleanField("mobile number confirmed", default=False)
+    sms_updates = models.BooleanField("order updates by SMS", default=False)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
 
@@ -76,6 +81,11 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedModel):
 
     class Meta:
         permissions = [("export_user", "Can export users")]  # the admin's CSV export (ADMIN role)
+        constraints = [
+            models.UniqueConstraint(
+                fields=["login_phone"], condition=models.Q(login_phone_verified=True), name="uniq_verified_login_phone"
+            )
+        ]
 
     def __str__(self):
         return self.email
@@ -146,6 +156,7 @@ class ConsentRecord(models.Model):
     class Method(models.TextChoices):
         DECLARED = "declared", "ticked on the form"
         EMAIL_LINK = "email_link", "confirmed through the link emailed to the parent"
+        SMS_LINK = "sms_link", "confirmed through the link texted to the parent"
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="consents")
     event = models.CharField(max_length=10, choices=Event.choices, default=Event.GIVEN)
@@ -231,6 +242,8 @@ class DeletionRequest(models.Model):
                 ).update(object_repr=f"deleted account #{user.pk}")
             TeacherProfile.objects.filter(user=user).delete()
             EmailAddress.objects.filter(user=user).delete()
+            user.authenticator_set.all().delete()  # passkeys, authenticator apps
+            user.socialaccount_set.all().delete()  # Google sign-in and the profile Google sent
             AccessAttempt.objects.filter(username=email).delete()
             user.attempts.update(notes="")
             user.answer_sheets.all().delete()
@@ -238,7 +251,8 @@ class DeletionRequest(models.Model):
             user.groups.clear()
             user.user_permissions.clear()
             user.email, user.full_name = f"deleted-{user.pk}@deleted.invalid", "Deleted account"
-            user.phone = user.district = user.parent_name = user.parent_contact = ""
+            user.phone = user.district = user.parent_name = user.parent_contact = user.login_phone = ""
+            user.login_phone_verified = user.sms_updates = False
             user.date_of_birth = None
             user.is_active = user.is_staff = user.is_superuser = False
             user.set_unusable_password()  # also ends every session: they are tied to the password hash

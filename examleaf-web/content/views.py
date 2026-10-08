@@ -6,6 +6,7 @@ from django.views.decorators.cache import cache_page
 from django.views.generic import DetailView, ListView
 
 from practice.forms import AttemptForm
+from shop.seo import organization_jsonld
 
 from .models import Book, Paper
 
@@ -13,6 +14,9 @@ from .models import Book, Paper
 class HomeView(ListView):
     template_name = "home.html"
     queryset = Book.objects.select_related("subject").order_by("id")
+
+    def get_context_data(self, **kwargs):
+        return super().get_context_data(jsonld=[organization_jsonld()], **kwargs)  # templates/_head_meta.html
 
 
 class BookView(DetailView):
@@ -22,7 +26,7 @@ class BookView(DetailView):
     def get_context_data(self, **kwargs):
         papers = list(self.object.papers.filter(is_published=True))
         tiers = [(label, [p for p in papers if p.tier == tier]) for tier, label in Paper.Tier.choices]
-        return super().get_context_data(tiers=tiers, **kwargs)
+        return super().get_context_data(tiers=tiers, og={"title": self.object.title}, **kwargs)
 
 
 OPEN_SOLUTIONS_MAX_AGE = 300  # seconds a shared cache may keep open solutions

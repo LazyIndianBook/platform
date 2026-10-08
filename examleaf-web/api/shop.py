@@ -3,9 +3,10 @@ cart, the saved addresses and the orders, paid with Razorpay's mobile SDK or cas
 lookup. Every step goes through shop.cart, shop.services and shop.payments, as on the website. The Razorpay webhook
 stays the website's (/shop/webhooks/razorpay/): it completes an order whatever the client did."""
 
+import django_filters
 from django.conf import settings
-from django.db.models import Prefetch
-from django.urls import reverse as site_reverse
+from django.core.exceptions import ValidationError
+from django.db.models import Prefetch, Q
 from django.utils.cache import add_never_cache_headers
 from django_fsm import TransitionNotAllowed
 from drf_spectacular.types import OpenApiTypes
@@ -21,19 +22,25 @@ from shop import payments, services
 from shop.cart import get_cart, set_quantity, totals
 from shop.models import (
     Address,
+    Attribute,
+    AttributeValue,
     BundleItem,
     Cart,
     CartItem,
+    Category,
+    Collection,
+    CollectionItem,
     Coupon,
     CreditNote,
     Order,
     OrderItem,
+    PinCode,
     Product,
     validate_indian_mobile,
 )
 from shop.views import lookup_allowed, over_limit, pdf_response
 
-from .views import VerifiedEmail
+from .views import VerifiedEmail, cached
 
 CUSTOMER = [permissions.IsAuthenticated, VerifiedEmail]
 NOT_PAYABLE = "This order is not waiting for an online payment."
@@ -81,7 +88,7 @@ def can_pay(order):
 
 
 def media_url(request, file):
-    return request.build_absolute_uri(site_reverse("shop:media", args=[file.name])) if file else None
+    return request.build_absolute_uri(file.url) if file else None  # the public bucket, or /shop/media/
 
 
 # Products
@@ -96,9 +103,22 @@ class BundleItemSerializer(serializers.ModelSerializer):
         fields = ["product", "title", "quantity"]
 
 
+class AttributeValueSerializer(serializers.ModelSerializer):
+    code = serializers.CharField(source="attribute.code", read_only=True, help_text="the filter: ?attr_<code>=")
+    name = serializers.CharField(source="attribute.name", read_only=True)
+
+    class Meta:
+        model = AttributeValue
+        fields = ["code", "name", "value"]
+
+
 class ProductSerializer(serializers.ModelSerializer):
-    """A book on sale. `in_stock` says whether copies can be ordered (a bundle: of each of its books); the number of
-    copies is not given."""
+    """A book on sale. `in_stock` says whether copies can be ordered (a bundle: of each of its books; a digital
+    product: always); the number of copies is not given."""
+
+    categories = serializers.SlugRelatedField(slug_field="slug", many=True, read_only=True)
+    attributes = AttributeValueSerializer(source="attribute_values", many=True, read_only=True)
+    related = serializers.SerializerMethodField()
 
     subject = serializers.CharField(source="subject.code", read_only=True, allow_null=True)
     book = serializers.SlugRelatedField(slug_field="slug", read_only=True, help_text="the papers inside: books/<slug>/")
@@ -132,6 +152,9 @@ class ProductSerializer(serializers.ModelSerializer):
             "hsn_code",
             "in_stock",
             "bundle_items",
+            "categories",
+            "attributes",
+            "related",
             "web_url",
         ]
 
@@ -146,28 +169,137 @@ class ProductSerializer(serializers.ModelSerializer):
         return [{"url": media_url(self.context["request"], i.image), "alt": i.alt} for i in product.images.all()]
 
     def get_in_stock(self, product) -> bool:
+        if product.is_digital:
+            return True
         if product.kind != Product.Kind.BUNDLE:
             return product.stock > 0
         return min((item.product.stock // item.quantity for item in product.bundle_items.all()), default=0) > 0
+
+    def get_related(self, product) -> list[str]:
+        return [other.slug for other in product.related.all() if other.is_active]
 
     def get_web_url(self, product) -> str:
         return self.context["request"].build_absolute_uri(product.get_absolute_url())
 
 
+class ProductFilter(django_filters.FilterSet):
+    category = django_filters.CharFilter(method="in_category", help_text="a category's slug (with its sub-categories)")
+    collection = django_filters.CharFilter(field_name="collection_items__collection__slug", help_text="a collection's slug")
+
+    class Meta:
+        model = Product
+        fields = ["kind", "subject", "category", "collection"]
+
+    def in_category(self, queryset, name, value):
+        if (category := Category.objects.filter(slug=value).first()) is None:
+            return queryset.none()
+        return queryset.filter(categories__in=Category.objects.get_tree(category))
+
+
+def attribute_match(code, value):
+    """Products whose attribute `code` holds `value` (compared as the attribute stores it: "2027.0" finds 2027)."""
+    match = Q(pk__in=[])
+    for attribute in Attribute.objects.filter(code=code):
+        try:
+            normal = attribute.normalise(value)
+        except ValidationError:
+            continue
+        match |= Q(attribute_values__attribute=attribute, attribute_values__value__iexact=normal)
+    return match
+
+
 class ProductViewSet(viewsets.ReadOnlyModelViewSet):
-    """The books on sale, with their prices, pictures, what a bundle holds, and whether they are in stock."""
+    """The products on sale, with their prices, pictures, what a bundle holds, whether they are in stock, their
+    categories and attributes. Filters: `?kind=`, `?subject=`, `?category=<slug>` (with its sub-categories),
+    `?collection=<slug>`, and `?attr_<code>=<value>` for any attribute (e.g. `?attr_language=Assamese`, `?attr_year=2027`;
+    several are combined with AND)."""
 
     permission_classes = [permissions.AllowAny]
     queryset = (
         Product.objects.filter(is_active=True)
         .select_related("subject", "book")
-        .prefetch_related("images", Prefetch("bundle_items", queryset=BundleItem.objects.select_related("product")))
+        .prefetch_related(
+            "images",
+            "categories",
+            "related",
+            Prefetch("bundle_items", queryset=BundleItem.objects.select_related("product")),
+            Prefetch("attribute_values", queryset=AttributeValue.objects.select_related("attribute")),
+        )
     )
     serializer_class = ProductSerializer
     lookup_field = "slug"
-    filterset_fields = ["kind", "subject"]
+    filterset_class = ProductFilter
     search_fields = ["title"]
     ordering_fields = ["title", "price"]  # only these: any other name is ignored
+
+    def get_queryset(self):
+        products = super().get_queryset()
+        for name, value in self.request.query_params.items():
+            if name.startswith("attr_"):
+                products = products.filter(attribute_match(name.removeprefix("attr_"), value))
+        return products.distinct()  # a product on two shelves of one branch is listed once
+
+
+class CategorySerializer(serializers.ModelSerializer):
+    """A category of the shop's tree: `depth` 1 at the top, `parent` the slug of the one above (null at the top)."""
+
+    description = serializers.CharField(read_only=True, help_text="Markdown")
+    parent = serializers.SerializerMethodField()
+    web_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Category
+        fields = ["slug", "name", "description", "depth", "parent", "web_url"]
+
+    def get_parent(self, category) -> str | None:
+        return self.context["slugs"].get(category.path[: -Category.steplen])
+
+    def get_web_url(self, category) -> str:
+        return self.context["request"].build_absolute_uri(category.get_absolute_url())
+
+
+@cached
+class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
+    """The category tree, in tree order (each category followed by its sub-categories); products/?category=<slug>
+    lists a category's products."""
+
+    permission_classes = [permissions.AllowAny]
+    queryset = Category.objects.order_by("path")
+    serializer_class = CategorySerializer
+    lookup_field = "slug"
+    filter_backends = []
+
+    def get_serializer_context(self):
+        return {**super().get_serializer_context(), "slugs": dict(Category.objects.values_list("path", "slug"))}
+
+
+class CollectionSerializer(serializers.ModelSerializer):
+    description = serializers.CharField(read_only=True, help_text="Markdown")
+    products = serializers.SerializerMethodField()
+    web_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Collection
+        fields = ["slug", "name", "description", "products", "web_url"]
+
+    def get_products(self, collection) -> list[str]:
+        return [item.product.slug for item in collection.items.all() if item.product.is_active]
+
+    def get_web_url(self, collection) -> str:
+        return self.context["request"].build_absolute_uri(collection.get_absolute_url())
+
+
+@cached
+class CollectionViewSet(viewsets.ReadOnlyModelViewSet):
+    """Hand-picked lists of products ("Board 2027 essentials"); `products` are slugs, in the order staff gave them."""
+
+    permission_classes = [permissions.AllowAny]
+    queryset = Collection.objects.filter(is_active=True).prefetch_related(
+        Prefetch("items", queryset=CollectionItem.objects.select_related("product"))
+    )
+    serializer_class = CollectionSerializer
+    lookup_field = "slug"
+    filter_backends = []
 
 
 # Cart
@@ -309,6 +441,15 @@ class AddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = Address
         fields = ["id", *Address.FIELDS, "is_default", "created", "modified"]
+
+    def validate(self, data):
+        pin, state = (
+            data.get("pin", getattr(self.instance, "pin", "")),
+            data.get("state", getattr(self.instance, "state", "")),
+        )
+        if problem := PinCode.state_problem(pin, state):  # the PIN directory, when loaded (as on the website)
+            raise serializers.ValidationError({"state": [problem]})
+        return data
 
 
 class AddressViewSet(viewsets.ModelViewSet):

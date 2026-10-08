@@ -1,0 +1,9 @@
+{% load shop pictures %}<li>
+    <a href="{{ product.get_absolute_url }}">
+      {% if product.cover %}{% picture product.cover img_alt="" img_loading="lazy" ratio="2/3" s=6 m=4 l=3 %}{% else %}{% include "shop/no_cover.html" %}{% endif %}
+      <span class="kind">{{ product.get_kind_display }}</span>
+      <strong>{{ product.title }}</strong>
+    </a>
+    <p class="price">{{ product.price|inr }}{% if product.mrp != product.price %} <s>{{ product.mrp|inr }}</s>{% endif %}</p>
+    {% if not product.available %}<p class="stock out">Out of stock</p>{% endif %}
+  </li>

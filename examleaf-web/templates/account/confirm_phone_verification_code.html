@@ -1,0 +1,8 @@
+{% extends "account/base_confirm_code.html" %}
+{# allauth's page with the site's words #}
+{% block head_title %}Mobile number{% endblock head_title %}
+{% block title %}Enter the code we texted you{% endblock %}
+{% block recipient %}{{ phone }}{% endblock %}
+{% block action_url %}{% url 'account_verify_phone' %}{% endblock %}
+{% block change_title %}Use a different number{% endblock %}
+{% block extra_tags %}phone,verification{% endblock %}

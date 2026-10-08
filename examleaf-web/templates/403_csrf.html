@@ -2,12 +2,18 @@
 {% block head_title %}Please try again{% endblock %}
 {% block meta_description %}Your form could not be sent. Go back, reload the page and try again.{% endblock %}
 {% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block main_class %}{% endblock %}
 {% block content %}
-<section class="landing">
-  <p class="eyebrow">Error 403</p>
-  <h1>Your form could not be sent</h1>
-  <p>This happens when a page has been open for a long time, or when the browser blocks cookies. Nothing was saved or charged.</p>
-  <p>Go back with your browser's Back button, reload the page and send the form again.</p>
-  <p class="actions"><a class="button" href="{% url 'home' %}">The books</a></p>
+<section class="section section-top">
+  <div class="container">
+    <div class="empty">
+      <svg class="icon icon-lg" aria-hidden="true"><use href="#icon-refresh"/></svg>
+      <p class="eyebrow">Error 403</p>
+      <h1>Your form could not be sent</h1>
+      <p>This happens when a page has been open for a long time, or when the browser blocks cookies. Nothing was saved or charged.</p>
+      <p>Go back with your browser's Back button, reload the page and send the form again.</p>
+      <a class="btn btn-primary btn-lg" href="{% url 'home' %}"><svg class="icon" aria-hidden="true"><use href="#icon-book"/></svg><span>The books</span></a>
+    </div>
+  </div>
 </section>
 {% endblock %}

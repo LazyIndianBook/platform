@@ -17,4 +17,13 @@
             {% element button type="submit" tags="prominent,login" %}Log in{% endelement %}
         {% endslot %}
     {% endelement %}
+    <p class="login-other">
+        <a class="btn btn-secondary" href="{{ request_login_code_url }}">Log in with a code{% if sms_enabled %} by email or SMS{% endif %}</a>
+        {% if PASSKEY_LOGIN_ENABLED %}<button type="submit" form="mfa_login" id="passkey_login" class="btn btn-secondary">Use a passkey</button>{% endif %}
+    </p>
+    {% include "socialaccount/snippets/login.html" with page_layout="entrance" %}
 {% endblock content %}
+{% block extra_body %}
+    {{ block.super }}
+    {% if PASSKEY_LOGIN_ENABLED %}{% include "mfa/webauthn/snippets/login_script.html" with button_id="passkey_login" %}{% endif %}
+{% endblock extra_body %}

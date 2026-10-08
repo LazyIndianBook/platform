@@ -3,8 +3,52 @@ from django.contrib.admin.models import CHANGE, LogEntry
 from django.contrib.contenttypes.models import ContentType
 from import_export.admin import ExportMixin
 
+from .models import EmailSuppression, SmsLog
+from .sms import phone_hash
+
 admin.site.index_template = "admin/dashboard.html"  # the app list with today's and the month's numbers above it
 admin.site.site_header = admin.site.site_title = "ExamLeaf admin"
+
+
+@admin.register(EmailSuppression)
+class EmailSuppressionAdmin(admin.ModelAdmin):
+    """Addresses the site no longer emails (bounces, complaints; ops.models). Delete a row to email the address again,
+    once the student says it works (RUNBOOK.md "Email")."""
+
+    list_display = ["email", "reason", "esp", "created"]
+    list_filter = ["reason", "esp", "created"]
+    search_fields = ["email"]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(SmsLog)
+class SmsLogAdmin(admin.ModelAdmin):
+    """What the site texted, for support ("did my code go?"): search by the whole mobile number, which is hashed as the
+    log keeps it. The log is written by ops.sms only."""
+
+    list_display = ["created", "kind", "phone_last4", "status", "provider_id"]
+    list_filter = ["status", "kind", "created"]
+    search_fields = ["phone_hash"]
+    search_help_text = "A whole mobile number, e.g. 98640 12345"
+
+    def get_search_results(self, request, queryset, search_term):
+        from accounts.forms import normalise_phone  # (accounts.admin imports this module)
+
+        if not search_term:
+            return queryset, False
+        phone = normalise_phone(search_term)
+        return queryset.filter(phone_hash=phone_hash(phone)) if phone else queryset.none(), False
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
 
 
 class LoggedExportMixin(ExportMixin):

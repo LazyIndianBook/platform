@@ -216,7 +216,11 @@ class PaperPageTests(TestCase):
         self.assertIn("frame-ancestors 'none'", policy)
         page = response.content.decode()
         self.assertEqual(
-            {u for u in re.findall(r'(?:src|href)="(https?://[^"]+)"', page) if not u.startswith(settings.KATEX_CDN)},
+            {
+                u
+                for u in re.findall(r'(?:src|href)="(https?://[^"]+)"', page)
+                if not u.startswith((settings.KATEX_CDN, settings.SITE_URL))  # SITE_URL: the canonical link
+            },
             set(),
         )
         self.assertNotRegex(page, r"\son[a-z]+=")  # an inline handler would need 'unsafe-inline' in script-src

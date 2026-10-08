@@ -1,0 +1,31 @@
+{% extends "shop/invoice.html" %}
+{% block reference %}<p>Quotation of {{ quote.quoted_at|date:"j F Y" }}, valid until {{ quote.valid_until|date:"j F Y" }} · {{ quote.copies }} copies</p>{% endblock %}
+{% block body %}
+<table>
+  <thead>
+    <tr><th>#</th><th class="item">Book</th><th>HSN</th><th class="num">GST</th><th class="num">Copies</th><th class="num">Price (₹)</th><th class="num">Amount (₹)</th></tr>
+  </thead>
+  <tbody>
+  {% for line in lines %}
+    <tr>
+      <td>{{ forloop.counter }}</td>
+      <td>{{ line.product.title }}</td>
+      <td>{{ line.product.hsn_code }}</td>
+      <td class="num">{{ line.product.gst_rate|floatformat:2 }} %</td>
+      <td class="num">{{ line.quantity }}</td>
+      <td class="num">{{ line.product.price.amount }}</td>
+      <td class="num">{{ line.amount }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<table class="totals">
+  <tr><th>Books (prices include tax)</th><td class="num">₹{{ books }}</td></tr>
+  {% if discount %}<tr><th>Discount ({{ quote.discount_percent|floatformat:"-2" }} %)</th><td class="num">−₹{{ discount }}</td></tr>{% endif %}
+  <tr><th>Shipping</th><td class="num">₹{{ quote.shipping_fee }}</td></tr>
+  <tr class="grand"><th>Total</th><td class="num">₹{{ total }}</td></tr>
+</table>
+
+<p class="note">This quotation is valid for {{ quote.VALID_DAYS }} days. Payment in advance by NEFT or UPI to the account we send with it, or through the payment link we email; the books are dispatched once it arrives, with a GST invoice. Printed books (HSN 4901) are exempt from GST. This document is computer generated and needs no signature.</p>
+{% endblock %}

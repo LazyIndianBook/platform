@@ -123,15 +123,15 @@ def sign_up(client, **fields):
 
 def parent_link(to):
     [body] = [m.body for m in mail.outbox if m.to == [to]][-1:]
-    return re.search(r"/consent/[^/\s]+/", body).group()
+    return re.search(r"/c/[^/\s]+/", body).group()
 
 
 def test_verified_mode_marks_wait_for_the_parents_emailed_consent(client, settings, monkeypatch):  # M9
     settings.PARENTAL_CONSENT_MODE = "verified"
     paper = make_paper()
     assert (
-        "parent_contact" in sign_up(client, parent_contact="98640 12345").context["form"].errors
-    )  # no link to a phone
+        "parent_contact" in sign_up(client, parent_contact="+44 20 7946 0958").context["form"].errors
+    )  # no link to a landline or a number abroad (SMS to an Indian mobile: accounts/test_parent_sms.py)
     sign_up(client, parent_contact="Anita@Example.com")
     user = User.objects.get()
     assert user.consent_pending and ConsentRecord.objects.get().method == ConsentRecord.Method.DECLARED
@@ -140,8 +140,8 @@ def test_verified_mode_marks_wait_for_the_parents_emailed_consent(client, settin
     response = client.post(reverse("attempt_add", args=[paper.code]), {"date": "2026-10-01", "marks_obtained": "40"})
     assert "has not confirmed your account yet" in response.text and not Attempt.objects.exists()
     assert "Waiting for your parent" in client.get(reverse("account")).text
-    client.post(reverse("parent_consent_resend"), {"parent_email": "rahul@example.com"})  # not the student's own
-    client.post(reverse("parent_consent_resend"), {"parent_email": "father@example.com"})  # a corrected address
+    client.post(reverse("parent_consent_resend"), {"parent_contact": "rahul@example.com"})  # not the student's own
+    client.post(reverse("parent_consent_resend"), {"parent_contact": "father@example.com"})  # a corrected address
     parent, link = Client(), parent_link("father@example.com")
     assert parent.get(first_link).status_code == 400  # the old address's link no longer works
     later = time.time() + 8 * 86400

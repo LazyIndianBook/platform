@@ -38,6 +38,7 @@
 {% else %}
   <form method="post" action="{% url 'shop:cart' %}" class="coupon">{% csrf_token %}
     {{ coupon_form.code.label_tag }}
+    {{ coupon_form.turnstile }}
     <div class="inline">{{ coupon_form.code }}<button type="submit" name="action" value="coupon" class="secondary">Apply</button></div>
   </form>
 {% endif %}

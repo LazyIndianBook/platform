@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block head_title %}School and bulk orders{% endblock %}
+{% block meta_description %}Schools, coaching centres and booksellers: ask for a quotation for ExamLeaf books in bulk, delivered anywhere in India.{% endblock %}
+{% block content %}
+<h1>School and bulk orders</h1>
+<p>For a school, a coaching centre or a bookshop: tell us which books and how many copies, and we email you a quotation, valid for 15 days. Payment is in advance, by NEFT, UPI or a payment link; the books are then dispatched with a GST invoice.</p>
+<form method="post" class="card">{% csrf_token %}
+  <div class="card-body">
+    {% if form.non_field_errors %}<div class="alert alert-error" role="alert">{% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}</div>{% endif %}
+    {% for field in form %}{% if field.name != "turnstile" %}
+    <div class="field">{{ field.label_tag }} {{ field }}
+      {% if field.help_text %}<p class="field-help">{{ field.help_text }}</p>{% endif %}
+      {% for error in field.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+    </div>
+    {% endif %}{% endfor %}
+    <p hidden><label>Leave this empty <input name="website" tabindex="-1" autocomplete="off"></label></p>
+    {{ form.turnstile }}{% for error in form.turnstile.errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+  </div>
+  <div class="card-footer"><button type="submit" class="btn btn-primary">Ask for a quotation</button></div>
+</form>
+{% endblock %}

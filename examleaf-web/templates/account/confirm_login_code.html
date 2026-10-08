@@ -1,0 +1,7 @@
+{% extends "account/base_confirm_code.html" %}
+{# allauth's page with the site's words: Log in, not Sign In #}
+{% block head_title %}Log in{% endblock head_title %}
+{% block title %}Enter the code{% endblock %}
+{% block recipient %}{% if email %}{{ email }}{% else %}{{ phone }}{% endif %}{% endblock %}
+{% block action_url %}{% url 'account_confirm_login_code' %}{% endblock %}
+{% block extra_tags %}login{% endblock %}

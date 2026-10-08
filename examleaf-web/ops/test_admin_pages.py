@@ -15,7 +15,7 @@ from accounts.factories import UserFactory
 from accounts.models import ConsentRecord, DeletionRequest, TeacherProfile
 from content.tests import make_paper
 from practice.models import Attempt
-from shop.factories import CouponFactory, ProductFactory, ShippingRateFactory, make_order
+from shop.factories import CouponFactory, ProductFactory, ShippingRateFactory, make_order, picture
 from shop.models import (
     Address,
     BundleItem,
@@ -42,7 +42,7 @@ def one_of_everything(user):
     book, other = ProductFactory(subject=paper.book.subject, book=paper.book), ProductFactory()
     bundle = ProductFactory(kind="bundle")
     BundleItem.objects.create(bundle=bundle, product=book)
-    ProductImage.objects.create(product=book, image="products/inside.jpg", alt="A page")
+    ProductImage.objects.create(product=book, image=picture("products/inside.jpg"), alt="A page")
     ShippingRateFactory()
     coupon = CouponFactory()
     order = make_order((book, 2), (other, 1), user=user, coupon=coupon)

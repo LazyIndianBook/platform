@@ -1,0 +1,15 @@
+{% autoescape off %}A quotation was asked for on the website.
+
+{{ quote.school }}
+{{ quote.contact_name }} · {{ quote.email }} · {{ quote.phone }}{% if quote.gstin %}
+GSTIN {{ quote.gstin }}{% endif %}
+Delivery PIN code: {{ quote.delivery_pin }}
+
+{% for item in quote.items %}{{ item.quantity }} x {{ item.title }}
+{% endfor %}{% if quote.note %}
+Note: {{ quote.note }}
+{% endif %}
+Make the quotation in the admin (School and bulk orders, "Make the quotation PDF"):
+{{ site_url }}{% url 'admin:shop_quoterequest_change' quote.pk %}
+
+ExamLeaf{% endautoescape %}

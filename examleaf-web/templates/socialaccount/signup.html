@@ -1,0 +1,14 @@
+{% extends "socialaccount/base_entrance.html" %}
+{# allauth's page after Google, with the site's words: Register, and the student details of accounts.forms #}
+{% block head_title %}Register{% endblock head_title %}
+{% block content %}
+<h1>Register</h1>
+<p>You are registering with your {{ account.get_provider.name }} account. A few details about your studies, and you
+are done.</p>
+<form method="post" action="{% url 'socialaccount_signup' %}">
+  {% csrf_token %}
+  {{ form.as_p }}
+  {{ redirect_field }}
+  <button type="submit" class="btn btn-primary">Register</button>
+</form>
+{% endblock content %}

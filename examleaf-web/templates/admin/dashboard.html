@@ -1,4 +1,16 @@
 {% extends "admin/index.html" %}{% load dashboard %}
+{% block extrastyle %}{{ block.super }}
+<style>{# colours and spacing from docs/design/tokens.css; the module colours come from the admin theme #}
+#dashboard { margin-bottom: 24px; }
+#dashboard table { width: 100%; }
+#dashboard th, #dashboard td { padding: 10px 14px; }
+#dashboard thead th { background: #F4EFE3; color: #1B2330; }
+#dashboard td { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; color: #1B2330; }
+#dashboard p { margin: 0; padding: 12px 14px; line-height: 2; border-top: 1px solid #D9DDE3; }
+#dashboard p a { font-weight: 600; color: #1A6E30; }
+#dashboard p a:hover { color: #0B2A5B; }
+</style>
+{% endblock %}
 {% block content %}
 {% dashboard_stats as stats %}
 <div class="module" id="dashboard">

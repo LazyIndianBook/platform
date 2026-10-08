@@ -1,0 +1,7 @@
+{% autoescape off %}Books on sale running out (fewer than {{ low_stock }} copies):
+
+{% for product in products %}{{ product.stock }} left: {{ product.title }}
+{% endfor %}
+Change the stock in the admin: {{ site_url }}{% url 'admin:shop_product_changelist' %}
+
+ExamLeaf{% endautoescape %}

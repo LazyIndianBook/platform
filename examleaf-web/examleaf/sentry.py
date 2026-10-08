@@ -10,6 +10,7 @@ FILTERED = "[Filtered]"
 KEYS = {  # field names, lower case, "-" read as "_" (headers)
     *["password", "password1", "password2", "new_password1", "new_password2", "old_password"],
     *["code", "verification_token", "refresh", "access", "token", "key", "authorization", "cookie"],
+    *["otp", "var1", "var2", "authkey"],  # an SMS task's variables (ops/sms.py): code, a name, a consent link's token
     *["razorpay_signature", "x_razorpay_signature", "secret", "body", "alternatives", "message"],
     *["email", "full_name", "parent_name", "date_of_birth", "shipping_address", "line1", "line2", "pin", "vpa"],
 }

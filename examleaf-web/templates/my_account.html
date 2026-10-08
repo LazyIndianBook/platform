@@ -12,13 +12,15 @@
 {% endif %}{% endwith %}
 {% if user.consent_pending %}
 <div class="notice">
-  <p><strong>Waiting for your parent's or guardian's consent.</strong> We have emailed them a link to confirm. Until
-  they do, you can read the solutions but not save marks or order books. Not arrived? Check the address and send it
-  again:</p>
+  <p><strong>Waiting for your parent's or guardian's consent.</strong> We have sent them a link to confirm. Until
+  they do, you can read the solutions but not save marks or order books. Not arrived? Check the {% if sms_enabled %}email
+  address or mobile number{% else %}address{% endif %} and send it again:</p>
   <form method="post" action="{% url 'parent_consent_resend' %}">{% csrf_token %}
-    <label for="parent_email">Parent's or guardian's email</label>
-    <input type="email" name="parent_email" id="parent_email" required{% if "@" in user.parent_contact %} value="{{ user.parent_contact }}"{% endif %}>
-    <button type="submit">Send the link again</button>
+    <div class="field">
+      <label for="parent_contact">Parent's or guardian's email{% if sms_enabled %} or mobile number{% endif %}</label>
+      <input class="input" type="text" name="parent_contact" id="parent_contact" required value="{{ user.parent_contact }}">
+    </div>
+    <button type="submit" class="btn btn-secondary">Send the link again</button>
   </form>
 </div>
 {% endif %}
@@ -27,9 +29,17 @@
   <dt>Name</dt><dd>{{ user.full_name }}</dd>
   <dt>Email</dt><dd>{{ user.email }} · <a href="{% url 'account_email' %}">change</a></dd>
   <dt>Password</dt><dd><a href="{% url 'account_change_password' %}">change</a></dd>
+  {% if sms_enabled %}<dt>Mobile number</dt><dd>{% if user.login_phone_verified %}{{ user.login_phone }} · <a href="{% url 'account_change_phone' %}">change</a>{% else %}<a href="{% url 'account_change_phone' %}">add one</a> to log in with a code by SMS{% endif %}</dd>{% endif %}
+  <dt>Passkeys</dt><dd><a href="{% url 'mfa_list_webauthn' %}">log in with your phone's fingerprint, face or screen lock</a></dd>
   {% if user.is_staff %}<dt>Two-factor</dt><dd><a href="{% url 'mfa_index' %}">authenticator app and recovery codes</a></dd>{% endif %}
   {% if user.class_level %}<dt>Class</dt><dd>{{ user.get_class_level_display }}{% if user.board %}, {{ user.board }}{% endif %}</dd>{% endif %}
 </dl>
+{% if sms_enabled and user.login_phone_verified %}
+<form method="post" action="{% url 'sms_updates' %}">{% csrf_token %}
+  <label class="checkbox"><input type="checkbox" name="sms_updates"{% if user.sms_updates %} checked{% endif %}> Text me when an order is placed, shipped and delivered</label>
+  <button type="submit" class="btn btn-secondary btn-sm">Save</button>
+</form>
+{% endif %}
 <p><a href="{% url 'record' %}">My record</a> · <a href="{% url 'shop:orders' %}">My orders</a></p>
 
 <h2>Addresses</h2>

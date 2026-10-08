@@ -10,17 +10,19 @@ from decimal import Decimal
 from allauth.account.utils import has_verified_email
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.files.base import ContentFile
 from django.db import transaction
 from django.db.models import F
 from django.template.loader import render_to_string
 from django.utils import timezone
 from django_fsm import can_proceed
 
+from accounts.roles import SALES
 from ops.tasks import queue_text_email
 
-from . import tasks
+from . import invoices, tasks
 from .cart import totals as cart_totals
-from .models import INR, Coupon, Order, OrderItem, Payment, Product, Refund, Shipment, live_mode, paise
+from .models import INR, Coupon, Order, OrderItem, Payment, Product, QuoteRequest, Refund, Shipment, live_mode, paise
 
 logger = logging.getLogger(__name__)
 UNPAID_ORDERS_EXPIRE = timedelta(days=2)
@@ -54,11 +56,17 @@ SUBJECTS = {
 
 
 def notify(order, kind, **context):
-    """Email the customer (templates/shop/email/<kind>.txt) once the transaction is committed."""
+    """Email the customer (templates/shop/email/<kind>.txt) once the transaction is committed, and an SMS for the
+    kinds ops.sms.send_order_sms sends (confirmation, shipped, delivered) to accounts that asked for them."""
 
     def send():
         body = render_to_string(f"shop/email/{kind}.txt", {"order": order, "site_url": settings.SITE_URL, **context})
         queue_text_email(order.email, SUBJECTS[kind].format(order.number), body)
+        try:
+            from ops.sms import send_order_sms
+        except ImportError:  # the SMS gateway (work package A) not installed
+            return
+        send_order_sms(order, kind)
 
     transaction.on_commit(send, robust=True)
 
@@ -144,6 +152,11 @@ def create_order(cart, *, user, email, address, method):
         raise ShopError("Your cart is empty.")
     if problems := result.problems():
         raise ShopError(" ".join(problems))
+    if any(line.product.is_digital for line in result.lines):
+        if method == Order.Method.COD:
+            raise ShopError("Cash on delivery is for printed books: please pay online for the course.")
+        if user is None:
+            raise ShopError("Please log in first: the course opens in your account.")
     if result.coupon_problem:
         raise ShopError(f"{result.coupon_problem} Remove the coupon to go on.")
     if method == Order.Method.COD and result.total > settings.SHOP_COD_MAX_VALUE:
@@ -243,20 +256,42 @@ def record_capture(entity, payload=None):
             start_refund(order, f"Paid while the order was {order.get_status_display()}.", payment=payment)
         else:
             try:
-                claim_coupon(order)  # first: it changes nothing, so a book sold out after it leaves no trace
-                reserve_stock(order)
+                mark_paid(order)
             except (OutOfStock, CouponUsedUp) as error:
                 order.cancel()
                 order.save()
                 why = error.while_paying
                 refund = start_refund(order, f"{why.capitalize()} while the payment was made.", payment=payment)
                 notify(order, "cancelled", reason=f"{why} while you were paying", refund=refund)
-            else:
-                order.pay()
-                order.save()
-                notify(order, "confirmation")
-                transaction.on_commit(lambda: tasks.generate_invoice.delay(order.pk), robust=True)
     return order
+
+
+def mark_paid(order):
+    """A pending order (locked) has been paid, online or offline: its coupon claimed and its copies taken (raising
+    CouponUsedUp or OutOfStock before anything changes), then paid, its digital products opened (and an order of
+    digital products only delivered at once), the customer emailed and the invoice queued."""
+    claim_coupon(order)  # first: it changes nothing, so a book sold out after it leaves no trace
+    reserve_stock(order)
+    order.pay()
+    order.save()
+    if order.has_digital:
+        grant_course(order)
+        if order.is_digital:
+            order.deliver_digital()
+            order.save()
+    notify(order, "confirmation")
+    transaction.on_commit(lambda: tasks.generate_invoice.delay(order.pk), robust=True)
+
+
+def grant_course(order):
+    """The `learn` app's entitlement for a paid order with a digital product (Phase 6 D), in the payment's transaction:
+    if it fails, the payment is recorded again on Razorpay's retry. Skipped while the app is not installed."""
+    try:
+        from learn.services import grant_for_order
+    except ImportError:
+        logger.error("Order %s has a digital product but learn.services.grant_for_order is missing", order.number)
+        return
+    grant_for_order(order)
 
 
 def _refund_second_payment(first, entity):
@@ -362,10 +397,13 @@ def pack_order(order):
 
 
 def ship_order(order, courier, tracking_number, tracking_url=""):
+    """Shipped: the customer gets the courier, the number and a tracking link (the courier's page when staff leave
+    `tracking_url` empty: Shipment.tracking_url_for)."""
     with transaction.atomic():
         order = _lock(order)
         order.ship()
         order.save()
+        tracking_url = tracking_url or Shipment.tracking_url_for(courier, tracking_number)
         shipment = Shipment.objects.create(
             order=order, courier=courier, tracking_number=tracking_number, tracking_url=tracking_url
         )
@@ -443,3 +481,36 @@ def expire_unpaid_orders(reconcile=None):
                 cancel_order(locked, "Not paid within two days.", email=False)
                 cancelled += 1
     return cancelled
+
+
+def staff_emails(role=SALES):
+    """The addresses of the role's active members, or of the superusers while the role has none."""
+    users = get_user_model().objects.filter(is_active=True)
+    return list(users.filter(groups__name=role).values_list("email", flat=True)) or list(
+        users.filter(is_superuser=True).values_list("email", flat=True)
+    )
+
+
+def email_staff(subject, template, context, role=SALES):
+    """A text email (templates/<template>) to the role's members, once the transaction is committed."""
+
+    def send():
+        body = render_to_string(template, {"site_url": settings.SITE_URL, **context})
+        for address in staff_emails(role):
+            queue_text_email(address, subject, body)
+
+    transaction.on_commit(send, robust=True)
+
+
+def make_quotation(quote):
+    """The quotation PDF at today's prices (invoices.quotation_context), valid QuoteRequest.VALID_DAYS days from now,
+    in the private storage; it replaces an earlier one."""
+    old = quote.quotation.name
+    quote.quoted_at = timezone.now()
+    quote.quotation.save(f"{quote.number}.pdf", ContentFile(invoices.render_pdf(quote)), save=False)
+    if quote.status == QuoteRequest.Status.NEW:
+        quote.status = QuoteRequest.Status.QUOTED
+    quote.save()
+    if old:
+        quote.quotation.storage.delete(old)
+    return quote

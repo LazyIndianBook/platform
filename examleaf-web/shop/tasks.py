@@ -2,14 +2,32 @@ from datetime import timedelta
 
 import requests
 from celery import shared_task
+from django.conf import settings
 from django.core.files.base import ContentFile
 from django.db import transaction
 from django.db.models import Q
+from django.template.loader import render_to_string
 from django.utils import timezone
+from PIL import Image
 from razorpay.errors import BadRequestError, GatewayError, ServerError
 
+from examleaf.images import og_image
+from ops.tasks import queue_text_email
+
 from . import invoices, payments, services
-from .models import Cart, CreditNote, Invoice, Order, Payment, Refund, WebhookEvent, paise
+from .models import (
+    Cart,
+    CreditNote,
+    Invoice,
+    Order,
+    Payment,
+    Product,
+    Refund,
+    StockAlert,
+    WebhookEvent,
+    paise,
+    public_storage,
+)
 
 
 @shared_task(
@@ -109,5 +127,48 @@ def clean_up():
     WebhookEvent.objects.filter(received_at__lt=timezone.now() - payments.WEBHOOK_MAX_AGE).delete()
     old_payments = Payment.objects.filter(created__lt=timezone.now() - timedelta(days=Payment.PAYLOAD_DAYS))
     old_payments.filter(raw_payload__isnull=False).update(raw_payload=None)
+    StockAlert.objects.filter(created__lt=timezone.now() - timedelta(days=365)).delete()  # a book never back
     unsold = Order.objects.filter(status=S.CANCELLED, placed_at=None)  # no sale: nothing for the tax records
     services.forget_orders(unsold.filter(modified__lt=timezone.now() - services.FORGET_UNSOLD_AFTER))
+
+
+@shared_task(autoretry_for=(OSError,), retry_backoff=60, max_retries=3)
+def make_og_image(product_id):
+    """The product's link-preview picture (og:image): its cover and title on the night colour, 1200x630 JPEG, in the
+    public storage under a new name each time (the bucket's files are cached as immutable); the old one is deleted."""
+    product = Product.objects.filter(pk=product_id).first()
+    if product is None:
+        return
+    covers = []
+    if product.cover:
+        with public_storage().open(product.cover.name) as file, Image.open(file) as cover:
+            covers = [cover.convert("RGB")]
+    name = public_storage().save(f"og/{product.slug}.jpg", ContentFile(og_image(covers, product.title)))
+    Product.objects.filter(pk=product.pk).update(og_image=name)  # no post_save: nothing queued again
+    if product.og_image:
+        public_storage().delete(product.og_image.name)
+
+
+@shared_task
+def send_stock_alerts():
+    """Hourly (celery beat): each address waiting for a product that has copies again gets one email, and its alert
+    is deleted."""
+    for product in Product.objects.filter(is_active=True, stock_alerts__isnull=False).distinct():
+        if product.available < 1:
+            continue
+        alerts = list(product.stock_alerts.all())
+        body = render_to_string("shop/email/back_in_stock.txt", {"product": product, "site_url": settings.SITE_URL})
+        for alert in alerts:
+            queue_text_email(alert.email, f"{product} is back in stock", body)
+        StockAlert.objects.filter(pk__in=[alert.pk for alert in alerts]).delete()
+
+
+@shared_task
+def low_stock_report():
+    """Daily (celery beat): the SALES role is emailed the books on sale with fewer than SHOP_LOW_STOCK copies (bundles
+    have none of their own)."""
+    low = Product.objects.filter(is_active=True, stock__lt=settings.SHOP_LOW_STOCK)
+    low = low.exclude(kind__in=[Product.Kind.BUNDLE, Product.Kind.DIGITAL])  # no copies of their own
+    if products := list(low.order_by("stock", "title")):
+        context = {"products": products, "low_stock": settings.SHOP_LOW_STOCK}
+        services.email_staff("Books running out", "shop/email/low_stock.txt", context)

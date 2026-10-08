@@ -47,8 +47,8 @@ def test_no_delivery_time_is_promised_outside_the_shipping_policy(client, django
 
 def test_the_site_says_log_in_and_register_everywhere(client):
     login, signup = client.get(reverse("account_login")).text, client.get(reverse("account_signup")).text
-    assert "<h1>Log in</h1>" in login and ">Register</a>" in login and "Sign" not in login.split("<main>")[1]
-    assert "<h1>Register</h1>" in signup and ">Log in</a>" in signup and "Sign" not in signup.split("<main>")[1]
+    assert "<h1>Log in</h1>" in login and ">Register</a>" in login and "Sign" not in login.split("<main")[1]
+    assert "<h1>Register</h1>" in signup and ">Log in</a>" in signup and "Sign" not in signup.split("<main")[1]
     user = UserFactory()
     EmailAddress.objects.create(user=user, email=user.email, verified=True, primary=True)
     response = client.post(reverse("account_login"), {"login": user.email, "password": PASSWORD}, follow=True)

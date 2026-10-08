@@ -4,6 +4,72 @@ What changed in the ExamLeaf web platform, newest first, by phase. Phases 0 to 3
 8 October 2026); phase 4 is the QA pass, the working tree on top of phase 3b until it is committed. Details of each
 feature are in README.md; the numbers of the tests are those of `pytest` at the end of the phase.
 
+## Phase 5 B — storage, media, shop and web platform (21 tests more)
+
+Work package B of `docs/examleaf-phase5-plan.md`; its Status section has a line per item.
+
+- **Two buckets** (Cloudflare R2; DEPLOYMENT.md sections 15 and 17): a private one for invoices, credit notes,
+  quotations and answer sheets, reached by links signed for 5 minutes, and a public one for product pictures on
+  `PUBLIC_MEDIA_DOMAIN`, cached a year as immutable; keys `S3_*` of their own (`PUBLIC_S3_*` for a private bucket on
+  AWS S3 Mumbai); the boto3 checksum variables R2 needs; the CSP allows the media domain. Without buckets (development,
+  tests, one server) both stay in `media/`, and `/shop/media/` serves only the public folders.
+- **Pictures:** covers and product pictures get AVIF and WebP sizes on the worker (django-pictures 1.8.0, covers
+  cropped 2:3) and pages use `<picture>`; their widths and heights are stored, so no page opens the files. The four
+  static covers have committed AVIF and WebP copies at 320 and 480 px (`manage.py build_covers`).
+- **Search engines and link previews:** canonical link and Open Graph tags on every page (`templates/_head_meta.html`,
+  included by base.html), a default preview picture and one per product (cover and title, made on save by the worker),
+  JSON-LD for products (Product and Book: price, stock, ISBN/GTIN, shipping, returns; the rating only from approved
+  reviews), breadcrumbs and the publisher. No FAQ markup (retired by Google).
+- **Web app:** manifest, maskable icons drawn with Pillow, a service worker that keeps only the static files and a
+  standalone offline page (never a page, so nothing of an account outlives a log-out), registered from the new
+  `static/js/site.js` (`templates/_body_end.html`); CSP `manifest-src` and `worker-src 'self'`.
+- **PIN codes:** `manage.py import_pincodes <csv>` loads India Post's directory (data.gov.in); the address forms fill in
+  the district and state, and the website, the checkout and the API refuse a state that does not match the PIN code.
+- **Shipping:** a courier list on shipments; the tracking link is filled in when staff leave it empty (Delhivery, Blue
+  Dart, Ekart, 17TRACK for India Post and the rest).
+- **Reviews** from buyers whose order was delivered, one per book, approved in the admin, shown as "Verified buyer";
+  honeypot and rate limit; deleted with the account.
+- **School and bulk orders:** a public form (`/shop/school-orders/`, GSTIN checked with python-stdnum, Turnstile when
+  on), staff emailed, a quotation PDF valid 15 days from the admin, kept in the private bucket. The coupon form takes
+  Turnstile too.
+- **Stock:** "Email me when it is back" on products out of stock (one email, hourly check), a daily email of the books
+  running low to the SALES role (`SHOP_LOW_STOCK`).
+- **GST:** `manage.py export_gstr1 --from --to` writes the B2C, HSN summary and credit-note CSVs for the accountant.
+- **Order SMS** go out from the shop's notifications through `ops.sms.send_order_sms` (phase 5 A).
+- **Supply chain:** Dependabot (pip and GitHub Actions, weekly); DEPLOYMENT.md notes Jazzband's wind-down.
+- Upgrading: `MEDIA_ENDPOINT_URL` is gone (`S3_ENDPOINT_URL`), and `MEDIA_BUCKET` now needs `PUBLIC_MEDIA_BUCKET` and
+  `PUBLIC_MEDIA_DOMAIN`; product picture URLs change with the buckets (API.md); SALES needs permissions for reviews and
+  school orders in `accounts/roles.py` (not yet given).
+
+## Phase 5 A — sign-in and communications (32 tests more)
+
+Work package A of `docs/examleaf-phase5-plan.md`; its Status section has a line per item.
+
+- **Phone log-in.** A student adds a mobile number on My account (never at sign-up) and confirms it with an SMS code;
+  then it logs in with the password or a code by SMS ("Log in with a code", email or number). Numbers are taken as
+  people type them ("98640 12345") and kept as +91…; one account per number. Every code, emailed or texted, is now 6
+  digits (was `ABCD-EFGH`). Failed password log-ins by phone are limited per number (allauth keyed them all on one
+  empty key). An empty "send me a code" form and a second code to the same number within a minute no longer end in a
+  server error. Phone log-in exists only where SMS are sent (`SMS_BACKEND=msg91`, or development).
+- **Passkeys** for everyone (My account → Passkeys, "Use a passkey" on the log-in page; Passwordless ticked by
+  default), one relying party for the host of `SITE_URL`; staff may use a passkey instead of the authenticator app.
+- **Google sign-in** when `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set: a new student fills in the student
+  details after Google (one form mixin with the sign-up form); PKCE; `form-action` allows Google only then.
+- **App API:** `POST auth/phone/code/` and `auth/phone/confirm/` (API.md): log-in by SMS code, the same JWT pair.
+- **SMS gateway** (`ops/sms.py`): one Celery task, `console` or `msg91` (OTP and Flow APIs), retries on network
+  errors, an SMS log without whole numbers (Admin → Operations), at most `SMS_DAILY_CAP` a day counted in the
+  database. Order SMS (placed, shipped, delivered) for students who ask for them on My account, through
+  `ops.sms.send_order_sms(order, kind)`.
+- **Parental consent by SMS** (`verified` mode): a parent's Indian mobile number gets the link by SMS; links are now
+  short (`/c/<token>/`, email too: links sent before this release stop working) and record how they were confirmed.
+- **Email:** Amazon SES as the documented production backend, bounce and complaint webhooks (`/anymail/…`, only with
+  `ANYMAIL_WEBHOOK_SECRET`), an email suppression list that stops sends to bad addresses (staff delete a row to send
+  again).
+- **Cloudflare Turnstile** on sign-up and code requests when its keys are set (fails open, logged).
+- Data export and account deletion include the new data (log-in number, passkeys, Google accounts); Sentry filters SMS
+  variables; DEPLOYMENT.md sections 15 and 16, RUNBOOK.md "SMS", "Phone numbers and passkeys", "Email bounces and
+  complaints".
+
 ## Phase 4 security — shop (16 tests more, in `shop/test_security.py`)
 
 The shop's findings of SECURITY_REVIEW.md (8 October 2026); each finding there has its status line.

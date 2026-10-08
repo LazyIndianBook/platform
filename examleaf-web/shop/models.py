@@ -7,14 +7,17 @@ records (stock, refunds, emails) are in services.py."""
 
 import re
 import secrets
-from decimal import ROUND_HALF_UP, Decimal
+from datetime import timedelta
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
+from urllib.parse import quote
 
 from django.conf import settings
 from django.contrib.admin.models import LogEntry
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
+from django.core.files.storage import storages
 from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
-from django.db import models
+from django.db import models, transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.urls import reverse
@@ -26,13 +29,31 @@ from localflavor.in_.in_states import STATE_CHOICES
 from localflavor.in_.models import INStateField
 from model_utils.models import TimeStampedModel
 from phonenumber_field.modelfields import PhoneNumberField
+from pictures.models import PictureField
+from pictures.validators import MaxSizeValidator
 from simple_history.models import HistoricalRecords
+from stdnum.in_ import gstin
+from treebeard.mp_tree import MP_Node
 
 from accounts.models import DeletionRequest
 
 INR = "INR"
 STATES = dict(STATE_CHOICES)
+
+
+def public_storage():
+    """The public bucket (settings.STORAGES["public"]) for product pictures: a callable, so that migrations name this
+    function instead of copying the storage's settings."""
+    return storages["public"]
+
+
 validate_pin = RegexValidator(r"^[1-9]\d{5}$", "Enter the 6-digit PIN code.")
+
+
+def validate_gstin(value):
+    """A GSTIN: 15 characters whose state code, PAN and check character agree (python-stdnum)."""
+    if not gstin.is_valid(value):
+        raise ValidationError("Enter a valid 15-character GSTIN, or leave it empty.")
 
 
 def rupees(amount):
@@ -66,6 +87,10 @@ class Product(TimeStampedModel):
         SAMPLE_PAPERS = "sample-papers", "Sample Papers"
         SOLUTIONS = "solutions", "Solutions"
         BUNDLE = "bundle", "Bundle"
+        DIGITAL = "digital", "Digital (in the app)"  # no shipping, stock or cash on delivery; opens a `learn` course
+
+    # /shop/<slug>/review/ and /stock-alert/ would meet the category and collection pages, /shop/school-orders/ the form
+    RESERVED_SLUGS = {"category", "collection", "school-orders"}
 
     title = models.CharField(max_length=200)
     slug = models.SlugField(unique=True)
@@ -89,7 +114,19 @@ class Product(TimeStampedModel):
     isbn = models.CharField("ISBN", max_length=17, blank=True)
     pages = models.PositiveSmallIntegerField(null=True, blank=True)
     description = models.TextField(blank=True, help_text="Markdown.")
-    cover = models.ImageField(upload_to="products/", blank=True)
+    cover = PictureField(
+        upload_to="products/",
+        storage=public_storage,
+        blank=True,
+        aspect_ratios=["2/3"],
+        width_field="cover_width",
+        height_field="cover_height",
+        validators=[MaxSizeValidator(4096, 4096)],
+    )
+    cover_width = models.PositiveIntegerField(null=True, editable=False)  # read from the file once, not on every page
+    cover_height = models.PositiveIntegerField(null=True, editable=False)
+    # link previews (og:image): its cover and title, 1200x630, made by tasks.make_og_image whenever either changes
+    og_image = models.FileField(upload_to="og/", storage=public_storage, blank=True, editable=False)
     mrp = money_field("MRP")
     price = money_field("selling price")
     gst_rate = models.DecimalField(
@@ -106,9 +143,20 @@ class Product(TimeStampedModel):
     is_active = models.BooleanField("on sale", default=True)
     seo_title = models.CharField("page title", max_length=70, blank=True)
     seo_description = models.CharField("meta description", max_length=160, blank=True)
+    product_type = models.ForeignKey(
+        "ProductType",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="products",
+        help_text="Gives the product its attributes (edition year, language…), shown on its page.",
+    )
+    categories = models.ManyToManyField("Category", blank=True, related_name="products")
+    related = models.ManyToManyField("self", blank=True, help_text="Shown on its page (and it on theirs).")
 
     class Meta:
         ordering = ["subject", "kind", "title"]
+        permissions = [("export_product", "Can export products"), ("import_product", "Can import products")]
 
     def __str__(self):
         return self.title
@@ -119,15 +167,34 @@ class Product(TimeStampedModel):
     def clean(self):
         if self.price and self.mrp and self.price > self.mrp:
             raise ValidationError({"price": "The selling price cannot be above the MRP."})
+        if self.slug in self.RESERVED_SLUGS:
+            raise ValidationError({"slug": "This address belongs to a page of the shop: choose another."})
+        if self.is_digital and self.hsn_code == "4901":
+            raise ValidationError({"hsn_code": "4901 is for printed books: enter the SAC code and GST rate of the course."})
+
+    def save(self, *args, **kwargs):
+        """A changed slug leaves its old one in SlugHistory: the old address redirects to the new one (301)."""
+        old = Product.objects.filter(pk=self.pk).values_list("slug", flat=True).first() if self.pk else None
+        super().save(*args, **kwargs)
+        if old and old != self.slug:
+            SlugHistory.objects.update_or_create(slug=old, defaults={"product": self})
+
+    @property
+    def is_digital(self):
+        return self.kind == self.Kind.DIGITAL
 
     def stock_lines(self, quantity):
         """{product id: copies} that selling `quantity` of this product takes from stock."""
         if self.kind == self.Kind.BUNDLE:
             return {item.product_id: item.quantity * quantity for item in self.bundle_items.all()}
+        if self.is_digital:
+            return {}
         return {self.pk: quantity}
 
     @property
     def available(self):
+        if self.is_digital:  # one per order: it opens the course for the buyer's account
+            return 1
         if self.kind == self.Kind.BUNDLE:
             items = self.bundle_items.select_related("product")
             return min((item.product.stock // item.quantity for item in items), default=0)
@@ -140,7 +207,15 @@ class Product(TimeStampedModel):
 
 class ProductImage(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="images")
-    image = models.ImageField(upload_to="products/")
+    image = PictureField(
+        upload_to="products/",
+        storage=public_storage,
+        width_field="width",
+        height_field="height",
+        validators=[MaxSizeValidator(4096, 4096)],
+    )
+    width = models.PositiveIntegerField(null=True, editable=False)
+    height = models.PositiveIntegerField(null=True, editable=False)
     alt = models.CharField("description", max_length=200, blank=True)
     position = models.PositiveSmallIntegerField(default=0)
 
@@ -163,6 +238,161 @@ class BundleItem(models.Model):
 
     def __str__(self):
         return f"{self.quantity} × {self.product}"
+
+
+class SlugHistory(models.Model):
+    """A product's earlier slug: /shop/<old>/ redirects (301) to its page (views.ProductView), so links and search
+    results survive a renamed product. Written by Product.save; a slug taken again by another product moves to it."""
+
+    slug = models.SlugField(unique=True)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="old_slugs")
+    created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = "slug history"
+
+    def __str__(self):
+        return self.slug
+
+
+class Category(MP_Node):
+    """A shelf of the shop, in a tree (django-treebeard's materialised path, as django-oscar uses: a branch is one
+    query). A product may sit on several shelves; a category's page shows the products of its sub-categories too."""
+
+    name = models.CharField(max_length=100)
+    slug = models.SlugField(unique=True)
+    description = models.TextField(blank=True, help_text="Markdown, at the top of its page.")
+
+    class Meta:
+        verbose_name_plural = "categories"
+        permissions = [("export_category", "Can export categories"), ("import_category", "Can import categories")]
+
+    def __str__(self):
+        return self.name
+
+    def get_absolute_url(self):
+        return reverse("shop:category", args=[self.slug])
+
+    def products_on_sale(self):
+        return Product.objects.filter(is_active=True, categories__in=Category.objects.get_tree(self)).distinct()
+
+
+class Collection(TimeStampedModel):
+    """A hand-picked list of products ("Board 2027 essentials"), in the order staff give them."""
+
+    name = models.CharField(max_length=100)
+    slug = models.SlugField(unique=True)
+    description = models.TextField(blank=True, help_text="Markdown, at the top of its page.")
+    is_active = models.BooleanField("shown", default=True)
+    position = models.PositiveSmallIntegerField(default=0, help_text="Collections are listed by this number.")
+
+    class Meta:
+        ordering = ["position", "name"]
+
+    def __str__(self):
+        return self.name
+
+    def get_absolute_url(self):
+        return reverse("shop:collection", args=[self.slug])
+
+    def products_on_sale(self):
+        items = self.items.filter(product__is_active=True).select_related("product")
+        return [item.product for item in items]
+
+
+class CollectionItem(models.Model):
+    collection = models.ForeignKey(Collection, on_delete=models.CASCADE, related_name="items")
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="collection_items")
+    position = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["position", "pk"]
+        constraints = [models.UniqueConstraint(fields=["collection", "product"], name="unique_collection_product")]
+
+    def __str__(self):
+        return f"{self.product} in {self.collection}"
+
+
+class ProductType(models.Model):
+    """A kind of product and the attributes its products have (a printed book: edition year, language, board…)."""
+
+    name = models.CharField(max_length=60, unique=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class Attribute(models.Model):
+    class Kind(models.TextChoices):
+        TEXT = "text", "text"
+        NUMBER = "number", "number"
+        CHOICE = "choice", "one of a list"
+        BOOLEAN = "boolean", "yes or no"
+
+    product_type = models.ForeignKey(ProductType, on_delete=models.CASCADE, related_name="attributes")
+    name = models.CharField(max_length=60)
+    code = models.SlugField(max_length=40, help_text="The API's filter: ?attr_<code>=… (e.g. language).")
+    kind = models.CharField(max_length=10, choices=Kind.choices, default=Kind.TEXT)
+    choices = models.TextField(blank=True, help_text="For “one of a list”: one choice per line.")
+    position = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["position", "pk"]
+        constraints = [models.UniqueConstraint(fields=["product_type", "code"], name="unique_attribute_code")]
+
+    def __str__(self):
+        return f"{self.name} ({self.product_type})"
+
+    def normalise(self, value):
+        """The value as it is stored and matched by the API's filter ("2027", "yes", a choice as listed); raises
+        ValidationError when it is not one of this attribute's kind."""
+        value = str(value).strip()
+        if self.kind == self.Kind.NUMBER:
+            try:
+                number = Decimal(value)
+            except InvalidOperation:
+                number = None
+            if number is None or not number.is_finite():
+                raise ValidationError("Enter a number.")
+            return format(number.normalize(), "f")
+        if self.kind == self.Kind.BOOLEAN:
+            answer = {"yes": "yes", "true": "yes", "1": "yes", "no": "no", "false": "no", "0": "no"}
+            if value.lower() not in answer:
+                raise ValidationError("Enter yes or no.")
+            return answer[value.lower()]
+        if self.kind == self.Kind.CHOICE:
+            listed = [line.strip() for line in self.choices.splitlines() if line.strip()]
+            if (match := next((c for c in listed if c.lower() == value.lower()), None)) is None:
+                raise ValidationError(f"Choose one of: {', '.join(listed)}.")
+            return match
+        return value
+
+
+class AttributeValue(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="attribute_values")
+    attribute = models.ForeignKey(Attribute, on_delete=models.CASCADE, related_name="values")
+    value = models.CharField(max_length=200)
+
+    class Meta:
+        ordering = ["attribute__position", "attribute__pk"]
+        constraints = [models.UniqueConstraint(fields=["product", "attribute"], name="one_value_per_attribute")]
+
+    def __str__(self):
+        return f"{self.attribute.name}: {self.value}"
+
+    def clean(self):
+        if not self.attribute_id:
+            return
+        product = getattr(self, "product", None)  # an admin inline's product may not be saved yet
+        if product is not None and product.product_type_id != self.attribute.product_type_id:
+            raise ValidationError({"attribute": "Not an attribute of this product's type."})
+        try:
+            self.value = self.attribute.normalise(self.value)
+        except ValidationError as error:
+            raise ValidationError({"value": error.messages}) from error
 
 
 class Coupon(TimeStampedModel):
@@ -249,6 +479,31 @@ class ShippingRate(models.Model):
         if rate is None or (rate.free_above is not None and amount >= rate.free_above.amount):
             return Decimal("0.00")
         return rate.fee.amount
+
+
+class PinCode(models.Model):
+    """The India Post PIN code directory (data.gov.in, Government Open Data Licence), one row per PIN, loaded by
+    `manage.py import_pincodes` (DEPLOYMENT.md): the address form's autofill and the check of the state, which decides
+    CGST + SGST or IGST. A few PINs straddle a border: hence lists."""
+
+    pin = models.CharField("PIN code", max_length=6, primary_key=True)
+    states = models.JSONField(help_text="Two-letter state codes.")
+    districts = models.JSONField()
+
+    class Meta:
+        verbose_name = "PIN code"
+
+    def __str__(self):
+        return self.pin
+
+    @classmethod
+    def state_problem(cls, pin, state):
+        """Why `state` cannot be the state of `pin`, or None. PINs missing from the directory (new ones, or none loaded
+        yet) are not checked."""
+        states = cls.objects.filter(pin=pin).values_list("states", flat=True).first()
+        if states and state not in states:
+            return f"PIN code {pin} is in {' or '.join(STATES.get(code, code) for code in states)}."
+        return None
 
 
 class Address(TimeStampedModel):
@@ -420,6 +675,15 @@ class Order(ConcurrentTransitionMixin, TimeStampedModel):
         """Made with test keys while the site runs on live ones: marked TEST in the admin, never packed or shipped."""
         return not self.livemode and live_mode()
 
+    @property
+    def is_digital(self):
+        """Only digital products: nothing to pack or ship, delivered once paid (services.mark_paid)."""
+        return not self.items.exclude(product__kind=Product.Kind.DIGITAL).exists()
+
+    @property
+    def has_digital(self):
+        return self.items.filter(product__kind=Product.Kind.DIGITAL).exists()
+
     def ready_to_pack(self):
         return (self.status == self.Status.PAID or (self.is_cod and self.placed_at is not None)) and not self.is_test
 
@@ -447,6 +711,10 @@ class Order(ConcurrentTransitionMixin, TimeStampedModel):
 
     @transition(status, source=Status.SHIPPED, target=Status.DELIVERED)
     def deliver(self):
+        pass
+
+    @transition(status, source=Status.PAID, target=Status.DELIVERED, conditions=[lambda o: o.is_digital])
+    def deliver_digital(self):
         pass
 
     @transition(status, source=[Status.PENDING, Status.PAID, Status.PACKED], target=Status.CANCELLED)
@@ -567,10 +835,28 @@ class Refund(TimeStampedModel):
 
 
 class Shipment(TimeStampedModel):
+    class Courier(models.TextChoices):
+        INDIA_POST = "India Post", "India Post"
+        DELHIVERY = "Delhivery", "Delhivery"
+        BLUE_DART = "Blue Dart", "Blue Dart"
+        EKART = "Ekart", "Ekart"
+        DTDC = "DTDC", "DTDC"
+        XPRESSBEES = "Xpressbees", "Xpressbees"
+        OTHER = "Other", "another courier"
+
+    # Couriers whose tracking page takes the number in its address (each answered a test number on 2026-10-08: open a
+    # real one before relying on it). The rest, India Post (its page needs a CAPTCHA) included: 17TRACK.
+    TRACKING_URLS = {
+        Courier.DELHIVERY: "https://www.delhivery.com/track-v2/package/{number}",
+        Courier.BLUE_DART: "https://www.bluedart.com/trackdartresult?trackFor=0&trackNo={number}",
+        Courier.EKART: "https://ekartlogistics.com/shipmenttrack/{number}",
+    }
+    OTHER_TRACKING_URL = "https://t.17track.net/en#nums={number}"
+
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="shipments")
-    courier = models.CharField(max_length=80)
+    courier = models.CharField(max_length=80, choices=Courier.choices, default=Courier.INDIA_POST)
     tracking_number = models.CharField(max_length=80)
-    tracking_url = models.URLField(blank=True)
+    tracking_url = models.URLField(blank=True, help_text="Empty: the courier's tracking page, or 17TRACK's.")
     shipped_at = models.DateTimeField(default=timezone.now)
     delivered_at = models.DateTimeField(null=True, blank=True)
 
@@ -579,6 +865,49 @@ class Shipment(TimeStampedModel):
 
     def __str__(self):
         return f"{self.courier} {self.tracking_number}"
+
+    @classmethod
+    def tracking_url_for(cls, courier, number):
+        return cls.TRACKING_URLS.get(courier, cls.OTHER_TRACKING_URL).format(number=quote(number.strip(), safe=""))
+
+
+class Review(TimeStampedModel):
+    """A buyer's review: only from an account with a delivered order of the product, one per product and account,
+    shown once staff approve it (admin, Reviews). The page says "Verified buyer", never a name: many buyers are minors.
+    Deleted with the account (forget_shop_details)."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "waiting for approval"
+        APPROVED = "approved", "approved"
+        REJECTED = "rejected", "rejected"
+
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="reviews")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="reviews")
+    rating = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
+    text = models.TextField(max_length=1000, blank=True)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING, db_index=True)
+    history = HistoricalRecords()
+
+    class Meta:
+        ordering = ["-created"]
+        constraints = [
+            models.UniqueConstraint(fields=["product", "user"], name="one_review_per_product_and_user"),
+            models.CheckConstraint(condition=models.Q(rating__gte=1, rating__lte=5), name="review_rating_1_to_5"),
+        ]
+
+    def __str__(self):
+        return f"{self.rating}/5 for {self.product}"
+
+    @property
+    def stars(self):
+        return "★" * self.rating + "☆" * (5 - self.rating)
+
+    @staticmethod
+    def can_review(user, product):
+        """Whether this account may review the product: it received an order of it and has not reviewed it yet."""
+        if not user.is_authenticated or Review.objects.filter(user=user, product=product).exists():
+            return False
+        return Order.objects.filter(user=user, status=Order.Status.DELIVERED, items__product=product).exists()
 
 
 def financial_year(day):
@@ -662,6 +991,74 @@ class CreditNote(TimeStampedModel):
         return cls.objects.create(refund=refund, invoice=invoice, **next_number(cls, "CN", "TC", live=live))
 
 
+class StockAlert(models.Model):
+    """A request "email me when it is back" on the page of a product out of stock: one email once it has copies
+    again (tasks.send_stock_alerts, hourly), then the row is deleted; one never sent goes after a year (clean_up)."""
+
+    email = models.EmailField()
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="stock_alerts")
+    created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["email", "product"], name="one_stock_alert_per_email")]
+
+    def __str__(self):
+        return f"{self.product} for {self.email}"
+
+
+class QuoteRequest(TimeStampedModel):
+    """A school's or bookseller's request for many copies (the public form at /shop/school-orders/): staff are emailed,
+    answer with a quotation PDF (admin action, valid VALID_DAYS days, kept in the private storage) and take the payment
+    outside the site (NEFT, UPI or a Razorpay Payment Link); RUNBOOK.md "School and bulk orders"."""
+
+    VALID_DAYS = 15
+
+    class Status(models.TextChoices):
+        NEW = "new", "new"
+        QUOTED = "quoted", "quotation made"
+        ORDERED = "ordered", "ordered"
+        CLOSED = "closed", "closed"
+
+    school = models.CharField("school or organisation", max_length=200)
+    contact_name = models.CharField("contact person", max_length=120)
+    email = models.EmailField()
+    phone = PhoneNumberField("mobile number", region="IN", validators=[validate_indian_mobile])
+    gstin = models.CharField("GSTIN", max_length=15, blank=True, validators=[validate_gstin])
+    items = models.JSONField(help_text="The books asked for: [{product (slug), title, quantity}].")
+    delivery_pin = models.CharField("delivery PIN code", max_length=6, validators=[validate_pin])
+    note = models.TextField(max_length=1000, blank=True)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.NEW, db_index=True)
+    discount_percent = models.DecimalField(
+        "discount (%)",
+        max_digits=4,
+        decimal_places=2,
+        default=0,
+        validators=[MinValueValidator(0), MaxValueValidator(50)],
+        help_text="On the books, in the next quotation.",
+    )
+    shipping_fee = models.DecimalField("shipping (₹)", max_digits=8, decimal_places=2, default=0)
+    quotation = models.FileField(upload_to="quotations/", blank=True, editable=False)  # the private storage
+    quoted_at = models.DateTimeField(null=True, blank=True, editable=False)
+
+    class Meta:
+        ordering = ["-created"]
+
+    def __str__(self):
+        return f"{self.number} {self.school}"
+
+    @property
+    def number(self):
+        return f"QT-{timezone.localdate(self.created).year}-{self.pk:05d}"
+
+    @property
+    def copies(self):
+        return sum(item["quantity"] for item in self.items)
+
+    @property
+    def valid_until(self):
+        return timezone.localdate(self.quoted_at) + timedelta(days=self.VALID_DAYS) if self.quoted_at else None
+
+
 class WebhookEvent(models.Model):
     """A Razorpay webhook already handled: its event id (X-Razorpay-Event-Id) and the hash of its signed body, so that
     a repeat, or a replay under another id, is acknowledged and ignored (payments.handle_webhook). Events older than
@@ -676,11 +1073,22 @@ class WebhookEvent(models.Model):
         return self.event_id
 
 
+@receiver(post_save, sender=Product)
+def queue_og_image(sender, instance, update_fields=None, **kwargs):
+    """A new link-preview picture once the product's title or cover may have changed (tasks.make_og_image)."""
+    if update_fields is None or {"title", "cover"} & set(update_fields):
+        from .tasks import make_og_image
+
+        transaction.on_commit(lambda: make_og_image.delay(instance.pk), robust=True)
+
+
 @receiver(post_save, sender=DeletionRequest)
 def forget_shop_details(sender, instance, **kwargs):
-    """Account deletion (accounts.DeletionRequest.complete): saved addresses and the cart go; orders stay as tax
-    records, with the address copied into them."""
+    """Account deletion (accounts.DeletionRequest.complete): saved addresses, the cart and the reviews (with their
+    history) go; orders stay as tax records, with the address copied into them."""
     if instance.status == DeletionRequest.Status.DONE:
+        Review.objects.filter(user=instance.user_id).delete()
+        Review.history.filter(user_id=instance.user_id).delete()
         addresses = Address.objects.filter(user=instance.user_id)
         LogEntry.objects.filter(  # admin history rows name an address by its text: the name, the town, the PIN
             content_type=ContentType.objects.get_for_model(Address),

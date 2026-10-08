@@ -51,9 +51,12 @@ INSTALLED_APPS = [
     "whitenoise.runserver_nostatic",
     "django.contrib.staticfiles",
     "django.contrib.sitemaps",
+    "django.contrib.humanize",  # allauth's passkey pages
     "allauth",
     "allauth.account",
-    "allauth.mfa",  # staff: an authenticator app (TOTP) and recovery codes
+    "allauth.mfa",  # staff: an authenticator app (TOTP) and recovery codes; everyone: passkeys
+    "allauth.socialaccount",  # Google sign-in, listed only when GOOGLE_CLIENT_ID and _SECRET are set
+    "allauth.socialaccount.providers.google",
     "axes",
     "simple_history",
     "taggit",
@@ -71,7 +74,9 @@ INSTALLED_APPS = [
     "pages",
     "ops",
     "djmoney",
+    "pictures",  # django-pictures: AVIF and WebP sizes of the product pictures (PICTURES below)
     "shop",  # after ops: its admin index template extends the ops dashboard
+    "learn",  # the revision course (Phase 6 D): LEARN_* below
 ]
 
 MIDDLEWARE = [
@@ -155,13 +160,42 @@ PASSWORD_RESET_TIMEOUT = 3600  # a reset link works for an hour (Django's defaul
 LOGIN_URL = "account_login"
 LOGIN_REDIRECT_URL = "home"
 
-# django-allauth: email is the login, verified by a code typed on the same page (phone friendly).
+# SMS (ops/sms.py): "console" prints them (development), "msg91" sends them through MSG91 with the DLT templates whose
+# ids are MSG91_TEMPLATE_<KIND> (DEPLOYMENT.md, RUNBOOK.md "SMS"). At most SMS_DAILY_CAP a day, counted in the database.
+# A server without a real backend has no phone log-in and sends no SMS (SMS_ENABLED): nobody would get the codes.
+SMS_BACKEND = env("SMS_BACKEND", default="console")
+MSG91_AUTHKEY = env("MSG91_AUTHKEY", default="")
+if SMS_BACKEND not in {"console", "msg91"} or (SMS_BACKEND == "msg91" and not MSG91_AUTHKEY):
+    raise SystemExit(f'SMS_BACKEND="{SMS_BACKEND}": use "console", or "msg91" with MSG91_AUTHKEY set (DEPLOYMENT.md).')
+SMS_ENABLED = SMS_BACKEND != "console" or DEBUG or TESTING
+SMS_DAILY_CAP = env.int("SMS_DAILY_CAP", default=500)
+SMS_KINDS = ["otp", "order_placed", "order_shipped", "order_delivered", "parent_consent"]
+MSG91_TEMPLATES = {kind: env(f"MSG91_TEMPLATE_{kind.upper()}", default="") for kind in SMS_KINDS}
+
+# django-allauth: email is the login, verified by a code typed on the same page (phone friendly). With SMS on, also a
+# mobile number confirmed on My account (never at sign-up: two codes in a row), with the password or a code by SMS
+# (accounts.adapter). "phone" in the sign-up fields makes allauth's /account/phone/ pages; the sign-up form drops it.
 ACCOUNT_USER_MODEL_USERNAME_FIELD = None
-ACCOUNT_LOGIN_METHODS = {"email"}
-ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*", "password2*"]
+ACCOUNT_LOGIN_METHODS = {"email", "phone"} if SMS_ENABLED else {"email"}
+ACCOUNT_SIGNUP_FIELDS = ["email*", *(["phone"] if SMS_ENABLED else []), "password1*", "password2*"]
+ACCOUNT_LOGIN_BY_CODE_ENABLED = True  # "Log in with a code": emailed, or texted to a confirmed number
+ACCOUNT_LOGIN_BY_CODE_SUPPORTS_RESEND = True
+ACCOUNT_PHONE_VERIFICATION_SUPPORTS_RESEND = True
+ACCOUNT_PHONE_VERIFICATION_TIMEOUT = 300
+ALLAUTH_USER_CODE_FORMAT = {"length": 6, "numeric": True, "dashed": False}  # every code, emailed or texted: 483920
+# SMS cost money: 3 code requests an hour per number or address, one phone confirmation a minute per number.
+ACCOUNT_RATE_LIMITS = {
+    "request_login_code": "5/m/ip,3/h/key",
+    "verify_phone": "1/60s/key,10/h/ip",
+    "change_phone": "3/h/user",
+}
 ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 ACCOUNT_EMAIL_VERIFICATION_BY_CODE_ENABLED = True
-ACCOUNT_FORMS = {"signup": "accounts.forms.SignupForm"}
+ACCOUNT_FORMS = {
+    "signup": "accounts.forms.SignupForm",
+    "request_login_code": "accounts.forms.RequestLoginCodeForm",
+    "change_phone": "accounts.forms.ChangePhoneForm",
+}
 ACCOUNT_ADAPTER = "accounts.adapter.AccountAdapter"  # sends allauth's emails through a Celery task
 ACCOUNT_CHANGE_EMAIL = True  # one address: a new one replaces it only once its emailed code is confirmed
 ACCOUNT_EMAIL_NOTIFICATIONS = True  # the old address is told of email and password changes
@@ -169,9 +203,14 @@ ACCOUNT_REAUTHENTICATION_REQUIRED = True  # password again (if not entered in th
 ACCOUNT_EMAIL_SUBJECT_PREFIX = "[ExamLeaf] "
 ACCOUNT_LOGOUT_REDIRECT_URL = "home"
 ACCOUNT_DEFAULT_HTTP_PROTOCOL = "https" if SITE_URL.startswith("https") else "http"
-# allauth.mfa (H2): every member of staff logs in with a code from an authenticator app (TOTP), or a recovery code; the
-# admin's own login form goes through allauth (urls.py). Staff sessions end 8 hours after the log-in (accounts.models).
-MFA_SUPPORTED_TYPES = ["totp", "recovery_codes"]
+# allauth.mfa (H2): every member of staff logs in with a code from an authenticator app (TOTP), a recovery code, or a
+# passkey; the admin's own login form goes through allauth (urls.py). Staff sessions end 8 hours after the log-in
+# (accounts.models). Passkeys (WebAuthn) for everyone, added on My account; one relying party, the host of SITE_URL
+# (accounts.adapter.MFAAdapter); HTTPS only, except in development. No sign-up by passkey.
+MFA_SUPPORTED_TYPES = ["totp", "webauthn", "recovery_codes"]
+MFA_PASSKEY_LOGIN_ENABLED = True
+MFA_WEBAUTHN_ALLOW_INSECURE_ORIGIN = DEBUG
+MFA_FORMS = {"add_webauthn": "accounts.forms.AddPasskeyForm"}
 MFA_TOTP_ISSUER = "ExamLeaf"
 MFA_ADAPTER = "accounts.adapter.MFAAdapter"
 
@@ -217,7 +256,29 @@ CONTENT_SECURITY_POLICY = {
     "base-uri": [CSP.SELF],
     "form-action": [CSP.SELF],
     "frame-ancestors": [CSP.NONE],
+    "manifest-src": [CSP.SELF],  # /manifest.webmanifest and /sw.js (examleaf/views.py): said outright, not by default
+    "worker-src": [CSP.SELF],
 }
+# Google sign-in (allauth.socialaccount), on the log-in page only when both GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET
+# are set (DEPLOYMENT.md). A new student always fills in our form after Google (class, board, date of birth, parent,
+# consent: Google gives none of them); an address with an account logs in as before and connects Google from there.
+# The redirect to Google follows a form, so form-action names it (Chrome and Safari apply it to that redirect).
+GOOGLE_CLIENT_ID = env("GOOGLE_CLIENT_ID", default="")
+GOOGLE_CLIENT_SECRET = env("GOOGLE_CLIENT_SECRET", default="")
+SOCIALACCOUNT_AUTO_SIGNUP = False
+SOCIALACCOUNT_FORMS = {"signup": "accounts.forms.SocialSignupForm"}
+SOCIALACCOUNT_PROVIDERS = {"google": {"SCOPE": ["profile", "email"], "OAUTH_PKCE_ENABLED": True}}
+if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
+    SOCIALACCOUNT_PROVIDERS["google"]["APPS"] = [{"client_id": GOOGLE_CLIENT_ID, "secret": GOOGLE_CLIENT_SECRET}]
+    CONTENT_SECURITY_POLICY["form-action"].append("https://accounts.google.com")
+# Cloudflare Turnstile (a check for bots, mostly without a puzzle) on sign-up and code requests (accounts.forms
+# TurnstileMixin), only when both keys are set; its script and frame come from challenges.cloudflare.com.
+TURNSTILE_SITE_KEY = env("TURNSTILE_SITE_KEY", default="")
+TURNSTILE_SECRET_KEY = env("TURNSTILE_SECRET_KEY", default="")
+TURNSTILE = bool(TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY)
+if TURNSTILE:
+    CONTENT_SECURITY_POLICY["script-src"].append("https://challenges.cloudflare.com")
+    CONTENT_SECURITY_POLICY["frame-src"] = [CSP.SELF, "https://challenges.cloudflare.com"]
 # report-only in development: the debug toolbar needs inline scripts; the browser console still lists violations
 if DEBUG:
     SECURE_CSP_REPORT_ONLY = CONTENT_SECURITY_POLICY
@@ -235,6 +296,16 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 2_621_440
 # The variable keeps its old name, EMAIL_BACKEND.
 MAILERS = {"default": {"BACKEND": env("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")}}
 ANYMAIL = {k.removeprefix("ANYMAIL_"): v for k, v in env.ENVIRON.items() if k.startswith("ANYMAIL_")}
+# Amazon SES in Mumbai (EMAIL_BACKEND=anymail.backends.amazon_ses.EmailBackend; DEPLOYMENT.md "Email"), with keys of
+# its own, not the S3 ones. Bounces and complaints come back to /anymail/<esp>/tracking/ (examleaf/urls.py), which
+# exists only with ANYMAIL_WEBHOOK_SECRET set (user:password, given to the provider inside the webhook URL), and fill
+# ops.models.EmailSuppression. Brevo and Postmark work the same way through their own EMAIL_BACKEND and ANYMAIL_* keys.
+if env("SES_ACCESS_KEY_ID", default=""):
+    ANYMAIL["AMAZON_SES_CLIENT_PARAMS"] = {
+        "region_name": env("SES_REGION", default="ap-south-1"),
+        "aws_access_key_id": env("SES_ACCESS_KEY_ID"),
+        "aws_secret_access_key": env("SES_SECRET_ACCESS_KEY"),
+    }
 DEFAULT_FROM_EMAIL = SERVER_EMAIL = env("DEFAULT_FROM_EMAIL", default="ExamLeaf <noreply@localhost>")
 
 # Celery (examleaf/celery.py). Without a broker, and always in tests, tasks run inline in the web process.
@@ -259,6 +330,8 @@ CELERY_BEAT_SCHEDULE = {  # written into the beat tables at start-up
     "reset-failed-logins": {"task": "ops.tasks.reset_failed_logins", "schedule": crontab(hour=3, minute=30)},
     "clear-expired-sessions": {"task": "ops.tasks.clear_sessions", "schedule": crontab(hour=3, minute=45)},  # M10
     "shop-clean-up": {"task": "shop.tasks.clean_up", "schedule": crontab(hour=4, minute=30)},
+    "shop-stock-alerts": {"task": "shop.tasks.send_stock_alerts", "schedule": crontab(minute=15)},  # hourly
+    "shop-low-stock": {"task": "shop.tasks.low_stock_report", "schedule": crontab(hour=8, minute=0)},
 }
 
 # Shop (shop/, README.md "Shop"): Razorpay test keys (rzp_test_…) until going live, an optional cash on delivery,
@@ -275,6 +348,8 @@ SHOP_COD_ENABLED = env.bool("SHOP_COD_ENABLED", default=False)
 # Cash on delivery: only for accounts with a confirmed email address, two orders on their way at a time, each worth at
 # most this many rupees (shipping included).
 SHOP_COD_MAX_VALUE = env.int("SHOP_COD_MAX_VALUE", default=1500)
+# Each morning the SALES role is emailed the books on sale with fewer copies than this (shop.tasks.low_stock_report).
+SHOP_LOW_STOCK = env.int("SHOP_LOW_STOCK", default=5)
 SHOP_SELLER = {
     "name": env("SELLER_LEGAL_NAME", default="ExamLeaf LLP"),
     "address": env("SELLER_ADDRESS", default="[address], [city], Assam [PIN]"),
@@ -283,6 +358,19 @@ SHOP_SELLER = {
     "state_code": env("SELLER_STATE_CODE", default="18"),  # GST state code (Assam: 18)
     "email": env("SELLER_EMAIL", default="[email]"),
     "phone": env("SELLER_PHONE", default="[phone]"),
+}
+# django-pictures: each uploaded product picture is also saved in AVIF and WebP sizes (<source> order: the browser takes
+# the first it supports) by the Celery worker, which reads only the default queue "celery" (no -Q in
+# docker-compose.yml), never in the request. Django 6's default processor would need a TASKS queue "pictures".
+PICTURES = {
+    "FILE_TYPES": ["AVIF", "WEBP"],
+    "BREAKPOINTS": {"s": 576, "m": 992, "l": 1200},
+    "GRID_COLUMNS": 12,
+    "CONTAINER_WIDTH": 1200,
+    "PIXEL_DENSITIES": [1, 2],
+    "QUEUE_NAME": "celery",
+    "PROCESSOR": "pictures.tasks.celery_process_picture",
+    "USE_PLACEHOLDERS": False,
 }
 
 # Logging: one JSON object per line on stdout (LOG_JSON=0 for plain text), each with the request ID set by django-guid
@@ -362,17 +450,46 @@ STORAGES = {
     },
 }
 WHITENOISE_AUTOREFRESH = DEBUG or TESTING  # no collectstatic needed in development and tests
-# django-storages: private S3-compatible bucket for uploads (keys: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+# Two S3-compatible buckets through django-storages (Cloudflare R2; DEPLOYMENT.md 15 and 17), keys S3_* of their own
+# (not AWS_*: SES and the backups read those). "default" is private: invoices, credit notes, quotations, answer sheets,
+# by URLs signed for 5 minutes. "public": product pictures and their AVIF/WebP sizes, the Open Graph images, through
+# PUBLIC_MEDIA_DOMAIN with a year's immutable caching (a new upload never reuses a name: file_overwrite False). No ACLs
+# (R2 ignores them, new AWS buckets refuse them). boto3 needs AWS_REQUEST_CHECKSUM_CALCULATION and
+# AWS_RESPONSE_CHECKSUM_VALIDATION=when_required in the environment for R2 (docker-compose.yml), not a client_config:
+# django-pictures sends the storage's settings to Celery as JSON. Without MEDIA_BUCKET (development, tests, one
+# server): both in MEDIA_ROOT; the public files by shop.views.product_media under /shop/media/.
+_s3 = {
+    "endpoint_url": env("S3_ENDPOINT_URL", default=None),  # R2: https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+    "region_name": env("S3_REGION", default="auto"),  # R2 "auto"; AWS "ap-south-1"
+    "access_key": env("S3_ACCESS_KEY_ID", default=None),
+    "secret_key": env("S3_SECRET_ACCESS_KEY", default=None),
+    "file_overwrite": False,
+    "default_acl": None,
+}
+# India only (a Privacy Policy promise): the private bucket on AWS S3 Mumbai (S3_REGION=ap-south-1, no S3_ENDPOINT_URL),
+# the public one still on R2 with its own endpoint, region and keys: PUBLIC_S3_ENDPOINT_URL, PUBLIC_S3_REGION, …
+_public_s3 = {**_s3}
+for _option, _name in [("endpoint_url", "ENDPOINT_URL"), ("region_name", "REGION"), ("access_key", "ACCESS_KEY_ID")]:
+    _public_s3[_option] = env(f"PUBLIC_S3_{_name}", default=_s3[_option])
+_public_s3["secret_key"] = env("PUBLIC_S3_SECRET_ACCESS_KEY", default=_s3["secret_key"])
 if env("MEDIA_BUCKET", default=""):
     STORAGES["default"] = {
         "BACKEND": "storages.backends.s3.S3Storage",
+        "OPTIONS": {**_s3, "bucket_name": env("MEDIA_BUCKET"), "querystring_auth": True, "querystring_expire": 300},
+    }
+    STORAGES["public"] = {
+        "BACKEND": "storages.backends.s3.S3Storage",
         "OPTIONS": {
-            "bucket_name": env("MEDIA_BUCKET"),
-            "endpoint_url": env("MEDIA_ENDPOINT_URL", default=None),
-            "default_acl": "private",
-            "file_overwrite": False,
+            **_public_s3,
+            "bucket_name": env("PUBLIC_MEDIA_BUCKET"),
+            "custom_domain": env("PUBLIC_MEDIA_DOMAIN"),  # media.examleaf.in
+            "querystring_auth": False,
+            "object_parameters": {"CacheControl": "public, max-age=31536000, immutable"},
         },
     }
+    CONTENT_SECURITY_POLICY["img-src"].append(f"https://{env('PUBLIC_MEDIA_DOMAIN')}")
+else:
+    STORAGES["public"] = {**STORAGES["default"], "OPTIONS": {"base_url": "/shop/media/"}}
 
 if env("BACKUP_BUCKET", default=""):  # scripts/backup.sh uploads database dumps here (manage.py upload_backup)
     STORAGES["backups"] = {
@@ -400,3 +517,33 @@ INSTALLED_APPS += API_APPS  # noqa: F405
 MIDDLEWARE.insert(
     MIDDLEWARE.index("django.middleware.common.CommonMiddleware"), "corsheaders.middleware.CorsMiddleware"
 )
+
+# Revision course (learn/; DEPLOYMENT.md "Revision course"). Clip videos are uploaded in the admin and processed by
+# ffmpeg on the "media" queue (docker-compose.yml media-worker) into HLS for phones, kept in the private storage and
+# played through links signed for LEARN_URL_SECONDS (learn/views.py), or in the public storage (LEARN_PUBLIC_VIDEO=1).
+LEARN_MAX_UPLOAD_MB = env.int("LEARN_MAX_UPLOAD_MB", default=500)
+LEARN_PUBLIC_VIDEO = env.bool("LEARN_PUBLIC_VIDEO", default=False)
+LEARN_URL_SECONDS = 600
+LEARN_FREE_PREVIEW = env.bool("LEARN_FREE_PREVIEW", default=True)  # first clip of each revision, first chapter's cards
+LEARN_ACCESS_DAYS = env.int("LEARN_ACCESS_DAYS", default=365)  # what a book code or a purchase opens, from that day
+# The key of the book codes' hashes: set it once, before the first print run, and never change it (printed codes
+# would stop working). Empty: an unkeyed hash, which a copy of the database could be searched against.
+LEARN_CODE_SECRET = env("LEARN_CODE_SECRET", default="")
+# Firebase Cloud Messaging (the daily revision reminder in the app): the service account's JSON, or a path to it.
+FCM_SERVICE_ACCOUNT_JSON = env("FCM_SERVICE_ACCOUNT_JSON", default="")
+CELERY_TASK_ROUTES = {"learn.tasks.process_clip": {"queue": "media"}}
+CELERY_BEAT_SCHEDULE["learn-reminders"] = {"task": "learn.tasks.send_reminders", "schedule": crontab(hour=18, minute=0)}
+# The staff player (hls.js: media from blob: URLs) and, with buckets, the storage hosts its requests are sent on to.
+_media_origins = []
+if env("MEDIA_BUCKET", default=""):
+    _host = (_s3["endpoint_url"] or "https://s3.amazonaws.com").split("://")[-1].rstrip("/")
+    _media_origins = [f"https://{_host}", f"https://*.{_host}"]
+    if LEARN_PUBLIC_VIDEO:
+        _media_origins.append(f"https://{env('PUBLIC_MEDIA_DOMAIN')}")
+    CONTENT_SECURITY_POLICY["connect-src"] = [CSP.SELF, *_media_origins]
+CONTENT_SECURITY_POLICY["media-src"] = [CSP.SELF, "blob:", *_media_origins]
+
+# Store (Phase 6 E): the category tree (django-treebeard: its admin templates), and imports of products and categories
+# only with the model's "import_…" permission (ADMIN), as exports (M5).
+INSTALLED_APPS += ["treebeard"]
+IMPORT_EXPORT_IMPORT_PERMISSION_CODE = "import"

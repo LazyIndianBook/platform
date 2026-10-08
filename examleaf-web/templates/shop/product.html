@@ -1,9 +1,9 @@
-{% extends "base.html" %}{% load shop markdown %}
+{% extends "base.html" %}{% load shop markdown pictures %}
 {% block head_title %}{{ product.seo_title|default:product.title }}{% endblock %}
 {% block meta_description %}{% if product.seo_description %}{{ product.seo_description }}{% else %}{{ product.title }}{% if product.subject %} for the {{ product.subject.board }} {{ product.subject.class_level }} examination{% endif %}: {{ product.price|inr }}, delivered across India.{% endif %}{% endblock %}
 {% block content %}
 <div class="book-head">
-  {% if product.cover %}<img src="{% url 'shop:media' product.cover.name %}" alt="Cover of {{ product.title }}" width="480" height="678">{% else %}{% include "shop/no_cover.html" %}{% endif %}
+  {% if product.cover %}{% picture product.cover img_alt="Cover of "|add:product.title ratio="2/3" s=4 m=3 l=3 %}{% else %}{% include "shop/no_cover.html" %}{% endif %}
   <div>
     <p class="eyebrow">{{ product.get_kind_display }}{% if product.subject %} · {{ product.subject.board }} · {{ product.subject.class_level }}{% endif %}</p>
     <h1>{{ product.title }}</h1>
@@ -18,9 +18,15 @@
         <input id="quantity" name="quantity" type="number" min="1" max="{{ left|stringformat:'d' }}" value="1" inputmode="numeric">
         <button type="submit">Add to cart</button>
       </form>
-      {% if left < 10 %}<p class="stock">Only {{ left }} left.</p>{% endif %}
+      {% if left < 10 and not product.is_digital %}<p class="stock">Only {{ left }} left.</p>{% endif %}
     {% else %}
       <p class="stock out">Out of stock for now.</p>
+      <form method="post" action="{% url 'shop:stock_alert' product.slug %}" class="field">{% csrf_token %}
+        {% if not user.is_authenticated %}<label for="alert-email">Email me once when it is back</label>
+        <input id="alert-email" class="input" name="email" type="email" autocomplete="email" required>{% endif %}
+        <p hidden><label>Leave this empty <input name="website" tabindex="-1" autocomplete="off"></label></p>
+        <button type="submit" class="btn btn-secondary">Email me when it is back</button>
+      </form>
     {% endif %}
     {% endwith %}
   </div>
@@ -49,12 +55,44 @@
   {% if product.book.edition %}<dt>Edition</dt><dd>{{ product.book.edition }}</dd>{% endif %}
   {% if product.pages %}<dt>Pages</dt><dd>{{ product.pages }}</dd>{% endif %}
   {% if product.isbn %}<dt>ISBN</dt><dd>{{ product.isbn }}</dd>{% endif %}
+  {% for value in attributes %}<dt>{{ value.attribute.name }}</dt><dd>{{ value.value }}</dd>{% endfor %}
   {% if product.weight_grams %}<dt>Weight</dt><dd>{{ product.weight_grams }} g</dd>{% endif %}
-  <dt>Delivery</dt><dd>Anywhere in India. Dispatch times and charges: <a href="{% url 'shipping' %}">Shipping Policy</a> · returns: <a href="{% url 'refunds' %}">Refund and Cancellation Policy</a></dd>
+  {% if categories %}<dt>Shelves</dt><dd>{% for category in categories %}<a href="{{ category.get_absolute_url }}">{{ category.name }}</a>{% if not forloop.last %} · {% endif %}{% endfor %}</dd>{% endif %}
+  {% if product.is_digital %}<dt>Delivery</dt><dd>In the ExamLeaf app, for the account you buy with, as soon as you have paid · <a href="{% url 'refunds' %}">Refund and Cancellation Policy</a></dd>
+  {% else %}<dt>Delivery</dt><dd>Anywhere in India. Dispatch times and charges: <a href="{% url 'shipping' %}">Shipping Policy</a> · returns: <a href="{% url 'refunds' %}">Refund and Cancellation Policy</a></dd>{% endif %}
 </dl>
 
+{% if related %}
+<h2>You may also need</h2>
+<ul class="products">{% for product in related %}{% include "shop/_product_card.html" %}{% endfor %}</ul>
+{% endif %}
+
 {% for image in product.images.all %}
-<figure class="gallery"><img src="{% url 'shop:media' image.image.name %}" alt="{{ image.alt }}" loading="lazy">{% if image.alt %}<figcaption>{{ image.alt }}</figcaption>{% endif %}</figure>
+<figure class="gallery">{% picture image.image img_alt=image.alt img_loading="lazy" s=12 m=8 l=6 %}{% if image.alt %}<figcaption>{{ image.alt }}</figcaption>{% endif %}</figure>
 {% endfor %}
+
+<section id="reviews" class="reviews">
+  <h2>Reviews</h2>
+  {% if rating %}<p><strong>{{ rating.0|floatformat:1 }} out of 5</strong> from {{ rating.1 }} review{{ rating.1|pluralize }} by buyers</p>{% endif %}
+  {% for review in reviews %}
+  <article class="card"><div class="card-body">
+    <p><span aria-hidden="true">{{ review.stars }}</span> <span class="badge badge-muted">{{ review.rating }} out of 5</span></p>
+    {% if review.text %}<p>{{ review.text|linebreaksbr }}</p>{% endif %}
+    <p class="field-help">Verified buyer · {{ review.created|date:"j F Y" }}</p>
+  </div></article>
+  {% empty %}
+  <p class="field-help">No reviews yet.</p>
+  {% endfor %}
+  {% if review_form %}
+  <form method="post" action="{% url 'shop:review' product.slug %}" class="card">{% csrf_token %}
+    <div class="card-header"><h3>Review this book</h3></div>
+    <div class="card-body">
+      {% for field in review_form %}<div class="field">{{ field.label_tag }} {{ field }}{% if field.help_text %}<p class="field-help">{{ field.help_text }}</p>{% endif %}</div>{% endfor %}
+      <p hidden><label>Leave this empty <input name="website" tabindex="-1" autocomplete="off"></label></p>
+    </div>
+    <div class="card-footer"><button type="submit" class="btn btn-primary">Send the review</button></div>
+  </form>
+  {% endif %}
+</section>
 <p><a href="{% url 'shop:catalogue' %}">All books</a></p>
 {% endblock %}

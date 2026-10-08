@@ -1,26 +1,26 @@
-{% extends "base.html" %}{% load shop %}
-{% block head_title %}Shop: printed books{% endblock %}
-{% block meta_description %}Buy ExamLeaf Sample Papers and Solutions books for the Assam Board (ASSEB) Class 12 examination, delivered across India.{% endblock %}
+{% extends "base.html" %}{% load shop markdown %}
+{% block head_title %}{% if heading %}{{ heading }}: ExamLeaf shop{% else %}Shop: printed books{% endif %}{% endblock %}
+{% block meta_description %}{% if heading %}{{ heading }}: ExamLeaf books for the Assam Board (ASSEB) Class 12 examination, delivered across India.{% else %}Buy ExamLeaf Sample Papers and Solutions books for the Assam Board (ASSEB) Class 12 examination, delivered across India.{% endif %}{% endblock %}
 {% block content %}
 <section class="hero">
+  {% if heading %}
+  <nav class="breadcrumb" aria-label="Breadcrumb"><ol><li><a href="{% url 'shop:catalogue' %}">Shop</a></li>{% for name, url in crumbs %}<li><a href="{{ url }}">{{ name }}</a></li>{% endfor %}<li aria-current="page">{{ heading }}</li></ol></nav>
+  <h1>{{ heading }}</h1>
+  {% if intro %}<div class="prose">{{ intro|markdown }}</div>{% endif %}
+  {% else %}
   <h1>Buy the books</h1>
   <p class="lead">Printed Sample Papers and Solutions books, delivered anywhere in India. Pay online with UPI, a card or net banking.</p>
+  {% endif %}
   {% if not shop_open %}<p class="notice-line">Shop opens soon: the books and their prices are here, orders open in a few days.</p>{% endif %}
 </section>
+{% if shelves %}<nav class="shelves" aria-label="Categories"><ul>{% for shelf in shelves %}<li><a href="{{ shelf.get_absolute_url }}">{{ shelf.name }}</a></li>{% endfor %}</ul></nav>{% endif %}
+{% if collections %}<nav class="collections" aria-label="Collections"><ul>{% for collection in collections %}<li><a href="{{ collection.get_absolute_url }}">{{ collection.name }}</a></li>{% endfor %}</ul></nav>{% endif %}
 <ul class="products">
   {% for product in object_list %}
-  <li>
-    <a href="{{ product.get_absolute_url }}">
-      {% if product.cover %}<img src="{% url 'shop:media' product.cover.name %}" alt="" width="480" height="678" loading="lazy">{% else %}{% include "shop/no_cover.html" %}{% endif %}
-      <span class="kind">{{ product.get_kind_display }}</span>
-      <strong>{{ product.title }}</strong>
-    </a>
-    <p class="price">{{ product.price|inr }}{% if product.mrp != product.price %} <s>{{ product.mrp|inr }}</s>{% endif %}</p>
-    {% if not product.available %}<p class="stock out">Out of stock</p>{% endif %}
-  </li>
+  {% include "shop/_product_card.html" %}
   {% empty %}
   <li>No books on sale yet.</li>
   {% endfor %}
 </ul>
-<p class="muted">Ordered without an account? <a href="{% url 'shop:lookup' %}">Find your order</a>.</p>
+<p class="muted">Ordered without an account? <a href="{% url 'shop:lookup' %}">Find your order</a>. For a school or a bookshop: <a href="{% url 'shop:quote' %}">school and bulk orders</a>.</p>
 {% endblock %}

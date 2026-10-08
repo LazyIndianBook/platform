@@ -1,16 +1,19 @@
 import hashlib
 import hmac
+import io
 import json
 from decimal import Decimal
 
 import factory
 from allauth.account.models import EmailAddress
+from django.core.files.base import ContentFile
 from django.urls import reverse
+from PIL import Image
 
 from accounts.models import User
 
 from .cart import set_quantity
-from .models import Cart, Coupon, Payment, Product, ShippingRate, paise
+from .models import Cart, Coupon, Payment, Product, ShippingRate, paise, public_storage
 
 KEY, SECRET, WEBHOOK_SECRET = "rzp_test_key", "test-key-secret", "test-webhook-secret"  # tests' Razorpay settings
 
@@ -24,6 +27,13 @@ ADDRESS = {
     "state": "AS",
     "pin": "781001",
 }
+
+
+def picture(name="products/picture.png", size=(400, 600)):
+    """A real image file in the public storage (picture fields read its width and height): its name there."""
+    buffer = io.BytesIO()
+    Image.new("RGB", size, "#0b2a5b").save(buffer, "PNG")
+    return public_storage().save(name, ContentFile(buffer.getvalue()))
 
 
 class ProductFactory(factory.django.DjangoModelFactory):

@@ -1,14 +1,23 @@
 {% extends "base.html" %}
 {% block head_title %}Solutions to Sample Paper {{ paper.short_code }} — {{ paper.book.subject.name }}{% endblock %}
 {% block meta_description %}Free worked solutions to ExamLeaf Sample Paper {{ paper.short_code }} ({{ paper.book.subject.name }}). Register once with your email address to read them.{% endblock %}
+{% block main_class %}{% endblock %}
 {% block content %}
-<section class="landing">
-  <p class="eyebrow">{{ paper.code }} · {{ paper.get_tier_display }}</p>
-  <h1>Solutions to Sample Paper {{ paper.short_code }} — {{ paper.book.subject.name }}</h1>
-  <p>Free for registered students. Register once with your email address; after that every QR code in your ExamLeaf book opens its solutions.</p>
-  <p class="actions">
-    <a class="button" href="{% url 'account_signup' %}?next={{ request.path|urlencode }}">Register</a>
-    <a class="button secondary" href="{% url 'account_login' %}?next={{ request.path|urlencode }}">Log in</a>
-  </p>
+<section class="section section-top">
+  <div class="container">
+    <nav class="breadcrumb" aria-label="Breadcrumb"><ol>
+      <li><a href="{% url 'home' %}">Home</a></li>
+      <li><svg class="icon" aria-hidden="true"><use href="#icon-chevron-right"/></svg><a href="{{ paper.book.get_absolute_url }}">{{ paper.book.subject.name }}</a></li>
+      <li><svg class="icon" aria-hidden="true"><use href="#icon-chevron-right"/></svg><span aria-current="page">Paper {{ paper.short_code }}</span></li>
+    </ol></nav>
+    {% include "_qr_card.html" with title="Solutions to Sample Paper "|add:paper.short_code|add:" — "|add:paper.book.subject.name %}
+    <div class="card landing-card"><div class="card-body">
+      <p>Free for registered students. Register once with your email address; after that every QR code in your ExamLeaf book opens its solutions.</p>
+      <div class="row">
+        <a class="btn btn-accent btn-lg" href="{% url 'account_signup' %}?next={{ request.path|urlencode }}">Register</a>
+        <a class="btn btn-secondary btn-lg" href="{% url 'account_login' %}?next={{ request.path|urlencode }}">Log in</a>
+      </div>
+    </div></div>
+  </div>
 </section>
 {% endblock %}

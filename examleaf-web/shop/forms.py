@@ -3,8 +3,11 @@ from django import forms
 from django.conf import settings
 from localflavor.in_.forms import INZipCodeField
 from localflavor.in_.in_states import STATE_CHOICES
+from stdnum.in_ import gstin
 
-from .models import Address, Order
+from accounts.forms import TurnstileMixin
+
+from .models import Address, Order, PinCode, Product, QuoteRequest, Review, Shipment
 
 AUTOCOMPLETE = {
     "name": "name",
@@ -33,7 +36,14 @@ class AddressForm(forms.ModelForm):
             self.fields[name].widget.attrs["autocomplete"] = value
         self.fields["phone"].widget.attrs.update(inputmode="tel", placeholder="98640 12345")
         self.fields["phone"].error_messages["invalid"] = "Enter a 10-digit Indian mobile number."
-        self.fields["pin"].widget.attrs.update(inputmode="numeric", maxlength=7)
+        # static/js/site.js fills in the district and state of a known PIN code (/shop/pin/<pin>/)
+        self.fields["pin"].widget.attrs.update({"inputmode": "numeric", "maxlength": 7, "data-pin-lookup": ""})
+
+    def clean(self):
+        data = super().clean()
+        if data.get("pin") and data.get("state") and (problem := PinCode.state_problem(data["pin"], data["state"])):
+            self.add_error("state", problem)  # the state decides the GST (CGST + SGST, or IGST)
+        return data
 
 
 class AddressBookForm(AddressForm):  # My account: the saved addresses
@@ -72,7 +82,7 @@ class CheckoutForm(forms.Form):
             self.fields["payment_method"].help_text = "Cash on delivery: log in with a confirmed email address."
 
 
-class CouponForm(forms.Form):
+class CouponForm(TurnstileMixin, forms.Form):  # the bot check while TURNSTILE is on: codes are not guessed
     code = forms.CharField(label="Coupon code", max_length=30)
 
 
@@ -83,9 +93,11 @@ class LookupForm(forms.Form):
 
 class ShipForm(forms.Form):  # admin: "mark shipped", one row per order
     order = forms.IntegerField(widget=forms.HiddenInput)
-    courier = forms.CharField(max_length=80, initial="India Post")
+    courier = forms.ChoiceField(choices=Shipment.Courier.choices, initial=Shipment.Courier.INDIA_POST)
     tracking_number = forms.CharField(max_length=80)
-    tracking_url = forms.URLField(required=False, assume_scheme="https")
+    tracking_url = forms.URLField(
+        required=False, assume_scheme="https", help_text="Empty: the courier's tracking page (17TRACK for the others)."
+    )
 
 
 class RefundForm(forms.Form):  # admin: "refund"
@@ -98,3 +110,58 @@ class RefundForm(forms.Form):  # admin: "refund"
         help_text="Empty: everything paid. Less, e.g. a refused parcel: the books without the shipping. Orders not "
         "yet shipped are always cancelled and refunded in full.",
     )
+
+
+class ReviewForm(forms.ModelForm):  # the product page, for buyers whose order of it was delivered
+    rating = forms.TypedChoiceField(
+        label="Your rating",
+        coerce=int,
+        choices=[(n, f"{n} out of 5") for n in range(5, 0, -1)],
+        widget=forms.RadioSelect,
+    )
+
+    class Meta:
+        model = Review
+        fields = ["rating", "text"]
+        labels = {"text": "Your review (optional)"}
+        help_texts = {"text": "At most 1,000 characters. Shown after we have read it, as from a verified buyer."}
+
+
+class QuoteRequestForm(TurnstileMixin, forms.ModelForm):
+    """School and bulk orders (/shop/school-orders/): the buyer's details and a number of copies per book on sale."""
+
+    delivery_pin = INZipCodeField(label="Delivery PIN code", error_messages={"invalid": "Enter the 6-digit PIN code."})
+
+    class Meta:
+        model = QuoteRequest
+        fields = ["school", "contact_name", "email", "phone", "gstin", "delivery_pin", "note"]
+        widgets = {"note": forms.Textarea(attrs={"rows": 3, "maxlength": 1000})}
+        help_texts = {"gstin": "If the school or shop is registered for GST: it goes on the quotation and the invoice."}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["phone"].widget.attrs.update(inputmode="tel", placeholder="98640 12345")
+        self.fields["phone"].error_messages["invalid"] = "Enter a 10-digit Indian mobile number."
+        self.products = list(Product.objects.filter(is_active=True))
+        for product in self.products:
+            self.fields[f"copies_{product.pk}"] = forms.IntegerField(
+                label=f"Copies of {product.title}", min_value=0, max_value=10000, required=False
+            )
+
+    def clean_gstin(self):
+        return gstin.compact(self.cleaned_data["gstin"])  # " 18aabcu9603r1zm " -> 18AABCU9603R1ZM
+
+    def clean(self):
+        data = super().clean()
+        self.instance.items = [
+            {"product": product.slug, "title": product.title, "quantity": data[f"copies_{product.pk}"]}
+            for product in self.products
+            if data.get(f"copies_{product.pk}")
+        ]
+        if not self.instance.items:
+            raise forms.ValidationError("Enter the number of copies of at least one book.")
+        return data
+
+
+class StockAlertForm(forms.Form):  # the page of a product out of stock, for visitors without an account
+    email = forms.EmailField(label="Email address")

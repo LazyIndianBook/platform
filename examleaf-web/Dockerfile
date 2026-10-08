@@ -7,9 +7,11 @@ WORKDIR /app
 # WeasyPrint (invoice PDFs) needs Pango and HarfBuzz, a font with the rupee sign (DejaVu Sans) and fonts for the names
 # and addresses customers type in their own script (Noto: Assamese and Bengali, Devanagari ...): the address is printed
 # on the invoice, and without such a font the letters come out as empty boxes.
+# ffmpeg (and ffprobe) make the revision course's clips into HLS (learn/media.py) on the media worker.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 \
         fonts-dejavu-core fonts-noto-core \
+        ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # What the site runs on only: the test and lint tools are in requirements-dev.txt.

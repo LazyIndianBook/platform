@@ -1,0 +1,14 @@
+# Weekly pull requests for outdated or vulnerable dependencies (examleaf-web/DEPLOYMENT.md "Supply chain"). Before
+# merging a bump, look at who published it on PyPI: Jazzband's projects (django-axes, model-utils, taggit, django-redis,
+# widget-tweaks, simplejwt) move to new owners until the organisation is archived in early 2027.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /examleaf-web  # requirements.txt and requirements-dev.txt
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+  - package-ecosystem: github-actions
+    directory: /  # .github/workflows
+    schedule:
+      interval: weekly

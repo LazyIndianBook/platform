@@ -61,7 +61,7 @@ class SignupTests(TestCase):
         self.assertEqual((user.parent_name, user.parent_contact), ("Anita Das", "+919864012345"))
         self.assertIsNotNone(user.consent_at)
         # allauth sends a code; the student types it on the page they are on and lands on the paper's solutions.
-        code = re.search(r"^([A-Z0-9]{4}-[A-Z0-9]{4})$", mail.outbox[0].body, re.M).group(1)
+        code = re.search(r"^(\d{6})$", mail.outbox[0].body, re.M).group(1)
         response = self.client.post(response.url, {"code": code})
         self.assertRedirects(response, "/s/PHY-E01/", fetch_redirect_response=False)
         self.assertTemplateUsed(self.client.get("/s/PHY-E01/"), "solutions.html")

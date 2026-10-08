@@ -1,8 +1,10 @@
 {% autoescape off %}Thank you for your order {{ order.number }}.
 
 {% include "shop/email/_order.txt" %}
-We email you the tracking number when the parcel is dispatched. Dispatch and delivery times are in our Shipping
+{% if order.has_digital %}The course is open in the ExamLeaf app: log in with {{ order.email }}.
+{% endif %}{% if not order.is_digital %}We email you the tracking number when the parcel is dispatched. Dispatch and delivery times are in our Shipping
 Policy: {{ site_url }}{% url 'shipping' %}
 You can cancel the order on its page until it is packed.
+{% endif %}
 
 ExamLeaf{% endautoescape %}

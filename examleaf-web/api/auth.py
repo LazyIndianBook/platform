@@ -11,12 +11,15 @@ allauth.socialaccount), so they are not used.
 from importlib import import_module
 
 from allauth.account.adapter import get_adapter
-from allauth.account.forms import ConfirmEmailVerificationCodeForm
+from allauth.account.forms import ConfirmEmailVerificationCodeForm, RequestLoginCodeForm
 from allauth.account.internal.flows.email_verification import send_verification_email_for_user
 from allauth.account.internal.flows.email_verification_by_code import EmailVerificationProcess
+from allauth.account.internal.flows.login_by_code import LoginCodeVerificationProcess
 from allauth.account.internal.flows.signup import complete_signup
+from allauth.account.stages import LoginByCodeStage, LoginStageController
 from allauth.account.utils import has_verified_email, user_pk_to_url_str
 from allauth.core import ratelimit
+from allauth.core.internal.cryptokit import compare_user_code
 from dj_rest_auth import serializers as rest_auth
 from dj_rest_auth.utils import jwt_encode
 from django.conf import settings
@@ -41,14 +44,14 @@ SessionStore = import_module(settings.SESSION_ENGINE).SessionStore
 TOKENS = {"access": "eyJhbGciOiJIUzI1NiIs…", "refresh": "eyJhbGciOiJIUzI1NiIs…"}
 
 
-def email_code(request, send):
-    """Run `send` (an allauth flow that emails a code and keeps it in the session) in a new session, never in a site
-    session a browser may have sent; save it and hand over its key. No cookie is set: the app holds the key."""
+def email_code(request, send, detail="Verification e-mail sent."):
+    """Run `send` (an allauth flow that emails or texts a code and keeps it in the session) in a new session, never in
+    a site session a browser may have sent; save it and hand over its key. No cookie is set: the app holds the key."""
     request.session = SessionStore()
     send()
     request.session.save()
     request.session.modified = False
-    return {"detail": "Verification e-mail sent.", "verification_token": request.session.session_key}
+    return {"detail": detail, "verification_token": request.session.session_key}
 
 
 def logged_in(request, user):
@@ -111,6 +114,7 @@ class RegisterSerializer(serializers.Serializer):  # validated by the website's 
 
     def validate(self, attrs):
         self.form = SignupForm(data=self.initial_data)
+        self.form.fields.pop("turnstile", None)  # the app shows no Turnstile widget: the API's throttles stand in
         if not self.form.is_valid():
             raise serializers.ValidationError(
                 {api_settings.NON_FIELD_ERRORS_KEY if k == "__all__" else k: v for k, v in self.form.errors.items()}
@@ -213,10 +217,96 @@ class VerifyEmailView(GenericAPIView):
         user = process.user
         process.finish()
         session.delete()  # the token is spent
-        logged_in(django_request, user)
-        access, refresh = jwt_encode(user)
-        data = {"user": user, "access": access, "refresh": refresh}
-        return Response(JWTSerializer(data, context=self.get_serializer_context()).data)
+        return signed_in(self, django_request, user)
+
+
+def signed_in(view, request, user):
+    """The log-in answer: Django's log-in signal and the JWT pair with the user's details."""
+    logged_in(request, user)
+    access, refresh = jwt_encode(user)
+    data = {"user": user, "access": access, "refresh": refresh}
+    return Response(JWTSerializer(data, context=view.get_serializer_context()).data)
+
+
+@extend_schema_serializer(
+    examples=[OpenApiExample("A mobile number", request_only=True, value={"phone": "98640 12345"})]
+)
+class PhoneCodeSerializer(serializers.Serializer):
+    phone = serializers.CharField(max_length=30, help_text="the mobile number confirmed on the account, as typed")
+
+
+class PhoneCodeView(GenericAPIView):
+    """Log in with a code by SMS: a 6-digit code goes to the number if an account confirmed it on the website (My
+    account); the answer is the same for any Indian mobile number. Send the code with the verification_token to
+    phone/confirm/. 429: three codes an hour per number."""
+
+    permission_classes = [AllowAny]
+    serializer_class = PhoneCodeSerializer
+    throttle_scope = "dj_rest_auth"
+
+    @extend_schema(responses={200: VerificationSentSerializer})
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        if not settings.SMS_ENABLED:
+            raise exceptions.NotFound("Log-in by SMS is not available.")
+        django_request = request._request
+        form = RequestLoginCodeForm({"phone": serializer.validated_data["phone"]})  # normalises, counts the limit
+        if not form.is_valid():
+            if form.has_error("phone", "too_many_login_attempts"):
+                raise exceptions.Throttled()
+            raise serializers.ValidationError({"phone": form.errors.get("phone", [])})
+
+        def send():  # form._user None (no account confirmed the number): no SMS, the same answer
+            LoginCodeVerificationProcess.initiate(
+                request=django_request, user=form._user, phone=form.cleaned_data["phone"]
+            )
+
+        return Response(email_code(django_request, send, detail="Code sent by SMS."))
+
+
+@extend_schema_serializer(
+    examples=[
+        OpenApiExample(
+            "The texted code", request_only=True, value={"verification_token": "q3k9w0d8m2…", "code": "483920"}
+        )
+    ]
+)
+class PhoneConfirmSerializer(serializers.Serializer):
+    verification_token = serializers.CharField()
+    code = serializers.CharField()
+
+
+class PhoneConfirmView(GenericAPIView):
+    """The texted code with the verification_token from phone/code/: answers with the tokens, as a log-in. Three wrong
+    codes or three minutes end the token: ask for a new code."""
+
+    permission_classes = [AllowAny]
+    serializer_class = PhoneConfirmSerializer
+    throttle_scope = "dj_rest_auth"
+
+    @extend_schema(responses={200: JWTSerializer})
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        django_request = request._request
+        django_request.session = session = SessionStore(serializer.validated_data["verification_token"])
+        stage = LoginStageController.enter(django_request, LoginByCodeStage.key)
+        process = stage and LoginCodeVerificationProcess.resume(stage)  # None: expired, or three wrong codes
+        if not process:
+            raise serializers.ValidationError({"verification_token": ["Expired. Ask for a new code."]})
+        user = process.user  # None for a number no account confirmed
+        if not (
+            user
+            and user.is_active
+            and compare_user_code(actual=serializer.validated_data["code"], expected=process.code)
+        ):
+            process.record_invalid_attempt()
+            session.save()
+            session.modified = False  # no cookie
+            raise serializers.ValidationError({"code": [get_adapter().error_messages["incorrect_code"]]})
+        session.delete()  # the token is spent
+        return signed_in(self, django_request, user)
 
 
 @extend_schema_serializer(

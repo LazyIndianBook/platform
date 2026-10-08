@@ -19,6 +19,7 @@ from shop.factories import (
     ShippingRateFactory,
     captured,
     make_order,
+    picture,
     sign,
 )
 from shop.models import Address, BundleItem, Cart, CreditNote, Order, Payment, Product, ProductImage
@@ -47,9 +48,9 @@ def test_products_are_public_with_prices_pictures_and_stock_state_only(api, djan
     bundle = ProductFactory(slug="physics-bundle", kind=Product.Kind.BUNDLE, price=499, mrp=598, stock=0)
     BundleItem.objects.create(bundle=bundle, product=book)
     BundleItem.objects.create(bundle=bundle, product=solutions)
-    ProductImage.objects.create(product=book, image="products/inside.jpg", alt="A page")
+    ProductImage.objects.create(product=book, image=picture("products/inside.jpg"), alt="A page")
     ProductFactory(slug="old", is_active=False)
-    with django_assert_max_num_queries(5):  # count, products, pictures, bundle items with their books
+    with django_assert_max_num_queries(8):  # count, products, pictures, categories, related, bundle items, attributes
         listed = api.get("/api/v1/products/").json()
     assert [p["slug"] for p in listed["results"]] == ["physics-bundle", "physics", "physics-solutions"]
     data = api.get("/api/v1/products/physics/").json()

@@ -11,7 +11,7 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.template.loader import render_to_string
 
-from .models import STATES, CreditNote, address_lines, rupees
+from .models import STATES, CreditNote, PinCode, Product, QuoteRequest, address_lines, rupees
 
 
 def check_seller(live):
@@ -114,6 +114,35 @@ def credit_note_context(note):
     }
 
 
+def quotation_context(quote):
+    """A school's quotation: today's prices of the books asked for, the staff's discount and shipping."""
+    seller = settings.SHOP_SELLER
+    products = Product.objects.in_bulk([item["product"] for item in quote.items], field_name="slug")
+    lines = [
+        {"product": product, "quantity": item["quantity"], "amount": product.price.amount * item["quantity"]}
+        for item in quote.items
+        if (product := products.get(item["product"]))
+    ]
+    books = sum((line["amount"] for line in lines), Decimal("0.00"))
+    discount = rupees(books * quote.discount_percent / 100)
+    states = PinCode.objects.filter(pin=quote.delivery_pin).values_list("states", flat=True).first() or [""]
+    buyer = [quote.school, quote.contact_name, f"Delivery PIN code {quote.delivery_pin}", f"Mobile {quote.phone}"]
+    return {
+        "document": quote,
+        "quote": quote,
+        "title": "Quotation",
+        "seller": seller,
+        "seller_state": STATES.get(seller["state"], seller["state"]),
+        "buyer_lines": [*buyer, quote.email, *([f"GSTIN {quote.gstin}"] if quote.gstin else [])],
+        "place_of_supply": STATES.get(states[0]) or f"PIN code {quote.delivery_pin}",
+        "intra_state": states[0] == seller["state"],
+        "lines": lines,
+        "books": books,
+        "discount": discount,
+        "total": books - discount + quote.shipping_fee,
+    }
+
+
 def static_files_only():
     """WeasyPrint's URL fetcher for the PDFs: data: URLs and files under the static folders, nothing else (no other
     local file, no network), so that a mistake in a template can never put a server file or an internal URL into a
@@ -136,11 +165,13 @@ def static_files_only():
 
 
 def render_pdf(document):
-    """The PDF of an Invoice or a CreditNote."""
+    """The PDF of an Invoice, a CreditNote or a QuoteRequest's quotation."""
     from weasyprint import HTML  # imported here: it needs Pango, a system library (Dockerfile, README)
 
     if isinstance(document, CreditNote):
         html = render_to_string("shop/credit_note.html", credit_note_context(document))
+    elif isinstance(document, QuoteRequest):
+        html = render_to_string("shop/quotation.html", quotation_context(document))
     else:
         html = render_to_string("shop/invoice.html", context(document))
     return HTML(string=html, base_url=str(settings.BASE_DIR), url_fetcher=static_files_only()).write_pdf()

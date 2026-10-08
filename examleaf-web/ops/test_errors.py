@@ -23,7 +23,7 @@ pytestmark = [pytest.mark.django_db, pytest.mark.filterwarnings("ignore::jwt.war
 def test_an_unknown_address_gets_the_branded_404_and_the_api_a_json_one(client):
     page = client.get("/no-such-page/")
     assert page.status_code == 404 and "We could not find that page" in page.text
-    assert 'class="site-header"' in page.text and 'content="noindex"' in page.text
+    assert 'id="site-menu"' in page.text and 'content="noindex"' in page.text  # the site's header and menu
     assert "scan the QR code" in client.get("/s/NOPE-X99/").text  # a mistyped paper code: the way back
     api = client.get("/api/v1/no-such-endpoint/")
     assert api.status_code == 404 and api.json() == {"detail": "Not found."}
@@ -51,7 +51,7 @@ def test_a_failure_gets_a_page_that_needs_nothing_else_and_the_api_json(client, 
     page = client.get("/", HTTP_X_REQUEST_ID=request_id)
     assert page.status_code == 500 and "Something went wrong on our side" in page.text
     assert f"Reference {request_id}" in page.text  # what the log lines carry: support finds the request with it
-    assert "site-header" not in page.text and "/static/" not in page.text  # self-contained: no layout, no static files
+    assert 'id="site-menu"' not in page.text and "/static/" not in page.text  # self-contained: no layout or static
     api = client.get("/api/v1/boards/")
     assert api.status_code == 500 and api.json() == {"detail": "Server error."} and len(api["X-Request-ID"]) == 32
 

@@ -110,6 +110,7 @@ django-money==3.6.1
 django-localflavor==5.1
 django-fsm-2==4.2.4
 weasyprint==70.0
+django-pictures==1.8.0  # AVIF and WebP sizes of the product pictures (settings.PICTURES); Pillow 12 bundles both
 openpyxl==3.1.5
 babel==2.18.0
 brotli==1.2.0
@@ -127,3 +128,7 @@ tinycss2==1.5.1
 tinyhtml5==2.1.0
 webencodings==0.6.1
 zopfli==0.4.3
+
+# Store flexibility (Phase 6 E): the shop's category tree (django-oscar's choice; Django 6.1 in its classifiers).
+# django-admin-sortable2 2.3.1 has no Django 6.1 templates: product pictures keep their position numbers.
+django-treebeard==7.0.2

@@ -52,9 +52,9 @@ class PrivatePagesMiddleware:
 
 
 class StaffMFAMiddleware:
-    """A member of staff without an authenticator app is sent to set one up (H2) before anything else opens: the
-    admin, the site, the API with the session. Open meanwhile: allauth's own pages (log-out, reauthentication, email
-    confirmation; mfa_… for the set-up itself) and the static files."""
+    """A member of staff without an authenticator app or a passkey is sent to set one up (H2) before anything else
+    opens: the admin, the site, the API with the session. Open meanwhile: allauth's own pages (log-out,
+    reauthentication, email confirmation; mfa_… for the set-up itself) and the static files."""
 
     def __init__(self, get_response):
         self.get_response = get_response
@@ -62,7 +62,7 @@ class StaffMFAMiddleware:
     def __call__(self, request):
         user = request.user
         if user.is_authenticated and user.is_staff and not self.open_during_setup(request):
-            if not is_mfa_enabled(user, [Authenticator.Type.TOTP]):
+            if not is_mfa_enabled(user, [Authenticator.Type.TOTP, Authenticator.Type.WEBAUTHN]):
                 messages.info(request, "Staff accounts need an authenticator app: set it up to go on.")
                 return redirect("mfa_activate_totp")
         return self.get_response(request)

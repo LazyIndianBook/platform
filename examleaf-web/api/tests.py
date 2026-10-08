@@ -119,7 +119,7 @@ def test_solutions_need_a_signed_in_student_with_a_confirmed_email(api, paper, d
 
 
 def emailed_code():
-    return re.search(r"^([A-Z0-9]{4}-[A-Z0-9]{4})$", mail.outbox[-1].body, re.M).group(1)
+    return re.search(r"^(\d{6})$", mail.outbox[-1].body, re.M).group(1)
 
 
 def register(api, age, **extra):
