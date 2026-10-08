@@ -5,6 +5,32 @@ commits are in `git log` (phase 4: abffe6f and e5abda5; phase 5 A and B with the
 and E: 4e30e59; the redesign's stage 2 so far: ba0b9dd). Details of each feature are in README.md; the numbers of the
 tests are those of `pytest` at the end of the phase.
 
+## Phase 9: repository split (8 October 2026)
+
+The platform has its own repository, `LazyIndianBook/platform`; the books (questions, solutions, the Typst build) stay
+in the private `LazyIndianBook/Class-12-Assam`. Nothing here needs a checkout of the books any more, except importing
+the real papers. 412 tests pass (7 skipped); the 24 Playwright journeys pass on the test papers; no migration.
+
+- **Parser vendored.** `content/papers_parser.py` is a copy of `parse_paper`, `parse_solutions` and `split_marks` (and
+  the subjects' codes and edition years) from the books repository's `production/build/book.py` at 0e64cdf, which
+  stays the source of truth; `import_papers` no longer loads `book.py` by path. On the books' 120 papers the copy
+  parses exactly as the original, and importing them again changes no record.
+- **`PAPERS_ROOT`** (was `BOOK_ROOT`): a checkout of the books repository; by default `Class 12` beside this
+  repository when it is there, otherwise `import_papers` and `import_chapter_insights` stop with a message naming
+  `--root`, `PAPERS_ROOT` and `--fixtures`, which both commands now take. Compose sets `PAPERS_ROOT=/book` and mounts
+  `BOOK_SOURCE` there (default `../../Class 12`); DEPLOYMENT.md section 4: the books on the server through a second
+  read-only deploy key or a tarball, and re-importing is safe.
+- **Test papers.** `content/fixtures/papers/` holds byte-for-byte copies in the books' layout (its README: from which
+  commit, and how to refresh them): E01, M01 and H01 of each subject and PHY-E02, 13 papers and 637 questions with
+  their solutions, the work orders (chapter tags), the four `format.json` and `pyq/ch01.md` of each subject.
+  `content/tests.py` imports them (papers per subject and tier, every solution matched, the tags; a second
+  `import_papers --all --fixtures` creates and updates nothing; no papers root is said in words), and
+  `learn/test_imports.py` takes them through `import_papers`, `import_chapter_insights` and `build_quiz_items`
+  (51 chapters, 69 quiz items).
+- **CI.** `examleaf-frontend/scripts/e2e-backend.sh` seeds the Playwright backend with `import_papers --all --fixtures`;
+  the workflow runs on pushes to main and on pull requests that touch `examleaf-web/`, `examleaf-frontend/` or the
+  workflow (no more `production/**`).
+
 ## Phase 8E learning dashboard (8 October 2026)
 
 A Learning page in the account (examleaf-frontend `/account/learning/`) and the endpoint behind it. 471 tests pass
