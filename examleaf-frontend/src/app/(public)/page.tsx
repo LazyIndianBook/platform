@@ -153,13 +153,12 @@ export default async function HomePage() {
         </div>
         <figure className="relative m-0 h-[500px] min-w-0 flex-[0_1_440px] max-nav:hidden">
           {physicsCover ? (
-            // decorative: the same cover is a real link in Q.2
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            // decorative (the same cover is a real link in Q.2); the AVIF/WebP sizes, not the 176 KB PNG original
+            <CoverPicture
               src={physicsCover}
               alt=""
-              width={250}
-              height={353}
+              sizes="250px"
+              priority
               className="absolute top-0 right-0 w-[250px] rotate-[5deg] rounded-cover shadow-cover max-nav:hidden"
             />
           ) : null}

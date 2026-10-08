@@ -125,8 +125,8 @@ export function ProductGrid({ products, label }: { products: Product[]; label: s
       className="m-0 grid list-none grid-cols-2 gap-x-3.5 gap-y-5 p-0 nav:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] nav:gap-x-6 nav:gap-y-7"
     >
       {products.map((product, index) => (
-        // the first row's covers are the catalogue's largest paint: fetched early, the rest lazily
-        <ProductCard key={product.slug} product={product} priority={index < 4} />
+        // a phone's first row (two covers) is the catalogue's largest paint: fetched early, the rest lazily
+        <ProductCard key={product.slug} product={product} priority={index < 2} />
       ))}
     </ul>
   );
