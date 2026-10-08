@@ -321,7 +321,10 @@ sessions and answers the list left: Sign out the others sends every id but the c
 this browser out: 401). The API gives the address and the browser whole: show `203.0.113.x` and the browser's name. A
 server that calls the API with a visitor's cookie forwards the visitor's `User-Agent` and `X-Forwarded-For`: each
 request rewrites the session's. The rows are in Download my data (`sessions`), go with the account, and those of ended
-sessions are dropped nightly.
+sessions are dropped nightly. The website's server forwards both on every call, cookie or not, with the shared secret
+`INTERNAL_API_TOKEN` in `X-Internal-Token`: only with it does the API take that `X-Forwarded-For` as the client's
+address (`examleaf.middleware.FrontendClientMiddleware`), for the device list, axes, allauth's limits and every
+throttle, so the anonymous limits count each visitor and never the website's server as one client.
 
 **Teacher access** (`me/teacher/`, as on My account): `POST` asks for it once with `school_name`, `district` and
 `subject` (201; again: 400); `GET` answers the request with `verified` and `verified_at` (404 until asked). Staff check

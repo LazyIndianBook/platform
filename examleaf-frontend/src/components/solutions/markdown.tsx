@@ -2,8 +2,8 @@
 // its formulas already drawn, so no maths script runs on the phone. KaTeX's HTML only (output "html"): its MathML
 // copy doubled each formula in the page and in the RSC payload (Lighthouse review L4), and the browsers' own MathML
 // reads worse than KaTeX's HTML in both Chrome and Safari (vector arrows off their letters, "sin θ" run together, no
-// line breaks in a long inline formula); screen readers then read the formula's characters in order, not its MathML
-// structure. GitHub tables for the marking steps; raw HTML
+// line breaks in a long inline formula); rehype-math-speech.ts gives each formula words for screen readers instead.
+// GitHub tables for the marking steps; raw HTML
 // (comments included) is dropped, as on the Django site. Each text is rendered once per server process (the Django
 // site keeps an lru_cache of its rendering the same way): a paper's KaTeX work is not repeated for every visitor.
 import Markdown, { type Components } from "react-markdown";
@@ -12,9 +12,11 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 
 import rehypeExamleaf from "./rehype-examleaf";
+import rehypeMathSpeech from "./rehype-math-speech";
 
 const remarkPlugins = [remarkGfm, remarkMath];
 const rehypePlugins = [
+  rehypeMathSpeech,
   [rehypeKatex, { throwOnError: false, strict: "ignore", output: "html" }],
   rehypeExamleaf,
 ] as const;

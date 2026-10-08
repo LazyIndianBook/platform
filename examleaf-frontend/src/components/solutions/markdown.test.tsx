@@ -33,6 +33,11 @@ describe("MarkdownBlock", () => {
     // KaTeX's HTML only: no MathML copy of each formula (Lighthouse review L4)
     expect(container.querySelectorAll(".katex-html").length).toBe(2);
     expect(container.querySelector("math, .katex-mathml")).toBeNull();
+    // ... and words for screen readers on each formula, the drawing hidden from them
+    const formula = container.querySelector('[role="img"][aria-label]');
+    expect(formula?.getAttribute("aria-label")).toMatch(/\w/);
+    expect(formula?.firstElementChild).toHaveAttribute("aria-hidden", "true");
+    expect(formula?.querySelector(".katex-html")).not.toBeNull();
     expect(container.querySelector("script")).toBeNull();
     expect(container.innerHTML).not.toContain("alert(1)");
     expect(container.innerHTML).not.toContain("editors");
