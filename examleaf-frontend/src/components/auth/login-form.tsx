@@ -15,7 +15,7 @@ import { useConfig } from "@/components/providers/config-provider";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
-import { Input, InputPrefix } from "@/components/ui/input";
+import { Input } from "@/components/ui/input";
 import { auth, nextRoute, startProviderLogin } from "@/lib/auth/headless";
 import { safeNext, withNext } from "@/lib/auth/next-url";
 
@@ -23,6 +23,7 @@ import { AuthTitle, Lead, LinkButton, NextChip } from "./auth-card";
 import { CodeField } from "./code-field";
 import { ErrorSummary } from "./error-summary";
 import { PasswordInput } from "./password-input";
+import { PhoneInput } from "./phone-input";
 import { CHECKING, useTurnstile } from "./turnstile";
 import { fieldError, useAuthAction } from "./use-auth-action";
 
@@ -216,15 +217,7 @@ export function LoginForm({ next, providerError }: { next: string | null; provid
             help="The number you confirmed on My account. We text it a 6-digit code: no password needed."
             error={fieldError(error, "phone")}
           >
-            <InputPrefix
-              prefix="+91"
-              name="phone"
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel-national"
-              defaultValue={typed}
-              aria-required="true"
-            />
+            <PhoneInput name="phone" defaultValue={typed} aria-required="true" />
           </Field>
         ) : (
           <Field

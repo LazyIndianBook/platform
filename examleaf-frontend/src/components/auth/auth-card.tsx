@@ -37,7 +37,12 @@ export function AuthSheet({
             : "gap-x-[72px] min-[1180px]:grid-cols-[minmax(0,480px)_minmax(0,1fr)]",
         )}
       >
-        <div className={cn("flex min-w-0 flex-col", wide ? "max-w-[640px] gap-5" : "max-w-[480px] gap-[18px]")}>
+        <div
+          className={cn(
+            "flex min-w-0 flex-col max-nav:gap-3",
+            wide ? "max-w-[640px] gap-5" : "max-w-[480px] gap-[18px]",
+          )}
+        >
           {children}
         </div>
         {aside}
@@ -86,7 +91,7 @@ export function AuthCard({ margin, children }: { margin: React.ReactNode; childr
         >
           {margin}
         </span>
-        <div className="flex min-w-0 flex-col gap-4 border-l-[3px] border-double border-red-ink pl-7 max-nav:border-l-0 max-nav:px-4 max-nav:pt-6 max-nav:pb-10">
+        <div className="flex min-w-0 flex-col gap-4 border-l-[3px] border-double border-red-ink pl-7 max-nav:gap-3 max-nav:border-l-0 max-nav:px-4 max-nav:pt-6 max-nav:pb-10">
           {children}
         </div>
       </div>
