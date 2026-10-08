@@ -50,8 +50,8 @@ cp .env.example .env && chmod 600 .env
 ```
 
 **The papers.** The questions and solutions are not in this repository: they live in the private books repository
-`LazyIndianBook/Class-12-Assam`, and `import_papers` reads a copy of it on the server. GitHub lets a deploy key open
-one repository only, so the server has two read-only keys (`ssh-keygen -t ed25519 -N "" -f ~/.ssh/examleaf_platform`,
+`LazyIndianBook/Class-12-Assam`, and `import_papers` reads a copy of it on the server. Make the keys before the two
+clones above: GitHub lets a deploy key open one repository only, so the server has two read-only keys (`ssh-keygen -t ed25519 -N "" -f ~/.ssh/examleaf_platform`,
 the same for `~/.ssh/examleaf_books`), each added in its repository under Settings → Deploy keys without write access,
 and `~/.ssh/config` says which is which:
 
@@ -81,6 +81,7 @@ ALLOWED_HOSTS=examleaf.in
 SITE_URL=https://examleaf.in
 DOMAIN=examleaf.in
 POSTGRES_PASSWORD=<python3 -c "import secrets; print(secrets.token_hex(24))">
+BOOK_SOURCE=/srv/books               # the books checkout (above), mounted read-only for import_papers
 HEALTH_CHECK_TOKEN=<python3 -c "import secrets; print(secrets.token_urlsafe(32))">   # the uptime monitor's (section 14)
 EMAIL_BACKEND=anymail.backends.amazon_ses.EmailBackend   # Brevo for the first weeks: anymail.backends.brevo.EmailBackend
 SES_ACCESS_KEY_ID=...                # with Brevo: ANYMAIL_BREVO_API_KEY=... instead (section 15, "Email")

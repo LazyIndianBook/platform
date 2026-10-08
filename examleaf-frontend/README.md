@@ -171,7 +171,8 @@ npm run build            # standalone output in .next/standalone
 npm run test:e2e         # Playwright smoke tests (Chromium); see playwright.config.ts
 ```
 
-The smoke tests start a seeded Django (`scripts/e2e-backend.sh`: the papers, the shop's catalogue with 100 copies
+The smoke tests start a seeded Django (`scripts/e2e-backend.sh`: the 13 test papers committed in
+`examleaf-web/content/fixtures/papers/`, so no checkout of the books repository; the shop's catalogue with 100 copies
 of each book, an open sample) and `npm run start` unless both already run; to reuse a running backend, point
 `DJANGO_LOG` at its log (the tests read the emailed codes there). With `DJANGO_DATABASE_URL` on SQLite (CI's fresh
 database) `playwright.config.ts` adds `transaction_mode=IMMEDIATE&timeout=20`. `e2e/states.spec.ts` starts a second
