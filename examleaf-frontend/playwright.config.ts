@@ -19,6 +19,8 @@ const DATABASE_URL = process.env.DJANGO_DATABASE_URL?.replace(
 );
 
 // the backend's environment, for the server and for the tests' clean-up through manage.py shell
+const INTERNAL_TOKEN = process.env.INTERNAL_API_TOKEN ?? "e2e-internal-token";
+
 export const djangoEnv = {
   DEBUG: "1",
   SECRET_KEY: process.env.SECRET_KEY ?? "dev-e2e-only-not-secret",
@@ -26,6 +28,8 @@ export const djangoEnv = {
   SITE_URL: SITE,
   CSRF_TRUSTED_ORIGINS: SITE,
   USE_X_FORWARDED_HOST: "1",
+  // the frontend's server-side calls count as each visitor's (FrontendClientMiddleware), as in production
+  INTERNAL_API_TOKEN: INTERNAL_TOKEN,
   ...(DATABASE_URL ? { DATABASE_URL } : {}),
 };
 
@@ -59,7 +63,11 @@ export default defineConfig({
     {
       command: `npm run start -- -p ${WEB_PORT}`,
       url: `${SITE}/api/health/`,
-      env: { API_INTERNAL_BASE: `http://localhost:${API_PORT}`, NEXT_PUBLIC_SITE_URL: SITE },
+      env: {
+        API_INTERNAL_BASE: `http://localhost:${API_PORT}`,
+        NEXT_PUBLIC_SITE_URL: SITE,
+        INTERNAL_API_TOKEN: INTERNAL_TOKEN,
+      },
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },

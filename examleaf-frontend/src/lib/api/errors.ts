@@ -28,6 +28,15 @@ const CODES: Record<number, string> = {
 
 const CONSENT_PENDING = /parent or guardian has not confirmed/i;
 
+/** The digest of the error a page throws when Django cannot answer (unavailableError): error.tsx shows "cannot be
+ *  reached" for it, and the answer is a server error (500), never a 200 page (security review S5). Next keeps a
+ *  digest that is already set. */
+export const UNAVAILABLE_DIGEST = "examleaf-unavailable";
+
+export function unavailableError(): Error & { digest: string } {
+  return Object.assign(new Error("ExamLeaf cannot be reached just now."), { digest: UNAVAILABLE_DIGEST });
+}
+
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;

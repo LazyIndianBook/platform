@@ -14,13 +14,14 @@ vi.mock("next/navigation", () => ({
   notFound: vi.fn(),
 }));
 
-// jsdom has no matchMedia (the toaster asks whether it is on a phone)
-Object.defineProperty(window, "matchMedia", {
-  writable: true,
-  value: (query: string) => ({
-    matches: false,
-    media: query,
-    addEventListener: () => undefined,
-    removeEventListener: () => undefined,
-  }),
-});
+// jsdom has no matchMedia (the toaster asks whether it is on a phone); tests of server code run without a window
+if (typeof window !== "undefined")
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    value: (query: string) => ({
+      matches: false,
+      media: query,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }),
+  });
