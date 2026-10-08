@@ -67,7 +67,10 @@ server, `useConfig()` in client components).
     (`anonymousFetch()`: the same without cookies, for an order by its emailed link).
 - **Errors**: every failure becomes one `ApiError` (`status`, `code`, `message`, `fields`), from DRF's and
   allauth.headless's formats alike, and status 0 when Django cannot be reached (`unwrap()`; `error.unavailable` →
-  the page renders `<Unavailable/>`, never stale or invented data). A refusal because a parent's consent is awaited
+  the page renders `<Unavailable/>`, which throws the "cannot be reached" error that `error.tsx` shows, so the answer
+  is a 500 and never a 200 page; never stale or invented data). The session check tells an outage from a log-out
+  (`requireUser()` throws the same error rather than sending anyone to log in), and while Django's `/health/web/`
+  fails the visitor's own pages get a 503 with `Retry-After` from `src/proxy.ts`. A refusal because a parent's consent is awaited
   gets `code: "consent_pending"` (the API's words are its only mark), and `ErrorSummary` then offers the parent's
   link again. In the browser every 401 of `api` sends the visitor to log in and back (`sessionMiddleware`).
 - **Caching of pages**: the visitor's own pages (`isPersonalPage()` in `src/lib/site.ts`: `/account/`, `/cart/`,
@@ -120,7 +123,8 @@ EmptyState, Timeline, QrCard, SubmitButton, Morph) and the site's frame in `src/
 `docs/design/motion.md`: transform and opacity only, everything inside `prefers-reduced-motion: no-preference`. The
 view transitions of client-side navigation are React's `<ViewTransition>` (`Morph`: a Home or 404 tile into its
 book's cover, a product card's cover into the product page's; only such a pair animates, so a form's answer changes
-the page at once, and reduced motion stills it); toasts enter and leave as motion.md f says. After a client-side
+the page at once, and reduced motion stills it); toasts rise in as motion.md f says and leave at once. Dialogs are the
+browser's own `<dialog>` (`showModal`), toasts our own few lines (6 s, paused on hover and focus). After a client-side
 navigation focus moves to the new page's h1 (`RouteFocus`, in the root layout).
 
 Dependencies beyond the framework: `hls.js` (8C, the free clips) and `lean-qr` (3.5 KB gzipped, no dependencies:
