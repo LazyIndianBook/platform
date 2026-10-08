@@ -5,12 +5,14 @@ from PIL import Image
 from examleaf.images import og_image
 
 COVERS = ["physics", "chemistry", "mathematics", "biology"]  # static/img/<name>.png, 480 px wide
-WIDTHS = [320, 480]  # the website's <picture> sizes (examleaf-frontend, src/components/ui/cover.tsx)
+# the website's <picture> sizes (examleaf-frontend, src/components/ui/cover.tsx): 240 for a phone's 104 to 112 px boxes
+# at 1.75x (Lighthouse review L5), 320 and 480 above
+WIDTHS = [240, 320, 480]
 FORMATS = {"avif": "AVIF", "webp": "WEBP"}
 
 
 def build_covers(folder):
-    """Each cover in AVIF and WebP, 320 and 480 px wide, next to its PNG: img/physics-320.avif, …"""
+    """Each cover in AVIF and WebP, 240, 320 and 480 px wide, next to its PNG: img/physics-240.avif, …"""
     for name in COVERS:
         with Image.open(folder / f"{name}.png") as image:
             image = image.convert("RGB")

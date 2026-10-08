@@ -386,7 +386,8 @@ describe("Site pieces", () => {
     expect(images[1]).toHaveAttribute("loading", "lazy");
     expect(container.querySelector('source[type="image/avif"]')).toHaveAttribute(
       "srcset",
-      "http://localhost:3000/static/img/physics-320.avif 320w, http://localhost:3000/static/img/physics-480.avif 480w",
+      // 240w: a phone's 104 px box at 1.75x takes it (Lighthouse review L5)
+      "http://localhost:3000/static/img/physics-240.avif 240w, http://localhost:3000/static/img/physics-320.avif 320w, http://localhost:3000/static/img/physics-480.avif 480w",
     );
   });
 

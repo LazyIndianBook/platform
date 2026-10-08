@@ -1,7 +1,7 @@
 // A book cover or a product picture, always with its width and height: a product's picture as the API gives it (its
 // AVIF and WebP sizes, then the uploaded original); one of the site's static covers with the AVIF and WebP at 320 and
 // 480 wide that Django's manage.py build_covers makes (direction.md, "Images"); no picture at all draws .no-cover in the
-// subject's colours.
+// subject's colours. The static covers come at 240 too: a phone's 104 to 112 px box at 1.75x takes it, not the 320.
 import { cn } from "cn";
 
 import type { components } from "@/lib/api/schema";
@@ -10,7 +10,7 @@ import type { SubjectKey } from "@/lib/site";
 export type Picture = components["schemas"]["Picture"];
 
 const STATIC_COVER = /^(.*\/static\/img\/[a-z-]+)\.png$/;
-const WIDTHS = [320, 480];
+const WIDTHS = [240, 320, 480];
 
 type CoverProps = {
   src: string | Picture | null | undefined;

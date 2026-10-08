@@ -82,13 +82,13 @@ def test_a_new_cover_is_shown_in_avif_and_webp_sizes(client, commit):
 
 def test_static_covers_have_avif_and_webp_sizes(tmp_path, settings):
     """The website's book covers (examleaf-frontend, cover.tsx) are these static files: the API's Book.cover, its
-    -320 and -480 AVIF and WebP sizes, and the default link-preview picture."""
+    -240, -320 and -480 AVIF and WebP sizes, and the default link-preview picture."""
     for name in COVERS:
         shutil.copy(settings.BASE_DIR / "static" / "img" / f"{name}.png", tmp_path)
     build_covers(tmp_path)
     with Image.open(tmp_path / "physics-320.avif") as image:
         assert image.size == (320, 452)
-    sizes = ["physics-320.avif", "physics-320.webp", "physics-480.avif", "physics-480.webp"]
+    sizes = [f"physics-{width}.{kind}" for width in (240, 320, 480) for kind in ("avif", "webp")]
     assert sorted(path.name for path in tmp_path.glob("physics-*")) == sizes
     assert all(finders.find(f"img/{size}") for size in sizes) and finders.find("img/og-default.jpg")
 
