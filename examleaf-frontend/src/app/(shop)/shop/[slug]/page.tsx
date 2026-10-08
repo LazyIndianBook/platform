@@ -1,27 +1,28 @@
-// A product (Product artboard; Django's shop/product.html): the cover beside the buy column (chips, title, price with
-// MRP and saving, the description, the bundle choice, copies and Add to cart, or the shop-closed and out-of-stock
-// states), the bundle's books, what is inside the book, details and pictures, related books, then the reviews with
-// the form for a buyer whose order was delivered. JSON-LD: Product (and Book) with its offer and rating, breadcrumbs.
-// A renamed product's old address redirects to its new one (the API's 301, as Django's page does).
-import { ArrowLeft, ArrowRight, Package, QrCode, Smartphone, Truck } from "lucide-react";
+// A product (Product artboard, Phone product; States "Shop closed and out of stock"): on the sheet with the subject's
+// code in the margin and the papers inside in the marks, the cover beside the buy column (the kind and board in the
+// mono voice, the title, the description, the choice as radio cards with BEST VALUE stamped, copies, Add to cart and
+// Buy now, the three facts: stock, delivery, cancel; or the shop-closed and out-of-stock states), then on paper 2
+// "What's inside" and "Try before you buy" (the open sample), the bundle's books, details and pictures, related books,
+// and the reviews with the form for a buyer whose order was delivered. JSON-LD: Product (and Book) with its offer and
+// rating, breadcrumbs. A renamed product's old address redirects to its new one (the API's 301).
+import "../shop.css";
+
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 
+import { ShopClosed } from "@/components/shop/listing";
 import { AddToCart, type BuyOption, ReviewForm, StockAlert } from "@/components/shop/product-actions";
-import { ProductCover, ProductGrid } from "@/components/shop/product-card";
+import { CardPrice, ProductCover, ProductGrid } from "@/components/shop/product-card";
 import { formatDate, isDigital, KIND_LABEL } from "@/components/shop/shop";
 import { Unavailable } from "@/components/site/unavailable";
 import { MarkdownBlock } from "@/components/solutions/markdown";
-import { Alert } from "@/components/ui/alert";
-import { Badge, TIER_VARIANT } from "@/components/ui/badge";
-import { QRule } from "@/components/ui/band";
+import { Marks, Sheet } from "@/components/ui/band";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
-import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { CoverPicture } from "@/components/ui/cover";
 import { Morph } from "@/components/ui/morph";
-import { Price } from "@/components/ui/price";
-import { bookFacts, getBook, getProducts } from "@/lib/api/catalogue";
+import { getBook, getProducts } from "@/lib/api/catalogue";
 import { getConfig } from "@/lib/api/config";
 import { ApiError } from "@/lib/api/errors";
 import { getCategories, getProduct, getReviews, type Product } from "@/lib/api/shop";
@@ -63,11 +64,36 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   });
 }
 
+/** What each tier of papers does for the student (the words printed on the books' covers). */
 const TIER_TEXT: Record<TierCode, string> = {
-  E: "to build your basics",
-  M: "at the board's level",
-  H: "to stretch you",
+  E: "build your basics",
+  M: "strengthen your preparation",
+  H: "challenge like a topper",
 };
+
+/** "E-01 to E-10", or "M-01" alone, for papers in their order. */
+const range = (codes: string[]) =>
+  codes.length > 1 ? `${shortCode(codes[0])} to ${shortCode(codes[codes.length - 1])}` : shortCode(codes[0]);
+
+/** One of the three facts under Add to cart. */
+function Fact({
+  title,
+  children,
+  first = false,
+}: {
+  title: React.ReactNode;
+  children: React.ReactNode;
+  first?: boolean;
+}) {
+  return (
+    <div
+      className={first ? "flex flex-col gap-1 pt-3.5 pr-4" : "flex flex-col gap-1 border-l border-border px-4 pt-3.5"}
+    >
+      <strong className="text-[15px] leading-snug">{title}</strong>
+      <span className="text-sm leading-snug text-muted-foreground">{children}</span>
+    </div>
+  );
+}
 
 export default async function ProductPage({ params }: Props) {
   const { slug } = await params;
@@ -84,7 +110,6 @@ export default async function ProductPage({ params }: Props) {
     product.categories.length ? getCategories().catch(() => []) : [],
     product.book ? getBook(product.book).catch(() => null) : null,
   ]);
-  const facts = bookFacts(book);
   const bySlug = new Map(all.map((item) => [item.slug, item]));
   const digital = isDigital(product, bySlug);
   const subject = subjectOf(product.subject);
@@ -117,12 +142,18 @@ export default async function ProductPage({ params }: Props) {
   const related = product.related.map((item) => bySlug.get(item)).filter((item): item is Product => Boolean(item));
   const shelves = categories.filter((category) => product.categories.includes(category.slug));
   const papers = book?.papers.filter((paper) => paper.is_published !== false) ?? [];
-  const sample = papers.find((paper) => paper.is_sample) ?? papers[0];
+  const sample = papers.find((paper) => paper.is_sample);
   const tiers = (Object.keys(TIERS) as TierCode[])
     .map((tier) => ({ tier, papers: papers.filter((paper) => paper.tier === tier) }))
     .filter((group) => group.papers.length);
   const rated = reviews && reviews.count > 0 && reviews.average;
   const kindName = digital ? "course" : "book";
+  const eyebrow = [
+    KIND_LABEL[product.kind],
+    subject?.name,
+    book?.subject.board,
+    book ? `Class ${book.subject.class_level}` : null,
+  ].filter(Boolean);
   let section = 0;
 
   const details: [string, React.ReactNode][] = [
@@ -167,6 +198,31 @@ export default async function ProductPage({ params }: Props) {
         ],
   ];
 
+  // stock (from the product), delivery (the config's lowest fee), cancel (the API's refund terms)
+  const feeFrom = config?.shipping.fee_from;
+  const factsRow = digital ? (
+    <>
+      <Fact title="Opens when paid" first>
+        In the ExamLeaf app, for the account you buy with
+      </Fact>
+      <Fact title="Nothing to post">No delivery fee</Fact>
+      <Fact title="Refunds">
+        <Link href="/refunds/">Refund and Cancellation Policy</Link>
+      </Fact>
+    </>
+  ) : (
+    <>
+      <Fact title={product.in_stock ? "In stock" : <span className="text-hard">Out of stock</span>} first>
+        Delivered anywhere in India
+      </Fact>
+      <Fact title="Delivery fee by state">
+        {feeFrom ? `From ${inrShort(feeFrom)}; free` : "Free"} above an order value ·{" "}
+        <Link href="/shipping/">Shipping</Link>
+      </Fact>
+      <Fact title="Cancel until packed">Refunded in 5–7 working days</Fact>
+    </>
+  );
+
   return (
     <>
       <JsonLd
@@ -206,258 +262,247 @@ export default async function ProductPage({ params }: Props) {
         ])}
       />
 
-      <section className="pt-7 pb-(--section)">
-        <div className="container-site">
-          <Breadcrumb
-            trail={[
-              { label: "Shop", href: "/shop/" },
-              ...(book && subject
-                ? [{ label: subject.name, href: `/books/${book.slug}/` }, { label: KIND_LABEL[product.kind] }]
-                : [{ label: product.title }]),
-            ]}
-          />
-          <div className="flex flex-wrap items-start gap-x-12 gap-y-8">
-            <div className="flex-[0_1_340px] max-nav:basis-44">
+      <Sheet
+        margin={product.subject ?? "₹"}
+        marks={
+          papers.length ? (
+            <div className="pt-[248px]">
+              <Marks items={[{ value: papers.length, label: "papers inside" }]} />
+            </div>
+          ) : null
+        }
+        className="shop-page"
+        bodyClassName="nav:pt-7 nav:pb-16"
+      >
+        <Breadcrumb
+          trail={[
+            { label: "Shop", href: "/shop/" },
+            ...(book && subject
+              ? [{ label: subject.name, href: `/books/${book.slug}/` }, { label: KIND_LABEL[product.kind] }]
+              : [{ label: product.title }]),
+          ]}
+        />
+        <div className="grid gap-x-14 gap-y-4 nav:mt-3 nav:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
+          <div className="flex flex-col items-center gap-3.5 nav:items-stretch">
+            <div className="w-[200px] max-w-full nav:w-full">
               <Morph name={`cover-${product.slug}`}>
                 <ProductCover
                   product={product}
                   alt={`Cover of ${product.title}`}
-                  sizes="(min-width: 900px) 340px, 176px"
+                  sizes="(min-width: 900px) 360px, 200px"
                   priority
                 />
               </Morph>
             </div>
-            <div className="flex min-w-0 flex-[1_1_420px] flex-col gap-4 [&>*]:m-0">
-              <p className="flex flex-wrap gap-2">
-                <Badge>{KIND_LABEL[product.kind]}</Badge>
-                {subject ? <Badge variant={subject.key}>{subject.name}</Badge> : null}
-              </p>
-              {book ? (
-                <p className="text-[15px] font-semibold text-muted-foreground">
-                  {book.subject.board} · Class {book.subject.class_level}
-                </p>
-              ) : null}
-              <h1>{product.title}</h1>
-              <Price price={product.price} mrp={product.mrp} size="page" />
-              {product.description ? (
-                <div className="prose">
-                  <MarkdownBlock>{product.description}</MarkdownBlock>
-                </div>
-              ) : null}
-              {!open ? (
-                <Alert title="Shop opens soon">
-                  <p>Orders open in a few days.</p>
-                </Alert>
-              ) : product.in_stock ? (
-                <AddToCart options={options} />
-              ) : (
-                <StockAlert slug={slug} signedIn={Boolean(user)} here={here} />
-              )}
-              <ul className="m-0 flex list-none flex-col gap-2 p-0 text-[15px]">
-                {digital ? (
-                  <li className="flex items-start gap-2">
-                    <Smartphone aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-accent" />
-                    Opens in the ExamLeaf app as soon as you have paid
-                  </li>
-                ) : (
-                  <li className="flex items-start gap-2">
-                    <Truck aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-accent" />
-                    <span>
-                      Delivered anywhere in India: charges in the <Link href="/shipping/">Shipping Policy</Link>
-                    </span>
-                  </li>
-                )}
-                {product.kind === "sample-papers" || product.kind === "bundle" ? (
-                  <li className="flex items-start gap-2">
-                    <QrCode aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-accent" />A QR code on every paper
-                    opens its solutions on this site, free
-                  </li>
-                ) : null}
-                {digital ? null : (
-                  <li className="flex items-start gap-2">
-                    <Package aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-accent" />
-                    Cancel on the order&apos;s page until it is packed
-                  </li>
-                )}
-              </ul>
-            </div>
+            {digital ? null : (
+              <span className="hidden text-sm text-muted-foreground nav:block">An ExamLeaf publication</span>
+            )}
           </div>
-        </div>
-      </section>
-
-      {product.bundle_items.length ? (
-        <section className="bg-secondary section">
-          <div className="container-site">
-            <QRule number={++section} label="In the bundle" />
-            <h2>In this bundle</h2>
-            <ul className="m-0 flex list-none flex-col gap-1 p-0">
-              {product.bundle_items.map((line) => (
-                <li key={line.product}>
-                  <Link
-                    href={`/shop/${line.product}/`}
-                    className="inline-flex min-h-11 items-center gap-2 font-semibold"
-                  >
-                    {line.quantity} × {line.title}
-                    <ArrowRight aria-hidden="true" className="size-5" />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-      ) : null}
-
-      {tiers.length ? (
-        <section className="section">
-          <div className="container-site">
-            <QRule number={++section} label="In the book" />
-            <h2>What&apos;s inside</h2>
-            <ul className="m-0 grid-auto list-none p-0 [--min:190px]">
-              {tiers.map(({ tier, papers: group }) => (
-                <li key={tier}>
-                  <Card className="h-full">
-                    <CardContent>
-                      <span className="numeral text-[56px] text-primary">{group.length}</span>
-                      <Badge variant={TIER_VARIANT[tier]} className="self-start">
-                        {TIERS[tier]}
-                      </Badge>
-                      <h3 className="text-[19px]">
-                        {TIERS[tier]} paper{group.length === 1 ? "" : "s"}
-                      </h3>
-                      <p className="text-muted-foreground">
-                        {shortCode(group[0].code)} to {shortCode(group[group.length - 1].code)}, {TIER_TEXT[tier]}.
-                      </p>
-                    </CardContent>
-                  </Card>
-                </li>
-              ))}
-              {facts ? (
-                <li>
-                  <Card className="h-full">
-                    <CardContent>
-                      <span className="numeral text-[56px] text-primary">{facts.full_marks}</span>
-                      <h3 className="text-[19px]">marks, {facts.time_text}</h3>
-                      <p className="text-muted-foreground">Each paper, in the board&apos;s pattern.</p>
-                    </CardContent>
-                  </Card>
-                </li>
-              ) : null}
-              {product.kind === "sample-papers" ? (
-                <li>
-                  <Card className="h-full">
-                    <CardContent>
-                      <QrCode aria-hidden="true" className="size-8 text-accent" />
-                      <h3 className="text-[19px]">Free solutions</h3>
-                      <p className="text-muted-foreground">
-                        A QR code on every paper opens its marking-scheme solutions here.
-                      </p>
-                    </CardContent>
-                  </Card>
-                </li>
-              ) : null}
-            </ul>
-            {sample && book ? (
-              <p className="mt-5 mb-0">
-                See a sample: <Link href={`/s/${sample.code}/`}>Paper {shortCode(sample.code)}</Link> ·{" "}
-                <Link href={`/books/${book.slug}/`}>all the papers in the book</Link>
+          <div className="flex min-w-0 flex-col gap-3.5 nav:gap-[18px] [&>*]:m-0">
+            <p className="font-mono text-[11px] leading-[1.4] font-medium tracking-[0.05em] text-muted-foreground uppercase nav:text-[13px]">
+              {eyebrow.join(" · ")}
+            </p>
+            <h1 className="text-[30px] leading-[1.05] nav:text-[52px] nav:leading-[1.02]">{product.title}</h1>
+            {product.description ? (
+              <div className="text-[15px] leading-relaxed text-ink/85 nav:text-lg nav:leading-[1.65] [&_p]:m-0 [&_p+p]:mt-3">
+                <MarkdownBlock>{product.description}</MarkdownBlock>
+              </div>
+            ) : null}
+            {options.length === 1 || !open || !product.in_stock ? (
+              <p className="flex flex-wrap items-baseline gap-3">
+                <CardPrice price={product.price} mrp={product.mrp} className="[&>strong]:text-[32px]" />
+                {product.in_stock ? null : (
+                  <span className="border-[1.5px] border-hard px-[7px] py-[5px] font-mono text-xs leading-none font-semibold text-hard uppercase">
+                    Out of stock
+                  </span>
+                )}
               </p>
             ) : null}
-          </div>
-        </section>
-      ) : null}
-
-      <section className={tiers.length ? "bg-secondary section" : "section"}>
-        <div className="container-site">
-          <QRule number={++section} label={digital ? "About the course" : "About the book"} />
-          <h2>Details</h2>
-          <dl className="m-0 grid max-w-[46rem] grid-cols-[minmax(7rem,auto)_1fr] gap-x-6 gap-y-3">
-            {details.map(([term, value]) => (
-              <div key={term} className="contents">
-                <dt className="font-semibold">{term}</dt>
-                <dd className="m-0">{value}</dd>
+            {!open ? (
+              <ShopClosed open={false} />
+            ) : product.in_stock ? (
+              <>
+                <AddToCart
+                  options={options}
+                  note={
+                    <p className="m-0 text-sm text-muted-foreground nav:hidden">
+                      {digital
+                        ? "Opens in the app when paid · nothing to post"
+                        : "In stock · delivery fee by state · cancel until packed"}
+                    </p>
+                  }
+                />
+                <div className="hidden grid-cols-3 border-t-[1.5px] border-foreground nav:grid">{factsRow}</div>
+              </>
+            ) : (
+              <div className="flex flex-col gap-3.5 [&>*]:m-0">
+                <Button
+                  type="button"
+                  size="lg"
+                  disabled
+                  className="self-stretch disabled:border-[#c9ccd2] disabled:bg-[#c9ccd2] disabled:text-[#4a5060] disabled:opacity-100 nav:self-start"
+                >
+                  Add to cart
+                </Button>
+                <p className="text-[15px] leading-relaxed text-ink/85">
+                  {product.title} is out of stock for now. The worked solutions are free online behind each paper&apos;s
+                  QR code meanwhile.
+                </p>
+                <StockAlert slug={slug} signedIn={Boolean(user)} here={here} />
               </div>
-            ))}
-          </dl>
-          {product.images.length ? (
-            <div className="mt-8 grid-auto [--min:200px]">
-              {product.images.map((image) => (
-                <figure key={image.src} className="m-0 flex flex-col gap-2">
-                  <CoverPicture
-                    src={image}
-                    alt={image.alt}
-                    sizes="(min-width: 1168px) 280px, (min-width: 560px) 45vw, 90vw"
-                    className="h-auto w-full rounded-lg"
-                  />
-                  {image.alt ? (
-                    <figcaption className="text-[15px] text-muted-foreground">{image.alt}</figcaption>
-                  ) : null}
-                </figure>
-              ))}
+            )}
+          </div>
+        </div>
+      </Sheet>
+
+      {tiers.length || sample ? (
+        <Sheet
+          margin={`Q.${++section}`}
+          className="shop-page border-t border-border bg-paper-2"
+          bodyClassName="grid gap-8 py-9 nav:grid-cols-2 nav:gap-12 nav:pb-14"
+        >
+          {tiers.length ? (
+            <div className="flex flex-col gap-3 [&>*]:m-0">
+              <h2 className="text-[26px] leading-[1.15] nav:text-[30px]">What&apos;s inside</h2>
+              <p className="leading-[1.7] text-ink/85">
+                {product.kind === "solutions"
+                  ? `The worked solutions of papers ${range(papers.map((paper) => paper.code))}, printed for working without a phone.`
+                  : `Papers ${tiers
+                      .map(({ tier, papers: group }) => `${range(group.map((paper) => paper.code))} ${TIER_TEXT[tier]}`)
+                      .join(", ")}.`}
+                {product.kind === "sample-papers" || product.kind === "bundle"
+                  ? " A QR code on every paper opens its worked solutions on this site, free."
+                  : ""}
+              </p>
             </div>
           ) : null}
-        </div>
-      </section>
-
-      {related.length ? (
-        <section className="section">
-          <div className="container-site">
-            <QRule number={++section} label={digital ? "With this course" : "With this book"} />
-            <h2>You may also need</h2>
-            <ProductGrid products={related} label="You may also need" />
-          </div>
-        </section>
+          {sample ? (
+            <div className="flex flex-col gap-3 [&>*]:m-0">
+              <h2 className="text-[26px] leading-[1.15] nav:text-[30px]">Try before you buy</h2>
+              <p className="leading-[1.7] text-ink/85">
+                Paper {shortCode(sample.code)}&apos;s solutions are open to everyone.{" "}
+                <Link href={`/s/${sample.code}/`} className="font-bold">
+                  Open them
+                </Link>{" "}
+                to see exactly what the QR codes lead to.
+                {book ? (
+                  <>
+                    {" "}
+                    Every paper of the book: <Link href={`/books/${book.slug}/`}>{book.title}</Link>.
+                  </>
+                ) : null}
+              </p>
+            </div>
+          ) : null}
+        </Sheet>
       ) : null}
 
-      <section id="reviews" className="section">
-        <div className="container-site flex flex-col gap-5 [&>*]:m-0">
-          <QRule number={++section} label="From buyers" />
-          <h2>Reviews</h2>
-          {reviews === null ? (
-            <p className="text-muted-foreground">The reviews cannot be loaded just now.</p>
-          ) : (
-            <>
-              {rated ? (
-                <p className="text-lead">
-                  <strong>{reviews.average} out of 5</strong> from {reviews.count} review
-                  {reviews.count === 1 ? "" : "s"} by buyers
-                </p>
-              ) : null}
-              {reviews.results.length ? (
-                <ul className="m-0 grid-auto list-none p-0 [--min:280px]">
-                  {reviews.results.map((review, index) => (
-                    <li key={`${review.created}-${index}`}>
-                      <Card className="h-full">
-                        <CardContent>
-                          <p className="flex flex-wrap items-center gap-2">
-                            <span aria-hidden="true" className="text-gold">
-                              {"★".repeat(review.rating)}
-                              <span className="text-border">{"★".repeat(5 - review.rating)}</span>
-                            </span>
-                            <Badge>{review.rating} out of 5</Badge>
-                          </p>
-                          {review.text ? <p className="whitespace-pre-line">{review.text}</p> : null}
-                          <p className="text-[15px] text-muted-foreground">
-                            Verified buyer · {formatDate(review.created)}
-                          </p>
-                        </CardContent>
-                      </Card>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-muted-foreground">No reviews yet.</p>
-              )}
-              {reviews.can_review ? <ReviewForm slug={slug} what={kindName} /> : null}
-            </>
-          )}
-          <p>
-            <Link href="/shop/" className="inline-flex min-h-11 items-center gap-2 font-semibold">
-              <ArrowLeft aria-hidden="true" className="size-5" />
-              All books
-            </Link>
-          </p>
-        </div>
-      </section>
+      {product.bundle_items.length ? (
+        <Sheet margin={`Q.${++section}`} className="shop-page border-t border-border" bodyClassName="py-9 nav:py-12">
+          <h2 className="mt-0 mb-3 text-[26px] nav:text-[30px]">In this bundle</h2>
+          <ul className="m-0 list-none border-t-[1.5px] border-foreground p-0">
+            {product.bundle_items.map((line) => (
+              <li key={line.product} className="border-b border-border">
+                <Link href={`/shop/${line.product}/`} className="flex min-h-12 items-center gap-2 font-semibold">
+                  {line.quantity} × {line.title} →
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Sheet>
+      ) : null}
+
+      <Sheet
+        margin={`Q.${++section}`}
+        className={`shop-page border-t border-border ${product.bundle_items.length ? "bg-paper-2" : ""}`}
+        bodyClassName="py-9 nav:py-12"
+      >
+        <h2 className="mt-0 mb-4 text-[26px] nav:text-[30px]">Details</h2>
+        <dl className="m-0 max-w-[46rem] border-t-[1.5px] border-foreground">
+          {details.map(([term, value]) => (
+            <div
+              key={term}
+              className="grid grid-cols-1 gap-x-6 gap-y-0.5 border-b border-border py-2.5 nav:grid-cols-[10rem_1fr]"
+            >
+              <dt className="font-mono text-xs leading-6 font-medium tracking-[0.05em] text-muted-foreground uppercase">
+                {term}
+              </dt>
+              <dd className="m-0 min-w-0 [overflow-wrap:anywhere]">{value}</dd>
+            </div>
+          ))}
+        </dl>
+        {product.images.length ? (
+          <div className="mt-8 grid-auto [--min:200px]">
+            {product.images.map((image) => (
+              <figure key={image.src} className="m-0 flex flex-col gap-2">
+                <CoverPicture
+                  src={image}
+                  alt={image.alt}
+                  sizes="(min-width: 1168px) 280px, (min-width: 560px) 45vw, 90vw"
+                  className="h-auto w-full rounded-lg"
+                />
+                {image.alt ? <figcaption className="text-[15px] text-muted-foreground">{image.alt}</figcaption> : null}
+              </figure>
+            ))}
+          </div>
+        ) : null}
+      </Sheet>
+
+      {related.length ? (
+        <Sheet margin={`Q.${++section}`} className="shop-page border-t border-border" bodyClassName="py-9 nav:py-12">
+          <h2 className="mt-0 mb-5 text-[26px] nav:text-[30px]">You may also need</h2>
+          <ProductGrid products={related} label="You may also need" />
+        </Sheet>
+      ) : null}
+
+      <Sheet
+        id="reviews"
+        margin={`Q.${++section}`}
+        className="shop-page border-t border-border"
+        bodyClassName="flex flex-col gap-5 py-9 nav:py-12 [&>*]:m-0"
+      >
+        <h2 className="text-[26px] nav:text-[30px]">Reviews</h2>
+        {reviews === null ? (
+          <p className="text-muted-foreground">The reviews cannot be loaded just now.</p>
+        ) : (
+          <>
+            {rated ? (
+              <p className="text-lg">
+                <strong>{reviews.average} out of 5</strong> from {reviews.count} review
+                {reviews.count === 1 ? "" : "s"} by buyers
+              </p>
+            ) : null}
+            {reviews.results.length ? (
+              <ul className="m-0 max-w-[46rem] list-none border-t-[1.5px] border-foreground p-0">
+                {reviews.results.map((review, index) => (
+                  <li
+                    key={`${review.created}-${index}`}
+                    className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-6 border-b border-border py-4"
+                  >
+                    <div className="flex min-w-0 flex-col gap-1.5 [&>*]:m-0">
+                      {review.text ? (
+                        <p className="font-read text-[17px] leading-[1.6] whitespace-pre-line">{review.text}</p>
+                      ) : null}
+                      <p className="text-sm text-muted-foreground">Verified buyer · {formatDate(review.created)}</p>
+                    </div>
+                    <span className="font-mono text-base font-semibold text-red-ink">
+                      {review.rating}/5<span className="sr-only"> stars</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-muted-foreground">No reviews yet.</p>
+            )}
+            {reviews.can_review ? <ReviewForm slug={slug} what={kindName} /> : null}
+          </>
+        )}
+        <p>
+          <Link href="/shop/" className="inline-flex min-h-11 items-center font-bold">
+            ← All books
+          </Link>
+        </p>
+      </Sheet>
     </>
   );
 }

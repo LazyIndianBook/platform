@@ -1,13 +1,13 @@
-// What the catalogue, a shelf (category) and a collection share (Django's shop/catalogue.html): the trust row, the
-// shop-closed alert, links as chips (shelves, collections, sub-shelves), and the attribute filters: links that set
+// What the catalogue, a shelf (category) and a collection share (Shop artboard, Phone shop): the sheet with "₹" in the
+// margin and the count of books in the marks, the shop-closed notice (States, "Shop closed and out of stock"), links
+// as chips (subjects, kinds, shelves, collections, sub-shelves), and the attribute filters: links that set
 // ?attr_<code>=<value> (the API's own filter, server-rendered, no script), the current value marked.
 import { cn } from "cn";
-import { Lock, Package, Truck } from "lucide-react";
 import Link from "next/link";
 
 import { MarkdownBlock } from "@/components/solutions/markdown";
 import { Alert } from "@/components/ui/alert";
-import { badgeVariants } from "@/components/ui/badge";
+import { Sheet } from "@/components/ui/band";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -15,37 +15,21 @@ import type { Product } from "@/lib/api/shop";
 
 import { ProductGrid } from "./product-card";
 
-const chip = (current = false) =>
+/** A filter as a chip: a hairline box, the current one in an ink box on white (the kind chips of the Shop artboard). */
+export const chip = (current = false) =>
   cn(
-    badgeVariants({ variant: "muted" }),
-    "h-auto min-h-11 px-4 text-[15px] hover:underline",
-    current && "bg-primary text-primary-foreground",
+    "inline-flex min-h-11 shrink-0 items-center rounded-[3px] border border-border px-3 text-sm leading-tight font-semibold whitespace-nowrap text-foreground no-underline hover:border-foreground hover:text-foreground",
+    current && "border-[1.5px] border-foreground bg-card px-[11.5px]",
   );
-
-const TRUST = [
-  { Icon: Truck, text: "Delivered anywhere in India" },
-  { Icon: Lock, text: "Secure payment through Razorpay" },
-  { Icon: Package, text: "Cancel until it is packed" },
-];
-
-export function TrustRow() {
-  return (
-    <ul className="m-0 flex list-none flex-wrap gap-x-6 gap-y-2 p-0 text-[15px] font-semibold text-muted-foreground">
-      {TRUST.map(({ Icon, text }) => (
-        <li key={text} className="inline-flex items-center gap-2">
-          <Icon aria-hidden="true" className="size-5 shrink-0 text-accent" />
-          {text}
-        </li>
-      ))}
-    </ul>
-  );
-}
 
 export function ShopClosed({ open }: { open: boolean | undefined }) {
   if (open !== false) return null;
   return (
-    <Alert title="Shop opens soon">
-      <p>The books and their prices are here; orders open in a few days.</p>
+    <Alert variant="warning" title="The shop is closed for now">
+      <p>
+        You can&apos;t place new orders at the moment. Orders you&apos;ve already placed go ahead as normal, and the
+        free solutions stay open.
+      </p>
     </Alert>
   );
 }
@@ -54,7 +38,7 @@ export function ChipNav({ label, links }: { label: string; links: { href: string
   if (!links.length) return null;
   return (
     <nav aria-label={label} className="flex flex-wrap items-center gap-x-3 gap-y-2">
-      <span className="font-semibold">{label}</span>
+      <span className="label-mono uppercase">{label}</span>
       <ul className="m-0 flex list-none flex-wrap gap-2 p-0">
         {links.map((link) => (
           <li key={link.href}>
@@ -65,6 +49,20 @@ export function ChipNav({ label, links }: { label: string; links: { href: string
         ))}
       </ul>
     </nav>
+  );
+}
+
+/** The catalogue's sheet: "₹" in the margin, the number of books shown in the marks column. */
+export function CatalogueSheet({ count, children }: { count: number; children: React.ReactNode }) {
+  return (
+    <Sheet
+      margin="₹"
+      marks={`[${count}]`}
+      className="shop-page"
+      bodyClassName="flex flex-col gap-5 nav:pt-[52px] nav:pb-16"
+    >
+      {children}
+    </Sheet>
   );
 }
 
@@ -108,11 +106,11 @@ export function AttributeFilters({ path, products, filters }: { path: string; pr
   const options = attributeOptions(products).filter((option) => option.values.length > 1 || filters[option.code]);
   if (!options.length) return null;
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
-      <h2 className="m-0 text-[17px] leading-snug">Filter</h2>
+    <div className="flex flex-col gap-3 border-y border-border py-3">
+      <h2 className="sr-only">Filter</h2>
       {options.map((option) => (
         <nav key={option.code} aria-label={option.name} className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <span className="min-w-24 font-semibold">{option.name}</span>
+          <span className="min-w-24 label-mono uppercase">{option.name}</span>
           <ul className="m-0 flex list-none flex-wrap gap-2 p-0">
             {[null, ...option.values].map((value) => {
               const current = (filters[option.code] ?? null) === value;
@@ -136,7 +134,8 @@ export function AttributeFilters({ path, products, filters }: { path: string; pr
   );
 }
 
-/** A shelf's or a collection's page: breadcrumb, heading and intro, sub-shelves, filters, then the books. */
+/** A shelf's or a collection's page: the catalogue's sheet with its own heading and intro, sub-shelves, filters, then
+ *  the books (or what to do when none match). */
 export function ListingPage({
   title,
   intro,
@@ -160,41 +159,38 @@ export function ListingPage({
 }) {
   const filtered = Object.keys(filters).length > 0;
   return (
-    <section className="pt-7 pb-(--section)">
-      <div className="container-site flex flex-col gap-5">
-        <div className="flex max-w-[46rem] flex-col gap-4 [&>*]:m-0">
-          <Breadcrumb trail={trail} className="-mb-4" />
-          <h1>{title}</h1>
-          {intro ? (
-            <div className="prose text-lead text-muted-foreground">
-              <MarkdownBlock>{intro}</MarkdownBlock>
-            </div>
-          ) : null}
-          <TrustRow />
-        </div>
-        <ShopClosed open={open} />
-        <ChipNav label="Shelves" links={shelves} />
-        <AttributeFilters path={path} products={all} filters={filters} />
-        {products.length ? (
-          <ProductGrid products={products} label={title} />
-        ) : (
-          <EmptyState
-            art="results"
-            title={filtered ? "No books match these filters" : "No books here yet"}
-            action={
-              <Link href={filtered ? path : "/shop/"} className={buttonVariants({ variant: "primary" })}>
-                {filtered ? "Clear the filters" : "All books"}
-              </Link>
-            }
-          >
-            <p>
-              {filtered
-                ? "Choose Any for one of them to see more."
-                : "The books are being prepared. Please come back soon."}
-            </p>
-          </EmptyState>
-        )}
+    <CatalogueSheet count={products.length}>
+      <div className="flex max-w-[46rem] flex-col gap-3 [&>*]:m-0">
+        <Breadcrumb trail={trail} className="-mb-3" />
+        <h1 className="text-[clamp(38px,5vw,60px)] leading-none">{title}</h1>
+        {intro ? (
+          <div className="text-[18px] leading-relaxed text-ink/85 [&_p]:m-0 [&_p+p]:mt-3">
+            <MarkdownBlock>{intro}</MarkdownBlock>
+          </div>
+        ) : null}
       </div>
-    </section>
+      <ShopClosed open={open} />
+      <ChipNav label="Shelves" links={shelves} />
+      <AttributeFilters path={path} products={all} filters={filters} />
+      {products.length ? (
+        <ProductGrid products={products} label={title} />
+      ) : (
+        <EmptyState
+          art="results"
+          title={filtered ? "No books match these filters" : "No books here yet"}
+          action={
+            <Link href={filtered ? path : "/shop/"} className={buttonVariants({ variant: "primary" })}>
+              {filtered ? "Clear the filters" : "All books"}
+            </Link>
+          }
+        >
+          <p>
+            {filtered
+              ? "Choose Any for one of them to see more."
+              : "The books are being prepared. Please come back soon."}
+          </p>
+        </EmptyState>
+      )}
+    </CatalogueSheet>
   );
 }

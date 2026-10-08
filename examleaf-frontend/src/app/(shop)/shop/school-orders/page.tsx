@@ -1,12 +1,16 @@
-// /shop/school-orders/ (Django's shop/quote_request.html): schools, coaching centres and bookshops ask for a quotation
-// (QuoteForm), for the printed books on sale: courses, and bundles holding one, are left out (the API's rule).
-import { QuoteForm } from "@/components/shop/quote-form";
+// /shop/school-orders/ (School orders artboard, Phone lookup and school): on the sheet with "×N" in the margin, what a
+// school gets beside the quote form (QuoteForm: the buyer's details and the copies of each book in a grid by subject
+// and kind). Printed books on sale only: courses, and bundles holding one, are left out (the API's rule).
+import "../shop.css";
+
+import { QuoteForm, type QuoteBook } from "@/components/shop/quote-form";
 import { isDigital } from "@/components/shop/shop";
 import { Unavailable } from "@/components/site/unavailable";
+import { Sheet } from "@/components/ui/band";
+import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { getProducts } from "@/lib/api/catalogue";
 import { breadcrumbJsonLd, JsonLd } from "@/lib/seo/json-ld";
 import { pageMetadata } from "@/lib/seo/metadata";
-import { Breadcrumb } from "@/components/ui/breadcrumb";
 
 export const metadata = pageMetadata({
   title: "School and bulk orders",
@@ -15,8 +19,14 @@ export const metadata = pageMetadata({
     "Schools, coaching centres and booksellers: ask for a quotation for ExamLeaf books in bulk, delivered anywhere in India.",
 });
 
+const POINTS = [
+  "Every student gets the free QR solutions",
+  "Delivered to the school",
+  "A quotation by email, valid for 15 days; the books follow payment, with a GST invoice",
+];
+
 export default async function SchoolOrdersPage() {
-  let books;
+  let books: QuoteBook[];
   try {
     const products = await getProducts();
     const bySlug = new Map(products.map((product) => [product.slug, product]));
@@ -26,12 +36,12 @@ export default async function SchoolOrdersPage() {
           product.kind !== "digital" &&
           !product.bundle_items.some((item) => isDigital(bySlug.get(item.product), bySlug)),
       )
-      .map((product) => ({ slug: product.slug, title: product.title }));
+      .map((product) => ({ slug: product.slug, title: product.title, subject: product.subject, kind: product.kind }));
   } catch {
     return <Unavailable what="The school order form" retry="/shop/school-orders/" />;
   }
   return (
-    <section className="pt-7 pb-(--section)">
+    <Sheet margin="×N" className="shop-page" bodyClassName="nav:pt-[52px] nav:pb-[72px]">
       <JsonLd
         data={breadcrumbJsonLd([
           { name: "Home", path: "/" },
@@ -39,19 +49,24 @@ export default async function SchoolOrdersPage() {
           { name: "School and bulk orders", path: "/shop/school-orders/" },
         ])}
       />
-      <div className="container-site flex max-w-[calc(52rem+2*var(--gutter))] flex-col gap-4 [&>h1]:m-0 [&>p]:m-0">
-        <Breadcrumb
-          trail={[{ label: "Shop", href: "/shop/" }, { label: "School and bulk orders" }]}
-          className="-mb-4"
-        />
-        <h1>School and bulk orders</h1>
-        <p className="text-lead text-muted-foreground">
-          For a school, a coaching centre or a bookshop: tell us which books and how many copies, and we email you a
-          quotation, valid for 15 days. Payment is in advance, by NEFT, UPI or a payment link; the books are then
-          dispatched with a GST invoice.
-        </p>
+      <Breadcrumb trail={[{ label: "Shop", href: "/shop/" }, { label: "School and bulk orders" }]} />
+      <div className="grid gap-x-14 gap-y-6 nav:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <div className="flex flex-col gap-[18px] [&>*]:m-0">
+          <h1 className="text-[32px] leading-none nav:text-[56px] nav:leading-[1.02]">Books for your school</h1>
+          <p className="text-[17px] leading-[1.65] text-ink/85 nav:text-lg">
+            Tell us how many copies of each book your school needs. We reply with a quote and a GST invoice for the
+            school.
+          </p>
+          <ul className="m-0 hidden list-none border-t-[1.5px] border-foreground p-0 nav:block">
+            {POINTS.map((point) => (
+              <li key={point} className="border-b border-border py-3">
+                {point}
+              </li>
+            ))}
+          </ul>
+        </div>
         <QuoteForm books={books} />
       </div>
-    </section>
+    </Sheet>
   );
 }

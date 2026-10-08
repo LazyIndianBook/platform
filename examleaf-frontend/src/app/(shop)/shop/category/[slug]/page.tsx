@@ -1,5 +1,8 @@
-// A shelf of the category tree (Django's CategoryView): its books and those of its sub-shelves, the sub-shelves as
-// chips, and filters by the books' attributes (?attr_<code>=, server-rendered).
+// A shelf of the category tree (Django's CategoryView), on the catalogue's sheet with its own heading (Shop artboard):
+// its books and those of its sub-shelves, the sub-shelves as chips, and filters by the books' attributes
+// (?attr_<code>=, server-rendered).
+import "../../shop.css";
+
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 

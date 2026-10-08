@@ -1,14 +1,16 @@
 "use client";
 
-// The product page's islands. AddToCart: the bundle choice when the book also comes in a bundle (Product artboard,
-// "Choose"), the copies (one for a course), POST cart/items/ (a visitor's guest cart, or the account's), then the
-// cart with a toast. StockAlert: "Email me when it is back", to the account's own
-// address. ReviewForm: for a buyer whose order of it was delivered (the API says can_review), shown once staff read it.
-import { Mail, ShoppingBag } from "lucide-react";
+// The product page's islands, Direction A (Product artboard, Phone product, States "Shop closed and out of stock").
+// AddToCart: "Choose" as radio cards when the book also comes in a bundle (BEST VALUE stamped on a bundle that saves),
+// the copies (one for a course), Add to cart with the line's price, and Buy now (the same, then the checkout); POST
+// cart/items/ (a visitor's guest cart, or the account's), then the cart with a toast. While it is sent both buttons
+// wait and a second press, or Enter, sends nothing. On a phone the copies and Add stay at the bottom of the screen
+// (.buy-bar, shop.css). StockAlert: "Email me when it is back", to the account's own address. ReviewForm: for a buyer
+// whose order of it was delivered (the API says can_review), shown once staff read it.
+import { Mail } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { toast } from "@/components/ui/toaster";
+import { useRef, useState } from "react";
 
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -16,9 +18,10 @@ import { Button } from "@/components/ui/button";
 import { SelectableCard } from "@/components/ui/choice";
 import { Field, FieldError } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/input";
-import { Price } from "@/components/ui/price";
+import { toast } from "@/components/ui/toaster";
 import { api, ApiError, ensureCsrfCookie, personal } from "@/lib/api/client";
 import { withNext } from "@/lib/auth/next-url";
+import { inrShort } from "@/lib/format";
 
 import { CopiesStepper } from "./copies-stepper";
 import { copies } from "./shop";
@@ -37,47 +40,102 @@ export type BuyOption = {
   best?: boolean;
 };
 
+/** An option's words and price (Product artboard; Phone product: the saving under the label, the MRP under the price,
+ *  no stamp). The price is Source Serif; the MRP is struck through and the saving said only when they differ. */
+function OptionText({ item }: { item: BuyOption }) {
+  const saving = Number(item.mrp) - Number(item.price);
+  return (
+    <span className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4">
+      <span className="flex min-w-0 flex-col gap-1">
+        <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-base leading-snug font-semibold nav:text-[17px]">
+          {item.label}
+          {item.best ? (
+            <Badge variant="stamp" className="max-nav:hidden">
+              Best value
+            </Badge>
+          ) : null}
+          {item.inStock ? null : (
+            <span className="font-mono text-xs font-semibold text-hard uppercase">Out of stock</span>
+          )}
+        </span>
+        {saving > 0 ? (
+          <span className="text-[13px] font-bold text-success-fg nav:hidden">
+            Save {inrShort(saving)}
+            {item.best ? " · best value" : ""}
+          </span>
+        ) : null}
+      </span>
+      <span className="flex flex-col items-end tabular-nums nav:flex-row nav:items-baseline nav:gap-x-2.5">
+        <span className="font-head text-[20px] leading-none font-semibold nav:text-[26px]">{inrShort(item.price)}</span>
+        {saving > 0 ? (
+          <>
+            <s className="text-[13px] text-muted-foreground nav:text-base">
+              <span className="sr-only">MRP </span>
+              {inrShort(item.mrp)}
+            </s>
+            <span className="hidden text-[15px] font-bold whitespace-nowrap text-success-fg nav:inline">
+              Save {inrShort(saving)} ({Math.round((saving / Number(item.mrp)) * 100)}%)
+            </span>
+          </>
+        ) : null}
+      </span>
+    </span>
+  );
+}
+
 export function AddToCart({
   options,
   compact = false,
+  note,
 }: {
   options: BuyOption[];
-  /** one copy, no copies box (the catalogue's featured bundle) */
+  /** one copy, no copies box, no Buy now */
   compact?: boolean;
+  /** between the choice and the buttons (the product page's facts, on a phone) */
+  note?: React.ReactNode;
 }) {
   const router = useRouter();
   const [chosen, setChosen] = useState(options.find((option) => option.inStock)?.slug ?? options[0].slug);
   const [count, setCount] = useState("1");
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<"cart" | "checkout" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const sending = useRef(false); // a second press (or Enter) in the same moment as the first sends nothing
   const option = options.find((item) => item.slug === chosen) ?? options[0];
+  const quantity = option.digital ? 1 : copies(count);
 
-  async function add(event: React.FormEvent) {
+  async function add(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const quantity = option.digital ? 1 : copies(count);
+    if (sending.current) return;
+    const then =
+      (event.nativeEvent as SubmitEvent).submitter?.getAttribute("value") === "checkout" ? "checkout" : "cart";
     if (!quantity) {
       setError("Enter a number of copies from 1 to 20.");
       return;
     }
-    setBusy(true);
+    sending.current = true;
+    setBusy(then);
     setError(null);
     try {
       await ensureCsrfCookie(); // a visitor's first change: the guest cart
       await personal(api.POST("/api/v1/cart/items/", { body: { product: option.slug, quantity } }));
       toast.success(`${option.title} is in your cart.`);
-      router.push("/cart/");
+      router.push(then === "checkout" ? "/checkout/" : "/cart/");
       router.refresh(); // the header's cart count
     } catch (caught) {
       setError(failed(caught));
-      setBusy(false);
+      setBusy(null);
+      sending.current = false;
     }
   }
 
+  const line = inrShort(Number(option.price) * (quantity || 1));
   return (
     <form onSubmit={add} className="flex flex-col gap-4" noValidate>
       {options.length > 1 ? (
-        <fieldset className="m-0 flex min-w-0 flex-col gap-3 border-0 p-0">
-          <legend className="mb-2 font-head text-[17px] font-bold text-heading">Choose</legend>
+        <fieldset className="m-0 flex min-w-0 flex-col gap-2.5 border-0 p-0">
+          <legend className="mb-2.5 font-mono text-xs leading-none font-medium tracking-[0.06em] text-muted-foreground uppercase">
+            Choose
+          </legend>
           {options.map((item) => (
             <SelectableCard
               key={item.slug}
@@ -86,27 +144,47 @@ export function AddToCart({
               checked={chosen === item.slug}
               disabled={!item.inStock}
               onChange={() => setChosen(item.slug)}
+              className="items-center gap-3.5 bg-card p-3.5 has-checked:border-foreground has-checked:p-[13px] nav:px-5 nav:py-[18px] nav:has-checked:px-[19px] nav:has-checked:py-[17px] [&>input]:mt-0 [&>span]:flex-1"
             >
-              <span className="flex flex-wrap items-center gap-2 font-semibold">
-                {item.label}
-                {item.best ? <Badge variant="gold">Best value</Badge> : null}
-                {item.inStock ? null : <Badge>Out of stock</Badge>}
-              </span>
-              <Price as="span" price={item.price} mrp={item.mrp} />
+              <OptionText item={item} />
             </SelectableCard>
           ))}
         </fieldset>
       ) : null}
-      <div className="flex flex-wrap items-end gap-3">
+      {note}
+      <div className="buy-bar">
         {option.digital || compact ? null : (
-          <Field id="copies" label="Copies">
-            <CopiesStepper value={count} onValue={(value) => setCount(value)} label={option.title} />
+          <Field id="copies" label="Copies" className="max-nav:[&>label]:sr-only">
+            <CopiesStepper value={count} onValue={(value) => setCount(value)} label={option.title} tall busy={!!busy} />
           </Field>
         )}
-        <Button type="submit" variant="accent" size="lg" busy={busy} disabled={!option.inStock}>
-          <ShoppingBag aria-hidden="true" />
-          Add to cart
+        <Button
+          type="submit"
+          size="lg"
+          className="min-h-[50px] flex-1 nav:min-h-14"
+          busy={busy === "cart"}
+          aria-disabled={busy === "checkout" || undefined}
+          disabled={!option.inStock}
+        >
+          <span>
+            Add<span className="max-nav:sr-only"> to cart</span> · {line}
+          </span>
         </Button>
+        {compact ? null : (
+          <Button
+            type="submit"
+            name="then"
+            value="checkout"
+            variant="secondary"
+            size="lg"
+            className="min-h-14 max-nav:hidden"
+            busy={busy === "checkout"}
+            aria-disabled={busy === "cart" || undefined}
+            disabled={!option.inStock}
+          >
+            Buy now
+          </Button>
+        )}
       </div>
       {error ? <FieldError role="alert">{error}</FieldError> : null}
     </form>
@@ -131,9 +209,9 @@ export function StockAlert({ slug, signedIn, here }: { slug: string; signedIn: b
 
   return (
     <div className="flex flex-col gap-3 [&>*]:m-0">
-      <Alert variant="warning" title="Out of stock for now">
-        <p>We email you once, when it is back. Nothing else is sent to that address.</p>
-      </Alert>
+      <p className="text-[15px] text-muted-foreground">
+        We email you once, when it is back. Nothing else is sent to that address.
+      </p>
       {!signedIn ? (
         <p>
           <Link href={withNext("/account/login/", here)} className="font-semibold">
@@ -170,6 +248,7 @@ export function ReviewForm({ slug, what }: { slug: string; what: "book" | "cours
 
   async function send(event: React.FormEvent) {
     event.preventDefault();
+    if (busy) return;
     if (!rating) {
       setError(
         new ApiError(400, "invalid", "Choose a rating from 1 to 5.", { rating: ["Choose a rating from 1 to 5."] }),
@@ -201,12 +280,12 @@ export function ReviewForm({ slug, what }: { slug: string; what: "book" | "cours
   return (
     <form
       onSubmit={send}
-      className="flex max-w-[40rem] flex-col gap-4 rounded-lg border border-border bg-card p-5 shadow-card"
+      className="flex max-w-[40rem] flex-col gap-4 rounded-lg border-[1.5px] border-foreground bg-card p-5 nav:p-8"
       noValidate
     >
       <div className="flex flex-col gap-1 [&>*]:m-0">
-        <h3>Review this {what}</h3>
-        <p className="text-muted-foreground">From buyers whose order of it has been delivered.</p>
+        <h3 className="text-[24px]">Review this {what}</h3>
+        <p className="text-[15px] text-muted-foreground">From buyers whose order of it has been delivered.</p>
       </div>
       <fieldset className="m-0 border-0 p-0" aria-describedby={error?.fields.rating ? "rating-error" : undefined}>
         <legend id="rating" tabIndex={-1} className="mb-1 font-semibold">

@@ -1,4 +1,7 @@
-// A collection (Django's CollectionView): books picked by staff, in their order, with the attribute filters.
+// A collection (Django's CollectionView), on the catalogue's sheet with its own heading (Shop artboard): books picked
+// by staff, in their order, with the attribute filters.
+import "../../shop.css";
+
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
