@@ -23,8 +23,8 @@ const DJANGO_PAGES: [string, string][] = [
   ["/account/3rdparty/signup/", "/account/signup/"],
   ["/account/3rdparty/", "/account/security/#google"],
   ["/account/confirm-email/", "/account/verify-email/"],
-  ["/account/password/reset/done/", "/account/password/reset/"],
-  ["/account/password/reset/key/done/", "/account/login/"],
+  // reset/done/ is a page of its own now: "Your new password is saved", with a Log in (G2, G18)
+  ["/account/password/reset/key/done/", "/account/password/reset/done/"],
   ["/account/email/", "/account/security/#change-email"],
   ["/account/password/change/", "/account/security/#change-password"],
   ["/account/password/set/", "/account/security/#change-password"],
