@@ -21,7 +21,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { getMe, getSubjects, settle } from "@/lib/api/account";
 import { ApiError, unwrap } from "@/lib/api/errors";
 import type { components } from "@/lib/api/schema";
-import { personalFetch, publicFetch, serverApi } from "@/lib/api/server";
+import { personalFetch, serverApi } from "@/lib/api/server";
 import { dateInIndia, formatDate } from "@/lib/dates";
 import { pageMetadata } from "@/lib/seo/metadata";
 
@@ -75,9 +75,7 @@ export default async function ReviseAgainPage({ searchParams }: Props) {
     settle(unwrap(serverApi.GET("/api/v1/learn/settings/", options)), PATH),
     unwrap(serverApi.GET("/api/v1/learn/plan/", options)).catch(() => null), // 400 without an exam date after today
     getMe().catch(() => null),
-    unwrap(
-      serverApi.GET("/api/v1/learn/chapters/", { params: { query: { page_size: 200 } }, ...publicFetch("chapters") }),
-    )
+    unwrap(serverApi.GET("/api/v1/learn/chapters/", { params: { query: { page_size: 200 } }, ...options }))
       .then((list) => list.results)
       .catch(() => []),
     getSubjects().catch(() => []),

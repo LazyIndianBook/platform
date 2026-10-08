@@ -11,7 +11,7 @@ import { getSubjects, settle } from "@/lib/api/account";
 import { getConfig } from "@/lib/api/config";
 import { ApiError, unavailableError, unwrap } from "@/lib/api/errors";
 import type { components } from "@/lib/api/schema";
-import { personalFetch, publicFetch, serverApi } from "@/lib/api/server";
+import { personalFetch, serverApi } from "@/lib/api/server";
 import { requireUser } from "@/lib/auth/session";
 import { SUBJECTS } from "@/lib/site";
 
@@ -31,7 +31,8 @@ const failed = (error: unknown): never => {
 
 /** /revision/<key>/<number>/'s chapter as the API answers it for the signed-in student (its flags, its clips with
  *  free, locked and completed): a 404 for an unknown subject or number, or a chapter whose revision is not out. The
- *  page and its metadata share one call per request. */
+ *  page and its metadata share one call per request. The chapter list is read as the student's, never kept: a chapter
+ *  just published is on the signed-in /revision/ at once, so its page must be too. */
 export const loadChapter = cache(async (key: string, number: string, path: string) => {
   await requireCourse();
   await requireUser(path);
@@ -39,18 +40,17 @@ export const loadChapter = cache(async (key: string, number: string, path: strin
   if (!code || !/^\d{1,4}$/.test(number)) notFound();
   const subject = (await getSubjects().catch(failed)).find((row) => row.code === code);
   if (!subject) notFound();
+  const personal = await personalFetch();
   const list = await unwrap(
     serverApi.GET("/api/v1/learn/chapters/", {
       params: { query: { subject: subject.id, page_size: 200 } },
-      ...publicFetch("chapters"),
+      ...personal,
     }),
   ).catch(failed);
   const row = list.results.find((chapter) => chapter.number === Number(number));
   if (!row?.has_revision) notFound();
   const chapter = await settle(
-    unwrap(
-      serverApi.GET("/api/v1/learn/chapters/{id}/", { params: { path: { id: row.id } }, ...(await personalFetch()) }),
-    ),
+    unwrap(serverApi.GET("/api/v1/learn/chapters/{id}/", { params: { path: { id: row.id } }, ...personal })),
     path,
   );
   if (chapter instanceof ApiError) return chapter.status === 404 ? notFound() : failed(chapter);
