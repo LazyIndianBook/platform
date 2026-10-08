@@ -1,8 +1,10 @@
 // Home, Direction A "Answer Script" (design: ExamLeaf A - Public.dc.html, artboard "A Home"). Same data as before
 // (getBooks, getProducts, getConfig, getSessionUser) and the same honest fallbacks: Unavailable when the books can't
 // be read, no prices section when the shop answers nothing, FAQ answers that follow the config. Layout: each
-// section is a Sheet (margin | content behind the red double rule | marks). One emphasis per view (the red italic),
-// no animation on load; the cover morph into the Book page is kept on the subject rows.
+// section is a Sheet (margin | content behind the red double rule | marks); Q.2 is a ruled table of the books
+// (subject, papers, full marks, time) and the hero's figure circles its total. Phones follow "Phone home": Q.1 in the
+// eyebrow, the figures in a row under the text, no picture. One emphasis per view (the red italic), no animation on
+// load; the cover morph into the Book page is kept on the subject rows.
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 
@@ -11,8 +13,9 @@ import { Accordion } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Marker, Marks, NightBand, Sheet } from "@/components/ui/band";
 import { buttonVariants } from "@/components/ui/button";
+import { CoverPicture } from "@/components/ui/cover";
+import { Morph } from "@/components/ui/morph";
 import { Price } from "@/components/ui/price";
-import { SubjectTile } from "@/components/ui/subject-tile";
 import { type Book, bookFacts, getBooks, getProducts, type Product } from "@/lib/api/catalogue";
 import { getConfig } from "@/lib/api/config";
 import { getSessionUser } from "@/lib/auth/session";
@@ -20,7 +23,14 @@ import { JsonLd, organizationJsonLd } from "@/lib/seo/json-ld";
 import { pageMetadata } from "@/lib/seo/metadata";
 import { subjectOf } from "@/lib/site";
 
+import { PhoneFigures } from "./phone-figures";
+
 export const metadata = pageMetadata({ path: "/" });
+
+/** Q.2's columns (A Home): cover, subject, papers, full marks, time, the link's words; narrower between 900 and
+ *  1200 px, where the drawn widths would leave the subject no room. */
+const BOOK_ROW =
+  "grid grid-cols-[64px_minmax(0,1fr)_64px_88px_64px_auto] gap-4 min-[1200px]:grid-cols-[72px_minmax(0,1fr)_110px_120px_110px_150px] min-[1200px]:gap-6";
 
 const KIND_LABEL: Record<Product["kind"], string> = {
   "sample-papers": "Sample Papers",
@@ -75,31 +85,47 @@ export default async function HomePage() {
     <>
       <JsonLd data={organizationJsonLd(config?.support.email)} />
 
-      {/* Q.1 hero: the promise, two actions, and a real solution sheet as the picture */}
+      {/* Q.1 hero: the promise, two actions, and a real solution sheet as the picture (phones: the figures in a row
+          under the text, no picture, as Phone home draws it) */}
       <Sheet
         margin="Q.1"
+        className="max-nav:[&>.sheet-margin]:hidden"
         marks={
-          <Marks
-            items={[
-              { value: 30, label: "papers in each book" },
-              ...(marks
-                ? [{ value: marks, label: maths && maths !== marks ? `marks; ${maths} in Maths` : "marks each" }]
-                : []),
-              { value: "3h", label: "every paper" },
-            ]}
-          />
+          <div className="pt-10">
+            <Marks
+              items={[
+                { value: 30, label: "papers in each book" },
+                ...(marks
+                  ? [{ value: marks, label: maths && maths !== marks ? `marks; ${maths} in Maths` : "marks each" }]
+                  : []),
+                { value: "3h", label: "every paper" },
+              ]}
+            />
+          </div>
         }
-        bodyClassName="flex flex-wrap items-center gap-12 max-nav:gap-8"
+        bodyClassName="flex flex-wrap items-center gap-12 max-nav:gap-8 max-nav:pt-7"
       >
-        <div className="flex min-w-0 flex-[1_1_420px] flex-col gap-6 [&>*]:m-0">
-          <p className="label-mono uppercase">Assam Board (ASSEB) · Class 12 · for the 2027 exam</p>
+        <div className="flex min-w-0 flex-[1_1_420px] flex-col gap-6 max-nav:gap-[18px] [&>*]:m-0">
+          <p className="label-mono uppercase">
+            <span className="nav:hidden">
+              <span aria-hidden="true">Q.1 · </span>ASSEB · Class 12 · 2027 exam
+            </span>
+            <span className="max-nav:hidden">Assam Board (ASSEB) · Class 12 · for the 2027 exam</span>
+          </p>
           <h1 className="text-display leading-[0.98] tracking-[-0.025em]">
             Sample papers with <Marker>free solutions</Marker>
           </h1>
-          <p className="max-w-[30em] text-lead leading-[1.65] text-ink/85">
+          <p className="max-w-[30em] text-lead leading-[1.65] text-ink/85 max-nav:text-[17px]">
             Physics, Chemistry, Mathematics and Biology, in the board&apos;s pattern. Sit a paper, scan its QR code, and
             check every step with the marks it earns.
           </p>
+          <PhoneFigures
+            items={[
+              { value: 30, label: "papers" },
+              ...(marks ? [{ value: marks, label: "marks" }] : []),
+              { value: "3h", label: "each" },
+            ]}
+          />
           <div className="flex flex-wrap gap-3">
             <Link
               href="/shop/"
@@ -117,7 +143,7 @@ export default async function HomePage() {
               </Link>
             ) : null}
           </div>
-          <p className="flex flex-wrap gap-x-5 gap-y-1 text-[15px] text-muted-foreground">
+          <p className="flex flex-wrap gap-x-5 gap-y-1 text-[15px] text-muted-foreground max-nav:hidden">
             <span>Free QR solutions</span>
             <span aria-hidden="true">·</span>
             <span>Secure payment through Razorpay</span>
@@ -125,7 +151,7 @@ export default async function HomePage() {
             <span>Delivered across India</span>
           </p>
         </div>
-        <figure className="relative m-0 h-[500px] min-w-0 flex-[0_1_440px] max-nav:h-auto max-nav:flex-auto">
+        <figure className="relative m-0 h-[500px] min-w-0 flex-[0_1_440px] max-nav:hidden">
           {physicsCover ? (
             // decorative: the same cover is a real link in Q.2
             // eslint-disable-next-line @next/next/no-img-element
@@ -163,9 +189,11 @@ export default async function HomePage() {
                 </span>
                 <span className="font-mono text-[15px] font-semibold text-red-ink">✓ 1</span>
               </div>
-              <div className="flex items-baseline justify-between border-t border-dashed border-border pt-2 pl-12">
-                <span className="font-bold">Total</span>
-                <span className="font-mono text-[15px] font-semibold text-red-ink">2</span>
+              <div className="flex items-center justify-between border-t border-dashed border-border pt-2 pl-12">
+                <span className="font-body text-sm font-semibold text-muted-foreground">Total</span>
+                <span className="inline-flex size-[30px] items-center justify-center rounded-full border-[1.5px] border-red-ink font-mono text-[15px] font-semibold text-red-ink">
+                  2
+                </span>
               </div>
             </div>
             <figcaption className="text-[13px] text-muted-foreground">
@@ -175,36 +203,89 @@ export default async function HomePage() {
         </figure>
       </Sheet>
 
-      {/* Q.2 the books as a contents table */}
+      {/* Q.2 the books as a contents table: subject, papers, full marks, time (phones: one line of figures). Each row
+          is the link to its book; the cover still morphs into the Book page's. */}
       <Sheet
         margin="Q.2"
         marks={books.length ? `[${books.length} books]` : null}
         className="border-t border-border"
         id="books"
       >
-        <div className="mb-8 flex flex-col gap-2.5 [&>*]:m-0">
-          <h2>Open a book, then any paper&apos;s solutions</h2>
+        <div className="mb-8 flex flex-col gap-2.5 max-nav:mb-4 [&>*]:m-0">
+          <h2 className="max-nav:text-[28px]">Open a book, then any paper&apos;s solutions</h2>
           <p className="text-lg text-muted-foreground">
             Each book holds 30 papers. The solutions of every one are free.
           </p>
         </div>
         {books.length ? (
-          <div className="border-t-[1.5px] border-foreground">
-            {books.map((book, index) => {
-              const subject = subjectOf(book.subject.code);
-              return (
-                <SubjectTile
-                  key={book.slug}
-                  subject={subject?.key ?? "physics"}
-                  name={subject?.name ?? book.subject.name}
-                  href={`/books/${book.slug}/`}
-                  papers={book.papers.length}
-                  marks={facts[index]?.full_marks}
-                  time={facts[index]?.time_text}
-                  cover={book.cover}
-                />
-              );
-            })}
+          <div>
+            <div aria-hidden="true" className={`${BOOK_ROW} border-b-[1.5px] border-foreground pb-3 max-nav:hidden`}>
+              <span />
+              <span className="label-mono text-xs tracking-[0.06em] uppercase">Subject</span>
+              <span className="label-mono text-xs tracking-[0.06em] uppercase">Papers</span>
+              <span className="label-mono text-xs tracking-[0.06em] uppercase">Full marks</span>
+              <span className="label-mono text-xs tracking-[0.06em] uppercase">Time</span>
+              <span />
+            </div>
+            <ul className="m-0 list-none p-0">
+              {books.map((book, index) => {
+                const subject = subjectOf(book.subject.code);
+                const key = subject?.key ?? "physics";
+                const fullMarks = facts[index]?.full_marks;
+                const time = facts[index]?.time_text;
+                const short = time?.replace(/ hours?$/, " h");
+                return (
+                  <li key={book.slug}>
+                    <Link
+                      href={`/books/${book.slug}/`}
+                      className={`${BOOK_ROW} items-center border-b border-border py-4 text-foreground no-underline hover:bg-paper-2 hover:text-foreground hover:no-underline active:translate-y-px max-nav:grid-cols-[48px_minmax(0,1fr)_auto] max-nav:gap-3.5 max-nav:border-t max-nav:border-b-0 max-nav:py-2.5`}
+                    >
+                      {book.cover ? (
+                        <Morph name={`book-${key}`}>
+                          <CoverPicture
+                            src={book.cover}
+                            alt=""
+                            sizes="(min-width: 900px) 64px, 44px"
+                            className="w-16 rounded-[3px] shadow-cover max-nav:w-11"
+                          />
+                        </Morph>
+                      ) : (
+                        <span
+                          aria-hidden="true"
+                          className={`subject-${key} block aspect-[480/678] w-16 rounded-[3px] bg-(--base) max-nav:w-11`}
+                        />
+                      )}
+                      <span className="flex min-w-0 flex-col gap-1 max-nav:gap-0.5">
+                        <span className="font-head text-[30px] leading-[1.1] font-semibold max-nav:text-[21px]">
+                          {subject?.name ?? book.subject.name}
+                        </span>
+                        <span className="text-[15px] text-muted-foreground max-nav:hidden">{book.title}</span>
+                        <span className="text-[13px] text-muted-foreground nav:hidden">
+                          {book.papers.length} papers{fullMarks ? ` · ${fullMarks} marks` : ""}
+                          {short ? ` · ${short}` : ""}
+                        </span>
+                      </span>
+                      <span className="font-mono text-[22px] leading-none font-medium max-nav:hidden">
+                        {book.papers.length}
+                        <span className="sr-only"> papers,</span>
+                      </span>
+                      <span className="font-mono text-[22px] leading-none font-medium max-nav:hidden">
+                        {fullMarks ?? "—"}
+                        <span className="sr-only"> full marks,</span>
+                      </span>
+                      <span className="font-mono text-[22px] leading-none font-medium max-nav:hidden">
+                        <span aria-hidden="true">{short ?? "—"}</span>
+                        <span className="sr-only">{time}</span>
+                      </span>
+                      <span className="inline-flex items-center gap-1.5 justify-self-end font-bold whitespace-nowrap text-primary">
+                        <span className="max-[1200px]:sr-only">Open the book</span>
+                        <ArrowRight aria-hidden="true" className="size-5" />
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         ) : (
           <p>The books are being prepared. Please come back soon.</p>
@@ -268,7 +349,10 @@ export default async function HomePage() {
                     Best value
                   </Badge>
                 ) : null}
-                <span className="label-mono text-xs uppercase">{KIND_LABEL[product.kind]}</span>
+                {/* the stamp's room beside the long bundle label, so the two never overlap on a narrow card */}
+                <span className={`label-mono text-xs uppercase ${product.kind === "bundle" ? "pr-28" : ""}`}>
+                  {KIND_LABEL[product.kind]}
+                </span>
                 <Price price={product.price} mrp={product.mrp} from={from} size="offer" />
                 <p className="m-0 text-base leading-relaxed text-muted-foreground">{offerText(product)}</p>
                 <Link
@@ -338,7 +422,7 @@ export default async function HomePage() {
         <div className="sheet">
           <div className="sheet-margin" />
           <div className="sheet-body flex flex-wrap items-center justify-between gap-8 border-l-[3px] border-double border-red-ink">
-            <div className="flex flex-col gap-2.5 [&>*]:m-0">
+            <div className="flex min-w-0 flex-[1_1_380px] flex-col gap-2.5 [&>*]:m-0">
               <h2>Start with one paper this week</h2>
               <p className="text-muted-foreground">
                 Delivered anywhere in India. The solutions of every paper are free.

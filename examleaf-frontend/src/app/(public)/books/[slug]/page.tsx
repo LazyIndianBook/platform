@@ -1,7 +1,8 @@
 // A book, Direction A (design: ExamLeaf A - Public.dc.html, "Book"): the hero on a Sheet (margin: the subject code,
 // marks: [papers] [marks] [time]), cover morphing from the Home row, buy buttons from the shop, the log-in prompt,
-// then each tier on its own Sheet with the papers as cells; the open sample is marked in red ink. Data, metadata,
-// JSON-LD, 404 and Unavailable handling are unchanged.
+// then each tier on its own Sheet with the papers as cells; the open sample is marked in red ink. Phones follow "Phone
+// book": the cover beside the title, the figures in a row, five codes to a row in each tier. Data, metadata, JSON-LD,
+// 404 and Unavailable handling are unchanged.
 import { ArrowRight } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -24,6 +25,8 @@ import { inrShort } from "@/lib/format";
 import { absolute, breadcrumbJsonLd, JsonLd } from "@/lib/seo/json-ld";
 import { pageMetadata } from "@/lib/seo/metadata";
 import { shortCode, subjectOf, TIERS, type TierCode } from "@/lib/site";
+
+import { PhoneFigures } from "../../phone-figures";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -69,6 +72,10 @@ export default async function BookPage({ params }: Props) {
   const requireLogin = config?.solutions_require_login ?? true;
   const forSale = products.filter((product) => product.book === slug && product.kind !== "bundle");
   const samplePapers = forSale.find((product) => product.kind === "sample-papers");
+  const figures =
+    facts && papers.length
+      ? { papers: papers.length, marks: facts.full_marks, time: facts.time_text.replace(/ hours?/, "h") }
+      : null;
 
   return (
     <>
@@ -104,57 +111,86 @@ export default async function BookPage({ params }: Props) {
 
       <Sheet
         margin={book.subject.code}
+        className="max-nav:[&>.sheet-margin]:hidden"
         marks={
-          facts && papers.length ? (
-            <Marks
-              items={[
-                { value: papers.length, label: "papers" },
-                { value: facts.full_marks, label: "marks each" },
-                { value: facts.time_text.replace(/ hours?/, "h"), label: "each paper" },
-              ]}
-            />
+          figures ? (
+            <div className="pt-10">
+              <Marks
+                items={[
+                  { value: figures.papers, label: "papers" },
+                  { value: figures.marks, label: "marks each" },
+                  { value: figures.time, label: "each paper" },
+                ]}
+              />
+            </div>
           ) : null
         }
-        bodyClassName="pt-7"
+        bodyClassName="pt-7 max-nav:pt-4"
       >
         <Breadcrumb trail={[{ label: "Home", href: "/" }, { label: name }]} />
-        <div className="mt-6 flex flex-wrap items-start gap-x-12 gap-y-8">
+        {/* the cover beside the title; on phones the rest runs under both (Phone book) */}
+        <div
+          className={
+            book.cover
+              ? "mt-6 grid grid-cols-[minmax(160px,260px)_minmax(0,1fr)] grid-rows-[auto_1fr] items-start gap-x-12 gap-y-4 max-nav:mt-0 max-nav:grid-cols-[120px_minmax(0,1fr)] max-nav:grid-rows-none max-nav:items-end max-nav:gap-x-4 max-nav:gap-y-3.5"
+              : "mt-6 flex flex-col gap-4 max-nav:mt-0"
+          }
+        >
           {book.cover ? (
             <Morph name={`book-${subject?.key ?? slug}`}>
-              <div className={`cover book-cover subject-${subject?.key} flex-[0_0_260px] max-nav:basis-40`}>
+              <div className={`cover book-cover subject-${subject?.key} row-span-2 max-nav:row-span-1`}>
                 <CoverPicture
                   src={book.cover}
                   alt={`Cover of ${book.title}`}
-                  sizes="(min-width: 900px) 260px, 160px"
+                  sizes="(min-width: 900px) 260px, 120px"
                   priority
                 />
               </div>
             </Morph>
           ) : null}
-          <div className="flex min-w-0 flex-[1_1_380px] flex-col gap-4 [&>*]:m-0">
-            <p className="label-mono uppercase">
-              Sample Papers · {book.subject.board} · Class {book.subject.class_level}
-              {book.edition ? ` · ${book.edition}` : ""}
+          <div className="flex min-w-0 flex-col gap-4 max-nav:gap-2 [&>*]:m-0">
+            <p className="label-mono uppercase max-nav:text-[11px]">
+              <span className="nav:hidden">
+                Sample Papers · {book.subject.board} {book.subject.class_level}
+              </span>
+              <span className="max-nav:hidden">
+                Sample Papers · {book.subject.board} · Class {book.subject.class_level}
+                {book.edition ? ` · ${book.edition}` : ""}
+              </span>
             </p>
-            <h1>{book.title}</h1>
-            <p className="max-w-[34em] text-lg leading-relaxed text-ink/85">
-              The solutions to every paper are free{requireLogin ? " for registered students" : ""}. Scan the QR code
-              printed on the paper, or choose it here.
+            <h1 className="max-nav:text-[28px] max-nav:leading-[1.05]">{book.title}</h1>
+          </div>
+          <div className="flex min-w-0 flex-col gap-4 max-nav:col-span-2 max-nav:gap-3.5 [&>*]:m-0">
+            {figures ? (
+              <PhoneFigures
+                items={[
+                  { value: figures.papers, label: "papers" },
+                  { value: figures.marks, label: "marks each" },
+                  { value: figures.time, label: "each" },
+                ]}
+              />
+            ) : null}
+            <p className="max-w-[34em] text-lg leading-relaxed text-ink/85 max-nav:text-base">
+              The solutions to every paper are free{requireLogin ? " for registered students" : ""}.
+              <span className="max-nav:hidden"> Scan the QR code printed on the paper, or choose it here.</span>
+              {sample && requireLogin ? (
+                <span className="nav:hidden">
+                  {" "}
+                  Try{" "}
+                  <Link href={`/s/${sample.code}/`} className="font-bold">
+                    Paper {shortCode(sample.code)}
+                  </Link>{" "}
+                  first: open to everyone.
+                </span>
+              ) : null}
             </p>
             {sample && requireLogin ? (
-              <p>
+              <p className="max-nav:hidden">
                 Try{" "}
                 <Link href={`/s/${sample.code}/`} className="font-bold">
                   Paper {shortCode(sample.code)}
                 </Link>{" "}
                 first: its solutions are open to everyone, no account needed.
-              </p>
-            ) : null}
-            {facts && papers.length ? (
-              <p className="flex flex-wrap gap-x-6 font-mono text-[15px] text-muted-foreground nav:hidden">
-                <span>[{papers.length}] papers</span>
-                <span>[{facts.full_marks}] marks each</span>
-                <span>{facts.time_text}</span>
               </p>
             ) : null}
             {forSale.length ? (
@@ -166,9 +202,10 @@ export default async function BookPage({ params }: Props) {
                     className={buttonVariants({
                       variant: product.kind === "sample-papers" ? "primary" : "secondary",
                       size: "lg",
+                      className: "max-nav:w-full",
                     })}
                   >
-                    {product.kind === "sample-papers" ? "Buy this book" : "Solutions book"} · {inrShort(product.price)}
+                    {product.kind === "sample-papers" ? `Buy this book · ${inrShort(product.price)}` : "Solutions book"}
                     {product.in_stock ? null : <span className="font-normal"> (out of stock)</span>}
                   </Link>
                 ))}
@@ -220,36 +257,42 @@ export default async function BookPage({ params }: Props) {
             key={group.tier}
             margin={group.tier}
             marks={`[${group.papers.length}]`}
-            className="border-t border-border bg-paper-2"
-            bodyClassName="py-10 nav:py-12"
+            className="border-t border-border bg-paper-2 max-nav:[&>.sheet-margin]:hidden"
+            bodyClassName="py-10 nav:py-12 max-nav:py-[18px]"
             aria-labelledby={`tier-${group.tier}`}
           >
-            <div className="mb-5 flex flex-wrap items-baseline gap-x-3.5 gap-y-1">
-              <span aria-hidden="true" className={`size-3 ${TIER_SWATCH[group.tier]}`} />
-              <h2 id={`tier-${group.tier}`} className="m-0 text-[clamp(26px,3vw,32px)]">
-                {TIERS[group.tier]} papers
+            <div className="mb-5 flex flex-wrap items-baseline gap-x-3.5 gap-y-1 max-nav:mb-3 max-nav:gap-x-2.5">
+              <span aria-hidden="true" className={`size-3 max-nav:size-2.5 ${TIER_SWATCH[group.tier]}`} />
+              <h2 id={`tier-${group.tier}`} className="m-0 text-[clamp(26px,3vw,32px)] max-nav:text-[22px]">
+                {TIERS[group.tier]}
+                <span className="max-nav:hidden"> papers</span>
               </h2>
-              <span className="label-mono">
+              <span className="label-mono max-nav:text-xs">
                 {shortCode(group.papers[0].code)} to {shortCode(group.papers[group.papers.length - 1].code)}
               </span>
             </div>
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(150px,100%),1fr))] gap-3">
+            {/* phones: five codes to a row, the open sample ruled in red (its words stay for screen readers) */}
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(150px,100%),1fr))] gap-3 max-nav:grid-cols-5 max-nav:gap-1.5">
               {group.papers.map((paper) => {
                 const open = paper.is_sample && requireLogin;
                 return (
-                  <CardLink key={paper.code} href={`/s/${paper.code}/`}>
-                    <span className="flex flex-col gap-1 px-4 py-3.5">
-                      <span className="flex items-center justify-between gap-2 font-head text-[22px] leading-tight font-semibold">
+                  <CardLink
+                    key={paper.code}
+                    href={`/s/${paper.code}/`}
+                    className={open ? "max-nav:border-red-ink" : ""}
+                  >
+                    <span className="flex flex-col gap-1 px-4 py-3.5 max-nav:min-h-12 max-nav:items-center max-nav:justify-center max-nav:p-0">
+                      <span className="flex items-center justify-between gap-2 font-head text-[22px] leading-tight font-semibold max-nav:font-mono max-nav:text-sm">
                         {shortCode(paper.code)}
-                        <ArrowRight aria-hidden="true" className="size-[18px] text-primary" />
+                        <ArrowRight aria-hidden="true" className="size-[18px] text-primary max-nav:hidden" />
                       </span>
                       {facts ? (
-                        <span className="text-sm text-muted-foreground">
+                        <span className="text-sm text-muted-foreground max-nav:hidden">
                           {facts.full_marks} marks · {facts.time_text}
                         </span>
                       ) : null}
                       {open ? (
-                        <span className="font-mono text-xs font-medium tracking-[0.04em] text-red-ink uppercase">
+                        <span className="font-mono text-xs font-medium tracking-[0.04em] text-red-ink uppercase max-nav:sr-only">
                           Open to everyone
                         </span>
                       ) : null}
