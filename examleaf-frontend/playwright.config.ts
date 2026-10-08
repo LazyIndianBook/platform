@@ -11,6 +11,12 @@ process.env.DJANGO_LOG ??= path.resolve(__dirname, ".e2e/django.log");
 const WEB_PORT = process.env.E2E_WEB_PORT ?? "3000";
 const API_PORT = process.env.E2E_API_PORT ?? "8100";
 const SITE = `http://localhost:${WEB_PORT}`;
+// a SQLite database (CI's) takes the frontend's parallel calls with immediate transactions and a 20 s wait: without
+// them allauth.usersessions' write on every request answers "database is locked"
+const DATABASE_URL = process.env.DJANGO_DATABASE_URL?.replace(
+  /^(sqlite:[^?]*)$/,
+  "$1?transaction_mode=IMMEDIATE&timeout=20",
+);
 
 // the backend's environment, for the server and for the tests' clean-up through manage.py shell
 export const djangoEnv = {
@@ -20,7 +26,7 @@ export const djangoEnv = {
   SITE_URL: SITE,
   CSRF_TRUSTED_ORIGINS: SITE,
   USE_X_FORWARDED_HOST: "1",
-  ...(process.env.DJANGO_DATABASE_URL ? { DATABASE_URL: process.env.DJANGO_DATABASE_URL } : {}),
+  ...(DATABASE_URL ? { DATABASE_URL } : {}),
 };
 
 export default defineConfig({

@@ -1,9 +1,10 @@
 "use client";
 
 // Consent and your data (Django's my_account.html #consent and #data, account_data.html, account_delete.html): the
-// parent's link sent again (POST me/parent-consent/), Download my data (POST me/export/ with the password: what the
-// file holds, part by part, then the file itself), Delete my account (POST me/deletion/, due in seven days) and Keep
-// my account (DELETE me/deletion/).
+// parent's link sent again (POST me/parent-consent/), Download my data (what the file holds, from me/export/summary/,
+// then POST me/export/ for the file), Delete my account (POST me/deletion/, due in seven days) and Keep my account
+// (DELETE me/deletion/). The export and the deletion ask for the password; an account without one (Google) needs a
+// log-in in this browser in the last 5 minutes instead (the API's 403 reauthentication_required says when it is older).
 import { Download, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -20,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableCell, TableHead } from "@/components/ui/table";
 import { api, personal } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
+import type { components } from "@/lib/api/schema";
 import { dateInIndia } from "@/lib/dates";
 
 import { useAction } from "./use-action";
@@ -86,73 +88,33 @@ export function KeepAccountButton() {
   );
 }
 
-// the parts of the file in words, as Django's DATA_PARTS (accounts/views.py) shows them before the download
-const PARTS: [string, string][] = [
-  ["profile", "Your details: name, email address, class, board, district, date of birth, a parent's details"],
-  ["email_addresses", "Email addresses"],
-  ["passkeys_and_authenticators", "Passkeys and authenticator apps"],
-  ["google_accounts", "Google accounts connected"],
-  ["teacher_profile", "Teacher access asked for"],
-  ["attempts", "Marks saved in My record"],
-  ["answer_sheets", "Answer sheets uploaded"],
-  ["consents", "Consents given"],
-  ["deletion_requests", "Requests to delete the account"],
-  ["addresses", "Saved addresses"],
-  ["cart", "Cart"],
-  ["orders", "Orders, with their payments, refunds and invoices"],
-  ["reviews", "Reviews"],
-  ["quote_requests", "School and bulk quotation requests"],
-  ["stock_alerts", "Requests to be emailed when a book is back"],
-  ["learning", "The revision course: settings, codes, progress, quiz answers, devices"],
-  ["sms", "SMS sent to you"],
-  ["email_suppressed", "Emails stopped after a bounce"],
-];
+type ExportPart = components["schemas"]["ExportPart"];
 
-/** The records in a part (Django's how_many): a list's length, the lists' total of a part made of lists, else 1 or 0. */
-export function howMany(value: unknown): number {
-  if (Array.isArray(value)) return value.length;
-  if (!value || typeof value !== "object") return value ? 1 : 0;
-  const items = Object.values(value);
-  if (items.some(Array.isArray)) return items.reduce((total: number, item) => total + howMany(item), 0);
-  return items.length ? 1 : 0;
+/** What to do when the API wants a recent log-in (an account without a password, after 5 minutes). */
+function LogInAgain({ error }: { error: ApiError | null }) {
+  if (error?.code !== "reauthentication_required") return null;
+  return (
+    <Alert variant="warning" title="Log in again first">
+      <p>
+        For your safety this needs a log-in in the last 5 minutes. <Link href="/account/logout/">Log out</Link>, log in
+        again with Google or a code by email, then come back to Consent and your data.
+      </p>
+    </Alert>
+  );
 }
 
-export function DataExport({ hasPassword }: { hasPassword: boolean }) {
+export function DataExport({ hasPassword, summary }: { hasPassword: boolean; summary: ExportPart[] | null }) {
   const { run, busy, error } = useAction();
-  const [file, setFile] = useState<{ url: string; parts: [string, number][] } | null>(null);
-  useEffect(() => () => (file ? URL.revokeObjectURL(file.url) : undefined), [file]);
+  const [file, setFile] = useState<string | null>(null);
+  useEffect(() => () => (file ? URL.revokeObjectURL(file) : undefined), [file]);
 
-  if (!hasPassword) {
-    return (
-      <p>
-        Your account has no password yet (you log in with Google or a code). The file is handed out only after your
-        password: <Link href="/account/security/#change-password">choose one</Link> first.
-      </p>
-    );
-  }
   if (file) {
     return (
       <>
-        <p>Everything ExamLeaf keeps about you is in one file. This is what it holds today.</p>
-        <Table caption="What the file holds">
-          <thead>
-            <tr>
-              <TableHead>Part</TableHead>
-              <TableHead numeric>Records</TableHead>
-            </tr>
-          </thead>
-          <tbody>
-            {file.parts.map(([label, count]) => (
-              <tr key={label}>
-                <TableCell>{label}</TableCell>
-                <TableCell numeric>{count || "none"}</TableCell>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
+        <p>Your file is ready: everything ExamLeaf keeps about you.</p>
         <div>
           <a
-            href={file.url}
+            href={file}
             download={`examleaf-my-data-${dateInIndia()}.json`}
             className={buttonVariants({ variant: "primary" })}
           >
@@ -169,7 +131,29 @@ export function DataExport({ hasPassword }: { hasPassword: boolean }) {
   }
   return (
     <>
+      {summary ? (
+        <>
+          <p>Everything ExamLeaf keeps about you is in one file. This is what it holds today.</p>
+          <Table caption="What the file holds">
+            <thead>
+              <tr>
+                <TableHead>Part</TableHead>
+                <TableHead numeric>Records</TableHead>
+              </tr>
+            </thead>
+            <tbody>
+              {summary.map((part) => (
+                <tr key={part.key}>
+                  <TableCell>{part.label}</TableCell>
+                  <TableCell numeric>{part.count || "none"}</TableCell>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </>
+      ) : null}
       <ErrorSummary error={error} labels={{ password: "Your password" }} />
+      <LogInAgain error={error} />
       <form
         className="flex max-w-[30rem] flex-col gap-3"
         noValidate
@@ -177,27 +161,22 @@ export function DataExport({ hasPassword }: { hasPassword: boolean }) {
           event.preventDefault();
           const password = String(new FormData(event.currentTarget).get("password") ?? "");
           await run(async () => {
-            const data = (await personal(api.POST("/api/v1/me/export/", { body: { password } }))) as Record<
-              string,
-              unknown
-            >;
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-            setFile({
-              url: URL.createObjectURL(blob),
-              parts: PARTS.map(([key, label]) => [label, howMany(data[key])]),
-            });
+            const data = await personal(api.POST("/api/v1/me/export/", { body: hasPassword ? { password } : {} }));
+            setFile(URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })));
           });
         }}
       >
-        <Field
-          id="password"
-          label="Your password"
-          required
-          help="For your safety the file is made only after your password."
-          error={fieldError(error, "password")}
-        >
-          <Input name="password" type="password" autoComplete="current-password" />
-        </Field>
+        {hasPassword ? (
+          <Field
+            id="password"
+            label="Your password"
+            required
+            help="For your safety the file is made only after your password."
+            error={fieldError(error, "password")}
+          >
+            <Input name="password" type="password" autoComplete="current-password" />
+          </Field>
+        ) : null}
         <div>
           <Button type="submit" variant="secondary" busy={busy}>
             <Download aria-hidden="true" />
@@ -215,14 +194,6 @@ const CONFIRM =
 export function DeleteAccountForm({ hasPassword }: { hasPassword: boolean }) {
   const router = useRouter();
   const { run, busy, error, setError } = useAction();
-  if (!hasPassword) {
-    return (
-      <p>
-        To delete your account, <Link href="/account/security/#change-password">choose a password</Link> first: we ask
-        for it before an account is deleted.
-      </p>
-    );
-  }
   // the API's "password" is this form's delete_password box (Download my data has the other password box)
   const shown =
     error &&
@@ -234,6 +205,7 @@ export function DeleteAccountForm({ hasPassword }: { hasPassword: boolean }) {
   return (
     <>
       <ErrorSummary error={shown} labels={{ delete_password: "Your password", confirm: "Confirmation" }} />
+      <LogInAgain error={error} />
       <form
         className="flex max-w-[34rem] flex-col gap-3"
         noValidate
@@ -246,7 +218,8 @@ export function DeleteAccountForm({ hasPassword }: { hasPassword: boolean }) {
             return;
           }
           const password = String(form.get("password") ?? "");
-          if (await run(() => personal(api.POST("/api/v1/me/deletion/", { body: { password } })))) {
+          const body = hasPassword ? { password } : {};
+          if (await run(() => personal(api.POST("/api/v1/me/deletion/", { body })))) {
             toast.success("Your account will be deleted in 7 days. Until then you can keep it.");
             router.refresh();
           }
@@ -264,9 +237,11 @@ export function DeleteAccountForm({ hasPassword }: { hasPassword: boolean }) {
           </Checkbox>
           {unticked ? <FieldError id="confirm-error">{unticked.join(" ")}</FieldError> : null}
         </div>
-        <Field id="delete_password" label="Your password" required error={fieldError(shown, "delete_password")}>
-          <Input name="password" type="password" autoComplete="current-password" />
-        </Field>
+        {hasPassword ? (
+          <Field id="delete_password" label="Your password" required error={fieldError(shown, "delete_password")}>
+            <Input name="password" type="password" autoComplete="current-password" />
+          </Field>
+        ) : null}
         <div>
           <Button type="submit" variant="destructive" busy={busy}>
             <Trash2 aria-hidden="true" />

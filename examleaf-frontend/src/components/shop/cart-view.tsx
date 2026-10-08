@@ -41,7 +41,7 @@ import { copies, MAX_COPIES } from "./shop";
 
 type Cart = components["schemas"]["Cart"];
 export type LineInfo = {
-  cover: string | null;
+  cover: components["schemas"]["Product"]["cover"];
   subject: string | null;
   kind: components["schemas"]["ProductKindEnum"];
   digital: boolean;
@@ -285,7 +285,9 @@ export function CartView({
               </Button>
             </form>
           )}
-          {guest && siteKey && !cart.coupon ? <Turnstile siteKey={siteKey} onToken={setTurnstile} /> : null}
+          {guest && siteKey && !cart.coupon ? (
+            <Turnstile siteKey={siteKey} onToken={setTurnstile} resetKey={codeError} />
+          ) : null}
           {cart.problems.length ? (
             // what stops the checkout is said above, line by line
             <Button type="button" variant="accent" size="lg" block disabled>

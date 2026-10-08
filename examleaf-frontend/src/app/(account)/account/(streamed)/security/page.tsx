@@ -1,12 +1,14 @@
 // /account/security/: Log-in and security (Django's allauth pages: email, password change, phone change, passkeys;
 // my_account.html #login): the email address and its change by code, the password, the mobile number for log-in by
 // SMS with its code and the order texts, passkeys, Google (when the server has it), the authenticator app for staff,
-// and logging out here. What the server has switched on comes from config/, never assumed.
+// and where the account is signed in (allauth.usersessions: log out here, or the other devices). What the server has
+// switched on comes from config/, never assumed.
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 
 import { PageHead, Problem, Row, Rows } from "@/components/account/parts";
 import {
+  Devices,
   EmailForm,
   GoogleAccounts,
   Passkeys,
@@ -19,7 +21,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { allauthGet, getMe, settle } from "@/lib/api/account";
 import { getConfig } from "@/lib/api/config";
 import { ApiError } from "@/lib/api/errors";
-import type { Authenticator, EmailAddress, ProviderAccount } from "@/lib/auth/account";
+import type { Authenticator, EmailAddress, ProviderAccount, Session } from "@/lib/auth/account";
 import { getSessionUser } from "@/lib/auth/session";
 import { pageMetadata } from "@/lib/seo/metadata";
 
@@ -40,10 +42,11 @@ export default async function SecurityPage() {
       </>
     );
   }
-  const [authenticators, emails, providers] = await Promise.all([
+  const [authenticators, emails, providers, sessions] = await Promise.all([
     settle(allauthGet<Authenticator[]>("/account/authenticators"), path),
     settle(allauthGet<EmailAddress[]>("/account/email"), path),
     config.auth.google ? settle(allauthGet<ProviderAccount[]>("/account/providers"), path) : [],
+    settle(allauthGet<Session[]>("/auth/sessions"), path),
   ]);
   const passkeys = authenticators instanceof ApiError ? [] : authenticators.filter((a) => a.type === "webauthn");
   const totp = !(authenticators instanceof ApiError) && authenticators.some((a) => a.type === "totp");
@@ -151,16 +154,23 @@ export default async function SecurityPage() {
         </Card>
       ) : null}
 
-      <Card id="this-device">
+      <Card id="devices">
         <CardHeader>
-          <CardTitle>This device</CardTitle>
+          <CardTitle>Where you are logged in</CardTitle>
           <CardDescription>
-            Log out here when you have used a shared phone or computer. To log out everywhere else, change your
-            password.
+            Log out here when you have used a shared phone or computer; a device you do not know can be logged out from
+            here, and then change your password.
           </CardDescription>
         </CardHeader>
-        <CardContent className="max-w-[24rem]">
-          <LogoutButton />
+        <CardContent>
+          {sessions instanceof ApiError ? (
+            <Problem error={sessions} what="Your devices" retry={path} />
+          ) : (
+            <Devices sessions={sessions} />
+          )}
+          <div className="max-w-[24rem]">
+            <LogoutButton />
+          </div>
         </CardContent>
       </Card>
     </>

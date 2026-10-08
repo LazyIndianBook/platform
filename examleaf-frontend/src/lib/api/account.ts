@@ -43,21 +43,17 @@ export async function getSubjects(): Promise<Subject[]> {
   return list.results;
 }
 
-// ponytail: at most 10 pages of 200 (2,000 attempts, 20 a paper a day); an averages endpoint in the API would end it
-const MAX_PAGES = 10;
+type Filter = { subject?: number; tier?: "E" | "M" | "H" };
 
-/** Every attempt (filtered), newest first: the tier averages need them all, as Django's My record counts them. */
-export async function getAttempts(query: { subject?: number; tier?: "E" | "M" | "H" } = {}): Promise<Attempt[]> {
-  const options = await personalFetch();
-  const attempts: Attempt[] = [];
-  for (let page = 1; page <= MAX_PAGES; page++) {
-    const list = await unwrap(
-      serverApi.GET("/api/v1/attempts/", { params: { query: { ...query, page, page_size: 200 } }, ...options }),
-    );
-    attempts.push(...list.results);
-    if (!list.next) break;
-  }
-  return attempts;
+/** My record (GET me/record/): the attempts counted, each tier's and subject's average as Django rounds them, each
+ *  paper's best and latest attempt, for the filter. */
+export async function getRecord(filter: Filter = {}) {
+  return unwrap(serverApi.GET("/api/v1/me/record/", { params: { query: filter }, ...(await personalFetch()) }));
+}
+
+/** One page of the saved attempts (filtered), newest first. */
+export async function getAttempts(filter: Filter & { page?: number; page_size?: number } = {}) {
+  return unwrap(serverApi.GET("/api/v1/attempts/", { params: { query: filter }, ...(await personalFetch()) }));
 }
 
 /** allauth.headless (browser client) for a server component: its `data`, or the ApiError. */
@@ -75,19 +71,4 @@ export async function allauthGet<T>(path: string): Promise<T> {
   const body = (await response.json().catch(() => null)) as { data?: T } | null;
   if (!response.ok) throw new ApiError(response.status, "error", "That could not be read.", {}, body);
   return body?.data as T;
-}
-
-/** Python's round(): halves to the even neighbour (74.5 → 74), as Django's My record rounds the averages. */
-const roundHalfEven = (value: number) => {
-  const rounded = Math.round(value);
-  return value % 1 === 0.5 && rounded % 2 ? rounded - 1 : rounded;
-};
-
-/** Each tier's average percentage of the API's attempts (Django's My record); null without an attempt of the tier. */
-export function tierAverages(attempts: Pick<Attempt, "tier" | "percent">[]) {
-  return (["E", "M", "H"] as const).map((tier) => {
-    const rows = attempts.filter((attempt) => attempt.tier === tier);
-    const sum = rows.reduce((total, row) => total + row.percent, 0);
-    return { tier, count: rows.length, average: rows.length ? roundHalfEven(sum / rows.length) : null };
-  });
 }

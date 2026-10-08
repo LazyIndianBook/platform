@@ -1,5 +1,7 @@
 // While an account page asks the API (every one does, per request): still placeholders of the heading and two cards
-// beside the navigation, which stays (motion.md: no shimmer).
+// beside the navigation, which stays (motion.md: no shimmer). Only the pages of this (streamed) group wait behind it:
+// once it shows, the answer is a 200, so the pages that can be missing (an order, a saved attempt) live outside the
+// group and answer a real 404.
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Loading() {

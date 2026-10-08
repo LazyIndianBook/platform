@@ -23,6 +23,15 @@ export type Authenticator = {
 export type PhoneNumber = { phone: string; verified: boolean };
 export type EmailAddress = { email: string; primary: boolean; verified: boolean };
 export type ProviderAccount = { uid: string; display: string; provider: { id: string; name: string } };
+/** A browser signed in to the account (allauth.usersessions): times in seconds since 1970. */
+export type Session = {
+  id: number;
+  user_agent: string;
+  ip: string | null;
+  created_at: number;
+  last_seen_at?: number;
+  is_current: boolean;
+};
 
 /** The answer of a signed-in call, or off to log in / reauthenticate with this page as the destination. */
 export async function signedIn(answer: Promise<AuthResult>): Promise<AuthResult> {
@@ -88,6 +97,8 @@ export const account = {
     data<Authenticator>(await signedIn(call("POST", "/account/authenticators/recovery-codes"))),
 
   providers: async () => data<ProviderAccount[]>(await signedIn(call("GET", "/account/providers"))),
+  /** Log these browsers out (their sessions end at once). */
+  endSessions: (ids: number[]) => signedIn(call("DELETE", "/auth/sessions", { sessions: ids })),
   disconnect: (provider: string, uid: string) =>
     signedIn(call("DELETE", "/account/providers", { provider, account: uid })),
 };

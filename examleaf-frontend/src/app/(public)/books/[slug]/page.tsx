@@ -14,6 +14,7 @@ import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { buttonVariants } from "@/components/ui/button";
 import { CardLink } from "@/components/ui/card";
 import { CoverPicture } from "@/components/ui/cover";
+import { Morph } from "@/components/ui/morph";
 import { EmptyState } from "@/components/ui/empty-state";
 import { type Book, getBook, getBookFacts, getProducts } from "@/lib/api/catalogue";
 import { getConfig } from "@/lib/api/config";
@@ -108,14 +109,16 @@ export default async function BookPage({ params }: Props) {
           <Breadcrumb trail={[{ label: "Home", href: "/" }, { label: name }]} />
           <div className="flex flex-wrap items-start gap-x-12 gap-y-8">
             {book.cover ? (
-              <div className={`cover book-cover subject-${subject?.key} flex-[0_0_260px] max-nav:basis-40`}>
-                <CoverPicture
-                  src={book.cover}
-                  alt={`Cover of ${book.title}`}
-                  sizes="(min-width: 900px) 260px, 160px"
-                  priority
-                />
-              </div>
+              <Morph name={`book-${subject?.key ?? slug}`}>
+                <div className={`cover book-cover subject-${subject?.key} flex-[0_0_260px] max-nav:basis-40`}>
+                  <CoverPicture
+                    src={book.cover}
+                    alt={`Cover of ${book.title}`}
+                    sizes="(min-width: 900px) 260px, 160px"
+                    priority
+                  />
+                </div>
+              </Morph>
             ) : null}
             <div className="flex min-w-0 flex-[1_1_420px] flex-col gap-3.5 [&>*]:m-0">
               <div className="flex flex-wrap gap-2">

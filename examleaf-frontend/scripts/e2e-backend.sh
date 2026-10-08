@@ -11,7 +11,9 @@ mkdir -p "$(dirname "$LOG")"
 $PY manage.py migrate --noinput
 $PY manage.py bootstrap_roles
 $PY manage.py import_papers --all
-$PY manage.py seed_shop
+# copies of each book: seed_shop makes a fresh catalogue out of stock (stock is set in the admin), and the shop's
+# journeys buy them
+$PY manage.py seed_shop --stock 100
 # a fresh database has no open sample yet (content migration 0002 marks them only for papers that existed then)
 $PY manage.py shell -c "from content.models import Paper; Paper.objects.filter(code='PHY-E01').update(is_sample=True)"
 exec $PY manage.py runserver "${DJANGO_PORT:-8100}" --noreload >"$LOG" 2>&1

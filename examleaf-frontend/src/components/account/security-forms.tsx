@@ -10,6 +10,7 @@ import { toast } from "sonner";
 
 import { ErrorSummary } from "@/components/auth/error-summary";
 import { fieldError } from "@/components/auth/use-auth-action";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/choice";
 import {
@@ -27,7 +28,7 @@ import { Input, InputPrefix } from "@/components/ui/input";
 import { OtpInput } from "@/components/ui/input-otp";
 import { api, personal } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
-import { account, type Authenticator, type ProviderAccount } from "@/lib/auth/account";
+import { account, type Authenticator, type ProviderAccount, type Session } from "@/lib/auth/account";
 import { startProviderLogin } from "@/lib/auth/headless";
 import { formatDate } from "@/lib/dates";
 
@@ -425,6 +426,80 @@ export function GoogleAccounts({ accounts }: { accounts: ProviderAccount[] }) {
           </Button>
         </div>
       )}
+    </>
+  );
+}
+
+/** "Chrome on Android" from a browser's user agent: enough to recognise a device, never the whole string. */
+export function deviceName(userAgent: string): string {
+  const browser =
+    [
+      [/Edg\//, "Edge"],
+      [/OPR\/|Opera/, "Opera"],
+      [/SamsungBrowser/, "Samsung Internet"],
+      [/Firefox\/|FxiOS/, "Firefox"],
+      [/Chrome\/|CriOS/, "Chrome"],
+      [/Safari\//, "Safari"],
+    ].find(([pattern]) => (pattern as RegExp).test(userAgent))?.[1] ?? "A browser";
+  const system =
+    [
+      [/Android/, "Android"],
+      [/iPhone|iPad|iPod/, "iOS"],
+      [/Windows/, "Windows"],
+      [/Mac OS X|Macintosh/, "macOS"],
+      [/CrOS/, "ChromeOS"],
+      [/Linux/, "Linux"],
+    ].find(([pattern]) => (pattern as RegExp).test(userAgent))?.[1] ?? null;
+  return system ? `${browser} on ${system}` : String(browser);
+}
+
+/** An address shortened as the plan asks: 203.0.113.x, or an IPv6 address's first four groups. */
+export function shortAddress(ip: string | null): string {
+  if (!ip) return "address unknown";
+  if (ip.includes(":")) return `${ip.split(":").slice(0, 4).join(":")}:…`;
+  return ip.replace(/\.\d+$/, ".x");
+}
+
+/** Where the account is signed in (allauth.usersessions): each browser, this one marked, the others logged out at once. */
+export function Devices({ sessions }: { sessions: Session[] }) {
+  const router = useRouter();
+  const { run, busy, error } = useAction();
+  const others = sessions.filter((session) => !session.is_current).map((session) => session.id);
+  const when = (seconds: number) => formatDate(new Date(seconds * 1000).toISOString());
+  return (
+    <>
+      <ul className="m-0 flex list-none flex-col gap-2 p-0">
+        {sessions.map((session) => (
+          <li
+            key={session.id}
+            className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-border px-4 py-3"
+          >
+            <span className="font-semibold">{deviceName(session.user_agent)}</span>
+            {session.is_current ? <Badge variant="easy">This device</Badge> : null}
+            <span className="w-full text-[15px] text-muted-foreground">
+              {shortAddress(session.ip)} · since {when(session.created_at)}
+              {session.last_seen_at ? ` · last seen ${when(session.last_seen_at)}` : ""}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {error ? <p className="m-0 font-semibold text-destructive">{error.message}</p> : null}
+      {others.length ? (
+        <div>
+          <Button
+            variant="secondary"
+            busy={busy}
+            onClick={async () => {
+              if (await run(() => account.endSessions(others))) {
+                toast.success("The other devices are logged out.");
+                router.refresh();
+              }
+            }}
+          >
+            Log out the other devices
+          </Button>
+        </div>
+      ) : null}
     </>
   );
 }

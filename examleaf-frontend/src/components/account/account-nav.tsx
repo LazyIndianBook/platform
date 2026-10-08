@@ -2,7 +2,7 @@
 
 // The account's own navigation (Account artboard; Django's .side-nav): a column of links beside the cards on desktop,
 // a row of chips that scrolls sideways above them under 900 px (it comes first in the page, so it lands on top). The
-// current page's link is marked. My orders (the shop's pages, 8B) and the revision course have layouts of their own.
+// current page's link is marked. The revision course (/revision/, public too) has a layout of its own.
 import { cn } from "cn";
 import Link from "next/link";
 import { usePathname } from "next/navigation";

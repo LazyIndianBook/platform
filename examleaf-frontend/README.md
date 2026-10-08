@@ -18,7 +18,10 @@ LTS; Node 20 is past its end of life).
    ```
 
    `SITE_URL` makes the links in emails (password reset, parent's link) point at the frontend; `USE_X_FORWARDED_HOST`
-   lets the frontend's server-side calls carry the site's host (as Caddy does in production).
+   lets the frontend's server-side calls carry the site's host (as Caddy does in production). On SQLite (the default
+   database) add `DATABASE_URL='sqlite:////<path>/examleaf-web/db.sqlite3?transaction_mode=IMMEDIATE&timeout=20'`
+   (a space in the path as `%20`): allauth.usersessions writes on every signed-in request, and SQLite's default
+   transactions then answer "database is locked" to the frontend's parallel calls.
 
 2. The frontend:
 
@@ -55,10 +58,17 @@ server, `useConfig()` in client components).
   `openapi.json`) with `X-Forwarded-Host`/`-Proto` set to the site's. Two cache rules, nothing in between:
   - public catalogue and content: `...publicFetch("books")`: Next's data cache, 60 s, tagged (`revalidateTag("books")`
     refreshes it early), no cookies sent;
-  - anything personal: `...(await personalFetch())`: the visitor's cookies and address forwarded, `cache: "no-store"`.
+  - anything personal: `...(await personalFetch())`: the visitor's cookies, address and browser (`User-Agent`, which
+    allauth.usersessions records for Log-in and security's devices) forwarded, `cache: "no-store"`.
 - **Errors**: every failure becomes one `ApiError` (`status`, `code`, `message`, `fields`), from DRF's and
   allauth.headless's formats alike, and status 0 when Django cannot be reached (`unwrap()`; `error.unavailable` →
-  the page renders `<Unavailable/>`, never stale or invented data).
+  the page renders `<Unavailable/>`, never stale or invented data). A refusal because a parent's consent is awaited
+  gets `code: "consent_pending"` (the API's words are its only mark), and `ErrorSummary` then offers the parent's
+  link again. In the browser every 401 of `api` sends the visitor to log in and back (`sessionMiddleware`).
+- **Caching of pages**: the visitor's own pages (`isPersonalPage()` in `src/lib/site.ts`: `/account/`, `/cart/`,
+  `/checkout/`, `/orders/`, `/c/`, and `/s/` and `/revision/` once a session exists) keep Next's
+  `private, no-cache, no-store`; every other page is `private, no-cache` (`src/proxy.ts`): the browser may keep it
+  for back and forward, no shared cache may (each page carries the header's signed-in state and its own nonce).
 - **Pagination**: `pageInfo()` / `pageParam()` in `src/lib/api/pagination.ts` and the `Pagination` component.
 - **Cancellation**: pass `signal` in an openapi-fetch call's options (`api.GET(path, { params, signal })`).
 
@@ -101,14 +111,26 @@ Tokens in `src/app/globals.css` (from `docs/design/tokens.css`, mapped into Tail
 fonts in `src/app/fonts.ts`, components in `src/components/ui/` (Button, Field, Input, Select, Checkbox, Radio,
 Switch, OtpInput, Card, Badge, Alert, Toaster, Dialog, Drawer, Tabs, Accordion, Skeleton, Table, Breadcrumb,
 Pagination, Stepper, SubjectTile, Band/NightBand/QRule/Marker, CoverStage, CoverPicture/NoCover, Price,
-EmptyState, Timeline, QrCard, SubmitButton) and the site's frame in `src/components/site/`. Motion follows
-`docs/design/motion.md`: transform and opacity only, everything inside `prefers-reduced-motion: no-preference`.
+EmptyState, Timeline, QrCard, SubmitButton, Morph) and the site's frame in `src/components/site/`. Motion follows
+`docs/design/motion.md`: transform and opacity only, everything inside `prefers-reduced-motion: no-preference`. The
+view transitions of client-side navigation are React's `<ViewTransition>` (`Morph`: a Home or 404 tile into its
+book's cover, a product card's cover into the product page's; only such a pair animates, so a form's answer changes
+the page at once, and reduced motion stills it); toasts enter and leave as motion.md f says. After a client-side
+navigation focus moves to the new page's h1 (`RouteFocus`, in the root layout).
+
+Dependencies beyond the framework: `hls.js` (8C, the free clips) and `lean-qr` (3.5 KB gzipped, no dependencies:
+the authenticator app's QR code drawn in the browser from its `otpauth://` link, which holds the secret and so never
+goes to an image service; `qrcode` would be about ten times the size with `pngjs` and `yargs`).
 
 ## Add a route
 
 Server component by default: `src/app/(public)/<path>/page.tsx` (public), `(auth)` (sign-in pages, noindex) or
 `(account)/account/` (signed-in pages: its layout redirects to log in, marks them noindex and draws the account's
 navigation; their data through `src/lib/api/account.ts`, `settle()` sending an ended session to log in and back).
+A signed-in page goes in `(account)/account/(streamed)/`, behind the placeholder (`loading.tsx`), unless it can be
+missing (`notFound()`, as an order or a saved attempt): once the placeholder has streamed the answer is a 200, so such
+a page sits outside the group and answers a real 404. Django's old page addresses (allauth's, `/account/data/`,
+invoices…) redirect to their new homes in `next.config.ts` (`docs/design/parity-nextjs.md`).
 Export `metadata = pageMetadata({ title, path })` (`noindex: true` for private pages), fetch with `serverApi` +
 `publicFetch`/`personalFetch`, render `<Unavailable/>` when the API cannot answer and an `EmptyState` when there is
 nothing. Client components only for interaction; account forms through `useAction()`
@@ -120,9 +142,10 @@ nothing. Client components only for interaction; account forms through `useActio
 `src/proxy.ts` (Next 16's name for `middleware.ts`) gives every page a fresh nonce and its Content-Security-Policy
 (`src/lib/security/csp.ts`: scripts by nonce with `'strict-dynamic'`, Razorpay only on `/checkout/*`, Turnstile only
 when its key is set, `frame-ancestors 'none'`, `form-action 'self' https://accounts.google.com`); `next.config.ts`
-adds the other headers Django sends. Every page reads the session, so every page is rendered per request and answered
-`Cache-Control: private, no-store`. The service worker (`public/sw.js`) keeps only the offline page and the build's
-static files, never a page or anything under `/account/`, `/cart/`, `/checkout/`, `/orders/`, `/api/`, `/_allauth/`.
+adds the other headers Django sends. Every page reads the session, so every page is rendered per request; the
+visitor's own pages are answered `private, no-cache, no-store`, the others `private, no-cache` ("Caching of pages"
+above). The service worker (`public/sw.js`) keeps only the offline page and the build's static files, never a page or
+anything under `/account/`, `/cart/`, `/checkout/`, `/orders/`, `/api/`, `/_allauth/`.
 
 ## Tests and build
 
@@ -133,9 +156,15 @@ npm run build            # standalone output in .next/standalone
 npm run test:e2e         # Playwright smoke tests (Chromium); see playwright.config.ts
 ```
 
-The smoke tests start a seeded Django (`scripts/e2e-backend.sh`) and `npm run start` unless both already run; to
-reuse a running backend, point `DJANGO_LOG` at its log (the tests read the emailed codes there). CI runs all of this
-in the `frontend` job of `.github/workflows/ci.yml`.
+The smoke tests start a seeded Django (`scripts/e2e-backend.sh`: the papers, the shop's catalogue with 100 copies
+of each book, an open sample) and `npm run start` unless both already run; to reuse a running backend, point
+`DJANGO_LOG` at its log (the tests read the emailed codes there). With `DJANGO_DATABASE_URL` on SQLite (CI's fresh
+database) `playwright.config.ts` adds `transaction_mode=IMMEDIATE&timeout=20`. `e2e/states.spec.ts` starts a second
+Django with a setting switched (`SHOP_OPEN=0`; then cash on delivery, Turnstile's always-pass test keys with the
+widget mocked in the browser, `SUPPORT_EMAIL`, `PARENTAL_CONSENT_MODE=verified`) and a second `next start` in front
+of it, on ports 20 and 21 above `E2E_API_PORT` and `E2E_WEB_PORT`. CI runs all of this in the `frontend` job of
+`.github/workflows/ci.yml`; to run it as CI does: a fresh SQLite file in `DJANGO_DATABASE_URL`, `npm run build`,
+then `CI=1 npm run test:e2e`.
 
 ## Deploy
 

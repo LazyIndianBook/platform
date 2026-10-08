@@ -2,10 +2,11 @@
 // MRP and saving, the description, the bundle choice, copies and Add to cart, or the shop-closed and out-of-stock
 // states), the bundle's books, what is inside the book, details and pictures, related books, then the reviews with
 // the form for a buyer whose order was delivered. JSON-LD: Product (and Book) with its offer and rating, breadcrumbs.
+// A renamed product's old address redirects to its new one (the API's 301, as Django's page does).
 import { ArrowLeft, ArrowRight, Package, QrCode, Smartphone, Truck } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 
 import { AddToCart, type BuyOption, ReviewForm, StockAlert } from "@/components/shop/product-actions";
 import { ProductCover, ProductGrid } from "@/components/shop/product-card";
@@ -17,6 +18,8 @@ import { Badge, TIER_VARIANT } from "@/components/ui/badge";
 import { QRule } from "@/components/ui/band";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { Card, CardContent } from "@/components/ui/card";
+import { CoverPicture } from "@/components/ui/cover";
+import { Morph } from "@/components/ui/morph";
 import { Price } from "@/components/ui/price";
 import { getBook, getBookFacts, getProducts } from "@/lib/api/catalogue";
 import { getConfig } from "@/lib/api/config";
@@ -35,6 +38,9 @@ async function load(slug: string): Promise<Product | null | "unavailable"> {
     return await getProduct(slug);
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) return null;
+    const moved =
+      error instanceof ApiError && error.status === 301 && (error.body as { redirect_to?: string })?.redirect_to;
+    if (moved) permanentRedirect(`/shop/${moved}/`);
     return "unavailable";
   }
 }
@@ -44,11 +50,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const product = await load(slug);
   if (!product || product === "unavailable") return { title: product ? "Shop" : "Page not found" };
   const where = product.kind === "digital" ? "in the ExamLeaf app" : "delivered across India";
+  const { cover } = product;
   return pageMetadata({
-    title: product.title,
-    path: `/shop/${slug}/`,
-    description: `${product.title} for the Assam Board (ASSEB) Class 12 examination: ${inrShort(product.price)}, ${where}.`,
-    image: product.cover,
+    title: product.meta_title || product.title,
+    path: `/shop/${product.slug}/`,
+    description:
+      product.meta_description ||
+      `${product.title} for the Assam Board (ASSEB) Class 12 examination: ${inrShort(product.price)}, ${where}.`,
+    image: product.og_image
+      ? { url: product.og_image, width: 1200, height: 630 }
+      : cover && { url: cover.src, width: cover.width, height: cover.height },
   });
 }
 
@@ -166,7 +177,7 @@ export default async function ProductPage({ params }: Props) {
           url: absolute(here),
           sku: product.slug,
           ...(product.description ? { description: product.description } : {}),
-          ...(product.cover ? { image: [product.cover, ...product.images.map((image) => image.url)] } : {}),
+          ...(product.cover ? { image: [product.cover.src, ...product.images.map((image) => image.src)] } : {}),
           ...(product.isbn ? { isbn: product.isbn } : {}),
           brand: { "@type": "Brand", name: "ExamLeaf" },
           offers: {
@@ -207,12 +218,14 @@ export default async function ProductPage({ params }: Props) {
           />
           <div className="flex flex-wrap items-start gap-x-12 gap-y-8">
             <div className="flex-[0_1_340px] max-nav:basis-44">
-              <ProductCover
-                product={product}
-                alt={`Cover of ${product.title}`}
-                sizes="(min-width: 900px) 340px, 176px"
-                priority
-              />
+              <Morph name={`cover-${product.slug}`}>
+                <ProductCover
+                  product={product}
+                  alt={`Cover of ${product.title}`}
+                  sizes="(min-width: 900px) 340px, 176px"
+                  priority
+                />
+              </Morph>
             </div>
             <div className="flex min-w-0 flex-[1_1_420px] flex-col gap-4 [&>*]:m-0">
               <p className="flex flex-wrap gap-2">
@@ -368,13 +381,11 @@ export default async function ProductPage({ params }: Props) {
           {product.images.length ? (
             <div className="mt-8 grid-auto [--min:200px]">
               {product.images.map((image) => (
-                <figure key={image.url} className="m-0 flex flex-col gap-2">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- the API's picture as it is (no sizes in the API yet) */}
-                  <img
-                    src={image.url}
-                    alt={image.alt ?? ""}
-                    loading="lazy"
-                    decoding="async"
+                <figure key={image.src} className="m-0 flex flex-col gap-2">
+                  <CoverPicture
+                    src={image}
+                    alt={image.alt}
+                    sizes="(min-width: 1168px) 280px, (min-width: 560px) 45vw, 90vw"
                     className="h-auto w-full rounded-lg"
                   />
                   {image.alt ? (

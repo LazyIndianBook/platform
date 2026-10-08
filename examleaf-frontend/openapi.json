@@ -1941,7 +1941,7 @@
         "/api/v1/config/": {
             "get": {
                 "operationId": "config_retrieve",
-                "description": "What this server has switched on, so that a frontend never hard-codes a feature flag: the ways to log in\n(allauth.headless's /_allauth/<client>/v1/config has allauth's own view of them), the bot check, the shop, whether\nthe solutions need an account, the parent's consent mode, and the support contacts (null while the seller's details\nstill hold a [placeholder]). Public, cacheable for 5 minutes.",
+                "description": "What this server has switched on, so that a frontend never hard-codes a feature flag: the ways to log in\n(allauth.headless's /_allauth/<client>/v1/config has allauth's own view of them), the bot check, the shop, whether\nthe solutions need an account, the parent's consent mode, the support contacts (null while the seller's details\nstill hold a [placeholder]) and the app's store pages (null until set). Public, cacheable for 5 minutes.",
                 "tags": [
                     "site"
                 ],
@@ -1984,6 +1984,10 @@
                                             "support": {
                                                 "email": "help@examleaf.in",
                                                 "phone": null
+                                            },
+                                            "app_links": {
+                                                "android": "https://play.google.com/store/apps/details?id=…",
+                                                "ios": null
                                             }
                                         }
                                     }
@@ -2102,7 +2106,7 @@
         "/api/v1/learn/chapters/": {
             "get": {
                 "operationId": "learn_chapters_list",
-                "description": "Chapters with a published revision, `?subject=<id>`; one chapter with its revision's clips.",
+                "description": "Every chapter, `?subject=<id>`, with its Board marks and whether its revision is out (`has_revision`); one\nchapter of a published revision with its clips.",
                 "parameters": [
                     {
                         "name": "ordering",
@@ -2177,7 +2181,7 @@
         "/api/v1/learn/chapters/{id}/": {
             "get": {
                 "operationId": "learn_chapters_retrieve",
-                "description": "Chapters with a published revision, `?subject=<id>`; one chapter with its revision's clips.",
+                "description": "Every chapter, `?subject=<id>`, with its Board marks and whether its revision is out (`has_revision`); one\nchapter of a published revision with its clips.",
                 "parameters": [
                     {
                         "in": "path",
@@ -2504,8 +2508,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "type": "object",
-                                    "additionalProperties": {}
+                                    "$ref": "#/components/schemas/Plan"
                                 }
                             }
                         },
@@ -2897,7 +2900,7 @@
         "/api/v1/me/deletion/": {
             "post": {
                 "operationId": "me_deletion_create",
-                "description": "Delete my account: POST (with the password) asks for it, due seven days later; DELETE cancels it. The steps and\nemails are the website's (accounts.views.request_deletion and keep_account).",
+                "description": "Delete my account: POST (with the password, or within 5 minutes of a log-in or re-authentication) asks for it,\ndue seven days later; DELETE cancels it. The steps and emails are the website's (accounts.views.request_deletion and\nkeep_account).",
                 "tags": [
                     "account"
                 ],
@@ -2908,8 +2911,7 @@
                                 "$ref": "#/components/schemas/PasswordRequest"
                             }
                         }
-                    },
-                    "required": true
+                    }
                 },
                 "security": [
                     {
@@ -2944,7 +2946,7 @@
             },
             "delete": {
                 "operationId": "me_deletion_destroy",
-                "description": "Delete my account: POST (with the password) asks for it, due seven days later; DELETE cancels it. The steps and\nemails are the website's (accounts.views.request_deletion and keep_account).",
+                "description": "Delete my account: POST (with the password, or within 5 minutes of a log-in or re-authentication) asks for it,\ndue seven days later; DELETE cancels it. The steps and emails are the website's (accounts.views.request_deletion and\nkeep_account).",
                 "tags": [
                     "account"
                 ],
@@ -2966,7 +2968,7 @@
         "/api/v1/me/export/": {
             "post": {
                 "operationId": "me_export_create",
-                "description": "Download my data: everything kept about the user, as the website's JSON file. Asks for the password, as the\nwebsite does.",
+                "description": "Download my data: everything kept about the user, as the website's JSON file. Asks for the password, or a log-in\nor re-authentication in the last 5 minutes, as the website does.",
                 "tags": [
                     "account"
                 ],
@@ -2977,8 +2979,7 @@
                                 "$ref": "#/components/schemas/PasswordRequest"
                             }
                         }
-                    },
-                    "required": true
+                    }
                 },
                 "security": [
                     {
@@ -2995,6 +2996,38 @@
                                 "schema": {
                                     "type": "object",
                                     "additionalProperties": {}
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/me/export/summary/": {
+            "get": {
+                "operationId": "me_export_summary_list",
+                "description": "What Download my data holds, part by part, as the website's page shows it before the file; without the file,\nso without the password (the profile, the orders and My record show as much).",
+                "tags": [
+                    "account"
+                ],
+                "security": [
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/ExportPart"
+                                    }
                                 }
                             }
                         },
@@ -3042,6 +3075,57 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/Detail"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/me/record/": {
+            "get": {
+                "operationId": "me_record_retrieve",
+                "description": "My record in figures: the average per tier (as My record shows it) and per subject, and per paper the best and\nthe latest attempt; `?subject=<id>&tier=` as attempts/.",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "subject",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "subject id"
+                    },
+                    {
+                        "in": "query",
+                        "name": "tier",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "E",
+                                "H",
+                                "M"
+                            ]
+                        }
+                    }
+                ],
+                "tags": [
+                    "account"
+                ],
+                "security": [
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Record"
                                 }
                             }
                         },
@@ -4303,6 +4387,73 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/PaginatedProductList"
+                                },
+                                "examples": {
+                                    "ABook": {
+                                        "value": {
+                                            "count": 123,
+                                            "next": "http://api.example.org/accounts/?page=4",
+                                            "previous": "http://api.example.org/accounts/?page=2",
+                                            "results": [
+                                                {
+                                                    "slug": "physics-sample-papers-2027",
+                                                    "title": "ExamLeaf Physics Sample Papers 2027",
+                                                    "kind": "sample-papers",
+                                                    "subject": "PHY",
+                                                    "book": "physics-2027",
+                                                    "isbn": "978-81-000000-0-0",
+                                                    "pages": 248,
+                                                    "description": "30 papers …",
+                                                    "cover": {
+                                                        "sources": {
+                                                            "image/avif": {
+                                                                "200": "https://media.examleaf.in/products/physics-2027/2_3/200w.avif",
+                                                                "400": "https://media.examleaf.in/products/physics-2027/2_3/400w.avif",
+                                                                "800": "https://media.examleaf.in/products/physics-2027/2_3/800w.avif",
+                                                                "1600": "https://media.examleaf.in/products/physics-2027/2_3/1600w.avif"
+                                                            },
+                                                            "image/webp": {
+                                                                "200": "https://media.examleaf.in/products/physics-2027/2_3/200w.webp",
+                                                                "400": "https://media.examleaf.in/products/physics-2027/2_3/400w.webp",
+                                                                "800": "https://media.examleaf.in/products/physics-2027/2_3/800w.webp",
+                                                                "1600": "https://media.examleaf.in/products/physics-2027/2_3/1600w.webp"
+                                                            }
+                                                        },
+                                                        "src": "https://media.examleaf.in/products/physics-2027.jpg",
+                                                        "width": 1600,
+                                                        "height": 2400,
+                                                        "alt": "Cover of ExamLeaf Physics Sample Papers 2027"
+                                                    },
+                                                    "images": [],
+                                                    "mrp": "349.00",
+                                                    "price": "299.00",
+                                                    "saving_percent": 14,
+                                                    "gst_rate": "0.00",
+                                                    "hsn_code": "4901",
+                                                    "in_stock": true,
+                                                    "bundle_items": [],
+                                                    "categories": [
+                                                        "class-12"
+                                                    ],
+                                                    "attributes": [
+                                                        {
+                                                            "code": "year",
+                                                            "name": "Edition year",
+                                                            "value": "2027"
+                                                        }
+                                                    ],
+                                                    "related": [
+                                                        "physics-solutions-2027"
+                                                    ],
+                                                    "web_url": "https://examleaf.in/shop/physics-sample-papers-2027/",
+                                                    "meta_title": "Physics Sample Papers 2027 for the Assam Board (ASSEB) Class 12",
+                                                    "meta_description": "30 Physics sample papers for the ASSEB Class 12 exam, with worked solutions.",
+                                                    "og_image": "https://media.examleaf.in/og/physics-sample-papers-2027.jpg"
+                                                }
+                                            ]
+                                        },
+                                        "summary": "A book"
+                                    }
                                 }
                             }
                         },
@@ -4314,7 +4465,7 @@
         "/api/v1/products/{slug}/": {
             "get": {
                 "operationId": "products_retrieve",
-                "description": "The products on sale, with their prices, pictures, what a bundle holds, whether they are in stock, their\ncategories and attributes. Filters: `?kind=`, `?subject=`, `?category=<slug>` (with its sub-categories),\n`?collection=<slug>`, and `?attr_<code>=<value>` for any attribute (e.g. `?attr_language=Assamese`,\n`?attr_year=2027`; several are combined with AND).",
+                "description": "A product. The old slug of a renamed product (still on sale) answers 301 to its products/<slug>/, with its\nslug as `redirect_to` for clients that do not follow redirects, as the website's page redirects.",
                 "parameters": [
                     {
                         "in": "path",
@@ -4343,6 +4494,76 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/Product"
+                                },
+                                "examples": {
+                                    "ABook": {
+                                        "value": {
+                                            "slug": "physics-sample-papers-2027",
+                                            "title": "ExamLeaf Physics Sample Papers 2027",
+                                            "kind": "sample-papers",
+                                            "subject": "PHY",
+                                            "book": "physics-2027",
+                                            "isbn": "978-81-000000-0-0",
+                                            "pages": 248,
+                                            "description": "30 papers …",
+                                            "cover": {
+                                                "sources": {
+                                                    "image/avif": {
+                                                        "200": "https://media.examleaf.in/products/physics-2027/2_3/200w.avif",
+                                                        "400": "https://media.examleaf.in/products/physics-2027/2_3/400w.avif",
+                                                        "800": "https://media.examleaf.in/products/physics-2027/2_3/800w.avif",
+                                                        "1600": "https://media.examleaf.in/products/physics-2027/2_3/1600w.avif"
+                                                    },
+                                                    "image/webp": {
+                                                        "200": "https://media.examleaf.in/products/physics-2027/2_3/200w.webp",
+                                                        "400": "https://media.examleaf.in/products/physics-2027/2_3/400w.webp",
+                                                        "800": "https://media.examleaf.in/products/physics-2027/2_3/800w.webp",
+                                                        "1600": "https://media.examleaf.in/products/physics-2027/2_3/1600w.webp"
+                                                    }
+                                                },
+                                                "src": "https://media.examleaf.in/products/physics-2027.jpg",
+                                                "width": 1600,
+                                                "height": 2400,
+                                                "alt": "Cover of ExamLeaf Physics Sample Papers 2027"
+                                            },
+                                            "images": [],
+                                            "mrp": "349.00",
+                                            "price": "299.00",
+                                            "saving_percent": 14,
+                                            "gst_rate": "0.00",
+                                            "hsn_code": "4901",
+                                            "in_stock": true,
+                                            "bundle_items": [],
+                                            "categories": [
+                                                "class-12"
+                                            ],
+                                            "attributes": [
+                                                {
+                                                    "code": "year",
+                                                    "name": "Edition year",
+                                                    "value": "2027"
+                                                }
+                                            ],
+                                            "related": [
+                                                "physics-solutions-2027"
+                                            ],
+                                            "web_url": "https://examleaf.in/shop/physics-sample-papers-2027/",
+                                            "meta_title": "Physics Sample Papers 2027 for the Assam Board (ASSEB) Class 12",
+                                            "meta_description": "30 Physics sample papers for the ASSEB Class 12 exam, with worked solutions.",
+                                            "og_image": "https://media.examleaf.in/og/physics-sample-papers-2027.jpg"
+                                        },
+                                        "summary": "A book"
+                                    }
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "301": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProductMoved"
                                 }
                             }
                         },
@@ -4975,6 +5196,27 @@
                     "answer"
                 ]
             },
+            "AppLinksConfig": {
+                "type": "object",
+                "properties": {
+                    "android": {
+                        "type": "string",
+                        "format": "uri",
+                        "nullable": true,
+                        "description": "Google Play's page; null until out"
+                    },
+                    "ios": {
+                        "type": "string",
+                        "format": "uri",
+                        "nullable": true,
+                        "description": "the App Store's page; null until out"
+                    }
+                },
+                "required": [
+                    "android",
+                    "ios"
+                ]
+            },
             "Attempt": {
                 "type": "object",
                 "description": "A student's marks for a published paper, from 0 to its full marks (as the website's form); the paper is fixed.",
@@ -5549,6 +5791,19 @@
                         "type": "string",
                         "readOnly": true
                     },
+                    "has_revision": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "its revision is published; false: coming soon"
+                    },
+                    "revision_status": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RevisionStatusEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
                     "clips": {
                         "type": "integer",
                         "readOnly": true,
@@ -5557,6 +5812,12 @@
                     "minutes": {
                         "type": "integer",
                         "readOnly": true
+                    },
+                    "free_preview": {
+                        "type": "integer",
+                        "nullable": true,
+                        "readOnly": true,
+                        "description": "the id of its free clip (learn/clips/<id>/, for anyone signed in); null: none"
                     },
                     "entitled": {
                         "type": "boolean",
@@ -5579,11 +5840,14 @@
                     "clips",
                     "entitled",
                     "free_cards",
+                    "free_preview",
+                    "has_revision",
                     "id",
                     "minutes",
                     "must_do_html",
                     "number",
                     "progress",
+                    "revision_status",
                     "subject",
                     "title"
                 ]
@@ -5632,6 +5896,19 @@
                         "type": "string",
                         "readOnly": true
                     },
+                    "has_revision": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "its revision is published; false: coming soon"
+                    },
+                    "revision_status": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RevisionStatusEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
                     "clips": {
                         "type": "integer",
                         "readOnly": true,
@@ -5640,6 +5917,12 @@
                     "minutes": {
                         "type": "integer",
                         "readOnly": true
+                    },
+                    "free_preview": {
+                        "type": "integer",
+                        "nullable": true,
+                        "readOnly": true,
+                        "description": "the id of its free clip (learn/clips/<id>/, for anyone signed in); null: none"
                     },
                     "entitled": {
                         "type": "boolean",
@@ -5679,6 +5962,8 @@
                     "entitled",
                     "flash_cards",
                     "free_cards",
+                    "free_preview",
+                    "has_revision",
                     "id",
                     "minutes",
                     "must_do_html",
@@ -5686,6 +5971,7 @@
                     "progress",
                     "quiz_items",
                     "revision",
+                    "revision_status",
                     "subject",
                     "title"
                 ]
@@ -5977,9 +6263,13 @@
                     },
                     "support": {
                         "$ref": "#/components/schemas/SupportConfig"
+                    },
+                    "app_links": {
+                        "$ref": "#/components/schemas/AppLinksConfig"
                     }
                 },
                 "required": [
+                    "app_links",
                     "auth",
                     "parental_consent",
                     "shipping",
@@ -6232,6 +6522,27 @@
                     "source"
                 ]
             },
+            "ExportPart": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string",
+                        "description": "the part's name in the file"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "count": {
+                        "type": "integer",
+                        "description": "its records (a part that is one record: 1, or 0 when empty)"
+                    }
+                },
+                "required": [
+                    "count",
+                    "key",
+                    "label"
+                ]
+            },
             "FlashCard": {
                 "type": "object",
                 "properties": {
@@ -6351,6 +6662,16 @@
                         },
                         "readOnly": true
                     },
+                    "is_digital": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "courses only: nothing to pack or ship"
+                    },
+                    "has_shipping": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "books to deliver: the address, fee and tracking apply"
+                    },
                     "email": {
                         "type": "string",
                         "format": "email",
@@ -6451,7 +6772,9 @@
                     "credit_notes",
                     "discount",
                     "email",
+                    "has_shipping",
                     "invoice",
+                    "is_digital",
                     "items",
                     "number",
                     "refunds",
@@ -6648,6 +6971,16 @@
                         },
                         "readOnly": true
                     },
+                    "is_digital": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "courses only: nothing to pack or ship"
+                    },
+                    "has_shipping": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "books to deliver: the address, fee and tracking apply"
+                    },
                     "email": {
                         "type": "string",
                         "format": "email",
@@ -6743,7 +7076,9 @@
                     "credit_notes",
                     "discount",
                     "email",
+                    "has_shipping",
                     "invoice",
+                    "is_digital",
                     "items",
                     "number",
                     "refunds",
@@ -6801,10 +7136,22 @@
                         },
                         "description": "\"2 × Physics Sample Papers\"",
                         "readOnly": true
+                    },
+                    "is_digital": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "courses only: nothing to pack or ship"
+                    },
+                    "has_shipping": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "books to deliver: the address, fee and tracking apply"
                     }
                 },
                 "required": [
                     "created",
+                    "has_shipping",
+                    "is_digital",
                     "items",
                     "number",
                     "status_label",
@@ -6913,6 +7260,16 @@
                         },
                         "readOnly": true
                     },
+                    "is_digital": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "courses only: nothing to pack or ship"
+                    },
+                    "has_shipping": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "books to deliver: the address, fee and tracking apply"
+                    },
                     "email": {
                         "type": "string",
                         "format": "email",
@@ -7008,7 +7365,9 @@
                     "credit_notes",
                     "discount",
                     "email",
+                    "has_shipping",
                     "invoice",
+                    "is_digital",
                     "items",
                     "number",
                     "refunds",
@@ -7670,6 +8029,40 @@
                     "title"
                 ]
             },
+            "PaperRecord": {
+                "type": "object",
+                "properties": {
+                    "paper": {
+                        "type": "string",
+                        "description": "its code"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "count": {
+                        "type": "integer",
+                        "description": "attempts"
+                    },
+                    "best": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/Attempt"
+                            }
+                        ],
+                        "description": "the most marks (the latest of equals)"
+                    },
+                    "latest": {
+                        "$ref": "#/components/schemas/Attempt"
+                    }
+                },
+                "required": [
+                    "best",
+                    "count",
+                    "latest",
+                    "paper",
+                    "title"
+                ]
+            },
             "ParentContactRequest": {
                 "type": "object",
                 "properties": {
@@ -7748,6 +8141,80 @@
                 "type": "string",
                 "description": "* `declared` - declared\n* `verified` - verified"
             },
+            "Pass": {
+                "type": "object",
+                "properties": {
+                    "subject": {
+                        "type": "integer"
+                    },
+                    "pass_marks": {
+                        "type": "integer"
+                    },
+                    "marks": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,5}(?:\\.\\d{0,1})?$",
+                        "description": "the Board marks of these chapters"
+                    },
+                    "chapters": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PassChapter"
+                        }
+                    }
+                },
+                "required": [
+                    "chapters",
+                    "marks",
+                    "pass_marks",
+                    "subject"
+                ]
+            },
+            "PassChapter": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "number": {
+                        "type": "integer"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "weight": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,3}(?:\\.\\d{0,1})?$",
+                        "description": "Board marks"
+                    },
+                    "minutes": {
+                        "type": "integer",
+                        "description": "of video"
+                    },
+                    "marks_per_minute": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,6}(?:\\.\\d{0,2})?$"
+                    },
+                    "clips": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PlanClip"
+                        },
+                        "description": "its clips of the quickest kinds"
+                    }
+                },
+                "required": [
+                    "clips",
+                    "id",
+                    "marks_per_minute",
+                    "minutes",
+                    "number",
+                    "title",
+                    "weight"
+                ]
+            },
             "PasswordChangeRequest": {
                 "type": "object",
                 "properties": {
@@ -7779,12 +8246,9 @@
                     "password": {
                         "type": "string",
                         "writeOnly": true,
-                        "minLength": 1
+                        "description": "not needed within 5 minutes of a log-in or re-authentication in this browser session"
                     }
-                },
-                "required": [
-                    "password"
-                ]
+                }
             },
             "PasswordResetConfirmRequest": {
                 "type": "object",
@@ -8107,6 +8571,142 @@
                     "verification_token"
                 ]
             },
+            "Picture": {
+                "type": "object",
+                "description": "A product picture for <picture>/srcset: AVIF and WebP sizes (made by the Celery worker after an upload; until\nthen they answer 404, so keep `src` as the <img> fallback), and the uploaded original.",
+                "properties": {
+                    "sources": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string",
+                                "format": "uri"
+                            }
+                        },
+                        "description": "by type, then width in pixels: {\"image/avif\": {\"200\": \"https://…/200w.avif\", …}, \"image/webp\": …}"
+                    },
+                    "src": {
+                        "type": "string",
+                        "format": "uri",
+                        "description": "the uploaded original"
+                    },
+                    "width": {
+                        "type": "integer"
+                    },
+                    "height": {
+                        "type": "integer"
+                    },
+                    "alt": {
+                        "type": "string",
+                        "description": "\"Cover of <title>\" for a cover"
+                    }
+                },
+                "required": [
+                    "alt",
+                    "height",
+                    "sources",
+                    "src",
+                    "width"
+                ]
+            },
+            "Plan": {
+                "type": "object",
+                "properties": {
+                    "exam_date": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "days_left": {
+                        "type": "integer"
+                    },
+                    "minutes_per_day": {
+                        "type": "integer"
+                    },
+                    "days": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PlanDay"
+                        }
+                    },
+                    "not_scheduled": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        },
+                        "description": "the chapters that did not fit before the exam"
+                    },
+                    "minimum_to_pass": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Pass"
+                        }
+                    }
+                },
+                "required": [
+                    "days",
+                    "days_left",
+                    "exam_date",
+                    "minimum_to_pass",
+                    "minutes_per_day",
+                    "not_scheduled"
+                ]
+            },
+            "PlanClip": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "chapter": {
+                        "type": "integer"
+                    },
+                    "title": {
+                        "type": "string",
+                        "maxLength": 200
+                    },
+                    "kind": {
+                        "$ref": "#/components/schemas/ClipKindEnum"
+                    },
+                    "duration": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "title": "Seconds"
+                    }
+                },
+                "required": [
+                    "chapter",
+                    "duration",
+                    "id",
+                    "title"
+                ]
+            },
+            "PlanDay": {
+                "type": "object",
+                "properties": {
+                    "date": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "minutes": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "description": "of video that day"
+                    },
+                    "clips": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PlanClip"
+                        }
+                    }
+                },
+                "required": [
+                    "clips",
+                    "date",
+                    "minutes"
+                ]
+            },
             "PlatformEnum": {
                 "enum": [
                     "android",
@@ -8158,20 +8758,19 @@
                         "description": "Markdown"
                     },
                     "cover": {
-                        "type": "string",
-                        "format": "uri",
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/Picture"
+                            }
+                        ],
                         "nullable": true,
                         "readOnly": true
                     },
                     "images": {
                         "type": "array",
                         "items": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/components/schemas/Picture"
                         },
-                        "description": "url and alt",
                         "readOnly": true
                     },
                     "mrp": {
@@ -8236,6 +8835,23 @@
                     "web_url": {
                         "type": "string",
                         "readOnly": true
+                    },
+                    "meta_title": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "the page title staff wrote for search engines; \"\": use `title`"
+                    },
+                    "meta_description": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "the meta description staff wrote; \"\": none written"
+                    },
+                    "og_image": {
+                        "type": "string",
+                        "format": "uri",
+                        "nullable": true,
+                        "description": "the link preview (1200×630), once made",
+                        "readOnly": true
                     }
                 },
                 "required": [
@@ -8248,7 +8864,10 @@
                     "images",
                     "in_stock",
                     "kind",
+                    "meta_description",
+                    "meta_title",
                     "mrp",
+                    "og_image",
                     "price",
                     "related",
                     "saving_percent",
@@ -8267,6 +8886,19 @@
                 ],
                 "type": "string",
                 "description": "* `sample-papers` - Sample Papers\n* `solutions` - Solutions\n* `bundle` - Bundle\n* `digital` - Digital (in the app)"
+            },
+            "ProductMoved": {
+                "type": "object",
+                "properties": {
+                    "redirect_to": {
+                        "type": "string",
+                        "description": "the renamed product's slug; Location: its products/<slug>/",
+                        "pattern": "^[-a-zA-Z0-9_]+$"
+                    }
+                },
+                "required": [
+                    "redirect_to"
+                ]
             },
             "ProductReview": {
                 "type": "object",
@@ -8766,6 +9398,42 @@
                     "number"
                 ]
             },
+            "Record": {
+                "type": "object",
+                "properties": {
+                    "count": {
+                        "type": "integer",
+                        "description": "attempts"
+                    },
+                    "tiers": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/TierAverage"
+                        },
+                        "description": "the tiers attempted, Easy to Hard"
+                    },
+                    "subjects": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/SubjectAverage"
+                        },
+                        "description": "by name"
+                    },
+                    "papers": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PaperRecord"
+                        },
+                        "description": "by code"
+                    }
+                },
+                "required": [
+                    "count",
+                    "papers",
+                    "subjects",
+                    "tiers"
+                ]
+            },
             "Refund": {
                 "type": "object",
                 "properties": {
@@ -8913,6 +9581,14 @@
                     "clips",
                     "title"
                 ]
+            },
+            "RevisionStatusEnum": {
+                "enum": [
+                    "published",
+                    "none"
+                ],
+                "type": "string",
+                "description": "* `published` - published\n* `none` - none"
             },
             "Saving": {
                 "type": "object",
@@ -9310,6 +9986,35 @@
                     "name"
                 ]
             },
+            "SubjectAverage": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "code": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "count": {
+                        "type": "integer",
+                        "description": "attempts"
+                    },
+                    "average": {
+                        "type": "integer",
+                        "description": "% of the full marks"
+                    }
+                },
+                "required": [
+                    "average",
+                    "code",
+                    "count",
+                    "id",
+                    "name"
+                ]
+            },
             "SupportConfig": {
                 "type": "object",
                 "properties": {
@@ -9395,6 +10100,31 @@
                     "district",
                     "school_name",
                     "subject"
+                ]
+            },
+            "TierAverage": {
+                "type": "object",
+                "properties": {
+                    "tier": {
+                        "$ref": "#/components/schemas/TierEnum"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "count": {
+                        "type": "integer",
+                        "description": "attempts"
+                    },
+                    "average": {
+                        "type": "integer",
+                        "description": "% of the full marks, rounded as My record rounds it"
+                    }
+                },
+                "required": [
+                    "average",
+                    "count",
+                    "label",
+                    "tier"
                 ]
             },
             "TierEnum": {

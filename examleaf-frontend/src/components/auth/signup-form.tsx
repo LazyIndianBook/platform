@@ -241,7 +241,7 @@ export function SignupForm({ next, boards }: { next: string | null; boards: Boar
             <FieldError id="consent-error">{fieldError(error, "consent")!.join(" ")}</FieldError>
           ) : null}
         </div>
-        {siteKey && !afterGoogle ? <Turnstile siteKey={siteKey} onToken={setTurnstile} /> : null}
+        {siteKey && !afterGoogle ? <Turnstile siteKey={siteKey} onToken={setTurnstile} resetKey={error} /> : null}
         <div className="flex flex-wrap items-center gap-3">
           <Button type="submit" variant="accent" size="lg" busy={busy}>
             Register

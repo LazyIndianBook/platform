@@ -1,17 +1,20 @@
 // The account's islands (package 8C): the 6-digit code step of a new mobile number or email address, the marks
 // form's checks (the website form's words) and its save through the API, Download my data's count of records, and
-// My record's tier averages.
+// the record's tiers come averaged from the API (me/record/).
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { tierAverages } from "@/lib/api/account";
+import { generate } from "lean-qr";
+
 import { api } from "@/lib/api/client";
+import { account } from "@/lib/auth/account";
 import { ApiError } from "@/lib/api/errors";
 
 import { MarksForm, validateMarks } from "./marks-form";
-import { howMany } from "./privacy-forms";
-import { CodeStep } from "./security-forms";
+import { DataExport } from "./privacy-forms";
+import { CodeStep, deviceName, shortAddress } from "./security-forms";
+import { AuthenticatorApp } from "./two-factor";
 
 vi.mock("@/lib/api/client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api/client")>()),
@@ -130,25 +133,58 @@ describe("MarksForm", () => {
   });
 });
 
-describe("Download my data and My record", () => {
-  it("counts a part's records as Django's how_many does", () => {
-    expect(howMany([1, 2, 3])).toBe(3);
-    expect(howMany({ items: [1, 2], payments: [1] })).toBe(3);
-    expect(howMany({ full_name: "A" })).toBe(1);
-    expect(howMany({})).toBe(0);
-    expect(howMany(null)).toBe(0);
+describe("Download my data", () => {
+  it("shows what the file holds, and sends an account without a password to log in again when the API asks", async () => {
+    vi.mocked(api.POST).mockResolvedValue({
+      error: { detail: "Log in again to do this.", code: "reauthentication_required" },
+      response: new Response(null, { status: 403 }),
+    } as never);
+    render(
+      <DataExport hasPassword={false} summary={[{ key: "attempts", label: "Marks saved in My record", count: 3 }]} />,
+    );
+    expect(screen.getByRole("cell", { name: "Marks saved in My record" })).toBeInTheDocument();
+    expect(screen.queryByLabelText(/password/i)).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Download my data" }));
+    expect(api.POST).toHaveBeenCalledWith("/api/v1/me/export/", { body: {} });
+    expect(await screen.findByText("Log in again first")).toBeInTheDocument();
   });
+});
 
-  it("averages each tier as Django rounds it, with no average for a tier without papers", () => {
-    const attempts = [
-      { tier: "E", percent: 75 },
-      { tier: "E", percent: 74 },
-      { tier: "M", percent: 71 },
+describe("Where you are logged in", () => {
+  it("names a device by its browser and system, and shortens its address", () => {
+    const android =
+      "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Mobile Safari/537.36";
+    const iphone =
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
+    const edge =
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36 Edg/140.0";
+    expect(deviceName(android)).toBe("Chrome on Android");
+    expect(deviceName(iphone)).toBe("Safari on iOS");
+    expect(deviceName(edge)).toBe("Edge on Windows");
+    expect(deviceName("node")).toBe("A browser");
+    expect(shortAddress("203.0.113.42")).toBe("203.0.113.x");
+    expect(shortAddress("2001:db8:85a3:8d3:1319:8a2e:370:7348")).toBe("2001:db8:85a3:8d3:…");
+    expect(shortAddress(null)).toBe("address unknown");
+  });
+});
+
+describe("The authenticator app's setup", () => {
+  it("draws the otpauth:// link as a QR code, every dark module once", async () => {
+    const url = "otpauth://totp/ExamLeaf:student%40example.com?secret=JBSWY3DPEHPK3PXP&issuer=ExamLeaf";
+    vi.spyOn(account, "totp").mockResolvedValue({ active: false, secret: "JBSWY3DPEHPK3PXP", url });
+    render(<AuthenticatorApp active={false} />);
+    await userEvent.click(screen.getByRole("button", { name: "Set up the authenticator app" }));
+    const qr = await screen.findByRole("img", { name: /QR code of the key/ });
+    const code = generate(url);
+    let dark = 0;
+    for (let y = 0; y < code.size; y++) for (let x = 0; x < code.size; x++) if (code.get(x, y)) dark++;
+    const runs = [
+      ...qr
+        .querySelector("path")!
+        .getAttribute("d")!
+        .matchAll(/M\d+ \d+h(\d+)v1h-\1z/g),
     ];
-    expect(tierAverages(attempts)).toEqual([
-      { tier: "E", count: 2, average: 74 }, // 74.5: Python's round() goes to the even 74
-      { tier: "M", count: 1, average: 71 },
-      { tier: "H", count: 0, average: null },
-    ]);
+    expect(runs.reduce((total, run) => total + Number(run[1]), 0)).toBe(dark);
+    expect(qr.getAttribute("viewBox")).toBe(`-4 -4 ${code.size + 8} ${code.size + 8}`);
   });
 });

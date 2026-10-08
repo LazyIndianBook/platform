@@ -1,11 +1,12 @@
 // The root layout: fonts, the header and footer around every page (the 404 too), the toast region, the config
-// for client components (useConfig), the service worker. It reads the session, so every page is rendered per
-// request, which the CSP nonce needs anyway (src/proxy.ts); Next marks the answers private, no-store.
+// for client components (useConfig), the service worker, focus after client-side navigation. It reads the session, so
+// every page is rendered per request, which the CSP nonce needs anyway (src/proxy.ts sets their Cache-Control).
 import "./globals.css";
 
 import type { Metadata, Viewport } from "next";
 
 import { ConfigProvider } from "@/components/providers/config-provider";
+import { RouteFocus } from "@/components/providers/route-focus";
 import { ServiceWorker } from "@/components/providers/service-worker";
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteHeader } from "@/components/site/site-header";
@@ -66,6 +67,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <Toaster />
         </ConfigProvider>
         <ServiceWorker />
+        <RouteFocus />
       </body>
     </html>
   );

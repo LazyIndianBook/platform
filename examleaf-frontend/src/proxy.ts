@@ -4,10 +4,12 @@
 // 2. Every other path gets its trailing slash (trailingSlash: true; skipTrailingSlashRedirect leaves it to us because
 //    allauth's paths have none).
 // 3. Every page gets a fresh nonce and its Content-Security-Policy (src/lib/security/csp.ts).
+// 4. A page that is not the visitor's own (isPersonalPage) may be kept by the browser: private, no-cache. Files and
+//    the route handlers (/offline/, /api/health/) keep their own Cache-Control.
 import { type NextRequest, NextResponse } from "next/server";
 
 import { buildCsp } from "@/lib/security/csp";
-import { DJANGO_PREFIXES, SITE_URL } from "@/lib/site";
+import { DJANGO_PREFIXES, isPersonalPage, SITE_URL } from "@/lib/site";
 
 const API_INTERNAL_BASE = (process.env.API_INTERNAL_BASE ?? "http://localhost:8100").replace(/\/$/, "");
 const FILE = /\/[^/]+\.[a-z0-9]+$/i;
@@ -40,6 +42,9 @@ export function proxy(request: NextRequest) {
   requestHeaders.set("Content-Security-Policy", csp);
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("Content-Security-Policy", csp);
+  const page = !FILE.test(pathname) && !/^\/(offline|api)\//.test(pathname);
+  if (page && !isPersonalPage(pathname, request.cookies.has("sessionid")))
+    response.headers.set("Cache-Control", "private, no-cache");
   return response;
 }
 

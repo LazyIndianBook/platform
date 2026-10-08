@@ -1,5 +1,6 @@
-// /account/record/: My record (Django's record.html, Account artboard): the attempts the student saved (GET attempts/),
-// filtered by subject and tier with a plain GET form, the average of each tier, 50 to a page, each with Edit.
+// /account/record/: My record (Django's record.html, Account artboard): the average of each tier (GET me/record/) and
+// the attempts the student saved (GET attempts/, 50 to a page, each with Edit), filtered by subject and tier with a
+// plain GET form.
 import Form from "next/form";
 import Link from "next/link";
 
@@ -10,7 +11,7 @@ import { Field } from "@/components/ui/field";
 import { Select } from "@/components/ui/native-select";
 import { Pagination } from "@/components/ui/pagination";
 import { Table, TableCell, TableHead } from "@/components/ui/table";
-import { getAttempts, getMe, getSubjects, settle, tierAverages } from "@/lib/api/account";
+import { getAttempts, getMe, getRecord, getSubjects, settle } from "@/lib/api/account";
 import { ApiError } from "@/lib/api/errors";
 import { pageInfo, pageParam } from "@/lib/api/pagination";
 import { formatDate } from "@/lib/dates";
@@ -33,30 +34,32 @@ export default async function RecordPage({ searchParams }: Props) {
   const tier = (["E", "M", "H"] as const).find((code) => code === query.tier);
   const filter = { ...(subjectId ? { subject: String(subjectId) } : {}), ...(tier ? { tier } : {}) };
   const path = `/account/record/?${new URLSearchParams(filter)}`;
+  const page = pageParam(query.page);
 
-  const [attempts, subjects, me] = await Promise.all([
-    settle(getAttempts({ subject: subjectId, tier }), path),
+  const [list, record, subjects, me] = await Promise.all([
+    settle(getAttempts({ subject: subjectId, tier, page, page_size: PER_PAGE }), path),
+    settle(getRecord({ subject: subjectId, tier }), path),
     getSubjects().catch(() => []),
     getMe().catch(() => null),
   ]);
   const head = (
     <PageHead title="My record" lead="The marks you saved for each paper, with your average for each tier." />
   );
-  if (attempts instanceof ApiError) {
+  if (list instanceof ApiError || record instanceof ApiError) {
     return (
       <>
         {head}
-        <Problem error={attempts} what="My record" retry={path} />
+        <Problem error={list instanceof ApiError ? list : (record as ApiError)} what="My record" retry={path} />
       </>
     );
   }
 
   const subject = subjects.find((item) => item.id === subjectId);
   const filtered = [tier && TIERS[tier], subject?.name, (tier || subject) && "papers"].filter(Boolean).join(" ");
-  const savedAny = attempts.length > 0 || (filtered && (await getAttempts().catch(() => [])).length > 0);
-  const { page, pages } = pageInfo({ count: attempts.length }, pageParam(query.page), PER_PAGE);
-  const rows = attempts.slice((page - 1) * PER_PAGE, page * PER_PAGE);
-  const averages = tierAverages(attempts).filter((row) => row.count);
+  const savedAny = list.count > 0 || (filtered && (await getRecord().catch(() => null))?.count);
+  const { pages } = pageInfo(list, page, PER_PAGE);
+  const rows = list.results;
+  const averages = record.tiers;
 
   return (
     <>

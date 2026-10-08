@@ -1,5 +1,6 @@
 // /offline/: what the service worker shows when a page cannot be fetched. Self-contained (inline styles, no script,
-// no account menu), so it works from the cache with no connection at all.
+// no account menu), so it works from the cache with no connection at all. The service worker shows it at the address
+// asked for, so Try again (an empty link) asks for that page again.
 const HTML = `<!doctype html>
 <html lang="en">
 <head>
@@ -21,7 +22,7 @@ a:focus-visible{outline:2px solid #2f8f3a;outline-offset:2px}
 <main>
 <h1>You are offline</h1>
 <p>ExamLeaf needs an internet connection for this page. Check your mobile data or Wi-Fi, then try again.</p>
-<a href="/">Try again</a>
+<a href="">Try again</a>
 </main>
 </body>
 </html>`;

@@ -2,7 +2,9 @@
 
 // Two-step log-in (Django's allauth mfa pages; required for staff): the authenticator app set up with its key and a
 // first code, or turned off; the recovery codes shown, saved as a text file, or made again. allauth may first want
-// the password again (src/lib/auth/account.ts sends the visitor to type it, then back here).
+// the password again (src/lib/auth/account.ts sends the visitor to type it, then back here). The setup's QR code is
+// drawn here from the otpauth:// link (lean-qr: the link holds the secret, so it never goes to an image service).
+import { generate } from "lean-qr";
 import { Download, KeyRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -69,6 +71,35 @@ function Confirm({
   );
 }
 
+/** The otpauth:// link as a QR code for the phone's camera: dark runs of each row as one SVG path, 4 modules of quiet
+ *  zone on white. */
+function SetupQr({ url }: { url: string }) {
+  const code = generate(url);
+  let path = "";
+  for (let y = 0; y < code.size; y++) {
+    for (let x = 0; x < code.size; x++) {
+      if (!code.get(x, y)) continue;
+      const start = x;
+      while (x + 1 < code.size && code.get(x + 1, y)) x++;
+      path += `M${start} ${y}h${x - start + 1}v1h-${x - start + 1}z`;
+    }
+  }
+  const side = code.size + 8;
+  return (
+    <svg
+      role="img"
+      aria-label="QR code of the key, for the authenticator app"
+      viewBox={`-4 -4 ${side} ${side}`}
+      width={176}
+      height={176}
+      shapeRendering="crispEdges"
+      className="rounded-lg border border-border bg-white"
+    >
+      <path d={path} fill="#000" />
+    </svg>
+  );
+}
+
 export function AuthenticatorApp({ active }: { active: boolean }) {
   const router = useRouter();
   const [setup, setSetup] = useState<{ secret: string; url: string } | null>(null);
@@ -124,9 +155,10 @@ export function AuthenticatorApp({ active }: { active: boolean }) {
   }
   return (
     <>
+      <SetupQr url={setup.url} />
       <ol className="m-0 flex flex-col gap-2 pl-5">
         <li>
-          In your authenticator app, add an account with this key:{" "}
+          Scan the QR code with your authenticator app, or add an account with this key:{" "}
           <code className="rounded-sm bg-muted px-1.5 py-0.5 text-base break-all">
             {setup.secret.replace(/(.{4})/g, "$1 ").trim()}
           </code>

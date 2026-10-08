@@ -1,9 +1,10 @@
 // A product card (Django's shop/_product_card.html; components.md .card-interactive): the whole card is the one link
 // to the product, with its cover (or the drawn no-cover), the kind and subject chips, Out of stock, title and price.
-// data-subject feeds the catalogue's subject tabs.
+// data-subject feeds the catalogue's subject tabs. The cover morphs into the product page's (Morph, motion.md d).
 import { Badge } from "@/components/ui/badge";
 import { CardLink } from "@/components/ui/card";
 import { CoverPicture, NoCover } from "@/components/ui/cover";
+import { Morph } from "@/components/ui/morph";
 import { Price } from "@/components/ui/price";
 import type { Product } from "@/lib/api/shop";
 import { subjectOf } from "@/lib/site";
@@ -39,7 +40,9 @@ export function ProductCard({ product }: { product: Product }) {
     <li data-subject={product.subject ?? undefined} className="flex">
       <CardLink href={`/shop/${product.slug}/`} className="w-full">
         <span className="flex flex-col gap-3 p-4">
-          <ProductCover product={product} />
+          <Morph name={`cover-${product.slug}`}>
+            <ProductCover product={product} />
+          </Morph>
           <span className="flex flex-wrap gap-2">
             <Badge>{KIND_LABEL[product.kind]}</Badge>
             {subject ? <Badge variant={subject.key}>{subject.name}</Badge> : null}

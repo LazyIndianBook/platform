@@ -170,7 +170,7 @@ export function LoginForm({ next, providerError }: { next: string | null; provid
             <Input name="email" type="email" autoComplete="email" inputMode="email" />
           </Field>
         )}
-        {siteKey ? <Turnstile siteKey={siteKey} onToken={setTurnstile} /> : null}
+        {siteKey ? <Turnstile siteKey={siteKey} onToken={setTurnstile} resetKey={error} /> : null}
         <Button type="submit" size="lg" block busy={busy}>
           {by === "phone" ? "Text me a code" : "Email me a code"}
         </Button>

@@ -24,6 +24,16 @@ export const DJANGO_PREFIXES = [
   "/sitemap-django.xml",
 ];
 
+/**
+ * A page that is the visitor's own: never stored anywhere (Next answers it `private, no-cache, no-store`). /s/ and
+ * /revision/ are once a session exists (solutions, the course). Every other page may be kept by the browser alone
+ * (`private, no-cache`, src/proxy.ts: back and forward stay instant), never by a shared cache: each carries the header's
+ * signed-in state and cart count, and its own CSP nonce.
+ */
+export function isPersonalPage(pathname: string, hasSession: boolean): boolean {
+  return /^\/(account|cart|checkout|orders|c)\//.test(pathname) || (hasSession && /^\/(s|revision)\//.test(pathname));
+}
+
 export type SubjectKey = "physics" | "chemistry" | "maths" | "biology";
 
 /** Subject codes of the API (PHY, CHE, MAT, BIO) to the token names of tokens.css (--physics, --physics-pill …). */

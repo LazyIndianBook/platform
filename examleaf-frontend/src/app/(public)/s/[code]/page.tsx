@@ -28,6 +28,7 @@ import { getConfig } from "@/lib/api/config";
 import { ApiError } from "@/lib/api/errors";
 import { withNext } from "@/lib/auth/next-url";
 import { getSessionUser } from "@/lib/auth/session";
+import { breadcrumbJsonLd, JsonLd } from "@/lib/seo/json-ld";
 import { pageMetadata } from "@/lib/seo/metadata";
 import { shortCode, subjectOf, TIERS } from "@/lib/site";
 
@@ -105,12 +106,16 @@ export default async function PaperPage({ params }: Props) {
     { label: subjectName, href: `/books/${paper.book}/` },
     { label: `Paper ${shortCode(paper.code)}` },
   ];
+  const crumbs = (
+    <JsonLd data={breadcrumbJsonLd(trail.map((crumb) => ({ name: crumb.label, path: crumb.href ?? path })))} />
+  );
 
   if (gate) {
     return (
       <section className="paper-page pt-7 pb-(--section)">
         <div className="container-site">
           <Breadcrumb trail={trail} />
+          {crumbs}
           <QrCard
             subject={subject?.key ?? "physics"}
             subjectName={subjectName}
@@ -182,6 +187,7 @@ export default async function PaperPage({ params }: Props) {
     <section className="paper-page pt-7 pb-(--section)">
       <div className="container-site">
         <Breadcrumb trail={trail} />
+        {crumbs}
         <QrCard
           subject={subject?.key ?? "physics"}
           subjectName={subjectName}

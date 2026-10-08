@@ -33,12 +33,15 @@ export function publicFetch(...tags: string[]) {
   };
 }
 
-/** The visitor's own data: their cookies (session, CSRF) and address forwarded, nothing cached. */
+/** The visitor's own data: their cookies (session, CSRF), address and browser forwarded, nothing cached. Each call
+ *  with the session cookie records the device's browser and address (allauth.usersessions: Log-in and security). */
 export async function personalFetch() {
   const [jar, incoming] = await Promise.all([cookies(), headers()]);
   const forwarded: Record<string, string> = { Cookie: jar.toString() };
-  const address = incoming.get("x-forwarded-for");
-  if (address) forwarded["X-Forwarded-For"] = address;
+  for (const name of ["X-Forwarded-For", "User-Agent"]) {
+    const value = incoming.get(name);
+    if (value) forwarded[name] = value;
+  }
   return {
     headers: forwarded,
     fetch: (request: Request) => fetch(request, { cache: "no-store" }),

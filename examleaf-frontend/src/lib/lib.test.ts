@@ -8,7 +8,7 @@ import { safeNext, withNext } from "./auth/next-url";
 import { decodeRequestOptions } from "./auth/webauthn";
 import { inr, inrShort } from "./format";
 import { buildCsp } from "./security/csp";
-import { shortCode, subjectOf } from "./site";
+import { isPersonalPage, shortCode, subjectOf } from "./site";
 
 describe("money", () => {
   it("drops zero paise on display prices and groups in lakhs", () => {
@@ -75,6 +75,21 @@ describe("toApiError", () => {
   });
 });
 
+describe("a parent's consent awaited", () => {
+  it("marks the API's refusals, whatever their status, so that forms can offer the parent's link", () => {
+    const course = toApiError(403, { detail: "A parent or guardian has not confirmed this account yet." });
+    const marks = toApiError(400, {
+      non_field_errors: [
+        "Your parent or guardian has not confirmed your account yet: marks can be saved once they have (see My account).",
+      ],
+    });
+    expect(course.code).toBe("consent_pending");
+    expect(marks.code).toBe("consent_pending");
+    expect(marks.message).toMatch(/^Your parent or guardian/);
+    expect(toApiError(403, { detail: "Confirm your email address first." }).code).toBe("forbidden");
+  });
+});
+
 describe("pagination", () => {
   it("counts pages and reads ?page=", () => {
     expect(pageInfo({ count: 120 }, 3)).toEqual({ page: 3, pages: 3, hasPrevious: true, hasNext: false });
@@ -134,6 +149,17 @@ describe("site", () => {
     expect(shortCode("MAT-H10")).toBe("H-10");
     expect(subjectOf("MAT")).toEqual({ key: "maths", name: "Mathematics" });
     expect(subjectOf("XYZ")).toBeNull();
+  });
+
+  it("keeps the visitor's own pages out of every cache, and solutions and the course once signed in", () => {
+    for (const path of ["/account/", "/account/login/", "/cart/", "/checkout/7/pay/", "/orders/t/abc/", "/c/tok/"])
+      expect(isPersonalPage(path, false)).toBe(true);
+    for (const path of ["/", "/shop/", "/shop/physics-2027/", "/books/physics-2027/", "/contact/", "/s/PHY-E01/"])
+      expect(isPersonalPage(path, false)).toBe(false);
+    expect(isPersonalPage("/s/PHY-E01/", true)).toBe(true);
+    expect(isPersonalPage("/revision/", true)).toBe(true);
+    expect(isPersonalPage("/shop/", true)).toBe(false);
+    expect(isPersonalPage("/cartoons/", false)).toBe(false);
   });
 });
 

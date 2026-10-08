@@ -1,7 +1,8 @@
 // Package 8C's journey against the Django backend, as a temporary student (made and deleted through manage.py shell;
 // the email starts with c-e2e-): log in with a code by email, save marks on a paper's solutions page, find them on
 // My record with the tier's average, download my data, then open the revision course with a book code made by
-// manage.py make_book_codes (deleted with the student). And the account's pages stay private.
+// manage.py make_book_codes (deleted with the student). And the account's pages stay private, and an ended session
+// sends a save to log in and back.
 import { readFileSync } from "node:fs";
 
 import { expect, test } from "@playwright/test";
@@ -61,10 +62,10 @@ test("log in by code, record marks, see them on My record, download my data, use
     .getByRole("navigation", { name: "My account" })
     .getByRole("link", { name: "Consent and your data" })
     .click();
-  await page.locator("#password").fill(password);
-  await page.getByRole("button", { name: "Download my data" }).click();
   const parts = page.getByRole("table", { name: "What the file holds" });
   await expect(parts.getByRole("row", { name: /Marks saved in My record/ })).toContainText("1");
+  await page.locator("#password").fill(password);
+  await page.getByRole("button", { name: "Download my data" }).click();
   const [download] = await Promise.all([
     page.waitForEvent("download"),
     page.getByRole("link", { name: "Download the file" }).click(),
@@ -83,4 +84,23 @@ test("log in by code, record marks, see them on My record, download my data, use
   await course.getByRole("button", { name: "Use the code" }).click();
   await expect(page.getByText(/^Physics is open until \d+ \w{3} \d{4}\.$/)).toBeVisible();
   await expect(course).toContainText(/Physics\s*Open until \d+ \w{3} \d{4} · from a book code/);
+});
+
+test("signed in, solutions are never stored; a save after the session ended goes to log in and back", async ({
+  page,
+}) => {
+  await page.goto("/account/login/?next=/s/PHY-E02/");
+  await page.getByText("Log in with email and password").click();
+  await page.locator("#login").fill(email);
+  await page.locator("#password").fill(password);
+  await page.locator("details form").getByRole("button", { name: "Log in" }).click();
+  await expect(page).toHaveURL(/\/\/[^/]+\/s\/PHY-E02\/$/); // the paper itself, not the log-in page's ?next=
+  expect((await page.request.get("/s/PHY-E02/")).headers()["cache-control"]).toContain("no-store");
+  expect((await page.request.get("/revision/")).headers()["cache-control"]).toContain("no-store");
+
+  await page.context().clearCookies({ name: "sessionid" }); // the session ends (expired, or logged out elsewhere)
+  const card = page.locator("#record");
+  await card.getByLabel(/Marks obtained/).fill("40");
+  await card.getByRole("button", { name: "Save to my record" }).click();
+  await expect(page).toHaveURL(/\/account\/login\/\?next=%2Fs%2FPHY-E02%2F/);
 });

@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyDrawing } from "@/components/ui/empty-state";
 import { Table, TableCell, TableHead } from "@/components/ui/table";
-import { getAttempts, getBoards, getMe, settle, tierAverages } from "@/lib/api/account";
+import { getAttempts, getBoards, getMe, getRecord, settle } from "@/lib/api/account";
 import { getConfig } from "@/lib/api/config";
 import { ApiError, unwrap } from "@/lib/api/errors";
 import { personalFetch, serverApi } from "@/lib/api/server";
@@ -40,11 +40,12 @@ function CompactEmpty({ art, children }: { art: "attempts" | "orders"; children:
 export default async function AccountPage() {
   const path = "/account/";
   const options = await personalFetch();
-  const [me, boards, config, attempts, orders, entitlements] = await Promise.all([
+  const [me, boards, config, record, latest, orders, entitlements] = await Promise.all([
     settle(getMe(), path),
     getBoards().catch(() => []),
     getConfig(),
-    settle(getAttempts(), path),
+    settle(getRecord(), path),
+    settle(getAttempts({ page_size: 5 }), path),
     settle(unwrap(serverApi.GET("/api/v1/orders/", { params: { query: { page_size: 3 } }, ...options })), path),
     settle(unwrap(serverApi.GET("/api/v1/learn/entitlements/", options)), path),
   ]);
@@ -61,6 +62,17 @@ export default async function AccountPage() {
     ? `Class ${me.class_level}${board ? `, ${board.short_name || board.name}` : ""}`
     : null;
   const today = dateInIndia();
+  // every tier, "–" before a paper of it, as Django's My account shows them
+  const averages = (["E", "M", "H"] as const).map(
+    (tier) =>
+      (record instanceof ApiError ? null : record.tiers.find((row) => row.tier === tier)) ?? {
+        tier,
+        count: 0,
+        average: null,
+      },
+  );
+  const attempts = record instanceof ApiError ? record : latest instanceof ApiError ? latest : latest.results;
+  const saved = record instanceof ApiError ? 0 : record.count;
   const open =
     entitlements instanceof ApiError
       ? []
@@ -97,7 +109,7 @@ export default async function AccountPage() {
             <Problem error={attempts} what="My record" retry={path} />
           ) : attempts.length ? (
             <>
-              <TierAverages averages={tierAverages(attempts)} />
+              <TierAverages averages={averages} />
               <Table caption="Your latest saved marks">
                 <thead>
                   <tr>
@@ -107,7 +119,7 @@ export default async function AccountPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {attempts.slice(0, 5).map((attempt) => (
+                  {attempts.map((attempt) => (
                     <tr key={attempt.id}>
                       <TableCell>
                         <Link href={`/s/${attempt.paper}/`} className="font-head font-bold">
@@ -134,9 +146,7 @@ export default async function AccountPage() {
         </CardContent>
         <CardFooter>
           <Link href="/account/record/" className={goLink}>
-            {attempts instanceof ApiError || attempts.length <= 5
-              ? "Open My record"
-              : `All ${attempts.length} papers, with filters`}
+            {saved <= 5 ? "Open My record" : `All ${saved} papers, with filters`}
             <ArrowRight aria-hidden="true" className="size-5" />
           </Link>
         </CardFooter>

@@ -1,12 +1,13 @@
 // /checkout/ (Checkout artboard; Django's shop/checkout.html): the stepper at Address, then the form (CheckoutForm):
 // signed in, with the saved addresses and the server's cash-on-delivery terms; a visitor checks out as a guest (an
 // email address and a typed-in address), except for a course, which opens in an account. An empty cart goes back to
-// the cart.
+// the cart. While the shop is closed the page says so first: only staff can order then (the API's 403 for the others).
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { CheckoutForm } from "@/components/shop/checkout-form";
+import { ShopClosed } from "@/components/shop/listing";
 import { ShopProblem, SignInToBuy } from "@/components/shop/notices";
 import { checkoutSteps, isDigital } from "@/components/shop/shop";
 import { Stepper } from "@/components/ui/stepper";
@@ -55,6 +56,7 @@ export default async function CheckoutPage() {
           )}
         </div>
         <Stepper label="Checkout" steps={checkoutSteps()} current={0} />
+        <ShopClosed open={config?.shop.open} />
         <CheckoutForm
           cart={cart}
           addresses={addresses}

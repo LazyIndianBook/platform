@@ -1,7 +1,9 @@
 "use client";
 
 // After a failed submit: one alert at the top of the form (role="alert"), each problem a link to its field; focus
-// moves to it, so a long form scrolls back to what needs fixing.
+// moves to it, so a long form scrolls back to what needs fixing. A save refused while a parent's consent is awaited
+// (code consent_pending) also offers the way on: the link to the parent again.
+import Link from "next/link";
 import { useEffect, useRef } from "react";
 
 import { Alert } from "@/components/ui/alert";
@@ -19,6 +21,12 @@ export function ErrorSummary({ error, labels }: { error: ApiError | null; labels
     <div ref={box} tabIndex={-1} className="outline-none">
       <Alert variant="error" role="alert" title="There is a problem">
         {!fieldMessages.has(error.message) ? <p>{error.message}</p> : null}
+        {error.code === "consent_pending" ? (
+          <p>
+            Until they confirm, your account can read but not save.{" "}
+            <Link href="/account/privacy/">Send them the link again</Link>.
+          </p>
+        ) : null}
         {fields.length ? (
           <ul className="m-0 pl-5">
             {fields.map(([name, messages]) => (

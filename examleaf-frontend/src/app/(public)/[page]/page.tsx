@@ -1,15 +1,18 @@
 // The legal and policy pages (/privacy/ /terms/ /refunds/ /shipping/ /contact/) from GET /api/v1/pages/<slug>/: the
 // website's HTML of the Markdown (raw HTML is off on the server; a [placeholder] still to fill in comes marked
-// <mark class="placeholder">), the version and the date of the last change.
+// <mark class="placeholder">), the version and the date of the last change. Contact adds the support address and the
+// form (POST contact/) once config gives the address; until then the API refuses messages, so no form is offered.
 import { Mail } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { ContactForm } from "@/components/site/contact-form";
 import { Unavailable } from "@/components/site/unavailable";
 import { Card, CardContent } from "@/components/ui/card";
 import { getLegalPage, type LegalPage } from "@/lib/api/catalogue";
 import { getConfig } from "@/lib/api/config";
 import { ApiError } from "@/lib/api/errors";
+import { breadcrumbJsonLd, JsonLd } from "@/lib/seo/json-ld";
 import { pageMetadata } from "@/lib/seo/metadata";
 
 const SLUGS = ["privacy", "terms", "refunds", "shipping", "contact"] as const;
@@ -58,6 +61,12 @@ export default async function LegalPageView({ params }: Props) {
   return (
     <section className="pt-7 pb-(--section)">
       <div className="container-site flex flex-col gap-4">
+        <JsonLd
+          data={breadcrumbJsonLd([
+            { name: "Home", path: "/" },
+            { name: page.title, path: `/${slug}/` },
+          ])}
+        />
         <article className="prose">
           <h1>{page.title}</h1>
           <div dangerouslySetInnerHTML={{ __html: page.html }} />
@@ -75,7 +84,8 @@ export default async function LegalPageView({ params }: Props) {
                   {support.email}
                 </a>
               </p>
-              <p className="text-small text-muted-foreground">We reply by email.</p>
+              <p className="text-small text-muted-foreground">We reply by email. Or send us a message here:</p>
+              <ContactForm />
             </CardContent>
           </Card>
         ) : null}

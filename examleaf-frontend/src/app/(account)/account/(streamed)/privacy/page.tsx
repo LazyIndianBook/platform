@@ -12,7 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getMe, settle } from "@/lib/api/account";
 import { getConfig } from "@/lib/api/config";
-import { ApiError } from "@/lib/api/errors";
+import { personalFetch, serverApi } from "@/lib/api/server";
+import { ApiError, unwrap } from "@/lib/api/errors";
 import { getSessionUser } from "@/lib/auth/session";
 import { formatDate, isMinor } from "@/lib/dates";
 import { pageMetadata } from "@/lib/seo/metadata";
@@ -21,7 +22,14 @@ export const metadata = pageMetadata({ title: "Consent and your data", path: "/a
 
 export default async function PrivacyPage() {
   const path = "/account/privacy/";
-  const [me, user, config] = await Promise.all([settle(getMe(), path), getSessionUser(), getConfig()]);
+  const [me, user, config, summary] = await Promise.all([
+    settle(getMe(), path),
+    getSessionUser(),
+    getConfig(),
+    personalFetch()
+      .then((options) => unwrap(serverApi.GET("/api/v1/me/export/summary/", options)))
+      .catch(() => null), // without it the card offers the file alone
+  ]);
   const head = <PageHead title="Consent and your data" />;
   if (me instanceof ApiError) {
     return (
@@ -90,7 +98,7 @@ export default async function PrivacyPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <DataExport hasPassword={hasPassword} />
+          <DataExport hasPassword={hasPassword} summary={summary} />
         </CardContent>
       </Card>
 

@@ -8,21 +8,8 @@ import { formatDate } from "@/lib/dates";
 
 export type Entitlement = components["schemas"]["Entitlement"];
 
-type PlanClip = { id: number; chapter: number; title: string; kind: string; duration: number };
-/** learn/plan/ (the schema says only "object": API.md "The pass plan" gives its shape). */
-export type Plan = {
-  exam_date: string;
-  days_left: number;
-  minutes_per_day: number;
-  days: { date: string; minutes: number; clips: PlanClip[] }[];
-  not_scheduled: number[];
-  minimum_to_pass: {
-    subject: number;
-    pass_marks: number;
-    marks: string;
-    chapters: { id: number; number: number; title: string; weight: string; minutes: number; clips: PlanClip[] }[];
-  }[];
-};
+export type Plan = components["schemas"]["Plan"];
+type AppLinksConfig = components["schemas"]["AppLinksConfig"];
 
 const SOURCE: Record<Entitlement["source"], string> = {
   book_code: "a book code",
@@ -121,22 +108,28 @@ export function PlanView({ plan, subjectName }: { plan: Plan; subjectName: (id: 
   );
 }
 
-/** The app stores' links: placeholders, clearly marked, until the server's config has them. */
-export function AppLinks() {
+/** The app stores' links from the server's config (config/ app_links); a marked placeholder until a store has it. */
+export function AppLinks({ links }: { links: AppLinksConfig | null | undefined }) {
+  const stores = [
+    { name: "Android", store: "Google Play", url: links?.android },
+    { name: "iPhone", store: "App Store", url: links?.ios },
+  ];
   return (
     <dl className="m-0 flex flex-col gap-1">
-      <div>
-        <dt className="inline font-semibold">Android: </dt>
-        <dd className="inline">
-          <mark className="placeholder">[Google Play link]</mark>
-        </dd>
-      </div>
-      <div>
-        <dt className="inline font-semibold">iPhone: </dt>
-        <dd className="inline">
-          <mark className="placeholder">[App Store link]</mark>
-        </dd>
-      </div>
+      {stores.map(({ name, store, url }) => (
+        <div key={name}>
+          <dt className="inline font-semibold">{name}: </dt>
+          <dd className="inline">
+            {url ? (
+              <a href={url} rel="noopener noreferrer" target="_blank">
+                ExamLeaf on {store}
+              </a>
+            ) : (
+              <mark className="placeholder">[{store} link]</mark>
+            )}
+          </dd>
+        </div>
+      ))}
     </dl>
   );
 }

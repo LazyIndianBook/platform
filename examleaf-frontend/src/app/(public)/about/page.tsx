@@ -2,6 +2,7 @@
 import Link from "next/link";
 
 import { getConfig } from "@/lib/api/config";
+import { breadcrumbJsonLd, JsonLd } from "@/lib/seo/json-ld";
 import { pageMetadata } from "@/lib/seo/metadata";
 
 export const metadata = pageMetadata({
@@ -16,6 +17,12 @@ export default async function AboutPage() {
   return (
     <section className="pt-7 pb-(--section)">
       <div className="container-site">
+        <JsonLd
+          data={breadcrumbJsonLd([
+            { name: "Home", path: "/" },
+            { name: "About", path: "/about/" },
+          ])}
+        />
         <article className="prose">
           <h1>About ExamLeaf</h1>
           <p>

@@ -30,7 +30,7 @@ describe("EntitlementList", () => {
   });
 });
 
-const clip = (id: number, title: string) => ({ id, chapter: 3, title, kind: "concept", duration: 140 });
+const clip = (id: number, title: string) => ({ id, chapter: 3, title, kind: "concept" as const, duration: 140 });
 
 describe("PlanView", () => {
   const plan: Plan = {
@@ -48,7 +48,9 @@ describe("PlanView", () => {
         subject: 1,
         pass_marks: 21,
         marks: "32.0",
-        chapters: [{ id: 9, number: 9, title: "Ray Optics", weight: "7.0", minutes: 14, clips: [] }],
+        chapters: [
+          { id: 9, number: 9, title: "Ray Optics", weight: "7.0", minutes: 14, marks_per_minute: "0.5", clips: [] },
+        ],
       },
     ],
   };

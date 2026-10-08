@@ -1,6 +1,7 @@
 // /revision/: the revision course (Django's learn/revision.html; the course itself is in the app). For everyone: what
 // it is, each subject's chapters with the Board's marks and past questions, what is free. Signed in: what is open
-// (learn/entitlements/), each chapter's state and free clip, the book-code form and a plan for the exam date.
+// (learn/entitlements/), each chapter's state and free clip, the book-code form and a plan for the exam date. Every
+// chapter is listed with its marks; one without a published revision yet is "Coming soon".
 // Public and indexed (sitemap.ts); the signed-in parts are read with the visitor's cookies, never cached.
 import Link from "next/link";
 
@@ -16,12 +17,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { EmptyState } from "@/components/ui/empty-state";
 import { Table, TableCell, TableHead } from "@/components/ui/table";
 import { getMe, getSubjects } from "@/lib/api/account";
+import { getConfig } from "@/lib/api/config";
 import { ApiError, unwrap } from "@/lib/api/errors";
 import type { components } from "@/lib/api/schema";
 import { personalFetch, publicFetch, serverApi } from "@/lib/api/server";
 import { withNext } from "@/lib/auth/next-url";
 import { getSessionUser } from "@/lib/auth/session";
 import { dateInIndia } from "@/lib/dates";
+import { breadcrumbJsonLd, JsonLd } from "@/lib/seo/json-ld";
 import { pageMetadata } from "@/lib/seo/metadata";
 
 export const metadata = pageMetadata({
@@ -38,7 +41,7 @@ export default async function RevisionPage() {
   const path = "/revision/";
   const user = await getSessionUser();
   const options = user ? await personalFetch() : publicFetch("chapters");
-  const [chapters, subjects, entitlements, learner, me] = await Promise.all([
+  const [chapters, subjects, entitlements, learner, me, config] = await Promise.all([
     unwrap(serverApi.GET("/api/v1/learn/chapters/", { params: { query: { page_size: 200 } }, ...options })).catch(
       failed,
     ),
@@ -46,6 +49,7 @@ export default async function RevisionPage() {
     user ? unwrap(serverApi.GET("/api/v1/learn/entitlements/", options)).catch(failed) : null,
     user ? unwrap(serverApi.GET("/api/v1/learn/settings/", options)).catch(() => null) : null,
     user ? getMe().catch(() => null) : null,
+    getConfig(),
   ]);
   const name = (id: number) => subjects.find((subject) => subject.id === id)?.name ?? "Subject";
   const bySubject = new Map<number, Chapter[]>();
@@ -58,6 +62,12 @@ export default async function RevisionPage() {
     <section className="pt-7 pb-(--section)">
       <div className="container-site flex flex-col gap-6">
         <Breadcrumb trail={[{ label: "Home", href: "/" }, { label: "Revision course" }]} />
+        <JsonLd
+          data={breadcrumbJsonLd([
+            { name: "Home", path: "/" },
+            { name: "Revision course", path: "/revision/" },
+          ])}
+        />
         <div className="flex max-w-(--measure) flex-col gap-2 [&>*]:m-0">
           <p className="text-[15px] font-semibold text-muted-foreground">In the ExamLeaf app · ASSEB Class 12</p>
           <h1>Revision course</h1>
@@ -99,11 +109,15 @@ export default async function RevisionPage() {
                           <TableCell numeric>{chapter.number}</TableCell>
                           <TableCell className="min-w-56">
                             <span className="block">{chapter.title}</span>
-                            <span className="block text-[15px] text-muted-foreground">
-                              {chapter.clips} clip{chapter.clips === 1 ? "" : "s"}, {chapter.minutes} min
-                            </span>
-                            {user ? (
-                              <FreeClip chapter={chapter.id} title={chapter.title} />
+                            {!chapter.has_revision ? (
+                              <Badge className="mt-1">Coming soon</Badge>
+                            ) : (
+                              <span className="block text-[15px] text-muted-foreground">
+                                {chapter.clips} clip{chapter.clips === 1 ? "" : "s"}, {chapter.minutes} min
+                              </span>
+                            )}
+                            {!chapter.has_revision ? null : user ? (
+                              <FreeClip clip={chapter.free_preview} title={chapter.title} />
                             ) : (
                               <Link
                                 href={withNext("/account/login/", path)}
@@ -117,7 +131,9 @@ export default async function RevisionPage() {
                           <TableCell numeric>{chapter.frequency ?? 0}</TableCell>
                           {user ? (
                             <TableCell>
-                              {chapter.entitled ? (
+                              {!chapter.has_revision ? (
+                                <span className="text-[15px] text-muted-foreground">Coming soon</span>
+                              ) : chapter.entitled ? (
                                 <Badge variant="easy">Open</Badge>
                               ) : (
                                 <span className="text-[15px]">
@@ -212,7 +228,7 @@ export default async function RevisionPage() {
                 <CardDescription>Log in there with the same email address as on this site.</CardDescription>
               </CardHeader>
               <CardContent>
-                <AppLinks />
+                <AppLinks links={config?.app_links} />
               </CardContent>
             </Card>
           </aside>

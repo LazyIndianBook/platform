@@ -26,6 +26,8 @@ const CODES: Record<number, string> = {
   429: "throttled",
 };
 
+const CONSENT_PENDING = /parent or guardian has not confirmed/i;
+
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
@@ -51,7 +53,15 @@ export class ApiError extends Error {
 const strings = (value: unknown): string[] =>
   (Array.isArray(value) ? value : [value]).filter((item): item is string => typeof item === "string");
 
+/** The API's answer as an ApiError; a refusal because a parent's consent is awaited gets the code consent_pending (the
+ *  API's words are its only mark: a 403 detail for orders and the course, a 400 for marks; API.md "Errors"). */
 export function toApiError(status: number, body: unknown): ApiError {
+  const error = parse(status, body);
+  if (!CONSENT_PENDING.test(error.message)) return error;
+  return new ApiError(error.status, "consent_pending", error.message, error.fields, error.body);
+}
+
+function parse(status: number, body: unknown): ApiError {
   const fallback = DEFAULT_MESSAGES[status] ?? DEFAULT_MESSAGES[status >= 500 ? 500 : 0];
   const code = CODES[status] ?? (status >= 500 ? "server" : "error");
   if (!body || typeof body !== "object") return new ApiError(status, code, fallback, {}, body);

@@ -35,6 +35,7 @@ type Address = components["schemas"]["Address"];
 type Draft = Pick<Address, "name" | "phone" | "line1" | "line2" | "city" | "district" | "pin"> & { state: StateCode };
 
 const NEW = "new";
+const NO_PIN = { note: null, districts: [], states: [] };
 const EMPTY: Draft = { name: "", phone: "", line1: "", line2: "", city: "", district: "", state: "AS", pin: "" };
 const LABELS: Record<string, string> = {
   name: "Full name",
@@ -100,7 +101,7 @@ export function CheckoutForm({
   const [keep, setKeep] = useState(true);
   const [method, setMethod] = useState<"razorpay" | "cod">("razorpay");
   const [priced, setPriced] = useState<Cart | null>(null);
-  const [pin, setPin] = useState<{ note: string | null; districts: string[] }>({ note: null, districts: [] });
+  const [pin, setPin] = useState<{ note: string | null; districts: string[]; states: string[] }>(NO_PIN);
   const [error, setError] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -124,14 +125,14 @@ export function CheckoutForm({
 
   async function lookUpPin(value: string) {
     const code = value.replace(/\s/g, "");
-    if (!/^\d{6}$/.test(code)) return setPin({ note: null, districts: [] });
+    if (!/^\d{6}$/.test(code)) return setPin(NO_PIN);
     const found = await unwrap(api.GET("/api/v1/shipping/quote/", { params: { query: { pin: code } } })).catch(
       () => null,
     );
     if (!found?.states.length) {
       setPin({
+        ...NO_PIN,
         note: found ? "This PIN code is not in our directory yet: type the district and choose the state." : null,
-        districts: [],
       });
       return;
     }
@@ -146,6 +147,7 @@ export function CheckoutForm({
           ? `PIN code ${code} lies in ${found.states.map(stateName).join(" and ")}: choose the state.`
           : null,
       districts: found.districts,
+      states: found.states,
     });
   }
 
@@ -198,6 +200,11 @@ export function CheckoutForm({
   }
 
   const fieldError = (name: string) => error?.fields[name] ?? null;
+  // the directory's states for the PIN typed: another state is refused by the server in these words (PinCode.state_problem)
+  const pinState =
+    choice === NEW && pin.states.length && !pin.states.includes(draft.state)
+      ? `PIN code ${draft.pin.replace(/\s/g, "")} is in ${pin.states.map(stateName).join(" or ")}.`
+      : null;
   const lines: SummaryLine[] = shown.items.map((line) => ({
     key: line.product,
     title: line.title,
@@ -319,7 +326,7 @@ export function CheckoutForm({
                       onChange={edit("district")}
                     />
                   </Field>
-                  <Field id="state" label="State" required error={fieldError("state")}>
+                  <Field id="state" label="State" required error={fieldError("state") ?? pinState}>
                     <Select autoComplete="address-level1" value={draft.state} onChange={edit("state")}>
                       {STATES.map(([code, name]) => (
                         <option key={code} value={code}>
@@ -420,7 +427,7 @@ export function CheckoutForm({
                 </p>
               </Alert>
             ) : null}
-            {guest && siteKey ? <Turnstile siteKey={siteKey} onToken={setTurnstile} /> : null}
+            {guest && siteKey ? <Turnstile siteKey={siteKey} onToken={setTurnstile} resetKey={error} /> : null}
             <Button type="submit" variant="accent" size="lg" block busy={busy}>
               {method === "cod" ? (
                 <>

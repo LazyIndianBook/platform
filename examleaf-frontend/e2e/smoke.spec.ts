@@ -18,14 +18,42 @@ test("home renders with the books and prices from the API", async ({ page }) => 
   await expect(page.locator(".tile")).toHaveCount(4);
 });
 
-test("pages carry a nonce CSP and are never cached", async ({ request }) => {
+test("pages carry a nonce CSP; personal ones are never stored, the others by the browser alone", async ({
+  request,
+}) => {
   const response = await request.get("/");
   const csp = response.headers()["content-security-policy"];
   expect(csp).toMatch(/script-src 'self' 'nonce-[^']+' 'strict-dynamic'/);
   expect(csp).toContain("frame-ancestors 'none'");
-  expect(response.headers()["cache-control"]).toContain("no-store");
+  expect(response.headers()["cache-control"]).toBe("private, no-cache");
+  for (const path of ["/cart/", "/account/login/", "/orders/lookup/", "/checkout/"])
+    expect((await request.get(path)).headers()["cache-control"]).toContain("private, no-cache, no-store");
+  expect((await request.get("/sw.js")).headers()["cache-control"]).toBe("no-cache");
   const nonce = /'nonce-([^']+)'/.exec(csp)![1];
   expect(await response.text()).toContain(`nonce="${nonce}"`);
+});
+
+test("the app's manifest, and a service worker that keeps the offline page and static files, never a page", async ({
+  page,
+}) => {
+  const manifest = await (await page.request.get("/manifest.webmanifest")).json();
+  expect(manifest).toMatchObject({ start_url: "/?source=pwa", display: "standalone", scope: "/" });
+  await page.goto("/");
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  for (const path of ["/shop/", "/account/login/", "/cart/", "/s/PHY-E01/"]) await page.goto(path);
+  const kept = await page.evaluate(async () => {
+    const paths: string[] = [];
+    for (const name of await caches.keys())
+      for (const request of await (await caches.open(name)).keys()) paths.push(new URL(request.url).pathname);
+    return paths;
+  });
+  expect(kept).toContain("/offline/");
+  expect(kept.filter((path) => !/^\/(offline\/$|_next\/static\/|icon)/.test(path))).toEqual([]);
+
+  await page.context().setOffline(true); // no network: the worker answers a page with the offline page
+  await page.goto("/books/physics-2027/");
+  await expect(page.getByRole("heading", { level: 1, name: "You are offline" })).toBeVisible();
+  await page.context().setOffline(false);
 });
 
 test("a scanned code opens its paper: the sample's solutions, the gate for the others", async ({ page }) => {

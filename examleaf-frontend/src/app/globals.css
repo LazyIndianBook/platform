@@ -263,8 +263,9 @@
   main {
     flex: 1 0 auto;
   }
-  main:focus {
-    outline: none;
+  main:focus,
+  main h1[tabindex="-1"]:focus {
+    outline: none; /* focused after a client-side navigation (RouteFocus), not by the visitor */
   }
   h1,
   h2,
@@ -716,27 +717,36 @@
       animation-range: entry 10% entry 60%;
     }
   }
-  @supports (view-transition-name: none) {
-    .tile.subject-physics,
-    .book-cover.subject-physics {
-      view-transition-name: book-physics;
-    }
-    .tile.subject-chemistry,
-    .book-cover.subject-chemistry {
-      view-transition-name: book-chemistry;
-    }
-    .tile.subject-maths,
-    .book-cover.subject-maths {
-      view-transition-name: book-maths;
-    }
-    .tile.subject-biology,
-    .book-cover.subject-biology {
-      view-transition-name: book-biology;
-    }
+  /* toasts (f): in with a fade and 8 px, out faster and back the same way; none of sonner's 400 ms, height or shadow */
+  [data-sonner-toast][data-styled="true"] {
+    transition:
+      transform var(--t-base) var(--ease-enter),
+      opacity var(--t-base) var(--ease-enter);
   }
+  [data-sonner-toast][data-y-position="top"]:not([data-mounted="true"]),
+  [data-sonner-toast][data-removed="true"][data-front="true"][data-swipe-out="false"][data-y-position="top"] {
+    --y: translateY(-8px);
+  }
+  [data-sonner-toast][data-y-position="bottom"]:not([data-mounted="true"]),
+  [data-sonner-toast][data-removed="true"][data-front="true"][data-swipe-out="false"][data-y-position="bottom"] {
+    --y: translateY(8px);
+  }
+  [data-sonner-toast][data-styled="true"][data-removed="true"] {
+    transition-duration: var(--t-fast);
+    transition-timing-function: var(--ease-exit);
+  }
+  /* view transitions (d): the morphs of src/components/ui/morph.tsx and the page around them */
   ::view-transition-group(*) {
     animation-duration: var(--t-slow);
     animation-timing-function: var(--ease-enter);
+  }
+}
+/* reduced motion: a navigation with a morph changes the page at once */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
   }
 }
 

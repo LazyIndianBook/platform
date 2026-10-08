@@ -1,30 +1,52 @@
-// A book cover: AVIF and WebP at 320 and 480 wide with the PNG for the rest (direction.md, "Images") when the cover
-// is one of the site's static covers (Django's manage.py build_covers makes the sizes); a product picture as it is;
-// no picture at all draws .no-cover in the subject's colours.
+// A book cover or a product picture, always with its width and height: a product's picture as the API gives it (its
+// AVIF and WebP sizes, then the uploaded original); one of the site's static covers with the AVIF and WebP at 320 and
+// 480 wide that Django's manage.py build_covers makes (direction.md, "Images"); no picture at all draws .no-cover in the
+// subject's colours.
 import { cn } from "cn";
 
+import type { components } from "@/lib/api/schema";
 import type { SubjectKey } from "@/lib/site";
+
+export type Picture = components["schemas"]["Picture"];
 
 const STATIC_COVER = /^(.*\/static\/img\/[a-z-]+)\.png$/;
 const WIDTHS = [320, 480];
 
 type CoverProps = {
-  src: string | null | undefined;
+  src: string | Picture | null | undefined;
   alt: string;
   sizes: string;
   priority?: boolean;
   className?: string;
 };
 
-function CoverPicture({ src, alt, sizes, priority, className }: CoverProps & { src: string }) {
+/** The <source>s of a picture: the API's by type (AVIF first), or a static cover's hand-made sizes. */
+function sourcesOf(src: string | Picture): [string, string][] {
+  if (typeof src !== "string")
+    return Object.entries(src.sources).map(([type, sizes]) => [
+      type,
+      Object.entries(sizes)
+        .map(([width, url]) => `${url} ${width}w`)
+        .join(", "),
+    ]);
   const stem = STATIC_COVER.exec(src)?.[1];
+  if (!stem) return [];
+  return ["avif", "webp"].map((format) => [
+    `image/${format}`,
+    WIDTHS.map((width) => `${stem}-${width}.${format} ${width}w`).join(", "),
+  ]);
+}
+
+function CoverPicture({ src, alt, sizes, priority, className }: CoverProps & { src: string | Picture }) {
+  const picture = typeof src === "string" ? null : src;
+  const sources = sourcesOf(src);
   const img = (
-    // eslint-disable-next-line @next/next/no-img-element -- static covers with hand-made AVIF/WebP sizes
+    // eslint-disable-next-line @next/next/no-img-element -- the API's and the static covers' own AVIF/WebP sizes
     <img
-      src={src}
+      src={picture ? picture.src : (src as string)}
       alt={alt}
-      width={480}
-      height={678}
+      width={picture?.width ?? 480}
+      height={picture?.height ?? 678}
       sizes={sizes}
       className={className}
       fetchPriority={priority ? "high" : undefined}
@@ -32,16 +54,11 @@ function CoverPicture({ src, alt, sizes, priority, className }: CoverProps & { s
       decoding="async"
     />
   );
-  if (!stem) return img;
+  if (!sources.length) return img;
   return (
     <picture>
-      {["avif", "webp"].map((format) => (
-        <source
-          key={format}
-          type={`image/${format}`}
-          sizes={sizes}
-          srcSet={WIDTHS.map((width) => `${stem}-${width}.${format} ${width}w`).join(", ")}
-        />
+      {sources.map(([type, srcSet]) => (
+        <source key={type} type={type} sizes={sizes} srcSet={srcSet} />
       ))}
       {img}
     </picture>

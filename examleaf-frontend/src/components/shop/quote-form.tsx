@@ -154,7 +154,7 @@ export function QuoteForm({ books }: { books: { slug: string; title: string }[] 
           onChange={(event) => setValues((all) => ({ ...all, note: event.target.value }))}
         />
       </Field>
-      {siteKey ? <Turnstile siteKey={siteKey} onToken={onToken} /> : null}
+      {siteKey ? <Turnstile siteKey={siteKey} onToken={onToken} resetKey={error} /> : null}
       <Button type="submit" size="lg" className="self-start" busy={busy}>
         Ask for a quotation
       </Button>

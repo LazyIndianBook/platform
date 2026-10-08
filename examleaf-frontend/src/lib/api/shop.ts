@@ -9,7 +9,7 @@ import { withNext } from "@/lib/auth/next-url";
 
 import { ApiError, unwrap } from "./errors";
 import type { components } from "./schema";
-import { personalFetch, publicFetch, serverApi } from "./server";
+import { personalFetch, publicFetch, REVALIDATE_SECONDS, serverApi } from "./server";
 
 type Schemas = components["schemas"];
 export type Product = Schemas["Product"];
@@ -23,8 +23,16 @@ export type Reviews = Schemas["ProductReviews"];
 
 const noStore = { fetch: (request: Request) => fetch(request, { cache: "no-store" }) };
 
+/** A product; a renamed one's old slug is an ApiError 301 whose body says `redirect_to` (its Location names the public
+ *  site, which this server should not go out to). */
 export function getProduct(slug: string): Promise<Product> {
-  return unwrap(serverApi.GET("/api/v1/products/{slug}/", { params: { path: { slug } }, ...publicFetch("products") }));
+  return unwrap(
+    serverApi.GET("/api/v1/products/{slug}/", {
+      params: { path: { slug } },
+      fetch: (request: Request) =>
+        fetch(request, { redirect: "manual", next: { revalidate: REVALIDATE_SECONDS, tags: ["products"] } }),
+    }),
+  );
 }
 
 /** A shelf's or a collection's products, narrowed by `?attr_<code>=` filters (at most five: API.md). */

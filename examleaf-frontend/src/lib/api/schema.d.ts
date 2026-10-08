@@ -580,8 +580,8 @@ export interface paths {
         /**
          * @description What this server has switched on, so that a frontend never hard-codes a feature flag: the ways to log in
          *     (allauth.headless's /_allauth/<client>/v1/config has allauth's own view of them), the bot check, the shop, whether
-         *     the solutions need an account, the parent's consent mode, and the support contacts (null while the seller's details
-         *     still hold a [placeholder]). Public, cacheable for 5 minutes.
+         *     the solutions need an account, the parent's consent mode, the support contacts (null while the seller's details
+         *     still hold a [placeholder]) and the app's store pages (null until set). Public, cacheable for 5 minutes.
          */
         get: operations["config_retrieve"];
         put?: never;
@@ -645,7 +645,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Chapters with a published revision, `?subject=<id>`; one chapter with its revision's clips. */
+        /**
+         * @description Every chapter, `?subject=<id>`, with its Board marks and whether its revision is out (`has_revision`); one
+         *     chapter of a published revision with its clips.
+         */
         get: operations["learn_chapters_list"];
         put?: never;
         post?: never;
@@ -662,7 +665,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Chapters with a published revision, `?subject=<id>`; one chapter with its revision's clips. */
+        /**
+         * @description Every chapter, `?subject=<id>`, with its Board marks and whether its revision is out (`has_revision`); one
+         *     chapter of a published revision with its clips.
+         */
         get: operations["learn_chapters_retrieve"];
         put?: never;
         post?: never;
@@ -920,13 +926,15 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description Delete my account: POST (with the password) asks for it, due seven days later; DELETE cancels it. The steps and
-         *     emails are the website's (accounts.views.request_deletion and keep_account).
+         * @description Delete my account: POST (with the password, or within 5 minutes of a log-in or re-authentication) asks for it,
+         *     due seven days later; DELETE cancels it. The steps and emails are the website's (accounts.views.request_deletion and
+         *     keep_account).
          */
         post: operations["me_deletion_create"];
         /**
-         * @description Delete my account: POST (with the password) asks for it, due seven days later; DELETE cancels it. The steps and
-         *     emails are the website's (accounts.views.request_deletion and keep_account).
+         * @description Delete my account: POST (with the password, or within 5 minutes of a log-in or re-authentication) asks for it,
+         *     due seven days later; DELETE cancels it. The steps and emails are the website's (accounts.views.request_deletion and
+         *     keep_account).
          */
         delete: operations["me_deletion_destroy"];
         options?: never;
@@ -944,10 +952,30 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description Download my data: everything kept about the user, as the website's JSON file. Asks for the password, as the
-         *     website does.
+         * @description Download my data: everything kept about the user, as the website's JSON file. Asks for the password, or a log-in
+         *     or re-authentication in the last 5 minutes, as the website does.
          */
         post: operations["me_export_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/export/summary/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description What Download my data holds, part by part, as the website's page shows it before the file; without the file,
+         *     so without the password (the profile, the orders and My record show as much).
+         */
+        get: operations["me_export_summary_list"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -969,6 +997,26 @@ export interface paths {
          *     within ten minutes of the last link.
          */
         post: operations["me_parent_consent_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/record/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description My record in figures: the average per tier (as My record shows it) and per subject, and per paper the best and
+         *     the latest attempt; `?subject=<id>&tier=` as attempts/.
+         */
+        get: operations["me_record_retrieve"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1411,10 +1459,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * @description The products on sale, with their prices, pictures, what a bundle holds, whether they are in stock, their
-         *     categories and attributes. Filters: `?kind=`, `?subject=`, `?category=<slug>` (with its sub-categories),
-         *     `?collection=<slug>`, and `?attr_<code>=<value>` for any attribute (e.g. `?attr_language=Assamese`,
-         *     `?attr_year=2027`; several are combined with AND).
+         * @description A product. The old slug of a renamed product (still on sale) answers 301 to its products/<slug>/, with its
+         *     slug as `redirect_to` for clients that do not follow redirects, as the website's page redirects.
          */
         get: operations["products_retrieve"];
         put?: never;
@@ -1640,6 +1686,18 @@ export interface components {
             /** @description the option's number from 1, true/false, or the word(s) */
             answer: string;
         };
+        AppLinksConfig: {
+            /**
+             * Format: uri
+             * @description Google Play's page; null until out
+             */
+            android: string | null;
+            /**
+             * Format: uri
+             * @description the App Store's page; null until out
+             */
+            ios: string | null;
+        };
         /** @description A student's marks for a published paper, from 0 to its full marks (as the website's form); the paper is fixed. */
         Attempt: {
             readonly id: number;
@@ -1820,9 +1878,14 @@ export interface components {
              */
             must_do?: string;
             readonly must_do_html: string;
+            /** @description its revision is published; false: coming soon */
+            readonly has_revision: boolean;
+            readonly revision_status: components["schemas"]["RevisionStatusEnum"];
             /** @description processed clips */
             readonly clips: number;
             readonly minutes: number;
+            /** @description the id of its free clip (learn/clips/<id>/, for anyone signed in); null: none */
+            readonly free_preview: number | null;
             /** @description every clip, card and quiz item is open to the user */
             readonly entitled: boolean;
             /** @description its flash cards are a free preview */
@@ -1854,9 +1917,14 @@ export interface components {
              */
             must_do?: string;
             readonly must_do_html: string;
+            /** @description its revision is published; false: coming soon */
+            readonly has_revision: boolean;
+            readonly revision_status: components["schemas"]["RevisionStatusEnum"];
             /** @description processed clips */
             readonly clips: number;
             readonly minutes: number;
+            /** @description the id of its free clip (learn/clips/<id>/, for anyone signed in); null: none */
+            readonly free_preview: number | null;
             /** @description every clip, card and quiz item is open to the user */
             readonly entitled: boolean;
             /** @description its flash cards are a free preview */
@@ -1964,6 +2032,7 @@ export interface components {
             solutions_require_login: boolean;
             parental_consent: components["schemas"]["ParentalConsentEnum"];
             support: components["schemas"]["SupportConfig"];
+            app_links: components["schemas"]["AppLinksConfig"];
         };
         /**
          * @description * `email` - email
@@ -2062,6 +2131,13 @@ export interface components {
             /** Format: date-time */
             readonly created: string;
         };
+        ExportPart: {
+            /** @description the part's name in the file */
+            key: string;
+            label: string;
+            /** @description its records (a part that is one record: 1, or 0 when empty) */
+            count: number;
+        };
         FlashCard: {
             readonly id: number;
             chapter: number;
@@ -2112,6 +2188,10 @@ export interface components {
             /** Format: decimal */
             readonly total: string;
             readonly items: components["schemas"]["OrderItem"][];
+            /** @description courses only: nothing to pack or ship */
+            readonly is_digital: boolean;
+            /** @description books to deliver: the address, fee and tracking apply */
+            readonly has_shipping: boolean;
             /**
              * Format: email
              * @description The account's address, or the guest's.
@@ -2203,6 +2283,10 @@ export interface components {
             /** Format: decimal */
             readonly total: string;
             readonly items: components["schemas"]["OrderItem"][];
+            /** @description courses only: nothing to pack or ship */
+            readonly is_digital: boolean;
+            /** @description books to deliver: the address, fee and tracking apply */
+            readonly has_shipping: boolean;
             /**
              * Format: email
              * @description The account's address, or the guest's.
@@ -2244,6 +2328,10 @@ export interface components {
             readonly total: string;
             /** @description "2 × Physics Sample Papers" */
             readonly items: string[];
+            /** @description courses only: nothing to pack or ship */
+            readonly is_digital: boolean;
+            /** @description books to deliver: the address, fee and tracking apply */
+            readonly has_shipping: boolean;
         };
         OrderItem: {
             readonly product: string;
@@ -2285,6 +2373,10 @@ export interface components {
             /** Format: decimal */
             readonly total: string;
             readonly items: components["schemas"]["OrderItem"][];
+            /** @description courses only: nothing to pack or ship */
+            readonly is_digital: boolean;
+            /** @description books to deliver: the address, fee and tracking apply */
+            readonly has_shipping: boolean;
             /**
              * Format: email
              * @description The account's address, or the guest's.
@@ -2603,6 +2695,16 @@ export interface components {
              */
             is_sample?: boolean;
         };
+        PaperRecord: {
+            /** @description its code */
+            paper: string;
+            title: string;
+            /** @description attempts */
+            count: number;
+            /** @description the most marks (the latest of equals) */
+            best: components["schemas"]["Attempt"];
+            latest: components["schemas"]["Attempt"];
+        };
         ParentContactRequest: {
             /** @description the parent's or guardian's email address or mobile number: the one on record, or new */
             parent_contact: string;
@@ -2638,13 +2740,40 @@ export interface components {
          * @enum {string}
          */
         ParentalConsentEnum: "declared" | "verified";
+        Pass: {
+            subject: number;
+            pass_marks: number;
+            /**
+             * Format: decimal
+             * @description the Board marks of these chapters
+             */
+            marks: string;
+            chapters: components["schemas"]["PassChapter"][];
+        };
+        PassChapter: {
+            id: number;
+            number: number;
+            title: string;
+            /**
+             * Format: decimal
+             * @description Board marks
+             */
+            weight: string;
+            /** @description of video */
+            minutes: number;
+            /** Format: decimal */
+            marks_per_minute: string;
+            /** @description its clips of the quickest kinds */
+            clips: components["schemas"]["PlanClip"][];
+        };
         PasswordChangeRequest: {
             old_password: string;
             new_password1: string;
             new_password2: string;
         };
         PasswordRequest: {
-            password: string;
+            /** @description not needed within 5 minutes of a log-in or re-authentication in this browser session */
+            password?: string;
         };
         /** @description Serializer for confirming a password reset attempt. */
         PasswordResetConfirmRequest: {
@@ -2763,6 +2892,52 @@ export interface components {
             code: string;
         };
         /**
+         * @description A product picture for <picture>/srcset: AVIF and WebP sizes (made by the Celery worker after an upload; until
+         *     then they answer 404, so keep `src` as the <img> fallback), and the uploaded original.
+         */
+        Picture: {
+            /** @description by type, then width in pixels: {"image/avif": {"200": "https://…/200w.avif", …}, "image/webp": …} */
+            sources: {
+                [key: string]: {
+                    [key: string]: string;
+                };
+            };
+            /**
+             * Format: uri
+             * @description the uploaded original
+             */
+            src: string;
+            width: number;
+            height: number;
+            /** @description "Cover of <title>" for a cover */
+            alt: string;
+        };
+        Plan: {
+            /** Format: date */
+            exam_date: string;
+            days_left: number;
+            minutes_per_day: number;
+            days: components["schemas"]["PlanDay"][];
+            /** @description the chapters that did not fit before the exam */
+            not_scheduled: number[];
+            minimum_to_pass: components["schemas"]["Pass"][];
+        };
+        PlanClip: {
+            readonly id: number;
+            chapter: number;
+            title: string;
+            kind?: components["schemas"]["ClipKindEnum"];
+            /** Seconds */
+            readonly duration: number;
+        };
+        PlanDay: {
+            /** Format: date */
+            date: string;
+            /** @description of video that day */
+            readonly minutes: number;
+            clips: components["schemas"]["PlanClip"][];
+        };
+        /**
          * @description * `android` - Android
          *     * `ios` - iOS
          * @enum {string}
@@ -2784,12 +2959,8 @@ export interface components {
             pages?: number | null;
             /** @description Markdown */
             readonly description: string;
-            /** Format: uri */
-            readonly cover: string | null;
-            /** @description url and alt */
-            readonly images: {
-                [key: string]: string;
-            }[];
+            readonly cover: components["schemas"]["Picture"] | null;
+            readonly images: components["schemas"]["Picture"][];
             /** Format: decimal */
             readonly mrp: string;
             /** Format: decimal */
@@ -2808,6 +2979,15 @@ export interface components {
             readonly attributes: components["schemas"]["AttributeValue"][];
             readonly related: string[];
             readonly web_url: string;
+            /** @description the page title staff wrote for search engines; "": use `title` */
+            readonly meta_title: string;
+            /** @description the meta description staff wrote; "": none written */
+            readonly meta_description: string;
+            /**
+             * Format: uri
+             * @description the link preview (1200×630), once made
+             */
+            readonly og_image: string | null;
         };
         /**
          * @description * `sample-papers` - Sample Papers
@@ -2817,6 +2997,10 @@ export interface components {
          * @enum {string}
          */
         ProductKindEnum: "sample-papers" | "solutions" | "bundle" | "digital";
+        ProductMoved: {
+            /** @description the renamed product's slug; Location: its products/<slug>/ */
+            redirect_to: string;
+        };
         /** @description A buyer's review as the product page shows it: "Verified buyer", never a name (many buyers are minors). */
         ProductReview: {
             rating: number;
@@ -2992,6 +3176,16 @@ export interface components {
             number: string;
             detail: string;
         };
+        Record: {
+            /** @description attempts */
+            count: number;
+            /** @description the tiers attempted, Easy to Hard */
+            tiers: components["schemas"]["TierAverage"][];
+            /** @description by name */
+            subjects: components["schemas"]["SubjectAverage"][];
+            /** @description by code */
+            papers: components["schemas"]["PaperRecord"][];
+        };
         Refund: {
             /** Format: decimal */
             readonly amount: string;
@@ -3038,6 +3232,12 @@ export interface components {
             target_minutes?: number;
             readonly clips: components["schemas"]["ClipRow"][];
         };
+        /**
+         * @description * `published` - published
+         *     * `none` - none
+         * @enum {string}
+         */
+        RevisionStatusEnum: "published" | "none";
         Saving: {
             /** @description "Coupon WELCOME10", an offer's name, "Discount" */
             label: string;
@@ -3211,6 +3411,15 @@ export interface components {
             readonly board: string;
             readonly class_level: number;
         };
+        SubjectAverage: {
+            id: number;
+            code: string;
+            name: string;
+            /** @description attempts */
+            count: number;
+            /** @description % of the full marks */
+            average: number;
+        };
         SupportConfig: {
             /**
              * Format: email
@@ -3236,6 +3445,14 @@ export interface components {
             district: string;
             /** Subject taught */
             subject: string;
+        };
+        TierAverage: {
+            tier: components["schemas"]["TierEnum"];
+            label: string;
+            /** @description attempts */
+            count: number;
+            /** @description % of the full marks, rounded as My record rounds it */
+            average: number;
         };
         /**
          * @description * `E` - Easy
@@ -4535,9 +4752,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
+                    "application/json": components["schemas"]["Plan"];
                 };
             };
         };
@@ -4775,7 +4990,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
                 "application/json": components["schemas"]["PasswordRequest"];
             };
@@ -4824,7 +5039,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
                 "application/json": components["schemas"]["PasswordRequest"];
             };
@@ -4838,6 +5053,25 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    me_export_summary_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportPart"][];
                 };
             };
         };
@@ -4861,6 +5095,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Detail"];
+                };
+            };
+        };
+    };
+    me_record_retrieve: {
+        parameters: {
+            query?: {
+                /** @description subject id */
+                subject?: number;
+                tier?: "E" | "H" | "M";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Record"];
                 };
             };
         };
@@ -5505,6 +5762,14 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Product"];
+                };
+            };
+            301: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductMoved"];
                 };
             };
         };

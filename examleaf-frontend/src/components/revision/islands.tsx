@@ -111,7 +111,7 @@ export function PlanPreview({
           const form = new FormData(event.currentTarget);
           const query = { exam_date: String(form.get("exam_date") ?? ""), minutes: Number(form.get("minutes")) };
           await run(async () => {
-            setPlan((await personal(api.GET("/api/v1/learn/plan/", { params: { query } }))) as unknown as Plan);
+            setPlan(await personal(api.GET("/api/v1/learn/plan/", { params: { query } })));
           });
         }}
       >
@@ -148,23 +148,20 @@ export function PlanPreview({
 
 type Clip = components["schemas"]["Clip"];
 
-/** A chapter's free clip: the chapter's clips, the first one open to the student, its links, the player. */
-export function FreeClip({ chapter, title }: { chapter: number; title: string }) {
-  const [clip, setClip] = useState<Clip | null | undefined>(undefined); // undefined: not asked; null: none open
+/** A chapter's free clip (the chapter list's free_preview): its links, asked for when wanted (they last 10 minutes),
+ *  and the player. */
+export function FreeClip({ clip: id, title }: { clip: number | null; title: string }) {
+  const [clip, setClip] = useState<Clip | null>(null);
   const { run, busy, error } = useAction();
   const load = () =>
     run(async () => {
-      const detail = await personal(api.GET("/api/v1/learn/chapters/{id}/", { params: { path: { id: chapter } } }));
-      const open = detail.revision.clips.find((row) => row.free && !row.locked);
-      setClip(
-        open ? await personal(api.GET("/api/v1/learn/clips/{id}/", { params: { path: { id: open.id } } })) : null,
-      );
+      if (id !== null) setClip(await personal(api.GET("/api/v1/learn/clips/{id}/", { params: { path: { id } } })));
     });
 
   if (clip) return <HlsVideo key={clip.hls_url} clip={clip} reload={load} />;
   return (
     <div className="flex flex-col items-start gap-1">
-      {clip === null ? (
+      {id === null ? (
         <p className="m-0 text-[15px] text-muted-foreground">
           No free clip in this chapter: the code in your book opens it.
         </p>
