@@ -475,7 +475,7 @@
 
 @media (max-width: 899.98px) {
   /* QrCard on a phone (Phone solutions): the eyebrow keeps clear of the stamp, the three facts share one row */
-  .paper-page .qr-card > p {
+  .paper-page .qr-card:has(.seal) > p {
     padding-right: 88px;
   }
   .paper-page .qr-card dl {

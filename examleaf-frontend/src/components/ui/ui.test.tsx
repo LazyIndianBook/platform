@@ -600,7 +600,7 @@ describe("Site pieces", () => {
       />,
     );
     expect(screen.getByRole("heading", { level: 1, name: "Physics: solutions" })).toBeInTheDocument();
-    expect(screen.getByText("Medium")).toBeInTheDocument();
+    expect(screen.getByText(/Medium/)).toBeInTheDocument(); // in the eyebrow: the artboard draws no chip row
     expect(screen.getByText("70")).toBeInTheDocument();
   });
 

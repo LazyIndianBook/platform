@@ -1,11 +1,11 @@
-// The paper's masthead (was the navy QR card), Direction A: the mono eyebrow, the title in serif, the facts in a ruled
-// row (Full marks · Pass marks · Time) and the red EXAMLEAF · OFFICIAL SOLUTIONS stamp. Same props. The stamp is
-// decorative (aria-hidden); the facts are a real <dl>.
+// The paper's masthead (was the navy QR card), as "A Solutions" draws it: the mono eyebrow (code, paper, tier,
+// class), the title in serif on one line, the facts in a ruled row (Full marks · Pass marks · Time) and the red
+// EXAMLEAF · OFFICIAL SOLUTIONS stamp, which the wall leaves out (stamp={false}). The subject, tier and code props
+// are kept for the callers; the artboard draws no chip row, the eyebrow carries their words. The stamp is decorative
+// (aria-hidden); the facts are a real <dl>.
 import { cn } from "cn";
 
-import { TIERS, type SubjectKey, type TierCode } from "@/lib/site";
-
-import { Badge, TIER_VARIANT } from "./badge";
+import type { SubjectKey, TierCode } from "@/lib/site";
 
 type QrCardProps = {
   subject: SubjectKey;
@@ -17,21 +17,19 @@ type QrCardProps = {
   facts: { label: string; value: string | number }[];
   headingLevel?: 1 | "p";
   compact?: boolean;
+  /** The red stamp at the right (default); the wall shows the masthead without it. */
+  stamp?: boolean;
 };
 
-function QrCard({ subject, subjectName, tier, code, eyebrow, title, facts, headingLevel = 1, compact }: QrCardProps) {
+function QrCard({ eyebrow, title, facts, headingLevel = 1, compact, stamp = true }: QrCardProps) {
   const Title = headingLevel === 1 ? "h1" : "p";
   return (
     <div className="qr-card relative flex flex-col gap-5">
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge variant={subject}>{subjectName}</Badge>
-        <Badge variant={TIER_VARIANT[tier]}>{TIERS[tier]}</Badge>
-        <Badge variant="code">{code}</Badge>
-      </div>
-      <p className="m-0 label-mono uppercase">{eyebrow}</p>
+      <p className={cn("m-0 label-mono uppercase", stamp && "pr-[140px] max-nav:pr-[88px]")}>{eyebrow}</p>
       <Title
         className={cn(
-          "m-0 max-w-[14ch] pr-[140px] font-head leading-none font-semibold tracking-[-0.02em] text-balance text-foreground max-nav:pr-[88px]",
+          "m-0 font-head leading-none font-semibold tracking-[-0.02em] text-balance text-foreground",
+          stamp && "pr-[140px] max-nav:pr-[88px]",
           compact ? "text-[32px]" : "text-[clamp(36px,5vw,60px)]",
         )}
       >
@@ -50,19 +48,21 @@ function QrCard({ subject, subjectName, tier, code, eyebrow, title, facts, headi
           </div>
         ))}
       </dl>
-      <span
-        aria-hidden="true"
-        className={cn(
-          "seal absolute top-2 right-0 max-nav:size-[76px] max-nav:text-[9px]",
-          compact && "size-24 text-[10px]",
-        )}
-      >
-        ExamLeaf
-        <br />
-        Official
-        <br />
-        solutions
-      </span>
+      {stamp ? (
+        <span
+          aria-hidden="true"
+          className={cn(
+            "seal absolute top-2 right-0 max-nav:size-[76px] max-nav:text-[9px]",
+            compact && "size-24 text-[10px]",
+          )}
+        >
+          ExamLeaf
+          <br />
+          Official
+          <br />
+          solutions
+        </span>
+      ) : null}
     </div>
   );
 }

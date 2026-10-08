@@ -142,7 +142,8 @@ export default async function PaperPage({ params }: Props) {
       <Breadcrumb trail={trail} className="max-nav:hidden" />
     </>
   );
-  const qrCard = (
+  // the paper's head; the wall (Solutions logged out) carries no stamp
+  const paperHead = (stamp = true) => (
     <QrCard
       subject={subject?.key ?? "physics"}
       subjectName={subjectName}
@@ -151,6 +152,7 @@ export default async function PaperPage({ params }: Props) {
       eyebrow={eyebrow}
       title={`${subjectName}: solutions`}
       facts={facts}
+      stamp={stamp}
     />
   );
 
@@ -161,7 +163,7 @@ export default async function PaperPage({ params }: Props) {
       <div className="paper-page">
         <Sheet margin={short} className="max-nav:[&>.sheet-margin]:hidden" bodyClassName="pt-7 max-nav:pt-4">
           {masthead}
-          {qrCard}
+          {paperHead(false)}
           <div className="wall">
             <div className="wall-main">
               {gate === "confirm" ? (
@@ -252,7 +254,7 @@ export default async function PaperPage({ params }: Props) {
         <div className="paper-grid">
           <div className="paper-main">
             <div className="paper-head">
-              {qrCard}
+              {paperHead()}
               <span aria-hidden="true" className="paper-col-label">
                 Marks
               </span>
