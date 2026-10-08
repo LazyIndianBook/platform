@@ -1,20 +1,15 @@
-// /account/record/: My record (Django's record.html, Account artboard): the average of each tier (GET me/record/) and
-// the attempts the student saved (GET attempts/, 50 to a page, each with Edit), filtered by subject and tier with a
-// plain GET form.
-import Form from "next/form";
+// /account/record/: My record (Account artboard "Record", Gaps "Record filters", Phone "Phone record"): the attempts
+// the student saved (GET attempts/, 50 to a page) as MarkedRows grouped by tier, each tier closed by its average
+// (GET me/record/ for the same filter), filtered by subject (tabs with their counts) and tier (chips) with plain
+// links. A filter that matches nothing says so, with Clear the filters (G10); nothing saved at all has its own state.
 import Link from "next/link";
 
-import { ConsentPending, PageHead, Problem, TierAverages } from "@/components/account/parts";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
-import { Field } from "@/components/ui/field";
-import { Select } from "@/components/ui/native-select";
+import { CompactEmpty, ConsentPending, goLink, PageHead, Problem } from "@/components/account/parts";
+import { RecordFilters, recordHref, RecordList, RecordNoMatch } from "@/components/account/record";
 import { Pagination } from "@/components/ui/pagination";
-import { Table, TableCell, TableHead } from "@/components/ui/table";
 import { getAttempts, getMe, getRecord, getSubjects, settle } from "@/lib/api/account";
 import { ApiError } from "@/lib/api/errors";
 import { pageInfo, pageParam } from "@/lib/api/pagination";
-import { formatDate } from "@/lib/dates";
 import { pageMetadata } from "@/lib/seo/metadata";
 import { TIERS } from "@/lib/site";
 
@@ -32,138 +27,82 @@ export default async function RecordPage({ searchParams }: Props) {
   const query = await searchParams;
   const subjectId = Number(query.subject) || undefined;
   const tier = (["E", "M", "H"] as const).find((code) => code === query.tier);
-  const filter = { ...(subjectId ? { subject: String(subjectId) } : {}), ...(tier ? { tier } : {}) };
-  const path = `/account/record/?${new URLSearchParams(filter)}`;
+  const filter = { subject: subjectId, tier };
+  const filtered = Boolean(subjectId || tier);
   const page = pageParam(query.page);
+  const path = recordHref(filter, page);
 
-  const [list, record, subjects, me] = await Promise.all([
-    settle(getAttempts({ subject: subjectId, tier, page, page_size: PER_PAGE }), path),
-    settle(getRecord({ subject: subjectId, tier }), path),
+  const [list, record, all, subjects, me] = await Promise.all([
+    settle(getAttempts({ ...filter, page, page_size: PER_PAGE }), path),
+    settle(getRecord(filter), path),
+    filtered ? settle(getRecord(), path) : null,
     getSubjects().catch(() => []),
     getMe().catch(() => null),
   ]);
   const head = (
     <PageHead title="My record" lead="The marks you saved for each paper, with your average for each tier." />
   );
-  if (list instanceof ApiError || record instanceof ApiError) {
+  if (list instanceof ApiError || record instanceof ApiError || all instanceof ApiError) {
+    const failed = [list, record, all].find((answer) => answer instanceof ApiError) as ApiError;
     return (
       <>
         {head}
-        <Problem error={list instanceof ApiError ? list : (record as ApiError)} what="My record" retry={path} />
+        <Problem error={failed} what="My record" retry={path} />
       </>
     );
   }
-
+  const everything = all ?? record; // unfiltered: the same answer
+  const counted = (id: number) => everything.subjects.find((item) => item.id === id)?.count ?? 0;
   const subject = subjects.find((item) => item.id === subjectId);
-  const filtered = [tier && TIERS[tier], subject?.name, (tier || subject) && "papers"].filter(Boolean).join(" ");
-  const savedAny = list.count > 0 || (filtered && (await getRecord().catch(() => null))?.count);
   const { pages } = pageInfo(list, page, PER_PAGE);
-  const rows = list.results;
-  const averages = record.tiers;
+  // the tiers with nothing saved for this subject (every tier when none is chosen)
+  const missing = tier
+    ? []
+    : (["E", "M", "H"] as const).filter((code) => !record.tiers.some((row) => row.tier === code));
 
   return (
     <>
       {head}
-      {me?.consent_pending ? <ConsentPending what="you can read the solutions but not save marks" /> : null}
-      <Form action="/account/record/" className="flex flex-wrap items-end gap-3">
-        <Field id="subject" label="Subject" className="flex-[1_1_180px]">
-          <Select name="subject" defaultValue={subjectId ?? ""}>
-            <option value="">All subjects</option>
-            {subjects.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <Field id="tier" label="Tier" className="flex-[1_1_180px]">
-          <Select name="tier" defaultValue={tier ?? ""}>
-            <option value="">All tiers</option>
-            {Object.entries(TIERS).map(([code, label]) => (
-              <option key={code} value={code}>
-                {label}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <Button type="submit" variant="secondary" className="min-h-12">
-          Show
-        </Button>
-      </Form>
+      {me?.consent_pending ? (
+        <ConsentPending what="you can read the solutions but not save marks" contact={me.parent_contact} />
+      ) : null}
+      {everything.count ? (
+        <RecordFilters
+          filter={filter}
+          total={everything.count}
+          subjects={subjects.map((item) => ({ id: item.id, name: item.name, count: counted(item.id) }))}
+        />
+      ) : null}
 
-      {averages.length ? <TierAverages averages={averages} /> : null}
-
-      {rows.length ? (
+      {list.results.length ? (
         <>
-          <Table caption="The marks you saved">
-            <thead>
-              <tr>
-                <TableHead>Paper</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead numeric>Marks</TableHead>
-                <TableHead numeric>Time</TableHead>
-                <TableHead>What to revise</TableHead>
-                <TableHead>
-                  <span className="sr-only">Edit</span>
-                </TableHead>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((attempt) => (
-                <tr key={attempt.id}>
-                  <TableCell>
-                    <Link href={`/s/${attempt.paper}/`} className="font-head font-bold">
-                      {attempt.paper}
-                    </Link>
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap">{attempt.date ? formatDate(attempt.date) : ""}</TableCell>
-                  <TableCell numeric>
-                    {Number(attempt.marks_obtained)}/{attempt.full_marks}
-                  </TableCell>
-                  <TableCell numeric>{attempt.time_taken_minutes ? `${attempt.time_taken_minutes} min` : ""}</TableCell>
-                  <TableCell className="min-w-48 whitespace-pre-line">{attempt.notes}</TableCell>
-                  <TableCell>
-                    <Link
-                      href={`/account/record/${attempt.id}/edit/`}
-                      className="-my-2.5 inline-flex min-h-11 items-center font-semibold"
-                    >
-                      Edit<span className="sr-only"> {attempt.paper}</span>
-                    </Link>
-                  </TableCell>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-          <Pagination
-            page={page}
-            pages={pages}
-            href={(number) => `/account/record/?${new URLSearchParams({ ...filter, page: String(number) })}`}
-          />
+          <RecordList attempts={list.results} averages={record.tiers} short={Boolean(subject)} />
+          {missing.length && missing.length < 3 ? (
+            <p className="m-0 text-[15px] text-muted-foreground">
+              {missing.map((code) => `${TIERS[code]} papers: none saved yet.`).join(" ")}
+              {missing.includes("H") ? " Start with H-01 when the Medium ten feel comfortable." : ""}
+            </p>
+          ) : null}
+          <Pagination page={page} pages={pages} href={(number) => recordHref(filter, number)} />
         </>
-      ) : filtered && savedAny ? (
-        <EmptyState
-          art="results"
-          title={`No ${filtered} saved yet`}
-          action={
-            <Link href="/account/record/" className={buttonVariants({ variant: "primary" })}>
-              Show all
-            </Link>
-          }
-        >
-          <p>The filter shows {filtered} only. Choose another subject or tier, or show every paper you saved.</p>
-        </EmptyState>
+      ) : everything.count ? (
+        <RecordNoMatch
+          subject={subject?.name}
+          tier={tier}
+          inSubject={subjectId ? counted(subjectId) : 0}
+          total={everything.count}
+        />
       ) : (
-        <EmptyState
-          art="attempts"
-          title="Nothing recorded yet"
-          action={
-            <Link href="/#books" className={buttonVariants({ variant: "primary" })}>
-              Choose a book
+        <CompactEmpty
+          title="Nothing saved yet"
+          actions={
+            <Link href="/#books" className={goLink}>
+              Choose a book →
             </Link>
           }
         >
           <p>After you mark a paper against its solutions, save your score at the end of the solutions page.</p>
-        </EmptyState>
+        </CompactEmpty>
       )}
     </>
   );
