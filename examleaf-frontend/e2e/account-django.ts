@@ -42,6 +42,46 @@ export function makeBookCode(subject: string, batch: string): string {
   return csv.trim().split("\n")[1].split(",")[0];
 }
 
+/** For Learning (8E): a Physics chapter of its own (`title`, numbered after the others) with a published revision of
+ *  three processed clips (no files: nothing plays) and a quiz item; the student, open to Physics for a year, has
+ *  watched the first clip and answered the quiz item wrong yesterday (so it is due again today). */
+export function seedLearning(email: string, title: string) {
+  manage(
+    "shell",
+    "-c",
+    `
+from datetime import timedelta
+from django.db.models import Max
+from django.utils import timezone
+from accounts.models import User
+from content.models import Subject
+from learn.models import Chapter, Clip, Entitlement, Progress, QuizAttempt, QuizItem, Revision
+user, subject, title = User.objects.get(email=${py(email)}), Subject.objects.get(code="PHY"), ${py(title)}
+number = (Chapter.objects.filter(subject=subject).aggregate(n=Max("number"))["n"] or 0) + 1
+chapter = Chapter.objects.create(subject=subject, number=number, title=title, weight=5, frequency=3)
+revision = Revision.objects.create(chapter=chapter, title=f"Revise {title}", status="published")
+clips = [Clip.objects.create(revision=revision, order=i, title=f"{title}: clip {i}", processing="ready", duration=120, hls_path=f"learn/hls/{title}-{i}/v1/master.m3u8") for i in (1, 2, 3)]
+Entitlement.objects.create(user=user, subject=subject, valid_until=timezone.localdate() + timedelta(days=365))
+Progress.objects.create(user=user, clip=clips[0], seconds_watched=120, completed=True)
+item = QuizItem.objects.create(chapter=chapter, kind="true_false", text="Charge is quantised.", answer="true")
+QuizAttempt.objects.create(user=user, item=item, correct=False, created=timezone.now() - timedelta(days=1))
+`,
+  );
+}
+
+/** The students and the chapter of seedLearning (its revision, clips, quiz item and the students' rows go with them). */
+export function deleteLearning(emails: string[], title: string) {
+  manage(
+    "shell",
+    "-c",
+    `
+from accounts.models import User
+from learn.models import Chapter
+print(User.objects.filter(email__in=${JSON.stringify(emails)}, is_staff=False).delete(), Chapter.objects.filter(title=${py(title)}).delete())
+`,
+  );
+}
+
 export function deleteStudent(email: string, batch: string) {
   manage(
     "shell",

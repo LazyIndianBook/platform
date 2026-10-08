@@ -982,6 +982,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/learning/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The student's learning dashboard: what is open, progress per subject and chapter, the clip to continue with,
+         *     the revise-again counts, the plan's next three days and the streak. Only the user's own rows; read-only, so also
+         *     while a parent's confirmation is awaited; never cached.
+         */
+        get: operations["me_learning_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/parent-consent/": {
         parameters: {
             query?: never;
@@ -1935,6 +1956,14 @@ export interface components {
             readonly flash_cards: number;
             readonly quiz_items: number;
         };
+        ChapterRef: {
+            readonly id: number;
+            subject: number;
+            subject_name: string;
+            /** Format: int64 */
+            number: number;
+            title: string;
+        };
         Checked: {
             correct: boolean;
             right_answer: string;
@@ -2052,6 +2081,11 @@ export interface components {
             website?: string;
             /** @description Turnstile's token while the bot check is on */
             turnstile?: string;
+        };
+        Continue: {
+            clip: components["schemas"]["NextClip"];
+            revision: components["schemas"]["RevisionRef"];
+            chapter: components["schemas"]["ChapterRef"];
         };
         CouponRequest: {
             code: string;
@@ -2238,6 +2272,63 @@ export interface components {
             /** Daily reminder in the app */
             reminders?: boolean;
         };
+        Learning: {
+            /** @description what is open today */
+            entitlements: components["schemas"]["Entitlement"][];
+            /** @description the subjects open to the user or watched, by id */
+            subjects: components["schemas"]["LearningSubject"][];
+            /** @description the next clip of the revision watched last; null before any clip */
+            continue_watching: components["schemas"]["Continue"] | null;
+            revise_again: components["schemas"]["ReviseAgainCount"];
+            plan: components["schemas"]["NextDays"];
+            streak: components["schemas"]["Streak"];
+            /** @description a parent's confirmation is awaited: nothing is saved */
+            consent_pending: boolean;
+            /** @description config/ has a link to the app in a store */
+            has_app_links: boolean;
+        };
+        LearningChapter: {
+            /** @description watched to the end */
+            clips_watched: number;
+            /** @description processed clips of its published revisions */
+            clips_total: number;
+            /** @description at most each clip's length */
+            minutes_watched: number;
+            quiz_answers: number;
+            /** @description % of the quiz answers right; null: none yet */
+            quiz_accuracy: number | null;
+            /**
+             * Format: date-time
+             * @description the latest clip watched or quiz answer
+             */
+            last_activity: string | null;
+            id: number;
+            number: number;
+            title: string;
+        };
+        LearningSubject: {
+            /** @description watched to the end */
+            clips_watched: number;
+            /** @description processed clips of its published revisions */
+            clips_total: number;
+            /** @description at most each clip's length */
+            minutes_watched: number;
+            quiz_answers: number;
+            /** @description % of the quiz answers right; null: none yet */
+            quiz_accuracy: number | null;
+            /**
+             * Format: date-time
+             * @description the latest clip watched or quiz answer
+             */
+            last_activity: string | null;
+            id: number;
+            code: string;
+            name: string;
+            /** @description open to the user today */
+            entitled: boolean;
+            /** @description its chapters with a published revision, by number */
+            chapters: components["schemas"]["LearningChapter"][];
+        };
         LinkSent: {
             /** @description always: If an order matches, we have emailed you a link. */
             detail: string;
@@ -2260,6 +2351,33 @@ export interface components {
              * @description the address the order was placed with
              */
             email: string;
+        };
+        NextClip: {
+            readonly id: number;
+            readonly order: number;
+            readonly title: string;
+            readonly kind: components["schemas"]["ClipKindEnum"];
+            /** Seconds */
+            readonly duration: number;
+            /** @description a free preview: plays for anyone signed in */
+            free: boolean;
+            /** @description neither free nor open to the user: learn/clips/<id>/ answers 403 */
+            locked: boolean;
+            /** @description of it so far */
+            seconds_watched: number;
+        };
+        NextDays: {
+            /**
+             * Format: date
+             * @description saved in learn/settings/
+             */
+            exam_date: string | null;
+            days_left: number | null;
+            minutes_per_day: number;
+            /** @description the first three days of learn/plan/ */
+            days: components["schemas"]["PlanDay"][];
+            /** @description why there are no days; empty when there are */
+            hint: string;
         };
         /** @enum {unknown} */
         NullEnum: null;
@@ -3226,11 +3344,21 @@ export interface components {
             /** @description the student knew the back */
             known: boolean;
         };
+        ReviseAgainCount: {
+            /** @description quiz items and flash cards due today or before */
+            due_today: number;
+            /** @description answered wrong, due on a later day */
+            later: number;
+        };
         Revision: {
             title: string;
             /** @description 10 to 15. */
             target_minutes?: number;
             readonly clips: components["schemas"]["ClipRow"][];
+        };
+        RevisionRef: {
+            readonly id: number;
+            title: string;
         };
         /**
          * @description * `published` - published
@@ -3404,6 +3532,17 @@ export interface components {
          * @enum {string}
          */
         StateEnum: "KA" | "AP" | "KL" | "TN" | "MH" | "UP" | "GA" | "GJ" | "RJ" | "HP" | "TG" | "AR" | "AS" | "BR" | "CT" | "HR" | "JH" | "MP" | "MN" | "ML" | "MZ" | "NL" | "OR" | "PB" | "SK" | "TR" | "UT" | "WB" | "AN" | "CH" | "DH" | "DL" | "JK" | "LD" | "LA" | "PY";
+        Streak: {
+            /** @description in a row with a clip watched, a quiz answer or a card review */
+            days: number;
+            /** @description today counts already (else the days run to yesterday) */
+            today: boolean;
+            /**
+             * Format: date
+             * @description the latest day with activity
+             */
+            last_day: string | null;
+        };
         Subject: {
             readonly id: number;
             name: string;
@@ -5072,6 +5211,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ExportPart"][];
+                };
+            };
+        };
+    };
+    me_learning_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Learning"];
                 };
             };
         };

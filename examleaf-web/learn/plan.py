@@ -34,6 +34,13 @@ def priority(chapter, weak):
     return chapter.weight * max(chapter.frequency, 1) * (1 + weak.get(chapter.pk, 0))
 
 
+def default_subjects(user):
+    """The subjects of published revisions that are open to the user, or all of them when none is open."""
+    published = Chapter.objects.filter(revision__status=Revision.Status.PUBLISHED)
+    published, entitled = set(published.values_list("subject", flat=True)), entitled_subjects(user)
+    return {subject for subject in published if subject in entitled} or published
+
+
 def build(user, subjects, exam_date, minutes_per_day, today=None):
     """Greedy: chapters by priority, their unwatched clips in order, packed into days of `minutes_per_day` (a clip
     longer than that gets a day of its own) from today until the day before the exam."""
@@ -45,7 +52,8 @@ def build(user, subjects, exam_date, minutes_per_day, today=None):
         )
     )
     clips = defaultdict(list)
-    for clip in Clip.objects.filter(revision__chapter__in=chapters, processing=Clip.Processing.READY):
+    ready = Clip.objects.filter(revision__chapter__in=chapters, processing=Clip.Processing.READY)
+    for clip in ready.select_related("revision"):  # its chapter, without a query per clip
         clips[clip.revision.chapter_id].append(clip)
     watched = set(Progress.objects.filter(user=user, completed=True).values_list("clip_id", flat=True))
     weak = weakness(user, chapters)

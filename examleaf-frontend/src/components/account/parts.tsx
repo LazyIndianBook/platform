@@ -6,9 +6,19 @@ import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Badge, TIER_VARIANT } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
+import { type EmptyArt, EmptyDrawing, EmptyState } from "@/components/ui/empty-state";
 import type { ApiError } from "@/lib/api/errors";
 import { TIERS } from "@/lib/site";
+
+/** A card's own empty state: the drawing beside a line of text, in a dashed box (My account, Learning). */
+export function CompactEmpty({ art, children }: { art: EmptyArt; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-4 rounded-lg border-2 border-dashed border-border p-4 text-muted-foreground [&_p]:m-0">
+      <EmptyDrawing art={art} />
+      <div>{children}</div>
+    </div>
+  );
+}
 
 export function PageHead({ title, lead }: { title: string; lead?: React.ReactNode }) {
   return (

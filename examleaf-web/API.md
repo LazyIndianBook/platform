@@ -59,6 +59,7 @@ valid access token (or the website's session); **confirmed** also needs a confir
 | GET POST | `me/teacher/` | confirmed | teacher access: its status; ask for it (once) |
 | POST | `me/parent-consent/` | signed in | the parent's link to confirm, again (while `consent_pending`) |
 | GET | `me/record/` (`?subject=&tier=`) | confirmed | My record in figures: averages per tier and subject, each paper's best and latest attempt |
+| GET | `me/learning/` | confirmed | the learning dashboard: what is open, progress per subject and chapter, the clip to continue with, revise-again counts, the plan's next three days, the streak |
 | GET | `boards/`, `boards/<id>/` | anyone | the boards |
 | GET | `subjects/` (`?board=`), `subjects/<id>/` | anyone | the subjects |
 | GET | `books/`, `books/<slug>/` | anyone | books with their published papers |
@@ -780,6 +781,35 @@ user and per client address (429). `learn/entitlements/` lists them all, newest 
 
 **Settings** (`learn/settings/`): `exam_date` (null until set), `minutes_per_day` (10 to 300, default 30),
 `reminders` (the daily reminder at 18:00, off until turned on).
+
+**Learning** (`me/learning/`, the website's Learning page; `Learning` in the schema): the signed-in student's own
+course in one answer, from the rows the course keeps (no table of its own), `Cache-Control: private, no-store`, and
+readable while a parent's confirmation is awaited. `entitlements`: those open today (as `learn/entitlements/`).
+`subjects`: each subject open to the student or whose clips they watched, with `entitled`, `clips_watched` of
+`clips_total` (processed clips of published revisions), `minutes_watched` (at most each clip's length),
+`quiz_answers`, `quiz_accuracy` (% right; null before an answer), `last_activity` (the latest clip watched or quiz
+answer), and the same per published chapter in `chapters`. `continue_watching`: the next unwatched clip of the revision
+watched last (of the one before, when that one is done): `clip` (`free`, `locked`: neither free nor open, so
+`learn/clips/<id>/` answers 403; `seconds_watched`), `revision`, `chapter`; null before any clip. `revise_again`:
+`due_today` (or before) and `later`, the counts of `learn/revise-again/`. `plan`: the first three days of
+`learn/plan/` for the exam date and minutes saved in `learn/settings/`; without an exam date after today, or with
+nothing left to plan, `days` is empty and `hint` says why (empty otherwise). `streak`: `days` in a row with a clip
+watched, a quiz answer or a card review, up to today (`today` true) or yesterday, and `last_day` (a clip counts on the
+day it was last watched). `consent_pending`, and `has_app_links` (`config/` has a store link).
+
+```sh
+curl https://examleaf.in/api/v1/me/learning/ -H "Authorization: Bearer $ACCESS"
+# 200 {"entitlements": [{"id": 4, "subject": 1, "subject_name": "Physics", "source": "book_code", ...}],
+#      "subjects": [{"id": 1, "code": "PHY", "name": "Physics", "entitled": true, "clips_watched": 5, "clips_total": 18,
+#                    "minutes_watched": 12, "quiz_answers": 4, "quiz_accuracy": 25, "last_activity": "...",
+#                    "chapters": [{"id": 3, "number": 1, "title": "Electric Charges and Fields", "clips_watched": 4, ...}]}],
+#      "continue_watching": {"clip": {"id": 42, "order": 2, "title": "...", "kind": "concept", "duration": 140,
+#          "free": false, "locked": false, "seconds_watched": 30}, "revision": {"id": 5, "title": "..."},
+#          "chapter": {"id": 3, "subject": 1, "subject_name": "Physics", "number": 1, "title": "..."}},
+#      "revise_again": {"due_today": 2, "later": 1},
+#      "plan": {"exam_date": "2027-02-20", "days_left": 135, "minutes_per_day": 30, "days": [...], "hint": ""},
+#      "streak": {"days": 4, "today": true, "last_day": "2026-10-08"}, "consent_pending": false, "has_app_links": false}
+```
 
 **Devices** (`devices/`): after log-in, and whenever Firebase gives a new one,
 `POST {"token": "<Firebase installation ID>", "platform": "android"}` (or `ios`): the ID of

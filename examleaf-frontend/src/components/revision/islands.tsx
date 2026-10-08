@@ -148,9 +148,17 @@ export function PlanPreview({
 
 type Clip = components["schemas"]["Clip"];
 
-/** A chapter's free clip (the chapter list's free_preview): its links, asked for when wanted (they last 10 minutes),
- *  and the player. */
-export function FreeClip({ clip: id, title }: { clip: number | null; title: string }) {
+/** A chapter's free clip (the chapter list's free_preview), or with a `label` any clip open to the student (Learning's
+ *  Continue): its links, asked for when wanted (they last 10 minutes), and the player. */
+export function FreeClip({
+  clip: id,
+  title,
+  label = "Watch the free clip",
+}: {
+  clip: number | null;
+  title: string;
+  label?: string;
+}) {
   const [clip, setClip] = useState<Clip | null>(null);
   const { run, busy, error } = useAction();
   const load = () =>
@@ -169,7 +177,8 @@ export function FreeClip({ clip: id, title }: { clip: number | null; title: stri
         <Button variant="ghost" size="sm" busy={busy} onClick={load}>
           <CirclePlay aria-hidden="true" />
           <span>
-            Watch the free clip<span className="sr-only">: {title}</span>
+            {label}
+            <span className="sr-only">: {title}</span>
           </span>
         </Button>
       )}
@@ -234,5 +243,42 @@ function HlsVideo({ clip, reload }: { clip: Clip; reload: () => void }) {
         </div>
       ) : null}
     </figure>
+  );
+}
+
+const PICK_A_DAY = "Choose the day of your exam: a date after today.";
+
+/** The exam date (PATCH learn/settings/) for Learning's next three days, which the page reads again once it is saved. */
+export function ExamDateForm({ examDate }: { examDate: string | null }) {
+  const router = useRouter();
+  const { run, busy, error, setError } = useAction();
+  const [tomorrow] = useState(() => dateInIndia(new Date(Date.now() + 86_400_000)));
+  return (
+    <>
+      <ErrorSummary error={error} labels={{ exam_date: "Exam date" }} />
+      <form
+        className="flex flex-wrap items-end gap-3"
+        noValidate
+        onSubmit={async (event) => {
+          event.preventDefault();
+          const date = String(new FormData(event.currentTarget).get("exam_date") ?? "");
+          if (!date || date < tomorrow) {
+            setError(new ApiError(400, "invalid", PICK_A_DAY, { exam_date: [PICK_A_DAY] }));
+            return;
+          }
+          const ok = await run(() => personal(api.PATCH("/api/v1/learn/settings/", { body: { exam_date: date } })));
+          if (!ok) return;
+          toast.success(`Your exam date is saved: ${formatDate(date, "long")}.`);
+          router.refresh();
+        }}
+      >
+        <Field id="exam_date" label="Exam date" className="flex-[1_1_160px]" error={fieldError(error, "exam_date")}>
+          <Input name="exam_date" type="date" min={tomorrow} defaultValue={examDate ?? ""} />
+        </Field>
+        <Button type="submit" variant="secondary" busy={busy} className="min-h-12">
+          Save the date
+        </Button>
+      </form>
+    </>
   );
 }

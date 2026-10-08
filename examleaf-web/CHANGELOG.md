@@ -5,6 +5,23 @@ commits are in `git log` (phase 4: abffe6f and e5abda5; phase 5 A and B with the
 and E: 4e30e59; the redesign's stage 2 so far: ba0b9dd). Details of each feature are in README.md; the numbers of the
 tests are those of `pytest` at the end of the phase.
 
+## Phase 8E learning dashboard (8 October 2026)
+
+A Learning page in the account (examleaf-frontend `/account/learning/`) and the endpoint behind it. 471 tests pass
+(7 skipped); no migration.
+
+- **`GET me/learning/`** (`learn/dashboard.py`, `api.learn.LearningView`, typed `Learning` in the schema): what is open
+  today; per subject and chapter the clips watched of the processed ones, minutes watched, quiz answers and the share
+  right, the latest activity; the next unwatched clip of the revision watched last, with its revision and chapter
+  (`free`, `locked`); the revise-again counts due today and later; the plan's first three days for the saved exam
+  date (empty, with a `hint`, without one); the streak of days with a clip, a quiz answer or a card review (a clip
+  counts on the day it was last watched: `Progress` keeps one row per clip); `consent_pending`, `has_app_links`. Only
+  the user's rows, `private, no-store`, readable while a parent's confirmation is awaited (API.md "Learning").
+- `learn.plan.default_subjects` (the subjects open to the user, or all) is shared by `learn/plan/` and the dashboard;
+  the plan reads each clip's revision in the same query (it made one query per clip).
+- Tests: `learn/test_dashboard.py` (a student with an open subject, watching and answers; one with nothing; a free
+  clip watched and a locked next clip; a student waiting for a parent's consent).
+
 ## Phase 8 backend, account part (8 October 2026)
 
 What the account and revision pages (8C) asked of the API, docs/examleaf-phase8-nextjs-plan.md "Backend gaps found

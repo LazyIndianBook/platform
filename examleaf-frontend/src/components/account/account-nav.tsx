@@ -11,6 +11,7 @@ import { useEffect, useRef } from "react";
 const LINKS = [
   { href: "/account/", label: "My account" },
   { href: "/account/record/", label: "My record" },
+  { href: "/account/learning/", label: "Learning" },
   { href: "/account/orders/", label: "My orders" },
   { href: "/account/details/", label: "Details" },
   { href: "/account/addresses/", label: "Addresses" },

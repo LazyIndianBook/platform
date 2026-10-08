@@ -51,6 +51,7 @@ urlpatterns = [
     path("me/export/", views.DataExportView.as_view(), name="me-export"),
     path("me/export/summary/", views.DataExportSummaryView.as_view(), name="me-export-summary"),
     path("me/record/", views.RecordView.as_view(), name="me-record"),  # My record in figures
+    path("me/learning/", learn.LearningView.as_view(), name="me-learning"),  # the learning dashboard
     path("me/deletion/", views.DeletionView.as_view(), name="me-deletion"),
     path("me/teacher/", views.TeacherView.as_view(), name="me-teacher"),
     path("me/parent-consent/", views.ParentConsentView.as_view(), name="me-parent-consent"),

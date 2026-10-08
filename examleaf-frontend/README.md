@@ -122,6 +122,21 @@ Dependencies beyond the framework: `hls.js` (8C, the free clips) and `lean-qr` (
 the authenticator app's QR code drawn in the browser from its `otpauth://` link, which holds the secret and so never
 goes to an image service; `qrcode` would be about ten times the size with `pngjs` and `yargs`).
 
+## Routes
+
+- `(public)`: `/`, `/books/<slug>/`, `/s/<code>/`, `/c/<token>/` (a parent's link), `/about/`, the legal pages
+  (`/privacy/`, `/terms/`, `/refunds/`, `/shipping/`, `/contact/`), `/offline/`.
+- `(shop)`: `/shop/`, `/shop/<slug>/`, `/shop/category/<slug>/`, `/shop/collection/<slug>/`, `/shop/school-orders/`,
+  `/cart/`, `/checkout/` (`<number>/pay/`, `<number>/done/`, `t/<token>/pay/`, `t/<token>/done/`), `/orders/`
+  (`<number>/`, `lookup/`, `t/<token>/`).
+- `(auth)`: `/account/login/`, `/account/signup/`, `/account/verify-email/`, `/account/password/reset/`
+  (`key/<key>/`), `/account/reauthenticate/`, `/account/2fa/authenticate/`, `/account/logout/`.
+- `(account)`: `/account/`, `/account/record/` (`<id>/edit/`), `/account/learning/` (8E: `GET me/learning/`: the
+  clip to continue with, the next three days and the exam date, the revise-again counts, progress per subject and
+  chapter, what is open, the streak), `/account/orders/` (`<number>/`), `/account/details/`, `/account/addresses/`,
+  `/account/security/`, `/account/2fa/`, `/account/privacy/`, `/account/teacher/`; and `/revision/` (public, with
+  the signed-in student's parts; `#chapters`, `#plan` and `#app` are its sections).
+
 ## Add a route
 
 Server component by default: `src/app/(public)/<path>/page.tsx` (public), `(auth)` (sign-in pages, noindex) or

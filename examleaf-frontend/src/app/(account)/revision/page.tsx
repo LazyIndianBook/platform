@@ -80,7 +80,9 @@ export default async function RevisionPage() {
 
         <div className="flex flex-wrap items-start gap-8">
           <div className="flex min-w-0 flex-[999_1_600px] flex-col gap-4 [&>h2]:m-0 [&>p]:m-0">
-            <h2 className="text-title">Chapters and their marks</h2>
+            <h2 id="chapters" className="text-title">
+              Chapters and their marks
+            </h2>
             <p className="text-muted-foreground">
               The marks the Board gives each chapter, and how many of its questions the Board has set in past papers.
             </p>
@@ -206,7 +208,7 @@ export default async function RevisionPage() {
               </CardContent>
             </Card>
             {user && !(entitlements instanceof ApiError && entitlements.status === 403) ? (
-              <Card>
+              <Card id="plan">
                 <CardHeader>
                   <CardTitle>Plan to your exam</CardTitle>
                   <CardDescription>
@@ -222,7 +224,7 @@ export default async function RevisionPage() {
                 </CardContent>
               </Card>
             ) : null}
-            <Card>
+            <Card id="app">
               <CardHeader>
                 <CardTitle>Get the app</CardTitle>
                 <CardDescription>Log in there with the same email address as on this site.</CardDescription>

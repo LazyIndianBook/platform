@@ -3036,6 +3036,35 @@
                 }
             }
         },
+        "/api/v1/me/learning/": {
+            "get": {
+                "operationId": "me_learning_retrieve",
+                "description": "The student's learning dashboard: what is open, progress per subject and chapter, the clip to continue with,\nthe revise-again counts, the plan's next three days and the streak. Only the user's own rows; read-only, so also\nwhile a parent's confirmation is awaited; never cached.",
+                "tags": [
+                    "account"
+                ],
+                "security": [
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Learning"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
         "/api/v1/me/parent-consent/": {
             "post": {
                 "operationId": "me_parent_consent_create",
@@ -5976,6 +6005,38 @@
                     "title"
                 ]
             },
+            "ChapterRef": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "subject": {
+                        "type": "integer"
+                    },
+                    "subject_name": {
+                        "type": "string"
+                    },
+                    "number": {
+                        "type": "integer",
+                        "maximum": 9223372036854775807,
+                        "minimum": 0,
+                        "format": "int64"
+                    },
+                    "title": {
+                        "type": "string",
+                        "maxLength": 200
+                    }
+                },
+                "required": [
+                    "id",
+                    "number",
+                    "subject",
+                    "subject_name",
+                    "title"
+                ]
+            },
             "Checked": {
                 "type": "object",
                 "properties": {
@@ -6320,6 +6381,25 @@
                     "email",
                     "message",
                     "name"
+                ]
+            },
+            "Continue": {
+                "type": "object",
+                "properties": {
+                    "clip": {
+                        "$ref": "#/components/schemas/NextClip"
+                    },
+                    "revision": {
+                        "$ref": "#/components/schemas/RevisionRef"
+                    },
+                    "chapter": {
+                        "$ref": "#/components/schemas/ChapterRef"
+                    }
+                },
+                "required": [
+                    "chapter",
+                    "clip",
+                    "revision"
                 ]
             },
             "CouponRequest": {
@@ -6853,6 +6933,176 @@
                     }
                 }
             },
+            "Learning": {
+                "type": "object",
+                "properties": {
+                    "entitlements": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Entitlement"
+                        },
+                        "description": "what is open today"
+                    },
+                    "subjects": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/LearningSubject"
+                        },
+                        "description": "the subjects open to the user or watched, by id"
+                    },
+                    "continue_watching": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/Continue"
+                            }
+                        ],
+                        "nullable": true,
+                        "description": "the next clip of the revision watched last; null before any clip"
+                    },
+                    "revise_again": {
+                        "$ref": "#/components/schemas/ReviseAgainCount"
+                    },
+                    "plan": {
+                        "$ref": "#/components/schemas/NextDays"
+                    },
+                    "streak": {
+                        "$ref": "#/components/schemas/Streak"
+                    },
+                    "consent_pending": {
+                        "type": "boolean",
+                        "description": "a parent's confirmation is awaited: nothing is saved"
+                    },
+                    "has_app_links": {
+                        "type": "boolean",
+                        "description": "config/ has a link to the app in a store"
+                    }
+                },
+                "required": [
+                    "consent_pending",
+                    "continue_watching",
+                    "entitlements",
+                    "has_app_links",
+                    "plan",
+                    "revise_again",
+                    "streak",
+                    "subjects"
+                ]
+            },
+            "LearningChapter": {
+                "type": "object",
+                "properties": {
+                    "clips_watched": {
+                        "type": "integer",
+                        "description": "watched to the end"
+                    },
+                    "clips_total": {
+                        "type": "integer",
+                        "description": "processed clips of its published revisions"
+                    },
+                    "minutes_watched": {
+                        "type": "integer",
+                        "description": "at most each clip's length"
+                    },
+                    "quiz_answers": {
+                        "type": "integer"
+                    },
+                    "quiz_accuracy": {
+                        "type": "integer",
+                        "nullable": true,
+                        "description": "% of the quiz answers right; null: none yet"
+                    },
+                    "last_activity": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true,
+                        "description": "the latest clip watched or quiz answer"
+                    },
+                    "id": {
+                        "type": "integer"
+                    },
+                    "number": {
+                        "type": "integer"
+                    },
+                    "title": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "clips_total",
+                    "clips_watched",
+                    "id",
+                    "last_activity",
+                    "minutes_watched",
+                    "number",
+                    "quiz_accuracy",
+                    "quiz_answers",
+                    "title"
+                ]
+            },
+            "LearningSubject": {
+                "type": "object",
+                "properties": {
+                    "clips_watched": {
+                        "type": "integer",
+                        "description": "watched to the end"
+                    },
+                    "clips_total": {
+                        "type": "integer",
+                        "description": "processed clips of its published revisions"
+                    },
+                    "minutes_watched": {
+                        "type": "integer",
+                        "description": "at most each clip's length"
+                    },
+                    "quiz_answers": {
+                        "type": "integer"
+                    },
+                    "quiz_accuracy": {
+                        "type": "integer",
+                        "nullable": true,
+                        "description": "% of the quiz answers right; null: none yet"
+                    },
+                    "last_activity": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true,
+                        "description": "the latest clip watched or quiz answer"
+                    },
+                    "id": {
+                        "type": "integer"
+                    },
+                    "code": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "entitled": {
+                        "type": "boolean",
+                        "description": "open to the user today"
+                    },
+                    "chapters": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/LearningChapter"
+                        },
+                        "description": "its chapters with a published revision, by number"
+                    }
+                },
+                "required": [
+                    "chapters",
+                    "clips_total",
+                    "clips_watched",
+                    "code",
+                    "entitled",
+                    "id",
+                    "last_activity",
+                    "minutes_watched",
+                    "name",
+                    "quiz_accuracy",
+                    "quiz_answers"
+                ]
+            },
             "LinkSent": {
                 "type": "object",
                 "properties": {
@@ -6920,6 +7170,94 @@
                 "required": [
                     "email",
                     "number"
+                ]
+            },
+            "NextClip": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "order": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "title": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "kind": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ClipKindEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "duration": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "title": "Seconds"
+                    },
+                    "free": {
+                        "type": "boolean",
+                        "description": "a free preview: plays for anyone signed in"
+                    },
+                    "locked": {
+                        "type": "boolean",
+                        "description": "neither free nor open to the user: learn/clips/<id>/ answers 403"
+                    },
+                    "seconds_watched": {
+                        "type": "integer",
+                        "description": "of it so far"
+                    }
+                },
+                "required": [
+                    "duration",
+                    "free",
+                    "id",
+                    "kind",
+                    "locked",
+                    "order",
+                    "seconds_watched",
+                    "title"
+                ]
+            },
+            "NextDays": {
+                "type": "object",
+                "properties": {
+                    "exam_date": {
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true,
+                        "description": "saved in learn/settings/"
+                    },
+                    "days_left": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "minutes_per_day": {
+                        "type": "integer"
+                    },
+                    "days": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PlanDay"
+                        },
+                        "description": "the first three days of learn/plan/"
+                    },
+                    "hint": {
+                        "type": "string",
+                        "description": "why there are no days; empty when there are"
+                    }
+                },
+                "required": [
+                    "days",
+                    "days_left",
+                    "exam_date",
+                    "hint",
+                    "minutes_per_day"
                 ]
             },
             "NullEnum": {
@@ -9556,6 +9894,23 @@
                     "known"
                 ]
             },
+            "ReviseAgainCount": {
+                "type": "object",
+                "properties": {
+                    "due_today": {
+                        "type": "integer",
+                        "description": "quiz items and flash cards due today or before"
+                    },
+                    "later": {
+                        "type": "integer",
+                        "description": "answered wrong, due on a later day"
+                    }
+                },
+                "required": [
+                    "due_today",
+                    "later"
+                ]
+            },
             "Revision": {
                 "type": "object",
                 "properties": {
@@ -9579,6 +9934,23 @@
                 },
                 "required": [
                     "clips",
+                    "title"
+                ]
+            },
+            "RevisionRef": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "title": {
+                        "type": "string",
+                        "maxLength": 200
+                    }
+                },
+                "required": [
+                    "id",
                     "title"
                 ]
             },
@@ -9953,6 +10325,30 @@
                 ],
                 "type": "string",
                 "description": "* `KA` - Karnataka\n* `AP` - Andhra Pradesh\n* `KL` - Kerala\n* `TN` - Tamil Nadu\n* `MH` - Maharashtra\n* `UP` - Uttar Pradesh\n* `GA` - Goa\n* `GJ` - Gujarat\n* `RJ` - Rajasthan\n* `HP` - Himachal Pradesh\n* `TG` - Telangana\n* `AR` - Arunachal Pradesh\n* `AS` - Assam\n* `BR` - Bihar\n* `CT` - Chhattisgarh\n* `HR` - Haryana\n* `JH` - Jharkhand\n* `MP` - Madhya Pradesh\n* `MN` - Manipur\n* `ML` - Meghalaya\n* `MZ` - Mizoram\n* `NL` - Nagaland\n* `OR` - Odisha\n* `PB` - Punjab\n* `SK` - Sikkim\n* `TR` - Tripura\n* `UT` - Uttarakhand\n* `WB` - West Bengal\n* `AN` - Andaman and Nicobar Islands\n* `CH` - Chandigarh\n* `DH` - Dadra and Nagar Haveli and Daman and Diu\n* `DL` - Delhi\n* `JK` - Jammu and Kashmir\n* `LD` - Lakshadweep\n* `LA` - Ladakh\n* `PY` - Puducherry"
+            },
+            "Streak": {
+                "type": "object",
+                "properties": {
+                    "days": {
+                        "type": "integer",
+                        "description": "in a row with a clip watched, a quiz answer or a card review"
+                    },
+                    "today": {
+                        "type": "boolean",
+                        "description": "today counts already (else the days run to yesterday)"
+                    },
+                    "last_day": {
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true,
+                        "description": "the latest day with activity"
+                    }
+                },
+                "required": [
+                    "days",
+                    "last_day",
+                    "today"
+                ]
             },
             "Subject": {
                 "type": "object",

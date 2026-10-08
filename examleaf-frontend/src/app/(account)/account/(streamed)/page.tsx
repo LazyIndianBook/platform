@@ -4,12 +4,12 @@
 import { ArrowRight, ChevronRight } from "lucide-react";
 import Link from "next/link";
 
-import { PageHead, Problem, TierAverages } from "@/components/account/parts";
+import { LearningSummary } from "@/components/account/learning";
+import { CompactEmpty, PageHead, Problem, TierAverages } from "@/components/account/parts";
 import { KeepAccountButton, ParentResendForm } from "@/components/account/privacy-forms";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { EmptyDrawing } from "@/components/ui/empty-state";
 import { Table, TableCell, TableHead } from "@/components/ui/table";
 import { getAttempts, getBoards, getMe, getRecord, settle } from "@/lib/api/account";
 import { getConfig } from "@/lib/api/config";
@@ -28,19 +28,10 @@ export const metadata = pageMetadata({
 
 const goLink = "inline-flex min-h-11 items-center gap-1.5 font-semibold";
 
-function CompactEmpty({ art, children }: { art: "attempts" | "orders"; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-4 rounded-lg border-2 border-dashed border-border p-4 text-muted-foreground [&_p]:m-0">
-      <EmptyDrawing art={art} />
-      <div>{children}</div>
-    </div>
-  );
-}
-
 export default async function AccountPage() {
   const path = "/account/";
   const options = await personalFetch();
-  const [me, boards, config, record, latest, orders, entitlements] = await Promise.all([
+  const [me, boards, config, record, latest, orders, entitlements, learning] = await Promise.all([
     settle(getMe(), path),
     getBoards().catch(() => []),
     getConfig(),
@@ -48,6 +39,7 @@ export default async function AccountPage() {
     settle(getAttempts({ page_size: 5 }), path),
     settle(unwrap(serverApi.GET("/api/v1/orders/", { params: { query: { page_size: 3 } }, ...options })), path),
     settle(unwrap(serverApi.GET("/api/v1/learn/entitlements/", options)), path),
+    settle(unwrap(serverApi.GET("/api/v1/me/learning/", options)), path),
   ]);
   if (me instanceof ApiError) {
     return (
@@ -191,6 +183,25 @@ export default async function AccountPage() {
         <CardFooter>
           <Link href="/account/orders/" className={goLink}>
             All my orders
+            <ArrowRight aria-hidden="true" className="size-5" />
+          </Link>
+        </CardFooter>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Learning</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {learning instanceof ApiError ? (
+            <p>Where you left off in the revision course, what you watched and what to revise again.</p>
+          ) : (
+            <LearningSummary learning={learning} />
+          )}
+        </CardContent>
+        <CardFooter>
+          <Link href="/account/learning/" className={goLink}>
+            Open Learning
             <ArrowRight aria-hidden="true" className="size-5" />
           </Link>
         </CardFooter>

@@ -6,6 +6,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.db.models import Count, F, Min, Q, Sum
 from django.utils import timezone
+from django.utils.cache import add_never_cache_headers
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_field
 from rest_framework import exceptions, generics, mixins, permissions, serializers, status, throttling, views, viewsets
@@ -13,7 +14,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from content.templatetags.markdown import render
-from learn import plan, services
+from learn import dashboard, plan, services
 from learn.models import (
     CardReview,
     Chapter,
@@ -459,10 +460,7 @@ class PlanView(views.APIView):
             raise exceptions.ValidationError(
                 {"exam_date": ["Give a date after today (or save it in learn/settings/)."]}
             )
-        published = Chapter.objects.filter(revision__status=Revision.Status.PUBLISHED).values_list("subject", flat=True)
-        subjects = set(query.validated_data.get("subject") or published)
-        if not query.validated_data.get("subject"):
-            subjects = {s for s in subjects if s in services.entitled_subjects(request.user)} or subjects
+        subjects = set(query.validated_data.get("subject") or plan.default_subjects(request.user))
         made = plan.build(request.user, subjects, exam_date, query.validated_data.get("minutes", saved.minutes_per_day))
         return Response(PlanSerializer(made).data)
 
@@ -588,3 +586,103 @@ class DeviceView(generics.GenericAPIView):
         token.is_valid(raise_exception=True)
         request.user.devices.filter(token=token.validated_data["token"]).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ActivitySerializer(serializers.Serializer):
+    clips_watched = serializers.IntegerField(help_text="watched to the end")
+    clips_total = serializers.IntegerField(help_text="processed clips of its published revisions")
+    minutes_watched = serializers.IntegerField(help_text="at most each clip's length")
+    quiz_answers = serializers.IntegerField()
+    quiz_accuracy = serializers.IntegerField(allow_null=True, help_text="% of the quiz answers right; null: none yet")
+    last_activity = serializers.DateTimeField(allow_null=True, help_text="the latest clip watched or quiz answer")
+
+
+class LearningChapterSerializer(ActivitySerializer):
+    id = serializers.IntegerField()
+    number = serializers.IntegerField()
+    title = serializers.CharField()
+
+
+class LearningSubjectSerializer(ActivitySerializer):
+    id = serializers.IntegerField()
+    code = serializers.CharField()
+    name = serializers.CharField()
+    entitled = serializers.BooleanField(help_text="open to the user today")
+    chapters = LearningChapterSerializer(many=True, help_text="its chapters with a published revision, by number")
+
+
+class NextClipSerializer(serializers.ModelSerializer):
+    free = serializers.BooleanField(help_text="a free preview: plays for anyone signed in")
+    locked = serializers.BooleanField(help_text="neither free nor open to the user: learn/clips/<id>/ answers 403")
+    seconds_watched = serializers.IntegerField(help_text="of it so far")
+
+    class Meta:
+        model = Clip
+        fields = ["id", "order", "title", "kind", "duration", "free", "locked", "seconds_watched"]
+        read_only_fields = fields  # an answer only: every field is always there
+
+
+class RevisionRefSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Revision
+        fields = ["id", "title"]
+
+
+class ChapterRefSerializer(serializers.ModelSerializer):
+    subject_name = serializers.CharField(source="subject.name")
+
+    class Meta:
+        model = Chapter
+        fields = ["id", "subject", "subject_name", "number", "title"]
+
+
+class ContinueSerializer(serializers.Serializer):
+    clip = NextClipSerializer()
+    revision = RevisionRefSerializer()
+    chapter = ChapterRefSerializer()
+
+
+class ReviseAgainCountSerializer(serializers.Serializer):
+    due_today = serializers.IntegerField(help_text="quiz items and flash cards due today or before")
+    later = serializers.IntegerField(help_text="answered wrong, due on a later day")
+
+
+class NextDaysSerializer(serializers.Serializer):
+    exam_date = serializers.DateField(allow_null=True, help_text="saved in learn/settings/")
+    days_left = serializers.IntegerField(allow_null=True)
+    minutes_per_day = serializers.IntegerField()
+    days = PlanDaySerializer(many=True, help_text="the first three days of learn/plan/")
+    hint = serializers.CharField(allow_blank=True, help_text="why there are no days; empty when there are")
+
+
+class StreakSerializer(serializers.Serializer):
+    days = serializers.IntegerField(help_text="in a row with a clip watched, a quiz answer or a card review")
+    today = serializers.BooleanField(help_text="today counts already (else the days run to yesterday)")
+    last_day = serializers.DateField(allow_null=True, help_text="the latest day with activity")
+
+
+class LearningSerializer(serializers.Serializer):
+    entitlements = EntitlementSerializer(many=True, help_text="what is open today")
+    subjects = LearningSubjectSerializer(many=True, help_text="the subjects open to the user or watched, by id")
+    continue_watching = ContinueSerializer(
+        allow_null=True, help_text="the next clip of the revision watched last; null before any clip"
+    )
+    revise_again = ReviseAgainCountSerializer()
+    plan = NextDaysSerializer()
+    streak = StreakSerializer()
+    consent_pending = serializers.BooleanField(help_text="a parent's confirmation is awaited: nothing is saved")
+    has_app_links = serializers.BooleanField(help_text="config/ has a link to the app in a store")
+
+
+class LearningView(views.APIView):
+    """The student's learning dashboard: what is open, progress per subject and chapter, the clip to continue with,
+    the revise-again counts, the plan's next three days and the streak. Only the user's own rows; read-only, so also
+    while a parent's confirmation is awaited; never cached."""
+
+    permission_classes = STUDENT
+
+    @extend_schema(responses=LearningSerializer)
+    def get(self, request, *args, **kwargs):
+        response = Response(LearningSerializer(dashboard.learning(request.user)).data)
+        add_never_cache_headers(response)  # private, no-store: one student's course
+        return response
