@@ -1,0 +1,41 @@
+/* The revision course's chapter pages (ExamLeaf A - Learning (LMS).dc.html). */
+
+/* Focus mode (Flash cards, Quiz: "no site nav"): while a page holds [data-course-focus], the site's header and footer
+   step aside and the page's own bar has Close. Scoped by :has(), so it does nothing on any other page, also after a
+   client-side navigation that keeps this stylesheet; a browser without :has() keeps the header (still usable). */
+body:has([data-course-focus]) > :is(header, footer) {
+  display: none;
+}
+.course-focus {
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
+}
+/* on a phone the whole screen is the answer sheet: the red double rule down its left edge (Phone flash card, quiz) */
+@media (max-width: 899.98px) {
+  .course-focus {
+    border-left: 3px double var(--red-ink);
+  }
+}
+
+/* The chapter's sheet: the margin's "Ch.3" and the marks as drawn, 40 and 44 px from the top. */
+@media (min-width: 900px) {
+  .course-sheet > .sheet-margin {
+    padding: 40px 0 0 40px;
+  }
+  .course-sheet > .sheet-marks {
+    padding: 44px 24px 0 18px;
+  }
+}
+
+/* HlsVideo (shared, unchanged) as the chapter draws it: the column's width at 9:16, square corners, never taller than
+   most of the screen; the clip's title is the heading under it, so its own caption steps aside (the video keeps the
+   title as its accessible name). */
+.course-player video {
+  width: 100%;
+  max-height: 80svh;
+  border-radius: 0;
+}
+.course-player figcaption {
+  display: none;
+}
