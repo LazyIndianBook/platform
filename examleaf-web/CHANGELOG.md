@@ -5,6 +5,54 @@ commits are in `git log` (phase 4: abffe6f and e5abda5; phase 5 A and B with the
 and E: 4e30e59; the redesign's stage 2 so far: ba0b9dd). Details of each feature are in README.md; the numbers of the
 tests are those of `pytest` at the end of the phase.
 
+## Phase 8F review fixes (8 October 2026)
+
+The fixes of the Next.js frontend review (`docs/design/audit-nextjs-security.md`, `-accessibility.md`,
+`-lighthouse.md`, `-parity.md`), in the review's order. 422 backend tests pass (7 skipped), Vitest 86/86, Playwright
+26/26 the CI way (a fresh SQLite database, production build); no migration. New setting: `INTERNAL_API_TOKEN`.
+
+- **Open redirect (S1).** `safeNext()` takes only a relative path that starts with one `/` and has no `//`, `\`, `.` or
+  `..` segment (plain or `%2e`), `@`, whitespace or control character, and that stays on the origin through the URL
+  parser; `/..//host` and the other vectors now land on `/`. The backend has no `next` of its own: allauth's
+  `is_safe_url` (admin log-in, a provider's `callback_url`) refuses another host, `//`, `\` and other schemes (pytest).
+- **Razorpay (S2, S3).** Its hosts are in the CSP of the two pay pages only, and those pages are always their own
+  document: the checkout form goes there with `location.assign`, an order's Pay now is a plain `<a>`, and `PayButton`
+  reloads once a pay page whose document began elsewhere (the navigation entry names the document's URL).
+  `checkout.js` is inserted with the page's nonce when Pay is pressed, not before. The privacy draft says what
+  Razorpay's window keeps in the browser.
+- **One throttle bucket (S4).** Every server-side call of the frontend sends the visitor's `X-Forwarded-For` and
+  `User-Agent` and `X-Internal-Token`; `examleaf.middleware.FrontendClientMiddleware` makes that address the request's
+  `REMOTE_ADDR` only when the token matches, so throttles, axes, allauth's limits and the device list count each
+  visitor and never the frontend as one client. Public answers are kept 60 s by URL alone (`unstable_cache`, only a
+  200), so visitors still share them. compose passes the token to the frontend (required); DEPLOYMENT.md, API.md.
+  Fewer calls: `PaperBrief` carries `full_marks` and `time_text`, so the home page asks 3 endpoints instead of 7
+  (the book and product pages one fewer).
+- **An outage is not a log-out (S5).** The session check tells signed out (401, 403, 410) from unknown; `requireUser()`
+  throws the "cannot be reached" error instead of redirecting to log in; a whole page that cannot be shown is a thrown
+  error with its own words in `error.tsx` (a 500, never a 200 page); the visitor's own pages answer **503** with
+  `Retry-After: 30` and a self-contained page while Django's `/health/web/` fails (asked at most every 5 s). Public
+  pages still render from Next's data cache.
+- **Accessibility.** No sideways scroll on `/shop/` (the tabs' fieldset, F2) or the home page at 320 px (F5); the Menu
+  button comes before the menu in the page, and leaving the menu closes it (F3); busy buttons are `aria-disabled`, not
+  disabled, so focus stays on the cart's stepper, Save and the rest (F1); dialogs are the browser's own `<dialog>`,
+  open on the safe button, give focus back and fit a 400 % zoom (F6); the toaster is ours: 6 s, paused on hover and
+  focus, a 44 px Dismiss, outlives the navigation it was raised for (F4, F13); focus goes to the new form or button
+  when the account forms swap and to the list after a removal; paper cards are named by what they show (F7); table
+  boxes are focusable regions (F10); the cart's summary wraps at 320 px (F11). axe again on the review's pages: the
+  only violations left are the solutions pages' scroll boxes (F10's false positive, kept: without them axe misreads
+  KaTeX as dark on navy).
+- **Performance.** sonner and Radix Dialog removed; the sign-in client, the clip player and Turnstile load when used:
+  6 to 21 KB less JavaScript per route (home 167.9 → 155.4 KB, `/account/` 199.5 → 186.1 KB); 120 KB is below the
+  framework's own 131 KB. `/account/` no longer shifts (CLS 0.343 in 1 of 8 runs → 0 in 8 of 8). KaTeX renders HTML
+  only (it reads better than the browsers' MathML in Chrome and Safari), each formula with spoken words for screen
+  readers: the open sample's HTML 92.2 → 81.1 KiB. The home and tile covers come at 240 px (`build_covers`): home
+  414 → 349 KiB. Lighthouse before and after: `docs/design/audit-nextjs-lighthouse.md`, "After the fix pass".
+- **Parity.** `/account/2fa/webauthn/reauthenticate/` is a 404, anonymous pay and done pages a real 307,
+  `/sitemap-django.xml` gone from the parity document and script.
+- **Still open.** LCP stays 2.7 to 3.1 s on the budget pages (the framework's bytes); the solutions page's RSC payload
+  repeats its markup (81 KiB against 60); from the review, S6 (Back after Log out), S7 (Caddy's 400 for broken
+  escapes), S8 to S10, F8, F9, F12, F14 and L6 to L10.
+
 ## Phase 9: repository split (8 October 2026)
 
 The platform has its own repository, `LazyIndianBook/platform`; the books (questions, solutions, the Typst build) stay

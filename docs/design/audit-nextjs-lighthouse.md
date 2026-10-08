@@ -297,7 +297,7 @@ The other HTML reports and all the JSON reports were deleted after their numbers
 
 ## After the fix pass
 
-Phase 8F (the review's fixes, commits `9a749b1` to the CHANGELOG's "Phase 8F review fixes"), measured on 8 October 2026 with the same script (`lh.mjs`, Lighthouse 13.5.0, Chrome 154, mobile preset, two runs each; the account page eight times) on the same Mac. Both builds were served by `next start` on 3005 against one Django on 8105 (`runserver`, the shared development database): **before** is the tree the review read, rebuilt from `4e5c218`; **after** is the fixed tree. Lab LCP moves by up to 1.4 s between two runs of one build here (home before: 1.6 and 2.9 s), so the LCP columns show both runs.
+Phase 8F (the review's fixes; CHANGELOG.md "Phase 8F review fixes", commits from `9a749b1`), measured on 8 October 2026 with the same script (`lh.mjs`, Lighthouse 13.5.0, Chrome 154, mobile preset, two runs each; the account page eight times) on the same Mac. Both builds were served by `next start` on 3005 against one Django on 8105 (`runserver`, the shared development database): **before** is the tree the review read, rebuilt from `4e5c218`; **after** is the fixed tree. Lab LCP moves by up to 1.4 s between two runs of one build here (home before: 1.6 and 2.9 s), so the LCP columns show both runs.
 
 | Page | Perf before (runs) | Perf after (runs) | LCP before | LCP after | CLS before | CLS after | JS before → after (KiB transferred) | Total bytes before → after (KiB) | HTML before → after (KiB) |
 |---|---|---|---|---|---|---|---|---|---|
@@ -310,7 +310,7 @@ Phase 8F (the review's fixes, commits `9a749b1` to the CHANGELOG's "Phase 8F rev
 
 Accessibility 100, best practices 100 and SEO as before on every run (SEO 66 on `/account/`: `noindex` on purpose).
 
-**JavaScript per route** (`jsload.mjs` in the fix pass's scratch set-up: every script a page loads in Chrome until the network is idle, gzipped at level 6 as Next sends it; Next 16's `next build` no longer prints first-load sizes):
+**JavaScript per route** (`audit-scripts/nextjs/jsload.mjs`: every script a page loads in Chrome until the network is idle, gzipped at level 6 as Next sends it; Next 16's `next build` no longer prints first-load sizes):
 
 | Route | Before | After | Route | Before | After |
 |---|---:|---:|---|---:|---:|
