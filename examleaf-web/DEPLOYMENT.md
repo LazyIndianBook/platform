@@ -101,7 +101,7 @@ a copy of it is a development file. Do not copy the `#` comments of the block ab
 them as part of the value, and a key followed by a comment is no longer a key. `ALLOWED_HOSTS` must include `DOMAIN`:
 the web container's health check sends it as the Host.
 
-`DATABASE_URL`, `CACHE_URL`, `CELERY_BROKER_URL`, `PROXY_COUNT`, `BOOK_ROOT` and the two `AWS_…_CHECKSUM_…` variables
+`DATABASE_URL`, `CACHE_URL`, `CELERY_BROKER_URL`, `PROXY_COUNT`, `PAPERS_ROOT` and the two `AWS_…_CHECKSUM_…` variables
 are set by docker-compose.yml.
 
 ## 5. Start
@@ -285,7 +285,7 @@ the flows.
 Every environment variable the site, docker-compose.yml, the Dockerfile and `scripts/backup.sh` read, once, in the order
 a person sets up a server. They come from `.env` (copy `.env.example`: each is explained there too) or the real
 environment. "Required" means the site, the stack or the feature does not work without it; "no" means the default is
-fine. docker-compose.yml sets `DATABASE_URL`, `CACHE_URL`, `CELERY_BROKER_URL`, `PROXY_COUNT`, `BOOK_ROOT` and the two
+fine. docker-compose.yml sets `DATABASE_URL`, `CACHE_URL`, `CELERY_BROKER_URL`, `PROXY_COUNT`, `PAPERS_ROOT` and the two
 `AWS_…_CHECKSUM_…` variables for its containers; the rest come from `.env`, except that the media worker (`x-media-env`
 in docker-compose.yml) reads from `.env` only `SECRET_KEY`, `MEDIA_BUCKET`, `PUBLIC_MEDIA_BUCKET`,
 `PUBLIC_MEDIA_DOMAIN`, the `S3_*` and `PUBLIC_S3_*` variables, `LEARN_PUBLIC_VIDEO`, `LEARN_MAX_UPLOAD_MB` and
