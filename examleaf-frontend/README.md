@@ -114,14 +114,28 @@ password), `/account/signup/`, `/account/verify-email/`, `/account/password/rese
 
 ## Design system
 
-Tokens in `src/app/globals.css` (from `docs/design/tokens.css`, mapped into Tailwind's theme: `bg-primary`,
-`text-muted-foreground`, `font-head`, `shadow-card`, `rounded-btn`, the `nav:` / `max-nav:` 900 px breakpoint),
-fonts in `src/app/fonts.ts`, components in `src/components/ui/` (Button, Field, Input, Select, Checkbox, Radio,
-Switch, OtpInput, Card, Badge, Alert, Toaster, Dialog, Drawer, Tabs, Accordion, Skeleton, Table, Breadcrumb,
-Pagination, Stepper, SubjectTile, Band/NightBand/QRule/Marker, CoverStage, CoverPicture/NoCover, Price,
-EmptyState, Timeline, QrCard, SubmitButton, Morph) and the site's frame in `src/components/site/`. Motion follows
-`docs/design/motion.md`: transform and opacity only, everything inside `prefers-reduced-motion: no-preference`. The
-view transitions of client-side navigation are React's `<ViewTransition>` (`Morph`: a Home or 404 tile into its
+Direction A, "Answer Script" (the design files in `../implementation/design/*.dc.html`, one `[data-screen-label]` per
+screen; `scripts/design-shot.mjs` screenshots one artboard headlessly; the implementation report is
+`../docs/design/answer-script-implementation.md`). Every page sits on paper (`#F8F5EE`) with a red double rule
+(`3px double #B3342A`): section and question numbers and paper codes hang in a 120 px margin to its left, marks in a
+~112 px column on the right (`Sheet`, `MarkedRow`, `Marks` in `src/components/ui/band.tsx`; `.sheet`, `.marked-row`,
+`.label-mono` in `globals.css`); under 900 px the margin collapses to the rule at the left edge. Source Serif 4 sets
+headings, questions, solutions and prices, Public Sans the interface, IBM Plex Mono codes and marks; Hind Siliguri stays
+in every stack for Assamese and Bangla (`src/app/fonts.ts`: the three families come through `next/font/google`, which
+downloads them at build time and serves them from this origin, so `font-src 'self'` holds). Navy is the only action
+colour; red ink is for marks, ticks, the margin, the stamp and one emphasis per screen, never for errors.
+
+Tokens in `src/app/globals.css` (mapped into Tailwind's theme: `bg-primary`, `text-muted-foreground`, `font-head`,
+`font-mono`, `rounded-btn`, the `nav:` / `max-nav:` 900 px breakpoint), components in `src/components/ui/` (Button,
+Field, Input, Select, Checkbox, Radio, Switch, OtpInput, Card, Badge, Alert, Toaster, Dialog, Drawer, Tabs, Accordion,
+Skeleton, Table, Breadcrumb, Pagination, Stepper, Progress, SubjectTile, Band/NightBand/QRule/Marker/Sheet/MarkedRow/
+Marks, CoverStage, CoverPicture/NoCover, Price, EmptyState, Timeline, QrCard, SubmitButton, Morph) and the site's
+frame in `src/components/site/`. Motion follows `docs/design/motion.md`: transform and opacity only, 150/220/360 ms,
+everything inside `prefers-reduced-motion: no-preference`; nothing animates on load except the checkout stepper and
+the order timeline, and reading content never moves. Two signature moments: a saved score's red circle
+(`[data-mark-landed]`, played once after the server confirms the save) and the current question number turning red as
+its row reaches the top of the screen (`animation-timeline: view()`, colour only, static elsewhere). The view
+transitions of client-side navigation are React's `<ViewTransition>` (`Morph`: a Home or 404 row's cover into its
 book's cover, a product card's cover into the product page's; only such a pair animates, so a form's answer changes
 the page at once, and reduced motion stills it); toasts rise in as motion.md f says and leave at once. Dialogs are the
 browser's own `<dialog>` (`showModal`), toasts our own few lines (6 s, paused on hover and focus). After a client-side
@@ -138,13 +152,18 @@ goes to an image service; `qrcode` would be about ten times the size with `pngjs
 - `(shop)`: `/shop/`, `/shop/<slug>/`, `/shop/category/<slug>/`, `/shop/collection/<slug>/`, `/shop/school-orders/`,
   `/cart/`, `/checkout/` (`<number>/pay/`, `<number>/done/`, `t/<token>/pay/`, `t/<token>/done/`), `/orders/`
   (`<number>/`, `lookup/`, `t/<token>/`).
-- `(auth)`: `/account/login/`, `/account/signup/`, `/account/verify-email/`, `/account/password/reset/`
-  (`key/<key>/`), `/account/reauthenticate/`, `/account/2fa/authenticate/`, `/account/logout/`.
+- `(auth)`: `/account/login/` (Google's refused or cancelled sign-in lands here with `?error=`), `/account/signup/`,
+  `/account/verify-email/`, `/account/password/reset/` (`key/<key>/`, `done/`: the new password is saved, Log in keeps
+  `next`), `/account/reauthenticate/`, `/account/2fa/authenticate/`, `/account/logout/`, `/account/inactive/`.
 - `(account)`: `/account/`, `/account/record/` (`<id>/edit/`), `/account/learning/` (8E: `GET me/learning/`: the
   clip to continue with, the next three days and the exam date, the revise-again counts, progress per subject and
   chapter, what is open, the streak), `/account/orders/` (`<number>/`), `/account/details/`, `/account/addresses/`,
   `/account/security/`, `/account/2fa/`, `/account/privacy/`, `/account/teacher/`; and `/revision/` (public, with
-  the signed-in student's parts; `#chapters`, `#plan` and `#app` are its sections).
+  the signed-in student's parts; `#chapters`, `#plan` and `#app` are its sections). Behind `config.web_course`
+  (`WEB_COURSE` in Django, off by default; every one of these answers 404 while it is off): the revision course on the
+  web, `/revision/<subject>/<chapter>/` (the chapter's clips, notes and the Board's questions; the book-code form when
+  it is locked), `…/cards/` (flash cards), `…/quiz/` (checked by the server, question by question) and
+  `/account/learning/revise-again/` (what is due again, and the course settings).
 
 ## Add a route
 

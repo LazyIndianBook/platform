@@ -86,15 +86,15 @@ The frontend adds `/account/details/`, `/account/addresses/`, `/account/security
 | `/account/login/` | `(auth)/account/login/` | built | |
 | `/account/signup/` | `(auth)/account/signup/` | built | |
 | `/account/logout/` | `(auth)/account/logout/` | built | |
-| `/account/inactive/` | | not built | allauth.headless refuses a switched-off account on the log-in form itself, in its words |
+| `/account/inactive/` | same | built (Answer Script pass, G4) | says why the account is switched off and links Contact; allauth.headless still refuses a switched-off account on the log-in form in its words, so the page is reached by its link, not by the form |
 | `/account/reauthenticate/` | `(auth)/account/reauthenticate/` | built | the password; an account without one logs in again |
 | `/account/email/` | → `/account/security/#change-email` | redirected | |
 | `/account/confirm-email/` | → `/account/verify-email/` | redirected | the 6-digit code page |
 | `/account/password/change/`, `/account/password/set/` | → `/account/security/#change-password` | redirected | |
 | `/account/password/reset/` | `(auth)/account/password/reset/` | built | |
-| `/account/password/reset/done/` | → `/account/password/reset/` | redirected | the page says the email went |
+| `/account/password/reset/done/` | same | built (Answer Script pass, G2, G18) | "Your new password is saved", with a Log in button that keeps `next` |
 | `/account/password/reset/key/<uid>-<key>/` | `(auth)/account/password/reset/key/[key]/` | built | `HEADLESS_FRONTEND_URLS` |
-| `/account/password/reset/key/done/` | → `/account/login/` | redirected | |
+| `/account/password/reset/key/done/` | → `/account/password/reset/done/` | redirected | |
 | `/account/login/code/`, `/account/login/code/confirm/` | → `/account/login/` | redirected | the code is asked for and typed on the log-in page |
 | `/account/phone/verify/`, `/account/phone/change/` | → `/account/security/#mobile-number` | redirected | the texted code is typed in the card |
 | `/account/2fa/` | `(account)/account/(streamed)/2fa/` | built | the authenticator app (with its QR code, drawn in the browser) and the recovery codes |
