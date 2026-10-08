@@ -271,6 +271,8 @@ test("a guest buys with a guest cart, checks out with an email address, and pays
 
   await expect(guest).toHaveURL(/\/checkout\/t\/[\w-]+\/pay\/$/);
   const token = /\/checkout\/t\/([\w-]+)\/pay\//.exec(guest.url())![1];
+  // the order holds the address now: the tab's draft of the checkout is gone
+  expect(await guest.evaluate(() => sessionStorage.getItem("examleaf:checkout-draft"))).toBeNull();
   await expect(guest.locator('[aria-current="step"]')).toHaveText("3. Payment");
   await expect(guest.getByText(`Confirmation to`)).toBeVisible();
   await expect(guest.getByText(guestEmail)).toBeVisible();
