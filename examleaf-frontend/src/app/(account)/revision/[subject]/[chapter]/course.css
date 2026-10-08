@@ -26,6 +26,10 @@ body:has([data-course-focus]) > :is(header, footer) {
   .course-sheet > .sheet-marks {
     padding: 44px 24px 0 18px;
   }
+  /* the player as drawn, 340 px wide, also above a locked chapter's list (a wider column) */
+  .course-player {
+    max-width: 340px;
+  }
 }
 
 /* HlsVideo (shared, unchanged) as the chapter draws it: the column's width at 9:16, square corners, never taller than
