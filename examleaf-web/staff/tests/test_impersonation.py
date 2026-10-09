@@ -103,7 +103,7 @@ def test_while_it_lasts_money_passwords_and_the_account_are_refused_and_each_req
     assert browser.get("/api/v1/me/").status_code == 200  # reading is the point
     assert browser.get("/api/v1/orders/").status_code == 200
     requests = events("impersonation.request")
-    assert requests.count() == 9 and requests.filter(outcome="denied").count() == 7
+    assert requests.count() == 10 and requests.filter(outcome="denied").count() == 8
     assert {(event.actor_id, event.on_behalf_of, event.target_id) for event in requests} == {
         (support.pk, customer.pk, str(customer.pk))}  # fmt: skip
     assert requests.last().details == {"method": "GET", "path": "/api/v1/orders/", "status": 200}
