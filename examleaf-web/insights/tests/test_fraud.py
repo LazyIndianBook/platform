@@ -108,20 +108,23 @@ def test_one_account_redeeming_many_codes_and_one_code_tried_by_several_accounts
     RedemptionAttempt.objects.update(batch="PHY-1")
     assert fraud.fraud_rules() == 2
     resold = FraudSignal.objects.get(kind=Kind.CODES_PER_ACCOUNT)
-    assert (resold.subject, resold.count, resold.details) == (digest("user", person.pk), 5, {"batches": ["PHY-1"]})
+    assert (resold.subject, resold.count) == (digest("user", person.pk), 5)
+    assert resold.details == {"batches": ["PHY-1"], "codes": sorted(BookCode.objects.values_list("pk", flat=True))}
     shared = FraudSignal.objects.get(kind=Kind.ACCOUNTS_PER_CODE)
     assert (shared.subject, shared.count, shared.details) == ("c" * 64, 3, {"batch": "PHY-1"})
 
 
 def test_accounts_sharing_a_phone_or_an_address_on_cod_or_coupon_orders_are_signalled(physics):
     book, coupon, today = ProductFactory(subject=physics), CouponFactory(), timezone.localdate()
-    sell(book, today, method="cod", email="one@example.com")
-    sell(book, today, method="cod", email="two@example.com", line1="House 4,  ZOO ROAD")  # the same, written so
-    sell(book, today, coupon=coupon, email="three@example.com")
+    one = sell(book, today, method="cod", email="one@example.com")
+    two = sell(book, today, method="cod", email="two@example.com", line1="House 4,  ZOO ROAD")  # the same, written so
+    three = sell(book, today, coupon=coupon, email="three@example.com")
     sell(book, today, email="four@example.com")  # paid online without a coupon: not counted
     assert fraud.fraud_rules() == 2
     assert {(s.kind, s.count) for s in FraudSignal.objects.all()} == {(Kind.SHARED_PHONE, 3), (Kind.SHARED_ADDRESS, 3)}
-    assert FraudSignal.objects.get(kind=Kind.SHARED_PHONE).subject == digest("phone", "9864012345")
+    phone = FraudSignal.objects.get(kind=Kind.SHARED_PHONE)
+    assert phone.subject == digest("phone", "9864012345")
+    assert phone.details == {"orders": sorted([one.number, two.number, three.number])}  # for staff to open them
 
 
 def test_an_acknowledged_signal_comes_back_only_when_it_grew(client):

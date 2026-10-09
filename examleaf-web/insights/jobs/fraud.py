@@ -37,6 +37,7 @@ ACCOUNTS_PER_CODE = 3  # accounts trying one code in 30 days
 ACCOUNTS_PER_CONTACT = 3  # accounts sharing a phone number or an address on COD or coupon orders in 90 days
 KEEP_ATTEMPTS = timedelta(days=180)  # book codes tried: CERT-In's floor for logs
 HOUR = timedelta(hours=1)
+LISTED = 20  # order numbers or book code ids a signal lists, for staff to open (references, not personal data)
 
 
 def record_redemption(request, code, ok):
@@ -95,8 +96,9 @@ def codes_shared_or_resold(now):
     found, since = [], now - timedelta(days=30)
     redeemed = BookCode.objects.filter(redeemed_at__gte=since, redeemed_by__isnull=False).order_by()
     for user, n in redeemed.values_list("redeemed_by").annotate(n=Count("pk")).filter(n__gt=CODES_PER_ACCOUNT):
-        batches = sorted(set(redeemed.filter(redeemed_by=user).values_list("batch", flat=True)))
-        found.append((FraudSignal.Kind.CODES_PER_ACCOUNT, digest("user", user), n, since, now, {"batches": batches}))
+        codes = list(redeemed.filter(redeemed_by=user).order_by("pk").values_list("pk", "batch"))
+        details = {"batches": sorted({batch for _, batch in codes}), "codes": [pk for pk, _ in codes][:LISTED]}
+        found.append((FraudSignal.Kind.CODES_PER_ACCOUNT, digest("user", user), n, since, now, details))
     tried, batches = defaultdict(set), {}
     tries = RedemptionAttempt.objects.filter(created__gte=since).exclude(code_hash="")
     for code_hash, user_hash, batch in tries.values_list("code_hash", "user_hash", "batch"):
@@ -111,24 +113,27 @@ def codes_shared_or_resold(now):
 
 def shared_contacts(now):
     """Findings from the last 90 days' COD and coupon orders: a phone number or an address used by several accounts
-    (a guest counts by email address)."""
+    (a guest counts by email address), with the orders' numbers for staff to open them."""
     since = now - timedelta(days=90)
     orders = Order.objects.filter(Q(payment_method=Order.Method.COD) | Q(coupon__isnull=False), placed_at__gte=since)
     if live_mode():
         orders = orders.filter(livemode=True)
-    phones, places = defaultdict(set), defaultdict(set)
-    for user, email, address in orders.values_list("user", "email", "shipping_address"):
+    groups = {FraudSignal.Kind.SHARED_PHONE: defaultdict(dict), FraudSignal.Kind.SHARED_ADDRESS: defaultdict(dict)}
+    for number, user, email, address in orders.values_list("number", "user", "email", "shipping_address"):
         account = f"#{user}" if user else email.lower()
         if phone := re.sub(r"\D", "", str(address.get("phone", "")))[-10:]:
-            phones[digest("phone", phone)].add(account)
+            groups[FraudSignal.Kind.SHARED_PHONE][digest("phone", phone)][number] = account
         if line := re.sub(r"[^a-z0-9]", "", str(address.get("line1", "")).lower()):
-            places[digest("address", f"{line} {address.get('pin', '')}")].add(account)
-    return [
-        (kind, subject, len(accounts), since, now, {})
-        for kind, groups in ((FraudSignal.Kind.SHARED_PHONE, phones), (FraudSignal.Kind.SHARED_ADDRESS, places))
-        for subject, accounts in groups.items()
-        if len(accounts) >= ACCOUNTS_PER_CONTACT
-    ]
+            groups[FraudSignal.Kind.SHARED_ADDRESS][digest("address", f"{line} {address.get('pin', '')}")][number] = (
+                account
+            )
+    found = []
+    for kind, contacts in groups.items():
+        for subject, accounts in contacts.items():
+            if len(set(accounts.values())) >= ACCOUNTS_PER_CONTACT:
+                details = {"orders": sorted(accounts)[:LISTED]}
+                found.append((kind, subject, len(set(accounts.values())), since, now, details))
+    return found
 
 
 def signal(kind, subject, count, start, end, details):
