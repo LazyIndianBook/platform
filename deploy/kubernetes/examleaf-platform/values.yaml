@@ -442,6 +442,18 @@ redis:
       requests: {cpu: 50m, memory: 64Mi}
       limits: {cpu: 500m, memory: 320Mi}
 
+# Prometheus (kube-prometheus-stack, the Prometheus Operator's CRDs) and its alerts: PodMonitors for PostgreSQL, the
+# pooler and the queue's Redis (with redis_exporter beside it for the queues' lengths), and a PrometheusRule
+# (templates/monitoring.yaml; README.md "Alerts" wires them to email and a pager).
+monitoring:
+  enabled: false
+  namespace: monitoring  # Prometheus's namespace, let through the NetworkPolicies to the metrics ports
+  labels: {}  # added to the PodMonitors and the PrometheusRule, for Prometheus's selectors, e.g. {release: kube-prometheus-stack}
+  redisExporterImage: oliver006/redis_exporter:v1.93.0
+  # the alerts' thresholds
+  queueLength: 100  # tasks waiting in a Celery queue for 15 minutes
+  backupAgeHours: 26  # since the last base backup (daily)
+
 # Default deny for ingress within the namespace, then the paths the site needs: the ingress controller (Traefik) to
 # web, the frontend and the admin (and to cert-manager's HTTP-01 solvers), the site's pods to PostgreSQL and the two
 # Redis, the frontend and the admin to web, the CloudNativePG operator to the instances.

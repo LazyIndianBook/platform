@@ -100,4 +100,26 @@ spec:
       ports:
         - port: 5432
         - port: 8000
+{{- if .Values.monitoring.enabled }}
+---
+# Prometheus's scrapes (values.yaml "monitoring"): PostgreSQL's and the pooler's metrics, and redis_exporter's
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullname }}-metrics
+  labels:
+    {{- include "examleaf.labels" $labels | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.monitoring.namespace }}
+      ports:
+        - port: 9187
+        - port: 9127
+        - port: 9121
+{{- end }}
 {{- end }}

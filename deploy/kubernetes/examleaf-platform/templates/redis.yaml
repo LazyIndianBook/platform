@@ -1,6 +1,8 @@
 {{- /* docker-compose.yml's two Redis: the queue (Celery's broker, saved to disk with AOF, nothing evicted) and the cache
        (at most maxmemory, the least used keys evicted, nothing saved). The image's redis user (999, group 1000) by
-       number, so its entrypoint never needs root. */ -}}
+       number, so its entrypoint never needs root. One pod each, on purpose (README.md "High availability"): the
+       queue's AOF on its volume brings every queued task back after a restart, and the cache may be lost. With
+       monitoring, redis_exporter beside the queue reports the length of Celery's two queues. */ -}}
 {{- $fullname := include "examleaf.fullname" . -}}
 {{- range $part := list "queue" "cache" }}
 {{- $v := index $.Values.redis $part }}
@@ -75,6 +77,24 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /data
+        {{- if and (eq $part "queue") $.Values.monitoring.enabled }}
+        - name: exporter
+          image: {{ $.Values.monitoring.redisExporterImage }}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: REDIS_ADDR
+              value: redis://localhost:6379
+            - name: REDIS_EXPORTER_CHECK_SINGLE_KEYS  # redis_key_size: the tasks waiting in each queue
+              value: db0=celery,db0=media
+          ports:
+            - name: metrics
+              containerPort: 9121
+          securityContext:
+            {{- toYaml $.Values.containerSecurityContext | nindent 12 }}
+          resources:
+            requests: {cpu: 5m, memory: 16Mi}
+            limits: {cpu: 100m, memory: 64Mi}
+        {{- end }}
       volumes:
         - name: data
           {{- if eq $part "queue" }}

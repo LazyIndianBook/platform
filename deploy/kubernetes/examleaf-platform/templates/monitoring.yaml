@@ -1,0 +1,152 @@
+{{- /* With monitoring.enabled (the Prometheus Operator's CRDs, e.g. kube-prometheus-stack): what Prometheus scrapes of
+       the release (PostgreSQL's instances and the pooler through CloudNativePG's metrics ports, the queue's Redis
+       through redis_exporter) and the alerts on it. Pod restarts, deployments and disruption budgets come from
+       kube-state-metrics, the certificates from cert-manager's own metrics (README.md "Alerts" says how to scrape
+       them and where the alerts go). The integrations' dead letters are the second uptime monitor's
+       (/health/integrations/), not Prometheus's. */ -}}
+{{- if .Values.monitoring.enabled }}
+{{- $fullname := include "examleaf.fullname" . -}}
+{{- $cluster := include "examleaf.dbCluster" . -}}
+{{- $ns := .Release.Namespace -}}
+{{- $m := .Values.monitoring -}}
+{{- $labels := dict "ctx" . "component" "monitoring" "app" "examleaf" "version" .Values.image.tag -}}
+{{- $monitors := list
+  (dict "name" "database" "selector" (dict "cnpg.io/cluster" $cluster "cnpg.io/podRole" "instance"))
+  (dict "name" "redis-queue" "selector" (dict "app.kubernetes.io/instance" .Release.Name "app.kubernetes.io/component" "redis-queue"))
+-}}
+{{- if .Values.postgres.pooler.enabled }}
+{{- $monitors = append $monitors (dict "name" "pooler" "selector" (dict "cnpg.io/poolerName" (printf "%s-pooler" $cluster))) -}}
+{{- end }}
+{{- range $monitors }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ $fullname }}-{{ .name }}
+  labels:
+    {{- include "examleaf.labels" $labels | nindent 4 }}
+    {{- with $m.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- toYaml .selector | nindent 6 }}
+  podMetricsEndpoints:
+    - port: metrics
+{{- end }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ $fullname }}-alerts
+  labels:
+    {{- include "examleaf.labels" $labels | nindent 4 }}
+    {{- with $m.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+    - name: examleaf-pods
+      rules:
+        - alert: ExamleafPodRestarting
+          expr: increase(kube_pod_container_status_restarts_total{namespace="{{ $ns }}"}[30m]) > 2
+          labels: {severity: warning}
+          annotations:
+            summary: {{ `{{ $labels.pod }} ({{ $labels.container }}) restarted {{ $value | humanize }} times in 30 minutes` | quote }}
+        - alert: ExamleafPodCrashLooping
+          expr: max_over_time(kube_pod_container_status_waiting_reason{namespace="{{ $ns }}", reason="CrashLoopBackOff"}[5m]) >= 1
+          for: 15m
+          labels: {severity: critical}
+          annotations:
+            summary: {{ `{{ $labels.pod }} ({{ $labels.container }}) is crash-looping` | quote }}
+        - alert: ExamleafContainerOOMKilled
+          expr: >-
+            increase(kube_pod_container_status_restarts_total{namespace="{{ $ns }}"}[15m]) > 0
+            and on (namespace, pod, container)
+            kube_pod_container_status_last_terminated_reason{namespace="{{ $ns }}", reason="OOMKilled"} == 1
+          labels: {severity: warning}
+          annotations:
+            summary: {{ `{{ $labels.pod }} ({{ $labels.container }}) was killed for memory: raise its limit or find the leak` | quote }}
+        - alert: ExamleafDeploymentDegraded
+          expr: kube_deployment_status_replicas_available{namespace="{{ $ns }}"} < kube_deployment_spec_replicas{namespace="{{ $ns }}"}
+          for: 15m
+          labels: {severity: warning}
+          annotations:
+            summary: {{ `{{ $labels.deployment }} has fewer pods ready than it wants (a stuck rollout: web waits for its migrations, an image cannot be pulled, no node has room)` | quote }}
+        - alert: ExamleafDisruptionBudgetBroken
+          expr: kube_poddisruptionbudget_status_current_healthy{namespace="{{ $ns }}"} < kube_poddisruptionbudget_status_desired_healthy{namespace="{{ $ns }}"}
+          for: 10m
+          labels: {severity: critical}
+          annotations:
+            summary: {{ `{{ $labels.poddisruptionbudget }}: fewer healthy pods than its budget promises` | quote }}
+    - name: examleaf-database
+      rules:
+        - alert: ExamleafPostgresRoleChanged
+          expr: changes(cnpg_pg_replication_in_recovery{namespace="{{ $ns }}"}[10m]) > 0
+          labels: {severity: warning}
+          annotations:
+            summary: {{ `{{ $labels.pod }} changed role: a failover or a switchover (kubectl cnpg status)` | quote }}
+        {{- if gt (int .Values.postgres.instances) 1 }}
+        - alert: ExamleafPostgresNoStandby
+          expr: >-
+            cnpg_pg_replication_streaming_replicas{namespace="{{ $ns }}"} < {{ sub (int .Values.postgres.instances) 1 }}
+            and on (namespace, pod) cnpg_pg_replication_in_recovery{namespace="{{ $ns }}"} == 0
+          for: 10m
+          labels: {severity: critical}
+          annotations:
+            summary: {{ `{{ $labels.pod }} streams to {{ $value }} standbys: a failover now would have nowhere to go` | quote }}
+        - alert: ExamleafPostgresReplicationLag
+          expr: cnpg_pg_replication_lag{namespace="{{ $ns }}"} > 60
+          for: 5m
+          labels: {severity: warning}
+          annotations:
+            summary: {{ `{{ $labels.pod }} is {{ $value | humanizeDuration }} behind the primary` | quote }}
+        {{- end }}
+        {{- if .Values.postgres.backup.enabled }}
+        - alert: ExamleafBackupTooOld
+          expr: time() - max by (namespace) (barman_cloud_cloudnative_pg_io_last_available_backup_timestamp{namespace="{{ $ns }}"}) > {{ mul (int $m.backupAgeHours) 3600 }}
+          for: 30m
+          labels: {severity: critical}
+          annotations:
+            summary: {{ printf "No base backup of %s for over %d hours (kubectl get backups)" $cluster (int $m.backupAgeHours) | quote }}
+        - alert: ExamleafWALArchivingFailing
+          expr: increase(cnpg_pg_stat_archiver_failed_count{namespace="{{ $ns }}"}[15m]) > 0
+          labels: {severity: critical}
+          annotations:
+            summary: {{ `{{ $labels.pod }} cannot archive WAL to the bucket: point-in-time recovery is falling behind` | quote }}
+        {{- end }}
+    - name: examleaf-certificates
+      rules:
+        - alert: ExamleafCertificateExpiring
+          expr: certmanager_certificate_expiration_timestamp_seconds{namespace="{{ $ns }}"} - time() < 21 * 24 * 3600
+          for: 1h
+          labels: {severity: warning}
+          annotations:
+            summary: {{ `{{ $labels.name }} expires in {{ $value | humanizeDuration }}: cert-manager renews at 30 days, so renewal is failing (kubectl describe certificate)` | quote }}
+        - alert: ExamleafCertificateExpiringSoon
+          expr: certmanager_certificate_expiration_timestamp_seconds{namespace="{{ $ns }}"} - time() < 7 * 24 * 3600
+          labels: {severity: critical}
+          annotations:
+            summary: {{ `{{ $labels.name }} expires in {{ $value | humanizeDuration }}` | quote }}
+        - alert: ExamleafCertificateNotReady
+          expr: certmanager_certificate_ready_status{namespace="{{ $ns }}", condition="False"} == 1
+          for: 30m
+          labels: {severity: warning}
+          annotations:
+            summary: {{ `{{ $labels.name }} is not ready (kubectl describe certificate)` | quote }}
+    - name: examleaf-queues
+      rules:
+        - alert: ExamleafQueueBacklog
+          expr: redis_key_size{namespace="{{ $ns }}", key=~"celery|media"} > {{ $m.queueLength }}
+          for: 15m
+          labels: {severity: warning}
+          annotations:
+            summary: {{ `{{ $value }} tasks wait in the {{ $labels.key }} queue: its workers are down or cannot keep up` | quote }}
+        - alert: ExamleafQueueRedisDown
+          expr: redis_up{namespace="{{ $ns }}"} == 0 or absent(redis_up{namespace="{{ $ns }}"})
+          for: 5m
+          labels: {severity: critical}
+          annotations:
+            summary: "The queue's Redis does not answer: no task can be queued or run"
+{{- end }}
