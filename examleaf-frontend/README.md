@@ -177,7 +177,10 @@ goes to an image service; `qrcode` would be about ten times the size with `pngjs
 - `(public)`: `/`, `/books/<slug>/`, `/s/<code>/`, `/c/<token>/` (a parent's link: the consent, or the
   confirmation of their child's account deletion while one waits), `/about/`, the legal pages (`/privacy/`,
   `/terms/`, `/refunds/`, `/shipping/`, `/contact/`, each with "Version N, in force from …") and their versions
-  (`/<page>/versions/`), `/offline/`.
+  (`/<page>/versions/`), `/offline/`. Under each solution of `/s/<code>/` and under a clip of the web course, "Report a
+  mistake" (`src/components/solutions/report-mistake.tsx`, `POST /api/v1/reports/`): a disclosure the reader opens
+  (never by itself), what is wrong, the step, an optional note and address, the print run a printed QR code carried
+  (`?printing=`), Turnstile loaded once it is opened.
 - `(shop)`: `/shop/`, `/shop/<slug>/`, `/shop/category/<slug>/`, `/shop/collection/<slug>/`, `/shop/school-orders/`,
   `/cart/`, `/checkout/` (`<number>/pay/`, `<number>/done/`, `t/<token>/pay/`, `t/<token>/done/`), `/orders/`
   (`<number>/`, `lookup/`, `t/<token>/`).

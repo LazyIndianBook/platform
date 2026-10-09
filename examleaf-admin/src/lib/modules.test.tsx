@@ -15,7 +15,15 @@ const keys = (permissions: string[], erp = "") => visibleModules(manifestWith(pe
 describe("P", () => {
   it("names only the backend's codenames (app_label.codename)", () => {
     for (const perm of Object.values(P))
-      expect(perm).toMatch(/^(staff|accounts|pages|shipping|insights|erp|shop|integrations|ops)\.[a-z0-9_]+$/);
+      expect(perm).toMatch(/^(staff|accounts|pages|shipping|insights|erp|shop|integrations|ops|content)\.[a-z0-9_]+$/);
+  });
+});
+
+describe("the content module", () => {
+  it("opens for its books, its papers, or the reported mistakes alone (SUPPORT reads those)", () => {
+    expect(keys([P.reportsView])).toEqual(["home", "content"]);
+    expect(keys([P.booksView])).toEqual(["home", "content"]);
+    expect(soonModule("content", manifestWith([P.papersView]))).toBeNull(); // built: no "next phase" page
   });
 });
 

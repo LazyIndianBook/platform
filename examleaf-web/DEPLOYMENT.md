@@ -228,7 +228,10 @@ git -C /srv/books pull && docker compose exec web python manage.py import_papers
 ```
 
 Importing again is safe at any time: it changes only the questions and solutions whose Markdown changed (the rest are
-left alone, so the admin's history shows real edits) and drops questions that left a paper; nothing else is touched.
+left alone, so the admin's history shows real edits), takes off the site the questions that left a paper (they stay in
+the database and the panel) and leaves a draft saved in the panel alone; nothing else is touched. The panel's Content →
+Imports does the same per subject, a dry run first (RUNBOOK.md "Content"); it needs the books checkout and git in the
+web container.
 
 The site is down for the few seconds the web container takes to restart: Docker gives it 40 seconds to stop, gunicorn's
 30 for the requests in progress, and the Celery workers five minutes to finish their tasks (a task cut short anyway runs
@@ -556,6 +559,14 @@ flag of the same name the panel can set (`staff/README.md`), which wins over the
 | `ERP_MODE` | `erpnext` | no | `fake`: an in-memory ERPNext (development only) |
 | `ERP_INSTANCE_PREFIX` | empty | when two platforms send to one ERPNext site | goes before every idempotency key (`staging-`), so that a staging copy and production never answer each other's |
 | `API_THROTTLE_ERP_EVENTS` | `600/minute` | no | ERPNext's webhook, per client address |
+
+### Content
+
+`content/README.md`.
+
+| Variable | Default | Required | What it does; where to get the value |
+|---|---|---|---|
+| `CONTENT_LEGAL_DEPOSIT_DAYS` | `30` | no | days after a book's publication within which a copy is due at each of the four public libraries (the Delivery of Books and Newspapers (Public Libraries) Act; to be verified against the Act): the legal deposit inbox item's due date |
 
 ## 14. Security settings
 

@@ -13,6 +13,7 @@ import type { Note, Schemas } from "@/lib/api/staff";
 
 import { createTaxWorld, monthBefore, type TaxWorld } from "./tax";
 import { type OrdersWorld, ordersWorld } from "./orders";
+import { type ContentWorld, createContent } from "./content";
 
 export type Me = { id: number; email: string; name: string; roles: string[] };
 
@@ -22,7 +23,8 @@ type S = { [K in keyof Schemas]: Mutable<Schemas[K]> };
 export type MockSchemas = S;
 export type Revealed = { email: string; phone: string; login_phone: string; parent_contact: string };
 
-export type MockJob = S["Job"] & { _ticks: number; _rows: string[] };
+/** A job as the mock keeps it: how often it was looked at, its rows, the result it ends with (else its rows). */
+export type MockJob = S["Job"] & { _ticks: number; _rows: string[]; _result?: Record<string, unknown> };
 
 /** A legal page as the mock keeps it: its versions with their text (the API's answers are made from them). */
 export type MockPolicy = {
@@ -75,6 +77,8 @@ export type World = {
   consentsByVersion: S["PrivacyConsentVersion"][];
   /** The Orders module's records (orders.ts). */
   orders: OrdersWorld;
+  /** The content module's records (content.ts). */
+  content: ContentWorld;
 };
 
 /** The payload's SHA-256 over its canonical JSON (keys sorted, no spaces), as staff/approvals.py `digest` makes it. */
@@ -92,6 +96,8 @@ export function payloadHash(payload: unknown): string {
 }
 
 export const COLLEAGUES = { finance: 9002, support: 9003, editor: 9004, packer: 9005, auditor: 9006, gone: 9007 };
+/** A REVIEWER colleague, who approved and published the content fixtures' reviews. */
+const REVIEWER = 9008;
 
 export function createWorld(me: Me, now = Date.now()): World {
   const at = (hours: number) => new Date(now + hours * 3_600_000).toISOString();
@@ -1872,13 +1878,15 @@ export function createWorld(me: Me, now = Date.now()): World {
     ],
   };
 
+  const content = createContent(at, me.id, editor, REVIEWER);
+
   return {
     me,
     seq: 10_000,
     inbox,
     changeRequests,
     audit,
-    jobs,
+    jobs: [...jobs, ...content.jobs],
     savedViews,
     settings,
     settingHistory,
@@ -1908,5 +1916,6 @@ export function createWorld(me: Me, now = Date.now()): World {
     retention,
     consentsByVersion,
     orders: ordersWorld(at),
+    content: content.world,
   };
 }

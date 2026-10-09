@@ -975,6 +975,33 @@ CELERY_BEAT_SCHEDULE |= {
     "ops-check-templates": {"task": "ops.tasks.check_templates", "schedule": crontab(hour=3, minute=50)},
     "integrations-watch-webhooks": {"task": "integrations.tasks.watch_webhooks", "schedule": crontab(minute=25)},
 }
+# Content (content/README.md; API.md "Content (staff)"): the panel's drafts, reviews, reported mistakes, imports and
+# legal deposits. A book's legal deposits are due CONTENT_LEGAL_DEPOSIT_DAYS after its publication (the Delivery of
+# Books and Newspapers Act's 30, to be verified against the Act's text). Nightly: the quiz items the item analysis
+# flags join the triage queue (after insights' run), reports kept as spam go after 30 days, the books whose deposits
+# are not all recorded get their inbox item.
+CONTENT_LEGAL_DEPOSIT_DAYS = env.int("CONTENT_LEGAL_DEPOSIT_DAYS", default=30)
+_CONTENT_TAG = {"name": "content (staff)", "description": "Drafts, reviews, reported mistakes, imports (API.md)."}
+if _CONTENT_TAG not in SPECTACULAR_SETTINGS["TAGS"]:  # noqa: F405  (once: tests reload this module, the dict is shared)
+    SPECTACULAR_SETTINGS["TAGS"].append(_CONTENT_TAG)  # noqa: F405
+SPECTACULAR_SETTINGS["ENUM_NAME_OVERRIDES"].update(  # noqa: F405  the content models' "state", "kind" and others
+    ContentStateEnum="content.models.Question.State",
+    ReviewTaskStateEnum="content.models.ReviewTask.State",
+    ReviewTaskStageEnum="content.models.ReviewTask.Stage",
+    ErrorReportStateEnum="content.models.ErrorReport.State",
+    ErrorReportCategoryEnum="content.models.ErrorReport.Category",
+    ReaderCategoryEnum="content.reports.READER_CATEGORIES",
+    ReportTargetEnum="content.reports.TARGETS",
+    LegalDepositLibraryEnum="content.models.LegalDeposit.Library",
+    BookFormatEnum="content.models.Book.Format",
+    ContentLineOpEnum="content.review.LINE_OPS",
+    ContentVersionTypeEnum="content.review.VERSION_TYPES",
+)
+CELERY_BEAT_SCHEDULE |= {
+    "content-flag-items": {"task": "content.tasks.flag_items", "schedule": crontab(hour=2, minute=20)},
+    "content-purge-spam": {"task": "content.tasks.purge_spam", "schedule": crontab(hour=4, minute=10)},
+    "content-legal-deposits": {"task": "content.tasks.check_legal_deposits", "schedule": crontab(hour=7, minute=0)},
+}
 
 # ---- Resilience (RESILIENCE.md: each knob below, its default and when to change it) --------------------------------
 # Nothing waits without a limit: every call to another service has a connect and a read timeout and a bounded retry,

@@ -639,6 +639,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/errata/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A book's errata: the mistakes staff confirmed or fixed and published, in paper and question order, with the
+         *     printing each was read in and the printing that carries its fix. Public, kept 5 minutes by shared caches.
+         */
+        get: operations["errata_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/learn/chapters/": {
         parameters: {
             query?: never;
@@ -1600,6 +1620,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reports/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Report a mistake: anyone (signed in: the reporter's account is kept; a verified teacher's is marked), 5 an hour
+         *     and 20 a day per client address, Turnstile while it is on; a filled-in `website` (the honeypot) is thanked and
+         *     dropped; a note that reads as spam is kept apart, out of the queue, and goes after 30 days.
+         */
+        post: operations["reports_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/shipping/": {
         parameters: {
             query?: never;
@@ -2202,6 +2243,45 @@ export interface components {
             /** Format: date-time */
             readonly created: string;
         };
+        Erratum: {
+            readonly paper: string | null;
+            readonly question: string | null;
+            /** @description The marking step, 1 for the first. */
+            readonly step: number | null;
+            readonly category: components["schemas"]["ErrorReportCategoryEnum"];
+            /** @description The print run it was read in: PHY-2027-1. */
+            readonly printing: string;
+            readonly state: components["schemas"]["ErrorReportStateEnum"];
+            /** @description The printing that carries the fix. */
+            readonly fixed_in: string;
+            /**
+             * Format: date-time
+             * @description When it was fixed online.
+             */
+            readonly fixed_at: string | null;
+            /** Format: date-time */
+            readonly reported_on: string;
+        };
+        /**
+         * @description * `wrong_answer` - a wrong answer or step
+         *     * `typo` - a typing or spelling mistake
+         *     * `marks` - the marks or the marking scheme
+         *     * `unclear` - hard to follow
+         *     * `display` - maths or a picture does not show
+         *     * `other` - something else
+         *     * `item_analysis` - flagged by the item analysis
+         * @enum {string}
+         */
+        ErrorReportCategoryEnum: "wrong_answer" | "typo" | "marks" | "unclear" | "display" | "other" | "item_analysis";
+        /**
+         * @description * `reported` - reported
+         *     * `confirmed` - confirmed
+         *     * `rejected` - rejected
+         *     * `fixed_online` - fixed online
+         *     * `fixed_in_printing` - fixed in printing
+         * @enum {string}
+         */
+        ErrorReportStateEnum: "reported" | "confirmed" | "rejected" | "fixed_online" | "fixed_in_printing";
         ExportPart: {
             /** @description the part's name in the file */
             key: string;
@@ -2393,6 +2473,42 @@ export interface components {
              * @description the address the order was placed with
              */
             email: string;
+        };
+        MistakeReportRequest: {
+            /**
+             * @description what the mistake is in
+             *
+             *     * `solution` - solution
+             *     * `question` - question
+             *     * `quiz_item` - quiz_item
+             *     * `clip` - clip
+             */
+            kind: components["schemas"]["ReportTargetEnum"];
+            /** @description its code: PHY-E01 */
+            paper?: string;
+            /** @description its label: 2(c) */
+            question?: string;
+            /** @description a quiz item's id */
+            quiz_item?: number;
+            /** @description a clip's id */
+            clip?: number;
+            /** @description the marking step, 1 for the first */
+            step?: number | null;
+            /** @description the print run read: PHY-2027-1 */
+            printing?: string;
+            category: components["schemas"]["ReaderCategoryEnum"];
+            note?: string;
+            /** @description to hear of the fix (once); optional */
+            email?: string;
+            /** @description the honeypot: a field people never see; send none */
+            website?: string;
+            /** @description Turnstile's token while the bot check is on */
+            turnstile?: string;
+        };
+        MistakeReportSent: {
+            /** @description its number, for a question about it */
+            reference: number | null;
+            detail: string;
         };
         NextClip: {
             readonly id: number;
@@ -2738,6 +2854,21 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["Entitlement"][];
+        };
+        PaginatedErratumList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["Erratum"][];
         };
         PaginatedFlashCardList: {
             /** @example 123 */
@@ -3371,6 +3502,16 @@ export interface components {
             number: string;
             detail: string;
         };
+        /**
+         * @description * `wrong_answer` - a wrong answer or step
+         *     * `typo` - a typing or spelling mistake
+         *     * `marks` - the marks or the marking scheme
+         *     * `unclear` - hard to follow
+         *     * `display` - maths or a picture does not show
+         *     * `other` - something else
+         * @enum {string}
+         */
+        ReaderCategoryEnum: "wrong_answer" | "typo" | "marks" | "unclear" | "display" | "other";
         Record: {
             /** @description attempts */
             count: number;
@@ -3414,6 +3555,14 @@ export interface components {
             /** @description agrees to the privacy notice (the parent, under 18) */
             consent: boolean;
         };
+        /**
+         * @description * `solution` - solution
+         *     * `question` - question
+         *     * `quiz_item` - quiz_item
+         *     * `clip` - clip
+         * @enum {string}
+         */
+        ReportTargetEnum: "solution" | "question" | "quiz_item" | "clip";
         RestAuthDetail: {
             readonly detail: string;
         };
@@ -4795,6 +4944,32 @@ export interface operations {
             };
         };
     };
+    errata_list: {
+        parameters: {
+            query: {
+                /** @description its slug: physics-2027 */
+                book: string;
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedErratumList"];
+                };
+            };
+        };
+    };
     learn_chapters_list: {
         parameters: {
             query?: {
@@ -6163,6 +6338,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QuoteSent"];
+                };
+            };
+        };
+    };
+    reports_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MistakeReportRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MistakeReportSent"];
                 };
             };
         };

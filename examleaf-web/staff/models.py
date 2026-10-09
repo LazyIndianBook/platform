@@ -290,6 +290,9 @@ class InboxItem(models.Model):
         BACKUP_STALE = "backup_stale", "no recent backup"
         DEPENDENCIES_STALE = "dependencies_stale", "the dependency report is old"
         SCRIPTS_CHANGED = "scripts_changed", "the checkout's or console's scripts changed"
+        REVIEW = "review", "content review"  # content/review.py
+        ERROR_REPORT = "error_report", "reported mistake"  # content/reports.py
+        LEGAL_DEPOSIT = "legal_deposit", "legal deposit due"  # content/tasks.py
 
     kind = models.CharField(max_length=20, choices=Kind.choices, db_index=True)
     title = models.CharField(max_length=200, help_text="Names no one: a number, a kind.")
@@ -355,6 +358,7 @@ class Job(models.Model):
         ORDERS_PRINT = "orders_print", "order documents printed"
         ORDERS_CANCEL = "orders_cancel", "orders cancelled"
         ORDERS_EXPORT = "orders_export", "order export"
+        CONTENT_IMPORT = "content_import", "import from the books repository"  # content/imports.py
 
     class State(models.TextChoices):
         QUEUED = "queued", "queued"

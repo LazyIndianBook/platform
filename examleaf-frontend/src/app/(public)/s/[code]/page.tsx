@@ -1,7 +1,9 @@
 // /s/<code>/: the address inside every printed QR code (any case; a wrong case redirects to the canonical code).
 // Signed in, or on a book's open sample, or while the solutions are open to everyone (config
 // solutions_require_login): the worked solutions, Markdown and maths drawn on the server (no maths script on the
-// phone), print styles, and for a signed-in student the form that saves their marks to My record (#record).
+// phone), print styles, and for a signed-in student the form that saves their marks to My record (#record). Under
+// each solution, "Report a mistake" (src/components/solutions/report-mistake.tsx), with the print run a printed QR
+// code carries (?printing=PHY-2027-1).
 // Otherwise the register / log-in wall that keeps this page as the destination.
 // Direction A (ExamLeaf A - Public.dc.html, "A Solutions" and "Solutions logged out"; the phone artboards): the paper
 // on a Sheet whose margin is its short code; each group's number hangs in the margin, its marks in the marks column,
@@ -19,6 +21,8 @@ import { Fragment } from "react";
 
 import { MarksForm } from "@/components/account/marks-form";
 import { MarkdownBlock, MarkdownInline, splitGroup, stepCount } from "@/components/solutions/markdown";
+import { printingOf } from "@/components/solutions/printing";
+import { ReportMistake } from "@/components/solutions/report-mistake";
 import { Unavailable } from "@/components/site/unavailable";
 import { Accordion } from "@/components/ui/accordion";
 import { Alert } from "@/components/ui/alert";
@@ -38,7 +42,7 @@ import { shortCode, SITE_URL, subjectOf, TIERS, type TierCode } from "@/lib/site
 
 import { retryAt, secondsIn } from "../../retry-at";
 
-type Props = { params: Promise<{ code: string }> };
+type Props = { params: Promise<{ code: string }>; searchParams: Promise<{ printing?: string | string[] }> };
 
 async function load(code: string): Promise<Paper | null | "unavailable"> {
   try {
@@ -85,12 +89,14 @@ function grouped(list: Question[]): Group[] {
   return groups;
 }
 
-export default async function PaperPage({ params }: Props) {
+export default async function PaperPage({ params, searchParams }: Props) {
   const { code } = await params;
+  const printing = printingOf((await searchParams).printing); // the print run a printed code carries, if any
   const paper = await load(decodeURIComponent(code));
   if (paper === null) notFound();
   if (paper === "unavailable") return <Unavailable what="This paper's solutions" retry={`/s/${code}/`} />;
-  if (paper.code !== decodeURIComponent(code)) permanentRedirect(`/s/${paper.code}/`);
+  if (paper.code !== decodeURIComponent(code))
+    permanentRedirect(`/s/${paper.code}/${printing ? `?printing=${encodeURIComponent(printing)}` : ""}`);
 
   const [config, user, book] = await Promise.all([
     getConfig(),
@@ -349,6 +355,15 @@ export default async function PaperPage({ params }: Props) {
                                 <MarkdownBlock>{question.solution.markdown}</MarkdownBlock>
                               </div>
                             ) : null}
+                            <ReportMistake
+                              target={{
+                                kind: question.solution ? "solution" : "question",
+                                paper: paper.code,
+                                question: question.label,
+                                steps,
+                              }}
+                              printing={printing}
+                            />
                           </article>
                         </Fragment>
                       );

@@ -271,6 +271,10 @@ The Orders module (`shop/order_jobs.py`, `shop/README.md`) adds
 or `filters` (the list's, never a search) as their params, and three kinds of inbox item: `order_hold` (an order held:
 `shop.change_order`), `return_request` (due in 48 hours: `staff.handle_return`) and `bank_refund` (a transfer to make,
 due in `SHOP_BANK_REFUND_DAYS`: `staff.approve_refund`).
+The content module (`content/README.md`) adds the kind `content_import`
+(`staff.import_content`, high; no row limit and no approver: its own dry run comes first, and an apply names it) and
+three kinds of inbox item, each narrowed to its subject (`data.subject`): `review` (a draft waiting for a reviewer),
+`error_report` (a reported mistake to triage) and `legal_deposit` (a book's copies due at the libraries).
 
 ## Data protection
 
@@ -464,8 +468,8 @@ AUDITOR: every page read-only. MARKETING: the templates read-only. Everyone: the
 
 ## Not built yet
 
-The panel itself (Next.js); the orders, catalogue, content and course modules' own endpoints (their permissions are
-in the catalogue: `staff.publish_paper` waits for the content module); bulk actions beyond the change requests' (a
+The panel itself (Next.js); the orders, catalogue and course modules' own endpoints (their permissions are in the
+catalogue); bulk actions beyond the change requests' (a
 bulk job runs those: refunds, offline payments, prices, coupons); replaying a Razorpay webhook from its body (the
 site keeps only the event's id and hash: `system/reconcile/` asks Razorpay again instead); ERPNext's role sync (the
 person's ERPNext tab says what to apply by hand); the

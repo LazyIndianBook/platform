@@ -241,6 +241,12 @@
   max-width: var(--measure);
   margin-right: calc(var(--mcol) + 40px);
 }
+/* "Report a mistake" (report-mistake.tsx) under the solution, in its column, its form in the sans */
+.paper-page .report-mistake {
+  grid-column: 2 / -1;
+  margin-top: 6px;
+  padding-left: 21px;
+}
 .paper-page .solution-label {
   font: 600 12px/1.4 var(--font-mono);
   letter-spacing: 0.08em;
@@ -546,6 +552,10 @@
   .paper-page .part + .group-sr + .question .marks {
     top: 12px;
   }
+  .paper-page .report-mistake {
+    clear: left;
+    padding-left: 15px;
+  }
   .paper-page .solution {
     clear: left;
     margin: 14px -48px 0 0;
@@ -620,6 +630,7 @@
   .paper-page .paper-col-label,
   .paper-page .rail,
   .paper-page .record-card,
+  .paper-page .report-mistake,
   .paper-page .seal,
   .paper-sheet > .sheet-margin,
   .paper-sheet > .sheet-marks {

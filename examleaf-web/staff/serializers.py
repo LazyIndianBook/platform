@@ -187,7 +187,9 @@ class JobStartSerializer(serializers.Serializer):
         'gstr1_export: {"month": "YYYY-MM", "months": 1 or 3} (a month, or the quarter ending with it); '
         'orders_pack, orders_print ({"document": packing_slip, label or invoices}) and orders_cancel ({"reason", '
         '"customer_requested"}, 250 at most): {"targets": [order numbers]}; orders_export: {"filters": {…}} (the '
-        "order list's)",
+        "order list's); "
+        'content_import: {"subject": "physics", "commit": "" or a commit, "dry_run_job": the dry run\'s id (to '
+        "apply)}",
     )
     dry_run = serializers.BooleanField(required=False, default=False, help_text="check every row, change nothing")
 
@@ -205,8 +207,14 @@ class JobStartSerializer(serializers.Serializer):
             from shop.staff_tax import gstr1_period
 
             data["params"] = gstr1_period(params)
+            return data
         if data["kind"] in order_jobs().PERMISSIONS:  # the Orders module's: shop/order_jobs.py
             data["params"] = order_jobs().params_for(data["kind"], params)
+            return data
+        if data["kind"] == Job.Kind.CONTENT_IMPORT:
+            from content.imports import clean_params
+
+            data["params"] = clean_params(params, dry_run=data["dry_run"])
             return data
         if data["kind"] == Job.Kind.ERP_INITIAL_LOAD:
             since = params.get("invoices_from")

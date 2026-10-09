@@ -17,6 +17,8 @@ Commands run in `/srv/examleaf/examleaf-web` on the server. `dj` below stands fo
   COD remittances, weight disputes, parcels that stopped moving
 - [Reviews, school orders and stock](#reviews-school-orders-and-stock)
 - [The revision course](#the-revision-course): uploading, failed clips, book codes, access
+- [Content](#content): importing papers, a wrong solution reported, a publish to undo, QR codes for print, legal
+  deposits
 - [Insights](#insights): a job failed, a fraud spike, the monthly review, a new season
 - [ERPNext](#erpnext): ERPNext down, a refused document, the morning's differences, no doorbells, a flow
   switched off and on, ERPNext restored from a backup
@@ -946,6 +948,54 @@ of a digital product in the shop grant themselves when paid; an entitlement is n
    the note "code #<id> used by another account" and keep the other entitlement unless the code was clearly stolen (then
    delete that entitlement: ADMIN; its owner will contact you if it was theirs).
 5. **No code at all** (lost slip): proof of purchase, then a grant until the end of the exam season.
+
+## Content
+
+The content module of the panel (`content/README.md`): Content in the panel's menu. Its actions are audited and need
+the permissions named; the shell recipes stay for when the panel cannot be used.
+
+### Importing papers after the books changed
+
+1. Content → Imports (REVIEWER, or OWNER; a fresh authentication first): pick the subject, leave the commit empty for
+   the books checkout as it is (or give a commit's hash), Run the dry run. It lists what would be new, changed, the
+   same, not matched, and no longer in the books (taken off the site, never deleted).
+2. Read the labels behind "Changed" and "No longer in the books"; if they are what the books' change meant, Apply. The
+   apply refuses when the checkout moved since the dry run (pull, then a dry run again) or after 24 hours.
+3. A "Not matched" solution label is a heading the parser could not place: fix it in the books repository, pull, run
+   again.
+
+Break-glass (the panel down): `docker compose exec web python manage.py import_papers --subject physics --dry-run`,
+then without `--dry-run` (DEPLOYMENT.md section 11). The command and the panel share the same code.
+
+### A reader reported a wrong solution
+
+1. Content → Reported mistakes: the report shows the question and the solution as the site shows them now, the step,
+   the printing the reader had, their note. Confirm it, or reject it with the reason (the reporter's address goes).
+2. "Open the solution in the editor": correct the Markdown (the preview draws it as the site does; KaTeX names a
+   formula it cannot draw before anything is saved), Save the draft, Submit for review.
+3. A reviewer of the subject (never the person who edited it) opens it from their inbox and publishes it.
+4. Back on the report: Fixed online, and Tell the reporter if they left an address (one email; the address is then
+   deleted). Once the print run is corrected: Fixed in a printing, with the new print run's label.
+
+### Undoing a publish
+
+Within five seconds of Publish, Undo on the review. Later, the solution's editor (a reviewer): Undo the last publish
+puts the text before it back live and the published text back into the draft. Once the text changed again (an import,
+a later publish), restore a version from the editor's History instead (it comes back as a draft to review).
+
+### QR codes for a print run
+
+Content → Papers → the paper → QR code: type the print run's label (`PHY-2027-2`) and Show its code, then Download the
+picture. The code then carries the print run, so a mistake reported from that book names it. The panel refuses while
+`SITE_URL` is not the public https address. For a whole book at once: `manage.py export_qr --out qr/` (the codes without
+a print run).
+
+### Legal deposits
+
+A published book (its publication day set on the book's page in Content → Books) has an inbox item until the four
+libraries have its edition, due 30 days after publication (`CONTENT_LEGAL_DEPOSIT_DAYS`). When a copy goes: Content →
+Legal deposits → record it (the library, the day it went, the proof: the consignment number or the receipt's, and a
+scan if there is one). The item closes with the fourth library.
 
 ## Insights
 

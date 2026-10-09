@@ -37,6 +37,7 @@ urlpatterns = [
     path("policies/ack/", api.PolicyAcknowledgementView.as_view(), name="policy-ack"),
     # Phase B: the modules' own files, one line each, in the order of their paths
     path("connections/", include("integrations.api")),
+    path("content/", include("content.staff_api")),
     path("orders/", include("shop.staff_orders")),
     path("system/", include("staff.system_api")),
     path("tax/", include("shop.staff_tax")),

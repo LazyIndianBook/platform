@@ -1,0 +1,96 @@
+/* The content module's reading surfaces, on the Answer Script tokens (globals.css): a solution drawn as the public
+   site draws it (the marking table with its marks column, the final answer, the expected diagram), and a diff whose
+   lines say what they are in words and signs as well as their tint (never the colour alone). KaTeX's error colour is
+   the error red of the kit. */
+
+@layer components {
+  .content-markdown {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 10px;
+    font-size: 16px;
+    line-height: 1.65;
+    overflow-wrap: anywhere;
+  }
+  .content-markdown > * {
+    margin: 0;
+  }
+  .content-markdown .table-scroll {
+    overflow-x: auto;
+  }
+  .content-markdown table {
+    border-collapse: collapse;
+    min-width: 100%;
+    background: var(--card);
+  }
+  .content-markdown th,
+  .content-markdown td {
+    border: 1px solid var(--border);
+    padding: 6px 10px;
+    text-align: left;
+    vertical-align: top;
+  }
+  .content-markdown th {
+    background: var(--paper-2);
+    font-weight: 600;
+  }
+  .content-markdown table.steps td:last-child,
+  .content-markdown table.steps th:last-child {
+    width: 4.5rem;
+    text-align: center;
+    font-family: var(--font-mono);
+  }
+  .content-markdown p.final {
+    border-top: 1px solid var(--rule-soft);
+    padding-top: 8px;
+  }
+  .content-markdown blockquote {
+    border-left: 2px solid var(--border);
+    padding-left: 12px;
+    color: var(--muted-foreground);
+  }
+  .content-markdown ul,
+  .content-markdown ol {
+    padding-left: 1.4rem;
+  }
+  .content-markdown code {
+    font-family: var(--font-mono);
+    font-size: 0.92em;
+  }
+  .content-markdown img {
+    max-width: 100%;
+    height: auto;
+  }
+  .content-markdown .katex-error {
+    color: var(--destructive) !important;
+    text-decoration: underline wavy;
+  }
+
+  .content-diff {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border: 1px solid var(--border);
+    background: var(--card);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    line-height: 1.6;
+    overflow-x: auto;
+  }
+  .content-diff li {
+    display: grid;
+    grid-template-columns: 1.5rem minmax(0, 1fr);
+    padding: 0 8px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .content-diff li[data-op="delete"] {
+    background: var(--paper-2);
+    color: var(--muted-foreground);
+    text-decoration: line-through;
+  }
+  .content-diff li[data-op="insert"] {
+    background: var(--success-bg);
+  }
+}

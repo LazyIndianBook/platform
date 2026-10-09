@@ -1,0 +1,8 @@
+{% autoescape off %}Thank you for reporting a mistake ({{ where }}).
+
+It is fixed on the website now: {{ url }}{% if fixed_in %}
+The printing {{ fixed_in }} of the book carries the fix too.{% endif %}
+
+You get this email once, because you left your address with the report; we have not kept it.
+
+ExamLeaf{% endautoescape %}

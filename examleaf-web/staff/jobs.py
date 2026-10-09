@@ -62,6 +62,8 @@ def permission(kind, params):
         return "erp.run_initial_load"
     if kind == Job.Kind.GSTR1_EXPORT:
         return "staff.run_gstr1"
+    if kind == Job.Kind.CONTENT_IMPORT:
+        return "staff.import_content"
     return order_jobs.PERMISSIONS.get(kind)
 
 
@@ -97,12 +99,14 @@ def start(kind, params, *, user, dry_run=False, request=None):
         total = document_count(*period_of(params["month"], params.get("months", 1)))
     elif kind in order_jobs.PERMISSIONS:
         total = order_jobs.size(kind, user, params)
+    elif kind == Job.Kind.CONTENT_IMPORT:
+        total = 0  # the source's papers, counted as it runs; no approver: its own dry run comes first
     else:
         total = len(params["targets"])
     with transaction.atomic():
         job = Job.objects.create(kind=kind, params=params, dry_run=dry_run, total=total, started_by=user)
         _event(job, "requested", request)
-        limit = approvals.limit_of(user, LIMITS[kind])
+        limit = approvals.limit_of(user, LIMITS[kind]) if kind in LIMITS else None
         if dry_run or not approvals.over(total, limit, "{amount} {limit}"):
             enqueue(job)
             return job
@@ -255,12 +259,20 @@ def gstr1_export(job, progress):
     return export_job(job, progress)
 
 
+def content_import(job, progress):
+    """An import from the books repository, a dry run or its apply (content.imports.run_job)."""
+    from content.imports import run_job
+
+    return run_job(job, progress)
+
+
 RUNNERS = {
     Job.Kind.AUDIT_EXPORT: export_audit,
     Job.Kind.BULK_ACTION: bulk_action,
     Job.Kind.ERP_INITIAL_LOAD: erp_initial_load,
     Job.Kind.GSTR1_EXPORT: gstr1_export,
     **order_jobs.RUNNERS,
+    Job.Kind.CONTENT_IMPORT: content_import,
 }
 
 

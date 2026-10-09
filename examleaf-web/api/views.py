@@ -191,9 +191,10 @@ class PaperViewSet(viewsets.ReadOnlyModelViewSet):
     @extend_schema(responses=QuestionSerializer(many=True))
     @action(detail=True, permission_classes=[CanReadSolutions], pagination_class=None, filter_backends=[])
     def solutions(self, request, *args, **kwargs):
-        """The questions in paper order, each with its marking-scheme solution (Markdown and HTML)."""
+        """The questions in paper order, each with its marking-scheme solution (Markdown and HTML): the live text (a
+        draft waits apart until it is reviewed); a question no longer in the books repository is left out."""
         paper = self.get_object()
-        questions = paper.questions.select_related("solution")
+        questions = paper.questions.filter(is_published=True).select_related("solution")
         return cache_solutions(Response(QuestionSerializer(questions, many=True).data), request.user, paper.is_sample)
 
 

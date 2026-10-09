@@ -10,19 +10,23 @@
 // 390 px and fits 320 px; the idle sign-out comes at the manifest's limit; nothing animates with reduced motion. The
 // Orders module: SALES makes a staff order (the discount's rule shown before saving, made at once within their limit),
 // FINANCE finds it by the customer's email (a lookup the API records by its hash), and SUPPORT asks for a refund of two
-// books of three, above their ₹1,000: the 202 and its change request.
+// books of three, above their ₹1,000: the 202 and its change request. Content: a CONTENT_EDITOR drafts a solution and
+// submits it, a REVIEWER publishes it from the inbox, and the OWNER's audit trail shows both.
 import { type Browser, expect, type Page, test } from "@playwright/test";
 
 import { checkPages, type Codes, csrf, settle, signIn, toast } from "./console";
 import {
+  type ContentWorld,
   createStaff,
   deleteOrdersWorld,
+  deleteContent,
   deleteRealWorld,
   deleteStaff,
   newSecret,
   type OrdersWorld,
   type RealWorld,
   seedOrdersWorld,
+  seedContent,
   seedRealWorld,
   type Staff,
 } from "./django";
@@ -44,7 +48,14 @@ const salesCodes: Codes = { last: null };
 const financeCodes: Codes = { last: null };
 let world: RealWorld;
 let shop: OrdersWorld;
+const editor = staffFor("CONTENT_EDITOR");
+const reviewer = staffFor("REVIEWER");
+const editorCodes: Codes = { last: null };
+const reviewerCodes: Codes = { last: null };
+let content: ContentWorld;
 let supportId: number;
+let editorId: number;
+let reviewerId: number;
 let changeRequest = "";
 
 test.describe.configure({ mode: "serial" });
@@ -56,12 +67,16 @@ test.beforeAll(() => {
   createStaff(finance, "FINANCE");
   world = seedRealWorld(stamp);
   shop = seedOrdersWorld(stamp);
+  editorId = createStaff(editor, "CONTENT_EDITOR");
+  reviewerId = createStaff(reviewer, "REVIEWER");
+  content = seedContent(stamp);
 });
 
 test.afterAll(() => {
   if (world) deleteRealWorld(world);
   if (shop) deleteOrdersWorld(shop);
-  deleteStaff([owner.email, support.email, sales.email, finance.email]);
+  if (content) deleteContent(content);
+  deleteStaff([owner.email, support.email, sales.email, finance.email, editor.email, reviewer.email]);
 });
 
 async function open(browser: Browser, width = 1280): Promise<Page> {
@@ -291,6 +306,52 @@ test("OWNER: a legal hold on the customer, which the erasure's dry run names", a
   await page.context().close();
 });
 
+test("content: an editor drafts a solution, a reviewer publishes it, and the audit trail shows both", async ({
+  browser,
+}) => {
+  const page = await open(browser);
+  await signIn(page, editor, `/content/papers/${content.paper}/?solution=${content.solution}`, editorCodes);
+  await test.step("the editor: the draft saved and submitted, the live text unchanged", async () => {
+    const source = page.getByRole("textbox", { name: "Markdown and LaTeX" });
+    await source.fill("$I = \\dfrac{6}{12} = 0.5$ A");
+    await page.getByRole("button", { name: "Save the draft" }).click();
+    await expect(toast(page, "Draft saved")).toBeVisible();
+    await expect(page.getByText("All changes saved")).toBeVisible();
+    await page.getByRole("button", { name: "Submit for review" }).click();
+    await expect(toast(page, "Sent for review")).toBeVisible();
+    const live = await page.request.get(`/api/v1/staff/content/solutions/${content.solution}/`);
+    expect(await live.json()).toMatchObject({ state: "in_review", body_md: "$I = \\dfrac{6}{12} = 5$ A" });
+  });
+  await page.context().close();
+
+  const second = await open(browser);
+  await signIn(second, reviewer, "/inbox/", reviewerCodes);
+  await test.step("the reviewer: from the inbox to the review, published", async () => {
+    await second
+      .getByRole("region", { name: "Inbox, a table" })
+      .getByRole("link", { name: `Review: ${content.code} 1(a), solution` })
+      .click();
+    await expect(second.getByRole("heading", { level: 1, name: `${content.code} 1(a), solution` })).toBeVisible();
+    await expect(second.getByRole("region", { name: "What it changes" })).toContainText("0.5");
+    await second.getByRole("button", { name: "Publish" }).click();
+    await expect(second.getByText(/^Published\. You can undo it for \d s\.$/)).toBeVisible();
+    await expect(second.getByRole("button", { name: "Undo" })).toHaveCount(0, { timeout: 10_000 });
+    const live = await second.request.get(`/api/v1/staff/content/solutions/${content.solution}/`);
+    expect(await live.json()).toMatchObject({ state: "published", body_md: "$I = \\dfrac{6}{12} = 0.5$ A" });
+  });
+  await second.context().close();
+
+  const third = await open(browser);
+  await signIn(third, owner, "/", ownerCodes);
+  await test.step("the owner: the audit trail holds the submission and the publish, each by its own person", async () => {
+    await third.goto(`/audit/?target_type=content.solution&target_id=${content.solution}`);
+    const table = third.getByRole("region", { name: "Audit trail, a table" });
+    await expect(table.getByRole("row", { name: /content\.submitted/ })).toContainText(`#${editorId}`);
+    await expect(table.getByRole("row", { name: /content\.published/ })).toContainText(`#${reviewerId}`);
+  });
+  await third.context().close();
+});
+
 for (const width of [1280, 390]) {
   test(`every page passes axe and fits the window at ${width} px (320 px too)`, async ({ browser }) => {
     const page = await open(browser, width);
@@ -324,6 +385,15 @@ for (const width of [1280, 390]) {
         "/settings/api-keys/",
         "/system/",
         "/account/",
+        "/content/",
+        "/content/books/",
+        `/content/papers/${content.paper}/`,
+        `/content/papers/${content.paper}/?solution=${content.solution}`,
+        "/content/reviews/",
+        "/content/reports/",
+        "/content/errata/",
+        "/content/imports/",
+        "/content/legal-deposits/",
         "/users/999999/",
         // Phase B: the role catalogue, a person's tabs, the connections, the templates and the system's pages, as
         // this backend answers them unconfigured (no bucket, no dependency report, no provider's keys)

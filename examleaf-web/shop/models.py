@@ -42,6 +42,7 @@ from taggit.managers import TaggableManager
 from treebeard.mp_tree import MP_Node
 
 from accounts.models import DeletionRequest
+from content.isbn import changed_isbn
 
 INR = "INR"
 STATES = dict(STATE_CHOICES)
@@ -231,6 +232,11 @@ class Product(TimeStampedModel):
         if self.hsn_id and self.kind != self.Kind.BUNDLE and (self.hsn.kind == HsnCode.Kind.SAC) != self.is_digital:
             what = "a SAC code (99…): it is a service" if self.is_digital else "an HSN code: it is goods"
             raise ValidationError({"hsn": f"Choose {what}."})
+        before = Product.objects.filter(pk=self.pk).values_list("isbn", flat=True).first() if self.pk else None
+        try:  # an ISBN-13 checked when it is set or changed (the book's own check: content/isbn.py)
+            changed_isbn(self.isbn, before)
+        except ValidationError as error:
+            raise ValidationError({"isbn": error.messages}) from error
 
     def save(self, *args, **kwargs):
         """A changed slug leaves its old one in SlugHistory: the old address redirects to the new one (301). A product

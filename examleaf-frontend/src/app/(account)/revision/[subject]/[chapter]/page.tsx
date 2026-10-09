@@ -2,7 +2,8 @@
 // course for the signed-in student (Chapter, Chapter locked, Phone chapter). learn/chapters/<id>/ says what is open. An
 // open chapter plays its clips here (?clip=<id> picks one, else the first not yet watched) with the clip's notes, the
 // Board's questions and the ways to practise; a chapter that is not open lists its free and locked clips beside the
-// book-code form, and plays a free clip when one is picked. Never indexed; never cached (src/proxy.ts).
+// book-code form, and plays a free clip when one is picked. Under the clip, "Report a mistake"
+// (src/components/solutions/report-mistake.tsx). Never indexed; never cached (src/proxy.ts).
 import "katex/dist/katex.min.css";
 import "./course.css";
 
@@ -13,6 +14,7 @@ import { ClipList, ClipNotes, KIND, LockedList, plural, Practice, PracticeButton
 import { chapterPath, loadChapter } from "@/components/course/data";
 import { ChapterPlayer } from "@/components/course/player";
 import { RedeemCard } from "@/components/course/redeem-card";
+import { ReportMistake } from "@/components/solutions/report-mistake";
 import { Alert } from "@/components/ui/alert";
 import { Marks, Sheet } from "@/components/ui/band";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
@@ -91,6 +93,7 @@ export default async function ChapterPage({ params, searchParams }: Props) {
         </p>
       )}
       <PracticeButtons chapter={chapter} path={path} />
+      {clip && !(clip instanceof ApiError) ? <ReportMistake target={{ kind: "clip", clip: clip.id }} /> : null}
     </div>
   ) : null;
 

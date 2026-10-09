@@ -11,7 +11,10 @@
 // refund of two books above SUPPORT's limit answered with its change request, and the packing queue's mark packed
 // undone, then sent), the person's jobs (cancel one, download a file), the ⌘K palette, and the idle sign-out at the
 // limit the manifest gives the role. Then a break-glass session's reason and a policy acknowledged before anything
-// else, and reduced motion. The TEST band shows throughout (the fixtures are test data).
+// else, and reduced motion. The content module's journey: a reported mistake confirmed, a formula KaTeX cannot draw
+// named in the editor before anything is sent, the fix saved and submitted (and not one's own to publish), a
+// colleague's review published, another published and undone within its five seconds, the report marked fixed and its
+// reporter told, an import's dry run and apply. The TEST band shows throughout (the fixtures are test data).
 import { expect, type Page, test } from "@playwright/test";
 
 import { axe, checkPages, type Codes, settle, signIn, toast } from "./console";
@@ -78,6 +81,20 @@ const PAGES = [
   "/tax/documents/?kind=credit_note",
   "/tax/series/",
   "/tax/gstr1/",
+  "/content/",
+  "/content/books/",
+  "/content/books/2101/",
+  "/content/papers/",
+  "/content/papers/2201/",
+  "/content/papers/2201/?solution=2402",
+  "/content/papers/2201/?question=2302",
+  "/content/reviews/",
+  "/content/reviews/2501/",
+  "/content/reports/",
+  "/content/reports/2601/",
+  "/content/errata/",
+  "/content/imports/",
+  "/content/legal-deposits/",
   "/users/99999/",
 ];
 
@@ -551,6 +568,92 @@ for (const width of [1280, 390]) {
         const row = page.getByRole("row").filter({ hasText: "__Host- cookies with SameSite Strict" });
         await expect(row.getByText("Missing")).toBeVisible();
         await expect(row.getByText(/SESSION_COOKIE_NAME=__Host-sessionid/)).toBeVisible();
+      });
+    });
+
+    test("content: a mistake triaged, a fix written and reviewed, a publish undone, an import", async ({ page }) => {
+      await signIn(page, staff, "/content/", codes);
+      await expect(page.getByRole("heading", { level: 1, name: "Content" })).toBeVisible();
+      await expect(page.getByText("A wrong answer or step")).toBeVisible();
+
+      await test.step("a reported mistake confirmed", async () => {
+        await page.goto("/content/reports/");
+        await page.getByRole("link", { name: "PHY-E01 2(c), step 2" }).first().click();
+        await expect(page.getByRole("heading", { level: 1, name: "PHY-E01 2(c), step 2" })).toBeVisible();
+        await expect(page.getByText("Step 2 gives 5 A; 6/12 is 0.5 A.")).toBeVisible();
+        await page.getByRole("button", { name: "Confirm it" }).click();
+        await expect(toast(page, "Confirmed")).toBeVisible();
+      });
+
+      await test.step("the editor names a formula KaTeX cannot draw and sends nothing; the fix is saved and submitted", async () => {
+        await page.goto("/content/reports/2602/");
+        await page.getByRole("link", { name: "Open the solution in the editor" }).click();
+        await expect(page).toHaveURL(/\/content\/papers\/2201\/\?solution=2401/);
+        const source = page.getByRole("textbox", { name: "Markdown and LaTeX" });
+        await source.fill("**Ans.** Equipotential surface: $E = \\frac{V}{d$ *(1)*");
+        await expect(page.getByText("Unsaved changes")).toBeVisible();
+        await page.getByRole("button", { name: "Save the draft" }).click();
+        await expect(page.getByText("KaTeX cannot draw these formulas: fix them first")).toBeVisible();
+        await expect(page.getByText(/^Line 1: /)).toBeVisible();
+        await source.fill("**Ans.** Equipotential surface: $E = \\frac{V}{d}$ *(1)*");
+        await page.getByRole("button", { name: "Save the draft" }).click();
+        await expect(toast(page, "Draft saved")).toBeVisible();
+        await expect(page.getByText("All changes saved")).toBeVisible();
+        await page.getByRole("button", { name: "Submit for review" }).click();
+        await expect(toast(page, "Sent for review")).toBeVisible();
+      });
+
+      await test.step("one's own draft waits for another reviewer", async () => {
+        await page.goto("/content/reviews/?open=true");
+        await page.getByRole("link", { name: "PHY-E01 1(a), solution" }).click();
+        await expect(
+          page.getByText("You edited or submitted this draft: another reviewer checks and publishes it."),
+        ).toBeVisible();
+        await expect(page.getByRole("button", { name: "Publish" })).toHaveCount(0);
+        await expect(page.getByRole("region", { name: "What it changes" })).toContainText("\\frac{V}{d}");
+      });
+
+      await test.step("a colleague's fix published; another published and undone within five seconds", async () => {
+        await page.goto("/content/reviews/2501/");
+        await page.getByRole("button", { name: "Publish" }).click();
+        await expect(page.getByText(/^Published\. You can undo it for \d s\.$/)).toBeVisible();
+        await expect(page.getByRole("button", { name: "Undo" })).toHaveCount(0, { timeout: 10_000 });
+        await expect(
+          page.getByText("The text before the publish against the text it put live, line by line."),
+        ).toBeVisible();
+
+        await page.goto("/content/reviews/2502/");
+        await page.getByRole("button", { name: "Publish" }).click();
+        await page.getByRole("button", { name: "Undo" }).click();
+        await expect(toast(page, "Publish undone")).toBeVisible();
+        await page.goto("/content/papers/2201/?question=2302");
+        await expect(
+          page
+            .getByRole("region", { name: /^Question PHY-E01 2\(c\)/ })
+            .getByText("Draft", { exact: true })
+            .first(),
+        ).toBeVisible();
+      });
+
+      await test.step("the report marked fixed online, its reporter told once", async () => {
+        await page.goto("/content/reports/2601/");
+        await page.getByRole("button", { name: "Fixed online" }).click();
+        await expect(toast(page, "Marked fixed")).toBeVisible();
+        await page.getByRole("button", { name: "Tell the reporter" }).click();
+        await page.getByRole("dialog").getByRole("button", { name: "Tell the reporter" }).click();
+        await settle(page, toast(page, "Reporter told"), staff, codes);
+        await expect(page.getByRole("button", { name: "Tell the reporter" })).toHaveCount(0);
+      });
+
+      await test.step("an import: a dry run, then its apply", async () => {
+        await page.goto("/content/imports/");
+        await page.getByLabel("Subject", { exact: true }).first().selectOption("chemistry");
+        await page.getByRole("button", { name: "Run the dry run" }).click();
+        const apply = page.getByRole("button", { name: "Apply", exact: true });
+        await settle(page, apply, staff, codes);
+        await expect(page.locator("dt", { hasText: "Changed" }).first()).toBeVisible(); // what it found, counted
+        await apply.click();
+        await settle(page, toast(page, "Import applied"), staff, codes);
       });
     });
   });

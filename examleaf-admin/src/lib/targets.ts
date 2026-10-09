@@ -1,7 +1,7 @@
 // Where a record the API names (its target_type, a Django model's label, and target_id) opens in the console. A
 // person's account (accounts.user) is a customer's page, or a staff member's when the action is about staff
 // (staff.grant_role …). An order opens by its id as well as its number (the API takes either); a refund on its order.
-// Records of modules the console does not have yet (papers) open nowhere.
+// Records of modules the console does not have yet open nowhere.
 const PAGES: Record<string, (id: string) => string> = {
   "staff.changerequest": (id) => `/approvals/${id}/`,
   "staff.datarequest": (id) => `/privacy/requests/${id}/`,
@@ -25,6 +25,11 @@ const PAGES: Record<string, (id: string) => string> = {
   "ops.messagetemplate": () => "/settings/templates/",
   "staff.scriptinventory": () => "/system/scripts/",
   system: (id) => (id === "backups" || id === "dependencies" ? `/system/${id}/` : "/system/"),
+  // the content module (a review, a reported mistake, a book's legal deposit, a paper)
+  "content.reviewtask": (id) => `/content/reviews/${id}/`,
+  "content.errorreport": (id) => `/content/reports/${id}/`,
+  "content.book": (id) => `/content/books/${id}/`,
+  "content.paper": (id) => `/content/papers/${id}/`,
 };
 
 export function targetHref(type: string | null | undefined, id: string | null | undefined, action = ""): string | null {
