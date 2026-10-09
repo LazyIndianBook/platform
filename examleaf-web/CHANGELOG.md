@@ -5,6 +5,41 @@ commits are in `git log` (phase 4: abffe6f and e5abda5; phase 5 A and B with the
 and E: 4e30e59; the redesign's stage 2 so far: ba0b9dd). Details of each feature are in README.md; the numbers of the
 tests are those of `pytest` at the end of the phase.
 
+## Phase B, Content (9 October 2026)
+
+The Admin Control Panel's content module (content/README.md; API.md "Content (staff)"): the text of a question or a
+solution changes as a draft that a second person reviews and publishes, readers report mistakes from the website,
+imports from the books repository run from the panel, and the books' legal deposits are tracked. 1,134 backend tests
+pass on SQLite (11 skipped, 2,249 subtests), 53 of them new in content/ beside the matrix's content rows; the console's
+Vitest 118 and Playwright 8 in mock mode (the content journey also against this backend), the website's Vitest 213.
+
+- **Drafts and their review.** `Question` and `Solution` gain a state (published, draft, in review), a JSON `draft`,
+  who drafted it and who published it, when; a question also `is_published`. The panel's saves go to the draft after
+  the LaTeX check (`content/latex.py`: delimiters, braces, environments, forbidden commands, raw HTML, pictures'
+  alt text; no false alarm on the books repository's 23,217 texts), and the site keeps the live text. `ReviewTask`:
+  submit, approve, ask for changes, publish (approving on the way), never by whoever edited or submitted the draft
+  (`403 own_edit`, owners included); a publish keeps the text it replaced, so it can be rolled back; any version comes
+  back from the history (a text into the draft). The Django admin shows the texts read-only to all but superusers.
+- **Reported mistakes.** `POST /api/v1/reports/` (Turnstile, a honeypot, 5 an hour and 20 a day per address; spam
+  set apart and purged after 30 days), an inbox item per report for whoever triages the subject, the triage
+  (confirmed, rejected with a reason, fixed online, fixed in a printing; reopened), the reporter told once and their
+  address deleted then (or at a rejection); the quiz's item-analysis flags join the queue nightly; errata per book and
+  printing (`GET /api/v1/errata/?book=`). The website: "Report a mistake" under every solution and revision clip, with
+  the print run its QR code carries (`?printing=`; the panel makes a print run's code).
+- **Imports as staff jobs** (`content_import`, `staff.import_content`, high): a dry run, then its apply within 24
+  hours for the same commit (refused once the repository moved), each paper in its own transaction and only the fields
+  that changed; a question gone from the books is unpublished, not deleted. `import_papers` shares the code and gains
+  `--dry-run`.
+- **Books, papers, deposits.** A book's ISBN (its check digit checked when set or changed, as the shop product's),
+  format and publication day; the copies sent to the four public libraries, with an inbox item until all four have the
+  edition (`CONTENT_LEGAL_DEPOSIT_DAYS`, 30, to be verified against the Act). A paper is published, unpublished or made
+  its book's open sample by `POST …/papers/<id>/publish/` (`staff.publish_paper`, so a REVIEWER can), the sample moving
+  from the book's other paper; the editor's PATCH and the admin leave publication to publishers.
+- **Permissions.** `staff.triage_report` (medium) and `staff.import_content` (high) join the catalogue; CONTENT_EDITOR
+  and REVIEWER gain the module's queues (reviews, reports, deposits), REVIEWER the imports, SUPPORT reads the reports;
+  inbox items of a subject are narrowed by it. Three beat tasks: `content-flag-items`, `content-purge-spam`,
+  `content-legal-deposits`.
+
 ## The staff console on the staff API as built, and the website's side of an impersonation (9 October 2026)
 
 No backend change. The console (`../examleaf-admin/`) and the website (`../examleaf-frontend/`) now speak the staff
