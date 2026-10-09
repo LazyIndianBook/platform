@@ -640,3 +640,209 @@ export const getSystem = async (transport?: Transport) =>
 /** Ask Razorpay what became of an online order's payment (a lost webhook). */
 export const reconcileOrder = (order: string) =>
   send(undefined, (o) => api.POST("/api/v1/staff/system/reconcile/", { ...o, body: { order } }));
+
+// ---- Content ----
+// examleaf-web's content/staff_api.py (API.md "Content (staff)"): books and papers change at once; a question's or a
+// solution's text goes to its draft, which a second person reviews and publishes; reported mistakes are triaged;
+// imports from the books repository are staff jobs (kind content_import); legal deposits are recorded per library.
+
+export type ContentSummary = Schemas["ContentSummary"];
+export type ContentBook = Schemas["ContentBook"];
+export type ContentBookDetail = Schemas["ContentBookDetail"];
+export type ContentPaper = Schemas["ContentPaper"];
+export type ContentPaperDetail = Schemas["ContentPaperDetail"];
+export type ContentQuestion = Schemas["ContentQuestionDetail"];
+export type ContentSolution = Schemas["ContentSolutionDetail"];
+export type ContentReview = Schemas["ContentReview"];
+export type ContentReviewDetail = Schemas["ContentReviewDetail"];
+export type ContentReport = Schemas["ContentReport"];
+export type ContentReportDetail = Schemas["ContentReportDetail"];
+export type ContentErratum = Schemas["ContentErratum"];
+export type ContentVersion = Schemas["ContentVersion"];
+export type ContentChange = Schemas["ContentChange"];
+export type LegalDeposit = Schemas["LegalDeposit"];
+export type MissingDeposit = Schemas["MissingDeposit"];
+export type PaperQr = Schemas["PaperQr"];
+/** The records that keep a draft and a history of their own. */
+export type Drafted = "questions" | "solutions";
+export type Versioned = "books" | "papers" | Drafted;
+export type ReportStep = "confirm" | "reject" | "fix-online" | "fix-in-printing" | "reopen";
+export type ReviewDecision = "approve" | "needs-changes" | "publish";
+/** A draft as the API keeps it, {field: value}: the schema types it as any JSON. */
+export type Draft = Record<string, unknown>;
+export const draftOf = (record: { draft: unknown }): Draft =>
+  record.draft && typeof record.draft === "object" && !Array.isArray(record.draft) ? (record.draft as Draft) : {};
+
+export const getContentSummary = (transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/content/summary/", o));
+
+export const listBooks = (filters: Filters<"/api/v1/staff/content/books/">, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/content/books/", { ...o, params: { query: query(filters) } })).then(
+    paged,
+  );
+export const getBook = (id: number, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/content/books/{id}/", { ...o, params: { path: { id } } }));
+export const createBook = (body: Schemas["ContentBookRequest"]) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/content/books/", { ...o, body }));
+export const updateBook = (id: number, body: Schemas["PatchedContentBookRequest"]) =>
+  send(undefined, (o) => api.PATCH("/api/v1/staff/content/books/{id}/", { ...o, params: { path: { id } }, body }));
+
+export const listPapers = (filters: Filters<"/api/v1/staff/content/papers/">, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/content/papers/", { ...o, params: { query: query(filters) } })).then(
+    paged,
+  );
+export const getPaper = (id: number, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/content/papers/{id}/", { ...o, params: { path: { id } } }));
+export const updatePaper = (id: number, body: Schemas["PatchedContentPaperDetailRequest"]) =>
+  send(undefined, (o) => api.PATCH("/api/v1/staff/content/papers/{id}/", { ...o, params: { path: { id } }, body }));
+/** The paper's QR code and the address it prints; refused (site_url_not_public) on a plain-http or local site. */
+export const getPaperQr = (id: number, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/content/papers/{id}/qr/", { ...o, params: { path: { id } } }));
+
+export const getQuestion = (id: number, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/content/questions/{id}/", { ...o, params: { path: { id } } }));
+/** The text, table, options and marks go to the draft; the tags change at once. */
+export const updateQuestion = (id: number, body: Schemas["PatchedQuestionUpdateRequest"]) =>
+  send(undefined, (o) => api.PATCH("/api/v1/staff/content/questions/{id}/", { ...o, params: { path: { id } }, body }));
+export const getSolution = (id: number, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/content/solutions/{id}/", { ...o, params: { path: { id } } }));
+/** Into the draft (the live text stays until a reviewer publishes it). */
+export const updateSolution = (id: number, body_md: string) =>
+  send(undefined, (o) =>
+    api.PATCH("/api/v1/staff/content/solutions/{id}/", { ...o, params: { path: { id } }, body: { body_md } }),
+  );
+
+/** The draft to a second person (201: the review); `discard` drops it; `rollback` undoes the last publish. */
+export function draftAction(kind: Drafted, id: number, verb: "submit" | "discard" | "rollback") {
+  const path = { params: { path: { id } } };
+  if (kind === "questions") {
+    if (verb === "submit")
+      return send(undefined, (o) => api.POST("/api/v1/staff/content/questions/{id}/submit/", { ...o, ...path, body: {} }));
+    if (verb === "discard")
+      return send(undefined, (o) => api.POST("/api/v1/staff/content/questions/{id}/discard/", { ...o, ...path }));
+    return send(undefined, (o) => api.POST("/api/v1/staff/content/questions/{id}/rollback/", { ...o, ...path }));
+  }
+  if (verb === "submit")
+    return send(undefined, (o) => api.POST("/api/v1/staff/content/solutions/{id}/submit/", { ...o, ...path, body: {} }));
+  if (verb === "discard")
+    return send(undefined, (o) => api.POST("/api/v1/staff/content/solutions/{id}/discard/", { ...o, ...path }));
+  return send(undefined, (o) => api.POST("/api/v1/staff/content/solutions/{id}/rollback/", { ...o, ...path }));
+}
+
+/** A record's versions, newest first, each with what it changed. */
+export function listHistory(kind: Versioned, id: number, cursor = "", transport?: Transport) {
+  const options = { params: { path: { id }, query: query({ cursor }) } };
+  const ask = {
+    books: () => send(transport, (o) => api.GET("/api/v1/staff/content/books/{id}/history/", { ...o, ...options })),
+    papers: () => send(transport, (o) => api.GET("/api/v1/staff/content/papers/{id}/history/", { ...o, ...options })),
+    questions: () =>
+      send(transport, (o) => api.GET("/api/v1/staff/content/questions/{id}/history/", { ...o, ...options })),
+    solutions: () =>
+      send(transport, (o) => api.GET("/api/v1/staff/content/solutions/{id}/history/", { ...o, ...options })),
+  }[kind];
+  return ask().then(paged);
+}
+
+/** A version back: a book's or a paper's fields at once, a question's or a solution's text into its draft. */
+export function restoreVersion(kind: Versioned, id: number, history_id: number) {
+  const path = { params: { path: { id, history_id } } };
+  const ask = {
+    books: () =>
+      send(undefined, (o) => api.POST("/api/v1/staff/content/books/{id}/history/{history_id}/restore/", { ...o, ...path })),
+    papers: () =>
+      send(undefined, (o) =>
+        api.POST("/api/v1/staff/content/papers/{id}/history/{history_id}/restore/", { ...o, ...path }),
+      ),
+    questions: () =>
+      send(undefined, (o) =>
+        api.POST("/api/v1/staff/content/questions/{id}/history/{history_id}/restore/", { ...o, ...path }),
+      ),
+    solutions: () =>
+      send(undefined, (o) =>
+        api.POST("/api/v1/staff/content/solutions/{id}/history/{history_id}/restore/", { ...o, ...path }),
+      ),
+  }[kind];
+  return ask();
+}
+
+export const listReviews = (filters: Filters<"/api/v1/staff/content/reviews/">, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/content/reviews/", { ...o, params: { query: query(filters) } })).then(
+    paged,
+  );
+export const getReview = (id: number, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/content/reviews/{id}/", { ...o, params: { path: { id } } }));
+/** A reviewer's decision; never on their own edit (403 own_edit). Needs changes takes a comment. */
+export function decideReview(id: number, verb: ReviewDecision, comment: string, field = "") {
+  const path = { params: { path: { id } } };
+  if (verb === "needs-changes")
+    return send(undefined, (o) =>
+      api.POST("/api/v1/staff/content/reviews/{id}/needs-changes/", { ...o, ...path, body: { comment, field } }),
+    );
+  if (verb === "approve")
+    return send(undefined, (o) =>
+      api.POST("/api/v1/staff/content/reviews/{id}/approve/", { ...o, ...path, body: { comment } }),
+    );
+  return send(undefined, (o) =>
+    api.POST("/api/v1/staff/content/reviews/{id}/publish/", { ...o, ...path, body: { comment } }),
+  );
+}
+
+export const listReports = (filters: Filters<"/api/v1/staff/content/reports/">, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/content/reports/", { ...o, params: { query: query(filters) } })).then(
+    paged,
+  );
+export const getReport = (id: number, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/content/reports/{id}/", { ...o, params: { path: { id } } }));
+export const updateReport = (id: number, body: Schemas["PatchedContentReportUpdateRequest"]) =>
+  send(undefined, (o) => api.PATCH("/api/v1/staff/content/reports/{id}/", { ...o, params: { path: { id } }, body }));
+/** One step of the triage: a rejection says why (staff_note), a fix in printing names it (fixed_in). */
+export function reportStep(id: number, verb: ReportStep, body: Schemas["ContentTransitionRequest"] = {}) {
+  const options = { params: { path: { id } }, body };
+  const ask = {
+    confirm: () => send(undefined, (o) => api.POST("/api/v1/staff/content/reports/{id}/confirm/", { ...o, ...options })),
+    reject: () => send(undefined, (o) => api.POST("/api/v1/staff/content/reports/{id}/reject/", { ...o, ...options })),
+    "fix-online": () =>
+      send(undefined, (o) => api.POST("/api/v1/staff/content/reports/{id}/fix-online/", { ...o, ...options })),
+    "fix-in-printing": () =>
+      send(undefined, (o) => api.POST("/api/v1/staff/content/reports/{id}/fix-in-printing/", { ...o, ...options })),
+    reopen: () => send(undefined, (o) => api.POST("/api/v1/staff/content/reports/{id}/reopen/", { ...o, ...options })),
+  }[verb];
+  return ask();
+}
+/** The reporter emailed that the fix is published (once; their address goes then). */
+export const tellReporter = (id: number) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/content/reports/{id}/tell/", { ...o, params: { path: { id } } }));
+
+export const listErrata = (filters: Filters<"/api/v1/staff/content/errata/">, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/content/errata/", { ...o, params: { query: query(filters) } })).then(
+    paged,
+  );
+
+export const listImports = (cursor: string, transport?: Transport) =>
+  send(transport, (o) =>
+    api.GET("/api/v1/staff/content/imports/", { ...o, params: { query: query({ cursor, page_size: 20 }) } }),
+  ).then(paged);
+export type ImportParams = { subject: string; commit: string; fixtures?: boolean; dry_run_job?: number };
+/** A dry run, or the apply of one (naming it): a staff job (202), followed with JobProgress. */
+export const startImport = (params: ImportParams, dry_run: boolean) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/jobs/", { ...o, body: { kind: "content_import", params, dry_run } }),
+  );
+
+export const listDeposits = (filters: Filters<"/api/v1/staff/content/legal-deposits/">, transport?: Transport) =>
+  send(transport, (o) =>
+    api.GET("/api/v1/staff/content/legal-deposits/", { ...o, params: { query: query(filters) } }),
+  ).then(paged);
+export const listMissingDeposits = (transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/content/legal-deposits/missing/", o));
+/** A deposit recorded: the form's fields and, if chosen, the proof's scan (multipart). */
+export const recordDeposit = (form: FormData) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/content/legal-deposits/", {
+      ...o,
+      body: form as unknown as Schemas["LegalDepositRequest"],
+      bodySerializer: (body) => body as unknown as FormData,
+    }),
+  );
+/** The proof's scan, opened on this origin (the file, or the private bucket's own link). */
+export const depositProofHref = (id: number) => `/api/v1/staff/content/legal-deposits/${id}/proof/`;

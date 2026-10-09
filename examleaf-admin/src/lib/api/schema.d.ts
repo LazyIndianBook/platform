@@ -669,6 +669,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/errata/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A book's errata: the mistakes staff confirmed or fixed and published, in paper and question order, with the
+         *     printing each was read in and the printing that carries its fix. Public, kept 5 minutes by shared caches.
+         */
+        get: operations["errata_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/insights/backtests/": {
         parameters: {
             query?: never;
@@ -1645,7 +1665,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The questions in paper order, each with its marking-scheme solution (Markdown and HTML). */
+        /**
+         * @description The questions in paper order, each with its marking-scheme solution (Markdown and HTML): the live text (a
+         *     draft waits apart until it is reviewed); a question no longer in the books repository is left out.
+         */
         get: operations["papers_solutions_list"];
         put?: never;
         post?: never;
@@ -1792,6 +1815,27 @@ export interface paths {
          *     client address, the website's included.
          */
         post: operations["quotes_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Report a mistake: anyone (signed in: the reporter's account is kept; a verified teacher's is marked), 5 an hour
+         *     and 20 a day per client address, Turnstile while it is on; a filled-in `website` (the honeypot) is thanked and
+         *     dropped; a note that reads as spam is kept apart, out of the queue, and goes after 30 days.
+         */
+        post: operations["reports_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2493,6 +2537,872 @@ export interface paths {
          *     products and accounts by number or id, no one's details); `?awaiting=true` lists those you may approve.
          */
         post: operations["staff_change_requests_reject_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/books/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Books (filters subject, board, class_level, format): their ISBN (checked when set or changed), format,
+         *     edition and publication date (the legal deposit's clock); made and changed at once, audited.
+         */
+        get: operations["staff_content_books_list"];
+        put?: never;
+        /**
+         * @description Books (filters subject, board, class_level, format): their ISBN (checked when set or changed), format,
+         *     edition and publication date (the legal deposit's clock); made and changed at once, audited.
+         */
+        post: operations["staff_content_books_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/books/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Books (filters subject, board, class_level, format): their ISBN (checked when set or changed), format,
+         *     edition and publication date (the legal deposit's clock); made and changed at once, audited.
+         */
+        get: operations["staff_content_books_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description Books (filters subject, board, class_level, format): their ISBN (checked when set or changed), format,
+         *     edition and publication date (the legal deposit's clock); made and changed at once, audited.
+         */
+        patch: operations["staff_content_books_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/content/books/{id}/history/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Books (filters subject, board, class_level, format): their ISBN (checked when set or changed), format,
+         *     edition and publication date (the legal deposit's clock); made and changed at once, audited.
+         */
+        get: operations["staff_content_books_history_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/books/{id}/history/{history_id}/restore/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Back to a version: a book's or a paper's fields at once, a question's or a solution's text into its
+         *     draft (to be reviewed).
+         */
+        post: operations["staff_content_books_history_restore_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/errata/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The errata per book and printing: confirmed and fixed mistakes (filters book, printing, public); those marked
+         *     `public` are the website's (GET /api/v1/errata/?book=).
+         */
+        get: operations["staff_content_errata_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/imports/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The imports, newest first: dry runs and applies (each a staff job; POST /api/v1/staff/jobs/ with kind
+         *     content_import starts one, staff.import_content), within the person's subjects.
+         */
+        get: operations["staff_content_imports_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/legal-deposits/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The deposits made (filters book, library), one recorded (content.add_legaldeposit: JSON, or multipart with the
+         *     proof's scan), its scan, and the published books still missing some of the four libraries.
+         */
+        get: operations["staff_content_legal_deposits_list"];
+        put?: never;
+        /**
+         * @description The deposits made (filters book, library), one recorded (content.add_legaldeposit: JSON, or multipart with the
+         *     proof's scan), its scan, and the published books still missing some of the four libraries.
+         */
+        post: operations["staff_content_legal_deposits_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/legal-deposits/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The deposits made (filters book, library), one recorded (content.add_legaldeposit: JSON, or multipart with the
+         *     proof's scan), its scan, and the published books still missing some of the four libraries.
+         */
+        get: operations["staff_content_legal_deposits_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/legal-deposits/{id}/proof/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The proof's scan: the file, or 302 to the private bucket's own link (signed for 5 minutes). */
+        get: operations["staff_content_legal_deposits_proof_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/legal-deposits/missing/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The deposits made (filters book, library), one recorded (content.add_legaldeposit: JSON, or multipart with the
+         *     proof's scan), its scan, and the published books still missing some of the four libraries.
+         */
+        get: operations["staff_content_legal_deposits_missing_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/papers/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Papers by code (filters subject, board, class_level, book, tier, is_published, changed, q); one with its
+         *     questions and solutions as a tree; its QR code. Publishing or unpublishing a paper, or making it the book's open
+         *     sample, needs staff.publish_paper too. Its code is in its printed QR code: it never changes here.
+         */
+        get: operations["staff_content_papers_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/papers/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Papers by code (filters subject, board, class_level, book, tier, is_published, changed, q); one with its
+         *     questions and solutions as a tree; its QR code. Publishing or unpublishing a paper, or making it the book's open
+         *     sample, needs staff.publish_paper too. Its code is in its printed QR code: it never changes here.
+         */
+        get: operations["staff_content_papers_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description Papers by code (filters subject, board, class_level, book, tier, is_published, changed, q); one with its
+         *     questions and solutions as a tree; its QR code. Publishing or unpublishing a paper, or making it the book's open
+         *     sample, needs staff.publish_paper too. Its code is in its printed QR code: it never changes here.
+         */
+        patch: operations["staff_content_papers_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/content/papers/{id}/history/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Papers by code (filters subject, board, class_level, book, tier, is_published, changed, q); one with its
+         *     questions and solutions as a tree; its QR code. Publishing or unpublishing a paper, or making it the book's open
+         *     sample, needs staff.publish_paper too. Its code is in its printed QR code: it never changes here.
+         */
+        get: operations["staff_content_papers_history_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/papers/{id}/history/{history_id}/restore/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Back to a version: a book's or a paper's fields at once, a question's or a solution's text into its
+         *     draft (to be reviewed).
+         */
+        post: operations["staff_content_papers_history_restore_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/papers/{id}/qr/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The paper's QR code and the address it prints, which the site can redirect later; refused while SITE_URL
+         *     is not a public https address (a printed book cannot be corrected), as export_qr refuses.
+         */
+        get: operations["staff_content_papers_qr_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/questions/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A question's or a solution's live text and its draft: PATCH writes the draft (the structural check of
+         *     content.latex first), submit/ sends it to a reviewer, discard/ drops it, rollback/ undoes the last publish
+         *     (staff.publish_paper); history/ and restore (into the draft).
+         */
+        get: operations["staff_content_questions_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/questions/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A question's or a solution's live text and its draft: PATCH writes the draft (the structural check of
+         *     content.latex first), submit/ sends it to a reviewer, discard/ drops it, rollback/ undoes the last publish
+         *     (staff.publish_paper); history/ and restore (into the draft).
+         */
+        get: operations["staff_content_questions_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description A question's or a solution's live text and its draft: PATCH writes the draft (the structural check of
+         *     content.latex first), submit/ sends it to a reviewer, discard/ drops it, rollback/ undoes the last publish
+         *     (staff.publish_paper); history/ and restore (into the draft).
+         */
+        patch: operations["staff_content_questions_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/content/questions/{id}/discard/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The draft dropped (and its review withdrawn): the live text stays. */
+        post: operations["staff_content_questions_discard_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/questions/{id}/history/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A question's or a solution's live text and its draft: PATCH writes the draft (the structural check of
+         *     content.latex first), submit/ sends it to a reviewer, discard/ drops it, rollback/ undoes the last publish
+         *     (staff.publish_paper); history/ and restore (into the draft).
+         */
+        get: operations["staff_content_questions_history_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/questions/{id}/history/{history_id}/restore/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Back to a version: a book's or a paper's fields at once, a question's or a solution's text into its
+         *     draft (to be reviewed).
+         */
+        post: operations["staff_content_questions_history_restore_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/questions/{id}/rollback/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The last publish undone: the text before it live again, the text it published back in the draft. */
+        post: operations["staff_content_questions_rollback_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/questions/{id}/submit/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The draft to a second person: a review task (201) and an inbox item for the subject's reviewers. */
+        post: operations["staff_content_questions_submit_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/reports/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The triage queue, oldest first; the open ones unless `state` says (filters state, category, subject, printing,
+         *     teacher, paper, book); spam never shows. Each step and the reporter told are staff.triage_report's.
+         */
+        get: operations["staff_content_reports_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/reports/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The triage queue, oldest first; the open ones unless `state` says (filters state, category, subject, printing,
+         *     teacher, paper, book); spam never shows. Each step and the reporter told are staff.triage_report's.
+         */
+        get: operations["staff_content_reports_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description The triage queue, oldest first; the open ones unless `state` says (filters state, category, subject, printing,
+         *     teacher, paper, book); spam never shows. Each step and the reporter told are staff.triage_report's.
+         */
+        patch: operations["staff_content_reports_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/content/reports/{id}/confirm/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The triage's step `confirm` (content.reports.TRANSITIONS). */
+        post: operations["staff_content_reports_confirm_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/reports/{id}/fix-in-printing/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The triage's step `fix-in-printing` (content.reports.TRANSITIONS). */
+        post: operations["staff_content_reports_fix_in_printing_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/reports/{id}/fix-online/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The triage's step `fix-online` (content.reports.TRANSITIONS). */
+        post: operations["staff_content_reports_fix_online_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/reports/{id}/reject/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The triage's step `reject` (content.reports.TRANSITIONS). */
+        post: operations["staff_content_reports_reject_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/reports/{id}/reopen/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The triage's step `reopen` (content.reports.TRANSITIONS). */
+        post: operations["staff_content_reports_reopen_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/reports/{id}/tell/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The reporter emailed that the fix is published: once, fixed, if they left an address (then cleared). */
+        post: operations["staff_content_reports_tell_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/reviews/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The review queue, oldest first (filters subject, paper, state, stage, mine, submitted, open): `mine` is
+         *     "waiting for me". A reviewer (staff.publish_paper, in their subjects) approves, asks for changes (with a comment)
+         *     or publishes (approving on the way); never their own edit (403 `own_edit`).
+         */
+        get: operations["staff_content_reviews_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/reviews/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The review queue, oldest first (filters subject, paper, state, stage, mine, submitted, open): `mine` is
+         *     "waiting for me". A reviewer (staff.publish_paper, in their subjects) approves, asks for changes (with a comment)
+         *     or publishes (approving on the way); never their own edit (403 `own_edit`).
+         */
+        get: operations["staff_content_reviews_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/reviews/{id}/approve/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The review queue, oldest first (filters subject, paper, state, stage, mine, submitted, open): `mine` is
+         *     "waiting for me". A reviewer (staff.publish_paper, in their subjects) approves, asks for changes (with a comment)
+         *     or publishes (approving on the way); never their own edit (403 `own_edit`).
+         */
+        post: operations["staff_content_reviews_approve_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/reviews/{id}/needs-changes/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The review queue, oldest first (filters subject, paper, state, stage, mine, submitted, open): `mine` is
+         *     "waiting for me". A reviewer (staff.publish_paper, in their subjects) approves, asks for changes (with a comment)
+         *     or publishes (approving on the way); never their own edit (403 `own_edit`).
+         */
+        post: operations["staff_content_reviews_needs_changes_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/reviews/{id}/publish/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The review queue, oldest first (filters subject, paper, state, stage, mine, submitted, open): `mine` is
+         *     "waiting for me". A reviewer (staff.publish_paper, in their subjects) approves, asks for changes (with a comment)
+         *     or publishes (approving on the way); never their own edit (403 `own_edit`).
+         */
+        post: operations["staff_content_reviews_publish_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/solutions/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A question's or a solution's live text and its draft: PATCH writes the draft (the structural check of
+         *     content.latex first), submit/ sends it to a reviewer, discard/ drops it, rollback/ undoes the last publish
+         *     (staff.publish_paper); history/ and restore (into the draft).
+         */
+        get: operations["staff_content_solutions_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/solutions/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A question's or a solution's live text and its draft: PATCH writes the draft (the structural check of
+         *     content.latex first), submit/ sends it to a reviewer, discard/ drops it, rollback/ undoes the last publish
+         *     (staff.publish_paper); history/ and restore (into the draft).
+         */
+        get: operations["staff_content_solutions_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description A question's or a solution's live text and its draft: PATCH writes the draft (the structural check of
+         *     content.latex first), submit/ sends it to a reviewer, discard/ drops it, rollback/ undoes the last publish
+         *     (staff.publish_paper); history/ and restore (into the draft).
+         */
+        patch: operations["staff_content_solutions_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/content/solutions/{id}/discard/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The draft dropped (and its review withdrawn): the live text stays. */
+        post: operations["staff_content_solutions_discard_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/solutions/{id}/history/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A question's or a solution's live text and its draft: PATCH writes the draft (the structural check of
+         *     content.latex first), submit/ sends it to a reviewer, discard/ drops it, rollback/ undoes the last publish
+         *     (staff.publish_paper); history/ and restore (into the draft).
+         */
+        get: operations["staff_content_solutions_history_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/solutions/{id}/history/{history_id}/restore/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Back to a version: a book's or a paper's fields at once, a question's or a solution's text into its
+         *     draft (to be reviewed).
+         */
+        post: operations["staff_content_solutions_history_restore_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/solutions/{id}/rollback/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The last publish undone: the text before it live again, the text it published back in the draft. */
+        post: operations["staff_content_solutions_rollback_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/solutions/{id}/submit/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The draft to a second person: a review task (201) and an inbox item for the subject's reviewers. */
+        post: operations["staff_content_solutions_submit_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/summary/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The content module's home: reports open by category, reviews waiting (and for me), drafts changed since
+         *     publish, books missing legal deposits, the last import; each part null for whoever may not see it.
+         */
+        get: operations["staff_content_summary_retrieve"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4364,6 +5274,12 @@ export interface components {
             readonly papers: components["schemas"]["PaperBrief"][];
         };
         /**
+         * @description * `print` - printed book
+         *     * `ebook` - e-book
+         * @enum {string}
+         */
+        BookFormatEnum: "print" | "ebook";
+        /**
          * @description Book a parcel for a packed order: with a courier of the quote (`courier_company_id`), booked by a task; or
          *     sent by hand (India Post, a courier without an API): `courier` and `tracking_number`, shipped at once.
          */
@@ -4878,6 +5794,529 @@ export interface components {
             /** @description Turnstile's token while the bot check is on */
             turnstile?: string;
         };
+        ContentBook: {
+            readonly id: number;
+            title: string;
+            subject: number;
+            readonly subject_code: string;
+            edition?: string;
+            slug: string;
+            /** @description Static path, e.g. img/physics.png */
+            cover?: string;
+            /** @description ISBN-13, hyphens allowed: kept as its 13 digits */
+            isbn?: string;
+            format?: components["schemas"]["BookFormatEnum"];
+            /**
+             * Format: date
+             * @description The day this edition was published: the legal deposit's clock (CONTENT_LEGAL_DEPOSIT_DAYS) starts.
+             */
+            published_on?: string | null;
+            /**
+             * Format: date
+             * @description the legal deposit's last day
+             */
+            readonly deposit_due_on: string | null;
+            /** @description its papers */
+            readonly papers: number;
+        };
+        ContentBookDetail: {
+            readonly id: number;
+            title: string;
+            subject: number;
+            readonly subject_code: string;
+            edition?: string;
+            slug: string;
+            /** @description Static path, e.g. img/physics.png */
+            cover?: string;
+            /** @description ISBN-13, hyphens allowed: kept as its 13 digits */
+            isbn?: string;
+            format?: components["schemas"]["BookFormatEnum"];
+            /**
+             * Format: date
+             * @description The day this edition was published: the legal deposit's clock (CONTENT_LEGAL_DEPOSIT_DAYS) starts.
+             */
+            published_on?: string | null;
+            /**
+             * Format: date
+             * @description the legal deposit's last day
+             */
+            readonly deposit_due_on: string | null;
+            /** @description its papers */
+            readonly papers: number;
+            /** @description the libraries without this edition yet */
+            readonly missing_deposits: string[];
+        };
+        ContentBookRequest: {
+            title: string;
+            subject: number;
+            edition?: string;
+            slug: string;
+            /** @description Static path, e.g. img/physics.png */
+            cover?: string;
+            /** @description ISBN-13, hyphens allowed: kept as its 13 digits */
+            isbn?: string;
+            format?: components["schemas"]["BookFormatEnum"];
+            /**
+             * Format: date
+             * @description The day this edition was published: the legal deposit's clock (CONTENT_LEGAL_DEPOSIT_DAYS) starts.
+             */
+            published_on?: string | null;
+        };
+        ContentChange: {
+            /** @description a field, or "draft.<field>" for a draft's */
+            field: string;
+            before: unknown;
+            after: unknown;
+            /** @description the two, line by line */
+            lines: components["schemas"]["ContentLine"][];
+        };
+        ContentComment: {
+            author: number | null;
+            text: string;
+            /** Format: date-time */
+            at: string;
+            field: string;
+        };
+        ContentDecisionRequest: {
+            comment?: string;
+        };
+        ContentErratum: {
+            readonly id: number;
+            readonly book: number | null;
+            readonly paper_code: string | null;
+            readonly question_label: string | null;
+            /** @description The marking step, 1 for the first. */
+            readonly step: number | null;
+            readonly category: components["schemas"]["ErrorReportCategoryEnum"];
+            /** @description The print run it was read in: PHY-2027-1. */
+            readonly printing: string;
+            readonly state: components["schemas"]["ErrorReportStateEnum"];
+            /** @description The printing that carries the fix. */
+            readonly fixed_in: string;
+            /**
+             * Format: date-time
+             * @description When it was fixed online.
+             */
+            readonly fixed_at: string | null;
+            /** @description On the errata of its book and printing. */
+            readonly public: boolean;
+            /** Format: date-time */
+            readonly created: string;
+        };
+        ContentHeader: {
+            lines?: string[];
+            allotment?: string[];
+        };
+        ContentHeaderRequest: {
+            lines?: string[];
+            allotment?: string[];
+        };
+        ContentLine: {
+            op: components["schemas"]["ContentLineOpEnum"];
+            text: string;
+        };
+        /**
+         * @description * `equal` - equal
+         *     * `delete` - delete
+         *     * `insert` - insert
+         * @enum {string}
+         */
+        ContentLineOpEnum: "equal" | "delete" | "insert";
+        ContentLinked: {
+            paper_id: number | null;
+            question_id: number | null;
+            solution_id: number | null;
+            question_text?: string;
+            solution_text?: string;
+            solution_state?: string | null;
+            /** @description a quiz item's text, a clip's title */
+            title?: string;
+        };
+        ContentOpenReview: {
+            readonly id: number;
+            readonly state: components["schemas"]["ReviewTaskStateEnum"];
+            readonly stage: components["schemas"]["ReviewTaskStageEnum"];
+            readonly assignee: number | null;
+            readonly submitted_by: number | null;
+            /** Format: date-time */
+            readonly created: string;
+        };
+        ContentPaper: {
+            readonly id: number;
+            readonly code: string;
+            title: string;
+            readonly book: number;
+            readonly book_title: string;
+            readonly subject_code: string;
+            tier: components["schemas"]["TierEnum"];
+            /** Format: int64 */
+            number: number;
+            /** Format: int64 */
+            full_marks: number;
+            /** Format: int64 */
+            pass_marks: number;
+            time_text: string;
+            is_published?: boolean;
+            /**
+             * Open sample
+             * @description Its solutions open without an account, even when the others need one: the paper the home, book and product pages offer as a sample. One per book.
+             * @default false
+             */
+            is_sample: boolean;
+            /** @description its questions on the site */
+            readonly questions: number;
+            /** @description its questions and solutions with a draft */
+            readonly drafts: number;
+        };
+        ContentPaperDetail: {
+            readonly id: number;
+            readonly code: string;
+            title: string;
+            readonly book: number;
+            readonly book_title: string;
+            readonly subject_code: string;
+            tier: components["schemas"]["TierEnum"];
+            /** Format: int64 */
+            number: number;
+            /** Format: int64 */
+            full_marks: number;
+            /** Format: int64 */
+            pass_marks: number;
+            time_text: string;
+            is_published?: boolean;
+            /**
+             * Open sample
+             * @description Its solutions open without an account, even when the others need one: the paper the home, book and product pages offer as a sample. One per book.
+             */
+            is_sample?: boolean;
+            /** @description its questions on the site */
+            readonly questions: number;
+            /** @description its questions and solutions with a draft */
+            readonly drafts: number;
+            /** @description the paper's instruction lines and allotment tables */
+            header_json?: components["schemas"]["ContentHeader"];
+            /** @description its questions in order, each with its solution */
+            readonly tree: components["schemas"]["ContentTreeQuestion"][];
+        };
+        ContentQuestion: {
+            readonly id: number;
+            readonly paper: number;
+            readonly paper_code: string;
+            readonly order: number;
+            readonly label: string;
+            readonly number: string;
+            readonly marks_text: string;
+            /** @description Off: no longer in the books repository (kept, hidden, with its history). */
+            readonly is_published: boolean;
+            readonly state: components["schemas"]["ContentStateEnum"];
+            readonly preview: string;
+            /** @description its solution's id, if it has one */
+            readonly solution: number | null;
+        };
+        ContentQuestionDetail: {
+            readonly id: number;
+            readonly paper: number;
+            readonly paper_code: string;
+            readonly order: number;
+            readonly label: string;
+            readonly number: string;
+            readonly marks_text: string;
+            /** @description Off: no longer in the books repository (kept, hidden, with its history). */
+            readonly is_published: boolean;
+            readonly state: components["schemas"]["ContentStateEnum"];
+            readonly preview: string;
+            /** @description its solution's id, if it has one */
+            readonly solution: number | null;
+            readonly text_md: string;
+            readonly table_md: string;
+            readonly options_json: unknown;
+            readonly group_label: string;
+            readonly part_label: string;
+            /** @description the OR alternative of the previous question */
+            readonly is_alternative: boolean;
+            readonly tags: string[];
+            /** @description The changed fields to review: {field: value}. */
+            readonly draft: unknown;
+            readonly draft_by: number | null;
+            /**
+             * Format: date-time
+             * @description Its last publish from the panel.
+             */
+            readonly published_at: string | null;
+            readonly published_by: number | null;
+            /** @description the review its draft waits in, if any */
+            readonly review: {
+                [key: string]: unknown;
+            } | null;
+        };
+        ContentReport: {
+            readonly id: number;
+            /** @description solution, question, quiz_item or clip */
+            readonly kind: string;
+            readonly target_id: number;
+            readonly subject: string | null;
+            readonly paper: number | null;
+            readonly paper_code: string | null;
+            readonly question: number | null;
+            readonly question_label: string | null;
+            /** @description The marking step, 1 for the first. */
+            readonly step: number | null;
+            /** @description The print run it was read in: PHY-2027-1. */
+            readonly printing: string;
+            readonly category: components["schemas"]["ErrorReportCategoryEnum"];
+            readonly note: string;
+            /** @description masked; only to tell them of the fix */
+            readonly email: string;
+            readonly reporter: number | null;
+            /** @description Reported by a verified teacher. */
+            readonly teacher_verified: boolean;
+            readonly state: components["schemas"]["ErrorReportStateEnum"];
+            /** @description The printing that carries the fix. */
+            readonly fixed_in: string;
+            /**
+             * Format: date-time
+             * @description When it was fixed online.
+             */
+            readonly fixed_at: string | null;
+            /**
+             * Format: date-time
+             * @description When it was confirmed or rejected.
+             */
+            readonly resolved_at: string | null;
+            readonly staff_note: string;
+            /** Format: date-time */
+            readonly reporter_told_at: string | null;
+            /** @description On the errata of its book and printing. */
+            readonly public: boolean;
+            /** Format: date-time */
+            readonly created: string;
+            /** @description fixed, an address left, not told yet */
+            readonly can_tell: boolean;
+        };
+        ContentReportDetail: {
+            readonly id: number;
+            /** @description solution, question, quiz_item or clip */
+            readonly kind: string;
+            readonly target_id: number;
+            readonly subject: string | null;
+            readonly paper: number | null;
+            readonly paper_code: string | null;
+            readonly question: number | null;
+            readonly question_label: string | null;
+            /** @description The marking step, 1 for the first. */
+            readonly step: number | null;
+            /** @description The print run it was read in: PHY-2027-1. */
+            readonly printing: string;
+            readonly category: components["schemas"]["ErrorReportCategoryEnum"];
+            readonly note: string;
+            /** @description masked; only to tell them of the fix */
+            readonly email: string;
+            readonly reporter: number | null;
+            /** @description Reported by a verified teacher. */
+            readonly teacher_verified: boolean;
+            readonly state: components["schemas"]["ErrorReportStateEnum"];
+            /** @description The printing that carries the fix. */
+            readonly fixed_in: string;
+            /**
+             * Format: date-time
+             * @description When it was fixed online.
+             */
+            readonly fixed_at: string | null;
+            /**
+             * Format: date-time
+             * @description When it was confirmed or rejected.
+             */
+            readonly resolved_at: string | null;
+            readonly staff_note: string;
+            /** Format: date-time */
+            readonly reporter_told_at: string | null;
+            /** @description On the errata of its book and printing. */
+            readonly public: boolean;
+            /** Format: date-time */
+            readonly created: string;
+            /** @description fixed, an address left, not told yet */
+            readonly can_tell: boolean;
+            readonly handled_by: number | null;
+            /** @description what it is about, as the site shows it now */
+            readonly linked: components["schemas"]["ContentLinked"];
+        };
+        ContentReview: {
+            readonly id: number;
+            /** @description What it is, by code: "PHY-E01 2(c), solution". */
+            readonly label: string;
+            /** @description question or solution */
+            readonly kind: string;
+            readonly target_id: number;
+            readonly subject: string | null;
+            readonly paper: number | null;
+            readonly stage: components["schemas"]["ReviewTaskStageEnum"];
+            readonly state: components["schemas"]["ReviewTaskStateEnum"];
+            readonly assignee: number | null;
+            readonly submitted_by: number | null;
+            /** @description The draft's last editor when it was submitted: never its checker. */
+            readonly edited_by: number | null;
+            readonly approved_by: number | null;
+            /** Format: date-time */
+            readonly approved_at: string | null;
+            readonly published_by: number | null;
+            /** Format: date-time */
+            readonly published_at: string | null;
+            readonly rolled_back_by: number | null;
+            /** Format: date-time */
+            readonly rolled_back_at: string | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** @description the fields its draft changes */
+            readonly fields_changed: string[];
+            /** @description you edited or submitted it: another reviewer decides */
+            readonly yours: boolean;
+        };
+        ContentReviewDetail: {
+            readonly id: number;
+            /** @description What it is, by code: "PHY-E01 2(c), solution". */
+            readonly label: string;
+            /** @description question or solution */
+            readonly kind: string;
+            readonly target_id: number;
+            readonly subject: string | null;
+            readonly paper: number | null;
+            readonly stage: components["schemas"]["ReviewTaskStageEnum"];
+            readonly state: components["schemas"]["ReviewTaskStateEnum"];
+            readonly assignee: number | null;
+            readonly submitted_by: number | null;
+            /** @description The draft's last editor when it was submitted: never its checker. */
+            readonly edited_by: number | null;
+            readonly approved_by: number | null;
+            /** Format: date-time */
+            readonly approved_at: string | null;
+            readonly published_by: number | null;
+            /** Format: date-time */
+            readonly published_at: string | null;
+            readonly rolled_back_by: number | null;
+            /** Format: date-time */
+            readonly rolled_back_at: string | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** @description the fields its draft changes */
+            readonly fields_changed: string[];
+            /** @description you edited or submitted it: another reviewer decides */
+            readonly yours: boolean;
+            /** @description The changed fields as submitted: {field: value}. */
+            readonly draft: unknown;
+            /** @description The live values its publish replaced. */
+            readonly previous: unknown;
+            readonly comments: components["schemas"]["ContentComment"][];
+            /** @description its draft against the live text now, field by field; once published, the text it replaced against it */
+            readonly changes: components["schemas"]["ContentChange"][];
+            /** @description the question's id (for a solution: its question's) */
+            readonly question: number | null;
+        };
+        ContentSolution: {
+            readonly id: number;
+            readonly question: number;
+            readonly question_label: string;
+            readonly paper: number;
+            readonly paper_code: string;
+            readonly state: components["schemas"]["ContentStateEnum"];
+            readonly preview: string;
+        };
+        ContentSolutionDetail: {
+            readonly id: number;
+            readonly question: number;
+            readonly question_label: string;
+            readonly paper: number;
+            readonly paper_code: string;
+            readonly state: components["schemas"]["ContentStateEnum"];
+            readonly preview: string;
+            readonly question_text: string;
+            readonly marks_text: string;
+            readonly body_md: string;
+            /** @description The changed fields to review: {field: value}. */
+            readonly draft: unknown;
+            readonly draft_by: number | null;
+            /**
+             * Format: date-time
+             * @description Its last publish from the panel.
+             */
+            readonly published_at: string | null;
+            readonly published_by: number | null;
+            /** @description the review its draft waits in, if any */
+            readonly review: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /**
+         * @description * `draft` - draft
+         *     * `in_review` - in review
+         *     * `published` - published
+         * @enum {string}
+         */
+        ContentStateEnum: "draft" | "in_review" | "published";
+        ContentSubmitRequest: {
+            /** @description a reviewer of the subject */
+            assignee?: number | null;
+        };
+        ContentSummary: {
+            reports_open: components["schemas"]["ReportsOpen"];
+            /** @description open reviews; null: not yours to see */
+            reviews_waiting: number | null;
+            /** @description waiting for you */
+            reviews_mine: number | null;
+            /** @description questions and solutions changed since publish */
+            drafts: number | null;
+            legal_deposits_missing: components["schemas"]["MissingDeposit"][] | null;
+            last_import: components["schemas"]["Job"] | null;
+        };
+        ContentTransitionRequest: {
+            /** @description why (a rejection) */
+            staff_note?: string;
+            /** @description the printing (fix-in-printing) */
+            fixed_in?: string;
+        };
+        ContentTreeQuestion: {
+            readonly id: number;
+            readonly order: number;
+            readonly label: string;
+            readonly number: string;
+            readonly group_label: string;
+            readonly part_label: string;
+            /** @description the OR alternative of the previous question */
+            readonly is_alternative: boolean;
+            readonly marks_text: string;
+            /** @description Off: no longer in the books repository (kept, hidden, with its history). */
+            readonly is_published: boolean;
+            readonly state: components["schemas"]["ContentStateEnum"];
+            readonly preview: string;
+            readonly solution: components["schemas"]["ContentTreeSolution"] | null;
+        };
+        ContentTreeSolution: {
+            readonly id: number;
+            readonly state: components["schemas"]["ContentStateEnum"];
+        };
+        ContentVersion: {
+            id: number;
+            /** Format: date-time */
+            at: string;
+            by: number | null;
+            reason: string | null;
+            type: components["schemas"]["ContentVersionTypeEnum"];
+            /** @description what this version changed from the one before it */
+            changes: components["schemas"]["ContentChange"][];
+        };
+        ContentVersionPage: {
+            /** Format: uri */
+            next: string | null;
+            /** Format: uri */
+            previous: string | null;
+            results: components["schemas"]["ContentVersion"][];
+        };
+        /**
+         * @description * `+` - made
+         *     * `~` - changed
+         *     * `-` - deleted
+         * @enum {string}
+         */
+        ContentVersionTypeEnum: "+" | "~" | "-";
         Continue: {
             clip: components["schemas"]["NextClip"];
             revision: components["schemas"]["RevisionRef"];
@@ -5375,6 +6814,45 @@ export interface components {
             cursors: components["schemas"]["ErpCursorStatus"][];
             last_reconciliation: components["schemas"]["ErpRunStatus"] | null;
         };
+        Erratum: {
+            readonly paper: string | null;
+            readonly question: string | null;
+            /** @description The marking step, 1 for the first. */
+            readonly step: number | null;
+            readonly category: components["schemas"]["ErrorReportCategoryEnum"];
+            /** @description The print run it was read in: PHY-2027-1. */
+            readonly printing: string;
+            readonly state: components["schemas"]["ErrorReportStateEnum"];
+            /** @description The printing that carries the fix. */
+            readonly fixed_in: string;
+            /**
+             * Format: date-time
+             * @description When it was fixed online.
+             */
+            readonly fixed_at: string | null;
+            /** Format: date-time */
+            readonly reported_on: string;
+        };
+        /**
+         * @description * `wrong_answer` - a wrong answer or step
+         *     * `typo` - a typing or spelling mistake
+         *     * `marks` - the marks or the marking scheme
+         *     * `unclear` - hard to follow
+         *     * `display` - maths or a picture does not show
+         *     * `other` - something else
+         *     * `item_analysis` - flagged by the item analysis
+         * @enum {string}
+         */
+        ErrorReportCategoryEnum: "wrong_answer" | "typo" | "marks" | "unclear" | "display" | "other" | "item_analysis";
+        /**
+         * @description * `reported` - reported
+         *     * `confirmed` - confirmed
+         *     * `rejected` - rejected
+         *     * `fixed_online` - fixed online
+         *     * `fixed_in_printing` - fixed in printing
+         * @enum {string}
+         */
+        ErrorReportStateEnum: "reported" | "confirmed" | "rejected" | "fixed_online" | "fixed_in_printing";
         ExportPart: {
             /** @description the part's name in the file */
             key: string;
@@ -5593,9 +7071,12 @@ export interface components {
          *     * `dead_letter` - integration task given up
          *     * `failed_event` - provider event not processed
          *     * `integration_down` - integration unavailable
+         *     * `review` - content review
+         *     * `error_report` - reported mistake
+         *     * `legal_deposit` - legal deposit due
          * @enum {string}
          */
-        InboxKindEnum: "approval" | "teacher_request" | "deletion_request" | "data_request" | "incident" | "failed_job" | "failed_webhook" | "sync_failed" | "reconciliation" | "shipping_exception" | "dead_letter" | "failed_event" | "integration_down";
+        InboxKindEnum: "approval" | "teacher_request" | "deletion_request" | "data_request" | "incident" | "failed_job" | "failed_webhook" | "sync_failed" | "reconciliation" | "shipping_exception" | "dead_letter" | "failed_event" | "integration_down" | "review" | "error_report" | "legal_deposit";
         Incident: {
             readonly id: number;
             title: string;
@@ -5768,12 +7249,13 @@ export interface components {
          * @description * `audit_export` - audit log export
          *     * `bulk_action` - bulk action
          *     * `erp_initial_load` - ERPNext initial load
+         *     * `content_import` - import from the books repository
          * @enum {string}
          */
-        JobKindEnum: "audit_export" | "bulk_action" | "erp_initial_load";
+        JobKindEnum: "audit_export" | "bulk_action" | "erp_initial_load" | "content_import";
         JobStartRequest: {
             kind: components["schemas"]["JobKindEnum"];
-            /** @description audit_export: {"filters": {…}} (the audit list's); bulk_action: {"action": "order.refund", "targets": [order numbers, slugs or ids], "payload": {…} (each target's, as for change-requests/), "reason"}; erp_initial_load: {"invoices_from": "YYYY-MM-DD"} (optional: without it, the catalogue only) */
+            /** @description audit_export: {"filters": {…}} (the audit list's); bulk_action: {"action": "order.refund", "targets": [order numbers, slugs or ids], "payload": {…} (each target's, as for change-requests/), "reason"}; erp_initial_load: {"invoices_from": "YYYY-MM-DD"} (optional: without it, the catalogue only); content_import: {"subject": "physics", "commit": "" or a commit, "dry_run_job": the dry run's id (to apply)} */
             params?: {
                 [key: string]: unknown;
             };
@@ -5863,6 +7345,49 @@ export interface components {
             /** @description its chapters with a published revision, by number */
             chapters: components["schemas"]["LearningChapter"][];
         };
+        LegalDeposit: {
+            readonly id: number;
+            book: number;
+            readonly book_title: string;
+            /** @description the book's edition when left out */
+            edition?: string;
+            library: components["schemas"]["LegalDepositLibraryEnum"];
+            /** Format: date */
+            sent_on: string;
+            /** @description How it went and its reference: Speed Post EA123456789IN. */
+            proof: string;
+            readonly has_file: boolean;
+            /** @description ERPNext's delivery note, once made. */
+            erp_delivery_note?: string;
+            readonly created_by: number | null;
+            /** Format: date-time */
+            readonly created: string;
+        };
+        /**
+         * @description * `national_library` - National Library, Kolkata
+         *     * `connemara` - Connemara Public Library, Chennai
+         *     * `asiatic_society` - Central Library (Asiatic Society), Mumbai
+         *     * `delhi_public_library` - Delhi Public Library, Delhi
+         * @enum {string}
+         */
+        LegalDepositLibraryEnum: "national_library" | "connemara" | "asiatic_society" | "delhi_public_library";
+        LegalDepositRequest: {
+            book: number;
+            /** @description the book's edition when left out */
+            edition?: string;
+            library: components["schemas"]["LegalDepositLibraryEnum"];
+            /** Format: date */
+            sent_on: string;
+            /** @description How it went and its reference: Speed Post EA123456789IN. */
+            proof: string;
+            /**
+             * Format: binary
+             * @description a scan: PDF or a picture, 5 MB at most
+             */
+            proof_file?: string;
+            /** @description ERPNext's delivery note, once made. */
+            erp_delivery_note?: string;
+        };
         /**
          * @description * `ok` - nothing to do
          *     * `watch` - watch
@@ -5909,6 +7434,54 @@ export interface components {
         ManifestRequestRequest: {
             shipments: number[];
         };
+        MissingDeposit: {
+            book: number;
+            title: string;
+            edition: string;
+            subject: string;
+            /** Format: date */
+            published_on: string;
+            /** Format: date */
+            due_on: string;
+            overdue: boolean;
+            missing: components["schemas"]["LegalDepositLibraryEnum"][];
+        };
+        MistakeReportRequest: {
+            /**
+             * @description what the mistake is in
+             *
+             *     * `solution` - solution
+             *     * `question` - question
+             *     * `quiz_item` - quiz_item
+             *     * `clip` - clip
+             */
+            kind: components["schemas"]["ReportTargetEnum"];
+            /** @description its code: PHY-E01 */
+            paper?: string;
+            /** @description its label: 2(c) */
+            question?: string;
+            /** @description a quiz item's id */
+            quiz_item?: number;
+            /** @description a clip's id */
+            clip?: number;
+            /** @description the marking step, 1 for the first */
+            step?: number | null;
+            /** @description the print run read: PHY-2027-1 */
+            printing?: string;
+            category: components["schemas"]["ReaderCategoryEnum"];
+            note?: string;
+            /** @description to hear of the fix (once); optional */
+            email?: string;
+            /** @description the honeypot: a field people never see; send none */
+            website?: string;
+            /** @description Turnstile's token while the bot check is on */
+            turnstile?: string;
+        };
+        MistakeReportSent: {
+            /** @description its number, for a question about it */
+            reference: number | null;
+            detail: string;
+        };
         /**
          * @description * `re-attempt` - re-attempt
          *     * `return` - return
@@ -5925,6 +7498,12 @@ export interface components {
             phone?: string;
             address1?: string;
             address2?: string;
+        };
+        NeedsChangesRequest: {
+            /** @description what to change */
+            comment: string;
+            /** @description the field it is about */
+            field?: string;
         };
         NextClip: {
             readonly id: number;
@@ -6410,6 +7989,97 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["Collection"][];
         };
+        PaginatedContentBookList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["ContentBook"][];
+        };
+        PaginatedContentErratumList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["ContentErratum"][];
+        };
+        PaginatedContentPaperList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["ContentPaper"][];
+        };
+        PaginatedContentQuestionList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["ContentQuestion"][];
+        };
+        PaginatedContentReportList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["ContentReport"][];
+        };
+        PaginatedContentReviewList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["ContentReview"][];
+        };
+        PaginatedContentSolutionList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["ContentSolution"][];
+        };
         PaginatedCustomerList: {
             /**
              * Format: uri
@@ -6518,6 +8188,21 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["ErpRun"][];
         };
+        PaginatedErratumList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["Erratum"][];
+        };
         PaginatedFlashCardList: {
             /** @example 123 */
             count: number;
@@ -6616,6 +8301,19 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["Job"][];
+        };
+        PaginatedLegalDepositList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["LegalDeposit"][];
         };
         PaginatedOfferStatList: {
             /** @example 123 */
@@ -6895,6 +8593,15 @@ export interface components {
              */
             is_sample?: boolean;
         };
+        PaperQr: {
+            /**
+             * Format: uri
+             * @description what the code encodes: SITE_URL/s/<CODE>/
+             */
+            url: string;
+            /** @description the code as a data: URL (PNG) */
+            png: string;
+        };
         PaperRecord: {
             /** @description its code */
             paper: string;
@@ -7127,6 +8834,48 @@ export interface components {
             /** What to revise */
             notes?: string;
         };
+        PatchedContentBookRequest: {
+            title?: string;
+            subject?: number;
+            edition?: string;
+            slug?: string;
+            /** @description Static path, e.g. img/physics.png */
+            cover?: string;
+            /** @description ISBN-13, hyphens allowed: kept as its 13 digits */
+            isbn?: string;
+            format?: components["schemas"]["BookFormatEnum"];
+            /**
+             * Format: date
+             * @description The day this edition was published: the legal deposit's clock (CONTENT_LEGAL_DEPOSIT_DAYS) starts.
+             */
+            published_on?: string | null;
+        };
+        PatchedContentPaperDetailRequest: {
+            title?: string;
+            tier?: components["schemas"]["TierEnum"];
+            /** Format: int64 */
+            number?: number;
+            /** Format: int64 */
+            full_marks?: number;
+            /** Format: int64 */
+            pass_marks?: number;
+            time_text?: string;
+            is_published?: boolean;
+            /**
+             * Open sample
+             * @description Its solutions open without an account, even when the others need one: the paper the home, book and product pages offer as a sample. One per book.
+             */
+            is_sample?: boolean;
+            /** @description the paper's instruction lines and allotment tables */
+            header_json?: components["schemas"]["ContentHeaderRequest"];
+        };
+        PatchedContentReportUpdateRequest: {
+            staff_note?: string;
+            /** @description on the errata of its book and printing */
+            public?: boolean;
+            printing?: string;
+            step?: number | null;
+        };
         PatchedDataRequestRequest: {
             /** Type */
             kind?: components["schemas"]["DataRequestKindEnum"];
@@ -7231,6 +8980,23 @@ export interface components {
             /** @description 0 removes the book */
             quantity?: number;
         };
+        /**
+         * @description What the panel changes: the text and what the site shows of it go to the draft (DRAFTED); the order, the
+         *     label and the tags change at once (the import keys on the label: a renamed one is a new question there).
+         */
+        PatchedQuestionUpdateRequest: {
+            text_md?: string;
+            table_md?: string;
+            /** @description the options, in order */
+            options_json?: string[];
+            marks_text?: string;
+            group_label?: string;
+            part_label?: string;
+            is_alternative?: boolean;
+            order?: number;
+            label?: string;
+            tags?: string[];
+        };
         PatchedSavedViewRequest: {
             /** @description Shared with this role's members; empty: private. */
             role?: string;
@@ -7243,6 +9009,10 @@ export interface components {
             filters?: unknown;
             columns?: unknown;
             sort?: unknown;
+        };
+        PatchedSolutionUpdateRequest: {
+            /** @description Markdown with $…$ maths: into the draft */
+            body_md?: string;
         };
         /** @description What the SDK's success callback returns. */
         PaymentConfirmRequest: {
@@ -7770,6 +9540,16 @@ export interface components {
             number: string;
             detail: string;
         };
+        /**
+         * @description * `wrong_answer` - a wrong answer or step
+         *     * `typo` - a typing or spelling mistake
+         *     * `marks` - the marks or the marking scheme
+         *     * `unclear` - hard to follow
+         *     * `display` - maths or a picture does not show
+         *     * `other` - something else
+         * @enum {string}
+         */
+        ReaderCategoryEnum: "wrong_answer" | "typo" | "marks" | "unclear" | "display" | "other";
         ReasonRequest: {
             /** @description Why: kept in the audit log */
             reason: string;
@@ -7825,6 +9605,20 @@ export interface components {
             /** @description agrees to the privacy notice (the parent, under 18) */
             consent: boolean;
         };
+        /**
+         * @description * `solution` - solution
+         *     * `question` - question
+         *     * `quiz_item` - quiz_item
+         *     * `clip` - clip
+         * @enum {string}
+         */
+        ReportTargetEnum: "solution" | "question" | "quiz_item" | "clip";
+        ReportsOpen: {
+            total: number;
+            by_category: {
+                [key: string]: number;
+            };
+        };
         ResolveRequest: {
             /** @description what was done, or why it is dismissed */
             resolution: string;
@@ -7856,6 +9650,20 @@ export interface components {
             /** @description the student knew the back */
             known: boolean;
         };
+        /**
+         * @description * `check` - a second person checks it
+         *     * `publish` - approved: to publish
+         * @enum {string}
+         */
+        ReviewTaskStageEnum: "check" | "publish";
+        /**
+         * @description * `in_progress` - in progress
+         *     * `approved` - approved
+         *     * `needs_changes` - needs changes
+         *     * `cancelled` - cancelled
+         * @enum {string}
+         */
+        ReviewTaskStateEnum: "in_progress" | "approved" | "needs_changes" | "cancelled";
         ReviseAgainCount: {
             /** @description quiz items and flash cards due today or before */
             due_today: number;
@@ -9577,6 +11385,32 @@ export interface operations {
             };
         };
     };
+    errata_list: {
+        parameters: {
+            query: {
+                /** @description its slug: physics-2027 */
+                book: string;
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedErratumList"];
+                };
+            };
+        };
+    };
     insights_backtests_list: {
         parameters: {
             query?: {
@@ -11185,6 +13019,29 @@ export interface operations {
             };
         };
     };
+    reports_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MistakeReportRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MistakeReportSent"];
+                };
+            };
+        };
+    };
     shipping_retrieve: {
         parameters: {
             query?: never;
@@ -12396,6 +14253,1330 @@ export interface operations {
             };
         };
     };
+    staff_content_books_list: {
+        parameters: {
+            query?: {
+                /** @description ASSEB */
+                board?: string;
+                class_level?: number;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /**
+                 * @description * `print` - printed book
+                 *     * `ebook` - e-book
+                 */
+                format?: "ebook" | "print";
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description its code: PHY */
+                subject?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedContentBookList"];
+                };
+            };
+        };
+    };
+    staff_content_books_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContentBookRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentBookDetail"];
+                };
+            };
+        };
+    };
+    staff_content_books_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this book. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentBookDetail"];
+                };
+            };
+        };
+    };
+    staff_content_books_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this book. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedContentBookRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentBookDetail"];
+                };
+            };
+        };
+    };
+    staff_content_books_history_retrieve: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this book. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentVersionPage"];
+                };
+            };
+        };
+    };
+    staff_content_books_history_restore_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description the version's id */
+                history_id: number;
+                /** @description A unique integer value identifying this book. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    staff_content_errata_list: {
+        parameters: {
+            query?: {
+                /** @description its slug or id */
+                book?: string;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                printing?: string;
+                public?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedContentErratumList"];
+                };
+            };
+        };
+    };
+    staff_content_imports_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedJobList"];
+                };
+            };
+        };
+    };
+    staff_content_legal_deposits_list: {
+        parameters: {
+            query?: {
+                book?: number;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /**
+                 * @description * `national_library` - National Library, Kolkata
+                 *     * `connemara` - Connemara Public Library, Chennai
+                 *     * `asiatic_society` - Central Library (Asiatic Society), Mumbai
+                 *     * `delhi_public_library` - Delhi Public Library, Delhi
+                 */
+                library?: "asiatic_society" | "connemara" | "delhi_public_library" | "national_library";
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedLegalDepositList"];
+                };
+            };
+        };
+    };
+    staff_content_legal_deposits_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LegalDepositRequest"];
+                "multipart/form-data": components["schemas"]["LegalDepositRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["LegalDepositRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalDeposit"];
+                };
+            };
+        };
+    };
+    staff_content_legal_deposits_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this legal deposit. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalDeposit"];
+                };
+            };
+        };
+    };
+    staff_content_legal_deposits_proof_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this legal deposit. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description No response body */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    staff_content_legal_deposits_missing_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MissingDeposit"][];
+                };
+            };
+        };
+    };
+    staff_content_papers_list: {
+        parameters: {
+            query?: {
+                board?: string;
+                book?: number;
+                /** @description true: a draft waits in it */
+                changed?: boolean;
+                class_level?: number;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                is_published?: boolean;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description its code or title */
+                q?: string;
+                /** @description its code: PHY */
+                subject?: string;
+                /**
+                 * @description * `E` - Easy
+                 *     * `M` - Medium
+                 *     * `H` - Hard
+                 */
+                tier?: "E" | "H" | "M";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedContentPaperList"];
+                };
+            };
+        };
+    };
+    staff_content_papers_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this paper. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentPaperDetail"];
+                };
+            };
+        };
+    };
+    staff_content_papers_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this paper. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedContentPaperDetailRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentPaperDetail"];
+                };
+            };
+        };
+    };
+    staff_content_papers_history_retrieve: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this paper. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentVersionPage"];
+                };
+            };
+        };
+    };
+    staff_content_papers_history_restore_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description the version's id */
+                history_id: number;
+                /** @description A unique integer value identifying this paper. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    staff_content_papers_qr_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this paper. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaperQr"];
+                };
+            };
+        };
+    };
+    staff_content_questions_list: {
+        parameters: {
+            query?: {
+                book?: number;
+                /** @description true: a draft waits */
+                changed?: boolean;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                is_published?: boolean;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                paper?: number;
+                /** @description its label */
+                q?: string;
+                /**
+                 * @description * `draft` - draft
+                 *     * `in_review` - in review
+                 *     * `published` - published
+                 */
+                state?: "draft" | "in_review" | "published";
+                /** @description its code: PHY */
+                subject?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedContentQuestionList"];
+                };
+            };
+        };
+    };
+    staff_content_questions_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this question. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentQuestionDetail"];
+                };
+            };
+        };
+    };
+    staff_content_questions_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this question. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedQuestionUpdateRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentQuestionDetail"];
+                };
+            };
+        };
+    };
+    staff_content_questions_discard_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this question. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentQuestionDetail"];
+                };
+            };
+        };
+    };
+    staff_content_questions_history_retrieve: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this question. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentVersionPage"];
+                };
+            };
+        };
+    };
+    staff_content_questions_history_restore_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description the version's id */
+                history_id: number;
+                /** @description A unique integer value identifying this question. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    staff_content_questions_rollback_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this question. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentQuestionDetail"];
+                };
+            };
+        };
+    };
+    staff_content_questions_submit_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this question. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ContentSubmitRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentOpenReview"];
+                };
+            };
+        };
+    };
+    staff_content_reports_list: {
+        parameters: {
+            query?: {
+                book?: number;
+                /**
+                 * @description * `wrong_answer` - a wrong answer or step
+                 *     * `typo` - a typing or spelling mistake
+                 *     * `marks` - the marks or the marking scheme
+                 *     * `unclear` - hard to follow
+                 *     * `display` - maths or a picture does not show
+                 *     * `other` - something else
+                 *     * `item_analysis` - flagged by the item analysis
+                 */
+                category?: "display" | "item_analysis" | "marks" | "other" | "typo" | "unclear" | "wrong_answer";
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                paper?: number;
+                printing?: string;
+                /**
+                 * @description none: the open ones (reported, confirmed)
+                 *
+                 *     * `reported` - reported
+                 *     * `confirmed` - confirmed
+                 *     * `rejected` - rejected
+                 *     * `fixed_online` - fixed online
+                 *     * `fixed_in_printing` - fixed in printing
+                 */
+                state?: "confirmed" | "fixed_in_printing" | "fixed_online" | "rejected" | "reported";
+                /** @description its code: PHY */
+                subject?: string;
+                /** @description true: from verified teachers */
+                teacher?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedContentReportList"];
+                };
+            };
+        };
+    };
+    staff_content_reports_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this error report. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentReportDetail"];
+                };
+            };
+        };
+    };
+    staff_content_reports_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this error report. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedContentReportUpdateRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentReportDetail"];
+                };
+            };
+        };
+    };
+    staff_content_reports_confirm_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this error report. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ContentTransitionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentReportDetail"];
+                };
+            };
+        };
+    };
+    staff_content_reports_fix_in_printing_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this error report. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ContentTransitionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentReportDetail"];
+                };
+            };
+        };
+    };
+    staff_content_reports_fix_online_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this error report. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ContentTransitionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentReportDetail"];
+                };
+            };
+        };
+    };
+    staff_content_reports_reject_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this error report. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ContentTransitionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentReportDetail"];
+                };
+            };
+        };
+    };
+    staff_content_reports_reopen_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this error report. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ContentTransitionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentReportDetail"];
+                };
+            };
+        };
+    };
+    staff_content_reports_tell_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this error report. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentReportDetail"];
+                };
+            };
+        };
+    };
+    staff_content_reviews_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description true: waiting for me (open, for me or nobody, not my own edit) */
+                mine?: boolean;
+                /** @description true: in progress, or approved and not live */
+                open?: boolean;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                paper?: number;
+                /**
+                 * @description * `check` - a second person checks it
+                 *     * `publish` - approved: to publish
+                 */
+                stage?: "check" | "publish";
+                /**
+                 * @description * `in_progress` - in progress
+                 *     * `approved` - approved
+                 *     * `needs_changes` - needs changes
+                 *     * `cancelled` - cancelled
+                 */
+                state?: "approved" | "cancelled" | "in_progress" | "needs_changes";
+                /** @description its code: PHY */
+                subject?: string;
+                /** @description true: the ones I submitted */
+                submitted?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedContentReviewList"];
+                };
+            };
+        };
+    };
+    staff_content_reviews_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this review task. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentReviewDetail"];
+                };
+            };
+        };
+    };
+    staff_content_reviews_approve_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this review task. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ContentDecisionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentReviewDetail"];
+                };
+            };
+        };
+    };
+    staff_content_reviews_needs_changes_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this review task. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NeedsChangesRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentReviewDetail"];
+                };
+            };
+        };
+    };
+    staff_content_reviews_publish_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this review task. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ContentDecisionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentReviewDetail"];
+                };
+            };
+        };
+    };
+    staff_content_solutions_list: {
+        parameters: {
+            query?: {
+                book?: number;
+                /** @description true: a draft waits */
+                changed?: boolean;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                paper?: number;
+                /**
+                 * @description * `draft` - draft
+                 *     * `in_review` - in review
+                 *     * `published` - published
+                 */
+                state?: "draft" | "in_review" | "published";
+                /** @description its code: PHY */
+                subject?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedContentSolutionList"];
+                };
+            };
+        };
+    };
+    staff_content_solutions_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this solution. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentSolutionDetail"];
+                };
+            };
+        };
+    };
+    staff_content_solutions_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this solution. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedSolutionUpdateRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentSolutionDetail"];
+                };
+            };
+        };
+    };
+    staff_content_solutions_discard_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this solution. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentSolutionDetail"];
+                };
+            };
+        };
+    };
+    staff_content_solutions_history_retrieve: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this solution. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentVersionPage"];
+                };
+            };
+        };
+    };
+    staff_content_solutions_history_restore_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description the version's id */
+                history_id: number;
+                /** @description A unique integer value identifying this solution. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    staff_content_solutions_rollback_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this solution. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentSolutionDetail"];
+                };
+            };
+        };
+    };
+    staff_content_solutions_submit_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this solution. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ContentSubmitRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentOpenReview"];
+                };
+            };
+        };
+    };
+    staff_content_summary_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentSummary"];
+                };
+            };
+        };
+    };
     staff_data_requests_list: {
         parameters: {
             query?: {
@@ -13107,8 +16288,11 @@ export interface operations {
                  *     * `dead_letter` - integration task given up
                  *     * `failed_event` - provider event not processed
                  *     * `integration_down` - integration unavailable
+                 *     * `review` - content review
+                 *     * `error_report` - reported mistake
+                 *     * `legal_deposit` - legal deposit due
                  */
-                kind?: "approval" | "data_request" | "dead_letter" | "deletion_request" | "failed_event" | "failed_job" | "failed_webhook" | "incident" | "integration_down" | "reconciliation" | "shipping_exception" | "sync_failed" | "teacher_request";
+                kind?: "approval" | "data_request" | "dead_letter" | "deletion_request" | "error_report" | "failed_event" | "failed_job" | "failed_webhook" | "incident" | "integration_down" | "legal_deposit" | "reconciliation" | "review" | "shipping_exception" | "sync_failed" | "teacher_request";
                 /** @description true: assigned to me */
                 mine?: boolean;
                 /** @description Number of results to return per page. */
@@ -13387,8 +16571,9 @@ export interface operations {
                  * @description * `audit_export` - audit log export
                  *     * `bulk_action` - bulk action
                  *     * `erp_initial_load` - ERPNext initial load
+                 *     * `content_import` - import from the books repository
                  */
-                kind?: "audit_export" | "bulk_action" | "erp_initial_load";
+                kind?: "audit_export" | "bulk_action" | "content_import" | "erp_initial_load";
                 /** @description true: the jobs I started */
                 mine?: boolean;
                 /** @description Number of results to return per page. */
