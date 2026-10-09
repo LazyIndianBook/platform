@@ -191,6 +191,34 @@ services:
     security_opt: ["no-new-privileges:true"]
     logging: *logging
 
+  admin:  # the staff console (../examleaf-admin) at admin.${DOMAIN}, behind Caddy's second site; only with the profile:
+    # `docker compose --profile admin up -d`. Django must answer that host too: ALLOWED_HOSTS and CSRF_TRUSTED_ORIGINS
+    # (examleaf-admin/README.md, "Deploy"). No port is published: every request comes through Caddy, which drops
+    # X-Middleware-Subrequest on the way (Caddyfile).
+    profiles: [admin]
+    build:
+      context: ../examleaf-admin
+      args:  # compiled into the build: change one, then `docker compose --profile admin build admin`
+        NEXT_PUBLIC_SITE_URL: https://admin.${DOMAIN:?set DOMAIN in .env}
+        NEXT_PUBLIC_WEBSITE_URL: https://${DOMAIN:?set DOMAIN in .env}
+        NEXT_PUBLIC_ERP_URL: ${ERP_URL:-}
+    image: examleaf-admin
+    restart: unless-stopped
+    environment:
+      API_INTERNAL_BASE: http://web:8000  # server components call Django over the compose network
+      # sent with each of those calls (X-Internal-Token): Django then counts the person's address, not the console's
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN in .env (DEPLOYMENT.md)}
+      NEXT_PUBLIC_SITE_URL: https://admin.${DOMAIN:?set DOMAIN in .env}
+      NEXT_PUBLIC_WEBSITE_URL: https://${DOMAIN:?set DOMAIN in .env}
+      NEXT_PUBLIC_ERP_URL: ${ERP_URL:-}
+    depends_on:
+      web: {condition: service_healthy}
+    read_only: true
+    tmpfs: ["/tmp", "/app/.next/cache:mode=1777"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    logging: *logging
+
 volumes:
   pgdata:
   redisdata:

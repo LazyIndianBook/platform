@@ -1,0 +1,11 @@
+.next/
+node_modules/
+coverage/
+playwright-report/
+test-results/
+public/
+openapi.json
+package-lock.json
+src/lib/api/schema.d.ts
+src/app/fonts/
+.e2e/

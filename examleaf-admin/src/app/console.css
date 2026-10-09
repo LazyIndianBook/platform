@@ -1,0 +1,155 @@
+/* The console's frame, on the Answer Script tokens of globals.css (a copy of the public site's, kept identical so a
+   shared package later is a move): a dense layout instead of the public site's 120 px margin grid. The sidebar of
+   modules sits on paper 2 behind the red double rule of the answer booklet (the one red-ink mark of the frame), the
+   top bar and the page on paper; under 900 px the sidebar is a sheet that the Menu button opens under the top bar.
+   The TEST and impersonation banners, when they hold, stick above everything and push the sticky parts down by their
+   height (--banner, measured by banners.tsx). Nothing here moves. In the components layer, after the kit's
+   rules, so a utility class still wins. */
+
+@layer components {
+  .console {
+    display: grid;
+    grid-template-columns: 248px minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      "side top"
+      "side main";
+    min-height: calc(100dvh - var(--banner, 0px));
+  }
+  .console-top {
+    grid-area: top;
+    position: sticky;
+    top: var(--banner, 0px);
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 60px;
+    padding: 8px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--background);
+  }
+  .console-side {
+    grid-area: side;
+    position: sticky;
+    top: var(--banner, 0px);
+    height: calc(100dvh - var(--banner, 0px));
+    overflow-y: auto;
+    border-right: 3px double var(--red-ink);
+    background: var(--paper-2);
+  }
+  .console-main {
+    grid-area: main;
+    min-width: 0;
+    padding: 24px 24px 64px;
+  }
+
+  @media (max-width: 899.98px) {
+    .console {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas:
+        "top"
+        "main";
+    }
+    .console-top {
+      gap: 8px;
+      padding: 8px 16px;
+    }
+    .console-side {
+      display: none;
+      position: fixed;
+      inset: calc(60px + var(--banner, 0px)) 0 0 0;
+      z-index: 40;
+      height: auto;
+      border-right: 0;
+      border-top: 1.5px solid var(--foreground);
+    }
+    .console-side[data-open] {
+      display: block;
+    }
+    .console-main {
+      padding: 16px 16px 48px;
+    }
+  }
+
+  /* lists: the header sticks inside the table's own scroll box from 900 px; rows are dense but keep 44 px targets */
+  .data-table table {
+    font-size: 15px;
+  }
+  .data-table td {
+    padding-top: 6px;
+    padding-bottom: 6px;
+    vertical-align: middle;
+  }
+  .data-table th {
+    padding-top: 0;
+    padding-bottom: 0;
+    height: 44px;
+    vertical-align: middle;
+  }
+  .data-table :is(th, td):first-child {
+    padding-left: 8px;
+  }
+  .data-table :is(th, td):last-child {
+    padding-right: 8px;
+  }
+  .data-table tbody tr {
+    cursor: pointer;
+  }
+  .data-table tbody tr:hover,
+  .data-table tbody tr[data-active] {
+    background: var(--paper-2);
+  }
+  .data-table tbody tr[data-selected] {
+    background: var(--info-bg);
+  }
+  .data-table tbody tr[data-active] > :first-child {
+    box-shadow: inset 3px 0 0 var(--primary);
+  }
+  .data-table [data-row-link] {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+  }
+  @media (min-width: 900px) {
+    .data-table {
+      max-height: calc(100dvh - 220px - var(--banner, 0px));
+      overflow: auto;
+    }
+  }
+
+  /* the bulk bar sticks at the bottom: keep a focused row clear of it (WCAG 2.4.11) */
+  html:has([data-bulk-bar]) {
+    scroll-padding-bottom: 140px;
+  }
+  .data-table tbody tr {
+    scroll-margin-bottom: 140px;
+  }
+
+  /* the exact JSON of a change request, and other code blocks */
+  .code-block {
+    margin: 0;
+    max-height: 28rem;
+    overflow: auto;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--card);
+    font: 500 13px/1.6 var(--font-mono);
+    white-space: pre;
+    tab-size: 2;
+  }
+
+  kbd {
+    display: inline-flex;
+    min-width: 22px;
+    justify-content: center;
+    padding: 1px 6px;
+    border: 1px solid var(--input);
+    border-bottom-width: 2px;
+    border-radius: 3px;
+    background: var(--card);
+    font: 500 12px/1.5 var(--font-mono);
+    color: var(--foreground);
+  }
+}

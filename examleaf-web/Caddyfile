@@ -53,3 +53,41 @@
 		format json
 	}
 }
+
+# The staff console (examleaf-admin/, the compose profile "admin"): its own host, so a script on the public site can
+# never ride a staff session, and the cookies stay host-only (no cookie domain is shared). The same Django paths, limits,
+# health rule and logging as above (keep the two blocks in step); every other path is the console's. Caddy asks for this
+# host's certificate too: point its DNS at the machine before starting. Django must list the host in ALLOWED_HOSTS and
+# its origin in CSRF_TRUSTED_ORIGINS (examleaf-admin/README.md, "Deploy").
+admin.{$DOMAIN} {
+	encode zstd gzip
+	request_header X-Request-ID {http.request.uuid}
+	# Next.js's internal subrequest header is never a visitor's to send (CVE-2025-29927): dropped before it reaches the
+	# console, which never relies on its proxy for access anyway
+	request_header -X-Middleware-Subrequest
+	@clip_upload path /admin/learn/clip/* /admin/learn/revision/*
+	request_body @clip_upload {
+		max_size 500MB
+	}
+	@other not path /admin/learn/clip/* /admin/learn/revision/*
+	request_body @other {
+		max_size 10MB
+	}
+	header -Server
+	@health_denied {
+		path /health /health/*
+		not expression `"{$HEALTH_CHECK_TOKEN}" != "" && {http.request.header.X-Health-Token} == "{$HEALTH_CHECK_TOKEN}"`
+	}
+	respond @health_denied 404
+	@django path /api/* /_allauth/* /admin/* /shop/webhooks/* /anymail/* /health /health/* /shop/media/* /learn/preview/* /learn/hls/* /account/google/* /qr/* /static/*
+	reverse_proxy @django web:8000 {
+		request_buffers 10MB
+	}
+	reverse_proxy admin:3000 {
+		request_buffers 10MB
+	}
+	log {
+		output stdout
+		format json
+	}
+}
