@@ -6,7 +6,7 @@ from celery import shared_task
 
 from examleaf.celery import LONG_TASK, single_run
 
-from .jobs import codes, delivery, demand, fraud, learning, offers
+from .jobs import codes, delivery, demand, fraud, health, learning, offers
 
 ONCE_MORE = {"autoretry_for": (Exception,), "max_retries": 1, "default_retry_delay": 600, **LONG_TASK}
 
@@ -49,6 +49,12 @@ def delivery_stats():
 @shared_task(**ONCE_MORE)
 def offer_effectiveness():
     return offers.offer_effectiveness()
+
+
+@shared_task(**ONCE_MORE)
+def course_health():
+    """The course's use by subject and chapter, over complete days, weeks and months (the Reports' course health)."""
+    return health.course_health()
 
 
 @shared_task(**ONCE_MORE)

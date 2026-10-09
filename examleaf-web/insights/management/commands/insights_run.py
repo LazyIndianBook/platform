@@ -2,7 +2,7 @@ from datetime import date
 
 from django.core.management.base import BaseCommand
 
-from insights.jobs import codes, delivery, demand, fraud, learning, offers
+from insights.jobs import codes, delivery, demand, fraud, health, learning, offers
 from insights.models import ForecastRun
 
 JOBS = {  # in the night's order (settings.CELERY_BEAT_SCHEDULE)
@@ -15,6 +15,7 @@ JOBS = {  # in the night's order (settings.CELERY_BEAT_SCHEDULE)
     "delivery_stats": delivery.delivery_stats,
     "offer_effectiveness": offers.offer_effectiveness,
     "fraud_rules": fraud.fraud_rules,
+    "course_health": health.course_health,
 }
 
 

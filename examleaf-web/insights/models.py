@@ -376,3 +376,41 @@ class AccountScore(models.Model):
 
     def __str__(self):
         return f"{self.get_kind_display()} {self.external_ref}"
+
+
+# Phase B: reports
+class CourseHealthStat(models.Model):
+    """The course's use in one period, as counts: for the whole course (no subject), a subject (no chapter) or a
+    chapter, over a day, a week (Monday to Sunday), a month, or the 7 or 28 days to yesterday. The learners are counted
+    once however much they did, the rest are sums: clips started (saved) and completed, quiz answers and the right
+    ones, flash cards turned over and the ones not known (lapses). Complete periods only, written every night
+    (insights.jobs.health); a period with no activity has no row. Aggregates only, like every row here: no learner
+    appears in any, and the reports hide a cell standing on fewer than INSIGHTS_MIN_CELL_CLASS learners."""
+
+    class Grain(models.TextChoices):
+        DAY = "day", "day"
+        WEEK = "week", "week"
+        MONTH = "month", "month"
+        LAST_7 = "last7", "the 7 days to yesterday"
+        LAST_28 = "last28", "the 28 days to yesterday"
+
+    grain = models.CharField(max_length=6, choices=Grain.choices)
+    period_start = models.DateField(help_text="The day, the week's Monday, the month's first day, or a window's first.")
+    subject = models.ForeignKey("content.Subject", on_delete=models.CASCADE, null=True, blank=True, related_name="+")
+    chapter = models.ForeignKey("learn.Chapter", on_delete=models.CASCADE, null=True, blank=True, related_name="+")
+    active_learners = models.PositiveIntegerField(help_text="Learners with any activity in the period.")
+    clips_started = models.PositiveIntegerField()
+    clips_completed = models.PositiveIntegerField()
+    quiz_answers = models.PositiveIntegerField()
+    quiz_correct = models.PositiveIntegerField()
+    card_reviews = models.PositiveIntegerField()
+    card_lapses = models.PositiveIntegerField(help_text="Flash cards turned over that the learner did not know.")
+    computed_at = models.DateTimeField(default=timezone.now)
+    computed_for = models.DateField(help_text="The day it counted up to: yesterday's complete periods end here.")
+
+    class Meta:
+        ordering = ["grain", "period_start"]
+        indexes = [models.Index(fields=["grain", "subject", "chapter", "period_start"], name="course_health_read")]
+
+    def __str__(self):
+        return f"Course health, {self.grain} of {self.period_start}"
