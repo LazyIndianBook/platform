@@ -45,6 +45,7 @@ from .models import (
     HsnCode,
     HsnRate,
     Invoice,
+    InvoicePaymentLink,
     Offer,
     Order,
     OrderDiscount,
@@ -59,6 +60,8 @@ from .models import (
     Refund,
     ReturnRequest,
     Review,
+    Settlement,
+    SettlementLine,
     Shipment,
     ShippingRate,
     SlugHistory,
@@ -1062,3 +1065,27 @@ class OrderMessageAdmin(ReadOnlyAdmin):
     list_filter = ["kind", "sms", "created"]
     search_fields = ["order__number"]
     list_select_related = ["order"]
+
+
+# Phase B: finance (the panel owns their flows: /finance/settlements/ and /finance/payment-links/; read-only here)
+
+
+class SettlementLineInline(ReadOnlyInline):
+    model = SettlementLine
+    fields = ["type", "entity_id", "amount", "fee", "tax", "credit", "debit", "order", "matched_at", "note"]
+    readonly_fields = fields
+
+
+@admin.register(Settlement)
+class SettlementAdmin(ReadOnlyAdmin):
+    list_display = ["settlement_id", "date", "net", "state", "livemode", "posted_at"]
+    list_filter = ["state", "livemode", "date"]
+    search_fields = ["settlement_id", "utr"]
+    inlines = [SettlementLineInline]
+
+
+@admin.register(InvoicePaymentLink)
+class InvoicePaymentLinkAdmin(ReadOnlyAdmin):
+    list_display = ["invoice", "amount", "status", "expires_at", "paid_at", "erp_name", "livemode"]
+    list_filter = ["status", "livemode", "created"]
+    search_fields = ["invoice", "razorpay_payment_link_id", "razorpay_payment_id"]

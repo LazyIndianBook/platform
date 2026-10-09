@@ -17,7 +17,8 @@ print runs, item analysis, cohorts, fraud signals). Code: `api/` (`auth.py`, `vi
 [Shop](#shop) · [Revision course](#revision-course) · [Site](#site-configuration-and-legal-pages) ·
 [Insights (staff)](#insights-staff) · [ERPNext sync (staff)](#erpnext-sync-staff) · [Orders (staff)](#orders-staff) ·
 [Tax (staff)](#tax-staff) · [Legal and privacy (staff)](#legal-and-privacy-staff) · [Content (staff)](#content-staff) ·
-[Support (staff)](#support-staff) · [Connections (staff)](#connections-staff) · [Templates (staff)](#templates-staff) ·
+[Support (staff)](#support-staff) · [Finance (staff)](#finance-staff) · [Connections (staff)](#connections-staff) ·
+[Templates (staff)](#templates-staff) ·
 [Lists](#lists) ·
 [Staff API](#staff-api) · [Errors](#errors) ·
 [Rate limits](#rate-limits) · [CORS](#cors) ·
@@ -1581,6 +1582,68 @@ or missing token."}`, kept without its body; more than `SUPPORT_MAIL_MAX_BYTES` 
 auto-replies, bounces and lists, and threads the rest by the thread id in its headers, a known Message-ID, or the
 `[SR-…]` number from the requester's own address. 120 a minute per client address (`API_THROTTLE_SUPPORT_MAIL`).
 
+## Finance (staff)
+
+`/api/v1/staff/finance/…` (code: `shop/staff_finance.py`, the settlements `shop/settlements.py`; the module:
+[shop/README.md](shop/README.md#finance)) is the panel's Finance module: payments and the stuck ones, refunds and
+offline payments with the change requests waiting for FINANCE, payment links (a staff order's, a B2B invoice's of
+ERPNext), Razorpay's settlements and their lines, Finance today, and a document's copy in ERPNext. It keeps every rule
+of the [Staff API](#staff-api): the admin host only, a member of staff with a second factor (an API key reads only),
+each action's catalogued permission, every refusal an `authz_fail` event, cursor pages, `Cache-Control: no-store`; the
+schema tags it `finance (staff)`. What it does not do is Orders' (the refund itself and its approval through
+`order.refund`, a bank refund marked paid, an offline payment recorded: [Orders (staff)](#orders-staff)), Tax's (the
+documents register: [Tax (staff)](#tax-staff)), the shipping app's (cash on delivery's remittances) and ERPNext's
+(payouts, purchases, the bank, closing a period: the console links them). Test-mode rows (the other mode's keys) are
+left out of every list and count unless `?livemode=false` asks for them (`is_test` marks them); a refusal is the
+shop's words, `400 {"non_field_errors": ["..."]}`; 503 while Razorpay cannot be asked (nothing changed). The audit
+events: `payment.reconciled`, `order.payment_link_sent`, `order.payment_link_cancelled`, `payment.link_made`,
+`payment.link_cancelled`, `payment.link_paid`, `payment.link_reconciled`, `payment.link_posted`,
+`payment.settlements_fetched`, `payment.settlement_matched`, `payment.settlement_mismatched`,
+`payment.settlement_posted` and `payment.settlement_line_matched` (its note the event's reason), on the money chain.
+
+| Method | Path (under `/api/v1/staff/finance/`) | Permission | What |
+|---|---|---|---|
+| GET | `today/` | `shop.view_payment`, else `staff.view_cod` | what waits, a row a duty (`key`, `count`, `oldest` day, `amount`, `configured`): refunds to approve, bank refunds to transfer, offline payments to approve, stuck payments, B2B payments to post, settlement lines not matched, settlements that do not match, cash on delivery receivable, overdue and mismatched, credit notes the cut-off refused, the sync's differences, disputes (`configured: false`); each row only for whoever may see its records, test mode left out |
+| GET | `payments/` (`?status=&method=&stuck=&created_from=&created_to=&livemode=&q=`) | `shop.view_payment` | newest first, with Razorpay's ids, `stuck`, `is_link`, and once settled its `fee`, `tax` and `settlement`; `q`: an order's number, Razorpay's `pay_`, `order_` or `plink_` id, an offline reference |
+| GET | `payments/<id>/` | `shop.view_payment` | the row and the order's facts, `refunds`, `webhooks` (seen in the last 7 days), `last_webhook` (its allowed fields only), `timeline` (the audit events too for whoever reads the log); a child's order's payment is a `sensitive_read` |
+| POST | `payments/<id>/reconcile/` | `staff.replay_webhook` | Razorpay asked again about the payment's order: a captured payment recorded, an authorised one captured first (the late-authorised case), a second one refunded; `{paid, detail, changes: {what: [before, after]}, payment}`; an offline or cash payment, or one of the other mode's keys, refused |
+| GET | `offline-payments/` (`?state=waiting\|recorded&livemode=&q=`) | `shop.view_payment` | the payments received by transfer or UPI; `waiting`: the `order.offline_payment` change requests waiting for FINANCE (approved at `change-requests/<id>/approve/`) |
+| GET | `refunds/` (`?state=waiting\|pending\|processed\|failed&method=source\|bank\|none&livemode=&q=`) | `shop.view_refund` | refunds with the method, speed, ARN, the transfer's UTR, the credit note and who asked; `waiting`: the `order.refund` change requests waiting for FINANCE |
+| GET | `payment-links/` (`?kind=order\|invoice&state=sent\|paid\|cancelled\|expired&livemode=&q=`) | `shop.view_payment` | the staff orders' links (the default) or the B2B invoices': amount, state, address, Razorpay's ids, sent, expiry (15 days), paid, who made it; a B2B one's ERPNext entry once posted |
+| POST | `payment-links/` (`order` or `invoice`, `action`: `send`\|`cancel`) | `shop.change_order` | an order's link (a staff order waiting for its online payment) made once and emailed, later the same again, or cancelled; a B2B invoice's (its copy in the platform with something outstanding) made (201, its address in `url` for staff to send) or the open one answered (200), or cancelled |
+| POST | `payment-links/invoices/<id>/reconcile/` | `staff.replay_webhook` | a B2B link asked of Razorpay again (its webhook lost) |
+| POST | `payment-links/invoices/<id>/posted/` (`erp_name`) | `staff.reconcile_settlements` | a paid B2B link's Payment Entry, posted in ERPNext by hand, recorded (its inbox item done); once |
+| GET | `settlements/` (`?state=fetched\|matched\|posted\|mismatched&date_from=&date_to=&livemode=&q=`) | `shop.view_settlement` | Razorpay's settlements, newest day first: `settlement_id`, `date`, `utr`, `gross`, `fees`, `tax` (GST on the fees), `adjustments`, `net`, `state`, `problem`, `matched_at`, `posted_at`; `q`: the `setl_` id or the UTR |
+| GET | `settlements/<id>/` | `shop.view_settlement` | with `counts` (lines, unmatched, by type) and `erp` (its Journal Entry's outbox row: state, attempts, last error, ERPNext's name) |
+| GET | `settlements/<id>/lines/` (`?matched=&type=payment\|refund\|adjustment`) | `shop.view_settlementline` | its lines in Razorpay's order: `entity_id`, `amount`, `fee` (without its GST), `tax`, `credit`, `debit`, the `payment`, `refund` or B2B `link` it is, `matched`, `matched_by` (empty: by Razorpay's id), `note` |
+| POST | `settlements/<id>/match/` (`line`, one of `payment`, `refund`, `accept: true`; `note`) | `staff.reconcile_settlements` | a line matched by hand to a payment (of its amount, no other line's) or a refund of the settlement's mode, or an adjustment accepted as it is; the settlement evaluated again (matched and posted once nothing is left); a posted settlement refused (correct ERPNext's entry by hand) |
+| POST | `settlements/fetch/` (`day`, `dry_run`) | `staff.reconcile_settlements` | a day of Razorpay's settlements (India, from 2020, today at the latest) fetched, matched and posted as a job (`settlement_fetch`): 202 with the job, its result the counts; the same as `POST jobs/ {"kind": "settlement_fetch", "params": {"day": ...}}` |
+| GET | `documents/<number>/erp/` (dashes for its slashes) | `shop.view_invoice` | an invoice's or credit note's copy in ERPNext: `state` (`mirrored`, `waiting`, `failed`, `dead`, `discarded`, `not_sent`, `off`, `test`), its doctype and name there, its outbox rows |
+
+The nightly runs: `shop-reconcile-payments` (02:30: the online orders still awaiting their payment 10 minutes on,
+staff orders' links included, then the B2B invoices' open links, asked of Razorpay) and `shop-fetch-settlements`
+(03:15: yesterday's settlements, then those matched while `ERP_SYNC_SETTLEMENTS` was off posted once), each
+`single_run`. A stuck payment is an online one created
+or authorised `SHOP_STUCK_PAYMENT_MINUTES` (15) ago that reached Razorpay on an order still unpaid (a link only once
+past its life), or one captured on an order still pending. A B2B invoice's payment cannot go through ERPNext's
+contract (`create_payment_entry` takes only the platform's own invoices): it opens a `b2b_payment` inbox item, FINANCE
+posts the Payment Entry in ERPNext and records its name with `posted/`.
+
+```sh
+curl -X POST https://admin.examleaf.in/api/v1/staff/finance/payments/9101/reconcile/ \
+  -b "sessionid=...; csrftoken=..." -H "X-CSRFToken: ..."
+# 200 {"paid": true, "detail": "Razorpay had the payment: the order is paid now; payment 9101 recorded as captured.",
+#      "changes": {"order": ["pending", "paid"], "payment 9101": ["authorized", "captured"]}, "payment": {...}}
+curl -X POST https://admin.examleaf.in/api/v1/staff/finance/settlements/2/match/ \
+  -b "sessionid=...; csrftoken=..." -H "X-CSRFToken: ..." -H "Content-Type: application/json" \
+  -d '{"line": 23, "payment": 9101, "note": "Its webhook was lost; Razorpay was asked again."}'
+# 200 {"id": 23, "type": "payment", "entity_id": "pay_...", "matched": true, "matched_by": "Anita Baruah", ...}
+curl -X POST https://admin.examleaf.in/api/v1/staff/finance/settlements/fetch/ \
+  -b "sessionid=...; csrftoken=..." -H "X-CSRFToken: ..." -H "Content-Type: application/json" \
+  -d '{"day": "2026-10-09"}'
+# 202 {"id": 812, "kind": "settlement_fetch", "state": "queued", ...}
+```
+
 ## Lists
 
 Lists are paginated: `{"count": 120, "next": "<url>", "previous": null, "results": [...]}`, 50 a page, `?page=2`,
@@ -1954,6 +2017,22 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 | GET | `staff/erp/reconciliations/` | `erp.view_sync` | `cursor`, `date`, `page_size`, `state` |  | 200 `PaginatedErpRunList` |
 | GET | `staff/erp/reconciliations/{id}/` | `erp.view_sync` |  |  | 200 `ErpRunDetail` |
 | GET | `staff/erp/status/` | `erp.view_sync` |  |  | 200 `ErpStatus` |
+| GET | `staff/finance/documents/{number}/erp/` | `shop.view_invoice` |  |  | 200 `FinanceDocumentErp` |
+| GET | `staff/finance/offline-payments/` | `shop.view_payment` | `cursor`, `livemode`, `page_size`, `q`, `state` |  | 200 `PaginatedFinanceRequestRowList` |
+| GET | `staff/finance/payment-links/` | `shop.view_payment` | `cursor`, `kind`, `livemode`, `page_size`, `q`, `state` |  | 200 `PaginatedFinanceLinkList` |
+| POST | `staff/finance/payment-links/` | `shop.change_order` |  | `FinanceLinkAskRequest` | 200 `FinanceLinkAnswer`; 201 `FinanceLinkAnswer` |
+| POST | `staff/finance/payment-links/invoices/{id}/posted/` | `staff.reconcile_settlements` |  | `FinanceLinkPostedRequest` | 200 `FinanceLinkAnswer` |
+| POST | `staff/finance/payment-links/invoices/{id}/reconcile/` | `staff.replay_webhook` |  |  | 200 `FinanceLinkAnswer` |
+| GET | `staff/finance/payments/` | `shop.view_payment` | `created_from`, `created_to`, `cursor`, `livemode`, `method`, `page_size`, `q`, `status`, `stuck` |  | 200 `PaginatedFinancePaymentList` |
+| GET | `staff/finance/payments/{id}/` | `shop.view_payment` |  |  | 200 `FinancePaymentDetail` |
+| POST | `staff/finance/payments/{id}/reconcile/` | `staff.replay_webhook` |  |  | 200 `FinanceReconciled` |
+| GET | `staff/finance/refunds/` | `shop.view_refund` | `cursor`, `livemode`, `method`, `page_size`, `q`, `state` |  | 200 `PaginatedFinanceRequestRowList` |
+| GET | `staff/finance/settlements/` | `shop.view_settlement` | `cursor`, `date_from`, `date_to`, `livemode`, `page_size`, `q`, `state` |  | 200 `PaginatedFinanceSettlementList` |
+| POST | `staff/finance/settlements/fetch/` | `staff.reconcile_settlements` |  | `FinanceFetchRequest` | 202 `Job` |
+| GET | `staff/finance/settlements/{id}/` | `shop.view_settlement` |  |  | 200 `FinanceSettlementDetail` |
+| POST | `staff/finance/settlements/{id}/match/` | `staff.reconcile_settlements` |  | `FinanceMatchRequest` | 200 `FinanceSettlementLine` |
+| GET | `staff/finance/settlements/{settlement}/lines/` | `shop.view_settlementline` | `cursor`, `matched`, `page_size`, `type` |  | 200 `PaginatedFinanceSettlementLineList` |
+| GET | `staff/finance/today/` | `staff.view_cod` (by the key or the body: see the table above) |  |  | 200 `FinanceToday` |
 | GET | `staff/flags/` | `staff.view_featureflag` |  |  | 200 `[Flag]` |
 | GET | `staff/flags/{key}/` | `staff.view_featureflag` |  |  | 200 `[SwitchRow]` |
 | PUT | `staff/flags/{key}/` | `staff.manage_flags` |  | `SwitchChangeRequest` | 200 `SwitchRow` |
@@ -2321,6 +2400,34 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ExtendRequest**: `entitlement` integer (required); `days` integer (required); `reason` string (required)
 - **Extra**: `webhook` RazorpayHealth; `sms` SmsFigures; `email` EmailFigures; `storage` StorageFigures; `google` GoogleFigures; `errors` ErrorsFigures; `erp` ErpHealth; `phase` string
 - **Failure**: `id` integer (required, read-only); `account` integer (required, null, read-only); `operation` string (required, read-only); `task_name` string (required, read-only); `args` any (required, read-only); `attempts` integer (required, read-only); `last_error` string (required, read-only); `state` DeadLetterStateEnum (required, read-only); `discard_reason` string (required, read-only); `resolved_at` date-time (required, null, read-only); `resolved_by` integer (required, null, read-only); `created` date-time (required, read-only); `erp_outbox` integer (required, null, read-only)
+- **FinanceDocumentErp**: `number` string (required); `kind` TaxDocumentKindEnum (required); `state` FinanceDocumentErpStateEnum (required); `doctype` string (required, null); `name` string (required, null); `synced_at` date-time (required, null); `outbox` [object] (required)
+- **FinanceDocumentErpStateEnum**: one of `mirrored`, `waiting`, `failed`, `dead`, `discarded`, `not_sent`, `off`, `test`
+- **FinanceFetchRequest**: `day` date (required); `dry_run` boolean
+- **FinanceLineRef**: `id` integer (required); `order` string (required, null); `amount` decimal (required, null)
+- **FinanceLink**: `kind` FinanceLinkKindEnum (required); `id` integer (required); `order` string (required, null); `invoice` string (required, null); `amount` decimal (required, null); `state` FinanceLinkStateEnum (required); `url` string (required); `razorpay_link_id` string (required); `razorpay_payment_id` string (required, null); `sent_at` date-time (required); `last_sent_at` date-time (required, null); `expires_at` date-time (required); `paid_at` date-time (required, null); `created_by` string (required); `posted_at` date-time (required, null); `erp_name` string (required); `livemode` boolean (required); `is_test` boolean (required)
+- **FinanceLinkAnswer**: `kind` FinanceLinkKindEnum (required); `id` integer (required); `order` string (required, null); `invoice` string (required, null); `amount` decimal (required, null); `state` FinanceLinkStateEnum (required); `url` string (required); `razorpay_link_id` string (required); `razorpay_payment_id` string (required, null); `sent_at` date-time (required); `last_sent_at` date-time (required, null); `expires_at` date-time (required); `paid_at` date-time (required, null); `created_by` string (required); `posted_at` date-time (required, null); `erp_name` string (required); `livemode` boolean (required); `is_test` boolean (required); `detail` string (required)
+- **FinanceLinkAskRequest**: `order` string; `invoice` string; `action` OrderPaymentLinkActionEnum (required)
+- **FinanceLinkKindEnum**: one of `order`, `invoice`
+- **FinanceLinkPostedRequest**: `erp_name` string (required)
+- **FinanceLinkStateEnum**: one of `sent`, `paid`, `cancelled`, `expired`
+- **FinanceMatchRequest**: `line` integer (required); `payment` integer (null); `refund` integer (null); `accept` boolean; `note` string (required)
+- **FinancePayment**: `id` integer (required, read-only); `order` string (required, read-only); `order_status` OrderStatusEnum (required, read-only); `method` PaymentMethodEnum (required, read-only); `status` OrderPaymentStatusEnum (required, read-only); `amount` decimal (required, read-only); `razorpay_order_id` string (required, null, read-only); `razorpay_payment_id` string (required, null, read-only); `razorpay_payment_link_id` string (required, null, read-only); `reference` string (required, read-only); `error` string (required, read-only); `livemode` boolean (required, read-only); `is_test` boolean (required, read-only); `stuck` boolean (required, read-only); `is_link` boolean (required, read-only); `fee` decimal (required, null, read-only); `tax` decimal (required, null, read-only); `settlement` FinanceSettlementRef (required, null, read-only); `created` date-time (required, read-only); `modified` date-time (required, read-only)
+- **FinancePaymentDetail**: `id` integer (required, read-only); `order` string (required, read-only); `order_status` OrderStatusEnum (required, read-only); `method` PaymentMethodEnum (required, read-only); `status` OrderPaymentStatusEnum (required, read-only); `amount` decimal (required, read-only); `razorpay_order_id` string (required, null, read-only); `razorpay_payment_id` string (required, null, read-only); `razorpay_payment_link_id` string (required, null, read-only); `reference` string (required, read-only); `error` string (required, read-only); `livemode` boolean (required, read-only); `is_test` boolean (required, read-only); `stuck` boolean (required, read-only); `is_link` boolean (required, read-only); `fee` decimal (required, null, read-only); `tax` decimal (required, null, read-only); `settlement` FinanceSettlementRef (required, null, read-only); `created` date-time (required, read-only); `modified` date-time (required, read-only); `order_id` integer (required, read-only); `order_total` decimal (required, read-only); `order_placed_at` date-time (required, read-only); `payment_link_url` uri (required, read-only); `refunds` [FinancePaymentRefund] (required, read-only); `webhooks` [FinanceWebhook] (required, read-only); `last_webhook` any (required, read-only); `timeline` [OrderTimelineEntry] (required, read-only)
+- **FinancePaymentRefund**: `id` integer (required, read-only); `amount` decimal (required, read-only); `status` RefundStatusEnum (required, read-only); `method` OrderRefundMethodEnum (required, read-only); `speed` RefundSpeedEnum (required, read-only); `razorpay_refund_id` string (required, null, read-only); `arn` string (required, read-only); `created` date-time (required, read-only); `processed_at` date-time (required, null, read-only)
+- **FinanceReconciled**: `paid` boolean (required, null); `detail` string (required); `changes` object (required); `payment` FinancePaymentDetail (required)
+- **FinanceRequestRow**: `kind` FinanceRowKindEnum (required); `id` integer (required); `order` string (required); `amount` decimal (required, null); `status` string (required); `reference` string (required); `method` string (required); `speed` string (required); `reason` string (required); `arn` string (required); `utr` string (required); `razorpay_refund_id` string (required); `credit_note` string (required, null); `payee_masked` string (required); `payment_method` string (required); `error` string (required); `change_request` integer (required, null); `change_request_status` string (required); `checker` string (required); `rule` string (required); `by` string (required); `created` date-time (required); `done_at` date-time (required, null); `livemode` boolean (required)
+- **FinanceRowKindEnum**: one of `request`, `payment`, `refund`
+- **FinanceSettlement**: `id` integer (required, read-only); `settlement_id` string (required, read-only); `date` date (required, read-only); `utr` string (required, read-only); `gross` decimal (required, read-only); `fees` decimal (required, read-only); `tax` decimal (required, read-only); `adjustments` decimal (required, read-only); `net` decimal (required, read-only); `state` FinanceSettlementStateEnum (required, read-only); `problem` string (required, read-only); `livemode` boolean (required, read-only); `is_test` boolean (required, read-only); `matched_at` date-time (required, null, read-only); `posted_at` date-time (required, null, read-only); `created` date-time (required, read-only); `modified` date-time (required, read-only)
+- **FinanceSettlementDetail**: `id` integer (required, read-only); `settlement_id` string (required, read-only); `date` date (required, read-only); `utr` string (required, read-only); `gross` decimal (required, read-only); `fees` decimal (required, read-only); `tax` decimal (required, read-only); `adjustments` decimal (required, read-only); `net` decimal (required, read-only); `state` FinanceSettlementStateEnum (required, read-only); `problem` string (required, read-only); `livemode` boolean (required, read-only); `is_test` boolean (required, read-only); `matched_at` date-time (required, null, read-only); `posted_at` date-time (required, null, read-only); `created` date-time (required, read-only); `modified` date-time (required, read-only); `counts` object (required, read-only); `erp` FinanceSettlementErp (required, null, read-only)
+- **FinanceSettlementErp**: `outbox` integer (required); `state` string (required); `attempts` integer (required); `last_error` string (required); `sent_at` date-time (required, null); `name` string (required, null)
+- **FinanceSettlementLine**: `id` integer (required, read-only); `type` FinanceSettlementLineTypeEnum (required, read-only); `entity_id` string (required, read-only); `amount` decimal (required, read-only); `fee` decimal (required, read-only); `tax` decimal (required, read-only); `credit` decimal (required, read-only); `debit` decimal (required, read-only); `settled_at` date-time (required, null, read-only); `order_receipt` string (required, read-only); `order` string (required, null, read-only); `payment` FinanceLineRef (required, null, read-only); `refund` FinanceLineRef (required, null, read-only); `link` object (required, null, read-only); `matched` boolean (required, read-only); `matched_at` date-time (required, null, read-only); `matched_by` string (required, read-only); `note` string (required, read-only)
+- **FinanceSettlementLineTypeEnum**: one of `payment`, `refund`, `adjustment`
+- **FinanceSettlementRef**: `id` integer (required); `settlement_id` string (required); `date` date (required); `utr` string (required); `state` FinanceSettlementStateEnum (required)
+- **FinanceSettlementStateEnum**: one of `fetched`, `matched`, `posted`, `mismatched`
+- **FinanceToday**: `livemode` boolean (required); `as_of` date-time (required); `rows` [FinanceTodayRow] (required)
+- **FinanceTodayKeyEnum**: one of `refunds_to_approve`, `bank_refunds`, `offline_to_approve`, `stuck_payments`, `b2b_to_post`, `settlement_lines`, `settlements_mismatched`, `cod_receivable`, `cod_overdue`, `cod_mismatched`, `credit_notes_refused`, `sync_differences`, `disputes`
+- **FinanceTodayRow**: `key` FinanceTodayKeyEnum (required); `count` integer (required, null); `oldest` date (required, null); `amount` decimal (required, null); `configured` boolean (required)
+- **FinanceWebhook**: `event_id` string (required); `name` string (required); `received_at` date-time (required)
 - **Flag**: `key` string (required); `value` any (required); `effective_from` date-time (required, null); `changed_by` integer (required, null); `reason` string (required); `label` string (required); `group` string (required); `environment` any (required, null); `source` SettingSourceEnum (required)
 - **Forecast**: `product` string (required, read-only); `title` string (required, read-only); `district` string (null); `week_start` date (required); `p10` double (required); `p50` double (required); `p90` double (required); `n` integer (required, read-only)
 - **FraudSignal**: `id` integer (required, read-only); `kind` FraudSignalKindEnum (required); `label` string (required, read-only); `subject` string (required); `window_start` date-time (required); `window_end` date-time (required); `details` any; `created` date-time (required, read-only); `acknowledged_at` date-time (null); `n` integer (required, read-only)
@@ -2343,7 +2450,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **InboundEventStateEnum**: one of `accepted`, `duplicate`, `rejected`, `failed`
 - **InboxCount**: `open` integer (required); `overdue` integer (required)
 - **InboxItem**: `id` integer (required, read-only); `kind` InboxKindEnum (required); `title` string (required); `target_type` string; `target_id` string; `permission` string (required); `assignee` integer (null); `due_at` date-time (null); `overdue` boolean (required, read-only); `snoozed_until` date-time (null); `done_at` date-time (null); `done_by` integer (null); `data` any; `created` date-time
-- **InboxKindEnum**: one of `approval`, `teacher_request`, `deletion_request`, `data_request`, `incident`, `failed_job`, `failed_webhook`, `sync_failed`, `reconciliation`, `shipping_exception`, `dead_letter`, `failed_event`, `integration_down`, `tax_threshold`, `credit_note_missing`, `processor_task`, `compliance`, `order_hold`, `return_request`, `bank_refund`, `role_expired`, `offboarding`, `webhook_silent`, `template_idle`, `template_certify`, `backup_stale`, `dependencies_stale`, `scripts_changed`, `review`, `error_report`, `legal_deposit`, `ticket_due`, `ticket_breach`, `ticket_mention`
+- **InboxKindEnum**: one of `approval`, `teacher_request`, `deletion_request`, `data_request`, `incident`, `failed_job`, `failed_webhook`, `sync_failed`, `reconciliation`, `shipping_exception`, `dead_letter`, `failed_event`, `integration_down`, `tax_threshold`, `credit_note_missing`, `processor_task`, `compliance`, `order_hold`, `return_request`, `bank_refund`, `role_expired`, `offboarding`, `webhook_silent`, `template_idle`, `template_certify`, `backup_stale`, `dependencies_stale`, `scripts_changed`, `review`, `error_report`, `legal_deposit`, `ticket_due`, `ticket_breach`, `ticket_mention`, `settlement`, `b2b_payment`
 - **Incident**: `id` integer (required, read-only); `title` string (required); `kind` IncidentKindEnum (required); `detected_at` date-time; `noticed_by` integer (required, null, read-only); `description` string; `systems` string; `data_categories` string; `people_affected` integer (null); `children_affected` boolean; `cert_in_due` date-time (required, read-only); `cert_in_overdue` boolean (required, read-only); `cert_in_reported_at` date-time (null); `cert_in_reference` string; `board_due` date-time (required, read-only); `board_overdue` boolean (required, read-only); `board_notified_at` date-time (null); `board_report_at` date-time (null); `board_reference` string; `notice_text` string; `notices_sent` integer; `notices_sent_at` date-time (null); `actions` string; `root_cause` string; `closed_at` date-time (required, null, read-only); `closed_by` integer (required, null, read-only); `created` date-time (required, read-only)
 - **IncidentKindEnum**: one of `data_breach`, `data_leak`, `unauthorised_access`, `malicious_code`, `application_attack`, `denial_of_service`, `loss_of_access`, `other`
 - **IncidentRequest**: `title` string (required); `kind` IncidentKindEnum (required); `detected_at` date-time; `description` string; `systems` string; `data_categories` string; `people_affected` integer (null); `children_affected` boolean; `cert_in_reported_at` date-time (null); `cert_in_reference` string; `board_notified_at` date-time (null); `board_report_at` date-time (null); `board_reference` string; `notice_text` string; `notices_sent` integer; `notices_sent_at` date-time (null); `actions` string; `root_cause` string
@@ -2352,7 +2459,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ItemStat**: `item` integer (required); `chapter` integer (required, read-only); `kind` string (required, read-only); `text` string (required, read-only); `n` integer (required); `p` double (null); `discrimination` double (null); `flags` any
 - **Job**: `id` integer (required, read-only); `kind` JobKindEnum (required, read-only); `state` JobStateEnum (required, read-only); `dry_run` boolean (required, read-only); `params` any (required, read-only); `done` integer (required, read-only); `total` integer (required, read-only); `errors` [JobError] (required, read-only); `result` any (required, read-only); `result_url` string (required, null, read-only); `change_request_id` integer (required, null, read-only); `cancel_requested` boolean (required, read-only); `started_by` integer (required, null, read-only); `created` date-time (required, read-only); `started_at` date-time (required, null, read-only); `finished_at` date-time (required, null, read-only)
 - **JobError**: `id` any (required, null); `label` string (required); `message` string (required)
-- **JobKindEnum**: one of `audit_export`, `bulk_action`, `erp_initial_load`, `gstr1_export`, `orders_pack`, `orders_print`, `orders_cancel`, `orders_export`, `content_import`, `grievance_export`
+- **JobKindEnum**: one of `audit_export`, `bulk_action`, `erp_initial_load`, `gstr1_export`, `orders_pack`, `orders_print`, `orders_cancel`, `orders_export`, `content_import`, `grievance_export`, `settlement_fetch`
 - **JobStartRequest**: `kind` JobKindEnum (required); `params` object; `dry_run` boolean
 - **JobStateEnum**: one of `queued`, `running`, `done`, `failed`, `cancelled`
 - **LanguageEnum**: one of `as`, `bn`, `en`
@@ -2460,6 +2567,11 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **PaginatedErpOutboxList**: `next` uri (null); `previous` uri (null); `results` [ErpOutbox] (required)
 - **PaginatedErpRunList**: `next` uri (null); `previous` uri (null); `results` [ErpRun] (required)
 - **PaginatedFailureList**: `next` uri (null); `previous` uri (null); `results` [Failure] (required)
+- **PaginatedFinanceLinkList**: `next` uri (null); `previous` uri (null); `results` [FinanceLink] (required)
+- **PaginatedFinancePaymentList**: `next` uri (null); `previous` uri (null); `results` [FinancePayment] (required)
+- **PaginatedFinanceRequestRowList**: `next` uri (null); `previous` uri (null); `results` [FinanceRequestRow] (required)
+- **PaginatedFinanceSettlementLineList**: `next` uri (null); `previous` uri (null); `results` [FinanceSettlementLine] (required)
+- **PaginatedFinanceSettlementList**: `next` uri (null); `previous` uri (null); `results` [FinanceSettlement] (required)
 - **PaginatedForecastList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [Forecast] (required)
 - **PaginatedFraudSignalList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [FraudSignal] (required)
 - **PaginatedHsnCodeList**: `next` uri (null); `previous` uri (null); `results` [HsnCode] (required)

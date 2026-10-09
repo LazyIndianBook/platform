@@ -27,7 +27,7 @@ from integrations.client import IntegrationError
 from ops.tasks import queue_text_email
 from shipping.models import CodRemittance
 from shipping.status import LEFT
-from shop.models import CreditNote, Invoice, Payment, Refund, Shipment
+from shop.models import CreditNote, Invoice, Payment, Refund, Settlement, Shipment
 
 from . import contract, inbox, signals
 from .client import client
@@ -106,6 +106,13 @@ def platform_totals(day):
         gross = contract.money(sum((r.remitted_amount for r in cod), Decimal(0)))
         totals["settlements"] = {"cod": {"count": len(cod), "total": gross}} if cod else {}
         refs += [contract.settlement_ref(contract.cod_settlement_id(r)) for r in cod]
+        # Phase B: finance. The Razorpay settlements the platform posted for the day (shop/settlements.py), their
+        # gross as ERPNext's Journal Entry has it
+        razorpay = list(Settlement.objects.filter(date=day, livemode=True, erp_outbox__isnull=False))
+        if razorpay:
+            total = contract.money(sum((s.gross.amount for s in razorpay), Decimal(0)))
+            totals["settlements"]["razorpay"] = {"count": len(razorpay), "total": total}
+        refs += [contract.settlement_ref(s.settlement_id) for s in razorpay]
     if enabled("deliveries"):
         notes, copies = 0, defaultdict(int)
         for shipment in dispatched_on(day):

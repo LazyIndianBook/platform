@@ -15,6 +15,7 @@ import { createTaxWorld, monthBefore, type TaxWorld } from "./tax";
 import { type OrdersWorld, ordersWorld } from "./orders";
 import { type ContentWorld, createContent } from "./content";
 import { createSupportWorld, type SupportWorld } from "./support-fixtures";
+import { type FinanceWorld, financeWorld } from "./finance";
 
 export type Me = { id: number; email: string; name: string; roles: string[] };
 
@@ -82,6 +83,8 @@ export type World = {
   content: ContentWorld;
   /** The support module's tickets, saved replies and the requesters' sidebar (support-fixtures.ts). */
   support: SupportWorld;
+  /** Finance's payments, refunds, links and settlements (finance.ts). */
+  finance: FinanceWorld;
 };
 
 /** The payload's SHA-256 over its canonical JSON (keys sorted, no spaces), as staff/approvals.py `digest` makes it. */
@@ -284,6 +287,26 @@ export function createWorld(me: Me, now = Date.now()): World {
       result: null,
       created: at(-4),
     }),
+    // Finance: a school's bank transfer recorded by a colleague, waiting for FINANCE to check its UTR (finance.ts)
+    changeRequest({
+      id: 509,
+      action: "order.offline_payment",
+      label: "Record a payment received offline",
+      target_type: "shop.order",
+      target_id: "143",
+      target_label: "EL-2026-000143",
+      payload: { order: "EL-2026-000143", reference: "UTR5523019876", amount: "12000.00" },
+      amount: "12000.00",
+      maker: support,
+      reason: "The school's NEFT, seen on the bank statement of today.",
+      rule: "A payment received offline of ₹12,000.00 is above the limit of ₹5,000.",
+      status: "pending",
+      expires_at: at(22),
+      checker: "staff.approve_payment",
+      approvals: [],
+      result: null,
+      created: at(-2),
+    }),
   ];
 
   const item = (row: Omit<S["InboxItem"], "overdue" | "done_by" | "data"> & Partial<S["InboxItem"]>) => ({
@@ -437,6 +460,38 @@ export function createWorld(me: Me, now = Date.now()): World {
       snoozed_until: null,
       done_at: null,
       created: at(-24),
+    }),
+    // Finance (finance.ts): a settlement that does not match, a B2B payment to post in ERPNext
+    item({
+      id: 312,
+      kind: "settlement",
+      title: `Razorpay settlement setl_mockB0002 of ${new Date(now - 48 * 3_600_000).toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        timeZone: "Asia/Kolkata",
+      })}: 2 lines not ours yet`,
+      target_type: "shop.settlement",
+      target_id: "2",
+      permission: "staff.reconcile_settlements",
+      assignee: null,
+      due_at: null,
+      snoozed_until: null,
+      done_at: null,
+      created: at(-24 * 2),
+    }),
+    item({
+      id: 313,
+      kind: "b2b_payment",
+      title: "Post by hand in ERPNext: invoice ACC-SINV-2026-00004 paid ₹42000.00 (pay_mockb2b2)",
+      target_type: "shop.invoicepaymentlink",
+      target_id: "2",
+      permission: "staff.reconcile_settlements",
+      assignee: null,
+      due_at: null,
+      snoozed_until: null,
+      done_at: null,
+      created: at(-20),
     }),
   ];
 
@@ -1921,5 +1976,6 @@ export function createWorld(me: Me, now = Date.now()): World {
     orders: ordersWorld(at),
     content: content.world,
     support: createSupportWorld(me, now),
+    finance: financeWorld(at),
   };
 }

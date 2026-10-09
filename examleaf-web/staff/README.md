@@ -282,6 +282,11 @@ kind `ticket_category`, three kinds of inbox item (`ticket_due`: a ticket's lega
 `ticket_breach`: past it, both for `staff.handle_ticket` and given to the ticket's assignee; `ticket_mention`: a
 colleague named in a note, assigned to them and done once they open the ticket) and the permissions
 `staff.handle_ticket` (medium) and `support.note_ticket`.
+Finance (`shop/README.md` "Finance") adds the kind `settlement_fetch` (`staff.reconcile_settlements`, medium; no row
+limit: one day; params `{"day": "YYYY-MM-DD"}`, from 2020 to today; its result the counts), the permission
+`staff.reconcile_settlements` (area Payments; FINANCE, with ADMIN and the owners) and two kinds of inbox item, both for
+`staff.reconcile_settlements`: `settlement` (a Razorpay settlement that does not match: done once it matches) and
+`b2b_payment` (a B2B invoice paid by link: done once its ERPNext entry is recorded).
 
 ## Data protection
 
@@ -461,6 +466,8 @@ AUDITOR: every page read-only. MARKETING: the templates read-only. Everyone: the
 |---|---|
 | 00:01 | `pages.tasks.publish_due`: a legal page's version published for that day put in force |
 | 02:00 | `staff.tasks.verify_audit_chain` |
+| 02:30 | `shop.tasks.reconcile_payments`: online orders still awaiting payment, and B2B links still open, asked of Razorpay (`single_run`) |
+| 03:15 | `shop.tasks.fetch_settlements`: yesterday's Razorpay settlements fetched, matched and posted (`single_run`; Razorpay out of reach: tried again for about three hours) |
 | 03:05 | `accounts.tasks.copy_erasure_ledger`: the erasure ledger's lines not yet in the backups' bucket |
 | 03:15 | `staff.tasks.expire_access`: roles given until a time, scopes past their time, change requests expired |
 | 04:10, 04:20 | `ops.tasks.trim_expired` and `purge_expired`: the retention schedule's clean-up |

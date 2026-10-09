@@ -1476,6 +1476,10 @@ class WebhookEvent(models.Model):
     digest = models.CharField("SHA-256 of the body", max_length=64, unique=True)
     name = models.CharField(max_length=40)
     received_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    # Phase B: finance
+    payment = models.ForeignKey(  # the payment it was about (payments._dispatch), for the panel's payment record
+        "Payment", on_delete=models.SET_NULL, null=True, blank=True, related_name="webhook_events", editable=False
+    )
 
     def __str__(self):
         return self.event_id
@@ -1836,3 +1840,137 @@ class OrderMessage(models.Model):
 
     def __str__(self):
         return f"{self.kind} for {self.order}"
+
+
+# Phase B: finance
+
+
+class Settlement(TimeStampedModel):
+    """A Razorpay settlement (shop/settlements.py): one transfer from Razorpay to the bank. `net` is what reached the
+    bank (Razorpay's own figure), `fees` Razorpay's fees without their GST, `tax` that GST, `adjustments` the part of
+    the lines that were neither payments nor refunds, and `gross` what it settled before Razorpay's cut (net + fees +
+    tax: what leaves the Razorpay Clearing account in ERPNext). Fetched with its lines (SettlementLine) from the
+    settlement recon API; matched once every line is one of ours and the net is its lines' sum; then posted to ERPNext
+    once (erp.producers.razorpay_settlement: the Journal Entry), its outbox row kept. Mismatched: an inbox item for
+    FINANCE. Kept with the mode (test or live) of the keys that fetched it: a test one is never posted."""
+
+    class State(models.TextChoices):
+        FETCHED = "fetched", "fetched"
+        MATCHED = "matched", "matched"
+        POSTED = "posted", "posted to ERPNext"
+        MISMATCHED = "mismatched", "mismatched"
+
+    settlement_id = models.CharField("Razorpay's id", max_length=40, unique=True)
+    date = models.DateField(db_index=True, help_text="The day Razorpay settled it (India).")
+    utr = models.CharField("UTR", max_length=60, blank=True, help_text="The bank's reference of the transfer.")
+    gross = money_field("gross", default=0)
+    fees = money_field("Razorpay's fees", default=0, help_text="Without their GST.")
+    tax = money_field("GST on the fees", default=0)
+    adjustments = money_field("adjustments", default=0)
+    net = money_field("net", default=0, help_text="What reached the bank.")
+    state = models.CharField(max_length=10, choices=State.choices, default=State.FETCHED, db_index=True)
+    problem = models.CharField(max_length=300, blank=True, help_text="Why it is mismatched: counts, never a name.")
+    livemode = models.BooleanField("live mode", default=False, editable=False)
+    matched_at = models.DateTimeField(null=True, blank=True, editable=False)
+    posted_at = models.DateTimeField(null=True, blank=True, editable=False)
+    erp_outbox = models.ForeignKey(  # its Journal Entry's outbox row (erp.producers.razorpay_settlement), once posted
+        "erp.ErpOutbox", on_delete=models.SET_NULL, null=True, blank=True, related_name="+", editable=False
+    )
+
+    class Meta:
+        ordering = ["-date", "-pk"]
+
+    def __str__(self):
+        return self.settlement_id
+
+
+class SettlementLine(models.Model):
+    """One entry of a settlement as Razorpay's recon gives it: a payment, a refund or an adjustment (Razorpay's other
+    kinds count as adjustments), its amount, Razorpay's fee (without its GST) and the GST on it, the money it moved
+    (`credit`, `debit`), matched to our Payment, Refund or B2B link by Razorpay's id, or by hand (`matched_by`, with a
+    note; an adjustment accepted as it is has no target). One per settlement and Razorpay id."""
+
+    class Type(models.TextChoices):
+        PAYMENT = "payment", "payment"
+        REFUND = "refund", "refund"
+        ADJUSTMENT = "adjustment", "adjustment"
+
+    settlement = models.ForeignKey(Settlement, on_delete=models.CASCADE, related_name="lines")
+    type = models.CharField(max_length=10, choices=Type.choices)
+    entity_id = models.CharField("Razorpay's id", max_length=40, db_index=True)
+    amount = money_field("amount", default=0)
+    fee = money_field("Razorpay's fee", default=0, help_text="Without its GST.")
+    tax = money_field("GST on the fee", default=0)
+    credit = money_field("credited", default=0)
+    debit = money_field("debited", default=0)
+    settled_at = models.DateTimeField(null=True, blank=True)
+    order_receipt = models.CharField("Razorpay order's receipt", max_length=40, blank=True, help_text="Our number.")
+    payment = models.ForeignKey(
+        Payment, on_delete=models.PROTECT, null=True, blank=True, related_name="settlement_lines"
+    )
+    refund = models.ForeignKey(Refund, on_delete=models.PROTECT, null=True, blank=True, related_name="settlement_lines")
+    link = models.ForeignKey(
+        "InvoicePaymentLink", on_delete=models.PROTECT, null=True, blank=True, related_name="settlement_lines"
+    )
+    order = models.ForeignKey(Order, on_delete=models.PROTECT, null=True, blank=True, related_name="settlement_lines")
+    matched_at = models.DateTimeField(null=True, blank=True)
+    matched_by = models.ForeignKey(  # empty while matched: by the fetch itself, by Razorpay's id
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", editable=False
+    )
+    note = models.CharField(max_length=300, blank=True, help_text="Why it was matched by hand.")
+    raw = models.JSONField(default=dict, blank=True, help_text="Razorpay's fields, the allowed ones (no card or bank).")
+
+    class Meta:
+        ordering = ["pk"]
+        constraints = [
+            models.UniqueConstraint(fields=["settlement", "entity_id"], name="one_settlement_line_per_entity")
+        ]
+
+    def __str__(self):
+        return f"{self.entity_id} in settlement #{self.settlement_id}"
+
+
+class InvoicePaymentLink(TimeStampedModel):
+    """A Razorpay Payment Link the platform makes for a B2B invoice of ERPNext's (its read-only copy: erp.ErpMirror,
+    kept while ERP_PULL_B2B is on), for what the invoice has outstanding, valid payments.LINK_DAYS. ERPNext's
+    create_payment_entry takes only the platform's own invoices (examleaf-erp/API.md: another is "not_found"), so a
+    paid link opens an inbox item for FINANCE, who posts the Payment Entry in ERPNext by hand and records its name here
+    (`erp_name`). No contact of the B2B customer is kept here: staff send the link's address themselves."""
+
+    class Status(models.TextChoices):
+        SENT = "sent", "made, waiting for the payment"
+        PAID = "paid", "paid"
+        CANCELLED = "cancelled", "cancelled"
+        EXPIRED = "expired", "expired unpaid"  # written once a new link is made, or by the nightly check
+
+    invoice = models.CharField("ERPNext invoice", max_length=140, db_index=True)
+    amount = money_field("amount")
+    razorpay_payment_link_id = models.CharField(max_length=40, unique=True)
+    url = models.URLField(blank=True)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.SENT, db_index=True)
+    expires_at = models.DateTimeField()
+    livemode = models.BooleanField("live mode", default=False, editable=False)
+    razorpay_payment_id = models.CharField(max_length=40, unique=True, null=True, blank=True)
+    paid_at = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", editable=False
+    )
+    cancelled_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", editable=False
+    )
+    posted_at = models.DateTimeField(null=True, blank=True)
+    posted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", editable=False
+    )
+    erp_name = models.CharField("ERPNext's payment entry", max_length=140, blank=True)
+
+    class Meta:
+        ordering = ["-created", "-pk"]
+        constraints = [  # one link open for an invoice at a time (two asked at once: the second is cancelled)
+            models.UniqueConstraint(
+                fields=["invoice"], condition=models.Q(status="sent"), name="one_open_link_per_invoice"
+            )
+        ]
+
+    def __str__(self):
+        return f"Link for {self.invoice}"

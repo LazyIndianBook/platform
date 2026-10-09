@@ -12,14 +12,26 @@ from decimal import Decimal
 import razorpay
 import requests
 from django.db import IntegrityError, transaction
-from django.db.models import Q
+from django.db.models import Exists, OuterRef, Q
+from django.utils import timezone
 from django_fsm import can_proceed
 from razorpay.errors import BadRequestError, GatewayError, ServerError, SignatureVerificationError
 
 from examleaf.bulkhead import Bulkhead
 
 from . import services
-from .models import INR, Order, Payment, Refund, WebhookEvent, live_mode, paise, razorpay_keys
+from .models import (
+    INR,
+    InvoicePaymentLink,
+    Order,
+    Payment,
+    Refund,
+    WebhookEvent,
+    live_mode,
+    paise,
+    razorpay_keys,
+    rupees,
+)
 
 logger = logging.getLogger(__name__)
 # Seconds per Razorpay call, to connect and then for each read of the answer (requests' pair): an unreachable or a
@@ -111,13 +123,14 @@ def send_payment_link(order):
         if not configured():
             raise Unavailable("Online payment is not set up yet.")
         address = order.shipping_address
+        made = order.payments.exclude(razorpay_payment_link_id=None).count()  # Razorpay takes a reference id once
         try:
             data = client().payment_link.create(
                 {
                     "amount": paise(order.total),
                     "currency": INR,
                     "accept_partial": False,
-                    "reference_id": order.number,
+                    "reference_id": f"{order.number}-{made + 1}" if made else order.number,
                     "description": f"ExamLeaf order {order.number}",
                     "customer": {"name": address["name"], "email": order.email, "contact": address["phone"]},
                     "notify": {"sms": False, "email": False},  # we email it
@@ -207,6 +220,22 @@ def reconcile(order):
     return False
 
 
+def awaiting_payment(older_than=10):
+    """The online orders of the keys' mode still awaiting their payment, made more than `older_than` minutes ago (a
+    customer may be paying right now), that reached Razorpay (its checkout opened, or a staff order's link made):
+    those Razorpay may know a payment of (reconcile)."""
+    reached = Payment.objects.filter(order=OuterRef("pk"), method=Order.Method.RAZORPAY).filter(
+        Q(razorpay_order_id__isnull=False) | Q(razorpay_payment_link_id__isnull=False)
+    )
+    return Order.objects.filter(
+        status=Order.Status.PENDING,
+        placed_at__isnull=True,
+        payment_method=Order.Method.RAZORPAY,
+        livemode=live_mode(),
+        created__lt=timezone.now() - timedelta(minutes=older_than),
+    ).filter(Exists(reached))
+
+
 def handle_webhook(body, signature, event_id=""):
     """A Razorpay webhook. Returns False if the signature (HMAC of the raw body with the webhook secret) is wrong or
     no secret is set. Each event is handled once, in one transaction with its record (WebhookEvent: its id and the hash
@@ -239,16 +268,18 @@ def handle_webhook(body, signature, event_id=""):
     with transaction.atomic():  # the record goes with the changes: an event that fails is handled again on retry
         try:
             with transaction.atomic():
-                WebhookEvent.objects.create(
+                row = WebhookEvent.objects.create(
                     event_id=event_id[:64] or digest, digest=digest, name=event.get("event", "")[:40]
                 )
         except IntegrityError:
             return True  # handled before
-        _dispatch(event)
+        if (payment := _dispatch(event)) is not None:  # the panel's payment record lists its webhooks
+            WebhookEvent.objects.filter(pk=row.pk).update(payment=payment)
     return True
 
 
 def _dispatch(event):
+    """Handle one webhook. Returns the Payment it was about, or None."""
     name, payload = event.get("event", ""), event.get("payload", {})
     if name in ("payment.captured", "order.paid", "payment.failed"):
         entity = payload["payment"]["entity"]
@@ -258,9 +289,14 @@ def _dispatch(event):
                 services.record_failure(entity, payload=event)
             else:
                 services.record_capture(entity, payload=event)
-    elif name == "payment_link.paid":
-        services.record_link_payment(payload["payment_link"]["entity"].get("id"), payload["payment"]["entity"], event)
-    elif name in ("refund.processed", "refund.failed"):
+        return payment
+    if name == "payment_link.paid":
+        link_id, entity = payload["payment_link"]["entity"].get("id"), payload["payment"]["entity"]
+        if services.record_link_payment(link_id, entity, event) is None:  # not an order's: a B2B invoice's?
+            record_invoice_link_payment(link_id, entity)
+        return Payment.objects.filter(razorpay_payment_link_id=link_id or None).first()
+    refund = None
+    if name in ("refund.processed", "refund.failed"):
         entity = payload["refund"]["entity"]
         notes = entity.get("notes") if isinstance(entity.get("notes"), dict) else {}  # Razorpay sends [] when empty
         ours = Q(razorpay_refund_id=entity["id"])
@@ -283,6 +319,7 @@ def _dispatch(event):
                 services.refund_processed(refund.pk, razorpay_refund_id=entity["id"], arn=arn)
             else:
                 services.refund_failed(refund.pk, (entity.get("error_description") or "refund failed"))
+    return refund.payment if refund else None
 
 
 def cancel_payment_link(order):
@@ -303,3 +340,168 @@ def cancel_payment_link(order):
             locked.fail("Payment link cancelled by staff.")
             locked.save()
     return locked
+
+
+# Phase B: finance. Payment links for ERPNext's B2B invoices (InvoicePaymentLink): made by the platform, because
+# Razorpay stays here (plan 5.8); their payment recorded here and posted in ERPNext by FINANCE, by hand.
+
+UNREACHABLE = (requests.RequestException, GatewayError, ServerError)  # BadRequestError: Razorpay answered and refused
+Link = InvoicePaymentLink
+
+
+def b2b_invoice(name):
+    """A B2B invoice of ERPNext's that a link may be made for: in the platform's read-only copy (erp.ErpMirror, while
+    ERP_PULL_B2B keeps them), submitted, not a credit note, with something outstanding. Returns (its name, what is
+    outstanding in rupees); raises ValueError saying why not."""
+    from erp.models import ErpMirror
+
+    name = str(name or "").strip()
+    mirror = ErpMirror.objects.filter(doctype="Sales Invoice", name=name).first() if name else None
+    if mirror is None:
+        raise ValueError(f"No B2B invoice {name} in the platform's copy of ERPNext (ERP_PULL_B2B keeps them).")
+    data = mirror.data if isinstance(mirror.data, dict) else {}
+    if data.get("docstatus") != 1:
+        raise ValueError(f"Invoice {mirror.name} is not submitted in ERPNext, or it was cancelled there.")
+    if data.get("is_return"):
+        raise ValueError(f"{mirror.name} is a credit note: there is nothing to pay.")
+    try:
+        outstanding = rupees(Decimal(str(data.get("outstanding_amount") or 0)))
+    except ArithmeticError, ValueError:
+        outstanding = Decimal(0)
+    if outstanding <= 0:
+        raise ValueError(f"Invoice {mirror.name} has nothing outstanding.")
+    return mirror.name, outstanding
+
+
+def send_invoice_link(name, by=None, request=None):
+    """A Razorpay Payment Link for what a B2B invoice has outstanding, valid LINK_DAYS: made once while it is open
+    (asking again answers the same link), its address for staff to send the customer (no contact of a B2B customer is
+    kept on the platform, so Razorpay sends nothing either). Audited. Returns (the link, whether it was made now);
+    raises Unavailable or ValueError."""
+    from staff.audit import record
+
+    now = timezone.now()
+    Link.objects.filter(invoice=str(name).strip(), status=Link.Status.SENT, expires_at__lte=now).update(
+        status=Link.Status.EXPIRED
+    )
+    if (open_link := Link.objects.filter(invoice=str(name).strip(), status=Link.Status.SENT).first()) is not None:
+        return open_link, False
+    invoice, amount = b2b_invoice(name)
+    if not configured():
+        raise Unavailable("Online payment is not set up yet.")
+    made = Link.objects.filter(invoice=invoice).count()
+    try:
+        data = client().payment_link.create(
+            {
+                "amount": paise(amount),
+                "currency": INR,
+                "accept_partial": False,
+                "reference_id": f"{invoice}/{made + 1}"[:40],  # Razorpay takes a reference id once
+                "description": f"ExamLeaf invoice {invoice}"[:200],
+                "notify": {"sms": False, "email": False},
+                "reminder_enable": False,
+                "expire_by": int(time.time() + LINK_DAYS * 86400),
+                "notes": {"invoice": invoice},
+            },
+            timeout=TIMEOUT,
+        )
+    except BadRequestError as error:
+        raise ValueError(f"Razorpay refused the link: {error}") from error
+    except UNREACHABLE as error:
+        logger.warning("Razorpay payment link for invoice %s not made: %s", invoice, error)
+        raise Unavailable("The payment service could not be reached.") from error
+    try:
+        with transaction.atomic():
+            link = Link.objects.create(
+                invoice=invoice,
+                amount=amount,
+                razorpay_payment_link_id=data["id"],
+                url=data.get("short_url", ""),
+                expires_at=now + timedelta(days=LINK_DAYS),
+                livemode=live_mode(),
+                created_by=by,
+            )
+            details = {"invoice": invoice, "amount": amount, "link": data["id"]}
+            record("payment.link_made", request=request, actor=by, target=link, details=details)
+    except IntegrityError:  # another person made one at the same moment: theirs stands, this one is cancelled
+        try:
+            client().payment_link.cancel(data["id"], timeout=TIMEOUT)
+        except API_ERRORS as error:  # it expires by itself, unpaid: nobody has its address
+            logger.warning("Razorpay payment link %s made twice and not cancelled: %s", data["id"], error)
+        return Link.objects.get(invoice=invoice, status=Link.Status.SENT), False
+    return link, True
+
+
+def cancel_invoice_link(link, by=None, request=None):
+    """Cancel a B2B invoice's link that is still open: Razorpay first (a link paid meanwhile is refused there, and its
+    payment is recorded by its webhook), then the link. Audited. Returns the link; raises Unavailable (Razorpay could
+    not be asked: nothing changed) or ValueError (not open)."""
+    from staff.audit import record
+
+    if link.status != Link.Status.SENT or link.expires_at <= timezone.now():
+        raise ValueError(f"The link for {link.invoice} is not open: it is {link.get_status_display()} or expired.")
+    try:
+        client().payment_link.cancel(link.razorpay_payment_link_id, timeout=TIMEOUT)
+    except BadRequestError as error:
+        raise ValueError(f"Razorpay refused to cancel the link (paid meanwhile?): {error}") from error
+    except UNREACHABLE as error:
+        logger.warning("Razorpay payment link for invoice %s not cancelled: %s", link.invoice, error)
+        raise Unavailable("The payment service could not be reached.") from error
+    with transaction.atomic():
+        locked = Link.objects.select_for_update().get(pk=link.pk)
+        if locked.status == Link.Status.SENT:
+            locked.status, locked.cancelled_by = Link.Status.CANCELLED, by
+            locked.save(update_fields=["status", "cancelled_by", "modified"])
+            details = {"invoice": locked.invoice, "link": locked.razorpay_payment_link_id}
+            record("payment.link_cancelled", request=request, actor=by, target=locked, details=details)
+    return locked
+
+
+def record_invoice_link_payment(link_id, entity):
+    """A payment made through one of our B2B invoices' links (the payment_link.paid webhook, or asked again): the link
+    paid, once, and FINANCE told to post its Payment Entry in ERPNext by hand (ERPNext's create_payment_entry takes
+    only the platform's own invoices). A link of the other mode's keys is ignored. Returns the link, or None for a
+    link that is not one of these."""
+    from staff.audit import plain, record
+    from staff.models import InboxItem
+    from staff.signals import open_item
+
+    with transaction.atomic():
+        link = Link.objects.select_for_update().filter(razorpay_payment_link_id=link_id or None).first()
+        if link is None or link.status == Link.Status.PAID or entity.get("status") != "captured":
+            return link
+        if link.livemode != live_mode():
+            logger.warning("Razorpay payment for B2B link #%s (the other mode's keys) ignored", link.pk)
+            return link
+        link.status, link.razorpay_payment_id, link.paid_at = Link.Status.PAID, entity["id"], timezone.now()
+        link.save(update_fields=["status", "razorpay_payment_id", "paid_at", "modified"])
+        taken = rupees(Decimal(entity.get("amount") or 0) / 100)
+        details = {"invoice": link.invoice, "amount": taken, "payment": entity["id"]}
+        record("payment.link_paid", target=link, details=details)
+        differs = "" if taken == link.amount.amount else f", not the ₹{link.amount.amount} asked"
+        title = f"Post by hand in ERPNext: invoice {link.invoice} paid ₹{taken}{differs} ({entity['id']})"
+        open_item(InboxItem.Kind.B2B_PAYMENT, link, title, "staff.reconcile_settlements", **plain(details))
+    return link
+
+
+def reconcile_invoice_link(link):
+    """Ask Razorpay what became of a B2B invoice's link (its webhook lost): a paid one is recorded; one Razorpay
+    expired or cancelled is marked so. Returns True (paid), False (not paid), or None (Razorpay could not be asked)."""
+    if link.status == Link.Status.PAID:
+        return True
+    if link.livemode != live_mode():
+        return False  # these keys see nothing of the other mode's links
+    try:
+        data = client().payment_link.fetch(link.razorpay_payment_link_id, timeout=TIMEOUT)
+        paid = (data.get("payments") or []) if data.get("status") == "paid" else []
+        for entity in (client().payment.fetch(item["payment_id"], timeout=TIMEOUT) for item in paid):
+            if entity.get("status") == "captured":
+                record_invoice_link_payment(link.razorpay_payment_link_id, entity)
+                return True
+    except API_ERRORS as error:
+        logger.warning("Razorpay could not be asked about the link of invoice %s: %s", link.invoice, error)
+        return None
+    gone = {"expired": Link.Status.EXPIRED, "cancelled": Link.Status.CANCELLED}.get(data.get("status"))
+    if gone:
+        Link.objects.filter(pk=link.pk, status=Link.Status.SENT).update(status=gone)
+    return False

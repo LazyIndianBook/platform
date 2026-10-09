@@ -1617,3 +1617,110 @@ export const exportGrievances = (params: { from?: string; until?: string }) =>
   send(undefined, (o) =>
     api.POST("/api/v1/staff/jobs/", { ...o, body: { kind: "grievance_export", params, dry_run: false } }),
   );
+
+// ---- Finance ----
+
+export type FinanceToday = Schemas["FinanceToday"];
+export type FinanceTodayRow = Schemas["FinanceTodayRow"];
+export type FinancePayment = Schemas["FinancePayment"];
+export type FinancePaymentDetail = Schemas["FinancePaymentDetail"];
+export type FinanceReconciled = Schemas["FinanceReconciled"];
+export type FinanceRequestRow = Schemas["FinanceRequestRow"];
+export type FinanceLink = Schemas["FinanceLink"];
+export type FinanceLinkAnswer = Schemas["FinanceLinkAnswer"];
+export type FinanceSettlement = Schemas["FinanceSettlement"];
+export type FinanceSettlementDetail = Schemas["FinanceSettlementDetail"];
+export type FinanceSettlementLine = Schemas["FinanceSettlementLine"];
+export type FinanceDocumentErp = Schemas["FinanceDocumentErp"];
+export type FinanceLinkAsk = Schemas["FinanceLinkAskRequest"];
+export type FinanceMatch = Schemas["FinanceMatchRequest"];
+
+/** What FINANCE has to do today: a row a duty, each for whoever may see its records; test mode left out. */
+export const getFinanceToday = (transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/finance/today/", o));
+
+/** Payments, newest first (`stuck=true`: those waiting on Razorpay too long). */
+export const listFinancePayments = (filters: Filters<"/api/v1/staff/finance/payments/">, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/finance/payments/", { ...o, params: { query: query(filters) } })).then(
+    paged,
+  );
+/** A payment with its refunds, the webhooks seen and its timeline (a child's order's: a logged read). */
+export const getFinancePayment = (id: number, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/finance/payments/{id}/", { ...o, params: { path: { id } } }));
+/** Ask Razorpay again what became of the payment's order: answered with what changed (503: not reachable). */
+export const reconcileFinancePayment = (id: number) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/finance/payments/{id}/reconcile/", { ...o, params: { path: { id } } }),
+  );
+
+/** Offline payments: `state=waiting` the change requests waiting for FINANCE, else those recorded. */
+export const listOfflinePayments = (
+  filters: Filters<"/api/v1/staff/finance/offline-payments/">,
+  transport?: Transport,
+) =>
+  send(transport, (o) =>
+    api.GET("/api/v1/staff/finance/offline-payments/", { ...o, params: { query: query(filters) } }),
+  ).then(paged);
+/** Refunds by state and method; `state=waiting`: the change requests waiting for FINANCE. */
+export const listFinanceRefunds = (filters: Filters<"/api/v1/staff/finance/refunds/">, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/finance/refunds/", { ...o, params: { query: query(filters) } })).then(
+    paged,
+  );
+
+/** Payment links: the staff orders' (`kind=order`, the default) or the B2B invoices' (`kind=invoice`). */
+export const listPaymentLinks = (filters: Filters<"/api/v1/staff/finance/payment-links/">, transport?: Transport) =>
+  send(transport, (o) =>
+    api.GET("/api/v1/staff/finance/payment-links/", { ...o, params: { query: query(filters) } }),
+  ).then(paged);
+/** An order's link sent (made once, then the same again) or cancelled; a B2B invoice's made (201) or cancelled. */
+export const askPaymentLink = (body: FinanceLinkAsk) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/finance/payment-links/", { ...o, body }));
+/** A B2B invoice's link asked of Razorpay again (its webhook lost). */
+export const reconcileInvoiceLink = (id: number) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/finance/payment-links/invoices/{id}/reconcile/", { ...o, params: { path: { id } } }),
+  );
+/** A B2B invoice's payment posted in ERPNext by hand: the Payment Entry's name recorded (its inbox item done). */
+export const markInvoiceLinkPosted = (id: number, erpName: string) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/finance/payment-links/invoices/{id}/posted/", {
+      ...o,
+      params: { path: { id } },
+      body: { erp_name: erpName },
+    }),
+  );
+
+/** Razorpay's settlements, newest day first. */
+export const listSettlements = (filters: Filters<"/api/v1/staff/finance/settlements/">, transport?: Transport) =>
+  send(transport, (o) =>
+    api.GET("/api/v1/staff/finance/settlements/", { ...o, params: { query: query(filters) } }),
+  ).then(paged);
+/** A settlement with its counts and its ERPNext entry. */
+export const getSettlement = (id: number, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/finance/settlements/{id}/", { ...o, params: { path: { id } } }));
+/** A settlement's lines in Razorpay's order (`matched=false`: those not ours yet). */
+export const listSettlementLines = (
+  id: number,
+  filters: Filters<"/api/v1/staff/finance/settlements/{settlement}/lines/">,
+  transport?: Transport,
+) =>
+  send(transport, (o) =>
+    api.GET("/api/v1/staff/finance/settlements/{settlement}/lines/", {
+      ...o,
+      params: { path: { settlement: String(id) }, query: query(filters) },
+    }),
+  ).then(paged);
+/** A line matched by hand: to a payment, a refund, or an adjustment accepted as it is; with a note (audited). */
+export const matchSettlementLine = (id: number, body: FinanceMatch) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/finance/settlements/{id}/match/", { ...o, params: { path: { id } }, body }),
+  );
+/** A day of Razorpay's settlements fetched as a background job (202 with the job). */
+export const fetchSettlements = (body: Schemas["FinanceFetchRequest"]) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/finance/settlements/fetch/", { ...o, body })) as Promise<Job>;
+
+/** An invoice's or credit note's ERPNext mirror (its number, dashes for its slashes). */
+export const getDocumentErp = (number: string, transport?: Transport) =>
+  send(transport, (o) =>
+    api.GET("/api/v1/staff/finance/documents/{number}/erp/", { ...o, params: { path: { number } } }),
+  );

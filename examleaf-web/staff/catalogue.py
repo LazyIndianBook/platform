@@ -136,6 +136,14 @@ STAFF_ACTIONS = [
     # support (support/README.md): tickets and the grievance register
     ("handle_ticket", "Handle support tickets: reply, assign, change, move on, close, acknowledge", SUPPORT, MEDIUM),
     ("export_grievances", "Export the grievance register (a dated CSV, no personal data)", SUPPORT, HIGH, True),
+    # Finance (shop/staff_finance.py): Razorpay's settlements fetched for a day, their lines matched by hand, a B2B
+    # link's payment entry recorded once posted in ERPNext
+    (
+        "reconcile_settlements",
+        "Reconcile Razorpay settlements: fetch a day, match a line by hand, record a B2B payment posted in ERPNext",
+        PAYMENTS,
+        MEDIUM,
+    ),
 ]
 STAFF_MODELS = [
     ("view_changerequest", "See the approvals you take part in", STAFF, LOW),
@@ -240,6 +248,7 @@ SHOP_AREAS = {
     ),
     **dict.fromkeys(["producttype", "attribute", "attributevalue", "shippingrate", "pincode", "stockalert"], CATALOGUE),
     **dict.fromkeys(["hsncode", "hsnrate", "documentseries", "taxthreshold"], TAX),  # Phase B: tax
+    **dict.fromkeys(["settlement", "settlementline", "invoicepaymentlink"], PAYMENTS),  # Phase B: finance
 }
 
 

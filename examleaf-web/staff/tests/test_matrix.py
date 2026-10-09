@@ -328,6 +328,23 @@ ENDPOINTS = [
     ("post", "support/saved-replies/{reply}/restore/", "support.delete_savedreply"),
     ("get", "support/summary/", "support.view_ticket"),
     ("get", "support/agents/", "support.view_ticket"),
+    # Finance (shop/staff_finance.py): payments, links, refunds, settlements, today, a document's ERPNext mirror
+    ("get", "finance/today/", "shop.view_payment"),  # (or staff.view_cod: no role holds it without view_payment)
+    ("get", "finance/payments/", "shop.view_payment"),
+    ("get", "finance/payments/{payment}/", "shop.view_payment"),
+    ("post", "finance/payments/{payment}/reconcile/", "staff.replay_webhook"),  # an offline payment: 400, no call
+    ("get", "finance/offline-payments/", "shop.view_payment"),
+    ("get", "finance/payment-links/", "shop.view_payment"),
+    ("post", "finance/payment-links/", "shop.change_order"),
+    ("post", "finance/payment-links/invoices/{invoice_link}/reconcile/", "staff.replay_webhook"),  # paid: no call
+    ("post", "finance/payment-links/invoices/{invoice_link}/posted/", "staff.reconcile_settlements"),
+    ("get", "finance/refunds/", "shop.view_refund"),
+    ("get", "finance/settlements/", "shop.view_settlement"),
+    ("get", "finance/settlements/{settlement}/", "shop.view_settlement"),
+    ("get", "finance/settlements/{settlement}/lines/", "shop.view_settlementline"),
+    ("post", "finance/settlements/{settlement}/match/", "staff.reconcile_settlements"),
+    ("post", "finance/settlements/fetch/", "staff.reconcile_settlements"),
+    ("get", "finance/documents/{document}/erp/", "shop.view_invoice"),
     ("post", "people/{person}/offboard/", "staff.assign_role"),  # last: the person goes
 ]
 
@@ -435,7 +452,26 @@ def phase_b_objects(person):
         "erp_failure": IntegrationFailure.objects.create(account=erp, operation="sync", task_id="t-2", **failure).pk,
         "template": MessageTemplate.objects.create(event="otp", channel="sms", category="transactional").pk,
         **content_objects(),
+        **finance_objects(),
     }
+
+
+def finance_objects():
+    """A payment received offline (Razorpay is never asked about it), a B2B invoice's link already paid, and a
+    settlement with a line."""
+    from shop.models import InvoicePaymentLink, Payment, Settlement, SettlementLine
+
+    order = make_order((ProductFactory(stock=5), 1))
+    payment = Payment.objects.create(order=order, method="offline", amount=299, reference="UTR123456")
+    link = InvoicePaymentLink.objects.create(
+        invoice="ACC-SINV-2026-00001", amount=1000, razorpay_payment_link_id="plink_matrix", status="paid",
+        razorpay_payment_id="pay_matrix", expires_at=timezone.now() + timedelta(days=15),
+    )  # fmt: skip
+    settlement = Settlement.objects.create(settlement_id="setl_matrix", date=timezone.localdate(), net=10)
+    SettlementLine.objects.create(
+        settlement=settlement, type="adjustment", entity_id="adj_matrix", amount=10, credit=10
+    )
+    return {"payment": payment.pk, "invoice_link": link.pk, "settlement": settlement.pk}
 
 
 def content_objects():

@@ -4256,6 +4256,318 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/staff/finance/documents/{number}/erp/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description An invoice's or credit note's ERPNext mirror (its number, dashes for its slashes): the document ERPNext made
+         *     (ErpLink) and its outbox rows, in one word: mirrored, waiting, failed, dead, discarded, not sent, off (its flow
+         *     switched off) or test (never synced).
+         */
+        get: operations["staff_finance_documents_erp_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/finance/offline-payments/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Payments received offline (bank transfer, UPI): waiting for FINANCE's approval (`?state=waiting`: the change
+         *     requests of order.offline_payment, approved at /change-requests/{id}/approve/) or recorded (the default).
+         */
+        get: operations["staff_finance_offline_payments_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/finance/payment-links/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Payment links: a staff order's (`?kind=order`, the default) or a B2B invoice's (`?kind=invoice`), by state
+         *     (sent, paid, cancelled, expired). POST makes or sends again an order's link (emailed to the customer) or a B2B
+         *     invoice's (its address answered: staff send it), or cancels one (shop.change_order); links live LINK_DAYS.
+         */
+        get: operations["staff_finance_payment_links_list"];
+        put?: never;
+        /**
+         * @description An order's link (a staff order still waiting for its online payment): `send` makes it once and emails it,
+         *     later the same link again; `cancel` cancels it (the next one is new). A B2B invoice's (its read-only copy
+         *     in the platform, something outstanding): `send` makes it (201) or answers the open one (200); `cancel`
+         *     cancels the open one. 503 while Razorpay cannot be reached.
+         */
+        post: operations["staff_finance_payment_links_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/finance/payment-links/invoices/{id}/posted/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A B2B invoice's link: asked of Razorpay again (its webhook lost: staff.replay_webhook), and its payment recorded
+         *     as posted in ERPNext by hand, with the Payment Entry's name (staff.reconcile_settlements; its inbox item done).
+         */
+        post: operations["staff_finance_payment_links_invoices_posted_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/finance/payment-links/invoices/{id}/reconcile/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A B2B invoice's link: asked of Razorpay again (its webhook lost: staff.replay_webhook), and its payment recorded
+         *     as posted in ERPNext by hand, with the Payment Entry's name (staff.reconcile_settlements; its inbox item done).
+         */
+        post: operations["staff_finance_payment_links_invoices_reconcile_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/finance/payments/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Payments, newest first, with their Razorpay ids and, once settled, Razorpay's fee and its GST; the stuck ones
+         *     (`?stuck=true`); one with its refunds, webhooks and timeline; asked of Razorpay again (POST …/reconcile/,
+         *     staff.replay_webhook): a payment it captured is recorded, an authorised one captured first (the late-authorised
+         *     case), answered with what changed.
+         */
+        get: operations["staff_finance_payments_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/finance/payments/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The record; a child's order's payment opened is a logged read, as the child's order is. */
+        get: operations["staff_finance_payments_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/finance/payments/{id}/reconcile/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Ask Razorpay what became of the payment's order (shop.payments.reconcile): a captured payment recorded, an
+         *     authorised one captured first, a second payment refunded; 503 while Razorpay cannot be asked.
+         */
+        post: operations["staff_finance_payments_reconcile_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/finance/refunds/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Refunds, newest first, by state (`?state=pending|processed|failed`) and method (`?method=source|bank|none`),
+         *     with their ARN, the bank transfer's UTR and the credit note; `?state=waiting`: the change requests of order.refund
+         *     waiting for FINANCE (approved at /change-requests/{id}/approve/). Bank refunds are marked paid by Orders'
+         *     POST orders/refunds/{id}/mark-paid/.
+         */
+        get: operations["staff_finance_refunds_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/finance/settlements/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Razorpay's settlements, newest day first (`?state=&date_from=&date_to=&q=`), one with its counts and its ERPNext
+         *     entry; a line matched by hand (POST …/match/: a payment, a refund, or an adjustment accepted, with a note:
+         *     staff.reconcile_settlements); a day fetched as a job (POST settlements/fetch/).
+         */
+        get: operations["staff_finance_settlements_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/finance/settlements/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Razorpay's settlements, newest day first (`?state=&date_from=&date_to=&q=`), one with its counts and its ERPNext
+         *     entry; a line matched by hand (POST …/match/: a payment, a refund, or an adjustment accepted, with a note:
+         *     staff.reconcile_settlements); a day fetched as a job (POST settlements/fetch/).
+         */
+        get: operations["staff_finance_settlements_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/finance/settlements/{id}/match/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Razorpay's settlements, newest day first (`?state=&date_from=&date_to=&q=`), one with its counts and its ERPNext
+         *     entry; a line matched by hand (POST …/match/: a payment, a refund, or an adjustment accepted, with a note:
+         *     staff.reconcile_settlements); a day fetched as a job (POST settlements/fetch/).
+         */
+        post: operations["staff_finance_settlements_match_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/finance/settlements/{settlement}/lines/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A settlement's lines in Razorpay's order (`?matched=false`: those not ours yet; `?type=`). */
+        get: operations["staff_finance_settlements_lines_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/finance/settlements/fetch/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A day of Razorpay's settlements fetched, matched and posted, as a background job (settlement_fetch): 202
+         *     with the job (jobs/{id}/), its result the counts. The same job is POST jobs/ {"kind": "settlement_fetch"}.
+         */
+        post: operations["staff_finance_settlements_fetch_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/finance/today/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description What FINANCE has to do today, each row a duty (its count, the day of the oldest, the amount): refunds to
+         *     approve, bank refunds to transfer, offline payments to approve, stuck payments, B2B payments to post in ERPNext,
+         *     settlement lines not ours and settlements that do not match, cash on delivery receivable, overdue and mismatched,
+         *     credit notes the cut-off refused, the sync's differences, and disputes (not configured). Each row only for whoever
+         *     may see its records; test mode left out.
+         */
+        get: operations["staff_finance_today_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/staff/flags/": {
         parameters: {
             query?: never;
@@ -10421,6 +10733,586 @@ export interface components {
             /** @description the sync's dead row, if one */
             readonly erp_outbox: number | null;
         };
+        FinanceDocumentErp: {
+            number: string;
+            kind: components["schemas"]["TaxDocumentKindEnum"];
+            /**
+             * @description mirrored (ERPNext has it), waiting, failed (tried again), dead (staff replay or discard it), discarded, not_sent (no outbox row: the reconciliation reports it), off (its flow is off), test
+             *
+             *     * `mirrored` - mirrored
+             *     * `waiting` - waiting
+             *     * `failed` - failed
+             *     * `dead` - dead
+             *     * `discarded` - discarded
+             *     * `not_sent` - not_sent
+             *     * `off` - off
+             *     * `test` - test
+             */
+            state: components["schemas"]["FinanceDocumentErpStateEnum"];
+            doctype: string | null;
+            /** @description ERPNext's name of it */
+            name: string | null;
+            /** Format: date-time */
+            synced_at: string | null;
+            /** @description its outbox rows, oldest first */
+            outbox: {
+                [key: string]: unknown;
+            }[];
+        };
+        /**
+         * @description * `mirrored` - mirrored
+         *     * `waiting` - waiting
+         *     * `failed` - failed
+         *     * `dead` - dead
+         *     * `discarded` - discarded
+         *     * `not_sent` - not_sent
+         *     * `off` - off
+         *     * `test` - test
+         * @enum {string}
+         */
+        FinanceDocumentErpStateEnum: "mirrored" | "waiting" | "failed" | "dead" | "discarded" | "not_sent" | "off" | "test";
+        FinanceFetchRequest: {
+            /**
+             * Format: date
+             * @description a day of Razorpay's settlements (India), today at the latest
+             */
+            day: string;
+            /**
+             * @description fetch and match, keep nothing
+             * @default false
+             */
+            dry_run: boolean;
+        };
+        FinanceLineRef: {
+            id: number;
+            order: string | null;
+            /** Format: decimal */
+            amount: string | null;
+        };
+        /** @description A Razorpay Payment Link: a staff order's (its Payment) or a B2B invoice's (InvoicePaymentLink). */
+        FinanceLink: {
+            kind: components["schemas"]["FinanceLinkKindEnum"];
+            /** @description the order link's payment, or the B2B link's own id */
+            id: number;
+            order: string | null;
+            /** @description the ERPNext invoice's name */
+            invoice: string | null;
+            /** Format: decimal */
+            amount: string | null;
+            state: components["schemas"]["FinanceLinkStateEnum"];
+            url: string;
+            razorpay_link_id: string;
+            razorpay_payment_id: string | null;
+            /**
+             * Format: date-time
+             * @description when it was made
+             */
+            sent_at: string;
+            /**
+             * Format: date-time
+             * @description an order's: its last email to the customer
+             */
+            last_sent_at: string | null;
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: date-time */
+            paid_at: string | null;
+            created_by: string;
+            /**
+             * Format: date-time
+             * @description a B2B link's: its entry posted in ERPNext
+             */
+            posted_at: string | null;
+            /** @description the Payment Entry FINANCE posted by hand */
+            erp_name: string;
+            livemode: boolean;
+            is_test: boolean;
+        };
+        /** @description A Razorpay Payment Link: a staff order's (its Payment) or a B2B invoice's (InvoicePaymentLink). */
+        FinanceLinkAnswer: {
+            kind: components["schemas"]["FinanceLinkKindEnum"];
+            /** @description the order link's payment, or the B2B link's own id */
+            id: number;
+            order: string | null;
+            /** @description the ERPNext invoice's name */
+            invoice: string | null;
+            /** Format: decimal */
+            amount: string | null;
+            state: components["schemas"]["FinanceLinkStateEnum"];
+            url: string;
+            razorpay_link_id: string;
+            razorpay_payment_id: string | null;
+            /**
+             * Format: date-time
+             * @description when it was made
+             */
+            sent_at: string;
+            /**
+             * Format: date-time
+             * @description an order's: its last email to the customer
+             */
+            last_sent_at: string | null;
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: date-time */
+            paid_at: string | null;
+            created_by: string;
+            /**
+             * Format: date-time
+             * @description a B2B link's: its entry posted in ERPNext
+             */
+            posted_at: string | null;
+            /** @description the Payment Entry FINANCE posted by hand */
+            erp_name: string;
+            livemode: boolean;
+            is_test: boolean;
+            detail: string;
+        };
+        FinanceLinkAskRequest: {
+            /** @description a staff order's number */
+            order?: string;
+            /** @description an ERPNext invoice */
+            invoice?: string;
+            /**
+             * @description send: made once, then sent again
+             *
+             *     * `send` - send
+             *     * `cancel` - cancel
+             */
+            action: components["schemas"]["OrderPaymentLinkActionEnum"];
+        };
+        /**
+         * @description * `order` - an order's link
+         *     * `invoice` - a B2B invoice's link
+         * @enum {string}
+         */
+        FinanceLinkKindEnum: "order" | "invoice";
+        FinanceLinkPostedRequest: {
+            /** @description the Payment Entry's name in ERPNext */
+            erp_name: string;
+        };
+        /**
+         * @description * `sent` - sent, waiting for the payment
+         *     * `paid` - paid
+         *     * `cancelled` - cancelled
+         *     * `expired` - expired unpaid
+         * @enum {string}
+         */
+        FinanceLinkStateEnum: "sent" | "paid" | "cancelled" | "expired";
+        FinanceMatchRequest: {
+            /** @description the line's id */
+            line: number;
+            /** @description a payment's id */
+            payment?: number | null;
+            /** @description a refund's id */
+            refund?: number | null;
+            /**
+             * @description an adjustment accepted as it is (no target)
+             * @default false
+             */
+            accept: boolean;
+            /** @description why: kept in the audit log */
+            note: string;
+        };
+        /** @description A payment in the list (no query a row: the view prefetches). */
+        FinancePayment: {
+            readonly id: number;
+            readonly order: string;
+            readonly order_status: components["schemas"]["OrderStatusEnum"];
+            readonly method: components["schemas"]["PaymentMethodEnum"];
+            readonly status: components["schemas"]["OrderPaymentStatusEnum"];
+            /** Format: decimal */
+            readonly amount: string;
+            readonly razorpay_order_id: string | null;
+            readonly razorpay_payment_id: string | null;
+            readonly razorpay_payment_link_id: string | null;
+            /**
+             * Bank or UPI reference
+             * @description A payment recorded by staff (offline).
+             */
+            readonly reference: string;
+            /** @description Why the last attempt failed (from Razorpay). */
+            readonly error: string;
+            /**
+             * Live mode
+             * @description Made with live Razorpay keys (the key of its order).
+             */
+            readonly livemode: boolean;
+            /** @description made with test keys on the live site: TEST */
+            readonly is_test: boolean;
+            /** @description waiting on Razorpay too long: ask it again */
+            readonly stuck: boolean;
+            /** @description a staff order's payment link */
+            readonly is_link: boolean;
+            /**
+             * Format: decimal
+             * @description Razorpay's fee without its GST, once settled
+             */
+            readonly fee: string | null;
+            /**
+             * Format: decimal
+             * @description the GST on the fee, once settled
+             */
+            readonly tax: string | null;
+            readonly settlement: components["schemas"]["FinanceSettlementRef"] | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly modified: string;
+        };
+        /**
+         * @description A payment as its record shows it: its order's facts, refunds, the webhooks seen (kept 7 days), what the last
+         *     webhook said of it (no card, bank or contact field; kept 180 days), and its timeline.
+         */
+        FinancePaymentDetail: {
+            readonly id: number;
+            readonly order: string;
+            readonly order_status: components["schemas"]["OrderStatusEnum"];
+            readonly method: components["schemas"]["PaymentMethodEnum"];
+            readonly status: components["schemas"]["OrderPaymentStatusEnum"];
+            /** Format: decimal */
+            readonly amount: string;
+            readonly razorpay_order_id: string | null;
+            readonly razorpay_payment_id: string | null;
+            readonly razorpay_payment_link_id: string | null;
+            /**
+             * Bank or UPI reference
+             * @description A payment recorded by staff (offline).
+             */
+            readonly reference: string;
+            /** @description Why the last attempt failed (from Razorpay). */
+            readonly error: string;
+            /**
+             * Live mode
+             * @description Made with live Razorpay keys (the key of its order).
+             */
+            readonly livemode: boolean;
+            /** @description made with test keys on the live site: TEST */
+            readonly is_test: boolean;
+            /** @description waiting on Razorpay too long: ask it again */
+            readonly stuck: boolean;
+            /** @description a staff order's payment link */
+            readonly is_link: boolean;
+            /**
+             * Format: decimal
+             * @description Razorpay's fee without its GST, once settled
+             */
+            readonly fee: string | null;
+            /**
+             * Format: decimal
+             * @description the GST on the fee, once settled
+             */
+            readonly tax: string | null;
+            readonly settlement: components["schemas"]["FinanceSettlementRef"] | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly modified: string;
+            readonly order_id: number;
+            /** Format: decimal */
+            readonly order_total: string;
+            /** Format: date-time */
+            readonly order_placed_at: string;
+            /** Format: uri */
+            readonly payment_link_url: string;
+            readonly refunds: components["schemas"]["FinancePaymentRefund"][];
+            readonly webhooks: components["schemas"]["FinanceWebhook"][];
+            /** @description its allowed fields only */
+            readonly last_webhook: unknown;
+            readonly timeline: components["schemas"]["OrderTimelineEntry"][];
+        };
+        FinancePaymentRefund: {
+            readonly id: number;
+            /** Format: decimal */
+            readonly amount: string;
+            readonly status: components["schemas"]["RefundStatusEnum"];
+            readonly method: components["schemas"]["OrderRefundMethodEnum"];
+            readonly speed: components["schemas"]["RefundSpeedEnum"];
+            readonly razorpay_refund_id: string | null;
+            /** @description The bank's reference, from Razorpay. */
+            readonly arn: string;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly processed_at: string | null;
+        };
+        FinanceReconciled: {
+            /** @description Razorpay had a captured payment for the order */
+            paid: boolean | null;
+            /** @description what Razorpay's answer changed, in words */
+            detail: string;
+            /** @description {what: [before, after]}: the order's status, each payment's, refunds */
+            changes: {
+                [key: string]: unknown;
+            };
+            payment: components["schemas"]["FinancePaymentDetail"];
+        };
+        /**
+         * @description A row of the offline payments' or the refunds' lists: a change request waiting for a second person (`request`),
+         *     or the payment or refund itself.
+         */
+        FinanceRequestRow: {
+            kind: components["schemas"]["FinanceRowKindEnum"];
+            /** @description the change request's, the payment's or the refund's */
+            id: number;
+            order: string;
+            /** Format: decimal */
+            amount: string | null;
+            /** @description the change request's status, or the payment's or the refund's */
+            status: string;
+            /** @description an offline payment's UTR or UPI reference */
+            reference: string;
+            /** @description a refund's: source, bank or none */
+            method: string;
+            speed: string;
+            reason: string;
+            /** @description the bank's reference of a refund, from Razorpay */
+            arn: string;
+            /** @description a bank refund's transfer */
+            utr: string;
+            razorpay_refund_id: string;
+            credit_note: string | null;
+            payee_masked: string;
+            payment_method: string;
+            error: string;
+            /** @description its approval (the console's /approvals/) */
+            change_request: number | null;
+            change_request_status: string;
+            /** @description the permission its approver needs */
+            checker: string;
+            rule: string;
+            /** @description who asked for it or recorded it */
+            by: string;
+            /** Format: date-time */
+            created: string;
+            /**
+             * Format: date-time
+             * @description a refund made, a payment recorded
+             */
+            done_at: string | null;
+            livemode: boolean;
+        };
+        /**
+         * @description * `request` - request
+         *     * `payment` - payment
+         *     * `refund` - refund
+         * @enum {string}
+         */
+        FinanceRowKindEnum: "request" | "payment" | "refund";
+        FinanceSettlement: {
+            readonly id: number;
+            /** Razorpay's id */
+            readonly settlement_id: string;
+            /**
+             * Format: date
+             * @description The day Razorpay settled it (India).
+             */
+            readonly date: string;
+            /** @description The bank's reference of the transfer. */
+            readonly utr: string;
+            /** Format: decimal */
+            readonly gross: string;
+            /**
+             * Format: decimal
+             * @description Razorpay's fees without their GST
+             */
+            readonly fees: string;
+            /**
+             * Format: decimal
+             * @description the GST on the fees
+             */
+            readonly tax: string;
+            /** Format: decimal */
+            readonly adjustments: string;
+            /**
+             * Format: decimal
+             * @description what reached the bank
+             */
+            readonly net: string;
+            readonly state: components["schemas"]["FinanceSettlementStateEnum"];
+            /** @description Why it is mismatched: counts, never a name. */
+            readonly problem: string;
+            /** Live mode */
+            readonly livemode: boolean;
+            readonly is_test: boolean;
+            /** Format: date-time */
+            readonly matched_at: string | null;
+            /** Format: date-time */
+            readonly posted_at: string | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly modified: string;
+        };
+        FinanceSettlementDetail: {
+            readonly id: number;
+            /** Razorpay's id */
+            readonly settlement_id: string;
+            /**
+             * Format: date
+             * @description The day Razorpay settled it (India).
+             */
+            readonly date: string;
+            /** @description The bank's reference of the transfer. */
+            readonly utr: string;
+            /** Format: decimal */
+            readonly gross: string;
+            /**
+             * Format: decimal
+             * @description Razorpay's fees without their GST
+             */
+            readonly fees: string;
+            /**
+             * Format: decimal
+             * @description the GST on the fees
+             */
+            readonly tax: string;
+            /** Format: decimal */
+            readonly adjustments: string;
+            /**
+             * Format: decimal
+             * @description what reached the bank
+             */
+            readonly net: string;
+            readonly state: components["schemas"]["FinanceSettlementStateEnum"];
+            /** @description Why it is mismatched: counts, never a name. */
+            readonly problem: string;
+            /** Live mode */
+            readonly livemode: boolean;
+            readonly is_test: boolean;
+            /** Format: date-time */
+            readonly matched_at: string | null;
+            /** Format: date-time */
+            readonly posted_at: string | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly modified: string;
+            /** @description its lines: in all, not yet ours, by type */
+            readonly counts: {
+                [key: string]: number;
+            };
+            readonly erp: components["schemas"]["FinanceSettlementErp"] | null;
+        };
+        FinanceSettlementErp: {
+            /** @description its outbox row (System → sync) */
+            outbox: number;
+            /** @description the row's: pending, sending, sent, failed, dead, discarded */
+            state: string;
+            attempts: number;
+            last_error: string;
+            /** Format: date-time */
+            sent_at: string | null;
+            /** @description the Journal Entry ERPNext made */
+            name: string | null;
+        };
+        FinanceSettlementLine: {
+            readonly id: number;
+            readonly type: components["schemas"]["FinanceSettlementLineTypeEnum"];
+            /** Razorpay's id */
+            readonly entity_id: string;
+            /** Format: decimal */
+            readonly amount: string;
+            /**
+             * Format: decimal
+             * @description Razorpay's, without its GST
+             */
+            readonly fee: string;
+            /** Format: decimal */
+            readonly tax: string;
+            /** Format: decimal */
+            readonly credit: string;
+            /** Format: decimal */
+            readonly debit: string;
+            /** Format: date-time */
+            readonly settled_at: string | null;
+            /**
+             * Razorpay order's receipt
+             * @description Our number.
+             */
+            readonly order_receipt: string;
+            readonly order: string | null;
+            readonly payment: components["schemas"]["FinanceLineRef"] | null;
+            readonly refund: components["schemas"]["FinanceLineRef"] | null;
+            /** @description a B2B invoice's link it paid */
+            readonly link: {
+                [key: string]: unknown;
+            } | null;
+            readonly matched: boolean;
+            /** Format: date-time */
+            readonly matched_at: string | null;
+            /** @description empty: matched by Razorpay's id */
+            readonly matched_by: string;
+            /** @description Why it was matched by hand. */
+            readonly note: string;
+        };
+        /**
+         * @description * `payment` - payment
+         *     * `refund` - refund
+         *     * `adjustment` - adjustment
+         * @enum {string}
+         */
+        FinanceSettlementLineTypeEnum: "payment" | "refund" | "adjustment";
+        FinanceSettlementRef: {
+            id: number;
+            settlement_id: string;
+            /** Format: date */
+            date: string;
+            utr: string;
+            state: components["schemas"]["FinanceSettlementStateEnum"];
+        };
+        /**
+         * @description * `fetched` - fetched
+         *     * `matched` - matched
+         *     * `posted` - posted to ERPNext
+         *     * `mismatched` - mismatched
+         * @enum {string}
+         */
+        FinanceSettlementStateEnum: "fetched" | "matched" | "posted" | "mismatched";
+        FinanceToday: {
+            /** @description the site runs on live keys: test rows are left out */
+            livemode: boolean;
+            /** Format: date-time */
+            as_of: string;
+            rows: components["schemas"]["FinanceTodayRow"][];
+        };
+        /**
+         * @description * `refunds_to_approve` - refunds_to_approve
+         *     * `bank_refunds` - bank_refunds
+         *     * `offline_to_approve` - offline_to_approve
+         *     * `stuck_payments` - stuck_payments
+         *     * `b2b_to_post` - b2b_to_post
+         *     * `settlement_lines` - settlement_lines
+         *     * `settlements_mismatched` - settlements_mismatched
+         *     * `cod_receivable` - cod_receivable
+         *     * `cod_overdue` - cod_overdue
+         *     * `cod_mismatched` - cod_mismatched
+         *     * `credit_notes_refused` - credit_notes_refused
+         *     * `sync_differences` - sync_differences
+         *     * `disputes` - disputes
+         * @enum {string}
+         */
+        FinanceTodayKeyEnum: "refunds_to_approve" | "bank_refunds" | "offline_to_approve" | "stuck_payments" | "b2b_to_post" | "settlement_lines" | "settlements_mismatched" | "cod_receivable" | "cod_overdue" | "cod_mismatched" | "credit_notes_refused" | "sync_differences" | "disputes";
+        FinanceTodayRow: {
+            key: components["schemas"]["FinanceTodayKeyEnum"];
+            /** @description null: not configured */
+            count: number | null;
+            /**
+             * Format: date
+             * @description the day of the oldest (India)
+             */
+            oldest: string | null;
+            /** Format: decimal */
+            amount: string | null;
+            configured: boolean;
+        };
+        FinanceWebhook: {
+            event_id: string;
+            /** @description payment.captured, payment.failed, order.paid, payment_link.paid, refund.… */
+            name: string;
+            /** Format: date-time */
+            received_at: string;
+        };
         Flag: {
             key: string;
             /** @description in effect now (a known flag not set: the environment's) */
@@ -10852,9 +11744,11 @@ export interface components {
          *     * `ticket_due` - a ticket's legal clock three quarters gone
          *     * `ticket_breach` - a ticket past its legal clock
          *     * `ticket_mention` - named in a ticket's note
+         *     * `settlement` - a Razorpay settlement that does not match
+         *     * `b2b_payment` - a B2B invoice paid by link: its entry to post in ERPNext
          * @enum {string}
          */
-        InboxKindEnum: "approval" | "teacher_request" | "deletion_request" | "data_request" | "incident" | "failed_job" | "failed_webhook" | "sync_failed" | "reconciliation" | "shipping_exception" | "dead_letter" | "failed_event" | "integration_down" | "tax_threshold" | "credit_note_missing" | "processor_task" | "compliance" | "order_hold" | "return_request" | "bank_refund" | "role_expired" | "offboarding" | "webhook_silent" | "template_idle" | "template_certify" | "backup_stale" | "dependencies_stale" | "scripts_changed" | "review" | "error_report" | "legal_deposit" | "ticket_due" | "ticket_breach" | "ticket_mention";
+        InboxKindEnum: "approval" | "teacher_request" | "deletion_request" | "data_request" | "incident" | "failed_job" | "failed_webhook" | "sync_failed" | "reconciliation" | "shipping_exception" | "dead_letter" | "failed_event" | "integration_down" | "tax_threshold" | "credit_note_missing" | "processor_task" | "compliance" | "order_hold" | "return_request" | "bank_refund" | "role_expired" | "offboarding" | "webhook_silent" | "template_idle" | "template_certify" | "backup_stale" | "dependencies_stale" | "scripts_changed" | "review" | "error_report" | "legal_deposit" | "ticket_due" | "ticket_breach" | "ticket_mention" | "settlement" | "b2b_payment";
         Incident: {
             readonly id: number;
             title: string;
@@ -11040,12 +11934,13 @@ export interface components {
          *     * `orders_export` - order export
          *     * `content_import` - import from the books repository
          *     * `grievance_export` - grievance register export
+         *     * `settlement_fetch` - Razorpay settlements fetched
          * @enum {string}
          */
-        JobKindEnum: "audit_export" | "bulk_action" | "erp_initial_load" | "gstr1_export" | "orders_pack" | "orders_print" | "orders_cancel" | "orders_export" | "content_import" | "grievance_export";
+        JobKindEnum: "audit_export" | "bulk_action" | "erp_initial_load" | "gstr1_export" | "orders_pack" | "orders_print" | "orders_cancel" | "orders_export" | "content_import" | "grievance_export" | "settlement_fetch";
         JobStartRequest: {
             kind: components["schemas"]["JobKindEnum"];
-            /** @description audit_export: {"filters": {…}} (the audit list's); bulk_action: {"action": "order.refund", "targets": [order numbers, slugs or ids], "payload": {…} (each target's, as for change-requests/), "reason"}; erp_initial_load: {"invoices_from": "YYYY-MM-DD"} (optional: without it, the catalogue only); gstr1_export: {"month": "YYYY-MM", "months": 1 or 3} (a month, or the quarter ending with it); orders_pack, orders_print ({"document": packing_slip, label or invoices}) and orders_cancel ({"reason", "customer_requested"}, 250 at most): {"targets": [order numbers]}; orders_export: {"filters": {…}} (the order list's); content_import: {"subject": "physics", "commit": "" or a commit, "dry_run_job": the dry run's id (to apply)}; grievance_export: {"from": "YYYY-MM-DD", "until": "YYYY-MM-DD"} (the days received, both optional) */
+            /** @description audit_export: {"filters": {…}} (the audit list's); bulk_action: {"action": "order.refund", "targets": [order numbers, slugs or ids], "payload": {…} (each target's, as for change-requests/), "reason"}; erp_initial_load: {"invoices_from": "YYYY-MM-DD"} (optional: without it, the catalogue only); gstr1_export: {"month": "YYYY-MM", "months": 1 or 3} (a month, or the quarter ending with it); orders_pack, orders_print ({"document": packing_slip, label or invoices}) and orders_cancel ({"reason", "customer_requested"}, 250 at most): {"targets": [order numbers]}; orders_export: {"filters": {…}} (the order list's); content_import: {"subject": "physics", "commit": "" or a commit, "dry_run_job": the dry run's id (to apply)}; grievance_export: {"from": "YYYY-MM-DD", "until": "YYYY-MM-DD"} (the days received, both optional); settlement_fetch: {"day": "YYYY-MM-DD"} (a day of Razorpay's settlements, India, from 2020 to today) */
             params?: {
                 [key: string]: unknown;
             };
@@ -12937,6 +13832,71 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["Failure"][];
+        };
+        PaginatedFinanceLinkList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["FinanceLink"][];
+        };
+        PaginatedFinancePaymentList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["FinancePayment"][];
+        };
+        PaginatedFinanceRequestRowList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["FinanceRequestRow"][];
+        };
+        PaginatedFinanceSettlementLineList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["FinanceSettlementLine"][];
+        };
+        PaginatedFinanceSettlementList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["FinanceSettlement"][];
         };
         PaginatedFlashCardList: {
             /** @example 123 */
@@ -23740,6 +24700,455 @@ export interface operations {
             };
         };
     };
+    staff_finance_documents_erp_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinanceDocumentErp"];
+                };
+            };
+        };
+    };
+    staff_finance_offline_payments_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description default: the site's own mode (test ones only when asked) */
+                livemode?: boolean;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description an order's number */
+                q?: string;
+                /** @description waiting: the change requests */
+                state?: "recorded" | "waiting";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedFinanceRequestRowList"];
+                };
+            };
+        };
+    };
+    staff_finance_payment_links_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                kind?: "invoice" | "order";
+                /** @description default: the site's own mode (test ones only when asked) */
+                livemode?: boolean;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description an order's number, or an ERPNext invoice's name */
+                q?: string;
+                /**
+                 * @description * `sent` - sent, waiting for the payment
+                 *     * `paid` - paid
+                 *     * `cancelled` - cancelled
+                 *     * `expired` - expired unpaid
+                 */
+                state?: "cancelled" | "expired" | "paid" | "sent";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedFinanceLinkList"];
+                };
+            };
+        };
+    };
+    staff_finance_payment_links_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FinanceLinkAskRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinanceLinkAnswer"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinanceLinkAnswer"];
+                };
+            };
+        };
+    };
+    staff_finance_payment_links_invoices_posted_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this invoice payment link. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FinanceLinkPostedRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinanceLinkAnswer"];
+                };
+            };
+        };
+    };
+    staff_finance_payment_links_invoices_reconcile_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this invoice payment link. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinanceLinkAnswer"];
+                };
+            };
+        };
+    };
+    staff_finance_payments_list: {
+        parameters: {
+            query?: {
+                /** @description a day (India time), from it on */
+                created_from?: string;
+                /** @description a day (India time), up to its end */
+                created_to?: string;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description default: the site's own mode (test ones only when asked) */
+                livemode?: boolean;
+                /**
+                 * @description * `razorpay` - online (UPI, card, net banking)
+                 *     * `cod` - cash on delivery
+                 *     * `offline` - bank transfer or UPI to our account
+                 */
+                method?: "cod" | "offline" | "razorpay";
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description an order's number, a Razorpay payment, order or link id, an offline reference */
+                q?: string;
+                /**
+                 * @description * `created` - created
+                 *     * `authorized` - authorized
+                 *     * `captured` - captured
+                 *     * `failed` - failed
+                 *     * `refunded` - refunded
+                 */
+                status?: "authorized" | "captured" | "created" | "failed" | "refunded";
+                /** @description true: the stuck ones (SHOP_STUCK_PAYMENT_MINUTES) */
+                stuck?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedFinancePaymentList"];
+                };
+            };
+        };
+    };
+    staff_finance_payments_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this payment. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinancePaymentDetail"];
+                };
+            };
+        };
+    };
+    staff_finance_payments_reconcile_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this payment. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinanceReconciled"];
+                };
+            };
+        };
+    };
+    staff_finance_refunds_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description default: the site's own mode (test ones only when asked) */
+                livemode?: boolean;
+                method?: "bank" | "none" | "source";
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description an order's number */
+                q?: string;
+                /** @description waiting: approvals */
+                state?: "failed" | "pending" | "processed" | "waiting";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedFinanceRequestRowList"];
+                };
+            };
+        };
+    };
+    staff_finance_settlements_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                date_from?: string;
+                date_to?: string;
+                /** @description default: the site's own mode (test ones only when asked) */
+                livemode?: boolean;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description Razorpay's settlement id (setl_…) or its UTR */
+                q?: string;
+                /**
+                 * @description * `fetched` - fetched
+                 *     * `matched` - matched
+                 *     * `posted` - posted to ERPNext
+                 *     * `mismatched` - mismatched
+                 */
+                state?: "fetched" | "matched" | "mismatched" | "posted";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedFinanceSettlementList"];
+                };
+            };
+        };
+    };
+    staff_finance_settlements_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this settlement. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinanceSettlementDetail"];
+                };
+            };
+        };
+    };
+    staff_finance_settlements_match_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this settlement. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FinanceMatchRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinanceSettlementLine"];
+                };
+            };
+        };
+    };
+    staff_finance_settlements_lines_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                matched?: boolean;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /**
+                 * @description * `payment` - payment
+                 *     * `refund` - refund
+                 *     * `adjustment` - adjustment
+                 */
+                type?: "adjustment" | "payment" | "refund";
+            };
+            header?: never;
+            path: {
+                settlement: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedFinanceSettlementLineList"];
+                };
+            };
+        };
+    };
+    staff_finance_settlements_fetch_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FinanceFetchRequest"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+        };
+    };
+    staff_finance_today_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinanceToday"];
+                };
+            };
+        };
+    };
     staff_flags_list: {
         parameters: {
             query?: never;
@@ -23868,8 +25277,10 @@ export interface operations {
                  *     * `ticket_due` - a ticket's legal clock three quarters gone
                  *     * `ticket_breach` - a ticket past its legal clock
                  *     * `ticket_mention` - named in a ticket's note
+                 *     * `settlement` - a Razorpay settlement that does not match
+                 *     * `b2b_payment` - a B2B invoice paid by link: its entry to post in ERPNext
                  */
-                kind?: "approval" | "backup_stale" | "bank_refund" | "compliance" | "credit_note_missing" | "data_request" | "dead_letter" | "deletion_request" | "dependencies_stale" | "error_report" | "failed_event" | "failed_job" | "failed_webhook" | "incident" | "integration_down" | "legal_deposit" | "offboarding" | "order_hold" | "processor_task" | "reconciliation" | "return_request" | "review" | "role_expired" | "scripts_changed" | "shipping_exception" | "sync_failed" | "tax_threshold" | "teacher_request" | "template_certify" | "template_idle" | "ticket_breach" | "ticket_due" | "ticket_mention" | "webhook_silent";
+                kind?: "approval" | "b2b_payment" | "backup_stale" | "bank_refund" | "compliance" | "credit_note_missing" | "data_request" | "dead_letter" | "deletion_request" | "dependencies_stale" | "error_report" | "failed_event" | "failed_job" | "failed_webhook" | "incident" | "integration_down" | "legal_deposit" | "offboarding" | "order_hold" | "processor_task" | "reconciliation" | "return_request" | "review" | "role_expired" | "scripts_changed" | "settlement" | "shipping_exception" | "sync_failed" | "tax_threshold" | "teacher_request" | "template_certify" | "template_idle" | "ticket_breach" | "ticket_due" | "ticket_mention" | "webhook_silent";
                 /** @description true: assigned to me */
                 mine?: boolean;
                 /** @description Number of results to return per page. */
@@ -24155,8 +25566,9 @@ export interface operations {
                  *     * `orders_export` - order export
                  *     * `content_import` - import from the books repository
                  *     * `grievance_export` - grievance register export
+                 *     * `settlement_fetch` - Razorpay settlements fetched
                  */
-                kind?: "audit_export" | "bulk_action" | "content_import" | "erp_initial_load" | "grievance_export" | "gstr1_export" | "orders_cancel" | "orders_export" | "orders_pack" | "orders_print";
+                kind?: "audit_export" | "bulk_action" | "content_import" | "erp_initial_load" | "grievance_export" | "gstr1_export" | "orders_cancel" | "orders_export" | "orders_pack" | "orders_print" | "settlement_fetch";
                 /** @description true: the jobs I started */
                 mine?: boolean;
                 /** @description Number of results to return per page. */

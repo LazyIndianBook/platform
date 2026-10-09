@@ -173,6 +173,10 @@ ROLES = {
         *["staff.cancel_document", "staff.run_gstr1"],
         *["accounts.view_legalhold", "staff.manage_holds"],  # legal holds: a chargeback, a dispute over money
         "integrations.view_integrationaccount",  # the payment settings: the connections' cards (plan 5.18)
+        # Finance (shop/staff_finance.py): Razorpay's settlements and their lines, matched by hand and fetched for a
+        # day; B2B links' payments recorded once posted in ERPNext; a stuck payment asked of Razorpay again
+        *crud("shop", ["settlement", "settlementline", "invoicepaymentlink"], ["view"]),
+        *["staff.reconcile_settlements", "staff.replay_webhook"],
         *PANEL,
     ],
     PACKER: [  # the packing queue only: the orders to pack and ship (ROLE_SCOPES) and their books; pick, pack, hand
@@ -233,8 +237,8 @@ ROLE_CARDS = {
     },
     FINANCE: {
         "en": {
-            "for": "For the accountant: payments, refunds and their approval, offline payments, invoices, cash on "
-            "delivery and the ERPNext reconciliation.",
+            "for": "For the accountant: payments, refunds and their approval, offline payments, Razorpay's "
+            "settlements, invoices, cash on delivery and the ERPNext reconciliation.",
             "cannot": "They can't pack or ship orders, change prices or coupons without approval, or manage staff.",
         }
     },

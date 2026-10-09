@@ -67,6 +67,8 @@ def permission(kind, params):
         return "staff.import_content"
     if kind == Job.Kind.GRIEVANCE_EXPORT:
         return "staff.export_grievances"
+    if kind == Job.Kind.SETTLEMENT_FETCH:
+        return "staff.reconcile_settlements"
     return order_jobs.PERMISSIONS.get(kind)
 
 
@@ -108,6 +110,8 @@ def start(kind, params, *, user, dry_run=False, request=None):
         from support.register import tickets
 
         total = tickets(params).count()
+    elif kind == Job.Kind.SETTLEMENT_FETCH:
+        total = 0  # the day's settlement lines, counted as Razorpay gives them; no approver: it reads and matches
     else:
         total = len(params["targets"])
     with transaction.atomic():
@@ -280,6 +284,13 @@ def grievance_export(job, progress):
     return export(job, progress)
 
 
+def settlement_fetch(job, progress):
+    """A day's Razorpay settlements fetched, matched and posted (shop.settlements.fetch_job)."""
+    from shop.settlements import fetch_job
+
+    return fetch_job(job, progress)
+
+
 RUNNERS = {
     Job.Kind.AUDIT_EXPORT: export_audit,
     Job.Kind.BULK_ACTION: bulk_action,
@@ -288,6 +299,7 @@ RUNNERS = {
     **order_jobs.RUNNERS,
     Job.Kind.CONTENT_IMPORT: content_import,
     Job.Kind.GRIEVANCE_EXPORT: grievance_export,
+    Job.Kind.SETTLEMENT_FETCH: settlement_fetch,
 }
 
 

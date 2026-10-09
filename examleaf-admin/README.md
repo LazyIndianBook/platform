@@ -53,7 +53,11 @@ order; `src/mocks/staff/orders.ts`), an overdue inbox, a data request near its c
 scheduled setting, revoked API keys, a person who left, and support tickets in every state (new, nearly due, overdue
 with its deadline missed, an acknowledgement missed, waiting, an NCH complaint, a privacy request, a content error,
 resolved, closed, spam) with saved replies in three languages (`src/mocks/staff/support-fixtures.ts` and
-`support-handler.ts`, called from the two files). Signing in stays real: each mock request asks the Django
+`support-handler.ts`, called from the two files), and Finance's records (`src/mocks/staff/finance.ts`): payments
+captured, settled, stuck (authorised and never captured; Razorpay never had one; a link past its life), failed,
+offline and of the test keys; refunds made, waiting, by bank and failed; staff orders' and B2B invoices' links open,
+paid, posted, cancelled and expired; settlements posted, matched with ERPNext failing, one that does not match and a
+test one. Signing in stays real: each mock request asks the Django
 backend whose session cookie it carries who is signed in (`GET /api/v1/me/`: 401 signed out, 403 `mfa_setup_required`
 for staff without two-step sign-in, the role groups otherwise), "confirm it's you" reads allauth's own record of the
 last authentication, the CSRF token is checked as Django checks it, actions write audit events, and the backend's
@@ -185,9 +189,21 @@ shape), and `<html lang>` with the `:lang` rule and Hind Siliguri in every font 
   the deadlines, the status, the actions, the customer and the audit trail beside it), `/support/new/` (a call, a
   WhatsApp message, an NCH complaint or an email logged), `/support/replies/` and `/support/export/` (the grievance
   register).
+- Finance (`src/app/(panel)/finance/`, `src/components/modules/finance/`, its own tabs; under Shop, for
+  `shop.view_payment`, `shop.view_settlement` or `staff.view_cod`): `/finance/` (Finance today, a line a duty and each
+  a link to where it is dealt with; an invoice's or credit note's copy in ERPNext looked up by its number,
+  `?document=`; "In ERPNext": accounting, payouts, purchase invoices, receivables, the bank's reconciliation, closing a
+  period, MSME dues, the chart of accounts), `/finance/payments/` (the "Stuck" tab, filters, saved views) and `<id>/`
+  (Razorpay's ids, the fee and its settlement, Ask Razorpay again, its refunds, the webhooks seen, the timeline),
+  `/finance/refunds/` (by state, "To approve" opening each change request, the refund timelines to tell a customer),
+  `/finance/offline-payments/` ("To approve" and "Recorded"), `/finance/payment-links/` (the staff orders' or the B2B
+  invoices' links, sent again, cancelled, asked of Razorpay again, a B2B one's ERPNext entry recorded; a new link),
+  `/finance/settlements/` (by state; a day fetched as a job) and `<id>/` (its figures, what does not match, its
+  ERPNext entry, its lines matched by hand with a note).
 - In ERPNext (links out, in a new tab, said in words and marked with the external-link icon; drawn only when
-  `NEXT_PUBLIC_ERP_URL` is set and the manifest has one of the sync's `erp.*` permissions): Finance `/app/accounting`,
-  GST returns `/app/gst-india`, Inventory `/app/stock`, Purchases `/app/buying`, CRM `/app/crm`.
+  `NEXT_PUBLIC_ERP_URL` is set and the manifest has one of the sync's `erp.*` permissions): GST returns
+  `/app/gst-india`, Inventory `/app/stock`, Purchases `/app/buying`, CRM `/app/crm` (Finance is a panel page that
+  carries its own ERPNext links).
 
 ## Add a module
 
@@ -228,8 +244,9 @@ nothing animates with reduced motion.
   hold that the erasure's dry run then names, the disclosures saved with a reason, both found in the audit trail); the
   Orders module (SUPPORT's refund of two books above their limit answered with its change request; the packing queue's
   mark packed undone, then sent); the support queue (a ticket opened, a saved reply put in with Alt 1 and sent, the
-  status moved on, an NCH complaint logged); the idle sign-out; and a break-glass session's reason and a policy
-  acknowledged before anything else.
+  status moved on, an NCH complaint logged); Finance (today's stuck payments, one asked of Razorpay again and
+  captured, its line in the settlement that did not match matched by hand and the adjustment accepted, both in the
+  audit trail); the idle sign-out; and a break-glass session's reason and a policy acknowledged before anything else.
 - **Against the real backend** an OWNER, a SUPPORT, a SALES and a FINANCE member are made for the run, with an adult
   customer, an order of ₹1,500 paid online, the customer's erasure request and an incident: SUPPORT reads the manifest
   and the inbox and asks for a refund above their ₹1,000 (a 202 and a change request, which the maker cannot approve:
@@ -242,7 +259,8 @@ nothing animates with reduced motion.
   minutes, after which the API answers 401. Then the Orders module,
   on three books and an order of one of each paid online and sent: SALES makes a staff order (the rule's answer shown
   before saving; made at once within 20%), FINANCE finds it by the customer's email, and SUPPORT asks for a refund of
-  two of its books, ₹1,900: the 202 and its change request.
+  two of its books, ₹1,900: the 202 and its change request. Finance: FINANCE opens Finance today and, from its
+  refunds to approve, the refund of a seeded order (₹2,400, asked by SUPPORT through the approvals' own service).
 
 ## Deploy
 
@@ -346,6 +364,17 @@ cursor pagination `{next, previous, results}` (the `cursor` of the links, `page_
   (FINANCE); `GET orders/quotes/`, `orders/quotes/{id}/`, `POST orders/quotes/{id}/convert/`; bulk work as `POST jobs/`
   with `orders_pack`, `orders_print`, `orders_cancel` (250 at most) and `orders_export`. The saved views' `list_key`
   is `orders`.
+- **Finance** (API.md "Finance (staff)"): `GET finance/today/`; `GET finance/payments/` (`status`, `method`, `stuck`,
+  `created_from`, `created_to`, `livemode`, `q`), `GET finance/payments/{id}/`, `POST …/reconcile/` (Ask Razorpay
+  again: `{paid, detail, changes, payment}`); `GET finance/offline-payments/` and `finance/refunds/` (`state`, `waiting`
+  for the change requests; refunds' `method`); `GET finance/payment-links/` (`kind` order or invoice, `state`, `q`),
+  `POST finance/payment-links/` (`{order | invoice, action: send | cancel}`),
+  `POST finance/payment-links/invoices/{id}/reconcile/` and `…/posted/` (`{erp_name}`); `GET finance/settlements/`
+  (`state`, `date_from`, `date_to`, `q`), `GET finance/settlements/{id}/`, `GET finance/settlements/{id}/lines/`
+  (`matched`, `type`), `POST finance/settlements/{id}/match/` (`{line, payment | refund | accept, note}`),
+  `POST finance/settlements/fetch/` (`{day, dry_run}`: 202 with a `settlement_fetch` job, followed through `jobs/`);
+  `GET finance/documents/{number}/erp/` (the number with dashes for its slashes). The saved views' `list_key`s are
+  `finance-payments`, `finance-refunds`, `finance-offline`, `finance-links` and `finance-settlements`.
 - **The system**: `GET system/` (its `status` lines), `POST system/reconcile/` (an order's payment checked with
   Razorpay again), `GET system/sync/` and `system/sync/links/?q=`, `GET system/backups/`,
   `GET`/`POST system/backups/drills/`, `GET system/logs/`, `system/dependencies/`, `system/hardening/`,

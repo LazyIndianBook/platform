@@ -33,6 +33,12 @@ const PAGES: Record<string, (id: string) => string> = {
   "support.ticket": (id) => `/support/tickets/${id}/`,
   // a mention's inbox item names "ticket id:person id"; it opens the ticket
   "support.mention": (id) => `/support/tickets/${encodeURIComponent(decodeURIComponent(id).split(":")[0])}/`,
+  // Finance: a payment, a settlement (or a day's fetch, named by its day: that day's settlements); a B2B invoice's link
+  // on the links' list (it has no page of its own)
+  "shop.payment": (id) => `/finance/payments/${id}/`,
+  "shop.settlement": (id) =>
+    /^\d+$/.test(id) ? `/finance/settlements/${id}/` : `/finance/settlements/?date_from=${id}&date_to=${id}`,
+  "shop.invoicepaymentlink": () => "/finance/payment-links/?kind=invoice",
 };
 
 export function targetHref(type: string | null | undefined, id: string | null | undefined, action = ""): string | null {

@@ -13119,6 +13119,970 @@
                 }
             }
         },
+        "/api/v1/staff/finance/documents/{number}/erp/": {
+            "get": {
+                "operationId": "staff_finance_documents_erp_retrieve",
+                "description": "An invoice's or credit note's ERPNext mirror (its number, dashes for its slashes): the document ERPNext made\n(ErpLink) and its outbox rows, in one word: mirrored, waiting, failed, dead, discarded, not sent, off (its flow\nswitched off) or test (never synced).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "number",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "finance (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FinanceDocumentErp"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/finance/offline-payments/": {
+            "get": {
+                "operationId": "staff_finance_offline_payments_list",
+                "description": "Payments received offline (bank transfer, UPI): waiting for FINANCE's approval (`?state=waiting`: the change\nrequests of order.offline_payment, approved at /change-requests/{id}/approve/) or recorded (the default).",
+                "parameters": [
+                    {
+                        "name": "cursor",
+                        "required": false,
+                        "in": "query",
+                        "description": "The pagination cursor value.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "livemode",
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "description": "default: the site's own mode (test ones only when asked)"
+                    },
+                    {
+                        "name": "page_size",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "q",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "an order's number"
+                    },
+                    {
+                        "in": "query",
+                        "name": "state",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "recorded",
+                                "waiting"
+                            ]
+                        },
+                        "description": "waiting: the change requests"
+                    }
+                ],
+                "tags": [
+                    "finance (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedFinanceRequestRowList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/finance/payment-links/": {
+            "get": {
+                "operationId": "staff_finance_payment_links_list",
+                "description": "Payment links: a staff order's (`?kind=order`, the default) or a B2B invoice's (`?kind=invoice`), by state\n(sent, paid, cancelled, expired). POST makes or sends again an order's link (emailed to the customer) or a B2B\ninvoice's (its address answered: staff send it), or cancels one (shop.change_order); links live LINK_DAYS.",
+                "parameters": [
+                    {
+                        "name": "cursor",
+                        "required": false,
+                        "in": "query",
+                        "description": "The pagination cursor value.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "kind",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "invoice",
+                                "order"
+                            ]
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "livemode",
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "description": "default: the site's own mode (test ones only when asked)"
+                    },
+                    {
+                        "name": "page_size",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "q",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "an order's number, or an ERPNext invoice's name"
+                    },
+                    {
+                        "in": "query",
+                        "name": "state",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "cancelled",
+                                "expired",
+                                "paid",
+                                "sent"
+                            ]
+                        },
+                        "description": "* `sent` - sent, waiting for the payment\n* `paid` - paid\n* `cancelled` - cancelled\n* `expired` - expired unpaid"
+                    }
+                ],
+                "tags": [
+                    "finance (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedFinanceLinkList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "post": {
+                "operationId": "staff_finance_payment_links_create",
+                "description": "An order's link (a staff order still waiting for its online payment): `send` makes it once and emails it,\nlater the same link again; `cancel` cancels it (the next one is new). A B2B invoice's (its read-only copy\nin the platform, something outstanding): `send` makes it (201) or answers the open one (200); `cancel`\ncancels the open one. 503 while Razorpay cannot be reached.",
+                "tags": [
+                    "finance (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/FinanceLinkAskRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FinanceLinkAnswer"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FinanceLinkAnswer"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/finance/payment-links/invoices/{id}/posted/": {
+            "post": {
+                "operationId": "staff_finance_payment_links_invoices_posted_create",
+                "description": "A B2B invoice's link: asked of Razorpay again (its webhook lost: staff.replay_webhook), and its payment recorded\nas posted in ERPNext by hand, with the Payment Entry's name (staff.reconcile_settlements; its inbox item done).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this invoice payment link.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "finance (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/FinanceLinkPostedRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FinanceLinkAnswer"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/finance/payment-links/invoices/{id}/reconcile/": {
+            "post": {
+                "operationId": "staff_finance_payment_links_invoices_reconcile_create",
+                "description": "A B2B invoice's link: asked of Razorpay again (its webhook lost: staff.replay_webhook), and its payment recorded\nas posted in ERPNext by hand, with the Payment Entry's name (staff.reconcile_settlements; its inbox item done).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this invoice payment link.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "finance (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FinanceLinkAnswer"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/finance/payments/": {
+            "get": {
+                "operationId": "staff_finance_payments_list",
+                "description": "Payments, newest first, with their Razorpay ids and, once settled, Razorpay's fee and its GST; the stuck ones\n(`?stuck=true`); one with its refunds, webhooks and timeline; asked of Razorpay again (POST …/reconcile/,\nstaff.replay_webhook): a payment it captured is recorded, an authorised one captured first (the late-authorised\ncase), answered with what changed.",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "created_from",
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        },
+                        "description": "a day (India time), from it on"
+                    },
+                    {
+                        "in": "query",
+                        "name": "created_to",
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        },
+                        "description": "a day (India time), up to its end"
+                    },
+                    {
+                        "name": "cursor",
+                        "required": false,
+                        "in": "query",
+                        "description": "The pagination cursor value.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "livemode",
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "description": "default: the site's own mode (test ones only when asked)"
+                    },
+                    {
+                        "in": "query",
+                        "name": "method",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "cod",
+                                "offline",
+                                "razorpay"
+                            ]
+                        },
+                        "description": "* `razorpay` - online (UPI, card, net banking)\n* `cod` - cash on delivery\n* `offline` - bank transfer or UPI to our account"
+                    },
+                    {
+                        "name": "page_size",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "q",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "an order's number, a Razorpay payment, order or link id, an offline reference"
+                    },
+                    {
+                        "in": "query",
+                        "name": "status",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "authorized",
+                                "captured",
+                                "created",
+                                "failed",
+                                "refunded"
+                            ]
+                        },
+                        "description": "* `created` - created\n* `authorized` - authorized\n* `captured` - captured\n* `failed` - failed\n* `refunded` - refunded"
+                    },
+                    {
+                        "in": "query",
+                        "name": "stuck",
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "description": "true: the stuck ones (SHOP_STUCK_PAYMENT_MINUTES)"
+                    }
+                ],
+                "tags": [
+                    "finance (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedFinancePaymentList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/finance/payments/{id}/": {
+            "get": {
+                "operationId": "staff_finance_payments_retrieve",
+                "description": "The record; a child's order's payment opened is a logged read, as the child's order is.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this payment.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "finance (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FinancePaymentDetail"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/finance/payments/{id}/reconcile/": {
+            "post": {
+                "operationId": "staff_finance_payments_reconcile_create",
+                "description": "Ask Razorpay what became of the payment's order (shop.payments.reconcile): a captured payment recorded, an\nauthorised one captured first, a second payment refunded; 503 while Razorpay cannot be asked.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this payment.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "finance (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FinanceReconciled"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/finance/refunds/": {
+            "get": {
+                "operationId": "staff_finance_refunds_list",
+                "description": "Refunds, newest first, by state (`?state=pending|processed|failed`) and method (`?method=source|bank|none`),\nwith their ARN, the bank transfer's UTR and the credit note; `?state=waiting`: the change requests of order.refund\nwaiting for FINANCE (approved at /change-requests/{id}/approve/). Bank refunds are marked paid by Orders'\nPOST orders/refunds/{id}/mark-paid/.",
+                "parameters": [
+                    {
+                        "name": "cursor",
+                        "required": false,
+                        "in": "query",
+                        "description": "The pagination cursor value.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "livemode",
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "description": "default: the site's own mode (test ones only when asked)"
+                    },
+                    {
+                        "in": "query",
+                        "name": "method",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "bank",
+                                "none",
+                                "source"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "page_size",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "q",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "an order's number"
+                    },
+                    {
+                        "in": "query",
+                        "name": "state",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "failed",
+                                "pending",
+                                "processed",
+                                "waiting"
+                            ]
+                        },
+                        "description": "waiting: approvals"
+                    }
+                ],
+                "tags": [
+                    "finance (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedFinanceRequestRowList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/finance/settlements/": {
+            "get": {
+                "operationId": "staff_finance_settlements_list",
+                "description": "Razorpay's settlements, newest day first (`?state=&date_from=&date_to=&q=`), one with its counts and its ERPNext\nentry; a line matched by hand (POST …/match/: a payment, a refund, or an adjustment accepted, with a note:\nstaff.reconcile_settlements); a day fetched as a job (POST settlements/fetch/).",
+                "parameters": [
+                    {
+                        "name": "cursor",
+                        "required": false,
+                        "in": "query",
+                        "description": "The pagination cursor value.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "date_from",
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "date_to",
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "livemode",
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "description": "default: the site's own mode (test ones only when asked)"
+                    },
+                    {
+                        "name": "page_size",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "q",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "Razorpay's settlement id (setl_…) or its UTR"
+                    },
+                    {
+                        "in": "query",
+                        "name": "state",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "fetched",
+                                "matched",
+                                "mismatched",
+                                "posted"
+                            ]
+                        },
+                        "description": "* `fetched` - fetched\n* `matched` - matched\n* `posted` - posted to ERPNext\n* `mismatched` - mismatched"
+                    }
+                ],
+                "tags": [
+                    "finance (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedFinanceSettlementList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/finance/settlements/{id}/": {
+            "get": {
+                "operationId": "staff_finance_settlements_retrieve",
+                "description": "Razorpay's settlements, newest day first (`?state=&date_from=&date_to=&q=`), one with its counts and its ERPNext\nentry; a line matched by hand (POST …/match/: a payment, a refund, or an adjustment accepted, with a note:\nstaff.reconcile_settlements); a day fetched as a job (POST settlements/fetch/).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this settlement.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "finance (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FinanceSettlementDetail"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/finance/settlements/{id}/match/": {
+            "post": {
+                "operationId": "staff_finance_settlements_match_create",
+                "description": "Razorpay's settlements, newest day first (`?state=&date_from=&date_to=&q=`), one with its counts and its ERPNext\nentry; a line matched by hand (POST …/match/: a payment, a refund, or an adjustment accepted, with a note:\nstaff.reconcile_settlements); a day fetched as a job (POST settlements/fetch/).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this settlement.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "finance (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/FinanceMatchRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FinanceSettlementLine"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/finance/settlements/{settlement}/lines/": {
+            "get": {
+                "operationId": "staff_finance_settlements_lines_list",
+                "description": "A settlement's lines in Razorpay's order (`?matched=false`: those not ours yet; `?type=`).",
+                "parameters": [
+                    {
+                        "name": "cursor",
+                        "required": false,
+                        "in": "query",
+                        "description": "The pagination cursor value.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "matched",
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    },
+                    {
+                        "name": "page_size",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "in": "path",
+                        "name": "settlement",
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^\\d+$"
+                        },
+                        "required": true
+                    },
+                    {
+                        "in": "query",
+                        "name": "type",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "adjustment",
+                                "payment",
+                                "refund"
+                            ]
+                        },
+                        "description": "* `payment` - payment\n* `refund` - refund\n* `adjustment` - adjustment"
+                    }
+                ],
+                "tags": [
+                    "finance (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedFinanceSettlementLineList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/finance/settlements/fetch/": {
+            "post": {
+                "operationId": "staff_finance_settlements_fetch_create",
+                "description": "A day of Razorpay's settlements fetched, matched and posted, as a background job (settlement_fetch): 202\nwith the job (jobs/{id}/), its result the counts. The same job is POST jobs/ {\"kind\": \"settlement_fetch\"}.",
+                "tags": [
+                    "finance (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/FinanceFetchRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Job"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/finance/today/": {
+            "get": {
+                "operationId": "staff_finance_today_retrieve",
+                "description": "What FINANCE has to do today, each row a duty (its count, the day of the oldest, the amount): refunds to\napprove, bank refunds to transfer, offline payments to approve, stuck payments, B2B payments to post in ERPNext,\nsettlement lines not ours and settlements that do not match, cash on delivery receivable, overdue and mismatched,\ncredit notes the cut-off refused, the sync's differences, and disputes (not configured). Each row only for whoever\nmay see its records; test mode left out.",
+                "tags": [
+                    "finance (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FinanceToday"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
         "/api/v1/staff/flags/": {
             "get": {
                 "operationId": "staff_flags_list",
@@ -13311,6 +14275,7 @@
                             "type": "string",
                             "enum": [
                                 "approval",
+                                "b2b_payment",
                                 "backup_stale",
                                 "bank_refund",
                                 "compliance",
@@ -13334,6 +14299,7 @@
                                 "review",
                                 "role_expired",
                                 "scripts_changed",
+                                "settlement",
                                 "shipping_exception",
                                 "sync_failed",
                                 "tax_threshold",
@@ -13346,7 +14312,7 @@
                                 "webhook_silent"
                             ]
                         },
-                        "description": "* `approval` - approval\n* `teacher_request` - teacher access request\n* `deletion_request` - account deletion\n* `data_request` - data request\n* `incident` - incident\n* `failed_job` - failed job\n* `failed_webhook` - failed webhook\n* `sync_failed` - ERPNext refused a document (a dead letter)\n* `reconciliation` - ERPNext reconciliation differences\n* `shipping_exception` - parcel exception\n* `dead_letter` - integration task given up\n* `failed_event` - provider event not processed\n* `integration_down` - integration unavailable\n* `tax_threshold` - a tax threshold crossed\n* `credit_note_missing` - a refund without its credit note\n* `processor_task` - a processor to tell: erase, or stop\n* `compliance` - a compliance duty: a self-audit, a held erasure\n* `order_hold` - order on hold\n* `return_request` - return asked for\n* `bank_refund` - refund to transfer by bank or UPI\n* `role_expired` - a temporary role ended\n* `offboarding` - offboarding: accounts to close by hand\n* `webhook_silent` - a provider's webhooks fell silent\n* `template_idle` - a message template unused for months\n* `template_certify` - a message template's yearly self-certification\n* `backup_stale` - no recent backup\n* `dependencies_stale` - the dependency report is old\n* `scripts_changed` - the checkout's or console's scripts changed\n* `review` - content review\n* `error_report` - reported mistake\n* `legal_deposit` - legal deposit due\n* `ticket_due` - a ticket's legal clock three quarters gone\n* `ticket_breach` - a ticket past its legal clock\n* `ticket_mention` - named in a ticket's note"
+                        "description": "* `approval` - approval\n* `teacher_request` - teacher access request\n* `deletion_request` - account deletion\n* `data_request` - data request\n* `incident` - incident\n* `failed_job` - failed job\n* `failed_webhook` - failed webhook\n* `sync_failed` - ERPNext refused a document (a dead letter)\n* `reconciliation` - ERPNext reconciliation differences\n* `shipping_exception` - parcel exception\n* `dead_letter` - integration task given up\n* `failed_event` - provider event not processed\n* `integration_down` - integration unavailable\n* `tax_threshold` - a tax threshold crossed\n* `credit_note_missing` - a refund without its credit note\n* `processor_task` - a processor to tell: erase, or stop\n* `compliance` - a compliance duty: a self-audit, a held erasure\n* `order_hold` - order on hold\n* `return_request` - return asked for\n* `bank_refund` - refund to transfer by bank or UPI\n* `role_expired` - a temporary role ended\n* `offboarding` - offboarding: accounts to close by hand\n* `webhook_silent` - a provider's webhooks fell silent\n* `template_idle` - a message template unused for months\n* `template_certify` - a message template's yearly self-certification\n* `backup_stale` - no recent backup\n* `dependencies_stale` - the dependency report is old\n* `scripts_changed` - the checkout's or console's scripts changed\n* `review` - content review\n* `error_report` - reported mistake\n* `legal_deposit` - legal deposit due\n* `ticket_due` - a ticket's legal clock three quarters gone\n* `ticket_breach` - a ticket past its legal clock\n* `ticket_mention` - named in a ticket's note\n* `settlement` - a Razorpay settlement that does not match\n* `b2b_payment` - a B2B invoice paid by link: its entry to post in ERPNext"
                     },
                     {
                         "in": "query",
@@ -13873,10 +14839,11 @@
                                 "orders_cancel",
                                 "orders_export",
                                 "orders_pack",
-                                "orders_print"
+                                "orders_print",
+                                "settlement_fetch"
                             ]
                         },
-                        "description": "* `audit_export` - audit log export\n* `bulk_action` - bulk action\n* `erp_initial_load` - ERPNext initial load\n* `gstr1_export` - GSTR-1 export\n* `orders_pack` - orders marked packed\n* `orders_print` - order documents printed\n* `orders_cancel` - orders cancelled\n* `orders_export` - order export\n* `content_import` - import from the books repository\n* `grievance_export` - grievance register export"
+                        "description": "* `audit_export` - audit log export\n* `bulk_action` - bulk action\n* `erp_initial_load` - ERPNext initial load\n* `gstr1_export` - GSTR-1 export\n* `orders_pack` - orders marked packed\n* `orders_print` - order documents printed\n* `orders_cancel` - orders cancelled\n* `orders_export` - order export\n* `content_import` - import from the books repository\n* `grievance_export` - grievance register export\n* `settlement_fetch` - Razorpay settlements fetched"
                     },
                     {
                         "in": "query",
@@ -31063,6 +32030,1564 @@
                     "task_name"
                 ]
             },
+            "FinanceDocumentErp": {
+                "type": "object",
+                "properties": {
+                    "number": {
+                        "type": "string"
+                    },
+                    "kind": {
+                        "$ref": "#/components/schemas/TaxDocumentKindEnum"
+                    },
+                    "state": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/FinanceDocumentErpStateEnum"
+                            }
+                        ],
+                        "description": "mirrored (ERPNext has it), waiting, failed (tried again), dead (staff replay or discard it), discarded, not_sent (no outbox row: the reconciliation reports it), off (its flow is off), test\n\n* `mirrored` - mirrored\n* `waiting` - waiting\n* `failed` - failed\n* `dead` - dead\n* `discarded` - discarded\n* `not_sent` - not_sent\n* `off` - off\n* `test` - test"
+                    },
+                    "doctype": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "name": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "ERPNext's name of it"
+                    },
+                    "synced_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "outbox": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {}
+                        },
+                        "description": "its outbox rows, oldest first"
+                    }
+                },
+                "required": [
+                    "doctype",
+                    "kind",
+                    "name",
+                    "number",
+                    "outbox",
+                    "state",
+                    "synced_at"
+                ]
+            },
+            "FinanceDocumentErpStateEnum": {
+                "enum": [
+                    "mirrored",
+                    "waiting",
+                    "failed",
+                    "dead",
+                    "discarded",
+                    "not_sent",
+                    "off",
+                    "test"
+                ],
+                "type": "string",
+                "description": "* `mirrored` - mirrored\n* `waiting` - waiting\n* `failed` - failed\n* `dead` - dead\n* `discarded` - discarded\n* `not_sent` - not_sent\n* `off` - off\n* `test` - test"
+            },
+            "FinanceFetchRequest": {
+                "type": "object",
+                "properties": {
+                    "day": {
+                        "type": "string",
+                        "format": "date",
+                        "description": "a day of Razorpay's settlements (India), today at the latest"
+                    },
+                    "dry_run": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "fetch and match, keep nothing"
+                    }
+                },
+                "required": [
+                    "day"
+                ]
+            },
+            "FinanceLineRef": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "order": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "amount": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "amount",
+                    "id",
+                    "order"
+                ]
+            },
+            "FinanceLink": {
+                "type": "object",
+                "description": "A Razorpay Payment Link: a staff order's (its Payment) or a B2B invoice's (InvoicePaymentLink).",
+                "properties": {
+                    "kind": {
+                        "$ref": "#/components/schemas/FinanceLinkKindEnum"
+                    },
+                    "id": {
+                        "type": "integer",
+                        "description": "the order link's payment, or the B2B link's own id"
+                    },
+                    "order": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "invoice": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "the ERPNext invoice's name"
+                    },
+                    "amount": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "nullable": true
+                    },
+                    "state": {
+                        "$ref": "#/components/schemas/FinanceLinkStateEnum"
+                    },
+                    "url": {
+                        "type": "string"
+                    },
+                    "razorpay_link_id": {
+                        "type": "string"
+                    },
+                    "razorpay_payment_id": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "sent_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "when it was made"
+                    },
+                    "last_sent_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true,
+                        "description": "an order's: its last email to the customer"
+                    },
+                    "expires_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "paid_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "created_by": {
+                        "type": "string"
+                    },
+                    "posted_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true,
+                        "description": "a B2B link's: its entry posted in ERPNext"
+                    },
+                    "erp_name": {
+                        "type": "string",
+                        "description": "the Payment Entry FINANCE posted by hand"
+                    },
+                    "livemode": {
+                        "type": "boolean"
+                    },
+                    "is_test": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "amount",
+                    "created_by",
+                    "erp_name",
+                    "expires_at",
+                    "id",
+                    "invoice",
+                    "is_test",
+                    "kind",
+                    "last_sent_at",
+                    "livemode",
+                    "order",
+                    "paid_at",
+                    "posted_at",
+                    "razorpay_link_id",
+                    "razorpay_payment_id",
+                    "sent_at",
+                    "state",
+                    "url"
+                ]
+            },
+            "FinanceLinkAnswer": {
+                "type": "object",
+                "description": "A Razorpay Payment Link: a staff order's (its Payment) or a B2B invoice's (InvoicePaymentLink).",
+                "properties": {
+                    "kind": {
+                        "$ref": "#/components/schemas/FinanceLinkKindEnum"
+                    },
+                    "id": {
+                        "type": "integer",
+                        "description": "the order link's payment, or the B2B link's own id"
+                    },
+                    "order": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "invoice": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "the ERPNext invoice's name"
+                    },
+                    "amount": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "nullable": true
+                    },
+                    "state": {
+                        "$ref": "#/components/schemas/FinanceLinkStateEnum"
+                    },
+                    "url": {
+                        "type": "string"
+                    },
+                    "razorpay_link_id": {
+                        "type": "string"
+                    },
+                    "razorpay_payment_id": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "sent_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "when it was made"
+                    },
+                    "last_sent_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true,
+                        "description": "an order's: its last email to the customer"
+                    },
+                    "expires_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "paid_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "created_by": {
+                        "type": "string"
+                    },
+                    "posted_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true,
+                        "description": "a B2B link's: its entry posted in ERPNext"
+                    },
+                    "erp_name": {
+                        "type": "string",
+                        "description": "the Payment Entry FINANCE posted by hand"
+                    },
+                    "livemode": {
+                        "type": "boolean"
+                    },
+                    "is_test": {
+                        "type": "boolean"
+                    },
+                    "detail": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "amount",
+                    "created_by",
+                    "detail",
+                    "erp_name",
+                    "expires_at",
+                    "id",
+                    "invoice",
+                    "is_test",
+                    "kind",
+                    "last_sent_at",
+                    "livemode",
+                    "order",
+                    "paid_at",
+                    "posted_at",
+                    "razorpay_link_id",
+                    "razorpay_payment_id",
+                    "sent_at",
+                    "state",
+                    "url"
+                ]
+            },
+            "FinanceLinkAskRequest": {
+                "type": "object",
+                "properties": {
+                    "order": {
+                        "type": "string",
+                        "description": "a staff order's number"
+                    },
+                    "invoice": {
+                        "type": "string",
+                        "description": "an ERPNext invoice",
+                        "maxLength": 140
+                    },
+                    "action": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/OrderPaymentLinkActionEnum"
+                            }
+                        ],
+                        "description": "send: made once, then sent again\n\n* `send` - send\n* `cancel` - cancel"
+                    }
+                },
+                "required": [
+                    "action"
+                ]
+            },
+            "FinanceLinkKindEnum": {
+                "enum": [
+                    "order",
+                    "invoice"
+                ],
+                "type": "string",
+                "description": "* `order` - an order's link\n* `invoice` - a B2B invoice's link"
+            },
+            "FinanceLinkPostedRequest": {
+                "type": "object",
+                "properties": {
+                    "erp_name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "the Payment Entry's name in ERPNext",
+                        "maxLength": 140
+                    }
+                },
+                "required": [
+                    "erp_name"
+                ]
+            },
+            "FinanceLinkStateEnum": {
+                "enum": [
+                    "sent",
+                    "paid",
+                    "cancelled",
+                    "expired"
+                ],
+                "type": "string",
+                "description": "* `sent` - sent, waiting for the payment\n* `paid` - paid\n* `cancelled` - cancelled\n* `expired` - expired unpaid"
+            },
+            "FinanceMatchRequest": {
+                "type": "object",
+                "properties": {
+                    "line": {
+                        "type": "integer",
+                        "description": "the line's id"
+                    },
+                    "payment": {
+                        "type": "integer",
+                        "nullable": true,
+                        "description": "a payment's id"
+                    },
+                    "refund": {
+                        "type": "integer",
+                        "nullable": true,
+                        "description": "a refund's id"
+                    },
+                    "accept": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "an adjustment accepted as it is (no target)"
+                    },
+                    "note": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "why: kept in the audit log",
+                        "maxLength": 300
+                    }
+                },
+                "required": [
+                    "line",
+                    "note"
+                ]
+            },
+            "FinancePayment": {
+                "type": "object",
+                "description": "A payment in the list (no query a row: the view prefetches).",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "order": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "order_status": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/OrderStatusEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "method": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/PaymentMethodEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "status": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/OrderPaymentStatusEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "amount": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "readOnly": true
+                    },
+                    "razorpay_order_id": {
+                        "type": "string",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "razorpay_payment_id": {
+                        "type": "string",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "razorpay_payment_link_id": {
+                        "type": "string",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "reference": {
+                        "type": "string",
+                        "readOnly": true,
+                        "title": "Bank or UPI reference",
+                        "description": "A payment recorded by staff (offline)."
+                    },
+                    "error": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "Why the last attempt failed (from Razorpay)."
+                    },
+                    "livemode": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "title": "Live mode",
+                        "description": "Made with live Razorpay keys (the key of its order)."
+                    },
+                    "is_test": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "made with test keys on the live site: TEST"
+                    },
+                    "stuck": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "waiting on Razorpay too long: ask it again"
+                    },
+                    "is_link": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "a staff order's payment link"
+                    },
+                    "fee": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "nullable": true,
+                        "readOnly": true,
+                        "description": "Razorpay's fee without its GST, once settled"
+                    },
+                    "tax": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "nullable": true,
+                        "readOnly": true,
+                        "description": "the GST on the fee, once settled"
+                    },
+                    "settlement": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/FinanceSettlementRef"
+                            }
+                        ],
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "created": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "modified": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "amount",
+                    "created",
+                    "error",
+                    "fee",
+                    "id",
+                    "is_link",
+                    "is_test",
+                    "livemode",
+                    "method",
+                    "modified",
+                    "order",
+                    "order_status",
+                    "razorpay_order_id",
+                    "razorpay_payment_id",
+                    "razorpay_payment_link_id",
+                    "reference",
+                    "settlement",
+                    "status",
+                    "stuck",
+                    "tax"
+                ]
+            },
+            "FinancePaymentDetail": {
+                "type": "object",
+                "description": "A payment as its record shows it: its order's facts, refunds, the webhooks seen (kept 7 days), what the last\nwebhook said of it (no card, bank or contact field; kept 180 days), and its timeline.",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "order": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "order_status": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/OrderStatusEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "method": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/PaymentMethodEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "status": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/OrderPaymentStatusEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "amount": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "readOnly": true
+                    },
+                    "razorpay_order_id": {
+                        "type": "string",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "razorpay_payment_id": {
+                        "type": "string",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "razorpay_payment_link_id": {
+                        "type": "string",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "reference": {
+                        "type": "string",
+                        "readOnly": true,
+                        "title": "Bank or UPI reference",
+                        "description": "A payment recorded by staff (offline)."
+                    },
+                    "error": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "Why the last attempt failed (from Razorpay)."
+                    },
+                    "livemode": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "title": "Live mode",
+                        "description": "Made with live Razorpay keys (the key of its order)."
+                    },
+                    "is_test": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "made with test keys on the live site: TEST"
+                    },
+                    "stuck": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "waiting on Razorpay too long: ask it again"
+                    },
+                    "is_link": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "a staff order's payment link"
+                    },
+                    "fee": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "nullable": true,
+                        "readOnly": true,
+                        "description": "Razorpay's fee without its GST, once settled"
+                    },
+                    "tax": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "nullable": true,
+                        "readOnly": true,
+                        "description": "the GST on the fee, once settled"
+                    },
+                    "settlement": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/FinanceSettlementRef"
+                            }
+                        ],
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "created": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "modified": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "order_id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "order_total": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "readOnly": true
+                    },
+                    "order_placed_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "payment_link_url": {
+                        "type": "string",
+                        "format": "uri",
+                        "readOnly": true
+                    },
+                    "refunds": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/FinancePaymentRefund"
+                        },
+                        "readOnly": true
+                    },
+                    "webhooks": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/FinanceWebhook"
+                        },
+                        "readOnly": true
+                    },
+                    "last_webhook": {
+                        "readOnly": true,
+                        "description": "its allowed fields only"
+                    },
+                    "timeline": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/OrderTimelineEntry"
+                        },
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "amount",
+                    "created",
+                    "error",
+                    "fee",
+                    "id",
+                    "is_link",
+                    "is_test",
+                    "last_webhook",
+                    "livemode",
+                    "method",
+                    "modified",
+                    "order",
+                    "order_id",
+                    "order_placed_at",
+                    "order_status",
+                    "order_total",
+                    "payment_link_url",
+                    "razorpay_order_id",
+                    "razorpay_payment_id",
+                    "razorpay_payment_link_id",
+                    "reference",
+                    "refunds",
+                    "settlement",
+                    "status",
+                    "stuck",
+                    "tax",
+                    "timeline",
+                    "webhooks"
+                ]
+            },
+            "FinancePaymentRefund": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "amount": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "readOnly": true
+                    },
+                    "status": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RefundStatusEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "method": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/OrderRefundMethodEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "speed": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/RefundSpeedEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "razorpay_refund_id": {
+                        "type": "string",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "arn": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "The bank's reference, from Razorpay."
+                    },
+                    "created": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "processed_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "amount",
+                    "arn",
+                    "created",
+                    "id",
+                    "method",
+                    "processed_at",
+                    "razorpay_refund_id",
+                    "speed",
+                    "status"
+                ]
+            },
+            "FinanceReconciled": {
+                "type": "object",
+                "properties": {
+                    "paid": {
+                        "type": "boolean",
+                        "nullable": true,
+                        "description": "Razorpay had a captured payment for the order"
+                    },
+                    "detail": {
+                        "type": "string",
+                        "description": "what Razorpay's answer changed, in words"
+                    },
+                    "changes": {
+                        "type": "object",
+                        "additionalProperties": {},
+                        "description": "{what: [before, after]}: the order's status, each payment's, refunds"
+                    },
+                    "payment": {
+                        "$ref": "#/components/schemas/FinancePaymentDetail"
+                    }
+                },
+                "required": [
+                    "changes",
+                    "detail",
+                    "paid",
+                    "payment"
+                ]
+            },
+            "FinanceRequestRow": {
+                "type": "object",
+                "description": "A row of the offline payments' or the refunds' lists: a change request waiting for a second person (`request`),\nor the payment or refund itself.",
+                "properties": {
+                    "kind": {
+                        "$ref": "#/components/schemas/FinanceRowKindEnum"
+                    },
+                    "id": {
+                        "type": "integer",
+                        "description": "the change request's, the payment's or the refund's"
+                    },
+                    "order": {
+                        "type": "string"
+                    },
+                    "amount": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "nullable": true
+                    },
+                    "status": {
+                        "type": "string",
+                        "description": "the change request's status, or the payment's or the refund's"
+                    },
+                    "reference": {
+                        "type": "string",
+                        "description": "an offline payment's UTR or UPI reference"
+                    },
+                    "method": {
+                        "type": "string",
+                        "description": "a refund's: source, bank or none"
+                    },
+                    "speed": {
+                        "type": "string"
+                    },
+                    "reason": {
+                        "type": "string"
+                    },
+                    "arn": {
+                        "type": "string",
+                        "description": "the bank's reference of a refund, from Razorpay"
+                    },
+                    "utr": {
+                        "type": "string",
+                        "description": "a bank refund's transfer"
+                    },
+                    "razorpay_refund_id": {
+                        "type": "string"
+                    },
+                    "credit_note": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "payee_masked": {
+                        "type": "string"
+                    },
+                    "payment_method": {
+                        "type": "string"
+                    },
+                    "error": {
+                        "type": "string"
+                    },
+                    "change_request": {
+                        "type": "integer",
+                        "nullable": true,
+                        "description": "its approval (the console's /approvals/)"
+                    },
+                    "change_request_status": {
+                        "type": "string"
+                    },
+                    "checker": {
+                        "type": "string",
+                        "description": "the permission its approver needs"
+                    },
+                    "rule": {
+                        "type": "string"
+                    },
+                    "by": {
+                        "type": "string",
+                        "description": "who asked for it or recorded it"
+                    },
+                    "created": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "done_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true,
+                        "description": "a refund made, a payment recorded"
+                    },
+                    "livemode": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "amount",
+                    "arn",
+                    "by",
+                    "change_request",
+                    "change_request_status",
+                    "checker",
+                    "created",
+                    "credit_note",
+                    "done_at",
+                    "error",
+                    "id",
+                    "kind",
+                    "livemode",
+                    "method",
+                    "order",
+                    "payee_masked",
+                    "payment_method",
+                    "razorpay_refund_id",
+                    "reason",
+                    "reference",
+                    "rule",
+                    "speed",
+                    "status",
+                    "utr"
+                ]
+            },
+            "FinanceRowKindEnum": {
+                "enum": [
+                    "request",
+                    "payment",
+                    "refund"
+                ],
+                "type": "string",
+                "description": "* `request` - request\n* `payment` - payment\n* `refund` - refund"
+            },
+            "FinanceSettlement": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "settlement_id": {
+                        "type": "string",
+                        "readOnly": true,
+                        "title": "Razorpay's id"
+                    },
+                    "date": {
+                        "type": "string",
+                        "format": "date",
+                        "readOnly": true,
+                        "description": "The day Razorpay settled it (India)."
+                    },
+                    "utr": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "The bank's reference of the transfer."
+                    },
+                    "gross": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "readOnly": true
+                    },
+                    "fees": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "readOnly": true,
+                        "description": "Razorpay's fees without their GST"
+                    },
+                    "tax": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "readOnly": true,
+                        "description": "the GST on the fees"
+                    },
+                    "adjustments": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "readOnly": true
+                    },
+                    "net": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "readOnly": true,
+                        "description": "what reached the bank"
+                    },
+                    "state": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/FinanceSettlementStateEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "problem": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "Why it is mismatched: counts, never a name."
+                    },
+                    "livemode": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "title": "Live mode"
+                    },
+                    "is_test": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "matched_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "posted_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "created": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "modified": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "adjustments",
+                    "created",
+                    "date",
+                    "fees",
+                    "gross",
+                    "id",
+                    "is_test",
+                    "livemode",
+                    "matched_at",
+                    "modified",
+                    "net",
+                    "posted_at",
+                    "problem",
+                    "settlement_id",
+                    "state",
+                    "tax",
+                    "utr"
+                ]
+            },
+            "FinanceSettlementDetail": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "settlement_id": {
+                        "type": "string",
+                        "readOnly": true,
+                        "title": "Razorpay's id"
+                    },
+                    "date": {
+                        "type": "string",
+                        "format": "date",
+                        "readOnly": true,
+                        "description": "The day Razorpay settled it (India)."
+                    },
+                    "utr": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "The bank's reference of the transfer."
+                    },
+                    "gross": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "readOnly": true
+                    },
+                    "fees": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "readOnly": true,
+                        "description": "Razorpay's fees without their GST"
+                    },
+                    "tax": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "readOnly": true,
+                        "description": "the GST on the fees"
+                    },
+                    "adjustments": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "readOnly": true
+                    },
+                    "net": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "readOnly": true,
+                        "description": "what reached the bank"
+                    },
+                    "state": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/FinanceSettlementStateEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "problem": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "Why it is mismatched: counts, never a name."
+                    },
+                    "livemode": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "title": "Live mode"
+                    },
+                    "is_test": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "matched_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "posted_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "created": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "modified": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "counts": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "integer"
+                        },
+                        "description": "its lines: in all, not yet ours, by type",
+                        "readOnly": true
+                    },
+                    "erp": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/FinanceSettlementErp"
+                            }
+                        ],
+                        "nullable": true,
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "adjustments",
+                    "counts",
+                    "created",
+                    "date",
+                    "erp",
+                    "fees",
+                    "gross",
+                    "id",
+                    "is_test",
+                    "livemode",
+                    "matched_at",
+                    "modified",
+                    "net",
+                    "posted_at",
+                    "problem",
+                    "settlement_id",
+                    "state",
+                    "tax",
+                    "utr"
+                ]
+            },
+            "FinanceSettlementErp": {
+                "type": "object",
+                "properties": {
+                    "outbox": {
+                        "type": "integer",
+                        "description": "its outbox row (System → sync)"
+                    },
+                    "state": {
+                        "type": "string",
+                        "description": "the row's: pending, sending, sent, failed, dead, discarded"
+                    },
+                    "attempts": {
+                        "type": "integer"
+                    },
+                    "last_error": {
+                        "type": "string"
+                    },
+                    "sent_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "name": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "the Journal Entry ERPNext made"
+                    }
+                },
+                "required": [
+                    "attempts",
+                    "last_error",
+                    "name",
+                    "outbox",
+                    "sent_at",
+                    "state"
+                ]
+            },
+            "FinanceSettlementLine": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "type": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/FinanceSettlementLineTypeEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "entity_id": {
+                        "type": "string",
+                        "readOnly": true,
+                        "title": "Razorpay's id"
+                    },
+                    "amount": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "readOnly": true
+                    },
+                    "fee": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "readOnly": true,
+                        "description": "Razorpay's, without its GST"
+                    },
+                    "tax": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "readOnly": true
+                    },
+                    "credit": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "readOnly": true
+                    },
+                    "debit": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "readOnly": true
+                    },
+                    "settled_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "order_receipt": {
+                        "type": "string",
+                        "readOnly": true,
+                        "title": "Razorpay order's receipt",
+                        "description": "Our number."
+                    },
+                    "order": {
+                        "type": "string",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "payment": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/FinanceLineRef"
+                            }
+                        ],
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "refund": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/FinanceLineRef"
+                            }
+                        ],
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "link": {
+                        "type": "object",
+                        "additionalProperties": {},
+                        "nullable": true,
+                        "description": "a B2B invoice's link it paid",
+                        "readOnly": true
+                    },
+                    "matched": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "matched_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "matched_by": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "empty: matched by Razorpay's id"
+                    },
+                    "note": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "Why it was matched by hand."
+                    }
+                },
+                "required": [
+                    "amount",
+                    "credit",
+                    "debit",
+                    "entity_id",
+                    "fee",
+                    "id",
+                    "link",
+                    "matched",
+                    "matched_at",
+                    "matched_by",
+                    "note",
+                    "order",
+                    "order_receipt",
+                    "payment",
+                    "refund",
+                    "settled_at",
+                    "tax",
+                    "type"
+                ]
+            },
+            "FinanceSettlementLineTypeEnum": {
+                "enum": [
+                    "payment",
+                    "refund",
+                    "adjustment"
+                ],
+                "type": "string",
+                "description": "* `payment` - payment\n* `refund` - refund\n* `adjustment` - adjustment"
+            },
+            "FinanceSettlementRef": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "settlement_id": {
+                        "type": "string"
+                    },
+                    "date": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "utr": {
+                        "type": "string"
+                    },
+                    "state": {
+                        "$ref": "#/components/schemas/FinanceSettlementStateEnum"
+                    }
+                },
+                "required": [
+                    "date",
+                    "id",
+                    "settlement_id",
+                    "state",
+                    "utr"
+                ]
+            },
+            "FinanceSettlementStateEnum": {
+                "enum": [
+                    "fetched",
+                    "matched",
+                    "posted",
+                    "mismatched"
+                ],
+                "type": "string",
+                "description": "* `fetched` - fetched\n* `matched` - matched\n* `posted` - posted to ERPNext\n* `mismatched` - mismatched"
+            },
+            "FinanceToday": {
+                "type": "object",
+                "properties": {
+                    "livemode": {
+                        "type": "boolean",
+                        "description": "the site runs on live keys: test rows are left out"
+                    },
+                    "as_of": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "rows": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/FinanceTodayRow"
+                        }
+                    }
+                },
+                "required": [
+                    "as_of",
+                    "livemode",
+                    "rows"
+                ]
+            },
+            "FinanceTodayKeyEnum": {
+                "enum": [
+                    "refunds_to_approve",
+                    "bank_refunds",
+                    "offline_to_approve",
+                    "stuck_payments",
+                    "b2b_to_post",
+                    "settlement_lines",
+                    "settlements_mismatched",
+                    "cod_receivable",
+                    "cod_overdue",
+                    "cod_mismatched",
+                    "credit_notes_refused",
+                    "sync_differences",
+                    "disputes"
+                ],
+                "type": "string",
+                "description": "* `refunds_to_approve` - refunds_to_approve\n* `bank_refunds` - bank_refunds\n* `offline_to_approve` - offline_to_approve\n* `stuck_payments` - stuck_payments\n* `b2b_to_post` - b2b_to_post\n* `settlement_lines` - settlement_lines\n* `settlements_mismatched` - settlements_mismatched\n* `cod_receivable` - cod_receivable\n* `cod_overdue` - cod_overdue\n* `cod_mismatched` - cod_mismatched\n* `credit_notes_refused` - credit_notes_refused\n* `sync_differences` - sync_differences\n* `disputes` - disputes"
+            },
+            "FinanceTodayRow": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "$ref": "#/components/schemas/FinanceTodayKeyEnum"
+                    },
+                    "count": {
+                        "type": "integer",
+                        "nullable": true,
+                        "description": "null: not configured"
+                    },
+                    "oldest": {
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true,
+                        "description": "the day of the oldest (India)"
+                    },
+                    "amount": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "nullable": true
+                    },
+                    "configured": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "amount",
+                    "configured",
+                    "count",
+                    "key",
+                    "oldest"
+                ]
+            },
+            "FinanceWebhook": {
+                "type": "object",
+                "properties": {
+                    "event_id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "payment.captured, payment.failed, order.paid, payment_link.paid, refund.…"
+                    },
+                    "received_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "event_id",
+                    "name",
+                    "received_at"
+                ]
+            },
             "Flag": {
                 "type": "object",
                 "properties": {
@@ -32231,10 +34756,12 @@
                     "legal_deposit",
                     "ticket_due",
                     "ticket_breach",
-                    "ticket_mention"
+                    "ticket_mention",
+                    "settlement",
+                    "b2b_payment"
                 ],
                 "type": "string",
-                "description": "* `approval` - approval\n* `teacher_request` - teacher access request\n* `deletion_request` - account deletion\n* `data_request` - data request\n* `incident` - incident\n* `failed_job` - failed job\n* `failed_webhook` - failed webhook\n* `sync_failed` - ERPNext refused a document (a dead letter)\n* `reconciliation` - ERPNext reconciliation differences\n* `shipping_exception` - parcel exception\n* `dead_letter` - integration task given up\n* `failed_event` - provider event not processed\n* `integration_down` - integration unavailable\n* `tax_threshold` - a tax threshold crossed\n* `credit_note_missing` - a refund without its credit note\n* `processor_task` - a processor to tell: erase, or stop\n* `compliance` - a compliance duty: a self-audit, a held erasure\n* `order_hold` - order on hold\n* `return_request` - return asked for\n* `bank_refund` - refund to transfer by bank or UPI\n* `role_expired` - a temporary role ended\n* `offboarding` - offboarding: accounts to close by hand\n* `webhook_silent` - a provider's webhooks fell silent\n* `template_idle` - a message template unused for months\n* `template_certify` - a message template's yearly self-certification\n* `backup_stale` - no recent backup\n* `dependencies_stale` - the dependency report is old\n* `scripts_changed` - the checkout's or console's scripts changed\n* `review` - content review\n* `error_report` - reported mistake\n* `legal_deposit` - legal deposit due\n* `ticket_due` - a ticket's legal clock three quarters gone\n* `ticket_breach` - a ticket past its legal clock\n* `ticket_mention` - named in a ticket's note"
+                "description": "* `approval` - approval\n* `teacher_request` - teacher access request\n* `deletion_request` - account deletion\n* `data_request` - data request\n* `incident` - incident\n* `failed_job` - failed job\n* `failed_webhook` - failed webhook\n* `sync_failed` - ERPNext refused a document (a dead letter)\n* `reconciliation` - ERPNext reconciliation differences\n* `shipping_exception` - parcel exception\n* `dead_letter` - integration task given up\n* `failed_event` - provider event not processed\n* `integration_down` - integration unavailable\n* `tax_threshold` - a tax threshold crossed\n* `credit_note_missing` - a refund without its credit note\n* `processor_task` - a processor to tell: erase, or stop\n* `compliance` - a compliance duty: a self-audit, a held erasure\n* `order_hold` - order on hold\n* `return_request` - return asked for\n* `bank_refund` - refund to transfer by bank or UPI\n* `role_expired` - a temporary role ended\n* `offboarding` - offboarding: accounts to close by hand\n* `webhook_silent` - a provider's webhooks fell silent\n* `template_idle` - a message template unused for months\n* `template_certify` - a message template's yearly self-certification\n* `backup_stale` - no recent backup\n* `dependencies_stale` - the dependency report is old\n* `scripts_changed` - the checkout's or console's scripts changed\n* `review` - content review\n* `error_report` - reported mistake\n* `legal_deposit` - legal deposit due\n* `ticket_due` - a ticket's legal clock three quarters gone\n* `ticket_breach` - a ticket past its legal clock\n* `ticket_mention` - named in a ticket's note\n* `settlement` - a Razorpay settlement that does not match\n* `b2b_payment` - a B2B invoice paid by link: its entry to post in ERPNext"
             },
             "Incident": {
                 "type": "object",
@@ -32725,10 +35252,11 @@
                     "orders_cancel",
                     "orders_export",
                     "content_import",
-                    "grievance_export"
+                    "grievance_export",
+                    "settlement_fetch"
                 ],
                 "type": "string",
-                "description": "* `audit_export` - audit log export\n* `bulk_action` - bulk action\n* `erp_initial_load` - ERPNext initial load\n* `gstr1_export` - GSTR-1 export\n* `orders_pack` - orders marked packed\n* `orders_print` - order documents printed\n* `orders_cancel` - orders cancelled\n* `orders_export` - order export\n* `content_import` - import from the books repository\n* `grievance_export` - grievance register export"
+                "description": "* `audit_export` - audit log export\n* `bulk_action` - bulk action\n* `erp_initial_load` - ERPNext initial load\n* `gstr1_export` - GSTR-1 export\n* `orders_pack` - orders marked packed\n* `orders_print` - order documents printed\n* `orders_cancel` - orders cancelled\n* `orders_export` - order export\n* `content_import` - import from the books repository\n* `grievance_export` - grievance register export\n* `settlement_fetch` - Razorpay settlements fetched"
             },
             "JobStartRequest": {
                 "type": "object",
@@ -32739,7 +35267,7 @@
                     "params": {
                         "type": "object",
                         "additionalProperties": {},
-                        "description": "audit_export: {\"filters\": {…}} (the audit list's); bulk_action: {\"action\": \"order.refund\", \"targets\": [order numbers, slugs or ids], \"payload\": {…} (each target's, as for change-requests/), \"reason\"}; erp_initial_load: {\"invoices_from\": \"YYYY-MM-DD\"} (optional: without it, the catalogue only); gstr1_export: {\"month\": \"YYYY-MM\", \"months\": 1 or 3} (a month, or the quarter ending with it); orders_pack, orders_print ({\"document\": packing_slip, label or invoices}) and orders_cancel ({\"reason\", \"customer_requested\"}, 250 at most): {\"targets\": [order numbers]}; orders_export: {\"filters\": {…}} (the order list's); content_import: {\"subject\": \"physics\", \"commit\": \"\" or a commit, \"dry_run_job\": the dry run's id (to apply)}; grievance_export: {\"from\": \"YYYY-MM-DD\", \"until\": \"YYYY-MM-DD\"} (the days received, both optional)"
+                        "description": "audit_export: {\"filters\": {…}} (the audit list's); bulk_action: {\"action\": \"order.refund\", \"targets\": [order numbers, slugs or ids], \"payload\": {…} (each target's, as for change-requests/), \"reason\"}; erp_initial_load: {\"invoices_from\": \"YYYY-MM-DD\"} (optional: without it, the catalogue only); gstr1_export: {\"month\": \"YYYY-MM\", \"months\": 1 or 3} (a month, or the quarter ending with it); orders_pack, orders_print ({\"document\": packing_slip, label or invoices}) and orders_cancel ({\"reason\", \"customer_requested\"}, 250 at most): {\"targets\": [order numbers]}; orders_export: {\"filters\": {…}} (the order list's); content_import: {\"subject\": \"physics\", \"commit\": \"\" or a commit, \"dry_run_job\": the dry run's id (to apply)}; grievance_export: {\"from\": \"YYYY-MM-DD\", \"until\": \"YYYY-MM-DD\"} (the days received, both optional); settlement_fetch: {\"day\": \"YYYY-MM-DD\"} (a day of Razorpay's settlements, India, from 2020 to today)"
                     },
                     "dry_run": {
                         "type": "boolean",
@@ -37971,6 +40499,136 @@
                         "type": "array",
                         "items": {
                             "$ref": "#/components/schemas/Failure"
+                        }
+                    }
+                }
+            },
+            "PaginatedFinanceLinkList": {
+                "type": "object",
+                "required": [
+                    "results"
+                ],
+                "properties": {
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cD00ODY%3D\""
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cj0xJnA9NDg3"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/FinanceLink"
+                        }
+                    }
+                }
+            },
+            "PaginatedFinancePaymentList": {
+                "type": "object",
+                "required": [
+                    "results"
+                ],
+                "properties": {
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cD00ODY%3D\""
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cj0xJnA9NDg3"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/FinancePayment"
+                        }
+                    }
+                }
+            },
+            "PaginatedFinanceRequestRowList": {
+                "type": "object",
+                "required": [
+                    "results"
+                ],
+                "properties": {
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cD00ODY%3D\""
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cj0xJnA9NDg3"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/FinanceRequestRow"
+                        }
+                    }
+                }
+            },
+            "PaginatedFinanceSettlementLineList": {
+                "type": "object",
+                "required": [
+                    "results"
+                ],
+                "properties": {
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cD00ODY%3D\""
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cj0xJnA9NDg3"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/FinanceSettlementLine"
+                        }
+                    }
+                }
+            },
+            "PaginatedFinanceSettlementList": {
+                "type": "object",
+                "required": [
+                    "results"
+                ],
+                "properties": {
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cD00ODY%3D\""
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cj0xJnA9NDg3"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/FinanceSettlement"
                         }
                     }
                 }
@@ -49766,6 +52424,10 @@
         {
             "name": "support (staff)",
             "description": "Tickets, their legal clocks and actions; saved replies (API.md)."
+        },
+        {
+            "name": "finance (staff)",
+            "description": "Payments, links, refunds, settlements, today (API.md)."
         }
     ]
 }

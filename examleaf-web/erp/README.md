@@ -33,7 +33,8 @@ PIN only (examleaf_erp refuses a `name`, `phone` or `line1`).
 | Storefront invoices and credit notes, with their legal numbers | platform | `create_sales_invoice`, `create_credit_note` (named with the number) | `ERP_SYNC_INVOICES` |
 | Payments in (Razorpay, COD on delivery, transfers recorded by staff) and refunds out | platform | `create_payment_entry` (a refund against its credit note) | `ERP_SYNC_PAYMENTS` |
 | Dispatch: the parcel that leaves (stock out of the print-run batches) | platform (`shipping`) | `create_delivery_note` | `ERP_SYNC_DELIVERIES` |
-| COD remittances (and Razorpay settlements, once the platform keeps them) | platform | `record_settlement` | `ERP_SYNC_SETTLEMENTS` |
+| COD remittances and Razorpay settlements (`shop/settlements.py`: posted once matched) | platform | `record_settlement` | `ERP_SYNC_SETTLEMENTS` |
+| A B2B invoice's payment by the platform's link (`shop.InvoicePaymentLink`) | platform records it; FINANCE posts the Payment Entry in ERPNext by hand (`create_payment_entry` takes only the platform's own invoices) and records its name | none: a `b2b_payment` inbox item | `ERP_PULL_B2B` (the invoice's copy) |
 | Physical stock: receipts, counts, transfers, damaged copies | **ERPNext** | doorbell, then `get_stock`; the 15-minute pull | `ERP_PULL_STOCK`, `ERP_STOCK_PROJECTION` |
 | B2B customers, quotations, B2B invoices | **ERPNext** | doorbell, then a REST re-read into `ErpMirror`; the pull | `ERP_PULL_B2B` |
 | Book codes, course entitlements, accounts, consent | platform | never in ERPNext | |
@@ -58,6 +59,7 @@ invoice and its row commit or roll back together), by a receiver of the shop's a
 | `credit_note.issued` | `shop.CreditNote` created | `credit_note:<number>` | the order |
 | `refund.paid` | the credit note's refund, money out against it | `refund:<refund id>` | the order |
 | `settlement.received` | a COD remittance remitted (`shipping.CodRemittance`) | `settlement:cod-<id>` | the order |
+| `settlement.received` | a Razorpay settlement matched, live keys only (`shop.Settlement`, once; the Journal Entry moves Razorpay Clearing to the bank, the fees to an expense, their GST to input credit) | `settlement:<setl_ id>` | the settlement |
 
 What hangs on an invoice is written only once the invoice is in the outbox; when it comes first (a COD parcel leaves
 before its bill is made, a payment is captured before its invoice), the invoice's own producer writes it. Both lock
@@ -114,12 +116,13 @@ on the product, as checkout's reservation is. Off (shadow mode), the snapshots a
 **The reconciliation** (`reconcile.py`, 03:30 India time for yesterday; `erp_reconcile --date`): ERPNext's
 `daily_totals` against the platform's day, for each flow on: the invoices and credit notes (count, total and exempt
 value exactly; taxable value and GST within 0.01 a taxed document: ERPNext rounds each tax once per invoice, the
-platform's invoices each line, examleaf-erp/API.md deviation 7), payments and refunds by mode, COD settlements, the
-delivery notes and the copies they took per item; every document of the day ERPNext has not answered for (no
-`ErpLink`), with where its outbox row is; with `ERP_PULL_STOCK` the stock invariant per item (ERPNext's free copies
-less those reserved here and not shipped = the copies for sale here). Differences are rows
-(`ErpReconciliationDifference`), one inbox item a run for those who may resolve them, a `reconciliation_difference`
-signal each, and an email to `ERP_ALERT_EMAILS`: references, item codes and totals, no personal data.
+platform's invoices each line, examleaf-erp/API.md deviation 7), payments and refunds by mode, COD settlements and the
+Razorpay settlements posted for the day (their gross), the delivery notes and the copies they took per item; every
+document of the day ERPNext has not answered for (no `ErpLink`), with where its outbox row is; with `ERP_PULL_STOCK`
+the stock invariant per item (ERPNext's free copies less those reserved here and not shipped = the copies for sale
+here). Differences are rows (`ErpReconciliationDifference`), one inbox item a run for those who may resolve them, a
+`reconciliation_difference` signal each, and an email to `ERP_ALERT_EMAILS`: references, item codes and totals, no
+personal data.
 
 ## The contract, field by field (examleaf-erp/API.md)
 

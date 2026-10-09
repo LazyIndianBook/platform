@@ -14,7 +14,9 @@
 // else, and reduced motion. The content module's journey: a reported mistake confirmed, a formula KaTeX cannot draw
 // named in the editor before anything is sent, the fix saved and submitted (and not one's own to publish), a
 // colleague's review published, another published and undone within its five seconds, the report marked fixed and its
-// reporter told, an import's dry run and apply. The TEST band shows throughout (the fixtures are test data).
+// reporter told, an import's dry run and apply. Finance: today's stuck payments, one asked of Razorpay again and
+// captured, its line in the settlement that did not match matched by hand and the adjustment accepted, both in the
+// audit trail. The TEST band shows throughout (the fixtures are test data).
 import { expect, type Page, test } from "@playwright/test";
 
 import { axe, checkPages, type Codes, settle, signIn, toast } from "./console";
@@ -103,6 +105,24 @@ const PAGES = [
   "/support/new/",
   "/support/replies/",
   "/support/export/",
+  // Phase B: Finance
+  "/finance/",
+  "/finance/?document=EL/2026-27/00123",
+  "/finance/payments/",
+  "/finance/payments/?stuck=true",
+  "/finance/payments/410/",
+  "/finance/payments/9101/",
+  "/finance/payments/9104/",
+  "/finance/refunds/",
+  "/finance/refunds/?state=waiting",
+  "/finance/offline-payments/",
+  "/finance/offline-payments/?state=waiting",
+  "/finance/payment-links/",
+  "/finance/payment-links/?kind=invoice",
+  "/finance/settlements/",
+  "/finance/settlements/1/",
+  "/finance/settlements/2/",
+  "/finance/settlements/4/",
 ];
 
 const stamp = Date.now();
@@ -205,7 +225,8 @@ for (const width of [1280, 390]) {
         await expect(page.getByRole("region", { name: "Test environment" })).toContainText("Not the live site");
         await expect(page.getByRole("link", { name: "Data request", exact: true })).toBeVisible();
         await expect(page.getByText(/^overdue by/i).first()).toBeVisible();
-        await expect(page.getByRole("link", { name: "2 requests waiting for a decision" })).toBeVisible();
+        // a refund and a role change, and an offline payment waiting for FINANCE (or an owner)
+        await expect(page.getByRole("link", { name: "3 requests waiting for a decision" })).toBeVisible();
       });
 
       await test.step("the inbox: done, snooze, and take one", async () => {
@@ -712,6 +733,67 @@ for (const width of [1280, 390]) {
         await expect(page.locator("dt", { hasText: "Changed" }).first()).toBeVisible(); // what it found, counted
         await apply.click();
         await settle(page, toast(page, "Import applied"), staff, codes);
+      });
+    });
+
+    test("finance: today, a stuck payment asked of Razorpay again, its settlement line matched, the audit trail", async ({
+      page,
+    }) => {
+      await signIn(page, staff, "/finance/", codes);
+      await expect(page.getByRole("heading", { level: 1, name: "Finance" })).toBeVisible();
+
+      await test.step("Finance today: a line a duty, the stuck payments one link away", async () => {
+        const today = page.getByRole("region", { name: "What waits today" });
+        await expect(today.getByText("Not set up")).toBeVisible(); // disputes: not fetched yet
+        await today.getByRole("link", { name: "Payments stuck at Razorpay" }).click();
+        await expect(page).toHaveURL(/\/finance\/payments\/\?stuck=true$/);
+        await expect(page.getByRole("link", { name: "Stuck", exact: true })).toHaveAttribute("aria-current", "page");
+      });
+
+      await test.step("the authorised payment asked of Razorpay again: captured, the order paid", async () => {
+        await page.getByRole("region", { name: "Payments, a table" }).getByRole("link", { name: "#9101" }).click();
+        await expect(page.getByRole("heading", { level: 1, name: "Payment #9101" })).toBeVisible();
+        await page.getByRole("button", { name: "Ask Razorpay again" }).click();
+        await settle(page, toast(page, "Razorpay asked"), staff, codes);
+        await expect(
+          page.getByText("Razorpay had the payment: the order is paid now; payment 9101 recorded as captured."),
+        ).toBeVisible();
+        await expect(page.getByText("order: pending to paid")).toBeVisible();
+      });
+
+      await test.step("the settlement that does not match: its line matched to that payment, its adjustment accepted", async () => {
+        await page.goto("/finance/settlements/?state=mismatched");
+        await page
+          .getByRole("region", { name: "Settlements, a table" })
+          .getByRole("link", { name: "setl_mockB0002" })
+          .click();
+        await expect(page.getByRole("heading", { level: 1, name: "setl_mockB0002" })).toBeVisible();
+        await expect(page.getByText("2 lines not ours yet")).toBeVisible();
+        // the line's id is visually hidden: the name the browser computes sets it apart with a space
+        await page.getByRole("button", { name: /^Match\b.*pay_mock138/ }).click();
+        const dialog = page.getByRole("dialog", { name: "Match line pay_mock138" });
+        expect.soft((await axe(page)).violations, "axe on the match dialog").toEqual([]);
+        await dialog.getByLabel("Payment number").fill("9101");
+        await dialog.getByLabel("Why").fill("Its webhook was lost; Razorpay was asked again.");
+        await dialog.getByRole("button", { name: "Match" }).click();
+        await settle(page, toast(page, "Line matched"), staff, codes);
+        await page.getByRole("button", { name: /^Accept\b.*adj_mockB1/ }).click();
+        const accept = page.getByRole("dialog", { name: "Accept line adj_mockB1 as it is" });
+        await accept.getByLabel("Why").fill("Razorpay's fee reversal, on its statement.");
+        await accept.getByRole("button", { name: "Accept" }).click();
+        await settle(page, toast(page, "Line accepted"), staff, codes);
+        await expect(page.getByText("4 lines, all matched")).toBeVisible();
+        await expect(page.getByText("2 lines not ours yet")).toHaveCount(0);
+      });
+
+      await test.step("both in the audit trail", async () => {
+        await page.goto("/audit/");
+        await page.getByRole("searchbox", { name: "Action starts with" }).fill("payment.");
+        await page.getByRole("button", { name: "Apply" }).click();
+        await expect(page).toHaveURL(/action_prefix=payment\./);
+        const table = page.getByRole("region", { name: "Audit trail, a table" });
+        await expect(table.getByText("payment.settlement_line_matched").first()).toBeVisible();
+        await expect(table.getByText("payment.reconciled").first()).toBeVisible();
       });
     });
   });

@@ -1,4 +1,5 @@
-from datetime import timedelta
+import logging
+from datetime import date, timedelta
 
 import requests
 from celery import shared_task
@@ -13,6 +14,7 @@ from razorpay.errors import BadRequestError, GatewayError, ServerError
 
 from examleaf.celery import LONG_TASK, PDF_TASK, single_run
 from examleaf.images import og_image
+from integrations.client import IntegrationUnavailable
 from ops.tasks import queue_text_email
 
 from . import invoices, payments, services, tax
@@ -30,6 +32,8 @@ from .models import (
     paise,
     public_storage,
 )
+
+logger = logging.getLogger(__name__)
 
 
 @shared_task(
@@ -280,3 +284,56 @@ def weekly_staff_grants(today=None):
             robust=True,
         )
     return len(recipients)
+
+
+# Phase B: finance
+
+
+@shared_task(**LONG_TASK)
+@single_run(LONG_TASK["time_limit"])
+def reconcile_payments(older_than=10):
+    """Nightly (02:30): every online order still awaiting payment, made more than `older_than` minutes ago, asked of
+    Razorpay (a lost webhook; a payment that failed and turned authorised within its 3 days: captured and recorded),
+    staff orders' links included, as `manage.py reconcile_payments` does; then the B2B invoices' open links. A second
+    run finds the paid ones paid (record_capture is once). Returns {"paid", "unpaid", "unknown"}."""
+    from .models import InvoicePaymentLink
+
+    counts = {"paid": 0, "unpaid": 0, "unknown": 0}
+    words = {True: "paid", False: "unpaid", None: "unknown"}
+    if not payments.configured():
+        return counts
+    for order in payments.awaiting_payment(older_than):
+        try:
+            counts[words[payments.reconcile(order)]] += 1
+        except Exception:  # one order's trouble does not stop the others
+            logger.exception("Reconciling order %s failed", order.number)
+            counts["unknown"] += 1
+    old = timezone.now() - timedelta(minutes=older_than)
+    for link in InvoicePaymentLink.objects.filter(status=InvoicePaymentLink.Status.SENT, created__lt=old):
+        try:
+            counts[words[payments.reconcile_invoice_link(link)]] += 1
+        except Exception:
+            logger.exception("Reconciling the link for invoice %s failed", link.invoice)
+            counts["unknown"] += 1
+    return counts
+
+
+@shared_task(
+    autoretry_for=(IntegrationUnavailable,), retry_backoff=600, retry_backoff_max=3600, max_retries=4, **LONG_TASK
+)
+@single_run(LONG_TASK["time_limit"])
+def fetch_settlements(day=None):
+    """Daily (03:15): yesterday's Razorpay settlements (or `day`'s, YYYY-MM-DD) fetched, kept once, matched and
+    posted to ERPNext once (shop.settlements), then the matched ones still waiting to be posted (the flow was off).
+    Razorpay out of reach or its circuit open: tried again for about three hours. Not set up: nothing. Run twice, the
+    same day changes nothing (settlements and lines are kept once each; a settlement posts once)."""
+    from . import settlements
+
+    when = date.fromisoformat(day) if day else settlements.yesterday()
+    try:
+        result = settlements.fetch_day(when)
+    except settlements.NotConfigured as error:
+        logger.info("Razorpay settlements not fetched: %s", error)
+        return {"day": when.isoformat(), "not_configured": True}
+    result["posted_waiting"] = settlements.post_waiting()
+    return result

@@ -139,6 +139,12 @@ export const P = {
   // what a ticket's actions also need beyond the Orders module's keys: the course's own permissions
   accessExtend: "learn.change_entitlement",
   bookCodesView: "learn.view_bookcode",
+  // Finance (the backend's shop/staff_finance.py): payments, refunds, payment links, settlements, Finance today
+  paymentsView: "shop.view_payment",
+  refundsView: "shop.view_refund",
+  settlementsView: "shop.view_settlement",
+  settlementLinesView: "shop.view_settlementline",
+  reconcileSettlements: "staff.reconcile_settlements",
 } as const;
 
 /** Whether the manifest lists the permission (the shell's only use of permissions: what to draw). */
@@ -177,6 +183,8 @@ export const MODULES: readonly Module[] = [
   { key: "orders", href: "/orders/", group: "shop", any: [P.ordersView] },
   { key: "shipping", href: "/shipping/", group: "shop", any: SHIPPING, soon: true },
   { key: "catalogue", href: "/catalogue/", group: "shop", any: ["shop.view_product"], soon: true },
+  // Finance in the panel (payments, refunds, links, settlements), its ERPNext pages linked from it
+  { key: "finance", href: "/finance/", group: "shop", any: [P.paymentsView, P.settlementsView, P.codView] },
   { key: "tax", href: "/tax/", group: "shop", any: [P.taxHsnView, P.taxDocumentsView] },
   { key: "marketing", href: "/marketing/", group: "shop", any: ["shop.view_coupon", "shop.view_offer"], soon: true },
   { key: "content", href: "/content/", group: "learning", any: [P.booksView, P.papersView, P.reportsView] },
@@ -202,7 +210,6 @@ export const MODULES: readonly Module[] = [
   { key: "connections", href: "/settings/connections/", group: "system", any: [P.connectionsView] },
   { key: "templates", href: "/settings/templates/", group: "system", any: [P.templatesView] },
   { key: "system", href: "/system/", group: "system", any: [P.systemView] },
-  { key: "finance", href: "/app/accounting", group: "erp", any: ERP, erp: "/app/accounting" },
   { key: "gstReturns", href: "/app/gst-india", group: "erp", any: ERP, erp: "/app/gst-india" },
   { key: "inventory", href: "/app/stock", group: "erp", any: ERP, erp: "/app/stock" },
   { key: "purchases", href: "/app/buying", group: "erp", any: ERP, erp: "/app/buying" },

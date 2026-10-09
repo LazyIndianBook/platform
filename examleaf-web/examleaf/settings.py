@@ -1045,6 +1045,31 @@ CELERY_BEAT_SCHEDULE |= {
     "support-watch": {"task": "support.tasks.watch_clocks", "schedule": crontab(minute="*/15")},
     "support-purge": {"task": "support.tasks.purge", "schedule": crontab(hour=3, minute=45)},
 }
+# Phase B: finance (shop/staff_finance.py, shop/settlements.py; shop/README.md "Finance"; API.md "Finance (staff)").
+# An online payment created or authorised SHOP_STUCK_PAYMENT_MINUTES ago on an order still unpaid, or captured on an
+# order still pending, is stuck: the panel lists it to ask Razorpay again. Each night at 02:30 the orders still
+# awaiting an online payment are asked of Razorpay (the late-authorised case, a lost webhook: reconcile_payments), and
+# at 03:15 yesterday's Razorpay settlements are fetched from the settlement recon API, matched to the payments and
+# refunds by Razorpay's ids, and each matched one posted to ERPNext once (ERP_SYNC_SETTLEMENTS): both single runs.
+SHOP_STUCK_PAYMENT_MINUTES = env.int("SHOP_STUCK_PAYMENT_MINUTES", default=15)
+CELERY_BEAT_SCHEDULE |= {
+    "shop-reconcile-payments": {"task": "shop.tasks.reconcile_payments", "schedule": crontab(hour=2, minute=30)},
+    "shop-fetch-settlements": {"task": "shop.tasks.fetch_settlements", "schedule": crontab(hour=3, minute=15)},
+}
+_FINANCE_TAG = {"name": "finance (staff)", "description": "Payments, links, refunds, settlements, today (API.md)."}
+if _FINANCE_TAG not in SPECTACULAR_SETTINGS["TAGS"]:  # noqa: F405  (once: tests reload this module, the dict is shared)
+    SPECTACULAR_SETTINGS["TAGS"].append(_FINANCE_TAG)  # noqa: F405
+SPECTACULAR_SETTINGS["ENUM_NAME_OVERRIDES"].update(  # noqa: F405  a payment's and a refund's choices, named as before
+    OrderPaymentStatusEnum="shop.models.Payment.Status",
+    OrderRefundMethodEnum="shop.models.Refund.Method",
+    FinanceSettlementStateEnum="shop.models.Settlement.State",
+    FinanceSettlementLineTypeEnum="shop.models.SettlementLine.Type",
+    FinanceLinkStateEnum="shop.staff_finance.LINK_STATES",
+    FinanceLinkKindEnum="shop.staff_finance.LINK_KINDS",
+    FinanceRowKindEnum=["request", "payment", "refund"],
+    FinanceTodayKeyEnum="shop.staff_finance.TODAY_KEYS",
+    OrderPaymentLinkActionEnum=["send", "cancel"],  # an order's link's action, named as before (and a B2B link's)
+)
 
 # ---- Resilience (RESILIENCE.md: each knob below, its default and when to change it) --------------------------------
 # Nothing waits without a limit: every call to another service has a connect and a read timeout and a bounded retry,

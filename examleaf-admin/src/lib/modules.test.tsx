@@ -8,7 +8,7 @@ import { ManifestProvider } from "@/components/shell/manifest";
 import { currentModule, Sidebar } from "@/components/shell/sidebar";
 import { manifestWith } from "@/test/fixtures";
 
-import { groupedModules, has, moduleHref, P, soonModule, visibleModules } from "./modules";
+import { groupedModules, has, moduleHref, MODULES, P, soonModule, visibleModules } from "./modules";
 
 const keys = (permissions: string[], erp = "") => visibleModules(manifestWith(permissions), erp).map((m) => m.key);
 
@@ -70,9 +70,17 @@ describe("visibleModules", () => {
     expect(keys(["shop.view_product", P.taxHsnView])).toEqual(["home", "catalogue", "tax"]);
   });
 
+  it("opens Finance in the panel for payments, settlements or cash on delivery, under Shop before Tax", () => {
+    expect(keys([P.paymentsView])).toEqual(["home", "finance"]);
+    expect(keys([P.settlementsView, P.taxHsnView])).toEqual(["home", "finance", "tax"]);
+    expect(keys([P.reconcileSettlements, P.erpView])).toEqual(["home"]); // a permission to act opens nothing alone
+    expect(MODULES.find((m) => m.key === "finance")).toMatchObject({ href: "/finance/", group: "shop" });
+    expect(soonModule("finance", manifestWith([P.paymentsView]))).toBeNull(); // built: its own pages
+  });
+
   it("opens the audit trail to its readers only, and shipping and the insights by their apps' permissions", () => {
     expect(keys([P.auditView])).toEqual(["home", "audit"]);
-    expect(keys([P.codView])).toEqual(["home", "shipping"]);
+    expect(keys([P.codView])).toEqual(["home", "shipping", "finance"]); // Finance today counts its remittances
     expect(keys([P.signalsAcknowledge])).toEqual(["home", "insights"]);
   });
 
@@ -81,7 +89,6 @@ describe("visibleModules", () => {
     const erp = "https://erp.example.invalid";
     const linked = visibleModules(manifestWith([P.erpResolve]), erp).filter((m) => m.erp);
     expect(linked.map((m) => moduleHref(m, erp))).toEqual([
-      "https://erp.example.invalid/app/accounting",
       "https://erp.example.invalid/app/gst-india",
       "https://erp.example.invalid/app/stock",
       "https://erp.example.invalid/app/buying",
