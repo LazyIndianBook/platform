@@ -1594,6 +1594,12 @@ recommendation until it gets it.
     ship-to place of supply. (gst 3, 5.5, 5.6, 5.9, 5.11)
 16. TDS under s.393 of the Income-tax Act 2025 for printers, authors, professionals and rent; and whether ExamLeaf is
     a micro or small enterprise under Udyam (buyers' 45-day duty, s.43B(h), MSME Form 1). (gst 4, 6; b2b 6)
+17. GST on Razorpay's fee: claim it through the settlement journal entry or through a purchase invoice from
+   Razorpay? And the rounding: ERPNext rounds each tax once per invoice, the platform per line, so the tax on an
+   invoice can differ by one paisa while the totals agree; keep the platform's figure on the customer's document and a
+   0.01 tolerance in the nightly check? (erp API.md; gst 5.6)
+18. A COD parcel that comes back after the invoice was issued at dispatch: a credit note or a cancellation, and the
+   treatment of the courier's charges? (int 3.9; erp API.md)
 
 **For the lawyer**
 1. Is ExamLeaf an "educational institution" under the DPDP Rules' Fourth Schedule? If not, which learning analytics
