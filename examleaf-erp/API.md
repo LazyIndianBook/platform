@@ -22,8 +22,11 @@ named a field loosely or differently, this API's names are below; `erp/contract.
    `idempotency_key` is `^[A-Za-z0-9][A-Za-z0-9:_./-]{0,139}$` (the outbox row's id).
 3. **Duplicates come in two forms.** The same key with the same body replays the first answer in full with
    `duplicate: true`. The same `examleaf_ref` under a new key answers the short form
-   `{ok: true, name, duplicate: true, docstatus, examleaf_ref, log}`: re-read the document if you need more. The same
-   key with another body is `409 idempotency_key_reused`.
+   `{ok: true, name, duplicate: true, docstatus, examleaf_ref, log}`: re-read the document if you need more, unless
+   the reference's invoice is another order's (`order_number`) or its credit note is against another invoice
+   (`invoice_number`): `409 conflict`, so that a number issued again (a restored database, a second platform) is
+   refused rather than answered as the first document's duplicate (found by the shadow run,
+   `examleaf-web/erp/SHADOW-RUN.md`). The same key with another body is `409 idempotency_key_reused`.
 4. **Answers carry more than the brief's four fields**: `log` (the Sync Log row of this call), `warnings` (ERPNext's
    messages, when it had any) and each method's own fields below. Ignore what you do not use.
 5. **Unknown fields are refused** (`400 invalid_request`, `field` names it), so a typo in a payload fails instead of
@@ -110,7 +113,7 @@ Content-Type: application/json
 |---|---|---|
 | `invalid_request` | 400 | a field missing, malformed, unknown, or inconsistent (totals that do not add up, a date outside the number's financial year, a credit note dated before its invoice) |
 | `not_found` | 404 | a document the call names is not there (an Item not yet upserted, an invoice not submitted or not the platform's) |
-| `conflict` | 409 | the reference or number belongs to another document, an item_code would change, a kind would change stock-keeping |
+| `conflict` | 409 | the reference or number belongs to another document (an invoice to another order, a credit note against another invoice), an item_code would change, a kind would change stock-keeping |
 | `idempotency_key_reused` | 409 | the key was used before with another request |
 | `cancelled` | 409 | the reference's document was cancelled in ERPNext (staff did it; ask them) |
 | `amendment_refused` | 409 | the invoice number belongs to a cancelled invoice: a number is never issued again; credit it instead |

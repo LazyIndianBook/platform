@@ -71,6 +71,22 @@ def test_a_reference_seen_under_another_key_answers_the_short_form(on, book, cus
     assert ErpLink.objects.get(examleaf_ref=first.examleaf_ref).name == first.response["name"]
 
 
+def test_a_number_issued_again_for_another_order_is_dead_at_once(on, book, customer):
+    # the shadow run (SHADOW-RUN.md): ERPNext answered such a row as the first order's duplicate, which would have
+    # linked the second order's invoice to the first one's document
+    one = pay_offline(ordered((book, 1), user=customer))
+    two = pay_offline(ordered((book, 2), user=customer))
+    first, other = rows(event="invoice.issued")
+    reused = {**other.payload, "invoice_number": first.payload["invoice_number"]}  # a restored database's number
+    ErpOutbox.objects.filter(pk=other.pk).update(examleaf_ref=first.examleaf_ref, payload=reused)
+    relay()
+    other.refresh_from_db()
+    assert other.state == "dead" and "conflict" in other.last_error and "(order_number)" in other.last_error
+    assert ErpLink.objects.get(examleaf_ref=first.examleaf_ref).object_id == first.object_id
+    assert FAKE.doc("Sales Invoice", first.payload["invoice_number"])["order_number"] == one.number
+    assert row("payment.received", aggregate_id=two.number).state == "pending"  # held behind it
+
+
 def test_a_key_reused_with_another_body_is_dead_at_once(on, book):
     relay()
     sent = row("item.upserted")

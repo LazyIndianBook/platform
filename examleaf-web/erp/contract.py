@@ -8,7 +8,9 @@ this file.
   Frappe's envelope {"message": <answer>}: {ok: true, name, duplicate, examleaf_ref, log, ...} or, with an HTTP
   status (400, 404, 409, 422, 500), {ok: false, error: {code, message, field}}. The same key with the same body
   answers its first result again (duplicate: true); the same reference under a new key, the short form {ok, name,
-  duplicate: true, docstatus}; the same key with another body is 409 idempotency_key_reused, a bug: never retried.
+  duplicate: true, docstatus}, unless its invoice is another order's (or its credit note another invoice's): 409
+  conflict, a number issued again; the same key with another body is 409 idempotency_key_reused, a bug: never
+  retried.
   Re-reads go through Frappe's REST (GET /api/resource/<Doctype>/<name>) for Sales Invoice, Quotation and Customer;
   stock only through get_stock.
 - The payloads (EVENTS), built from the platform's own documents through the functions their PDFs use

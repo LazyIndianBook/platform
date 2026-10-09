@@ -6,7 +6,8 @@
 - Strict fields: a required one missing, an unknown one (anywhere, nested too), a reference or key not in its format,
   a total that does not add up, a date in the future: 400 invalid_request.
 - Idempotency: the same key and body answer the first result again (duplicate: true); the same reference under a
-  new key, the short form; the same key with another body, 409 idempotency_key_reused. Refusals are not remembered.
+  new key, the short form, unless its invoice is another order's (or its credit note another invoice's: 409
+  conflict); the same key with another body, 409 idempotency_key_reused. Refusals are not remembered.
 - What ERPNext refuses: an item not upserted (404), a document of an invoice it does not have (404), more paid or
   credited than there is (422), a delivery without the copies in the warehouse (422 insufficient_stock) or with
   nothing left to deliver (422). GST as ERPNext rounds it: once per tax and rate on the invoice's taxable value.
@@ -379,12 +380,17 @@ class FakeErpNext:
             return self.json(504, {"exc_type": "GatewayTimeout"})
         return self.answer(200, result)
 
-    def existing(self, doctype, ref, name=None):
-        """The app's find_existing: the short form for a reference seen before, a 409 for a number taken."""
+    def existing(self, doctype, ref, name=None, same=None):
+        """The app's find_existing: the short form for a reference seen before, a 409 for a number taken, or for a
+        reference whose document holds another value of `same` ({key: (field, value)}: a number issued again for
+        another order)."""
         if ref in self.refs:
             kind, found = self.refs[ref]
             if name and found != name:
                 raise Refused("conflict", f"{ref} is already {doctype} {found}.", 409, "examleaf_ref")
+            for key, (field, value) in (same or {}).items():
+                if (there := self.docs[(kind, found)].get(key)) != value:
+                    raise Refused("conflict", f"{doctype} {found} is {there}'s, not {value}'s.", 409, field)
             return {"name": found, "duplicate": True, "docstatus": self.docs[(kind, found)]["docstatus"]}
         if name and (doctype, name) in self.docs:
             raise Refused("conflict", f"{doctype} {name} exists with another reference.", 409, "invoice_number")
@@ -517,7 +523,8 @@ class FakeErpNext:
         total = amount(payload, "total")
         if sum((row["amount"] for row in rows), Decimal(0)) != total:
             raise bad("total", "The lines and shipping do not add up to the total.")
-        if duplicate := self.existing("Sales Invoice", ref, number):
+        same_order = {"order_number": ("order_number", payload["order_number"])}
+        if duplicate := self.existing("Sales Invoice", ref, number, same=same_order):
             return duplicate
         kind = kind_of(rows)
         if payload.get("doc_kind") and payload["doc_kind"] != kind:
@@ -557,7 +564,8 @@ class FakeErpNext:
         total = amount(payload, "total", positive=True)
         if sum((Decimal(c["amount"]) for c in credits), Decimal(0)) + shipping != total:
             raise bad("total", "The credits do not add up to the total.")
-        if duplicate := self.existing("Sales Invoice", ref, number):
+        same_invoice = {"return_against": ("invoice_number", payload["invoice_number"])}
+        if duplicate := self.existing("Sales Invoice", ref, number, same=same_invoice):
             return duplicate
         original = self.invoice(payload["invoice_number"])
         if posting_date < date.fromisoformat(original["posting_date"]):

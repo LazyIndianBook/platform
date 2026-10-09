@@ -230,7 +230,8 @@ def create_sales_invoice(data):
     total = f.money("total")
     f.done()
 
-    if duplicate := find_existing("Sales Invoice", ref, number):
+    same_order = {"examleaf_order_no": ("order_number", order_number)}
+    if duplicate := find_existing("Sales Invoice", ref, number, same=same_order):
         return duplicate, "Sales Invoice"
 
     items = []
@@ -343,7 +344,8 @@ def create_credit_note(data):
     total = f.money("total", allow_zero=False)
     f.done()
 
-    if duplicate := find_existing("Sales Invoice", ref, number):
+    same_invoice = {"return_against": ("invoice_number", original_number)}
+    if duplicate := find_existing("Sales Invoice", ref, number, same=same_invoice):
         return duplicate, "Sales Invoice"
     expected = sum((c["amount"] for c in credits), Decimal("0.00")) + shipping_credit
     if expected != total:
@@ -841,13 +843,20 @@ def check_financial_year(number, day, field):
         raise bad(field, f"{number} is not a number of the financial year of {day} ({financial_year(day)}).")
 
 
-def find_existing(doctype, ref, name=None):
+def find_existing(doctype, ref, name=None, same=None):
     """The idempotency by examleaf_ref (and, for invoices, by their legal number): an answer for the document already
-    made from this reference, a 409 when the reference or the number belongs to something else."""
-    by_ref = frappe.db.get_value(doctype, {"examleaf_ref": ref}, ["name", "docstatus"], as_dict=True)
+    made from this reference, a 409 when the reference or the number belongs to something else. `same`: {column: (the
+    request's field, its value)} the document of this reference must hold, so that a number issued again for another
+    order (a restored database, a second platform) is refused rather than answered as its duplicate."""
+    same = same or {}
+    by_ref = frappe.db.get_value(doctype, {"examleaf_ref": ref}, ["name", "docstatus", *same], as_dict=True)
     if by_ref:
         if name and by_ref.name != name:
             raise ApiError("conflict", f"{ref} is already {doctype} {by_ref.name}.", 409, "examleaf_ref")
+        for column, (field, value) in same.items():
+            if by_ref.get(column) != value:
+                there = by_ref.get(column) or "nothing"
+                raise ApiError("conflict", f"{doctype} {by_ref.name} is {there}'s, not {value}'s.", 409, field)
         if by_ref.docstatus == 2:
             raise ApiError(
                 "cancelled", f"{doctype} {by_ref.name} of {ref} was cancelled in ERPNext.", 409, "examleaf_ref"
