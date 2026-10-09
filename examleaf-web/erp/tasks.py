@@ -31,6 +31,7 @@ from django.db import transaction
 from django.db.models import Count, Exists, OuterRef, Q
 from django.utils import timezone
 
+from examleaf.celery import LONG_TASK, single_run
 from integrations.client import (
     CircuitOpen,
     IntegrationAuthFailed,
@@ -219,7 +220,8 @@ def refresh_stock():
     return None
 
 
-@shared_task(base=IntegrationTask, bind=True)
+@shared_task(base=IntegrationTask, bind=True, **LONG_TASK)
+@single_run(LONG_TASK["time_limit"])  # its differences and their email: once
 def reconcile_day(self, day=None):
     """03:30 India time: yesterday's documents and today's stock compared (reconcile.run); retried while ERPNext
     cannot be reached, a dead letter when it gives up."""

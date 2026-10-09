@@ -13,13 +13,16 @@ from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
 from django.utils import timezone
 
+from examleaf.celery import LONG_TASK, single_run
+
 from . import approvals, audit
 from .models import InboxItem, RoleGrant, StaffScope
 
 logger = logging.getLogger(__name__)
 
 
-@shared_task
+@shared_task(**LONG_TASK)  # the whole log read, or a week of it
+@single_run(LONG_TASK["time_limit"])
 def verify_audit_chain():
     """Nightly: recompute both chains; a break alerts the owners and files an inbox item (research 3.3)."""
     problems = audit.verify()
@@ -49,7 +52,8 @@ def verify_audit_chain():
     return len(problems)
 
 
-@shared_task
+@shared_task(**LONG_TASK)  # the whole log read, or a week of it
+@single_run(LONG_TASK["time_limit"])
 def export_audit_log(days=7):
     """Daily: each of the last `days` UTC days not yet in the backups' bucket, as JSON lines with the chains' heads
     (audit.export_day). A failure alerts the owners."""
@@ -92,7 +96,7 @@ def expire_access():
     }
 
 
-@shared_task
+@shared_task(**LONG_TASK)  # past the soft limit the job ends failed, with the reason, not running forever
 def run_job(job_id):
     """A job started from the panel (staff.jobs.run): its rows, its progress, its file."""
     from .jobs import run
@@ -133,7 +137,7 @@ def watch():
     return filed
 
 
-@shared_task
+@shared_task(acks_late=False)  # run again after a lost worker, it would email the data a second time
 def email_data_export(data_request_id):
     """An access request's answer (research 4.2, s.11): everything kept about the account, as Download my data's JSON
     file, attached to an email to the account's own address only, with who processes it for ExamLeaf (the processor
