@@ -1,0 +1,36 @@
+{{- /* Traefik's Middleware resources (traefik.io/v1alpha1), attached by ingress.yaml's Ingresses through the annotation
+       traefik.ingress.kubernetes.io/router.middlewares: what the Caddyfile does besides routing.
+         redirect-https   http to https with the whole path and query (Caddy's automatic redirect)
+         body-limit       bodies over ingress.maxBodyBytes answered 413, and read whole before gunicorn sees them (the
+                          Caddyfile's request_body and request_buffers). Traefik's Buffering holds the response back
+                          too, so only Django's form and API paths have it, never the website's streamed pages
+         compress         zstd or gzip for answers not compressed already (the Caddyfile's encode zstd gzip)
+         strip-server     no Server header from gunicorn (the Caddyfile's header -Server)
+         health-auth      /health for the uptime monitor only: user monitor, HEALTH_CHECK_TOKEN as the password
+         health-hide      on the Next.js servers' paths: /health never reaches a server that passes Django's paths on;
+                          should the health Ingress be down (its Secret missing), /health is the website's 404
+         admin-allowlist  the admin host for admin.allowlist's addresses only; the others get 403 */ -}}
+{{- $fullname := include "examleaf.fullname" . -}}
+{{- $labels := dict "ctx" . "component" "ingress" "app" "examleaf" "version" .Values.image.tag -}}
+{{- $middlewares := dict
+  "redirect-https" (dict "redirectScheme" (dict "scheme" "https" "permanent" true))
+  "body-limit" (dict "buffering" (dict "maxRequestBodyBytes" (int64 .Values.ingress.maxBodyBytes) "memRequestBodyBytes" 1048576 "memResponseBodyBytes" 4194304))
+  "compress" (dict "compress" (dict "encodings" (list "zstd" "gzip")))
+  "strip-server" (dict "headers" (dict "customResponseHeaders" (dict "Server" "")))
+  "health-auth" (dict "basicAuth" (dict "secret" (include "examleaf.healthAuthSecret" .) "realm" "ExamLeaf health" "removeHeader" true))
+  "health-hide" (dict "replacePathRegex" (dict "regex" "^/health(/.*)?$" "replacement" "/health-not-found/"))
+-}}
+{{- if and .Values.admin.enabled .Values.admin.allowlist }}
+{{- $_ := set $middlewares "admin-allowlist" (dict "ipAllowList" (dict "sourceRange" .Values.admin.allowlist)) }}
+{{- end }}
+{{- range $name, $spec := $middlewares }}
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ $fullname }}-{{ $name }}
+  labels:
+    {{- include "examleaf.labels" $labels | nindent 4 }}
+spec:
+  {{- toYaml $spec | nindent 2 }}
+{{- end }}

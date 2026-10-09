@@ -39,7 +39,7 @@ spec:
       {{- include "examleaf.podSpecCommon" $ | nindent 6 }}
       containers:
         - name: {{ $component }}
-          image: {{ include "examleaf.image" (dict "repository" $v.image.repository "tag" $v.image.tag "appVersion" $.Chart.AppVersion) }}
+          image: {{ include "examleaf.image" (dict "ctx" $ "image" $v.image) }}
           imagePullPolicy: {{ $v.image.pullPolicy }}
           env:
             - name: API_INTERNAL_BASE

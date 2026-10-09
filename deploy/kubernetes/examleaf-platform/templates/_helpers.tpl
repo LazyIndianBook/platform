@@ -19,12 +19,15 @@ app.kubernetes.io/instance: {{ .ctx.Release.Name }}
 app.kubernetes.io/component: {{ .component }}
 {{- end -}}
 
-{{/* image references: "repository:tag", the tag falling back to the chart's appVersion */}}
+{{/* the platform's own images: "registry/repository:tag", the tag falling back to the chart's appVersion.
+     Call with (dict "ctx" $ "image" .Values.frontend.image). */}}
 {{- define "examleaf.image" -}}
-{{- printf "%s:%s" .repository (.tag | default $.appVersion) -}}
+{{- $name := .image.repository -}}
+{{- with .ctx.Values.registry }}{{ $name = printf "%s/%s" (trimSuffix "/" .) $name }}{{ end -}}
+{{- printf "%s:%s" $name (.image.tag | default .ctx.Chart.AppVersion) -}}
 {{- end -}}
 {{- define "examleaf.webImage" -}}
-{{- include "examleaf.image" (dict "repository" .Values.image.repository "tag" .Values.image.tag "appVersion" .Chart.AppVersion) -}}
+{{- include "examleaf.image" (dict "ctx" . "image" .Values.image) -}}
 {{- end -}}
 
 {{- define "examleaf.dbCluster" -}}

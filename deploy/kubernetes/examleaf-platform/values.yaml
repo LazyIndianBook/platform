@@ -9,14 +9,21 @@ domain: examleaf.in
 # Every resource is called <release>-<part> (examleaf-web, examleaf-db …); fullnameOverride replaces <release>.
 fullnameOverride: ""
 
-# examleaf-web's image (examleaf-web/Dockerfile) for web, worker, beat, media-worker and the jobs. `make images push`
-# (../Makefile) builds and pushes it, tagged with the git commit.
+# The registry of the platform's own images: examleaf-web, examleaf-frontend, examleaf-admin and, with ERPNext,
+# examleaf-erp (erpnext.image.repository must be <registry>/examleaf-erp; the chart checks it). `make images push`
+# (../Makefile) builds and pushes the first two there. Third-party images (PostgreSQL, Redis, rclone) keep their own.
+registry: ghcr.io/lazyindianbook
+
+# examleaf-web's image (examleaf-web/Dockerfile) for web, worker, beat, media-worker and the jobs, tagged with the git
+# commit.
 image:
-  repository: examleaf-web
+  repository: examleaf-web  # under the registry
   tag: ""  # empty: the chart's appVersion
   pullPolicy: IfNotPresent
-# Secrets of type kubernetes.io/dockerconfigjson for a private registry: [{name: ghcr-pull}]
-imagePullSecrets: []
+# The pull Secret (kubernetes.io/dockerconfigjson) for the registry: GHCR's packages of a private repository are
+# private. README.md "Images" shows how to make it.
+imagePullSecrets:
+  - name: ghcr-pull
 
 # Django's settings that are not secret, as environment variables in the ConfigMap <release>-config. Each is
 # examleaf-web/DEPLOYMENT.md section 13's variable of the same name; null leaves it unset, so Django's default (after
@@ -24,9 +31,12 @@ imagePullSecrets: []
 config:
   # Core
   DEBUG: "0"  # never 1 on a server: with 1 Django refuses every host but localhost and *.localhost
-  ALLOWED_HOSTS: null  # null: <domain>. Comma separated; it must include <domain> (the readiness probe sends it)
+  # null: <domain>, and admin.<domain> when the admin is on (its panel signs in and calls /api/v1/staff/ on its own
+  # host). Comma separated; it must include <domain> (the readiness probe sends it)
+  ALLOWED_HOSTS: null
   SITE_URL: null  # null: https://<domain>. The base of the QR codes and of the links in emails and SMS
-  CSRF_TRUSTED_ORIGINS: null  # default SITE_URL; add others only if the site is served under several names
+  # null: Django's default, SITE_URL; with the admin on, https://<domain>,https://admin.<domain>
+  CSRF_TRUSTED_ORIGINS: null
   SOLUTIONS_REQUIRE_LOGIN: null  # default 1: solutions for signed-in students; 0: for everyone
   PARENTAL_CONSENT_MODE: null  # default declared (the parent ticks the box); verified: the parent confirms by a link
   DATA_UPLOAD_MAX_MEMORY_SIZE: null  # default 1048576: the largest form or JSON body in bytes, files not counted
@@ -36,8 +46,8 @@ config:
   CACHE_URL: null  # null: redis://<release>-redis-cache:6379/0 (the cache Redis below)
   CELERY_BROKER_URL: null  # null: redis://<release>-redis-queue:6379/0 (the queue Redis below)
   CELERY_TASK_ALWAYS_EAGER: null  # default 0 with a broker: tasks go to the worker
-  # Proxy and https: one proxy, ingress-nginx, in front of web, as Caddy is in docker-compose.yml
-  PROXY_COUNT: "1"  # trusts X-Forwarded-Proto and -For from the ingress controller (README.md "Client addresses")
+  # Proxy and https: one proxy, Traefik, in front of web, as Caddy is in docker-compose.yml
+  PROXY_COUNT: "1"  # trusts X-Forwarded-Proto and -For from the ingress controller (README.md "The ingress controller")
   USE_X_FORWARDED_HOST: "1"  # the frontend's server-side calls name the site's host in X-Forwarded-Host
   SECURE_SSL_REDIRECT: null  # default 1; the ingress redirects first, so Django's redirect is a second line only
   SECURE_HSTS_SECONDS: null  # default 31536000
@@ -124,8 +134,9 @@ secrets:
   # S3_SECRET_ACCESS_KEY, PUBLIC_S3_ACCESS_KEY_ID, PUBLIC_S3_SECRET_ACCESS_KEY, FCM_SERVICE_ACCOUNT_JSON, SENTRY_DSN.
   # The frontend and the admin read INTERNAL_API_TOKEN from it, the media worker SECRET_KEY and the four S3 keys.
   env: ""  # empty: <release>-env
-  # The uptime monitor's way through the /health gate (README.md "Health checks"): key "auth" holding the line
-  # monitor:{PLAIN}<HEALTH_CHECK_TOKEN> (nginx's basic-auth file). While it is missing nobody gets through.
+  # The uptime monitor's way through the /health gate (README.md "Health checks"): a Secret of type
+  # kubernetes.io/basic-auth with username "monitor" and password HEALTH_CHECK_TOKEN, read by Traefik's BasicAuth.
+  # While it is missing nobody gets through: /health then reaches the frontend, which answers 404.
   healthAuth: ""  # empty: <release>-health-auth
   # The database backups' bucket keys, AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY as scripts/backup.sh names them.
   # CloudNativePG's Barman Cloud plugin reads them, and with ERPNext its MariaDB and site backups; no pod of the site does.
@@ -139,7 +150,7 @@ secrets:
     envKey: examleaf/env
     backupKey: examleaf/backup
     erpKey: examleaf/erp  # with ERPNext: db-root-password and admin-password (values.yaml "erp")
-    # where HEALTH_CHECK_TOKEN is kept; written into the health Secret in the form nginx reads
+    # where HEALTH_CHECK_TOKEN is kept; written into the health Secret as its password
     healthTokenKey: examleaf/env
     healthTokenProperty: HEALTH_CHECK_TOKEN
 
@@ -231,7 +242,7 @@ mediaWorker:
 # docker-compose.yml gives them.
 frontend:
   image:
-    repository: examleaf-frontend
+    repository: examleaf-frontend  # under the registry
     tag: ""  # empty: the chart's appVersion
     pullPolicy: IfNotPresent
   replicas: 1
@@ -248,18 +259,20 @@ frontend:
   env: {}  # more environment: {NAME: "value"}
 
 # The Admin Control Panel (examleaf-admin, Next.js, docs/examleaf-admin-control-panel-plan.md) at admin.<domain>,
-# shaped as the frontend: a placeholder until its image exists.
+# shaped as the frontend: a placeholder until its image exists. The admin host routes as the main host does: Django's
+# paths to web (the panel signs in and calls /api/v1/staff/ on its own host, with its own host-only cookies), every
+# other path to the panel; the host joins ALLOWED_HOSTS and CSRF_TRUSTED_ORIGINS.
 admin:
   enabled: false
   host: ""  # empty: admin.<domain>
   image:
-    repository: examleaf-admin
+    repository: examleaf-admin  # under the registry
     tag: ""
     pullPolicy: IfNotPresent
   replicas: 1
-  # the client addresses that may open the admin host, comma separated CIDRs (ingress-nginx's
-  # whitelist-source-range; the others get 403); empty: everyone (the panel's own sign-in still applies)
-  allowlist: ""
+  # the client addresses (CIDRs) that may open the admin host, Django's paths there included (Traefik's IPAllowList;
+  # the others get 403); empty: everyone (the panel's own sign-in still applies). E.g. [203.0.113.0/24]
+  allowlist: []
   resources:
     requests: {cpu: 100m, memory: 256Mi}
     limits: {cpu: "1", memory: 512Mi}
@@ -267,28 +280,27 @@ admin:
     maxUnavailable: 1
   env: {}
 
-# The Ingress resources (ingress-nginx), which do what the Caddyfile does: Django's paths to web and every other path
-# to the frontend on <domain>; admin.<domain> to the admin. ../README.md "The ingress controller" lists the
-# controller-wide settings that go with them (no HSTS of its own, gzip, a 10 s header timeout).
+# The Ingress resources for Traefik (k3s's bundled controller) and its Middleware resources, which do what the
+# Caddyfile does: Django's paths to web, every other path to the frontend (or, on admin.<domain>, to the admin), http
+# redirected to https. templates/ingress.yaml says which Ingress does what; ../README.md "The ingress controller" has
+# the controller's own settings that go with them (a 5-minute read timeout, the access log, the client's address).
 ingress:
-  className: nginx
+  className: traefik
   # cert-manager's ClusterIssuer for the certificates of both hosts; empty: put certificates in the TLS Secrets yourself
   clusterIssuer: letsencrypt
   tlsSecret: ""  # the main host's certificate; empty: <release>-tls
   adminTlsSecret: ""  # empty: <release>-admin-tls
-  bodySize: 10m  # every request body at most 10 MB, as the Caddyfile has it …
-  uploadBodySize: 500m  # … but on the clip and revision admin pages (the fallback for clip videos without a bucket)
-  # /health and /health/* (the Caddyfile answers 404 unless X-Health-Token matches): only the uptime monitor, here
-  # through ingress-nginx's basic auth with secrets.healthAuth. Another controller needs its own equivalent here
-  # (an allowlist of the monitor's addresses, say). Never let /health reach the frontend: it passes Django's paths on.
-  healthAnnotations:
-    nginx.ingress.kubernetes.io/auth-type: basic
-    nginx.ingress.kubernetes.io/auth-realm: ExamLeaf health
+  # Every request body to Django's form and API paths at most this many bytes, as the Caddyfile's 10 MB (Traefik's
+  # Buffering, which also reads the whole body before gunicorn sees it). Django's file paths and the website stream,
+  # because Buffering holds back responses too; the clip and revision admin pages stream to Django, which refuses a
+  # body over 1 MB from anyone but signed-in staff before reading it (learn.uploads.LargeBodyGuard).
+  maxBodyBytes: 10000000
   annotations: {}  # added to every Ingress of the chart
-  # who may reach the pods (the NetworkPolicies): the ingress controller's namespace and pod labels
-  controllerNamespace: ingress-nginx
+  # who may reach the pods (the NetworkPolicies): the ingress controller's namespace and pod labels (k3s's bundled
+  # Traefik runs in kube-system)
+  controllerNamespace: kube-system
   controllerPodLabels:
-    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/name: traefik
 
 # The media volume at /app/media (docker-compose.yml's "media"): invoices, credit notes and quotations, answer sheets
 # and, without buckets, the product pictures and the course's videos. Web, worker, beat and the media worker mount it.
@@ -329,6 +341,10 @@ postgres:
     keepDays: 30  # BACKUP_KEEP_DAYS: the recovery window
     schedule: "0 15 2 * * *"  # the base backup: seconds first, on the operator's clock (UTC)
     compression: gzip
+    # The bucket's server-side encryption for the base backups and the WAL, where the bucket takes the header: AES256
+    # or aws:kms on AWS S3. Empty on Cloudflare R2, which encrypts every object at rest by itself and refuses the
+    # header (README.md "Backups and restore").
+    encryption: ""
     sidecarResources:
       requests: {cpu: 50m, memory: 128Mi}
       limits: {cpu: "1", memory: 512Mi}
@@ -357,16 +373,16 @@ redis:
       requests: {cpu: 50m, memory: 64Mi}
       limits: {cpu: 500m, memory: 320Mi}
 
-# Default deny for ingress within the namespace, then the paths the site needs: the ingress controller to web, the
-# frontend and the admin (and to cert-manager's HTTP-01 solvers), the site's pods to PostgreSQL and the two Redis,
-# the frontend and the admin to web, the CloudNativePG operator to the instances.
+# Default deny for ingress within the namespace, then the paths the site needs: the ingress controller (Traefik) to
+# web, the frontend and the admin (and to cert-manager's HTTP-01 solvers), the site's pods to PostgreSQL and the two
+# Redis, the frontend and the admin to web, the CloudNativePG operator to the instances.
 networkPolicy:
   enabled: true
   cnpgNamespace: cnpg-system
 
 cronJobs:
-  # manage.py health_check against the web Service: the database, the cache, the storage and a Celery worker, as
-  # /health/ answers the uptime monitor; a failure is a failed Job (kubectl get jobs).
+  # manage.py health_check against the web Service: the database, the cache, the storage and a Celery worker for the
+  # default and the media queue, as /health/ answers the uptime monitor; a failure is a failed Job (kubectl get jobs).
   healthCheck:
     enabled: false
     schedule: "*/15 * * * *"
@@ -386,10 +402,9 @@ cronJobs:
 erp:
   # the ERP's host and its site's name; the same name stands in erpnext's siteName and probe values below (*erpSite)
   host: &erpSite erp.examleaf.in
-  # the client addresses that may open the ERP's host, comma separated CIDRs (or the VPN's); empty: everyone, who
-  # then meets ERPNext's own sign-in (SSO, 2FA by role)
-  allowlist: ""
-  bodySize: 50m  # the chart's nginx accepts 50 MB (imports, attachments)
+  # the client addresses (CIDRs) that may open the ERP's host (or the VPN's); empty: everyone, who then meets
+  # ERPNext's own sign-in (SSO, 2FA by role). The chart's nginx limits bodies to 50 MB itself.
+  allowlist: []
   # The Secret <release>-erp (made by hand, or by an ExternalSecret from secrets.externalSecret.erpKey): keys
   # db-root-password (MariaDB's root, which bench uses to make each site's database) and admin-password (the site's
   # Administrator, read by the createSite Job).
@@ -441,11 +456,12 @@ erp:
 
 erpnext:
   enabled: false
-  # the custom image of frappe_docker v4.0.0 (FRAPPE_BRANCH=v16.50.0; apps.json as a BuildKit secret), built in
-  # examleaf-erp/image; never frappe/erpnext:latest, which is develop
+  # the custom image of frappe_docker v4.0.0 (FRAPPE_BRANCH=v16.50.0; apps.json as a BuildKit secret), built and
+  # tagged in examleaf-erp/image; never frappe/erpnext:latest, which is develop. frappe/helm's chart cannot read the
+  # registry value above, so its repository spells it out and the chart refuses another registry.
   image:
-    repository: ghcr.io/examleaf/erp
-    tag: ""
+    repository: ghcr.io/lazyindianbook/examleaf-erp  # <registry>/examleaf-erp
+    tag: ""  # required: the tag examleaf-erp/image built (no default)
     pullPolicy: IfNotPresent
   imagePullSecrets:
     - name: ghcr-pull

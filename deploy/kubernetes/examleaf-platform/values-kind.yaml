@@ -5,8 +5,10 @@
 domain: examleaf.localhost
 
 image:
-  pullPolicy: Never  # only what kind load put into the node: no registry has these names
+  pullPolicy: Never  # only what kind load put into the node (named under the registry, never pulled from it)
+imagePullSecrets: []
 
+# Traefik runs in kube-system, as on k3s (`make kind-up`), so the NetworkPolicies' defaults fit
 ingress:
   clusterIssuer: kind-selfsigned
 

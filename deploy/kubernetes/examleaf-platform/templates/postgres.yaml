@@ -104,8 +104,14 @@ spec:
         key: AWS_SECRET_ACCESS_KEY
     wal:
       compression: {{ $pg.backup.compression }}
+      {{- with $pg.backup.encryption }}
+      encryption: {{ . }}
+      {{- end }}
     data:
       compression: {{ $pg.backup.compression }}
+      {{- with $pg.backup.encryption }}
+      encryption: {{ . }}
+      {{- end }}
   instanceSidecarConfiguration:
     env:  # boto3 with R2 (as the site's AWS_…_CHECKSUM_… settings)
       - name: AWS_REQUEST_CHECKSUM_CALCULATION

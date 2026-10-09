@@ -1,0 +1,14 @@
+# Traefik's own settings that go with the chart (README.md "The ingress controller"), as values of Traefik's Helm
+# chart: `make kind-up` installs Traefik with them; on k3s the same lines go into the HelmChartConfig that customises
+# the bundled Traefik (README.md shows it).
+ports:
+  websecure:
+    transport:
+      respondingTimeouts:
+        # the whole request, headers and body, as Caddy's read_body 5m allows a slow phone's photo (Traefik's
+        # default is 60 s)
+        readTimeout: 300s
+# Caddy's access log: one JSON line per request on stdout
+accessLog:
+  enabled: true
+  format: json

@@ -21,6 +21,12 @@
 {{- if or (eq $erpnext.dbHost "") (ne $erpnext.dbHost $db) }}
 {{- fail (printf "erpnext.dbHost is %q: it must name this chart's MariaDB, %s" $erpnext.dbHost $db) }}
 {{- end }}
+{{- /* one registry for every image of the platform: frappe/helm's chart reads only erpnext.image */ -}}
+{{- $erpImage := printf "%s/examleaf-erp" (trimSuffix "/" .Values.registry) -}}
+{{- if ne $erpnext.image.repository $erpImage }}
+{{- fail (printf "erpnext.image.repository is %q: it must be %s, the registry value's examleaf-erp" $erpnext.image.repository $erpImage) }}
+{{- end }}
+{{- $erpTag := required "erpnext.image.tag: the tag that examleaf-erp/image built (README.md \"ERPNext\")" $erpnext.image.tag -}}
 apiVersion: k8s.mariadb.com/v1alpha1
 kind: MariaDB
 metadata:
@@ -117,7 +123,7 @@ spec:
           restartPolicy: Never
           initContainers:
             - name: bench-backup
-              image: {{ printf "%s:%s" $erpnext.image.repository (required "erpnext.image.tag" $erpnext.image.tag) }}
+              image: {{ printf "%s:%s" $erpImage $erpTag }}
               imagePullPolicy: {{ $erpnext.image.pullPolicy }}
               command: ["bash", "-c", "bench --site all backup --with-files"]
               securityContext:
@@ -177,57 +183,43 @@ spec:
               emptyDir: {}
 {{- end }}
 ---
-# The headers that frappe_docker's own nginx would add, set by the controller on every answer of the ERP's host
-# (ingress-nginx's custom-headers: the controller must allow them in global-allowed-response-headers, README.md)
-apiVersion: v1
-kind: ConfigMap
+# The headers that frappe_docker's own nginx would add, set by Traefik on every answer of the ERP's host (ERPNext sets
+# none of them itself)
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
 metadata:
   name: {{ $fullname }}-erp-headers
   labels:
     {{- include "examleaf.labels" $labels | nindent 4 }}
-data:
-  Strict-Transport-Security: max-age=31536000
-  X-Content-Type-Options: nosniff
-  Referrer-Policy: same-origin
-  X-Frame-Options: SAMEORIGIN
+spec:
+  headers:
+    stsSeconds: 31536000
+    contentTypeNosniff: true
+    referrerPolicy: same-origin
+    customFrameOptionsValue: SAMEORIGIN
+    customResponseHeaders:
+      Server: ""
+{{- with $erp.allowlist }}
 ---
-# erp.host to ERPNext's nginx: staff only (ERPNext's sign-in through SSO, an allowlist or a VPN in front); the
-# platform's own calls go to ERPNext's Service inside the cluster, never through here
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
 metadata:
-  name: {{ $fullname }}-erp
+  name: {{ $fullname }}-erp-allowlist
   labels:
     {{- include "examleaf.labels" $labels | nindent 4 }}
-  annotations:
-    {{- with .Values.ingress.clusterIssuer }}
-    cert-manager.io/cluster-issuer: {{ . }}
-    {{- end }}
-    nginx.ingress.kubernetes.io/proxy-body-size: {{ $erp.bodySize }}
-    nginx.ingress.kubernetes.io/preserve-trailing-slash: "true"
-    nginx.ingress.kubernetes.io/custom-headers: {{ printf "%s/%s-erp-headers" .Release.Namespace $fullname }}
-    {{- with $erp.allowlist }}
-    nginx.ingress.kubernetes.io/whitelist-source-range: {{ . | quote }}
-    {{- end }}
-    {{- with .Values.ingress.annotations }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
 spec:
-  ingressClassName: {{ .Values.ingress.className }}
-  tls:
-    - hosts: [{{ $erp.host | quote }}]
-      secretName: {{ $fullname }}-erp-tls
-  rules:
-    - host: {{ $erp.host | quote }}
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: {{ $erpnextName }}
-                port:
-                  number: 8080
+  ipAllowList:
+    sourceRange: {{ toJson . }}
+{{- end }}
+---
+{{- /* erp.host to ERPNext's nginx, staff only (ERPNext's sign-in through SSO, an allowlist or a VPN in front); the
+       platform's own calls go to ERPNext's Service inside the cluster, never through here. No Buffering: ERPNext's
+       nginx limits bodies to 50 MB itself, and its socketio's WebSockets must not be held back. http comes through
+       ingress.yaml's <release>-http, which redirects. */}}
+{{ include "examleaf.ingress" (dict "ctx" . "name" (printf "%s-erp" $fullname) "entrypoint" "websecure" "certificate" true
+      "tls" (list (dict "hosts" (list $erp.host) "secretName" (printf "%s-erp-tls" $fullname)))
+      "middlewares" (concat (empty $erp.allowlist | ternary (list) (list "erp-allowlist")) (list "erp-headers"))
+      "rules" (list (dict "host" $erp.host "paths" (list (dict "path" "/" "service" $erpnextName "port" 8080))))) }}
 {{- if .Values.networkPolicy.enabled }}
 ---
 # ERPNext's pods (frappe/helm labels its Deployments app.kubernetes.io/app: frappe; its Jobs' pods carry no labels of

@@ -1,6 +1,6 @@
-# The laptop cluster of TESTING.md (`make kind-up`): one node, control plane and worker in one, at the newest
-# Kubernetes that ingress-nginx's last release supports (1.35). The host's ports 80 and 443 go to the node, where
-# ingress-nginx's kind manifest listens on them (hostPort).
+# The laptop cluster of TESTING.md (`make kind-up`): one node, control plane and worker in one, on the Kubernetes
+# minor that k3s's current releases also ship (1.35). The host's ports 80 and 443 go to the node, where Traefik listens
+# on them (hostPort).
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 name: examleaf-test
