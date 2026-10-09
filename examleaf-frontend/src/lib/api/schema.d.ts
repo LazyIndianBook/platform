@@ -1209,6 +1209,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orders/{number}/returns/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Ask to send back books of a delivered order (damaged, misprinted, not what was ordered, late …), within
+         *     SHOP_RETURN_DAYS of delivery: the books and copies (`product`: as the order's `items` name it), a reason
+         *     from the list, a note. Staff answer within two working days; the order's `returns` say where it stands.
+         *     Refused with the reason otherwise (400).
+         */
+        post: operations["orders_returns_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/orders/lookup/": {
         parameters: {
             query?: never;
@@ -2110,6 +2132,18 @@ export interface components {
              */
             readonly amount: string;
         };
+        CustomerReturnLineRequest: {
+            /** @description a book of the order: its items' `product` */
+            product: string;
+            /** @description copies to send back; 0: none */
+            quantity: number;
+        };
+        CustomerReturnRequest: {
+            lines: components["schemas"]["CustomerReturnLineRequest"][];
+            reason: components["schemas"]["ReturnReasonEnum"];
+            /** @description what happened */
+            note?: string;
+        };
         Deletion: {
             status?: components["schemas"]["DeletionStatusEnum"];
             /** Format: date-time */
@@ -2254,6 +2288,11 @@ export interface components {
             readonly web_url: string;
             /** @description for orders/t/<token>/ and its payment; also in the emails */
             readonly token: string;
+            readonly returns: components["schemas"]["OrderReturn"][];
+            /** @description its owner may ask to send books back now (returns/) */
+            readonly can_return: boolean;
+            /** @description the last moment to ask, SHOP_RETURN_DAYS after delivery */
+            readonly return_until: string | null;
         };
         /** @description Serializer for JWT authentication. */
         JWT: {
@@ -2431,6 +2470,11 @@ export interface components {
             readonly invoice: components["schemas"]["Document"] | null;
             readonly credit_notes: components["schemas"]["CreditNote"][];
             readonly web_url: string;
+            readonly returns: components["schemas"]["OrderReturn"][];
+            /** @description its owner may ask to send books back now (returns/) */
+            readonly can_return: boolean;
+            /** @description the last moment to ask, SHOP_RETURN_DAYS after delivery */
+            readonly return_until: string | null;
         };
         OrderBrief: {
             readonly number: string | null;
@@ -2521,6 +2565,33 @@ export interface components {
             readonly invoice: components["schemas"]["Document"] | null;
             readonly credit_notes: components["schemas"]["CreditNote"][];
             readonly web_url: string;
+            readonly returns: components["schemas"]["OrderReturn"][];
+            /** @description its owner may ask to send books back now (returns/) */
+            readonly can_return: boolean;
+            /** @description the last moment to ask, SHOP_RETURN_DAYS after delivery */
+            readonly return_until: string | null;
+        };
+        /** @description A return of the order (asked for on the website or by staff for the customer), where it stands. */
+        OrderReturn: {
+            /** @description RR-00012 */
+            number: string;
+            status: components["schemas"]["ReturnStatusEnum"];
+            /** @description as the website shows it */
+            status_label: string;
+            reason: components["schemas"]["ReturnReasonEnum"];
+            /** Format: date-time */
+            created: string;
+            lines: components["schemas"]["OrderReturnLine"][];
+            /** @description why it was declined, when it was */
+            decision_note: string;
+            return_courier: string;
+            /** @description hand the parcel over with this number */
+            return_awb: string;
+        };
+        OrderReturnLine: {
+            product: string;
+            title: string;
+            quantity: number;
         };
         /**
          * @description * `pending` - awaiting payment
@@ -3346,6 +3417,28 @@ export interface components {
         RestAuthDetail: {
             readonly detail: string;
         };
+        /**
+         * @description * `damaged` - damaged in transit
+         *     * `misprint` - misprinted or pages missing
+         *     * `wrong_item` - not the book ordered
+         *     * `late` - delivered late
+         *     * `not_as_described` - not as described
+         *     * `other` - another reason
+         * @enum {string}
+         */
+        ReturnReasonEnum: "damaged" | "misprint" | "wrong_item" | "late" | "not_as_described" | "other";
+        /**
+         * @description * `requested` - requested
+         *     * `approved` - approved: send it back
+         *     * `declined` - declined
+         *     * `label_sent` - return label sent
+         *     * `received` - received
+         *     * `restocked` - inspected: back in stock
+         *     * `damaged` - inspected: damaged
+         *     * `refunded` - refunded
+         * @enum {string}
+         */
+        ReturnStatusEnum: "requested" | "approved" | "declined" | "label_sent" | "received" | "restocked" | "damaged" | "refunded";
         ReviewRequest: {
             /** @description the student knew the back */
             known: boolean;
@@ -5515,6 +5608,31 @@ export interface operations {
         };
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+        };
+    };
+    orders_returns_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomerReturnRequest"];
+            };
+        };
+        responses: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

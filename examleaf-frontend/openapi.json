@@ -3634,6 +3634,55 @@
                 }
             }
         },
+        "/api/v1/orders/{number}/returns/": {
+            "post": {
+                "operationId": "orders_returns_create",
+                "description": "Ask to send back books of a delivered order (damaged, misprinted, not what was ordered, late …), within\nSHOP_RETURN_DAYS of delivery: the books and copies (`product`: as the order's `items` name it), a reason\nfrom the list, a note. Staff answer within two working days; the order's `returns` say where it stands.\nRefused with the reason otherwise (400).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "number",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "shop"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CustomerReturnRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Order"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
         "/api/v1/orders/lookup/": {
             "post": {
                 "operationId": "orders_lookup_create",
@@ -6456,6 +6505,50 @@
                     "url"
                 ]
             },
+            "CustomerReturnLineRequest": {
+                "type": "object",
+                "properties": {
+                    "product": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "a book of the order: its items' `product`",
+                        "maxLength": 50
+                    },
+                    "quantity": {
+                        "type": "integer",
+                        "maximum": 1000,
+                        "minimum": 0,
+                        "description": "copies to send back; 0: none"
+                    }
+                },
+                "required": [
+                    "product",
+                    "quantity"
+                ]
+            },
+            "CustomerReturnRequest": {
+                "type": "object",
+                "properties": {
+                    "lines": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/CustomerReturnLineRequest"
+                        }
+                    },
+                    "reason": {
+                        "$ref": "#/components/schemas/ReturnReasonEnum"
+                    },
+                    "note": {
+                        "type": "string",
+                        "description": "what happened",
+                        "maxLength": 1000
+                    }
+                },
+                "required": [
+                    "lines",
+                    "reason"
+                ]
+            },
             "Deletion": {
                 "type": "object",
                 "properties": {
@@ -6849,11 +6942,30 @@
                         "type": "string",
                         "readOnly": true,
                         "description": "for orders/t/<token>/ and its payment; also in the emails"
+                    },
+                    "returns": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/OrderReturn"
+                        },
+                        "readOnly": true
+                    },
+                    "can_return": {
+                        "type": "boolean",
+                        "description": "its owner may ask to send books back now (returns/)",
+                        "readOnly": true
+                    },
+                    "return_until": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true,
+                        "description": "the last moment to ask, SHOP_RETURN_DAYS after delivery"
                     }
                 },
                 "required": [
                     "can_cancel",
                     "can_pay",
+                    "can_return",
                     "created",
                     "credit_notes",
                     "discount",
@@ -6864,6 +6976,8 @@
                     "items",
                     "number",
                     "refunds",
+                    "return_until",
+                    "returns",
                     "savings",
                     "shipments",
                     "shipping_address",
@@ -7411,11 +7525,30 @@
                     "web_url": {
                         "type": "string",
                         "readOnly": true
+                    },
+                    "returns": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/OrderReturn"
+                        },
+                        "readOnly": true
+                    },
+                    "can_return": {
+                        "type": "boolean",
+                        "description": "its owner may ask to send books back now (returns/)",
+                        "readOnly": true
+                    },
+                    "return_until": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true,
+                        "description": "the last moment to ask, SHOP_RETURN_DAYS after delivery"
                     }
                 },
                 "required": [
                     "can_cancel",
                     "can_pay",
+                    "can_return",
                     "created",
                     "credit_notes",
                     "discount",
@@ -7426,6 +7559,8 @@
                     "items",
                     "number",
                     "refunds",
+                    "return_until",
+                    "returns",
                     "savings",
                     "shipments",
                     "shipping_address",
@@ -7700,11 +7835,30 @@
                     "web_url": {
                         "type": "string",
                         "readOnly": true
+                    },
+                    "returns": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/OrderReturn"
+                        },
+                        "readOnly": true
+                    },
+                    "can_return": {
+                        "type": "boolean",
+                        "description": "its owner may ask to send books back now (returns/)",
+                        "readOnly": true
+                    },
+                    "return_until": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true,
+                        "description": "the last moment to ask, SHOP_RETURN_DAYS after delivery"
                     }
                 },
                 "required": [
                     "can_cancel",
                     "can_pay",
+                    "can_return",
                     "created",
                     "credit_notes",
                     "discount",
@@ -7715,6 +7869,8 @@
                     "items",
                     "number",
                     "refunds",
+                    "return_until",
+                    "returns",
                     "savings",
                     "shipments",
                     "shipping_address",
@@ -7724,6 +7880,77 @@
                     "timeline",
                     "total",
                     "web_url"
+                ]
+            },
+            "OrderReturn": {
+                "type": "object",
+                "description": "A return of the order (asked for on the website or by staff for the customer), where it stands.",
+                "properties": {
+                    "number": {
+                        "type": "string",
+                        "description": "RR-00012"
+                    },
+                    "status": {
+                        "$ref": "#/components/schemas/ReturnStatusEnum"
+                    },
+                    "status_label": {
+                        "type": "string",
+                        "description": "as the website shows it"
+                    },
+                    "reason": {
+                        "$ref": "#/components/schemas/ReturnReasonEnum"
+                    },
+                    "created": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "lines": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/OrderReturnLine"
+                        }
+                    },
+                    "decision_note": {
+                        "type": "string",
+                        "description": "why it was declined, when it was"
+                    },
+                    "return_courier": {
+                        "type": "string"
+                    },
+                    "return_awb": {
+                        "type": "string",
+                        "description": "hand the parcel over with this number"
+                    }
+                },
+                "required": [
+                    "created",
+                    "decision_note",
+                    "lines",
+                    "number",
+                    "reason",
+                    "return_awb",
+                    "return_courier",
+                    "status",
+                    "status_label"
+                ]
+            },
+            "OrderReturnLine": {
+                "type": "object",
+                "properties": {
+                    "product": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "quantity": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "product",
+                    "quantity",
+                    "title"
                 ]
             },
             "OrderStatusEnum": {
@@ -9899,6 +10126,32 @@
                 "required": [
                     "detail"
                 ]
+            },
+            "ReturnReasonEnum": {
+                "enum": [
+                    "damaged",
+                    "misprint",
+                    "wrong_item",
+                    "late",
+                    "not_as_described",
+                    "other"
+                ],
+                "type": "string",
+                "description": "* `damaged` - damaged in transit\n* `misprint` - misprinted or pages missing\n* `wrong_item` - not the book ordered\n* `late` - delivered late\n* `not_as_described` - not as described\n* `other` - another reason"
+            },
+            "ReturnStatusEnum": {
+                "enum": [
+                    "requested",
+                    "approved",
+                    "declined",
+                    "label_sent",
+                    "received",
+                    "restocked",
+                    "damaged",
+                    "refunded"
+                ],
+                "type": "string",
+                "description": "* `requested` - requested\n* `approved` - approved: send it back\n* `declined` - declined\n* `label_sent` - return label sent\n* `received` - received\n* `restocked` - inspected: back in stock\n* `damaged` - inspected: damaged\n* `refunded` - refunded"
             },
             "ReviewRequest": {
                 "type": "object",
