@@ -858,3 +858,12 @@ CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_BROKER_TRANSPORT_OPTIONS["visibility_timeout"] = 7200
 CELERY_WORKER_MAX_TASKS_PER_CHILD = env.int("CELERY_WORKER_MAX_TASKS_PER_CHILD", default=200)
 CELERY_WORKER_MAX_MEMORY_PER_CHILD = env.int("CELERY_WORKER_MAX_MEMORY_PER_CHILD", default=300 * 1024)
+# Logs: one line per request (examleaf.middleware.RequestLogMiddleware, the access log: method, URL pattern, status,
+# milliseconds, account id), a warning past SLOW_REQUEST_SECONDS; inside a Celery task each line also names the task
+# and its id (examleaf.celery.TaskIds), beside the request id of the request that queued it.
+SLOW_REQUEST_SECONDS = env.float("SLOW_REQUEST_SECONDS", default=2)
+MIDDLEWARE.insert(
+    MIDDLEWARE.index("django_guid.middleware.guid_middleware") + 1, "examleaf.middleware.RequestLogMiddleware"
+)
+LOGGING["filters"]["task"] = {"()": "examleaf.celery.TaskIds"}
+LOGGING["handlers"]["stdout"]["filters"].append("task")

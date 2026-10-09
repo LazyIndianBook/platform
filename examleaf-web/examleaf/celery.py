@@ -21,6 +21,18 @@ PDF_TASK = {"soft_time_limit": 60, "time_limit": 90}
 LONG_TASK = {"soft_time_limit": 1500, "time_limit": 1800}
 
 
+class TaskIds(logging.Filter):
+    """A log line written inside a Celery task names the task and its id (task_name, task_id), beside the request id
+    django-guid gives it (the request that queued the task): settings.LOGGING's stdout handler."""
+
+    def filter(self, record):
+        from celery import current_task
+
+        if current_task and current_task.request.id:
+            record.task_id, record.task_name = current_task.request.id, current_task.name
+        return True
+
+
 def single_run(seconds):
     """For a periodic task whose second run, overlapping the first, would send the same emails or messages again: a
     run that starts while another holds the lock does nothing. The lock lasts `seconds` at most (the task's hard

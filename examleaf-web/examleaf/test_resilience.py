@@ -3,23 +3,30 @@ database's limits by role, Celery's acknowledgements and limits; and the health 
 
 import importlib
 import json
+import logging
 import runpy
 import sys
 from importlib.util import find_spec
 
 import pytest
 import yaml
+from allauth.account.models import EmailAddress
 from anymail.backends.amazon_ses import _get_anymail_boto3_params
+from celery import shared_task
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from django.core.cache.backends.base import BaseCache
 from django.db import connection
 from django.db.migrations.recorder import MigrationRecorder
 from health_check.exceptions import ServiceUnavailable
+from rest_framework_simplejwt.tokens import RefreshToken
 from storages.backends.s3 import S3Storage
 
+from accounts.factories import UserFactory
+from examleaf.celery import TaskIds
 from examleaf.health import Migrations
 from examleaf.storage import PublicS3Storage
+from shop.factories import ProductFactory, make_order
 
 postgres_only = pytest.mark.skipif(connection.vendor != "postgresql", reason="PostgreSQL's own limits")
 
@@ -207,3 +214,45 @@ def test_gunicorn_runs_from_one_config_file_wherever_it_runs(settings, monkeypat
         given = {name: value for name, value in zip(arguments, [*arguments[1:], ""], strict=True)}
         assert given.get("--worker-class", "gthread") == "gthread" and int(given.get("--threads", 8)) == 8
         assert int(given.get("--timeout", 60)) == 60
+
+
+def request_lines(caplog):
+    return [record for record in caplog.records if record.name == "examleaf.requests"]
+
+
+@pytest.mark.django_db
+@pytest.mark.filterwarnings("ignore::jwt.warnings.InsecureKeyLengthWarning")  # the short development SECRET_KEY
+def test_each_request_is_logged_once_with_its_pattern_status_time_and_account_but_nothing_personal(
+    client, caplog, settings
+):
+    caplog.set_level(logging.INFO, logger="examleaf.requests")
+    order = make_order((ProductFactory(), 1))
+    assert client.get(f"/api/v1/orders/t/{order.token}/").status_code == 200  # a link's secret in the address
+    user = UserFactory()
+    EmailAddress.objects.create(user=user, email=user.email, verified=True, primary=True)
+    token = RefreshToken.for_user(user).access_token
+    assert client.get("/api/v1/me/", HTTP_AUTHORIZATION=f"Bearer {token}").status_code == 200  # the app's JWT
+    assert client.get("/health/live/").status_code == 200  # a probe: not logged
+    link, me = request_lines(caplog)
+    assert (link.method, link.status, link.user_id) == ("GET", 200, None)
+    assert link.route == "/api/<version>/orders/t/<slug:token>/"  # the pattern, not the token
+    assert (me.route, me.user_id, me.levelno) == ("/api/<version>/me/", user.pk, logging.INFO)
+    assert isinstance(me.duration_ms, int) and order.token not in caplog.text and user.email not in caplog.text
+    settings.SLOW_REQUEST_SECONDS = 0  # every request is slow now
+    client.get("/api/v1/me/", HTTP_AUTHORIZATION=f"Bearer {token}")
+    assert request_lines(caplog)[-1].levelno == logging.WARNING and "(slow)" in request_lines(caplog)[-1].message
+
+
+@shared_task
+def task_ids_seen():
+    """What TaskIds adds to a log line written inside a task."""
+    record = logging.LogRecord("examleaf.test", logging.INFO, __file__, 1, "inside", None, None)
+    TaskIds().filter(record)
+    return record.task_id, record.task_name
+
+
+def test_a_tasks_log_lines_name_the_task_and_its_id():
+    task_id, name = task_ids_seen.delay().get()
+    assert name == "examleaf.test_resilience.task_ids_seen" and len(task_id) == 36
+    outside = logging.LogRecord("examleaf.test", logging.INFO, __file__, 1, "outside", None, None)
+    assert TaskIds().filter(outside) and not hasattr(outside, "task_id")
