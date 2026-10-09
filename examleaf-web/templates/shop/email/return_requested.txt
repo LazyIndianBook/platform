@@ -1,0 +1,12 @@
+{% autoescape off %}We have your request to send back books of order {{ order.number }} (return {{ back.number }}):
+{% for line in lines %}
+{{ line.quantity }} x {{ line.title }}{% endfor %}
+
+Reason: {{ back.get_reason_display }}.
+
+We answer within two working days and tell you how to send them back. Keep the books and their packing until then.
+
+Your order: {{ site_url }}{{ order.get_link_url }}
+(This link opens the order without an account: keep it to yourself.)
+
+ExamLeaf{% endautoescape %}

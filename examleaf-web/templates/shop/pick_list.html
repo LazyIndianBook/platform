@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pick list</title>
+<style>
+{% include "shop/_print_style.html" %}
+  @page { size: A4; margin: 14mm; @bottom-center { content: "Page " counter(page) " of " counter(pages); font: 7pt var(--mono); color: #5b6170; } }
+  h1 { margin: 2mm 0 1mm; font: 600 12pt/1.2 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; }
+  .head { padding-bottom: 3mm; border-bottom: 3px double #b3342a; }
+  .orders { margin-top: 3mm; font: 500 8pt/1.5 var(--mono); color: var(--muted); }
+  .check { width: 12mm; }
+  .box { display: inline-block; width: 4mm; height: 4mm; border: 1px solid var(--ink); }
+  .which { font: 500 7.5pt/1.4 var(--mono); color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="head">
+  <p class="brand">Exam<span>Leaf</span></p>
+  <h1>Pick list</h1>
+  <p>{{ orders|length }} order{{ orders|length|pluralize }}, {{ copies }} cop{{ copies|pluralize:"y,ies" }}, each book once</p>
+  <p class="orders">{% for entry in orders %}{{ entry.order.number }}{% if not forloop.last %} · {% endif %}{% endfor %}</p>
+</div>
+<table>
+  <thead><tr><th class="check">Picked</th><th>Book</th><th>ISBN</th><th class="num">Copies</th></tr></thead>
+  <tbody>
+  {% for row in picks %}
+    <tr>
+      <td><span class="box"></span></td>
+      <td>{{ row.product.title }}<br><span class="which">{{ row.orders|join:" · " }}</span></td>
+      <td class="code">{{ row.product.isbn|default:"none" }}</td>
+      <td class="num">{{ row.quantity }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</body>
+</html>

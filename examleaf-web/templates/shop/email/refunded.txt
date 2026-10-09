@@ -1,6 +1,8 @@
-{% autoescape off %}We have refunded {{ refund.amount }} for order {{ order.number }} to the account, card or UPI ID you paid from
+{% autoescape off %}{% if refund.method == "bank" %}We have refunded {{ refund.amount }} for order {{ order.number }} by bank transfer or UPI to the account you
+gave us ({{ refund.payee_masked }}), reference {{ refund.utr }}. Your bank may take a working day to show it.
+{% else %}We have refunded {{ refund.amount }} for order {{ order.number }} to the account, card or UPI ID you paid from
 (Razorpay refund {{ refund.razorpay_refund_id|default:"" }}). Your bank may take up to 5–7 working days to show it.
-
+{% endif %}
 Your order: {{ site_url }}{{ order.get_link_url }}
 
 ExamLeaf{% endautoescape %}

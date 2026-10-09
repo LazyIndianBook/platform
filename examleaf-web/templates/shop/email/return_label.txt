@@ -1,0 +1,9 @@
+{% autoescape off %}Send the books of return {{ back.number }} (order {{ order.number }}) back with {{ back.return_courier }}:
+hand the parcel over with this number, {{ back.return_awb }}, and write {{ back.number }} on it.
+
+Once they are back with us and checked, we refund you and email you the credit note.
+
+Your order: {{ site_url }}{{ order.get_link_url }}
+(This link opens the order without an account: keep it to yourself.)
+
+ExamLeaf{% endautoescape %}

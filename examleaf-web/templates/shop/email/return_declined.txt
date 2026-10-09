@@ -1,0 +1,10 @@
+{% autoescape off %}We cannot take back the books of return {{ back.number }} (order {{ order.number }}).
+
+Why: {{ back.decision_note }}
+
+If you think this is wrong, reply through {{ site_url }}/contact/ with the order number: a colleague looks at it again.
+
+Your order: {{ site_url }}{{ order.get_link_url }}
+(This link opens the order without an account: keep it to yourself.)
+
+ExamLeaf{% endautoescape %}

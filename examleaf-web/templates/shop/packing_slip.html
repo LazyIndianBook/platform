@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Packing slip</title>
+<style>
+{% include "shop/_print_style.html" %}
+  @page { size: A4; margin: 14mm; }
+  .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8mm; padding-bottom: 4mm; border-bottom: 3px double #b3342a; }
+  .head h1 { margin: 2mm 0 0; font: 600 12pt/1.2 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; }
+  .qr { width: 30mm; height: 30mm; }
+  .number { font: 600 15pt/1.2 var(--mono); }
+  .parties { display: flex; gap: 8mm; margin-top: 5mm; }
+  .parties > div { flex: 1; }
+  .for { margin-top: 4mm; font-size: 11pt; font-weight: 600; }
+  .check { width: 12mm; }
+  .box { display: inline-block; width: 4mm; height: 4mm; border: 1px solid var(--ink); }
+  .collect { margin-top: 5mm; padding: 3mm; border: 1.5px solid var(--ink); font: 600 11pt/1.3 var(--mono); }
+  .note { margin-top: 5mm; font-size: 8pt; color: var(--muted); }
+</style>
+</head>
+<body>
+{% for entry in orders %}{% with order=entry.order %}
+<div class="page">
+  <div class="head">
+    <div>
+      <p class="brand">Exam<span>Leaf</span></p>
+      <h1>Packing slip</h1>
+      <p class="number">{{ order.number }}</p>
+      <p class="code">{{ order.placed_at|default:order.created|date:"j F Y" }} · {{ order.get_payment_method_display }}</p>
+    </div>
+    <img class="qr" src="{{ entry.qr }}" alt="QR code of {{ order.number }}">
+  </div>
+  <div class="parties">
+    <div>
+      <p class="label">Deliver to</p>
+      {% for line in entry.to %}<p>{{ line }}</p>{% endfor %}
+    </div>
+    <div>
+      <p class="label">From</p>
+      <p><strong>{{ seller.name }}</strong></p>
+      <p>{{ seller.address }}</p>
+      <p>{{ seller.phone }}</p>
+    </div>
+  </div>
+  {% if entry.for %}<p class="for">For: {{ entry.for }}</p>{% endif %}
+  <table>
+    <thead><tr><th class="check">Packed</th><th>Book</th><th>ISBN</th><th class="num">Copies</th></tr></thead>
+    <tbody>
+    {% for book in entry.books %}
+      <tr><td><span class="box"></span></td><td>{{ book.product.title }}</td><td class="code">{{ book.product.isbn|default:"none" }}</td><td class="num">{{ book.quantity }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% if entry.collect is not None %}<p class="collect">Cash on delivery: the courier collects ₹{{ entry.collect }}</p>{% endif %}
+  <p class="note">Scan the QR code to open the order in the panel. Check each book's ISBN against this list before the box is closed.</p>
+</div>
+{% endwith %}{% endfor %}
+</body>
+</html>

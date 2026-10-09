@@ -3,13 +3,16 @@ once the transaction is committed, sends the emails and queues the follow-up tas
 and tasks all go through these functions (the REST API should too)."""
 
 import logging
+import re
+import secrets
 from collections import Counter
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 from decimal import Decimal
 
 from allauth.account.utils import has_verified_email
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ImproperlyConfigured
 from django.core.files.base import ContentFile
 from django.core.mail import EmailMultiAlternatives
 from django.db import transaction
@@ -28,18 +31,24 @@ from .cart import totals as cart_totals
 from .models import (
     INR,
     Coupon,
+    CreditNote,
+    Invoice,
     Offer,
     Order,
     OrderDiscount,
     OrderItem,
+    OrderMessage,
     OrderNote,
     Payment,
+    PinCode,
     Product,
     QuoteRequest,
     Refund,
+    ReturnRequest,
     Shipment,
     live_mode,
     paise,
+    rupees,
 )
 
 logger = logging.getLogger(__name__)
@@ -79,20 +88,56 @@ SUBJECTS = {
     "payment_link": "Pay for order {}",
     "delivery_failed": "Order {} could not be delivered",  # a courier's news (shipping/messages.py)
     "returning": "Order {} is coming back to us",
+    # Phase B: orders
+    "packed": "Order {} is packed",
+    "refund_started": "Your refund for order {} is on its way",
+    "return_requested": "Your return request for order {}",
+    "return_approved": "Your return for order {} is approved",
+    "return_declined": "About your return for order {}",
+    "return_label": "How to send back the books of order {}",
+    "return_received": "The books of order {} are back with us",
+    "invoice": "The invoice of order {}",
 }
 
 
 HTML_EMAILS = {"confirmation", "shipped", "payment_link"}  # with the order's lines: <kind>.html, the drawn layout
 
 
+def sms_wanted(order, kind):
+    """Whether this news goes by SMS too: a kind with an SMS (ops.sms.ORDER_SMS) whose DLT template is registered, to
+    an account with a confirmed mobile number that asked for order updates by SMS."""
+    from ops.sms import ORDER_SMS
+
+    user = order.user
+    if kind not in ORDER_SMS or not (user and user.login_phone_verified and user.sms_updates):
+        return False
+    return settings.SMS_BACKEND != "msg91" or bool(settings.MSG91_TEMPLATES.get(ORDER_SMS[kind]))
+
+
 def notify(order, kind, sms=True, **context):
     """Email the customer (templates/shop/email/<kind>.txt) once the transaction is committed, and an SMS for the
     kinds ops.sms.send_order_sms sends (confirmation, shipped, delivered) to accounts that asked for them, unless
     `sms` is off (the shipping app sends a courier's news by SMS itself, never at night). The kinds in HTML_EMAILS
-    have an HTML part of their own; the others get the one queue_email makes from the text."""
+    have an HTML part of their own; the others get the one queue_email makes from the text. Each is an OrderMessage
+    (the order's timeline); an SMS between 21:00 and 08:00 (India time) waits there for the morning (tasks.
+    send_held_sms), as the shipping app's do."""
+    from ops.sms import ORDER_SMS
+    from shipping.messages import quiet  # (shipping.messages imports this module)
+
+    wanted = sms and sms_wanted(order, kind)
+    held = wanted and quiet()
+    state = OrderMessage.Sms.HELD if held else OrderMessage.Sms.SENT if wanted else OrderMessage.Sms.NONE
+    OrderMessage.objects.create(order=order, kind=kind, sms=state)
+    sms = sms and kind in ORDER_SMS and not held  # ops.sms.send_order_sms checks the account's choice again
 
     def send():
         context_ = {"order": order, "site_url": settings.SITE_URL, "seller": settings.SHOP_SELLER, **context}
+        if back := context.get("back"):  # a return's books, by title
+            titles = dict(order.items.values_list("pk", "title"))
+            context_["lines"] = [
+                {"title": titles.get(line["item"], ""), "quantity": line["quantity"]} for line in back.lines
+            ]
+        context_["days"] = settings.SHOP_BANK_REFUND_DAYS
         body, subject = render_to_string(f"shop/email/{kind}.txt", context_), SUBJECTS[kind].format(order.number)
         if kind in HTML_EMAILS:
             html = render_to_string(f"shop/email/{kind}.html", {**context_, "title": subject})
@@ -202,6 +247,8 @@ def create_order(cart, *, user, email, address, method):
         raise ShopError("Cash on delivery is not available.")
     if method == Order.Method.COD and (problem := cod_problem(user)):
         raise ShopError(problem)
+    if problem := PinCode.state_problem(address["pin"], address["state"]):  # a saved address older than the directory
+        raise ShopError(f"{problem} Correct the delivery address.")
     result = cart_totals(cart, state=address["state"], user=user, email=email)
     if not result.lines:
         raise ShopError("Your cart is empty.")
@@ -224,6 +271,8 @@ def create_staff_order(lines, *, by, email, address, user=None, discount=0, ship
     """A phone or school order made by staff in the admin: `lines` (cart.Line) at today's prices with the offers, a
     staff discount in rupees and the shipping of the rates (or `shipping` rupees), waiting for a Razorpay Payment Link
     (payments.send_payment_link) or a payment recorded offline (record_offline_payment). Raises ShopError."""
+    if problem := PinCode.state_problem(address["pin"], address["state"]):
+        raise ShopError(f"{problem} Correct the delivery address.")
     result = price(lines, state=address["state"], user=user, email=email, staff_discount=discount)
     if shipping is not None:
         result.shipping = shipping
@@ -287,8 +336,11 @@ def place_cod(order):
             claim_offers(order)
             reserve_stock(order)
             order.placed_at = timezone.now()
+            assess_risk(order)
             order.save()
             notify(order, "confirmation")
+            if order.held_at:
+                held(order)
     return order
 
 
@@ -442,33 +494,49 @@ def record_failure(entity, payload=None):
             payment.save()
 
 
-def start_refund(order, reason, payment=None, by=None, amount=None):
-    """Refund a captured online payment in full (or `amount` rupees: what Razorpay actually took), through Razorpay
-    (tasks.refund_payment), unless a refund of it is already under way. Returns the Refund, or None when there is
-    nothing to refund (unpaid, cash on delivery)."""
-    captured = order.payments.filter(method=Order.Method.RAZORPAY, status=Payment.Status.CAPTURED)
-    payment = payment or captured.exclude(refunds__status__in=[Refund.Status.PENDING, Refund.Status.PROCESSED]).first()
-    if (
-        payment is None
-        or payment.status != Payment.Status.CAPTURED
-        or payment.refunds.exclude(status=Refund.Status.FAILED).exists()
-    ):
+PAID = [Payment.Status.CAPTURED, Payment.Status.REFUNDED]  # money came in (a payment refunded in part reads refunded)
+
+
+def refundable(payment):
+    """What is left to refund of a payment: what it took, less its refunds under way or made (a failed one gives
+    nothing back). Several partial refunds may be made of one payment (Razorpay allows them too), never more."""
+    if payment.status not in PAID:
+        return Decimal("0.00")
+    given = sum((r.amount.amount for r in payment.refunds.exclude(status=Refund.Status.FAILED)), Decimal("0.00"))
+    return max(payment.amount.amount - given, Decimal("0.00"))
+
+
+def online_payment(order):
+    """The order's online payment that has something left to refund, or None."""
+    online = order.payments.filter(method=Order.Method.RAZORPAY, status__in=PAID).order_by("pk")
+    return next((payment for payment in online if refundable(payment) > 0), None)
+
+
+def start_refund(order, reason, payment=None, by=None, amount=None, **fields):
+    """Refund a captured online payment: what is left of it (all of it at first), or `amount` rupees (what Razorpay
+    actually took; at most what is left), through Razorpay (tasks.refund_payment). Returns the Refund, or None when
+    there is nothing to refund (unpaid, cash on delivery, refunded already: a refund under way counts). `fields`: the
+    panel's details of the refund (its lines, shipping, speed …)."""
+    payment = payment or online_payment(order)
+    if payment is None or (left := refundable(payment)) <= 0:
         return None
-    amount = payment.amount if amount is None else amount
-    refund = Refund.objects.create(order=order, payment=payment, amount=amount, reason=reason, created_by=by)
+    amount = left if amount is None else min(amount, left)
+    refund = Refund.objects.create(order=order, payment=payment, amount=amount, reason=reason, created_by=by, **fields)
     transaction.on_commit(lambda: tasks.refund_payment.delay(refund.pk), robust=True)
     return refund
 
 
-def refund_processed(refund_id, razorpay_refund_id=None):
-    """Razorpay has refunded (the API's answer or the refund.processed webhook): payment refunded, order refunded
-    unless another captured payment still pays it, customer told. Once."""
+def refund_processed(refund_id, razorpay_refund_id=None, arn=""):
+    """Razorpay has refunded (the API's answer or the refund.processed webhook), or FINANCE has transferred a refund
+    by bank (mark_bank_refund_paid): payment refunded, order refunded unless another captured payment still pays it,
+    customer told, the credit note made. Once."""
     with transaction.atomic():
         refund = Refund.objects.select_for_update().get(pk=refund_id)
         if refund.status == Refund.Status.PROCESSED:
             return refund
         refund.status, refund.processed_at, refund.error = Refund.Status.PROCESSED, timezone.now(), ""
         refund.razorpay_refund_id = refund.razorpay_refund_id or razorpay_refund_id
+        refund.arn = refund.arn or str(arn or "")[:40]  # the bank's reference: what a customer's bank asks for
         refund.save()
         payment = Payment.objects.select_for_update().get(pk=refund.payment_id)
         if can_proceed(payment.refund):
@@ -506,26 +574,34 @@ def cancel_order(order, reason, by=None, email=True):
     refunded in full. Raises django_fsm.TransitionNotAllowed once the order has been shipped."""
     with transaction.atomic():
         order = _lock(order)
-        order.cancel()
-        release_stock(order)
-        order.save()
-        if order.placed_at and order.has_digital:  # paid: its course was opened
-            revoke_course(order)
-        for payment in order.payments.select_for_update().filter(method=Order.Method.COD):
-            if can_proceed(payment.fail):
-                payment.fail("Order cancelled.")
-                payment.save()
+        cancelled(order)
         refund = start_refund(order, reason, by=by)
         if email:
             notify(order, "cancelled", reason=reason, refund=refund)
     return order
 
 
+def cancelled(order):
+    """The cancellation itself, of a locked order not yet shipped: the transition, its stock back, its course closed,
+    a cash-on-delivery payment that will never come marked failed. Raises TransitionNotAllowed."""
+    order.cancel()
+    release_stock(order)
+    order.save()
+    if order.placed_at and order.has_digital:  # paid: its course was opened
+        revoke_course(order)
+    for payment in order.payments.select_for_update().filter(method=Order.Method.COD):
+        if can_proceed(payment.fail):
+            payment.fail("Order cancelled.")
+            payment.save()
+
+
 def pack_order(order):
+    """Packed (paid, or placed to pay on delivery; not a test order, not on hold): the customer is told."""
     with transaction.atomic():
         order = _lock(order)
         order.pack()
         order.save()
+        notify(order, "packed")
     return order
 
 
@@ -579,9 +655,7 @@ def refund_order(order, reason, by=None, amount=None):
         return cancel_order(order, reason, by=by).refunds.exclude(status=Refund.Status.FAILED).first()
     with transaction.atomic():
         order = _lock(order)
-        paid = order.payments.filter(status=Payment.Status.CAPTURED).first()
-        amount = min(amount, paid.amount.amount) if amount and paid else None
-        return start_refund(order, reason, by=by, amount=amount)
+        return start_refund(order, reason, by=by, amount=amount or None)  # at most what is left of the payment
 
 
 DELETED = "deleted"
@@ -601,6 +675,7 @@ def forget_orders(orders):
     Order.history.filter(id__in=pks).update(email=DELETED)
     OrderNote.history.filter(order_id__in=pks).delete()  # staff's notes may name the customer
     OrderNote.objects.filter(order__in=pks).delete()
+    ReturnRequest.objects.filter(order__in=pks).update(note="")  # the customer's words (their history keeps none)
     return len(pks)
 
 
@@ -661,3 +736,602 @@ def make_quotation(quote):
     if old:
         quote.quotation.storage.delete(old)
     return quote
+
+
+# Phase B: orders. The staff panel's flows (shop/staff_orders.py, shop/README.md): holds and tags, refunds by line and
+# by bank, returns, a cash-on-delivery parcel back undelivered, a COD order's risk. Each writes its audit event in the
+# caller's transaction (staff.audit.record: the request's member of staff, or the site itself).
+
+HOLD_RISK = "payment check"  # the hold a high COD risk puts on an order (plan 5.3)
+HOLDABLE = [Order.Status.PENDING, Order.Status.PAID, Order.Status.PACKED]  # not sent yet
+TAG = re.compile(r"[\w][\w \-]{0,39}")
+MAX_TAGS = 10
+MAX_RETURN_PHOTOS = 5
+
+
+def record(action, order, request=None, by=None, **kwargs):
+    """An audit event about an order, by the request's member of staff, `by`, or the site itself."""
+    from staff.audit import ActorType
+    from staff.audit import record as audit
+
+    system = by is None and request is None
+    actor_type = ActorType.SYSTEM if system else None
+    return audit(action, request=request, actor=by, actor_type=actor_type, target=order, **kwargs)
+
+
+def assess_risk(order):
+    """A cash-on-delivery order's risk of coming back unpaid (insights.jobs.risk.rto_risk over the shipping app's
+    outcomes), kept on the order with its strongest three reasons; a high one puts it on hold ("payment check") while
+    SHOP_COD_HIGH_RISK_HOLD is on, for staff to confirm with the customer first (plan 5.3). It never stops a checkout:
+    a failure is logged and the order goes on unscored."""
+    if not order.is_cod:
+        return
+    from insights.jobs.risk import history_for, rto_risk
+
+    try:
+        with transaction.atomic():  # a savepoint: a failed query leaves the checkout's own transaction usable
+            risk = rto_risk(order, history_for(order))
+    except Exception:
+        logger.exception("Order %s: its COD risk could not be scored", order.number)
+        return
+    order.risk_bucket, order.risk_reasons = risk.bucket, risk.reasons[:3]
+    if risk.bucket == Order.Risk.HIGH and site_setting("SHOP_COD_HIGH_RISK_HOLD"):
+        order.held_at, order.held_by, order.hold_reason = timezone.now(), None, HOLD_RISK
+
+
+def held(order, by=None, request=None):
+    """What follows a hold, in its transaction: an inbox item for whoever changes orders, and the audit event."""
+    from staff.models import InboxItem
+    from staff.signals import open_item
+
+    open_item(InboxItem.Kind.ORDER_HOLD, order, f"Order {order.number} is on hold", "shop.change_order")
+    record("order.held", order, request, by, reason=order.hold_reason)
+
+
+def hold(order, reason, by=None, request=None):
+    """Hold an order not yet sent (an address to check, a payment to confirm): it leaves the packing queue and cannot
+    be packed until released. Raises ShopError."""
+    reason = " ".join(str(reason or "").split())[:200]
+    if not reason:
+        raise ShopError("Say why it waits: an address to check, a payment to confirm.")
+    with transaction.atomic():
+        order = _lock(order)
+        if order.held_at:
+            raise ShopError(f"Order {order.number} is on hold already ({order.hold_reason}).")
+        if order.status not in HOLDABLE:
+            raise ShopError(f"Order {order.number} is {order.get_status_display()}: only an order not yet sent waits.")
+        order.held_at, order.held_by, order.hold_reason = timezone.now(), by, reason
+        order.save()
+        held(order, by, request)
+    return order
+
+
+def release(order, by=None, request=None):
+    """Release a held order: it is back in the packing queue. Raises ShopError."""
+    from staff.models import InboxItem
+    from staff.signals import close_items
+
+    with transaction.atomic():
+        order = _lock(order)
+        if not order.held_at:
+            raise ShopError(f"Order {order.number} is not on hold.")
+        reason = order.hold_reason
+        order.held_at, order.held_by, order.hold_reason = None, None, ""
+        order.save()
+        close_items(order, InboxItem.Kind.ORDER_HOLD)
+        record("order.released", order, request, by, reason=f"Was held: {reason}")
+    return order
+
+
+def set_tags(order, add=(), remove=(), by=None, request=None):
+    """Add and remove an order's tags (words: "school", "awaiting reprint"; lower case, 40 characters at most, ten at
+    most). Returns its tags. Raises ShopError."""
+
+    def clean(names):
+        return sorted({" ".join(str(name).split()).lower() for name in names if str(name).strip()})
+
+    add, remove = clean(add), clean(remove)
+    if bad := [name for name in add if not TAG.fullmatch(name)]:
+        raise ShopError(f"A tag is a word or a few (letters, digits, spaces, hyphens; 40 at most): {', '.join(bad)}.")
+    with transaction.atomic():
+        order = _lock(order)
+        before = sorted(order.tags.names())
+        after = sorted((set(before) | set(add)) - set(remove))
+        if len(after) > MAX_TAGS:
+            raise ShopError(f"At most {MAX_TAGS} tags on an order.")
+        if add:
+            order.tags.add(*add)
+        if remove:
+            order.tags.remove(*remove)
+        if before != after:
+            record("order.tagged", order, request, by, changes={"tags": [before, after]})
+    return after
+
+
+# Refunds by line, with the shipping, to the source or by bank (staff.approvals "order.refund" runs them)
+
+
+def refund_lines(order):
+    """{item id: {item, value, refunded, given}} of an order: each line's invoiced value (its total less its share of
+    the discounts, as its invoice prints it), the copies refunded of it already and the rupees given for them (refunds
+    under way or made)."""
+    items = list(order.items.select_related("product"))
+    lines = {
+        item.pk: {"item": item, "value": item.line_total.amount - share, "refunded": 0, "given": Decimal("0.00")}
+        for item, share in zip(items, invoices.discount_shares(order, items), strict=True)
+    }
+    for refund in order.refunds.exclude(status=Refund.Status.FAILED).exclude(method=Refund.Method.NONE):
+        for line in refund.lines:
+            if entry := lines.get(int(line["item"])):
+                entry["refunded"] += int(line["quantity"])
+                entry["given"] += Decimal(str(line["amount"]))
+    return lines
+
+
+def price_lines(order, asked):
+    """The lines asked for ([{item, quantity}], quantities from 0: a line left at 0 is not refunded) checked against
+    the order and what was refunded of it, each with its amount: its invoiced value per copy, the last copies taking
+    what is left of the line to the paisa. Raises ShopError."""
+    known, priced, seen = refund_lines(order), [], set()
+    for row in asked or []:
+        try:
+            pk, quantity = int(row["item"]), int(row["quantity"])
+        except (KeyError, TypeError, ValueError) as error:
+            raise ShopError("Each line: one of the order's items and its copies.") from error
+        entry = known.get(pk)
+        if entry is None or pk in seen:
+            raise ShopError("Each line: one of the order's items, once.")
+        seen.add(pk)
+        if quantity == 0:
+            continue
+        left, item = entry["item"].quantity - entry["refunded"], entry["item"]
+        if not 0 < quantity <= left:
+            raise ShopError(f"{item.title}: {left} of {item.quantity} copies are left to refund.")
+        if quantity == left:
+            value = entry["value"] - entry["given"]
+        else:
+            value = rupees(entry["value"] * quantity / item.quantity)
+        priced.append({"item": pk, "quantity": quantity, "amount": str(value)})
+    return priced
+
+
+def shipping_left(order):
+    """The shipping not refunded yet."""
+    given = sum((r.shipping_amount.amount for r in order.refunds.exclude(status=Refund.Status.FAILED)), Decimal(0))
+    return max(order.shipping_fee.amount - given, Decimal("0.00"))
+
+
+def refundable_payment(order):
+    """The payment a refund of the order goes against, with something left of it: online first (refunded through
+    Razorpay), else one by cash on delivery or recorded offline (refunded by bank or UPI). None: nothing to refund."""
+    if payment := online_payment(order):
+        return payment
+    others = order.payments.filter(method__in=[Order.Method.COD, Order.Method.OFFLINE], status__in=PAID).order_by("pk")
+    return next((payment for payment in others if refundable(payment) > 0), None)
+
+
+def restock_lines(order, lines, reason, by=None, request=None):
+    """The copies of these lines ([{item, quantity}]) back into stock (a bundle's books; a course has none), with the
+    reason in the audit log (a return inspected, a refund's restock). Returns {product id: copies}."""
+    items = {item.pk: item for item in order.items.select_related("product")}
+    need = Counter()
+    for line in lines:
+        need.update(items[int(line["item"])].product.stock_lines(int(line["quantity"])))
+    for pk, count in sorted(need.items()):
+        Product.objects.filter(pk=pk).update(stock=F("stock") + count)
+    record("order.restocked", order, request, by, reason=reason[:500], details={"copies": dict(need)})
+    return need
+
+
+def refund_with_details(order, payment, *, amount, reason, method, by=None, request=None, cancel=False, **details):
+    """The panel's refund (staff.approvals "order.refund" with its details), in one transaction: an order not yet
+    sent is cancelled first (its stock back) and refunded in full; then to the way it was paid (Razorpay: the task)
+    or by bank or UPI to the account the customer gave (FINANCE transfers it and marks it paid: an inbox item due in
+    SHOP_BANK_REFUND_DAYS); the copies refunded back into stock if asked; a return refunded; the customer told.
+    `details`: lines, shipping, restock, speed, payee and payee_masked (encrypted already), change_request, key,
+    back (the ReturnRequest). Returns the Refund. Raises ShopError."""
+    from staff.models import InboxItem
+    from staff.signals import open_item
+
+    lines, back = details.get("lines") or [], details.get("back")
+    fields = {
+        "lines": lines,
+        "shipping_amount": details.get("shipping") or Decimal("0.00"),
+        "restock": bool(details.get("restock")),
+        "speed": details.get("speed") or Refund.Speed.NORMAL,
+        "change_request": details.get("change_request"),
+        "idempotency_key": str(details.get("key") or "")[:80],
+    }
+    with transaction.atomic():
+        order = _lock(order)
+        if cancel:
+            cancelled(order)
+        if method == Refund.Method.SOURCE:
+            refund = start_refund(order, reason, payment=payment, by=by, amount=amount, method=method, **fields)
+            if refund is None:
+                raise ShopError("Nothing was refunded: the payment has nothing left to refund.")
+        else:
+            if amount > refundable(payment):
+                raise ShopError("Nothing was refunded: the payment has less left to refund.")
+            refund = Refund.objects.create(
+                order=order,
+                payment=payment,
+                amount=amount,
+                reason=reason,
+                created_by=by,
+                method=method,
+                payee=details.get("payee", ""),
+                payee_masked=details.get("payee_masked", ""),
+                **fields,
+            )
+            due = timezone.now() + timedelta(days=settings.SHOP_BANK_REFUND_DAYS)
+            title = f"Refund #{refund.pk} of {order.number}: transfer it by bank or UPI"
+            open_item(InboxItem.Kind.BANK_REFUND, refund, title, "staff.approve_refund", due)
+        if fields["restock"] and lines:
+            restock_lines(order, lines, f"Refund #{refund.pk}: {reason}", by, request)
+        if back is not None:
+            back = ReturnRequest.objects.select_for_update().get(pk=back.pk)
+            back.refund = refund
+            back.mark_refunded()
+            back.save()
+        if cancel:
+            notify(order, "cancelled", reason=reason, refund=refund)
+        elif method == Refund.Method.BANK:  # Razorpay's is told once it is made ("refunded"), within seconds
+            notify(order, "refund_started", refund=refund)
+    return refund
+
+
+def mark_bank_refund_paid(refund, utr, by=None, request=None):
+    """FINANCE transferred a refund by bank or UPI: its UTR kept, the refund processed (refund_processed: the payment
+    and the order refunded, the customer told, the credit note made, once), the inbox item done. Raises ShopError."""
+    from staff.models import InboxItem
+    from staff.signals import close_items
+
+    utr = " ".join(str(utr or "").split())
+    if not 4 <= len(utr) <= 60:
+        raise ShopError("The transfer's UTR or UPI reference (4 to 60 characters).")
+    with transaction.atomic():
+        refund = Refund.objects.select_for_update().get(pk=refund.pk)
+        if refund.method != Refund.Method.BANK:
+            raise ShopError(f"Refund #{refund.pk} is not one by bank or UPI: Razorpay makes it.")
+        if refund.status == Refund.Status.PROCESSED:
+            raise ShopError(f"Refund #{refund.pk} was marked paid already (UTR {refund.utr}).")
+        refund.utr, refund.paid_by = utr, by
+        refund.save(update_fields=["utr", "paid_by", "modified"])
+        refund_processed(refund.pk)
+        close_items(refund, InboxItem.Kind.BANK_REFUND)
+        details = {"refund": refund.pk, "amount": refund.amount.amount, "utr": utr}
+        record("refund.paid", refund.order, request, by, details=details)
+    return Refund.objects.get(pk=refund.pk)
+
+
+def cancel_returned(order, reason, by=None, restock=True, request=None):
+    """A cash-on-delivery parcel back with us undelivered (RTO; decision 10.1): the order cancelled with the reason,
+    nothing having been collected; its copies back into stock unless the parcel came back damaged; its invoice (made
+    at dispatch) credited in full by a credit note that moves no money (Refund.Method.NONE); the parcel's RTO
+    exception settled; the customer told. Raises TransitionNotAllowed for any other order."""
+    from shipping.models import ShipmentDetail, ShippingException
+    from shipping.services import close_exceptions
+
+    with transaction.atomic():
+        order = _lock(order)
+        order.cancel_returned()
+        if restock:
+            release_stock(order)
+        else:
+            order.stock_reserved = False  # the copies came back damaged: none go back for sale
+        order.save()
+        for payment in order.payments.select_for_update().filter(method=Order.Method.COD):
+            if can_proceed(payment.fail):
+                payment.fail("Came back undelivered.")
+                payment.save()
+        if Invoice.objects.filter(order=order).exists():
+            payment = order.payments.filter(method=Order.Method.COD).order_by("pk").first()
+            if payment is None:
+                logger.error("Order %s came back undelivered and has no COD payment: no credit note", order.number)
+            else:
+                note = Refund.objects.create(
+                    order=order,
+                    payment=payment,
+                    amount=order.total.amount,
+                    reason=reason[:200],
+                    created_by=by,
+                    status=Refund.Status.PROCESSED,
+                    processed_at=timezone.now(),
+                    method=Refund.Method.NONE,
+                    restock=restock,
+                )
+                transaction.on_commit(lambda: tasks.generate_credit_note.delay(note.pk), robust=True)
+        returned = ShipmentDetail.objects.filter(shipment__order=order, status="returned").select_related("shipment")
+        for detail in returned:
+            close_exceptions(detail.shipment, [ShippingException.Kind.RTO], "Order cancelled: came back undelivered.")
+        notify(order, "cancelled", reason=reason, refund=None)
+        record("order.cancelled", order, request, by, reason=reason, details={"returned": True, "restock": restock})
+    return order
+
+
+# Returns (RMA)
+
+
+def delivered_on(order):
+    """When the order was delivered: its parcels' latest delivery, else when its status turned delivered."""
+    parcels = order.shipments.exclude(delivered_at=None).order_by("-delivered_at")
+    when = parcels.values_list("delivered_at", flat=True).first()
+    if when is None:
+        rows = order.history.filter(status=Order.Status.DELIVERED).order_by("history_date")
+        when = rows.values_list("history_date", flat=True).first()
+    return when
+
+
+def return_deadline(order):
+    """The last moment a customer may ask for a return on the website (SHOP_RETURN_DAYS after delivery), or None."""
+    when = delivered_on(order)
+    return when + timedelta(days=settings.SHOP_RETURN_DAYS) if when else None
+
+
+def returnable(order):
+    """{item id: copies not yet asked back} of the order's books (returns declined do not count)."""
+    left = {item.pk: item.quantity for item in order.items.select_related("product") if not item.product.digital_only}
+    for back in order.returns.exclude(status=ReturnRequest.Status.DECLINED):
+        for line in back.lines:
+            if int(line["item"]) in left:
+                left[int(line["item"])] -= int(line["quantity"])
+    return left
+
+
+def request_return(order, lines, reason, note="", by=None, by_customer=False, request=None):
+    """A return asked for: by the customer on the website (a delivered order, within SHOP_RETURN_DAYS of delivery), or
+    by staff for them (the window is the website's, not the law's: Rule 7(4) has none). Its books and copies, a reason
+    code, the customer's words; an inbox item for whoever handles returns, due in 48 hours; the customer told.
+    Raises ShopError with what to change."""
+    from staff.models import InboxItem
+    from staff.signals import open_item
+
+    if reason not in ReturnRequest.Reason.values:
+        raise ShopError("Choose a reason from the list.")
+    with transaction.atomic():
+        order = _lock(order)
+        if order.status != Order.Status.DELIVERED:
+            status = order.get_status_display()
+            raise ShopError(f"Order {order.number} is {status}: only a delivered order is sent back.")
+        if order.is_digital:
+            raise ShopError("A course is not sent back: write to us about it through the contact page.")
+        if by_customer and ((deadline := return_deadline(order)) is None or timezone.now() > deadline):
+            days = settings.SHOP_RETURN_DAYS
+            raise ShopError(f"A return is asked for within {days} days of delivery: write to us on the contact page.")
+        if order.returns.filter(status__in=ReturnRequest.OPEN).exists():
+            raise ShopError(f"A return of order {order.number} is under way already.")
+        left, clean, seen = returnable(order), [], set()
+        for row in lines or []:
+            try:
+                pk, quantity = int(row["item"]), int(row["quantity"])
+            except (KeyError, TypeError, ValueError) as error:
+                raise ShopError("Each line: one of the order's books and its copies.") from error
+            if pk not in left or pk in seen:
+                raise ShopError("Each line: one of the order's books, once.")
+            seen.add(pk)
+            if quantity and not 0 < quantity <= left[pk]:
+                raise ShopError(f"At most {max(left[pk], 0)} copies of that book can be sent back.")
+            if quantity:
+                clean.append({"item": pk, "quantity": quantity})
+        if not clean:
+            raise ShopError("Choose the books to send back, and how many copies.")
+        back = ReturnRequest.objects.create(
+            order=order,
+            lines=clean,
+            reason=reason,
+            note=str(note or "").strip()[:1000],
+            by_customer=by_customer,
+            requested_by=by if getattr(by, "pk", None) else None,
+        )
+        title = f"Return {back.number} of order {order.number}"
+        due = timezone.now() + timedelta(hours=48)
+        open_item(InboxItem.Kind.RETURN_REQUEST, back, title, "staff.handle_return", due)
+        details = {"return": back.pk, "reason": reason, "lines": clean, "by_customer": by_customer}
+        record("order.return_requested", order, request, by, details=details)
+        notify(order, "return_requested", back=back)
+    return back
+
+
+def _locked_return(back):
+    return ReturnRequest.objects.select_for_update().select_related("order").get(pk=back.pk)
+
+
+def decide_return(back, approve, note="", by=None, request=None):
+    """Approve a return (the customer is told how to send it back) or decline it, saying why (the customer is told
+    the reason). Raises TransitionNotAllowed once decided, ShopError without a reason to decline."""
+    from staff.models import InboxItem
+    from staff.signals import close_items
+
+    note = " ".join(str(note or "").split())[:300]
+    if not approve and not note:
+        raise ShopError("Say why it is declined: the customer is told.")
+    with transaction.atomic():
+        back = _locked_return(back)
+        if approve:
+            back.approve()
+        else:
+            back.decline()
+        back.decision_note = note
+        back.save()
+        close_items(back, InboxItem.Kind.RETURN_REQUEST)
+        verb = "approved" if approve else "declined"
+        record(f"order.return_{verb}", back.order, request, by, reason=note, details={"return": back.pk})
+        notify(back.order, f"return_{verb}", back=back)
+    return back
+
+
+def send_return_label(back, courier, awb, by=None, request=None):
+    """The return label sent: the courier and the AWB the customer hands the parcel over with (the customer told).
+    Raises TransitionNotAllowed, ShopError."""
+    courier, awb = " ".join(str(courier or "").split())[:80], str(awb or "").strip()[:80]
+    if not courier or not awb:
+        raise ShopError("The courier and the return parcel's AWB.")
+    with transaction.atomic():
+        back = _locked_return(back)
+        back.return_courier, back.return_awb = courier, awb
+        back.send_label()
+        back.save()
+        record("order.return_label_sent", back.order, request, by, details={"return": back.pk, "courier": courier})
+        notify(back.order, "return_label", back=back)
+    return back
+
+
+def receive_return(back, by=None, request=None):
+    """The parcel sent back has arrived (with our label or the customer's own): the customer is told."""
+    with transaction.atomic():
+        back = _locked_return(back)
+        back.receive()
+        back.save()
+        record("order.return_received", back.order, request, by, details={"return": back.pk})
+        notify(back.order, "return_received", back=back)
+    return back
+
+
+def inspect_return(back, restock, by=None, request=None):
+    """The parcel inspected: its copies back into stock (with the return as the reason), or kept apart as damaged.
+    Its refund follows (staff.approvals "order.refund" naming the return). Raises TransitionNotAllowed."""
+    with transaction.atomic():
+        back = _locked_return(back)
+        if restock:
+            back.restock()
+        else:
+            back.mark_damaged()
+        back.save()
+        if restock:
+            restock_lines(back.order, back.lines, f"Return {back.number}", by, request)
+        outcome = "restocked" if restock else "damaged"
+        record("order.return_inspected", back.order, request, by, details={"return": back.pk, "outcome": outcome})
+    return back
+
+
+def add_return_photo(back, upload, by=None, request=None):
+    """A photograph of what came back (the inspection's evidence), in the private storage. Raises ShopError."""
+    from django.core.files.storage import default_storage
+
+    if len(back.photos) >= MAX_RETURN_PHOTOS:
+        raise ShopError(f"At most {MAX_RETURN_PHOTOS} photographs of a return.")
+    kinds = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
+    if getattr(upload, "content_type", "") not in kinds or upload.size > 5 * 1024 * 1024:
+        raise ShopError("A photograph: a JPEG, PNG or WebP image of 5 MB at most.")
+    name = default_storage.save(f"shop/returns/{back.pk}/{secrets.token_hex(8)}.{kinds[upload.content_type]}", upload)
+    with transaction.atomic():
+        back = _locked_return(back)
+        back.photos = [*back.photos, name]
+        ReturnRequest.objects.filter(pk=back.pk).update(photos=back.photos, modified=timezone.now())
+        record("order.return_photo_added", back.order, request, by, details={"return": back.pk})
+    return back
+
+
+# The owners' weekly list of what staff gave away (tasks.weekly_staff_grants; inventory I6)
+
+
+def staff_grants(start, end):
+    """What was given away between two days (India time, the end excluded), for the owners' weekly email: orders made
+    with a staff discount (its rupees and its share of the books after the offers), payments recorded offline, and
+    orders of ₹0, each with who gave it. Test orders are left out on the live site."""
+    from staff.models import AuditEvent
+
+    tz = timezone.get_current_timezone()
+    since, until = (timezone.make_aware(datetime.combine(day, time.min), tz) for day in (start, end))
+    live = {"livemode": True} if live_mode() else {}
+    orders = Order.objects.filter(created__gte=since, created__lt=until, **live).select_related("created_by")
+
+    def who(user):
+        return (user.full_name or user.email) if user else "a customer"
+
+    discounts = []
+    staff_lines = OrderDiscount.objects.filter(order__in=orders, offer=None, label="Discount")
+    for line in staff_lines.select_related("order__created_by").order_by("pk"):
+        order = line.order
+        base = order.subtotal.amount - (order.discount.amount - line.amount.amount)  # the books after the offers
+        share = (line.amount.amount * 100 / base).quantize(Decimal("0.1")) if base else Decimal(100)
+        discounts.append(
+            {"order": order.number, "by": who(order.created_by), "amount": line.amount.amount, "percent": share}
+        )
+    free = [{"order": order.number, "by": who(order.created_by)} for order in orders.filter(total=0).order_by("pk")]
+    events = AuditEvent.objects.filter(action="payment.offline_recorded", ts__gte=since, ts__lt=until).order_by("id")
+    events = list(events)
+    counted = Order.objects.filter(pk__in={event.target_id for event in events}, **live)
+    counted = {str(pk) for pk in counted.values_list("pk", flat=True)}
+    staff = get_user_model().objects.filter(pk__in={event.actor_id for event in events})
+    staff = {user.pk: user for user in staff}
+    offline = [
+        {"order": event.target_label, "by": who(staff.get(event.actor_id)), "amount": event.details.get("amount", "")}
+        for event in events
+        if event.target_id in counted
+    ]
+    return {"discounts": discounts, "offline": offline, "free": free}
+
+
+# Documents and messages again (the panel's buttons for RUNBOOK's shell steps)
+
+
+def invoiceable(order):
+    """Whether the order has an invoice, or is to have one: paid (online or offline) from payment on, a cash-on-
+    delivery order from its dispatch (the bill travels with the parcel)."""
+    S = Order.Status
+    if Invoice.objects.filter(order=order).exists():
+        return True
+    if order.is_cod:
+        return order.status in (S.SHIPPED, S.DELIVERED, S.REFUNDED)
+    return order.status in (S.PAID, S.PACKED, S.SHIPPED, S.DELIVERED, S.REFUNDED)
+
+
+def regenerate_documents(order):
+    """What is missing of the order's invoice and credit notes, queued for the worker (tasks.generate_invoice and
+    generate_credit_note: numbered once, the PDF made once). Returns what was queued, in words. Raises ShopError when
+    there is no invoice to make yet, nothing is missing, or the seller's details still hold a placeholder."""
+    if not invoiceable(order):
+        when = "once it is sent" if order.is_cod else "once it is paid"
+        raise ShopError(f"Order {order.number} has no invoice yet: it is made {when}.")
+    try:
+        invoices.check_seller(order.livemode)
+    except ImproperlyConfigured as error:
+        raise ShopError(f"{error}: no invoice is numbered until then.") from error
+    invoice, made = Invoice.objects.filter(order=order).first(), []
+    if invoice is None or not invoice.pdf:
+        made.append("the invoice")
+        transaction.on_commit(lambda: tasks.generate_invoice.delay(order.pk), robust=True)  # its credit notes after it
+    else:
+        for refund in order.refunds.filter(status=Refund.Status.PROCESSED):
+            note = CreditNote.objects.filter(refund=refund).first()
+            if note is None or not note.pdf:
+                made.append(f"the credit note of refund #{refund.pk}")
+                transaction.on_commit(lambda pk=refund.pk: tasks.generate_credit_note.delay(pk), robust=True)
+    if not made:
+        raise ShopError(f"Nothing to make: order {order.number}'s invoice and credit notes exist.")
+    return made
+
+
+def renotify(order, kind):
+    """A status message sent again (the email, and the SMS where the customer asked for them), only while what it says
+    is true: placed or paid, packed, shipped (with the latest parcel), delivered, cancelled, refunded (the latest refund
+    made). Returns what was sent, in words. Raises ShopError."""
+    S = Order.Status
+    latest = order.shipments.order_by("-shipped_at", "-pk").first()
+    if kind in ("placed", "paid"):
+        if order.placed_at is None or order.status in (S.CANCELLED, S.REFUNDED):
+            raise ShopError(f"Order {order.number} is {order.get_status_display()}: no confirmation to send.")
+        notify(order, "confirmation")
+        return "the confirmation"
+    true = {
+        "packed": order.status in (S.PACKED, S.SHIPPED, S.DELIVERED),
+        "shipped": order.status in (S.SHIPPED, S.DELIVERED) and latest is not None,
+        "delivered": order.status == S.DELIVERED,
+        "cancelled": order.status == S.CANCELLED,
+        "refunded": order.refunds.filter(status=Refund.Status.PROCESSED).exclude(method=Refund.Method.NONE).exists(),
+    }
+    if not true[kind]:
+        raise ShopError(f"Order {order.number} is {order.get_status_display()}: that message would not be true.")
+    if kind == "shipped":
+        notify(order, "shipped", shipment=latest)
+    elif kind == "cancelled":
+        refund = order.refunds.exclude(status=Refund.Status.FAILED).exclude(method=Refund.Method.NONE).first()
+        notify(order, "cancelled", reason="", refund=refund)
+    elif kind == "refunded":
+        refund = order.refunds.filter(status=Refund.Status.PROCESSED).exclude(method=Refund.Method.NONE).first()
+        notify(order, "refunded", refund=refund)
+    else:
+        notify(order, kind)
+    return f"the {kind} message"

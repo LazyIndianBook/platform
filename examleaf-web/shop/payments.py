@@ -100,7 +100,8 @@ def send_payment_link(order):
     """A Razorpay Payment Link for a pending order made by staff, made once (later calls email the same link again)
     and emailed to the customer by us (services.notify; ops.sms has no template for it, so no SMS), valid LINK_DAYS.
     It gets a Payment of its own, apart from the website's checkout. Raises Unavailable."""
-    payment = order.payments.exclude(razorpay_payment_link_id=None).first()
+    links = order.payments.exclude(razorpay_payment_link_id=None).exclude(status=Payment.Status.FAILED)
+    payment = links.first()  # a link cancelled (cancel_payment_link) is never sent again: a new one is made
     if payment is None:
         if not (settings.RAZORPAY_KEY_ID and settings.RAZORPAY_KEY_SECRET):
             raise Unavailable("Online payment is not set up yet.")
@@ -262,6 +263,27 @@ def _dispatch(event):
                 )
         if refund and services.same_mode(refund.payment, name):
             if name == "refund.processed":
-                services.refund_processed(refund.pk, razorpay_refund_id=entity["id"])
+                arn = (entity.get("acquirer_data") or {}).get("arn") or ""  # the bank's reference
+                services.refund_processed(refund.pk, razorpay_refund_id=entity["id"], arn=arn)
             else:
                 services.refund_failed(refund.pk, (entity.get("error_description") or "refund failed"))
+
+
+def cancel_payment_link(order):
+    """Cancel a staff order's Razorpay Payment Link that is still open (a wrong amount, the customer paid otherwise):
+    Razorpay first, then its Payment marked failed, so the next send_payment_link makes a new one. Returns the payment;
+    raises Unavailable (Razorpay could not be asked: nothing changed) or ValueError (no open link)."""
+    payment = order.payments.exclude(razorpay_payment_link_id=None).exclude(status=Payment.Status.FAILED).first()
+    if payment is None or payment.status != Payment.Status.CREATED:
+        raise ValueError(f"Order {order.number} has no payment link waiting to be paid.")
+    try:
+        client().payment_link.cancel(payment.razorpay_payment_link_id, timeout=TIMEOUT)
+    except API_ERRORS as error:
+        logger.warning("Razorpay payment link of %s not cancelled: %s", order.number, error)
+        raise Unavailable("The payment service could not be reached.") from error
+    with transaction.atomic():
+        locked = Payment.objects.select_for_update().get(pk=payment.pk)
+        if can_proceed(locked.fail):
+            locked.fail("Payment link cancelled by staff.")
+            locked.save()
+    return locked

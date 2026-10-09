@@ -1,0 +1,7 @@
+{% autoescape off %}The books of return {{ back.number }} (order {{ order.number }}) are back with us. We check them and
+refund you within a few working days; the refund comes with its own email.
+
+Your order: {{ site_url }}{{ order.get_link_url }}
+(This link opens the order without an account: keep it to yourself.)
+
+ExamLeaf{% endautoescape %}

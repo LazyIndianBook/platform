@@ -4,10 +4,11 @@ from decimal import Decimal
 
 import pytest
 
-from insights.jobs.risk import RtoHistory, rto_risk, score_account, score_accounts
+from insights.jobs.risk import RtoHistory, history_for, junk_address, rto_risk, score_account, score_accounts
 from insights.models import AccountScore
-from shop.factories import ADDRESS
-from shop.models import Order
+from shipping.models import ShipmentDetail
+from shop.factories import ADDRESS, ProductFactory, make_order
+from shop.models import Order, Shipment
 
 pytestmark = pytest.mark.django_db
 
@@ -66,3 +67,35 @@ def test_schools_and_distributors_are_scored_by_the_rules_with_their_reasons():
     assert {(s.external_ref, s.bucket, s.score) for s in AccountScore.objects.all()} == {
         ("Cotton Collegiate", "medium", 6), ("Unknown school", "low", 0),
     }  # fmt: skip
+
+
+def test_an_address_no_courier_could_find_is_a_reason():
+    assert junk_address(ADDRESS) is None
+    assert junk_address({"line1": "12"}) == "the address's first line is too short to find"
+    assert junk_address({"line1": "aaaaaa street"}) == "the address looks typed at random"
+    assert junk_address({"line1": "qwerty road 5"}) == "the address looks typed at random"
+    assert junk_address({"line1": "My House"}) == "the address is a placeholder"
+    assert "the address is a placeholder" in rto_risk(order(line1="testing")).reasons
+
+
+def outcome(status, n, **address):
+    placed = make_order((ProductFactory(stock=10), 1), email=f"past{n}@example.com", **address)
+    shipment = Shipment.objects.create(order=placed, courier="India Post", tracking_number=f"EA{n}IN")
+    ShipmentDetail.objects.create(shipment=shipment, carrier="manual", status=status, cod_amount=299)
+    return placed
+
+
+def test_the_history_counts_the_parcels_outcomes_and_matches_the_customer_by_hashes(settings):
+    settings.SHOP_COD_ENABLED = True
+    for n in range(3):
+        outcome("returned", n, pin="781005")
+    outcome("delivered", 3, pin="781005")
+    outcome("delivered", 4, pin="781006")  # the same district, another PIN code
+    outcome("in_transit", 5, pin="781005")  # no outcome yet
+    outcome("returned", 6, pin="560001", district="Bengaluru", phone="+91 98640 12345")  # the same phone
+    new = make_order((ProductFactory(), 1), method="cod", email="new@example.com", pin="781005")
+    history = history_for(new)
+    assert (history.pin_parcels, history.pin_returned) == (4, 3)
+    assert (history.district_parcels, history.district_returned) == (5, 3)  # Kamrup Metro: 781005 and 781006
+    assert history.customer_returned == 4  # ADDRESS's phone and first line: the three to 781005 and the one by phone
+    assert history.customer_cod_orders == 0

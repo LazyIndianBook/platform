@@ -803,6 +803,34 @@ CELERY_BEAT_SCHEDULE.update(
     }
 )
 
+# Phase B: orders (shop/staff_orders.py, shop/README.md; API.md "Orders (staff)"). A customer asks for a return within
+# SHOP_RETURN_DAYS of delivery (E-Commerce Rules 7(4)); a cash-on-delivery order worth SHOP_COD_HIGH_VALUE_INR rupees
+# or more counts towards its risk (insights.jobs.risk), and one scored high waits on hold ("payment check") until staff
+# confirm it while SHOP_COD_HIGH_RISK_HOLD is on (the panel may switch it: staff.config). A refund to the customer's
+# bank account or UPI ID is due from FINANCE within SHOP_BANK_REFUND_DAYS (its inbox item's clock). The owners' weekly
+# email of staff discounts, offline payments and ₹0 orders goes on Mondays at 08:00; the SMS held overnight at 08:00.
+SHOP_RETURN_DAYS = env.int("SHOP_RETURN_DAYS", default=15)
+SHOP_COD_HIGH_VALUE_INR = env.int("SHOP_COD_HIGH_VALUE_INR", default=1000)
+SHOP_COD_HIGH_RISK_HOLD = env.bool("SHOP_COD_HIGH_RISK_HOLD", default=True)
+SHOP_BANK_REFUND_DAYS = env.int("SHOP_BANK_REFUND_DAYS", default=3)
+CELERY_BEAT_SCHEDULE |= {
+    "shop-staff-grants": {
+        "task": "shop.tasks.weekly_staff_grants",
+        "schedule": crontab(hour=8, minute=0, day_of_week="mon"),
+    },
+    "shop-held-sms": {"task": "shop.tasks.send_held_sms", "schedule": crontab(hour=8, minute=0)},
+}
+_ORDERS_TAG = {"name": "orders (staff)", "description": "Orders: the list, records, returns, refunds, quotes (API.md)."}
+if _ORDERS_TAG not in SPECTACULAR_SETTINGS["TAGS"]:  # noqa: F405  (once: tests reload this module, the dict is shared)
+    SPECTACULAR_SETTINGS["TAGS"].append(_ORDERS_TAG)  # noqa: F405
+SPECTACULAR_SETTINGS["ENUM_NAME_OVERRIDES"].update(  # noqa: F405  the orders module's "status", "channel" …
+    ReturnStatusEnum="shop.models.ReturnRequest.Status",
+    RefundStatusEnum="shop.models.Refund.Status",
+    QuoteStatusEnum="shop.models.QuoteRequest.Status",
+    StaffOrderChannelEnum="shop.staff_orders.CHANNELS",
+    ChannelEnum="staff.models.DataRequest.Channel",  # its name as before: a staff order's channel is another
+)
+
 # ---- Resilience (RESILIENCE.md: each knob below, its default and when to change it) --------------------------------
 # Nothing waits without a limit: every call to another service has a connect and a read timeout and a bounded retry,
 # every SQL statement a time limit in the processes that serve people. Kept in one block, after everything it reads.
