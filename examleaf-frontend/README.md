@@ -118,15 +118,15 @@ A member of ExamLeaf's support can sign in as a customer from the staff console 
 ticket, logged and the owners told; never a member of staff or a student under 18). The console gives them a link to
 `/account/impersonate/?token=…`, a token of 15 minutes; the page sends it once (`POST /api/v1/account/impersonate/`,
 answered `{until, user}`) and opens `/account/`, or says plainly that the link is not valid, has expired or was used
-(the 400's words). While the account manifest (`GET /api/v1/account/`, its `impersonation: {until, by} | null`, read
-once per request by the root layout: `getImpersonation()`) says so, a band above every page that cannot be dismissed
-says "A support colleague is viewing this account as <their masked email> until <time>", in the information colours,
-with End (`DELETE /api/v1/account/impersonate/`, then `/account/login/`). The actions such a session may not take are
-drawn disabled with the reason (`WhileImpersonated`, `src/components/site/impersonation.tsx`): ordering and paying,
+(the 400's words). While allauth's session user (`auth/session`, which the root layout reads on every page) carries
+`impersonation: {until, by}`, a band above every page that cannot be dismissed says "A support colleague is viewing
+this account as <their masked email> until <time>", in the information colours, with End
+(`DELETE /api/v1/account/impersonate/`, then `/account/login/`). The actions such a session may not take are drawn
+disabled with the reason (`WhileImpersonated`, `src/components/site/impersonation.tsx`): ordering and paying,
 cancelling an order, the address book's changes, the email address, mobile number, password, Google link and
 passkeys, two-step log-in, the parent's link, the data download, keeping or deleting the account. The backend refuses
-them anyway (403 `impersonating`); the page only says so first. Until the backend publishes the endpoint and the
-manifest's field, the manifest reads as no impersonation and `e2e/impersonation.spec.ts` skips (its probe answers 404).
+them anyway (403 `impersonating`); the page only says so first. `e2e/impersonation.spec.ts` follows the link against
+Django, and skips when the endpoint answers 404 (a backend without it).
 
 ## Design system
 

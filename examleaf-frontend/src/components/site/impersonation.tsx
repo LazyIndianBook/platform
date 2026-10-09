@@ -1,7 +1,7 @@
 "use client";
 
-// While a member of ExamLeaf's support is signed in as this customer (the account manifest's `impersonation`, read by
-// the root layout): a band above every page, in the site's information colours (news, not an error), that cannot be
+// While a member of ExamLeaf's support is signed in as this customer (the `impersonation` of allauth's session user,
+// which the root layout reads on every page): a band above every page, in the site's information colours (news, not an error), that cannot be
 // dismissed, saying who and until when, with End (DELETE account/impersonate/, then the log-in page); and the actions
 // such a session may not take (payments, addresses, the password, email and mobile number, two-step log-in and
 // passkeys, consent, the data download and deletion) drawn disabled, with the reason. The API refuses them anyway
@@ -14,9 +14,12 @@ import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { AuthTitle, Lead } from "@/components/auth/auth-card";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import type { Impersonation } from "@/lib/api/account";
+import type { AuthUser } from "@/lib/auth/headless";
 import { ensureCsrfCookie, readCookie } from "@/lib/api/client";
 import { formatTime } from "@/lib/dates";
+
+/** While a member of staff is signed in as this customer: when it ends and who (their address, masked). */
+export type Impersonation = NonNullable<AuthUser["impersonation"]>;
 
 const ImpersonationContext = createContext<Impersonation | null>(null);
 

@@ -14,7 +14,6 @@ import { ImpersonationBanner, ImpersonationProvider } from "@/components/site/im
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteHeader } from "@/components/site/site-header";
 import { Toaster } from "@/components/ui/toaster";
-import { getImpersonation } from "@/lib/api/account";
 import { getBooks, getCartCount } from "@/lib/api/catalogue";
 import { getConfig } from "@/lib/api/config";
 import { hasSessionCookie } from "@/lib/api/server";
@@ -54,12 +53,10 @@ async function footerBooks() {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const [config, user, books] = await Promise.all([getConfig(), getSessionUser(), footerBooks()]);
-  // an account's cart, or a visitor's guest cart (it lives in the session: no session cookie, no cart to ask about);
-  // and whether a support colleague is signed in as this account (the banner above every page)
-  const [cartCount, impersonation] = await Promise.all([
-    hasSessionCookie().then((has) => (has ? getCartCount() : 0)),
-    user ? getImpersonation() : null,
-  ]);
+  // an account's cart, or a visitor's guest cart (it lives in the session: no session cookie, no cart to ask about)
+  const cartCount = (await hasSessionCookie()) ? await getCartCount() : 0;
+  // whether a support colleague is signed in as this account (the session user's, for the banner above every page)
+  const impersonation = user?.impersonation ?? null;
   return (
     <html lang="en" className={fontVariables}>
       <body>

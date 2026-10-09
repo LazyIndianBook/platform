@@ -1,5 +1,5 @@
-// A support colleague signed in as a customer (the staff console's impersonation): the account manifest's
-// `impersonation` read by the layout, the band above every page with End, the actions such a session may not take
+// A support colleague signed in as a customer (the staff console's impersonation): the session user's
+// `impersonation` given by the layout, the band above every page with End, the actions such a session may not take
 // drawn disabled with the reason, and the console's link accepted once on /account/impersonate/.
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -9,11 +9,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AddressBook } from "@/components/account/address-book";
 
 import { AcceptImpersonation, ImpersonationBanner, ImpersonationProvider, WhileImpersonated } from "./impersonation";
-
-vi.mock("next/headers", () => ({
-  headers: async () => new Headers(),
-  cookies: async () => ({ toString: () => "sessionid=s1; csrftoken=c1", has: () => true }),
-}));
 
 const VIEWING = { until: "2026-10-09T08:35:00Z", by: "a•••@examleaf.in" }; // 14:05 in India
 
@@ -31,24 +26,6 @@ beforeEach(() => {
   document.cookie = "csrftoken=c1"; // the CSRF cookie is there: no config request first
 });
 afterEach(() => vi.unstubAllGlobals());
-
-describe("the account manifest's impersonation", () => {
-  it("is read from account/ with the visitor's cookies, and anything but an answer with it reads as none", async () => {
-    const { getImpersonation } = await import("@/lib/api/account");
-    django.mockResolvedValueOnce(json(200, { impersonation: VIEWING }));
-    expect(await getImpersonation()).toEqual(VIEWING);
-    const [url, init] = django.mock.calls[0];
-    expect(url).toMatch(/\/api\/v1\/account\/$/);
-    expect(new Headers(init?.headers).get("Cookie")).toBe("sessionid=s1; csrftoken=c1");
-
-    django.mockResolvedValueOnce(json(200, { impersonation: null }));
-    expect(await getImpersonation()).toBeNull();
-    django.mockResolvedValueOnce(json(404, { detail: "Not found." })); // the backend without it yet
-    expect(await getImpersonation()).toBeNull();
-    django.mockRejectedValueOnce(new TypeError("fetch failed"));
-    expect(await getImpersonation()).toBeNull();
-  });
-});
 
 describe("the banner", () => {
   it("is not there for the customer themselves", () => {

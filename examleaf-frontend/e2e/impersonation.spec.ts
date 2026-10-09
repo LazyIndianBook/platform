@@ -1,8 +1,8 @@
 // The website's side of an impersonation from the staff console, against the Django backend: the console's link
 // (/account/impersonate/?token=…) opens the student's account with the band above every page, the actions such a
 // session may not take are closed with the reason, End signs the session out to the log-in page, and the same link
-// does not open the account twice. Skipped while the backend has no account/impersonate/ (it answers 404): the
-// endpoint and the account manifest's `impersonation` come with the backend's impersonation work.
+// does not open the account twice. Skipped when the backend has no account/impersonate/ (it answers 404): the session
+// user's `impersonation` and the endpoint come with the backend's impersonation work (7e42df3).
 import { expect, test } from "@playwright/test";
 
 import { createStudent, deleteStaffMember, deleteStudent, impersonationToken } from "./account-django";

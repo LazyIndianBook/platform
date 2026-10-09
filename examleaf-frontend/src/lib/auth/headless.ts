@@ -24,7 +24,16 @@ export type FlowId =
   | "mfa_login_webauthn";
 
 export type Flow = { id: FlowId; is_pending?: boolean; types?: string[]; provider?: { id: string; name: string } };
-export type AuthUser = { id?: number; display: string; email?: string; phone?: string; has_usable_password: boolean };
+/** allauth.headless's user; `impersonation` (the backend's HeadlessAdapter): {until, by} while a member of staff is
+ *  signed in as this customer, else null. */
+export type AuthUser = {
+  id?: number;
+  display: string;
+  email?: string;
+  phone?: string;
+  has_usable_password: boolean;
+  impersonation?: { until: string; by: string } | null;
+};
 
 export type AuthResult = {
   status: number; // 200 (202 for a new mobile number's code), or 401
