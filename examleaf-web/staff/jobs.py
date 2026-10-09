@@ -40,6 +40,7 @@ LIMITS = {
     Job.Kind.GSTR1_EXPORT: "export_rows",
     **order_jobs.LIMITS,  # the Orders module's (shop/order_jobs.py)
     Job.Kind.GRIEVANCE_EXPORT: "export_rows",
+    Job.Kind.REPORT_EXPORT: "export_rows",  # the Reports (insights/exports.py)
 }
 
 
@@ -69,6 +70,8 @@ def permission(kind, params):
         return "staff.export_grievances"
     if kind == Job.Kind.SETTLEMENT_FETCH:
         return "staff.reconcile_settlements"
+    if kind == Job.Kind.REPORT_EXPORT:
+        return "staff.export_report"
     return order_jobs.PERMISSIONS.get(kind)
 
 
@@ -112,6 +115,10 @@ def start(kind, params, *, user, dry_run=False, request=None):
         total = tickets(params).count()
     elif kind == Job.Kind.SETTLEMENT_FETCH:
         total = 0  # the day's settlement lines, counted as Razorpay gives them; no approver: it reads and matches
+    elif kind == Job.Kind.REPORT_EXPORT:
+        from insights.exports import size
+
+        total = size(user, params)  # the report as its starter reads it: their permissions, their scope
     else:
         total = len(params["targets"])
     with transaction.atomic():
@@ -291,6 +298,13 @@ def settlement_fetch(job, progress):
     return fetch_job(job, progress)
 
 
+def report_export(job, progress):
+    """A report as CSV (insights.exports.export)."""
+    from insights.exports import export
+
+    return export(job, progress)
+
+
 RUNNERS = {
     Job.Kind.AUDIT_EXPORT: export_audit,
     Job.Kind.BULK_ACTION: bulk_action,
@@ -300,6 +314,7 @@ RUNNERS = {
     Job.Kind.CONTENT_IMPORT: content_import,
     Job.Kind.GRIEVANCE_EXPORT: grievance_export,
     Job.Kind.SETTLEMENT_FETCH: settlement_fetch,
+    Job.Kind.REPORT_EXPORT: report_export,
 }
 
 

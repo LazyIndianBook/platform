@@ -162,8 +162,8 @@ def test_the_panels_roles_have_their_permissions_and_nothing_more():
     views = Permission.objects.filter(codename__startswith="view_").count()
     assert auditor.get_all_permissions() >= {"staff.view_auditlog", "staff.export_auditlog", "accounts.view_user"}
     writes = {perm for perm in auditor.get_all_permissions() if not perm.split(".")[1].startswith("view_")}
-    assert writes == {"staff.export_auditlog", "staff.export_grievances"}  # its exports: the log, the register
-    assert len(auditor.get_all_permissions()) == views + 2
+    assert writes == {"staff.export_auditlog", "staff.export_grievances", "staff.export_report"}  # its exports
+    assert len(auditor.get_all_permissions()) == views + 3
     assert not auditor.has_perm("staff.reveal_contact")  # no personal data revealed
     for perm in roles.OWNER_ONLY:  # the owners' own, beyond ADMIN's everything
         assert member(roles.OWNER).has_perm(perm) and not member(roles.ADMIN).has_perm(perm), perm
@@ -193,7 +193,7 @@ def test_the_old_roles_keep_their_permissions_and_gain_the_panels():
 def test_shipping_and_the_insights_go_to_the_roles_that_do_them():
     grants = {  # plan 5.7 and 5.16
         roles.PACKER: {"staff.view_parcels", "staff.book_parcel"},
-        roles.SALES: {"staff.view_parcels", "staff.act_on_exception", "staff.view_cod"},
+        roles.SALES: {"staff.view_parcels", "staff.act_on_exception", "staff.view_cod", "staff.view_insights"},
         roles.SUPPORT: {"staff.view_parcels"},  # "where is my parcel?"
         roles.FINANCE: {"staff.view_cod", "staff.reconcile_cod", "staff.view_insights"},
         roles.MARKETING: {"staff.view_insights"},

@@ -24,12 +24,12 @@ def test_every_job_and_the_review_run_on_an_empty_database():
     lines = out.getvalue().splitlines()
     assert [line.split(":")[0] for line in lines] == [
         *["backtest", "forecast_demand", "advise_print_run", "item_analysis", "cohorts", "code_activation"],
-        *["delivery_stats", "offer_effectiveness", "fraud_rules"],
+        *["delivery_stats", "offer_effectiveness", "fraud_rules", "course_health"],
     ]
     assert lines[1].startswith("forecast_demand: run #") and "nothing to work on" in lines[1]
     assert lines[2].startswith("advise_print_run: run #")  # (its number: PostgreSQL's sequences outlive a test)
     assert lines[2].endswith(" nothing to work on. No demand forecast yet.")
-    assert lines[-1] == "fraud_rules: 0 signals new or grown"
+    assert lines[-2] == "fraud_rules: 0 signals new or grown" and lines[-1] == "course_health: 0 rows"
     out = StringIO()
     call_command("insights_review", stdout=out)
     assert out.getvalue() == "No forecast was made before any of the last four complete weeks.\n"
@@ -37,7 +37,7 @@ def test_every_job_and_the_review_run_on_an_empty_database():
 
 def test_the_jobs_are_scheduled_at_night_one_task_each(settings):
     entries = [entry for name, entry in settings.CELERY_BEAT_SCHEDULE.items() if name.startswith("insights-")]
-    assert len({entry["task"] for entry in entries}) == len(entries) == 9
+    assert len({entry["task"] for entry in entries}) == len(entries) == 10
     assert all(entry["task"] in current_app.tasks for entry in entries)
     assert all(entry["schedule"].hour <= {1, 2, 3} for entry in entries)
     assert all(entry["task"] != "insights.tasks.fraud_rules" or entry["schedule"].hour == {3} for entry in entries)

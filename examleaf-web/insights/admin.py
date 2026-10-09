@@ -15,6 +15,7 @@ from .models import (
     ChapterStat,
     CodeActivationStat,
     CohortStat,
+    CourseHealthStat,
     DeliveryStat,
     ExamSeason,
     Forecast,
@@ -131,6 +132,13 @@ class ChapterStatAdmin(ReadOnlyAdmin):
 class CohortStatAdmin(ReadOnlyAdmin):
     list_display = ["cohort_month", "source", "week_index", "n", "active_share", "churned_share", "computed_at"]
     list_filter = ["computed_at", "source", "cohort_month"]
+
+
+@admin.register(CourseHealthStat)
+class CourseHealthStatAdmin(ReadOnlyAdmin):
+    list_display = ["grain", "period_start", "subject", "chapter", "active_learners", "clips_completed", "quiz_answers"]
+    list_filter = ["grain", "subject"]
+    list_select_related = ["subject", "chapter"]
 
 
 @admin.register(CodeActivationStat)

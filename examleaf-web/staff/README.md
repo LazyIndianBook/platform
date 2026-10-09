@@ -287,6 +287,10 @@ limit: one day; params `{"day": "YYYY-MM-DD"}`, from 2020 to today; its result t
 `staff.reconcile_settlements` (area Payments; FINANCE, with ADMIN and the owners) and two kinds of inbox item, both for
 `staff.reconcile_settlements`: `settlement` (a Razorpay settlement that does not match: done once it matches) and
 `b2b_payment` (a B2B invoice paid by link: done once its ERPNext entry is recorded).
+Home and Reports (`insights/README.md`) adds the kind `report_export` (`staff.export_report`, high: FINANCE, the auditor,
+ADMIN and the owners; the `export_rows` limit; params `{"report": "sales", "filters": {...}}`, validated by
+`insights.exports.clean_params` before anything is queued; the starter needs the report's own permissions too), its file
+a CSV with the filters and the member of staff's number at the end.
 
 ## Data protection
 

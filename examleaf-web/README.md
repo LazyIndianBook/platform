@@ -95,6 +95,13 @@ and the security reviews, [SECURITY_REVIEW.md](SECURITY_REVIEW.md) (phases 1 to 
 - **Insights for staff** (`insights/`): nightly demand forecasts per title and district with their backtest against
   the seasonal naive, print-run advice (the newsvendor's quantity, reprint triggers), the quiz's item analysis,
   cohorts, code activation, delivery times, fraud signals and what offers did; learner data only as aggregates.
+- **Home and reports for staff** (`insights/`, `insights/README.md` "Home and Reports"): every number of the panel's
+  Home defined once (`metrics.py`: net revenue, orders, codes redeemed, active learners, the queues that wait for a
+  person), test-mode orders left out by construction, the cards of each role with the previous period beside them;
+  reports of sales by product, subject, class, board, edition and period, sales by state, district and PIN code, book
+  codes by batch, the course's use by subject and chapter, cash on delivery and Razorpay's settlements, the print-run
+  sum recomputed from typed inputs, each report saying how it counts; cells under 10 people hidden; any report exported
+  as a file; no row names a person.
 - **Support** (`support/`, `support/README.md`): every complaint a ticket with a number the customer can quote
   (`SR-2026-000123`), from the contact form, "My requests" on the account, email to the support address (forwarded,
   threaded, loops guarded), or logged by staff (calls, WhatsApp, National Consumer Helpline complaints with their
@@ -169,6 +176,7 @@ can be edited in the admin:
 | 01:00 to 03:00, every 15 minutes | the insights jobs, one task each: backtest, demand forecast, print-run advice, item analysis, cohorts, code activation, delivery times, offer effects, fraud rules and their email (`insights/README.md`; DEPLOYMENT.md section 21) |
 | 03:00 | purge the account deletions whose seven days are over (but those a legal hold or a child's parent keeps waiting), and the registration details the intermediary rule kept 180 days |
 | 03:05 | copy the erasure ledger's lines not yet there to the backups' bucket |
+| 03:15 | `insights.tasks.course_health`: how the course is used by subject and chapter, counted for the course-health report (`insights/README.md` "Course health") |
 | 03:30 | forget failed log-ins (django-axes) |
 | 03:45 | delete expired sessions |
 | 04:00 | delete task results older than a week |
@@ -783,6 +791,10 @@ data (the shipping app's parcel outcomes, ERPNext's accounts). Staff enter the e
 admin (Insights); every other table there is read-only, and staff read the same rows at `/api/v1/insights/`. No
 library beyond Python's own; no row points to an account, and learner numbers come in groups of 5 or more (DPDP Act s.
 9(3)).
+Since Phase B the panel's Home and reports are built on the same package: one definition per number
+(`insights/metrics.py`), the reports (`insights/reports.py`), the minimum cell (`insights/cells.py`: districts, PIN
+codes, states and cohorts under `INSIGHTS_MIN_CELL`, 10; a chapter's or a class's learners under
+`INSIGHTS_MIN_CELL_CLASS`, 5) and their export as a job (`insights/exports.py`).
 
 ## Tests
 

@@ -1070,6 +1070,26 @@ SPECTACULAR_SETTINGS["ENUM_NAME_OVERRIDES"].update(  # noqa: F405  a payment's a
     FinanceTodayKeyEnum="shop.staff_finance.TODAY_KEYS",
     OrderPaymentLinkActionEnum=["send", "cancel"],  # an order's link's action, named as before (and a B2B link's)
 )
+# Home and Reports (insights/README.md "Home and Reports"; API.md "Home and reports (staff)"): the numbers of the
+# panel's Home and its reports. A table's cell that counts fewer people or orders than the minimum is hidden: the
+# districts', PIN codes', states', cohorts' and searches' tables under INSIGHTS_MIN_CELL (10), a chapter's or a class's
+# learners under INSIGHTS_MIN_CELL_CLASS (5); neither may be set below 5 (insights.E001). The course's use by subject
+# and chapter is worked out every night at 03:15 (after the fraud rules). A report is a heavy query by nature, so the
+# reports have a throttle of their own.
+INSIGHTS_MIN_CELL = env.int("INSIGHTS_MIN_CELL", default=10)
+INSIGHTS_MIN_CELL_CLASS = env.int("INSIGHTS_MIN_CELL_CLASS", default=5)
+REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["staff_reports"] = env(  # noqa: F405  a staff member's report requests
+    "STAFF_THROTTLE_REPORTS", default="60/minute"
+)
+for _name, _description in [
+    ("home (staff)", "The panel's Home: the cards of the person's role, each one number with its definition (API.md)."),
+    ("reports (staff)", "Sales, places, codes, course health, COD, settlements and the print-run sum (API.md)."),
+]:
+    if {"name": _name, "description": _description} not in SPECTACULAR_SETTINGS["TAGS"]:  # noqa: F405  (once: reloads)
+        SPECTACULAR_SETTINGS["TAGS"].append({"name": _name, "description": _description})  # noqa: F405
+CELERY_BEAT_SCHEDULE |= {
+    "insights-course-health": {"task": "insights.tasks.course_health", "schedule": crontab(hour=3, minute=15)},
+}
 
 # ---- Resilience (RESILIENCE.md: each knob below, its default and when to change it) --------------------------------
 # Nothing waits without a limit: every call to another service has a connect and a read timeout and a bounded retry,

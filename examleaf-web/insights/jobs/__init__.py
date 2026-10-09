@@ -14,8 +14,9 @@ from django.db.models import Q
 from django.utils import timezone
 from django.utils.crypto import salted_hmac
 
-from shop.models import Order, OrderItem, PinCode, Product, StockAlert, live_mode
+from shop.models import OrderItem, PinCode, Product, StockAlert
 
+from ..metrics import live_orders as counted_orders  # noqa: F401  (the one place that says which orders count)
 from ..models import ExamSeason, ForecastRun
 
 logger = logging.getLogger("insights")
@@ -44,12 +45,6 @@ def districts_of(addresses):
 def district(address, known):
     """An order's district: its PIN code's in the directory (`known`), else the one typed in the address."""
     return known.get(address.get("pin")) or str(address.get("district", "")).strip() or UNKNOWN
-
-
-def counted_orders():
-    """The orders that count as sales (placed, not cancelled or refunded), without test-mode ones on a live site."""
-    orders = Order.objects.counted()
-    return orders.filter(livemode=True) if live_mode() else orders
 
 
 def week_index(season, day):

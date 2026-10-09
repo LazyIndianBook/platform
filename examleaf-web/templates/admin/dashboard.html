@@ -11,6 +11,10 @@
 #dashboard p { margin: 0; padding: 12px 14px; line-height: 2; }
 #dashboard p a { display: inline-block; padding: 4px 0; font-weight: 600; color: #0B2A5B; text-decoration: underline; text-underline-offset: 3px; }
 #dashboard p a:hover { color: #1A6E30; }
+#dashboard ul.waiting { list-style: none; margin: 0; padding: 12px 14px; line-height: 2; }
+#dashboard ul.waiting li { display: inline; } #dashboard ul.waiting li + li::before { content: " · "; }
+#dashboard ul.waiting a { display: inline-block; padding: 4px 0; font-weight: 600; color: #0B2A5B; text-decoration: underline; text-underline-offset: 3px; }
+#dashboard ul.waiting a:hover { color: #1A6E30; }
 </style>
 {% endblock %}
 {% block content %}
@@ -23,10 +27,12 @@
   {% for label, today, month in stats.rows %}<tr><th scope="row">{{ label }}</th><td>{{ today }}</td><td>{{ month }}</td></tr>{% endfor %}
   </tbody>
 </table>
-<p>Waiting: <a href="{% url 'admin:accounts_teacherprofile_changelist' %}?verified__exact=0">{{ stats.teachers_waiting }} teacher request{{ stats.teachers_waiting|pluralize }}</a>
- · <a href="{% url 'admin:accounts_deletionrequest_changelist' %}?status__exact=pending">{{ stats.deletions_waiting }} account deletion{{ stats.deletions_waiting|pluralize }}</a>
-{% if stats.pages_unfinished %} · <a href="{% url 'admin:pages_page_changelist' %}">{{ stats.pages_unfinished }} legal page{{ stats.pages_unfinished|pluralize }} with [placeholders] to fill in</a>{% endif %}
-{% if perms.learn.view_clip and stats.clips_failed %} · <a href="{% url 'admin:learn_clip_changelist' %}?processing__exact=failed">{{ stats.clips_failed }} clip{{ stats.clips_failed|pluralize }} failed to process</a>{% endif %}</p>
+<ul class="waiting" aria-label="Waiting">
+  {% if perms.accounts.view_teacherprofile %}<li><a href="{% url 'admin:accounts_teacherprofile_changelist' %}?verified__exact=0">{{ stats.teachers_waiting }} teacher request{{ stats.teachers_waiting|pluralize }}</a></li>{% endif %}
+  {% if perms.accounts.view_deletionrequest %}<li><a href="{% url 'admin:accounts_deletionrequest_changelist' %}?status__exact=pending">{{ stats.deletions_waiting }} account deletion{{ stats.deletions_waiting|pluralize }}</a></li>{% endif %}
+  {% if perms.pages.view_page and stats.pages_unfinished %}<li><a href="{% url 'admin:pages_page_changelist' %}">{{ stats.pages_unfinished }} legal page{{ stats.pages_unfinished|pluralize }} with [placeholders] to fill in</a></li>{% endif %}
+  {% if perms.learn.view_clip and stats.clips_failed %}<li><a href="{% url 'admin:learn_clip_changelist' %}?processing__exact=failed">{{ stats.clips_failed }} clip{{ stats.clips_failed|pluralize }} failed to process</a></li>{% endif %}
+</ul>
 </div>
 {{ block.super }}
 {% endblock %}

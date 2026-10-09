@@ -233,6 +233,40 @@ print(json.dumps({"order": order.number, "payment": payment.pk, "request": reque
   );
 }
 
+export type ReportsWorld = { title: string; order: string; test: string };
+
+/** For the Home and reports journey: a title at ₹1,234 and, of it, an order paid online with live keys (a captured
+ *  payment, placed today) and apart a test-mode order of ₹999 (made with test keys), which every number leaves out.
+ *  Orders made here by hand are test-mode ones (livemode defaults to false): only the first is a sale of the shop. */
+export function seedReportsWorld(stamp: number): ReportsWorld {
+  return lastJson<ReportsWorld>(
+    shell(`
+import json
+from decimal import Decimal
+from django.utils import timezone
+from shop.models import Order, OrderItem, Payment, Product
+title = ${py(`E2E Reports ${stamp}`)}
+left = Order.objects.filter(email__startswith="admin-ui-reports-")  # a run that was cut off leaves its orders (their payments protect them)
+Payment.objects.filter(order__in=left).delete()
+left.delete()
+Product.objects.filter(title__startswith="E2E Reports ").delete()
+book = Product.objects.create(title=title, slug=${py(`e2e-reports-${stamp}`)}, kind="sample-papers", mrp=Decimal("1334"), price=Decimal("1234"), stock=50, weight_grams=300)
+address = {"name": "Real E2E Buyer", "phone": "+919864012345", "line1": "1 Test Lane", "line2": "", "city": "Guwahati", "district": "Kamrup Metro", "state": "AS", "pin": "781001"}
+
+def paid(price, live, tag):
+    order = Order.objects.create(email=f"admin-ui-reports-{tag}-${stamp}@example.com", shipping_address=address, subtotal=price, total=price, payment_method="razorpay", placed_at=timezone.now(), livemode=live)
+    OrderItem.objects.create(order=order, product=book, title=book.title, hsn_code="4901", gst_rate=Decimal("0"), mrp=book.mrp.amount, unit_price=Decimal(price), quantity=1, discount=Decimal("0"))
+    Order.objects.filter(pk=order.pk).update(status="paid")
+    payment = Payment.objects.create(order=order, method="razorpay", amount=price, razorpay_order_id=f"order_e2er{tag}${stamp}", razorpay_payment_id=f"pay_e2er{tag}${stamp}")
+    Payment.objects.filter(pk=payment.pk).update(status="captured")
+    order.refresh_from_db()
+    return order.number
+
+print(json.dumps({"title": title, "order": paid(1234, True, "live"), "test": paid(999, False, "test")}))
+`),
+  );
+}
+
 /** Deletes what seedFinanceWorld made but its change request (deleteStaff takes it, with its maker) and the audit
  *  events (the log is append-only). */
 export function deleteFinanceWorld(world: FinanceWorld) {
@@ -241,6 +275,17 @@ from shop.models import Order, Payment
 orders = Order.objects.filter(number=${py(world.order)})
 Payment.objects.filter(order__in=orders).delete()
 print(orders.delete())
+`);
+}
+
+/** Deletes what seedReportsWorld made (the audit events of the journey stay: the log is append-only). */
+export function deleteReportsWorld(world: ReportsWorld) {
+  shell(`
+from shop.models import Order, Payment, Product
+orders = Order.objects.filter(number__in=[${py(world.order)}, ${py(world.test)}])
+Payment.objects.filter(order__in=orders).delete()
+orders.delete()
+print(Product.objects.filter(title=${py(world.title)}).delete())
 `);
 }
 

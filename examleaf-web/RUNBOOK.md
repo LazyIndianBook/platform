@@ -742,7 +742,8 @@ Refunds of such payments go by bank transfer or UPI through the refund dialog ("
   allowed to see it.
 - **The dashboard** (admin home) adds sales by day for two weeks, the five most sold books of the last 30 days, the
   books running out (below `SHOP_LOW_STOCK`), and the reviews and quotation requests waiting. Stock alerts (who waits
-  for which book) are under Shop → Stock alerts.
+  for which book) are under Shop → Stock alerts. Its numbers are the panel's Home's (`insights/metrics.py`), without
+  test-mode orders, and each waiting item shows only to whoever may open its list.
 
 ### Categories, collections, attributes
 
@@ -1079,6 +1080,21 @@ The night's email (to `INSIGHTS_ALERT_EMAILS`) or Insights → Fraud signals (fi
 5. Acknowledge what you looked at (Fraud signals → select → "Acknowledge"): it comes back only if it grows. The
    subject is a keyed hash: the admin's tables match it, nobody can read it back.
 
+### A number on Home or in a report looks wrong
+
+Every number is defined once, in words, beside itself: Home's cards ("How this is counted"), each report's head and
+column headings. Read the definition first; most surprises are the definition (a payment counts on the day it was
+captured, a refund on the day it was processed, a day is a day in India, a test-mode order is in no number).
+
+1. Open the card's link or the report with the same period: the list behind a card is the very filter it counts
+   (Orders → "To pack", Support → "Due today"), and a report says "Data as of" and its period.
+2. A cell that says "fewer than 10" is hidden on purpose (`INSIGHTS_MIN_CELL`, `INSIGHTS_MIN_CELL_CLASS`); nothing in the
+   panel shows a smaller group, and no total includes what is hidden.
+3. Course health is worked out each night at 03:15 (`dj insights_run course_health`); "Data as of" is that night's. A
+   report that says a source is "not set up" (the settlements) waits for that module.
+4. A report to take away: Reports → the report → Export (a CSV job; above your limit ADMIN approves it first). The
+   file ends with who made it and when, and the audit log has `report.exported`.
+
 ### The monthly review, in season
 
 `dj insights_review` prints each title's last four complete weeks: the forecast made before each week, the copies
@@ -1090,6 +1106,14 @@ summary, the print runs to act on, the fraud signals still open, and a note in t
 Enter its exam dates as soon as the board publishes them (Insights → Exam seasons: board, class, academic year, first
 and last written paper; practicals do not count) and the print costs of the new titles (Insights → Print costs). The
 forecasts move to the new season on the day of the old one's first paper.
+
+### Deciding a print run
+
+Reports → Forecasts and print runs shows each title's recommended run with its range, the method and last season's
+error in one panel. Type the net price, the print cost and the salvage you expect and the sum is worked out again (the
+newsvendor's quantile; net 195, cost 60, salvage 5 give the 71st percentile of the season's demand); nothing is saved.
+A forecast that has not beaten the seasonal naive in the backtest is labelled untested: print by the last season, not
+by the forecast.
 
 ## ERPNext
 

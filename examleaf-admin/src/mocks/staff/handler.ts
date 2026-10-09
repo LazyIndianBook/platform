@@ -32,6 +32,7 @@ import { MANAGEMENT_PERMISSIONS, offerEndSessions, passkeyDue, routeManagement }
 import { contentPermission, contentRoute, startContentImport, type Tools } from "./content";
 import { grievanceFile, type Kit, startGrievanceExport, supportPermission, supportRoute } from "./support-handler";
 import { financePermission, financeRoute, startSettlementFetch } from "./finance";
+import { reportFile, reportsPermission, reportsRoute, type ReportsKit, startReportExport } from "./reports";
 
 type S = MockSchemas;
 
@@ -92,6 +93,9 @@ const FINANCE = [
   // Finance (shop/staff_finance.py): payments, refunds, links and settlements; a day fetched, a line matched by hand
   ...["shop.view_payment", "shop.view_refund", "shop.view_settlement", "shop.view_settlementline"],
   ...["shop.view_invoicepaymentlink", "staff.reconcile_settlements", "staff.replay_webhook"],
+  // Home and reports (roles.py FINANCE): the money cards, COD, the settlements, the sales lines; a report as a file
+  ...["staff.view_insights", "shop.view_orderitem", "shop.view_payment", "shop.view_refund", "staff.view_cod"],
+  ...["shop.view_settlement", "staff.export_report"],
 ];
 // the Orders module's roles (accounts/roles.py): SALES runs the orders, SALES_REP makes staff orders and quotes, PACKER
 // packs and receives returns
@@ -103,6 +107,7 @@ const SALES = [
   ...["staff.refund_order", "staff.record_offline_payment", "staff.add_changerequest"],
   ...["staff.handle_return", "staff.receive_return", "staff.view_parcels"],
   ...["shop.view_payment", "shop.view_refund"], // Finance's payments, refunds and links (they make the links)
+  ...["staff.view_insights", "shop.view_orderitem"], // the sales reports (roles.py SALES)
 ];
 const SALES_REP = [
   ...PANEL,
@@ -141,6 +146,8 @@ const EVERYTHING = [
     ...MANAGEMENT_PERMISSIONS, // the connections, the templates, the system's pages (management.ts)
     ...["support.add_savedreply", "support.change_savedreply", "support.delete_savedreply"],
     ...["staff.export_grievances", "shop.change_order"],
+    ...["shop.view_orderitem", "learn.view_progress", "staff.view_cod", "staff.export_report"], // Home and reports
+    ...["shop.view_payment", "shop.view_refund", "shop.view_settlement"],
   ]),
 ].sort();
 const ROLE_PERMISSIONS: Record<string, string[]> = {
@@ -174,7 +181,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
   ],
   AUDITOR: [
     ...EVERYTHING.filter((perm) => perm.split(".")[1].startsWith("view_")),
-    ...["staff.export_auditlog", "staff.export_grievances"],
+    ...["staff.export_auditlog", "staff.export_grievances", "staff.export_report"],
   ],
 };
 // accounts/roles.py ROLE_LIMITS (null: none)
@@ -197,7 +204,7 @@ const RISKY = new Set([
   ...["staff.manage_settings", "staff.manage_flags", "staff.toggle_maintenance", "staff.cancel_document"],
   ...["staff.manage_holds", "staff.manage_compliance"],
   ...["staff.record_offline_payment", "shop.export_order"],
-  ...["staff.import_content", "staff.export_grievances"],
+  ...["staff.import_content", "staff.export_grievances", "staff.export_report"],
 ]);
 // the online-paid orders a refund may name (shop.Order with a captured Razorpay payment), rupees paid
 const PAID_ORDERS: Record<string, { id: number; paid: number; shipped: boolean }> = {
@@ -490,8 +497,13 @@ function permissionFor(context: Context): string | null {
       if (kind === "content_import") return "staff.import_content";
       if (kind === "grievance_export") return "staff.export_grievances";
       if (kind === "settlement_fetch") return "staff.reconcile_settlements";
+      if (kind === "report_export") return "staff.export_report";
       return ordersJobPermission(kind) ?? "staff.add_job";
     }
+    case "home": // insights/staff_home.py and staff_api.py: any member of staff's Home; the insights' reader's reports
+    case "reports":
+    case "insights":
+      return reportsPermission(context);
     case "orders":
       return ordersPermission(method, parts);
     case "content":
@@ -912,12 +924,18 @@ async function route(context: Context): Promise<Response> {
     case "orders":
       return ordersRoute(ordersKit(context));
 
+    case "home":
+    case "reports":
+    case "insights":
+      return reportsRoute(context, REPORTS_KIT);
+
     case "jobs": {
       if (method === "POST" && !a) {
         const kind = text(body.kind);
         if (kind === "grievance_export") return startGrievanceExport(context, KIT);
         if (kind === "settlement_fetch")
           return startSettlementFetch(context, KIT, { ...((body.params ?? {}) as Body), dry_run: body.dry_run });
+        if (kind === "report_export") return startReportExport(context, REPORTS_KIT);
         if (kind === "content_import") {
           const started = startContentImport(toolsOf(context));
           return started instanceof Response ? started : json(202, visibleJob(context, started));
@@ -984,6 +1002,7 @@ async function route(context: Context): Promise<Response> {
           });
         }
         if (job.kind === "grievance_export") return grievanceFile(context, job);
+        if (job.kind === "report_export") return reportFile(context, REPORTS_KIT, job);
         const rows = world.audit
           .slice(0, job.total || 20)
           .map((row) => JSON.stringify(row))
@@ -2768,7 +2787,7 @@ function visibleJob(context: Context, job: MockJob): S["Job"] {
   void _ticks;
   void _rows;
   const exported =
-    ["audit_export", "orders_print", "orders_export", "grievance_export"].includes(job.kind) ||
+    ["audit_export", "orders_print", "orders_export", "grievance_export", "report_export"].includes(job.kind) ||
     (job.kind === "gstr1_export" && !job.dry_run);
   const file = job.state === "done" && exported && job.started_by === context.who.id;
   void _result;
@@ -2860,12 +2879,16 @@ const KIT: Kit = {
   visibleJob,
 };
 
+/** The helpers the Home and reports part (reports.ts) answers with. */
+const REPORTS_KIT: ReportsKit = { json, invalid, notFound, refuse, record, startJob, visibleJob };
+
 /** The mock's one entry: refuses outside `next dev` with STAFF_API_MOCK=1. */
 export async function handleMock(request: Request): Promise<Response> {
   if (process.env.STAFF_API_MOCK !== "1") throw new Error(OFF);
   const url = new URL(request.url);
   const parts = url.pathname
     .replace(/^\/api\/(mock|v1)\/staff\//, "")
+    .replace(/^\/api\/v1\/insights\//, "insights/") // the insights' own lists, which the reports draw
     .split("/")
     .filter(Boolean);
   const who = await signedIn(request);

@@ -16,6 +16,7 @@ from accounts.factories import UserFactory
 from accounts.models import DeletionRequest, LegalHold
 from api import urls as api_urls
 from insights.models import FraudSignal
+from insights.reports import REPORTS
 from integrations.models import InboundEvent, IntegrationAccount, IntegrationFailure
 from ops.models import MessageTemplate
 from shipping.api import OrderQuoteView, ShipmentViewSet
@@ -345,6 +346,16 @@ ENDPOINTS = [
     ("post", "finance/settlements/{settlement}/match/", "staff.reconcile_settlements"),
     ("post", "finance/settlements/fetch/", "staff.reconcile_settlements"),
     ("get", "finance/documents/{document}/erp/", "shop.view_invoice"),
+    # Home and reports (Phase B): insights/staff_api.py. A report needs the reports' permission and its data's (a tuple:
+    # all of them); the settlements' data's only once the Finance module's model is there (Report.required)
+    ("get", "reports/", "staff.view_insights"),
+    ("get", "reports/sales/", ("staff.view_insights", "shop.view_orderitem")),
+    ("get", "reports/sales-by-place/", ("staff.view_insights", "shop.view_orderitem")),
+    ("get", "reports/codes/", ("staff.view_insights", "learn.view_bookcode")),
+    ("get", "reports/course-health/", ("staff.view_insights", "learn.view_progress")),
+    ("get", "reports/cod/", ("staff.view_insights", "staff.view_cod")),
+    ("get", "reports/settlements/", tuple(REPORTS["settlements"].required())),
+    ("post", "reports/print-run/", ("staff.view_insights", "shop.view_product")),
     ("post", "people/{person}/offboard/", "staff.assign_role"),  # last: the person goes
 ]
 
@@ -511,12 +522,13 @@ def content_objects():
 
 
 def reach(method, url, perm, subtests):
+    perms = (perm,) if isinstance(perm, str) else perm  # a tuple: a report needs its own and its data's
     people = [(role, make_staff(role)) for role in WHO] + [("break-glass", make_staff(is_superuser=True))]
     for who, user in people:
         with subtests.test(who=who):
             response = getattr(signed_in(user), method)(url, {}, format="json")
             denied = AuditEvent.objects.filter(action="authz_fail", actor_id=user.pk)
-            if user.has_perm(perm):
+            if all(user.has_perm(each) for each in perms):
                 assert response.status_code != 403, (who, response.status_code, response.content[:200])
                 assert not denied.exists()
             else:
@@ -590,7 +602,7 @@ def test_each_role_reaches_the_shipping_and_insights_endpoints_only_with_their_p
 
 
 def test_the_manifest_and_the_catalogue_are_every_staff_members_and_nobody_elses(subtests):
-    for path in ["session/", "catalogue/", "people/me/sessions/"]:
+    for path in ["session/", "catalogue/", "people/me/sessions/", "home/"]:
         for who in WHO:
             with subtests.test(path=path, who=who):
                 assert signed_in(make_staff(who)).get(STAFF + path).status_code == 200
@@ -662,7 +674,7 @@ def test_every_endpoint_names_a_catalogued_permission_and_a_view_one_for_get():
 
 
 ANY_STAFF_PATHS = (  # every member of staff's own: the manifest, the catalogue, the policies, their own sessions
-    *["session/", "session/reason/", "catalogue/", "policies/ack/", "^people/me/sessions/$"],
+    *["session/", "session/reason/", "catalogue/", "policies/ack/", "^people/me/sessions/$", "home/"],
     *["^people/me/sessions/end-others/$", r"^people/me/sessions/(?P<session>\d+)/end/$"],
 )
 # Two reads that need more than a view_ permission: the courier's quote (asked of the courier, for a booking) and the

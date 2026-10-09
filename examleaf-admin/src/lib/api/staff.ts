@@ -1724,3 +1724,91 @@ export const getDocumentErp = (number: string, transport?: Transport) =>
   send(transport, (o) =>
     api.GET("/api/v1/staff/finance/documents/{number}/erp/", { ...o, params: { path: { number } } }),
   );
+// ---- Home and reports ----
+
+export type Home = Schemas["Home"];
+export type HomeCard = Schemas["HomeCard"];
+export type HomePeriod = "today" | "week" | "month";
+
+/** Home's cards for the person asking: the totals over the period (the last 7 days when left out), the queues as they
+ *  stand now, each card with its definition and the list or report it counts. */
+export const getHome = (period: HomePeriod | "", transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/home/", { ...o, params: { query: query({ period }) } }));
+
+export type ReportIndex = Schemas["ReportIndex"];
+export type ReportIndexItem = Schemas["ReportIndexItem"];
+export type ReportColumn = Schemas["ReportColumn"];
+export type SalesReport = Schemas["ReportSales"];
+export type PlaceReport = Schemas["ReportPlace"];
+export type CodesReport = Schemas["ReportCodes"];
+export type HealthReport = Schemas["ReportHealth"];
+export type CodReport = Schemas["ReportCod"];
+export type SettlementsReport = Schemas["ReportSettlements"];
+export type PrintRun = Schemas["ReportPrintRun"];
+export type PrintRunInputs = Schemas["ReportPrintRunRequestRequest"];
+
+export const getReportIndex = (transport?: Transport) => send(transport, (o) => api.GET("/api/v1/staff/reports/", o));
+export const getSalesReport = (filters: Filters<"/api/v1/staff/reports/sales/">, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/reports/sales/", { ...o, params: { query: query(filters) } }));
+export const getPlaceReport = (filters: Filters<"/api/v1/staff/reports/sales-by-place/">, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/reports/sales-by-place/", { ...o, params: { query: query(filters) } }));
+export const getCodesReport = (filters: Filters<"/api/v1/staff/reports/codes/">, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/reports/codes/", { ...o, params: { query: query(filters) } }));
+export const getHealthReport = (filters: Filters<"/api/v1/staff/reports/course-health/">, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/reports/course-health/", { ...o, params: { query: query(filters) } }));
+export const getCodReport = (filters: Filters<"/api/v1/staff/reports/cod/">, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/reports/cod/", { ...o, params: { query: query(filters) } }));
+export const getSettlementsReport = (filters: Filters<"/api/v1/staff/reports/settlements/">, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/reports/settlements/", { ...o, params: { query: query(filters) } }));
+
+/** The newsvendor sum again with the inputs typed: the critical ratio, and the size at that percentile of the newest
+ *  forecast, less the copies in stock and on order. Nothing is stored. */
+export const recomputePrintRun = (body: PrintRunInputs) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/reports/print-run/", { ...o, body }));
+
+/** A report as a file: a background job (a CSV with the filters it was read with and the person's number at the end);
+ *  above your export limit it waits for an approver (the job's change_request_id). `report` is a key of the index. */
+export const exportReport = (report: string, filters: Record<string, string>) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/jobs/", {
+      ...o,
+      body: { kind: "report_export", params: { report, filters }, dry_run: false },
+    }),
+  );
+
+// The insights' own lists (/api/v1/insights/, numbered pages), which the reports draw and do not rebuild.
+export type Forecast = Schemas["Forecast"];
+export type PrintRunAdvice = Schemas["PrintRunAdvice"];
+export type CohortStat = Schemas["CohortStat"];
+/** What an insights list says besides its rows and its page: how the rows were made (API.md "Insights (staff)"; the
+ *  schema does not type these four). */
+export type InsightsAbout = {
+  method: string;
+  data_as_of: string | null;
+  backtest: Schemas["ReportBacktest"] | null;
+  /** false while a prediction has not beaten the seasonal naive in the backtest: the panel labels it untested */
+  shown: boolean;
+};
+export type InsightsPage<T> = {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+} & InsightsAbout;
+const insights = <T>(page: { count: number; next?: string | null; previous?: string | null; results: T[] }) =>
+  page as unknown as InsightsPage<T>;
+
+type InsightsFilters = { page?: number; page_size?: number; product?: string; district?: string };
+
+export const listForecasts = (filters: InsightsFilters, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/insights/forecasts/", { ...o, params: { query: query(filters) } })).then(
+    insights,
+  );
+export const listPrintRuns = (filters: InsightsFilters, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/insights/print-runs/", { ...o, params: { query: query(filters) } })).then(
+    insights,
+  );
+export const listCohorts = (filters: InsightsFilters, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/insights/cohorts/", { ...o, params: { query: query(filters) } })).then(
+    insights,
+  );

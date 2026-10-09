@@ -145,6 +145,12 @@ export const P = {
   settlementsView: "shop.view_settlement",
   settlementLinesView: "shop.view_settlementline",
   reconcileSettlements: "staff.reconcile_settlements",
+  // Home and reports (Phase B, insights/staff_api.py): the sales lines the sales reports sum, the course's progress the
+  // course-health report counts, Razorpay's settlements, and a report as a file; the other data a report reads is
+  // above (the orders', the book codes', COD's)
+  orderItemsView: "shop.view_orderitem",
+  progressView: "learn.view_progress",
+  exportReport: "staff.export_report",
 } as const;
 
 /** Whether the manifest lists the permission (the shell's only use of permissions: what to draw). */
@@ -201,7 +207,7 @@ export const MODULES: readonly Module[] = [
   { key: "holds", href: "/privacy/holds/", group: "privacy", any: [P.holdsView] },
   { key: "disclosures", href: "/privacy/disclosures/", group: "privacy", any: [P.settingsView] },
   { key: "darkPatterns", href: "/privacy/dark-pattern-audit/", group: "privacy", any: [P.darkPatternsView] },
-  { key: "insights", href: "/insights/", group: "reports", any: [P.insightsView, P.signalsAcknowledge], soon: true },
+  { key: "reports", href: "/reports/", group: "reports", any: [P.insightsView, P.signalsAcknowledge] },
   { key: "people", href: "/people/", group: "staff", any: [P.peopleView] },
   { key: "roles", href: "/people/roles/", group: "staff", any: [P.peopleView] },
   { key: "accessReview", href: "/people/access-review/", group: "staff", any: [P.peopleView] },

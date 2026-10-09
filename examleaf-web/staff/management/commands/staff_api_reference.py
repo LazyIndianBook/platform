@@ -30,6 +30,8 @@ def permission(path, method):
     if perm == ANY_STAFF:
         return "any member of staff"
     named = view.permissions.get(view.action, view.permissions.get(method.upper()))
+    if needed := getattr(named, "needs", None):  # a report's: the reports' permission and its data's, all of them
+        return " and ".join(f"`{each}`" for each in needed)
     return f"`{perm}`" + (" (by the key or the body: see the table above)" if callable(named) else "")
 
 

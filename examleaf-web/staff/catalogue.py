@@ -144,6 +144,8 @@ STAFF_ACTIONS = [
         PAYMENTS,
         MEDIUM,
     ),
+    # Home and Reports (Phase B, insights/exports.py): any report as a file, with the filters it was read with
+    ("export_report", "Export a report as a file (above your limit a second person approves)", REPORTS, HIGH, True),
 ]
 STAFF_MODELS = [
     ("view_changerequest", "See the approvals you take part in", STAFF, LOW),

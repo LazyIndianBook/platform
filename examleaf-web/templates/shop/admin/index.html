@@ -1,5 +1,7 @@
 {% extends "admin/dashboard.html" %}{% load shop %}
-{% block extrastyle %}{{ block.super }}<style>#dashboard th[scope=col], #shop-dashboard th[scope=col] { white-space: nowrap; }</style>{% endblock %}
+{% block extrastyle %}{{ block.super }}<style>#dashboard th[scope=col], #shop-dashboard th[scope=col] { white-space: nowrap; }
+ul.waiting { list-style: none; margin: 0; padding: 12px 14px; line-height: 2; } ul.waiting li { display: inline; }
+ul.waiting li + li::before { content: " · "; }</style>{% endblock %}
 {% block content %}
 {% if perms.shop.view_order %}{% shop_stats as shop %}
 <div class="module" id="shop-dashboard">
@@ -10,10 +12,12 @@
   {% for label, today, month in shop.rows %}<tr><th scope="row">{{ label }}</th><td>{{ today }}</td><td>{{ month }}</td></tr>{% endfor %}
   </tbody>
 </table>
-<p>Waiting: <a href="{% url 'admin:shop_order_changelist' %}?status__exact=paid">{{ shop.to_pack }} order{{ shop.to_pack|pluralize }} to pack</a> (paid, or cash on delivery placed)
- · <a href="{% url 'admin:shop_order_changelist' %}?status__exact=shipped">{{ shop.to_deliver }} on the way</a>
- · <a href="{% url 'admin:shop_review_changelist' %}?status__exact=pending">{{ shop.reviews_waiting }} review{{ shop.reviews_waiting|pluralize }} to read</a>
- · <a href="{% url 'admin:shop_quoterequest_changelist' %}?status__exact=new">{{ shop.quotes_waiting }} quotation request{{ shop.quotes_waiting|pluralize }}</a></p>
+<ul class="waiting" aria-label="Waiting">
+  <li><a href="{% url 'admin:shop_order_changelist' %}?status__exact=paid">{{ shop.to_pack }} order{{ shop.to_pack|pluralize }} to pack</a> (paid, or cash on delivery placed)</li>
+  <li><a href="{% url 'admin:shop_order_changelist' %}?status__exact=shipped">{{ shop.to_deliver }} on the way</a></li>
+  {% if perms.shop.view_review %}<li><a href="{% url 'admin:shop_review_changelist' %}?status__exact=pending">{{ shop.reviews_waiting }} review{{ shop.reviews_waiting|pluralize }} to read</a></li>{% endif %}
+  {% if perms.shop.view_quoterequest %}<li><a href="{% url 'admin:shop_quoterequest_changelist' %}?status__exact=new">{{ shop.quotes_waiting }} quotation request{{ shop.quotes_waiting|pluralize }}</a></li>{% endif %}
+</ul>
 <table>
   <caption>Sales by day (two weeks)</caption>
   <thead><tr><th scope="col">Day</th><th scope="col">Orders</th><th scope="col">Value</th></tr></thead>

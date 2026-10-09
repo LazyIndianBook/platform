@@ -497,6 +497,7 @@ and section 17).
 | Variable | Default | Required | What it does; where to get the value |
 |---|---|---|---|
 | `INSIGHTS_ALERT_EMAILS` | none | recommended | comma-separated addresses for the nightly email of new fraud signals and print runs to reprint now (section 21); empty: no email |
+| `INSIGHTS_MIN_CELL`, `INSIGHTS_MIN_CELL_CLASS` | `10`, `5` | no | the smallest group a report may show: a state's, district's, PIN code's or cohort's cell under the first, a chapter's or a class's learners under the second, is hidden ("fewer than 10"); neither below 5, or the server will not start (`insights.E001`) |
 | `INSIGHTS_HASH_SALT` | `SECRET_KEY` | recommended | the key of the hashes the fraud rules count by (accounts, IP addresses, phone numbers, addresses, book codes): random, 50 characters or more, like `SECRET_KEY`; a new value (or a new `SECRET_KEY` while this is empty) starts the counts afresh |
 
 ### Backups
@@ -537,6 +538,7 @@ Read by `scripts/backup.sh` (which takes `BACKUP_KEEP_DAYS` and `BACKUP_AGE_RECI
 | `STAFF_GOOGLE_AUTO_STAFF` | `0` | no | `1`: a Workspace account of the domain with no ExamLeaf account signs up through Google as a member of staff with no role (an owner gives one); off, the account must exist already and be staff |
 | `STAFF_PASSKEY_ROLES` | `OWNER,ADMIN,FINANCE` | no | the roles that add a passkey or security key before the staff API opens for them (`403 passkey_required`; section 25) |
 | `STAFF_THROTTLE_BULK`, `STAFF_THROTTLE_TEST_SEND` | `20/hour`, `10/hour` | no | bulk actions started per member of staff; templates sent to oneself (an SMS costs money) |
+| `STAFF_THROTTLE_REPORTS` | `60/minute` | no | the panel's reports (`staff/reports/…`) per member of staff or API key: each is a heavy query by nature |
 | `INTEGRATION_WEBHOOK_SILENCE_HOURS` | `24` | no | a provider's webhook silent this long while its account is in use is flagged (Razorpay: an inbox item) |
 | `SES_SNS_TOPIC_ARN` | none | recommended with SES | the SNS topic SES's notifications must come from; each message's signature is verified either way |
 | `LOG_TIME_SOURCE` | none | before going live | where the server's clock is synchronised from (CERT-In: NTP to NIC or NPL, or the cloud's time service), shown on the logs page |
@@ -1038,6 +1040,7 @@ gives ADMIN the new permissions, as `bootstrap_roles` does at every start).
    | 02:30 | `insights.tasks.delivery_stats` | transit days per courier and district |
    | 02:45 | `insights.tasks.offer_effectiveness` | what coupons and offers did |
    | 03:00 | `insights.tasks.fraud_rules` | fraud signals, then the email to `INSIGHTS_ALERT_EMAILS` |
+   | 03:15 | `insights.tasks.course_health` | the course's use by subject and chapter, for the course-health report |
 
    A failed task is tried once more ten minutes later, then reported to Sentry (RUNBOOK.md, "An insights job failed").
    Each keeps 90 days of its rows (book codes tried: 180).

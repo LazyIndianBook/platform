@@ -372,6 +372,8 @@ class Job(models.Model):
         GRIEVANCE_EXPORT = "grievance_export", "grievance register export"  # support.register
         # Phase B: finance
         SETTLEMENT_FETCH = "settlement_fetch", "Razorpay settlements fetched"  # shop.settlements.fetch_job
+        # Phase B: reports
+        REPORT_EXPORT = "report_export", "report export"  # insights.exports
 
     class State(models.TextChoices):
         QUEUED = "queued", "queued"

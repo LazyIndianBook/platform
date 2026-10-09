@@ -16,10 +16,9 @@ print runs, item analysis, cohorts, fraud signals). Code: `api/` (`auth.py`, `vi
 [Catalogue and solutions](#catalogue-and-solutions) · [Attempts](#attempts) · [Store catalogue](#store-catalogue) ·
 [Shop](#shop) · [Revision course](#revision-course) · [Site](#site-configuration-and-legal-pages) ·
 [Insights (staff)](#insights-staff) · [ERPNext sync (staff)](#erpnext-sync-staff) · [Orders (staff)](#orders-staff) ·
-[Tax (staff)](#tax-staff) · [Legal and privacy (staff)](#legal-and-privacy-staff) · [Content (staff)](#content-staff) ·
-[Support (staff)](#support-staff) · [Finance (staff)](#finance-staff) · [Connections (staff)](#connections-staff) ·
-[Templates (staff)](#templates-staff) ·
-[Lists](#lists) ·
+[Finance (staff)](#finance-staff) · [Tax (staff)](#tax-staff) · [Legal and privacy (staff)](#legal-and-privacy-staff) ·
+[Content (staff)](#content-staff) · [Support (staff)](#support-staff) · [Connections (staff)](#connections-staff) ·
+[Templates (staff)](#templates-staff) · [Home and reports (staff)](#home-and-reports-staff) · [Lists](#lists) ·
 [Staff API](#staff-api) · [Errors](#errors) ·
 [Rate limits](#rate-limits) · [CORS](#cors) ·
 [Versioning](#versioning) · [Operations](#operations)
@@ -1642,6 +1641,102 @@ curl -X POST https://admin.examleaf.in/api/v1/staff/finance/settlements/fetch/ \
   -b "sessionid=...; csrftoken=..." -H "X-CSRFToken: ..." -H "Content-Type: application/json" \
   -d '{"day": "2026-10-09"}'
 # 202 {"id": 812, "kind": "settlement_fetch", "state": "queued", ...}
+## Home and reports (staff)
+
+`/api/v1/staff/home/` and `/api/v1/staff/reports/…` (code: `insights/staff_home.py` and `insights/staff_api.py`; the
+numbers: `insights/metrics.py` and `insights/reports.py`; the rules: [insights/README.md](insights/README.md) "Home and
+Reports") are the panel's Home and its reports. They keep every rule of the [Staff API](#staff-api): the admin host
+only, a member of staff with a second factor (an API key reads no Home card: it holds no role), every refusal an
+`authz_fail` event, `Cache-Control: no-store`; the schema tags them `home (staff)` and `reports (staff)`; the reports
+have a throttle of their own (`STAFF_THROTTLE_REPORTS`, 60 a minute). Four rules hold for every number:
+
+- **One definition.** Each card and each report says in words what it counts (`definition`, and every report column's)
+  and when it was worked out (`as_of`); the Django admin's dashboard counts the same way.
+- **Test mode is left out.** On a live site an order made with test keys is in no number (`test_mode` false); a site
+  running on test keys counts everything and says `test_mode: true`. Home says how many test orders it left out
+  (`test_orders_left_out`).
+- **Nobody is named.** No row of any report has a user, a learner, an address or a contact: counts and sums only. A
+  cell standing on fewer than `INSIGHTS_MIN_CELL` (10) orders or people, or `INSIGHTS_MIN_CELL_CLASS` (5) learners of a
+  chapter, has its numbers null and `hidden: true, under: 10`, and no total includes the cells it hides.
+- **Periods are India's days.** `from` and `to` are days (`YYYY-MM-DD`, both included); by default the 30 days to
+  today (90 for settlements); never after today, never backwards, at most 13 months: `400 {"to": ["Not after today."]}`.
+
+**`GET home/`** (any member of staff; `?period=today|week|month`, `week` by default) answers the cards of the person's
+roles whose permissions they hold, in the order of `insights.metrics.SPECS`: `{as_of, period, test_mode,
+test_orders_left_out, cards}`. A card is `{key, label, group, unit, value, definition, as_of, period, href, test_mode,
+comparison, error}`: `group` is `measure` (a total over the period, with `comparison` `{previous, difference,
+percent, period}` against the period of the same length before it) or `queue` (what waits for a person, as it stands
+now); `unit` is `inr` (a decimal string) or `count`; `href` is the console's list or report it counts, already
+filtered. A card that could not be worked out has `value: null` and an `error`; one whose source module is not
+installed is left out.
+
+| Card (`key`) | Group | Roles | Needs | Counts |
+|---|---|---|---|---|
+| `net_revenue` | measure, ₹ | OWNER, ADMIN, FINANCE, AUDITOR | `staff.view_insights`, `shop.view_payment`, `shop.view_refund` | the payments first captured in the period less the refunds processed in it, shipping and GST included; a cash-on-delivery order when its parcel is delivered and the courier has the cash |
+| `orders_placed` | measure | OWNER, ADMIN, AUDITOR | `shop.view_order` | orders placed in the period, paid online or to pay on delivery, not cancelled or refunded in full since |
+| `codes_redeemed` | measure | OWNER, ADMIN, AUDITOR | `staff.view_insights`, `learn.view_bookcode` | book codes a student entered in the app in the period |
+| `active_learners` | measure (7 days) | OWNER, ADMIN, AUDITOR | `staff.view_insights`, `learn.view_progress` | customers' accounts with a clip watched, a quiz answer or a flash card in the last 7 days: a count, never a list; staff left out |
+| `orders_to_pack` | queue | OWNER, ADMIN, SALES, SALES_REP, PACKER | `shop.view_order` | paid or to pay on delivery, not packed and not on hold: the Orders list's "To pack" tab |
+| `quotes_open` | queue | OWNER, ADMIN, SALES, SALES_REP | `shop.view_quoterequest` | quotation requests waiting for a quotation (status `new`) |
+| `refunds_to_approve` | queue | OWNER, FINANCE | `staff.approve_refund` | `order.refund` change requests above the asker's limit, pending and not past their time, other than your own |
+| `bank_refunds_to_pay` | queue | OWNER, FINANCE | `staff.approve_refund` | refunds by bank or UPI waiting for FINANCE to transfer and mark them paid |
+| `cod_overdue` | queue | OWNER, ADMIN, FINANCE | `staff.view_cod` | cash-on-delivery remittances more than `SHIPPING_COD_GRACE_DAYS` working days past the day they were expected |
+| `tickets_due`, `tickets_breached` | queue | OWNER, ADMIN, SUPPORT | `support.view_ticket` | open tickets whose next legal deadline falls later today; open tickets already past one (the list's "Overdue" tab) |
+| `reports_open`, `items_flagged` | queue | OWNER, ADMIN, CONTENT_EDITOR, REVIEWER | `content.view_errorreport` | reported mistakes waiting for triage, within the person's subjects; those the item analysis flagged |
+| `settlement_items_unmatched` | queue | OWNER, ADMIN, FINANCE, AUDITOR | `shop.view_settlement` | lines of Razorpay's settlements that match no payment and no refund of ours |
+
+**`GET reports/`** (`staff.view_insights`) lists the reports: `{test_mode, reports: [{key, label, summary, page, api,
+needs, available, configured}]}`; `available` is whether the person holds every permission in `needs`, `configured`
+false while a report's source (the settlements) is not set up. Each report is a `GET` with its filters in the query,
+a `403 permission_denied` naming the missing permission, and the answer `{report, definition, columns: [{key, label,
+definition}], as_of, test_mode, period: {start, end, days} | null, …}` and its own parts:
+
+| Path (under `/api/v1/staff/reports/`) | Permission | Filters | What it adds |
+|---|---|---|---|
+| `sales/` | `staff.view_insights`, `shop.view_orderitem` | `from`, `to`, `by` (`product`, `subject`, `class`, `board`, `edition`, `none`), `grain` (`none`, `day`, `week`, `month`) | `by`, `grain`, `totals` and `rows` `{key, label, period_start, orders, units, gross, discount, net}`; more than 5,000 rows: 400, narrow it |
+| `sales-by-place/` | same | `from`, `to`, `level` (`state`, `district`, `pin`), `state` (a code: `AS`) | `minimum`, `hidden_rows`, `totals_shown` (the rows shown only) and `rows` `{hidden, under, level, state, state_name, district, pin, label, orders, units, net}` |
+| `codes/` | `staff.view_insights`, `learn.view_bookcode` | `batch` | `rows` per batch `{batch, printed, sold, activated, activated_7d, revoked, activation_rate}` (`sold` and `revoked` null until the course module records them) and `districts` `{hidden, under, district, redeemed, redeemed_7d}` |
+| `course-health/` | `staff.view_insights`, `learn.view_progress` | `subject`, `chapter`, `grain` (`day`, `week`, `month`) | `computed_at` (the nightly job's), `subjects`, `series` (learners, clips, quiz answers and accuracy, flash cards and lapses per period, with 7- and 28-day smoothing for days), `codes_by_week`, `rows` (the chapters over 28 days) |
+| `cod/` | `staff.view_insights`, `staff.view_cod` | `from`, `to` | `rows` (what is outstanding by how late), `remitted` `{count, expected, received, difference}`, `by_courier` |
+| `settlements/` | `staff.view_insights` (and `shop.view_settlement` once the Finance module sets settlements up) | `from`, `to` | `configured`, `note`, `rows` `{reference, date, gross, fees, tax, refunds, net, utr, state}`; `configured: false` and no rows while there is no Settlement |
+| `print-run/` (`POST`) | `staff.view_insights`, `shop.view_product` | body `{product, net_price, unit_cost, salvage}` | the newsvendor sum recomputed (below) |
+
+The cohorts, forecasts, print runs and backtests stay [Insights (staff)](#insights-staff)'s endpoints, which now also
+hide a cohort week under 10 learners and a district under 10 redemptions (`hidden`, `under`).
+
+`POST reports/print-run/` recomputes the print run of one title from the net price, the print cost and the salvage
+the person types, with `insights.stats`: the critical ratio Cu ÷ (Cu + Co), the demand at that percentile from the
+newest forecast from now to the exam, less the copies in stock and on order. Net 195, cost 60 and salvage 5 give
+`critical_ratio` 0.7105, the 71st percentile. `target_quantity` and `recommended_quantity` are null while there is no
+forecast for the title (`note` says so); `shown` is false while the forecast has not beaten the seasonal naive.
+Nothing is stored: the nightly advice (`insights/print-runs/`) is unchanged.
+
+**Exports.** Any report as a file is a staff job: `POST /api/v1/staff/jobs/` `{"kind": "report_export", "params":
+{"report": "sales", "filters": {"from": "2026-10-01", "to": "2026-10-07", "by": "subject"}}}`
+(`staff.export_report`, high: FINANCE, AUDITOR, ADMIN and the owners, who also need the report's own permissions;
+above your `export_rows` it waits for an approver). `report` is a key of `reports/`, or `cohorts` or `forecasts` (the
+insights' own); an unknown filter is a 400. The file is a CSV in the private storage, linked by the job's `result_url`
+for 5 minutes at a time and kept a week: a hidden cell reads "fewer than 10", text a spreadsheet would run as a formula
+is written as text, and the last row has the member of staff's number and the time. The audit event is
+`report.exported` with the report, its filters and its row count.
+
+```sh
+curl "https://admin.examleaf.in/api/v1/staff/home/?period=month" -b "sessionid=…"
+# 200 {"as_of": "2026-10-09T18:42:10+05:30", "period": {"start": "2026-09-10", "end": "2026-10-09", "days": 30,
+#      "key": "month", "label": "The last 30 days"}, "test_mode": false, "test_orders_left_out": 2, "cards": [
+#      {"key": "net_revenue", "label": "Net revenue", "group": "measure", "unit": "inr", "value": "184250.00",
+#       "definition": "Money received less money returned in the period …",
+#       "href": "/reports/sales/?from=2026-09-10&to=2026-10-09", "test_mode": false, "error": "",
+#       "comparison": {"previous": "151900.00", "difference": "+32350.00", "percent": "+21.3", ...}, ...}, ...]}
+curl "https://admin.examleaf.in/api/v1/staff/reports/sales-by-place/?level=district&state=AS" -b "sessionid=…"
+# 200 {"report": "sales-by-place", "minimum": 10, "hidden_rows": 3, "totals_shown": {"orders": 212, "units": 340,
+#      "net": "98450.00"}, "rows": [{"hidden": false, "under": null, "label": "Kamrup Metro", "orders": 61, ...},
+#      {"hidden": true, "under": 10, "label": "Dhemaji", "orders": null, "units": null, "net": null, ...}], ...}
+curl -X POST https://admin.examleaf.in/api/v1/staff/reports/print-run/ -b "sessionid=…; csrftoken=…" \
+  -H "X-CSRFToken: …" -H "Content-Type: application/json" \
+  -d '{"product": "physics-sample-papers-2027", "net_price": "195.00", "unit_cost": "60.00", "salvage": "5.00"}'
+# 200 {"critical_ratio": 0.7105, "percentile": 71, "target_quantity": 1240, "supply": 540,
+#      "recommended_quantity": 700, "range": {"p10": 820, "p50": 1010, "p90": 1380, "weeks": 18}, ...}
 ```
 
 ## Lists
@@ -2037,6 +2132,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 | GET | `staff/flags/{key}/` | `staff.view_featureflag` |  |  | 200 `[SwitchRow]` |
 | PUT | `staff/flags/{key}/` | `staff.manage_flags` |  | `SwitchChangeRequest` | 200 `SwitchRow` |
 | GET | `staff/flags/{key}/history/` | `staff.view_featureflag` |  |  | 200 `[SwitchRow]` |
+| GET | `staff/home/` | any member of staff | `period` |  | 200 `Home` |
 | GET | `staff/inbox/` | `staff.view_inbox` | `cursor`, `done`, `kind`, `mine`, `page_size`, `snoozed` |  | 200 `PaginatedInboxItemList` |
 | GET | `staff/inbox/count/` | `staff.view_inbox` |  |  | 200 `InboxCount` |
 | POST | `staff/inbox/{id}/assign/` | `staff.view_inbox` |  | `AssignRequest` | 200 `InboxItem` |
@@ -2147,6 +2243,14 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 | PUT | `staff/processors/{id}/` | `staff.change_processorrecord` |  | `ProcessorRequest` | 200 `Processor` |
 | PATCH | `staff/processors/{id}/` | `staff.change_processorrecord` |  | `PatchedProcessorRequest` | 200 `Processor` |
 | DELETE | `staff/processors/{id}/` | `staff.delete_processorrecord` |  |  | 204 |
+| GET | `staff/reports/` | `staff.view_insights` |  |  | 200 `ReportIndex` |
+| GET | `staff/reports/cod/` | `staff.view_insights` and `staff.view_cod` | `from`, `to` |  | 200 `ReportCod` |
+| GET | `staff/reports/codes/` | `staff.view_insights` and `learn.view_bookcode` | `batch` |  | 200 `ReportCodes` |
+| GET | `staff/reports/course-health/` | `staff.view_insights` and `learn.view_progress` | `chapter`, `grain`, `subject` |  | 200 `ReportHealth` |
+| POST | `staff/reports/print-run/` | `staff.view_insights` and `shop.view_product` |  | `ReportPrintRunRequestRequest` | 200 `ReportPrintRun` |
+| GET | `staff/reports/sales-by-place/` | `staff.view_insights` and `shop.view_orderitem` | `from`, `level`, `state`, `to` |  | 200 `ReportPlace` |
+| GET | `staff/reports/sales/` | `staff.view_insights` and `shop.view_orderitem` | `by`, `from`, `grain`, `to` |  | 200 `ReportSales` |
+| GET | `staff/reports/settlements/` | `staff.view_insights` and `shop.view_settlement` | `from`, `to` |  | 200 `ReportSettlements` |
 | GET | `staff/saved-views/` | `staff.view_savedview` | `cursor`, `list_key`, `page_size` |  | 200 `PaginatedSavedViewList` |
 | POST | `staff/saved-views/` | `staff.add_savedview` |  | `SavedViewRequest` | 201 `SavedView` |
 | GET | `staff/saved-views/{id}/` | `staff.view_savedview` |  |  | 200 `SavedView` |
@@ -2293,10 +2397,10 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **CodReconcileRequest**: `utr` string (required); `amount` decimal (required); `on` date
 - **CodRemittance**: `id` integer (required, read-only); `shipment` integer (required, read-only); `order` string (required, read-only); `expected_amount` decimal (required, read-only); `expected_on` date (required, read-only); `remitted_amount` decimal (required, null, read-only); `utr` string (required, read-only); `remitted_at` date (required, null, read-only); `state` CodRemittanceStateEnum (required, read-only); `checked_at` date-time (required, null, read-only)
 - **CodRemittanceStateEnum**: one of `expected`, `overdue`, `remitted`, `mismatch`, `not_expected`
-- **CodeActivation**: `batch` string (required); `district` string (null); `printed` integer (null); `redeemed` integer (required); `redeemed_7d` integer (required); `n` integer (required, read-only)
+- **CodeActivation**: `batch` string (required); `district` string (null); `printed` integer (null); `redeemed` integer (required); `redeemed_7d` integer (required); `n` integer (required, read-only); `hidden` boolean (required, read-only); `under` integer (required, null, read-only)
 - **CodeAnswer**: `found` boolean (required); `batch` string; `subject` string; `redeemed` boolean; `by_requester` boolean; `line` string (required)
 - **CodeRow**: `batch` string (required); `subject` string (required); `redeemed_at` date-time (required)
-- **CohortStat**: `cohort_month` date (required); `source` EntitlementSourceEnum (required); `week_index` integer (required); `active_share` double (null); `churned_share` double (null); `n` integer (required)
+- **CohortStat**: `cohort_month` date (required); `source` EntitlementSourceEnum (required); `week_index` integer (required); `active_share` double (null); `churned_share` double (null); `n` integer (required); `hidden` boolean (required, read-only); `under` integer (required, null, read-only)
 - **CommentRequest**: `comment` string
 - **CompleteRequest**: `effective_from` date
 - **Conflict**: `roles` [string] (required); `text` string (required)
@@ -2438,6 +2542,11 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **HardeningRow**: `key` string (required); `label` string (required); `ok` boolean (required, null); `detail` string (required); `fix` string (required)
 - **HeaderSuffixEnum**: one of `P`, `S`, `T`, `G`
 - **HoldCreateRequest**: `user` integer (null); `target_type` any; `target_id` string; `reason` LegalHoldReasonEnum (required); `note` string; `until` date (null)
+- **Home**: `as_of` date-time (required); `period` HomePeriod (required); `test_mode` boolean (required); `test_orders_left_out` integer (required); `cards` [HomeCard] (required)
+- **HomeCard**: `key` string (required); `label` string (required); `group` string (required); `unit` string (required); `value` string (required, null); `definition` string (required); `as_of` date-time (required); `period` HomeSpan (required, null); `href` string (required); `test_mode` boolean (required); `comparison` HomeComparison (required, null); `error` string (required)
+- **HomeComparison**: `previous` string (required); `difference` string (required); `percent` string (required, null); `period` HomeSpan (required)
+- **HomePeriod**: `start` date (required); `end` date (required); `days` integer (required); `key` string (required); `label` string (required)
+- **HomeSpan**: `start` date (required); `end` date (required); `days` integer (required)
 - **HsnCode**: `code` string (required, read-only); `kind` HsnKindEnum (required, read-only); `description` string (required, read-only); `uqc` string (required, read-only); `today` HsnRateBrief (required, null, read-only); `next_change` HsnRateBrief (required, null, read-only); `products` integer (required, read-only); `created` date-time (required, read-only)
 - **HsnCodeDetail**: `code` string (required, read-only); `kind` HsnKindEnum (required, read-only); `description` string (required, read-only); `uqc` string (required, read-only); `today` HsnRateBrief (required, null, read-only); `next_change` HsnRateBrief (required, null, read-only); `products` integer (required, read-only); `created` date-time (required, read-only); `rates` [HsnRate] (required, read-only); `linked` [HsnProduct] (required, read-only)
 - **HsnKindEnum**: one of `hsn`, `sac`
@@ -2459,7 +2568,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ItemStat**: `item` integer (required); `chapter` integer (required, read-only); `kind` string (required, read-only); `text` string (required, read-only); `n` integer (required); `p` double (null); `discrimination` double (null); `flags` any
 - **Job**: `id` integer (required, read-only); `kind` JobKindEnum (required, read-only); `state` JobStateEnum (required, read-only); `dry_run` boolean (required, read-only); `params` any (required, read-only); `done` integer (required, read-only); `total` integer (required, read-only); `errors` [JobError] (required, read-only); `result` any (required, read-only); `result_url` string (required, null, read-only); `change_request_id` integer (required, null, read-only); `cancel_requested` boolean (required, read-only); `started_by` integer (required, null, read-only); `created` date-time (required, read-only); `started_at` date-time (required, null, read-only); `finished_at` date-time (required, null, read-only)
 - **JobError**: `id` any (required, null); `label` string (required); `message` string (required)
-- **JobKindEnum**: one of `audit_export`, `bulk_action`, `erp_initial_load`, `gstr1_export`, `orders_pack`, `orders_print`, `orders_cancel`, `orders_export`, `content_import`, `grievance_export`, `settlement_fetch`
+- **JobKindEnum**: one of `audit_export`, `bulk_action`, `erp_initial_load`, `gstr1_export`, `orders_pack`, `orders_print`, `orders_cancel`, `orders_export`, `content_import`, `grievance_export`, `settlement_fetch`, `report_export`
 - **JobStartRequest**: `kind` JobKindEnum (required); `params` object; `dry_run` boolean
 - **JobStateEnum**: one of `queued`, `running`, `done`, `failed`, `cancelled`
 - **LanguageEnum**: one of `as`, `bn`, `en`
@@ -2678,6 +2787,34 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ReleaseRequest**: `reason` string (required)
 - **ReplayFailedRequest**: `since` date-time (required)
 - **Replayed**: `replayed` integer (required); `more` boolean (required)
+- **ReportBacktest**: `horizon_weeks` integer (required); `wape` double (required, null); `mase_vs_seasonal_naive` double (required, null); `shown` boolean (required); `n_weeks` integer (required); `data_as_of` date-time (required)
+- **ReportCod**: `report` string (required); `definition` string (required); `columns` [ReportColumn] (required); `as_of` date-time (required); `test_mode` boolean (required); `period` ReportPeriod (required, null); `as_of_day` date (required); `remitted` ReportCodRemitted (required); `by_courier` [ReportCodCourier] (required); `rows` [ReportCodRow] (required)
+- **ReportCodCourier**: `courier` string (required); `count` integer (required); `expected` decimal (required); `overdue` integer (required)
+- **ReportCodRemitted**: `count` integer (required); `expected` decimal (required); `received` decimal (required); `difference` decimal (required)
+- **ReportCodRow**: `key` string (required); `label` string (required); `count` integer (required); `expected` decimal (required); `oldest_expected_on` date (required, null)
+- **ReportCodes**: `report` string (required); `definition` string (required); `columns` [ReportColumn] (required); `as_of` date-time (required); `test_mode` boolean (required); `period` ReportPeriod (required, null); `batch` string (required); `minimum` integer (required); `districts_computed_at` date-time (required, null); `districts` [ReportCodesDistrict] (required); `rows` [ReportCodesRow] (required)
+- **ReportCodesDistrict**: `hidden` boolean (required); `under` integer (required, null); `district` string (required); `redeemed` integer (required, null); `redeemed_7d` integer (required, null)
+- **ReportCodesRow**: `batch` string (required); `printed` integer (required); `sold` integer (required, null); `activated` integer (required); `activated_7d` integer (required); `revoked` integer (required, null); `activation_rate` decimal (required, null)
+- **ReportColumn**: `key` string (required); `label` string (required); `definition` string (required)
+- **ReportDemandRange**: `p10` integer (required); `p50` integer (required); `p90` integer (required); `weeks` integer (required)
+- **ReportHealth**: `report` string (required); `definition` string (required); `columns` [ReportColumn] (required); `as_of` date-time (required); `test_mode` boolean (required); `period` ReportPeriod (required, null); `grain` string (required); `computed_at` date-time (required, null); `minimum` integer (required); `subject` integer (required, null); `chapter` integer (required, null); `subjects` [ReportHealthSubject] (required); `whole_course` boolean (required); `series` [ReportHealthPoint] (required); `codes_by_week` [ReportHealthWeek] (required); `rows` [ReportHealthChapter] (required)
+- **ReportHealthChapter**: `hidden` boolean (required); `under` integer (required, null); `subject` integer (required); `chapter` integer (required); `number` integer (required); `title` string (required); `label` string (required); `active_7d` integer (required, null); `active_28d` integer (required, null); `clips_started` integer (required, null); `clips_completed` integer (required, null); `completion_rate` decimal (required, null); `quiz_answers` integer (required, null); `quiz_accuracy` decimal (required, null); `card_reviews` integer (required, null); `card_lapses` integer (required, null)
+- **ReportHealthPoint**: `hidden` boolean (required); `under` integer (required, null); `period_start` date (required); `active_learners` integer (required, null); `clips_completed` integer (required, null); `quiz_answers` integer (required, null); `quiz_accuracy` decimal (required, null); `card_reviews` integer (required, null); `card_lapses` integer (required, null); `smoothed_7` decimal (required, null); `smoothed_28` decimal (required, null)
+- **ReportHealthSubject**: `id` integer (required); `name` string (required)
+- **ReportHealthWeek**: `hidden` boolean (required); `under` integer (required, null); `week_start` date (required); `redeemed` integer (required, null)
+- **ReportIndex**: `test_mode` boolean (required); `reports` [ReportIndexItem] (required)
+- **ReportIndexItem**: `key` string (required); `label` string (required); `summary` string (required); `page` string (required); `api` string (required); `needs` [string] (required); `available` boolean (required); `configured` boolean (required)
+- **ReportPeriod**: `start` date (required); `end` date (required); `days` integer (required)
+- **ReportPlace**: `report` string (required); `definition` string (required); `columns` [ReportColumn] (required); `as_of` date-time (required); `test_mode` boolean (required); `period` ReportPeriod (required, null); `level` string (required); `state` string (required); `minimum` integer (required); `hidden_rows` integer (required); `totals_shown` ReportPlaceTotals (required); `rows` [ReportPlaceRow] (required)
+- **ReportPlaceRow**: `hidden` boolean (required); `under` integer (required, null); `level` string (required); `state` string (required, null); `state_name` string (required, null); `district` string (required, null); `pin` string (required, null); `label` string (required); `orders` integer (required, null); `units` integer (required, null); `net` decimal (required, null)
+- **ReportPlaceTotals**: `orders` integer (required); `units` integer (required); `net` decimal (required)
+- **ReportPrintRun**: `product` string (required); `title` string (required); `net_price` decimal (required); `unit_cost` decimal (required); `salvage` decimal (required); `critical_ratio` double (required); `percentile` integer (required); `target_quantity` integer (required, null); `supply` integer (required); `recommended_quantity` integer (required, null); `range` ReportDemandRange (required, null); `method` string (required); `data_as_of` date-time (required, null); `backtest` ReportBacktest (required, null); `shown` boolean (required); `note` string (required)
+- **ReportPrintRunRequestRequest**: `product` string (required); `net_price` decimal (required); `unit_cost` decimal (required); `salvage` decimal
+- **ReportSales**: `report` string (required); `definition` string (required); `columns` [ReportColumn] (required); `as_of` date-time (required); `test_mode` boolean (required); `period` ReportPeriod (required, null); `by` string (required); `grain` string (required); `totals` ReportSalesTotals (required); `rows` [ReportSalesRow] (required)
+- **ReportSalesRow**: `key` string (required); `label` string (required); `period_start` date (required, null); `orders` integer (required); `units` integer (required); `gross` decimal (required); `discount` decimal (required); `net` decimal (required)
+- **ReportSalesTotals**: `orders` integer (required); `units` integer (required); `gross` decimal (required); `discount` decimal (required); `net` decimal (required)
+- **ReportSettlementRow**: `reference` string (required); `date` date (required, null); `gross` decimal (required, null); `fees` decimal (required, null); `tax` decimal (required, null); `refunds` decimal (required, null); `net` decimal (required, null); `utr` string (required); `state` string (required)
+- **ReportSettlements**: `report` string (required); `definition` string (required); `columns` [ReportColumn] (required); `as_of` date-time (required); `test_mode` boolean (required); `period` ReportPeriod (required, null); `configured` boolean (required); `note` string (required); `rows` [ReportSettlementRow] (required)
 - **ReportsOpen**: `total` integer (required); `by_category` object (required)
 - **Requester**: `name` string (required); `email` string (required); `phone` string (required); `user` integer (required, null)
 - **ResolveRequest**: `resolution` string (required); `dismiss` boolean
@@ -2872,6 +3009,7 @@ Counted in the cache (Redis in production), per client address for anonymous req
 | audit-log exports (`staff/audit/export/`, and `staff/jobs/` of an export) | 10 an hour | `STAFF_THROTTLE_EXPORT` |
 | bulk actions started (`staff/jobs/` of kind `bulk_action`) | 20 an hour | `STAFF_THROTTLE_BULK` |
 | a template sent to oneself (`staff/templates/<id>/test/`) | 10 an hour | `STAFF_THROTTLE_TEST_SEND` |
+| the staff reports (`staff/reports/…`), per member of staff or API key | 60 a minute | `STAFF_THROTTLE_REPORTS` |
 | money actions and approvals (`staff/change-requests/` asked, approved, run; role grants, invitations, offboarding) | 120 an hour | `STAFF_THROTTLE_MONEY` |
 | the support mailbox's hook (`POST /api/hooks/support-mail/`), per client address | 120 a minute | `API_THROTTLE_SUPPORT_MAIL` |
 | new requests from My requests (`POST me/tickets/`), per account | 10 an hour | `API_THROTTLE_SUPPORT_REQUEST` |

@@ -1,7 +1,8 @@
 # Insights: the predictive jobs of the Admin Control Panel
 
 The numbers the panel shows beside the facts: demand forecasts and print runs, the quiz's item analysis, cohorts, code
-activation, delivery times, fraud signals and what offers did. The research behind every method is
+activation, delivery times, fraud signals and what offers did; and, since Phase B, the numbers of Home and the reports
+(the metrics, the reports, their exports: "Home and Reports" below). The research behind every method is
 `docs/research/2026-10-09-admin-control-panel/research-b2b-predictive.md`, section 4 (and section 0 for why).
 
 Each job is a function over the database's rows (`insights/jobs/`) that writes its own rows in one transaction. A
@@ -140,6 +141,22 @@ to `INSIGHTS_ALERT_EMAILS` lists the night's new or grown signals and the print 
 data: redemptions from a batch not yet dispatched (no dispatch date: ERPNext's Book Code Batch), repeated COD refusals
 (no parcel outcome: the shipping app).
 
+### Course health (`course_health`, 03:15)
+
+How the revision course is used, by subject and chapter, as counts over complete days (92), weeks (56, Monday to
+Sunday), months (14) and the last 7 and 28 days, each for the whole course, a subject and a chapter
+(`CourseHealthStat`). Today is not counted, a week or a month only once over; staff accounts, which preview the course,
+are not learners.
+
+- **Inputs:** `Progress` (a clip's saved progress, counted on the day of its last save: the course keeps no completion
+  time), `QuizAttempt` and `CardReview`.
+- **Method:** the learners of a period are counted once however much they did, in memory (the distinct learners of a week
+  cannot be added up from its days) and only the number is kept; clips started and completed, quiz answers and the right
+  ones, flash cards turned over and the ones not known (lapses) are sums. A subject is a run per subject, six queries
+  each. The night's rows replace the night before's.
+- **How to read it:** a period without activity has no row (the report fills it with zero); a cell standing on fewer than
+  `INSIGHTS_MIN_CELL_CLASS` (5) learners is hidden by the report. `computed_for` is the day it counted up to.
+
 ### Rules without a job
 
 - `insights.jobs.risk.rto_risk(order, history)`: a cash-on-delivery order's risk of coming back unpaid. The PIN code's
@@ -150,6 +167,86 @@ data: redemptions from a batch not yet dispatched (no dispatch date: ERPNext's B
 - `insights.jobs.risk.score_account(signals)` and `score_accounts(kind, accounts)`: a school's or distributor's
   score (ordered or adopted last year, verified teachers, codes redeemed nearby, a sample followed up, Class 12 pupils,
   months without contact), into `AccountScore`. No data source yet: the schools and distributors will be ERPNext's.
+
+## Home and Reports (Phase B)
+
+The panel's Home and its reports (plan 5.1 and 5.16; API.md "Home and reports (staff)"). The code: `metrics.py` (the
+numbers), `reports.py` (the report queries), `cells.py` (the minimum cell), `staff_home.py` and `staff_api.py` (the
+endpoints), `exports.py` (the reports as files).
+
+**One definition per number** (`metrics.py`). A metric is a function whose docstring is its definition, the very words
+the panel shows when the number is hovered or its "How this is counted" opened: net revenue (the payments first captured
+in the period, less the refunds processed in it; a cash-on-delivery order when its parcel is delivered), orders placed,
+orders to pack (the Orders list's "To pack" tab itself: it is built on its filter), codes redeemed, active learners
+(accounts with any course activity in the last 7 days, counted, never listed), clips completed, quotes open, tickets due
+today and tickets breached (the Support list's own filters), reports open and items flagged (the Content list's), refunds
+to approve, bank refunds to mark paid, unmatched settlement items and COD overdue. Home, the reports and the Django
+admin's dashboard call them; nothing else counts the same thing (`shop/templatetags/shop.py` is built on them, and
+`insights.jobs.counted_orders` is `metrics.live_orders`). A metric whose source is not installed (Finance's
+settlements, Support, Content, Course) raises `Absent`: Home leaves its card out, a report says "not set up".
+
+**Test mode is kept out by construction.** Every order a number stands on comes from `live_orders()`, and what hangs on
+an order (a payment, a refund, a parcel's remittance, a refund waiting for approval) is narrowed through its order's
+`livemode`, all on a live site; a site running on test keys has nothing to tell apart, counts everything and says
+`test_mode`. Home also says how many test orders it left out (`test_orders_left_out`).
+
+**Home** (`GET home/`, any member of staff): the cards of the person's roles whose permissions they hold, in the order
+of `metrics.SPECS` (totals first, then what waits). The owners get the money (net revenue, orders, codes redeemed,
+active learners) and every queue, FINANCE the refunds to approve, bank refunds, unmatched settlement items and COD
+overdue (and net revenue), SALES the orders to pack and quotes open, SUPPORT the tickets due and breached, the content
+editors and reviewers the reports open and items flagged, the PACKER the orders to pack and nothing else, the AUDITOR the
+totals. A total carries the previous period of the same length (a plain number, the difference and the percent: no
+chart); a queue is the figure of this moment. Each card is a link to the list or report it counts, already filtered.
+Cards fail one by one: a number that cannot be worked out is a card with an `error`.
+
+**The reports** (`GET reports/…`, `staff.view_insights` and the data's own `view_` permission, named through a callable
+permission so that a refusal names the one missing): sales by product, subject, class, board, edition and period (day,
+week, month; the period at most 13 months); sales by state (the place of supply), district and PIN code; codes by batch
+(printed, activated, the activation rate; sold and revoked once the course module records them) and by district; the
+course health above; cash on delivery (what is outstanding by how late, what was remitted and the difference);
+Razorpay's settlements (the Finance module's `shop.Settlement`, "not set up" until it is there); and the print-run sum
+recomputed (`POST reports/print-run/`: the critical ratio `Cu / (Cu + Co)` of `stats.py` from the net price, print
+cost and salvage typed, and the season's demand from the newest forecast at that percentile, less the copies in
+stock and on order: net 195, cost 60, salvage 5 give 0.7105, the 71st percentile; nothing is stored). The cohorts, the
+forecasts and the nightly print-run advice stay `insights/api.py`'s. Every report answers `definition`, each column's
+definition, `as_of` (and `computed_at` where a night's job made the rows), `test_mode` and its `rows`.
+
+**The minimum cell** (`cells.py`, the settings `INSIGHTS_MIN_CELL` (10: districts, PIN codes, states, cohorts, searches)
+and `INSIGHTS_MIN_CELL_CLASS` (5: a chapter's or a class's learners); neither below 5, `insights.E001`): a cell standing
+on fewer people or orders is hidden, its numbers null and `hidden: true, under: k` on the row; nothing is "fewer than k"
+but a number between 1 and k - 1 (a cell of nobody says 0). No report answers a total that includes the cells it hides
+(the place report's `totals_shown` is the rows shown), and the averages of the daily course-health series count a
+hidden day as 0 so that nothing leaks through them. The minimum protects what a table shows; it is not statistical
+disclosure control: two tables can still be subtracted by someone who works at it. The existing endpoints apply it too:
+`insights/cohorts/` hides the shares of a week under 10 learners, `insights/code-activation/` the counts of a
+district under 10 redemptions.
+
+**No person anywhere.** No report row has a user, a learner, an address or a contact; the queries count and sum, they
+never list an account (`test_report_export.py` runs every report and every export over a minor's order, code and
+progress and finds none of them). Learner data stays aggregate: no per-student rows (DPDP Act s. 9(3), above).
+
+**Exports** (`exports.py`): any report as the job `report_export` (`POST /api/v1/staff/jobs/` with `{"kind":
+"report_export", "params": {"report": "sales", "filters": {...}}}`; `staff.export_report`, high: FINANCE, ADMIN, the
+owners, AUDITOR; the starter needs the report's own permissions too): the filters of the page, a CSV in the private storage linked to its starter for 5 minutes at a time
+and kept a week, capped by `export_rows` with ADMIN's approval above it, a dry run first if asked. A hidden row says
+"fewer than 10" in a file, never a number; text a spreadsheet would run as a formula is written as text (a leading
+`= + - @` tab or return gets an apostrophe; numbers, negative ones too, are left alone); the file ends with the member of
+staff's number and the time. Each export is the audit event `report.exported` with the report, its filters and its
+row count.
+
+**What each role finds**: OWNER and ADMIN every card and every report; FINANCE net revenue, the refund queues, COD and the
+sales, place and COD reports, and the exports; SALES the orders to pack, the quotes and the sales reports; SUPPORT the
+tickets' cards; CONTENT_EDITOR and REVIEWER the content queues; PACKER the orders to pack; AUDITOR the totals and every
+report, read-only, and the exports; MARKETING the forecasts, cohorts and signals it had (no new report: it lacks the
+orders' and the learners' data permissions).
+
+The console draws all of it (examleaf-admin/README.md "Routes"): Home (`/`) starts with the person's numbers, streamed on
+their own and each a link to what it counts, then the inbox, approvals, clocks and health as before; Reports (`/reports/`)
+has a tab for each report the role may open (the insights' permission and the data's, as the API asks for both), the
+filters in the address, tables with a bar beside the figure, "How this is counted" on every page, "Export as a file"
+for whoever holds `staff.export_report`, and, on Forecasts and print runs, the print run of a title worked out again with
+the inputs typed. A PACKER's Home is the orders to pack and the inbox; a SUPPORT member's the tickets due and breached; a
+FINANCE member's the money and the queues of refunds, bank transfers, settlements and cash on delivery.
 
 ## The monthly review, in season
 
@@ -179,5 +276,12 @@ data: redemptions from a batch not yet dispatched (no dispatch date: ERPNext's B
   inbox items yet (the nightly email tells `INSIGHTS_ALERT_EMAILS`).
 - `RtoHistory` waits for the shipping app's parcel outcomes (delivered, returned to origin, lost; the RTO reason); the
   repeated-refusal rule and the RTO model wait for the same.
+- The reports read other modules' models by name, lazily, and are silent where the model is not installed: the
+  Finance module's `shop.Settlement` (its `lines` give a settlement's refunds; `reports.SETTLEMENT_FIELDS` lists the
+  field names tried) and `shop.SettlementLine` (the unmatched-items card: a line matched to no payment, refund or
+  payment link, adjustments apart), and the Course module's `learn.CodeBatch` (its `label` and `product`: a batch's
+  title, for the copies sold) and `BookCode.voided_at` (the codes revoked). `insights/tests/test_other_modules.py` builds
+  stand-ins with those names and is the test that the two sides still fit once the modules are merged; if a module names
+  a field otherwise, `reports.py` and `metrics.py` are the places to say so.
 - `PrintCost` and the stock are to come from ERPNext (Item valuation, purchase orders, stock per warehouse) through the
   integrations; `AccountScore` from its schools and distributors; a batch's dispatch date from its Book Code Batch.
