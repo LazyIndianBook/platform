@@ -3,7 +3,7 @@
 The contract between the platform's Django `erp` app (its outbox relay and its pull) and ERPNext. Twelve whitelisted
 methods of the `examleaf_erp` app (`apps/examleaf_erp/examleaf_erp/api.py`, plumbing in `sync.py`), and six webhooks
 back. Everything below was run against ERPNext v16.50.0 with India Compliance v16.10.0 (`compose/`, `./dev.sh test`:
-56 tests). Research behind it: `docs/research/2026-10-09-admin-control-panel/research-erpnext.md` 5.1 to 5.8.
+58 tests). Research behind it: `docs/research/2026-10-09-admin-control-panel/research-erpnext.md` 5.1 to 5.8.
 
 ## Contract deviations
 

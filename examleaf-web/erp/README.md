@@ -19,6 +19,7 @@ plan is `../../docs/examleaf-admin-control-panel-plan.md` sections 3.1, 3.2, 7.5
 | `fake.py` | an in-memory ERPNext with examleaf_erp, for the tests and `ERP_MODE=fake` |
 | `api.py` | the panel's API under `/api/v1/staff/erp/` (API.md "ERPNext sync (staff)") |
 | `admin.py`, `management/commands/` | the admin pages; `erp_status`, `erp_replay`, `erp_initial_load`, `erp_reconcile`, `erp_pull` |
+| `SHADOW-RUN.md` | the recorded shadow run against a real ERPNext (the dev stack, 10 October 2026): each step, its numbers, the fixes, what staging still needs |
 
 ## Who owns what (plan 3.1)
 
@@ -151,7 +152,10 @@ in ERPNext by Data Import (plan 9.3).
    reconciliation reports what differs every night.
 2. **The initial load** (below), on the staging site, then the parallel run from 1 January 2027: the outbox mirrors
    every live document, the reconciliation runs every night. The switch needs 30 days in a row without an unexplained
-   difference, and one month's GSTR-1 from India Compliance matching the platform's export table by table.
+   difference, and one month's GSTR-1 from India Compliance matching the platform's export table by table. The
+   opening stock goes into ERPNext (its Data Import, a Stock Reconciliation per print run) before `ERP_SYNC_DELIVERIES`
+   is on: without the copies every delivery note is refused (`insufficient_stock`), tried again and dead after
+   `ERP_MAX_ATTEMPTS`, and the order's later rows wait behind it (`SHADOW-RUN.md`).
 3. **The night of 31 March 2027**: the last FY 2026-27 documents numbered; the account switched to production's site
    (a second account, mode live, enabled; the staging one disabled); the flows switched on in order: catalogue, then
    stock (`ERP_PULL_STOCK`, then `ERP_STOCK_PROJECTION`: ERPNext sets the copies for sale), then invoices and credit
@@ -215,4 +219,7 @@ of `examleaf-erp/` (`./dev.sh up`, `./dev.sh keys`): `ERP_MODE=erpnext` and the 
 `{"api_key": …, "api_secret": …, "base_url": "http://127.0.0.1:8300", "site_name": "erp.localhost"}`.
 
 The tests (`pytest erp`) run everything against the fake, which refuses what examleaf_erp refuses (unknown fields,
-missing items and invoices, stock it has not got) and rounds GST as ERPNext does.
+missing items and invoices, stock it has not got, a number issued again for another order) and rounds GST as ERPNext
+does. `SHADOW-RUN.md` is the same flows against the real ERPNext of the dev stack, step by step, with the commands to
+run it again (a Celery worker on macOS needs `FORKED_BY_MULTIPROCESSING=1`; several processes on one SQLite file need
+`?timeout=30&transaction_mode=IMMEDIATE` in its `DATABASE_URL`).

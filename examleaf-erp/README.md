@@ -8,7 +8,7 @@ of B2C orders, which reach ERPNext through `examleaf_erp`'s API (`API.md`). The 
 
 | Path | What it holds |
 |---|---|
-| `apps/examleaf_erp/` | the Frappe app: hooks, fixtures, five doctypes, the sync API (`api.py`, `sync.py`), GST rules (`gst.py`, `events.py`), scheduled jobs (`tasks.py`), the bootstrap (`setup.py`), five print formats, 56 tests |
+| `apps/examleaf_erp/` | the Frappe app: hooks, fixtures, five doctypes, the sync API (`api.py`, `sync.py`), GST rules (`gst.py`, `events.py`), scheduled jobs (`tasks.py`), the bootstrap (`setup.py`), five print formats, 58 tests |
 | `API.md` | the contract with the platform's Django `erp` app: methods, idempotency, answers, errors, webhooks, and the contract deviations |
 | `compose/` | the development stack (`./dev.sh`): MariaDB 11.8.9, Valkey 8.1.10, `frappe/erpnext:v16.50.0` with India Compliance, the app mounted from here |
 | `image/` | the production image: `build.sh`, `apps.json`, the second-stage `Containerfile` |
@@ -81,7 +81,7 @@ cd examleaf-erp/compose
 ./dev.sh up --minimal     # waits until 3 GB are free; builds the dev image once; without scheduler and workers
 ./dev.sh build            # the dev image again, after a change of dev.Containerfile (asks the registry for the base)
 ./dev.sh new-site         # erp.localhost: ERPNext, India Compliance, examleaf_erp, the bootstrap (some minutes)
-./dev.sh test             # the app's 56 tests
+./dev.sh test             # the app's 58 tests
 ./dev.sh login            # a Desk sign-in link for Administrator, http://127.0.0.1:8300/app?sid=…
 ./dev.sh keys             # the sync user's key into compose/.sync-keys, then:
 curl -X POST http://127.0.0.1:8300/api/method/examleaf_erp.api.ping \
