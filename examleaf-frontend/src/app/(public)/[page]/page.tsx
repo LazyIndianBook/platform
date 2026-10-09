@@ -140,7 +140,16 @@ export default async function LegalPageView({ params }: Props) {
             ] as const,
           ]
         : []),
-      ...(disclosures?.care_hours ? [["Hours", disclosures.care_hours] as const] : []),
+      ...(disclosures?.care_hours
+        ? [
+            [
+              "Hours",
+              <span key="hours" className="font-body">
+                {disclosures.care_hours}
+              </span>,
+            ] as const,
+          ]
+        : []),
     ];
     return (
       <Sheet
