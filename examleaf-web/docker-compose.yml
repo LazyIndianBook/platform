@@ -9,9 +9,11 @@ x-image: &image  # the site's image, as every service but the media worker runs 
   restart: unless-stopped
   volumes:
     - media:/app/media
-  logging: &logging  # docker logs: JSON lines, rotated (50 MB per service)
+  # docker logs: JSON lines, rotated at 50 MB, ten files a service (500 MB): CERT-In's 180 days of logs at our traffic,
+  # and their copy off the server (DEPLOYMENT.md section 10; examleaf/retention.py "security_logs")
+  logging: &logging
     driver: json-file
-    options: {max-size: 10m, max-file: "5"}
+    options: {max-size: 50m, max-file: "10"}
 
 # The media worker's environment (M5): it runs FFmpeg on videos that come from outside, so it gets the database, the
 # queue, the buckets and SECRET_KEY, and none of the other secrets (Razorpay, MSG91, email, Google, Sentry, Firebase):

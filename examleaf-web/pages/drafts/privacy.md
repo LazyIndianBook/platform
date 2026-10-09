@@ -22,7 +22,7 @@ ExamLeaf LLP publishes the ExamLeaf books (publisher: Bhaben Bhuyan). Registered
 - **If you use the revision course in the app:** the clips you watched, your quiz answers and flash-card reviews, your course settings (exam date, minutes a day, reminders), the book codes you used and what they opened.
 - **If you allow the app's daily reminder:** an identifier of the app on your phone (given by Firebase Cloud Messaging), the kind of phone (Android or iPhone) and when the app was last used, so that the reminder reaches it.
 - **For security:** failed log-in attempts, with the internet address and browser they came from, so that we can stop password guessing. They are deleted within a day.
-- **Server logs:** the pages requested, the time, the result and the internet address, to keep the site secure and to fix faults. A fixed amount is kept (50 MB for each part of the site); older entries are then overwritten, which at our traffic is after about [30] days.
+- **Server logs:** the pages requested, the time, the result and the internet address, to keep the site secure and to fix faults. A fixed amount is kept (500 MB for each part of the site); older entries are then overwritten, which at our traffic is after about [180] days.
 
 We ask for nothing else.
 
@@ -67,8 +67,8 @@ A student under 18 can register only with the consent of a parent or guardian, g
 
 - Your account details and record: while your account exists. When you delete your account (see below) your name, email address, phone number, date of birth, district, parent or guardian details, teacher details and notes are erased after a seven-day waiting period. Only the marks and dates of your saved attempts stay, with nothing that identifies you, as statistics on the papers.
 - Orders and invoices: for as long as tax and accounting law requires (currently up to eight years), even after the account is deleted.
-- Failed log-in attempts: up to a day. Server logs: until they are overwritten, about [30] days (see above). Backups: [30] days, then deleted on our server and at our backup storage provider.
-- The record of each SMS: 90 days. A request to email you when a book is back: until we have emailed you, and at most a year.
+- Failed log-in attempts: up to a day. Server logs: until they are overwritten, about [180] days (see above). Backups: [30] days, then deleted on our server and at our backup storage provider.
+- The record of each SMS: 365 days. The last four digits of the number in it: 90 days. A request to email you when a book is back: until we have emailed you, and at most a year.
 - Reviews, revision-course progress, quiz answers, course settings and the app's reminder identifiers: while your account exists; they are deleted with it. A reminder identifier also goes when you log out of the app.
 - School and bulk quotation requests: [how long].
 
