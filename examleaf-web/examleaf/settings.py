@@ -644,6 +644,17 @@ SHIPPING_SURVEY_BATCH = env.int("SHIPPING_SURVEY_BATCH", default=500)
 REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["parcel_events"] = env(  # noqa: F405  the couriers' webhook, per address
     "API_THROTTLE_PARCEL_EVENTS", default="300/minute"
 )
+_STAFF_TAG = {"name": "shipping (staff)", "description": "Parcels, couriers, exceptions and COD, for staff (API.md)."}
+if _STAFF_TAG not in SPECTACULAR_SETTINGS["TAGS"]:  # noqa: F405  (once: tests reload this module, the dict is shared)
+    SPECTACULAR_SETTINGS["TAGS"].append(_STAFF_TAG)  # noqa: F405
+SPECTACULAR_SETTINGS["ENUM_NAME_OVERRIDES"].update(  # noqa: F405  "status", "state" and "kind" with choices
+    StateEnum="localflavor.in_.in_states.STATE_CHOICES",  # an address's state: its name as before
+    ParcelStatusEnum="shipping.status.Status",
+    ShippingExceptionStateEnum="shipping.models.ShippingException.State",
+    ShippingExceptionKindEnum="shipping.models.ShippingException.Kind",
+    CodRemittanceStateEnum="shipping.models.CodRemittance.State",
+    ShipmentChargeKindEnum="shipping.models.ShipmentCharge.Kind",
+)
 CELERY_BEAT_SCHEDULE.update(
     {
         "shipping-poll-tracking": {"task": "shipping.tasks.poll_tracking", "schedule": crontab(minute=10, hour="*/2")},
