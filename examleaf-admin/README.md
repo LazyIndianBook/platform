@@ -56,7 +56,9 @@ second-person rules make change requests. Each staff member gets a world of thei
 
 Dev-only cookies change what it answers: `staff_mock_role=SUPPORT` (another role's permissions),
 `staff_mock_reauth_after=<epoch seconds>` (an older authentication counts as stale), `staff_mock_break_glass=1` (a
-break-glass session that owes its reason), `staff_mock_policies=1` (a policy to acknowledge). `next.config.ts` sets the
+break-glass session that owes its reason), `staff_mock_policies=1` (a policy to acknowledge), `staff_mock_passkey=0`
+(OWNER, ADMIN or FINANCE without a passkey: `passkey_required`), `staff_mock_factor_changed=1` (a second factor just
+changed: the offer to end the other sessions, once). `next.config.ts` sets the
 flag only under `next dev`: every build compiles it to "", so a production bundle cannot reach a fixture (the route
 throws and the import sits behind the same check).
 
@@ -141,9 +143,12 @@ shape), and `<html lang>` with the `:lang` rule and Hind Siliguri in every font 
 - Sign-in: `/sign-in/` (email and password, then the authenticator's code, a recovery code or a passkey; Google when
   on), `/set-up-two-step/` (staff without it: set it up on the website), `/no-access/`, `/inactive/`.
 - The panel (`src/app/(panel)/`): `/` Home, `/inbox/`, `/audit/`, `/approvals/` and `/approvals/<id>/`, `/people/`,
-  `/people/<id>/`, `/people/access-review/`, `/users/` and `/users/<id>/`, `/privacy/requests/` and `<id>/`,
-  `/privacy/incidents/` and `<id>/`, `/privacy/processors/`, `/settings/`, `/settings/api-keys/`, `/system/`,
-  `/account/` (the session's limits and the person's jobs). Every record page has its notes and its audit trail beside
+  `/people/<id>/` (tabs `?tab=access`, `offboarding`, `erp`), `/people/roles/`, `/people/access-review/`, `/users/` and
+  `/users/<id>/`, `/privacy/requests/` and `<id>/`, `/privacy/incidents/` and `<id>/`, `/privacy/processors/`,
+  `/settings/` (grouped, each switch's history), `/settings/api-keys/`, `/settings/connections/` and
+  `/settings/connections/<provider>/`, `/settings/templates/`, `/system/` and `/system/sync/`, `backups/`, `logs/`,
+  `dependencies/`, `hardening/`, `scripts/`, `/account/` (the session's limits, one's own sessions and jobs). Every
+  record page has its notes and its audit trail beside
   it. `/orders/`, `/shipping/`, `/catalogue/`, `/marketing/`, `/content/`, `/course/`, `/partners/` (distributors,
   schools, teachers) and `/insights/` say they come in the next phase and where that work is done today.
 - In ERPNext (links out, in a new tab, said in words and marked with the external-link icon; drawn only when
@@ -221,7 +226,8 @@ cursor pagination `{next, previous, results}` (the `cursor` of the links, `page_
 
 - **The session**: `GET session/` (the manifest: `user`, `roles`, `permissions`, `scopes`, `idle_timeout_s`,
   `absolute_expires_at`, `flags.test_mode`, `impersonating`, `break_glass` `{reason_required, reason, ends_at}`,
-  `policies_due` `[{policy, version}]`); `POST session/reason/` (`{reason}`), `POST policies/ack/`
+  `policies_due` `[{policy, version}]`, `steps` (`passkey_required`: a dialog that holds the panel until a passkey is
+  added on the website), `offer_end_sessions`); `POST session/reason/` (`{reason}`), `POST policies/ack/`
   (`{policy, version}`, once each version).
 - **The inbox**: `GET inbox/` (`?mine=1`, `done`, `snoozed`, `kind`), `GET inbox/count/`, `POST inbox/{id}/done/`,
   `snooze/` and `assign/`.
@@ -239,7 +245,20 @@ cursor pagination `{next, previous, results}` (the `cursor` of the links, `page_
   `GET`/`POST api-keys/`, `POST api-keys/{id}/revoke/`.
 - **People (staff)**: `GET people/`, `GET people/{id}/`, `GET`/`POST people/invites/` and `people/invite/`,
   `DELETE people/invites/{invite}/`, `POST`/`DELETE people/{id}/roles/` and `…/roles/{role}/`, `…/scopes/` likewise,
-  `POST people/{id}/end-sessions/`, `reset-mfa/`, `offboard/`; `GET access-review/`.
+  `POST people/{id}/end-sessions/`, `reset-mfa/`, `offboard/`; `GET access-review/`. `GET people/roles/` (the role
+  catalogue), `GET people/{id}/access/`, `POST people/{id}/roles/preview/` (`{role, action}`, as the grant form
+  changes), `GET people/{id}/offboarding/` and `POST …/offboarding/tick/` (`{step, state, note}`),
+  `GET people/{id}/erp/`; one's own sessions: `GET people/me/sessions/`, `POST people/me/sessions/{id}/end/`,
+  `POST people/me/sessions/end-others/`.
+- **Connections**: `GET connections/` and `connections/{provider}/` (the cards), `POST …/test/`, `…/credentials/`
+  (`{mode, credentials, reason}`; a failed test is a 400 on `credentials`), `…/mode/`, `…/circuit/`;
+  `GET …/webhooks/`, `POST …/webhooks/rotate/` (the token once); `GET …/events/` (`state`), `POST …/events/{id}/replay/`,
+  `POST …/events/replay-failed/` (`{since}`); `GET …/calls/` (`operation`, `failed`); `GET …/failures/` (`state`,
+  `operation`), `POST …/failures/{id}/replay/` and `discard/`. Each list has its own cursor in the page's address
+  (`events_cursor`, `calls_cursor`, `failures_cursor`).
+- **Templates**: `GET templates/` (`channel`, `language`, `approval_state`, `event`, `category`; not paged),
+  `POST templates/`, `PATCH templates/{id}/` (always with its `event`, `channel` and `language`),
+  `POST templates/{id}/test/` (`{variables}`: to one's own number or address).
 - **Customers**: `GET users/` (`q`, filters), `GET users/{id}/` (opening it is audited), `POST users/{id}/reveal/`
   with `{show: ["email"], reason}` (answered `{email: …}`, audited and throttled), `suspend/`, `unsuspend/`,
   `unlock/`, `end-sessions/`, `reset-mfa/`, `password-reset/`, `resend-verification/`; `POST users/{id}/impersonate/`
@@ -250,4 +269,8 @@ cursor pagination `{next, previous, results}` (the `cursor` of the links, `page_
   `GET`/`POST incidents/`, `GET`/`PATCH incidents/{id}/`, `POST …/close/`; `GET`/`POST processors/`.
 - **Notes**: `GET`/`POST notes/?target_type=&target_id=` (a record's notes, not paged; only on records the reader may
   see).
-- **The system**: `GET system/`, `POST system/reconcile/` (an order's payment checked with Razorpay again).
+- **The system**: `GET system/` (its `status` lines), `POST system/reconcile/` (an order's payment checked with
+  Razorpay again), `GET system/sync/` and `system/sync/links/?q=`, `GET system/backups/`,
+  `GET`/`POST system/backups/drills/`, `GET system/logs/`, `system/dependencies/`, `system/hardening/`,
+  `system/scripts/`.
+- **Settings' history**: `GET settings/{key}/history/`, `GET flags/{key}/history/`.
