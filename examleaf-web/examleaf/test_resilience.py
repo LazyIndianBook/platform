@@ -41,7 +41,8 @@ def reload_settings(monkeypatch):
 
 
 def run_as(monkeypatch, program):
-    monkeypatch.setattr(sys, "argv", [f"/usr/local/bin/{program}", "examleaf.wsgi"])
+    path = f"/venv/lib/{program.removeprefix('-m ')}/__main__.py" if program.startswith("-m ") else f"/bin/{program}"
+    monkeypatch.setattr(sys, "argv", [path, "examleaf.wsgi"])
 
 
 def test_the_buckets_give_up_within_seconds_and_retry_a_bounded_number_of_times(monkeypatch, reload_settings, settings):
@@ -76,6 +77,7 @@ def test_email_through_ses_or_an_http_provider_gives_up_within_seconds(settings)
     "program, options",
     [
         ("gunicorn", "-c statement_timeout=15000 -c idle_in_transaction_session_timeout=60000"),
+        ("-m gunicorn", "-c statement_timeout=15000 -c idle_in_transaction_session_timeout=60000"),  # python -m
         ("celery", "-c statement_timeout=600000 -c idle_in_transaction_session_timeout=600000"),
         ("manage.py", None),  # migrations, imports and reports: no limit
     ],

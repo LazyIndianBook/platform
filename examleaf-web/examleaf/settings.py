@@ -808,8 +808,10 @@ CELERY_BEAT_SCHEDULE.update(
 # every SQL statement a time limit in the processes that serve people. Kept in one block, after everything it reads.
 from botocore.config import Config as BotoConfig  # noqa: E402
 
-# What runs these settings: "gunicorn" (the web), "celery" (the workers and beat), else manage.py, pytest or a shell.
-PROGRAM = Path(sys.argv[0]).name
+# What runs these settings: "gunicorn" (the web), "celery" (the workers and beat), else manage.py, pytest or a shell;
+# `python -m gunicorn` and `python -m celery` count as the programs they run.
+_program = Path(sys.argv[0])
+PROGRAM = _program.parent.name if _program.name == "__main__.py" else _program.name
 # The S3 buckets (R2, AWS) and SES through boto3, whose defaults are 60 s to connect, 60 s per read and the legacy
 # retries: 3 s, 20 s (a clip's video is read in parts: per read, not in all) and three tries in all, standard mode.
 BOTO_CONFIG = {"connect_timeout": 3, "read_timeout": 20, "retries": {"mode": "standard", "total_max_attempts": 3}}
