@@ -77,8 +77,11 @@ export function CustomerBadges({ user }: { user: Fields }) {
   return (
     <ul aria-label={copy.customers.badges.label} className="m-0 inline-flex list-none flex-wrap gap-1.5 p-0">
       {badgesOf(user).map((badge) => (
-        <li key={badge.key}>
-          <StatusChip tone={badge.tone}>{badge.text}</StatusChip>
+        <li key={badge.key} className="max-w-full">
+          {/* a long phrase ("Parent's consent: confirmed, the parent's own account") wraps rather than widening a phone */}
+          <StatusChip tone={badge.tone} className="max-w-full text-left leading-snug whitespace-normal">
+            {badge.text}
+          </StatusChip>
         </li>
       ))}
     </ul>
