@@ -4110,6 +4110,7 @@ export const en = {
       rate: (rate: number) => `${(rate * 100).toFixed(1)}%`,
       weeks: "Redeemed by week",
       weeksLead: "Codes of the run redeemed each week (Monday to Sunday).",
+      weeksTable: "Codes redeemed each week",
       weekOf: (day: string) => `Week of ${day}`,
       noWeeks: "None redeemed yet.",
       signals: "Fraud signals",
@@ -4195,6 +4196,7 @@ export const en = {
       chapters: "Chapters",
       chaptersLead:
         "Progress, quiz answers and flash cards per chapter, as the student's own Learning page counts them.",
+      chaptersTable: "Progress by chapter",
       noChapters: "No activity yet.",
       columns: {
         chapter: "Chapter",

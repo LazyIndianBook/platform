@@ -98,7 +98,7 @@ export default async function BatchPage({ params }: { params: Promise<{ key: str
       ) : null}
       <Section id="weeks" title={words.weeks} lead={words.weeksLead}>
         {batch.redeemed_by_week.length ? (
-          <Table caption={words.weeks}>
+          <Table caption={words.weeksTable}>
             <thead>
               <tr>
                 <TableHead>{words.week}</TableHead>

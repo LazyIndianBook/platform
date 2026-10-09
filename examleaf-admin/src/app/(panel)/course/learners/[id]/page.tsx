@@ -157,7 +157,7 @@ export default async function LearnerPage({ params }: { params: Promise<{ id: st
       </Section>
       <Section id="chapters" title={words.chapters} lead={words.chaptersLead}>
         {learner.chapters.length ? (
-          <Table caption={words.chapters} className="min-w-[40rem]">
+          <Table caption={words.chaptersTable} className="min-w-[40rem]">
             <thead>
               <tr>
                 <TableHead>{words.columns.chapter}</TableHead>

@@ -397,6 +397,7 @@ test("SUPPORT answers the customer's ticket; the first reply is recorded and the
 
 for (const width of [1280, 390]) {
   test(`every page passes axe and fits the window at ${width} px (320 px too)`, async ({ browser }) => {
+    test.slow(); // dozens of pages, each compiled on its first visit under next dev
     const page = await open(browser, width);
     await signIn(page, owner, "/", ownerCodes);
     await checkPages(

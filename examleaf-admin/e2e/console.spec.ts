@@ -146,6 +146,8 @@ for (const width of [1280, 390]) {
     test.afterAll(() => deleteStaff([staff.email]));
 
     test("signs in, and every page passes axe and fits the window", async ({ page }) => {
+      // well over a hundred pages, each compiled on its first visit under next dev: three times the test's timeout
+      test.slow();
       for (const path of ["/sign-in/", "/inactive/", "/no-access/", "/set-up-two-step/"]) {
         await page.goto(path);
         expect.soft((await axe(page)).violations, `axe on ${path}`).toEqual([]);
