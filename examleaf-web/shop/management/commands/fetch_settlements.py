@@ -9,7 +9,7 @@ class Command(BaseCommand):
     help = (
         "Fetch a day's Razorpay settlements (yesterday by default), match them to the payments and refunds, and post "
         "the matched ones to ERPNext once: the panel's Finance, Settlements, 'Fetch a day', for when the panel is "
-        "down (RUNBOOK.md 'Reconciling Razorpay settlements'). Run twice, a day changes nothing."
+        "down (RUNBOOK.md 'Razorpay settlements'). Run twice, a day changes nothing."
     )
 
     def add_arguments(self, parser):

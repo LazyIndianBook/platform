@@ -1,4 +1,4 @@
-# shop: the Orders module and the tax desk of the Admin Control Panel
+# shop: the Orders module, the tax desk and Finance of the Admin Control Panel
 
 The staff side of the shop's orders (plan 5.3; the research in `../docs/research/2026-10-09-admin-control-panel/`
 `research-commerce-gst.md` 1 and 6, `research-lms-crm-cms.md` 4.5 and 4.6): finding orders, acting on them, refunds by
@@ -82,9 +82,9 @@ The console's pages are `examleaf-admin/src/app/(panel)/orders/` (its README "Ro
 
 ## Not built
 
-Exchanges (a return is refunded and the customer orders again); payment links across orders, the payments list and the
-invoice and credit-note registers (Finance, P2); the HSN master and the series (Tax, P3); prices and stock alerts
-(Catalogue, P4); the customer page (P10); couriers' bookings and labels (the shipping app).
+Exchanges (a return is refunded and the customer orders again); prices and stock alerts (Catalogue, P4); the customer
+page (P10); couriers' bookings and labels (the shipping app). The payments list and payment links are Finance's (below),
+the invoice and credit-note registers Tax's.
 
 ## Tax
 
@@ -217,3 +217,94 @@ What the panel's Tax module (`examleaf-admin`, `/tax/`) does for each role:
 The series prefixes TI, BS, IB, CN, DN, RV, RF from FY 2027-28; split as every bundle's default; books under "exempted"
 in table 8 (not "nil rated"); the HSN summary and table 8 net of the period's credit notes; NOS and NA as the units;
 the shipping exempt with the books it carries; QRMP on.
+
+## Finance
+
+What the platform owns of the money (plan 5.8; research `research-integrations.md` 4.1, `research-commerce-gst.md` 4,
+`research-erpnext.md` 4.3 and 5.8): payments and the stuck ones, refunds and offline payments as FINANCE works them,
+payment links (a staff order's, a B2B invoice's of ERPNext), Razorpay's settlements matched to our records and posted
+to ERPNext, and Finance today. ERPNext keeps the books: payouts, purchase bills, the bank's reconciliation, closing a
+period, MSME dues and the chart of accounts are its pages (the console's Finance page links them). The refund itself,
+its approval and a bank refund marked paid are Orders' (above); the documents register is Tax's; cash on delivery's
+remittances are the shipping app's. The endpoints: [../API.md](../API.md) "Finance (staff)".
+
+| File | What |
+|---|---|
+| `staff_finance.py` | `/api/v1/staff/finance/`: payments (the stuck filter, a payment's record, Razorpay asked again), offline payments and refunds with the change requests waiting, payment links, settlements and their lines (matched by hand, a day fetched as a job), Finance today, a document's copy in ERPNext |
+| `settlements.py` | Razorpay's settlement recon API through the integrations client (call log, circuit breaker, timeouts), kept once, matched by Razorpay's id, evaluated, posted to ERPNext once; `manual_match`, `fees_for(order)` (what Razorpay kept of an order's payments, for a page that wants it), the job `settlement_fetch` |
+| `payments.py` | `awaiting_payment`, the webhook keeping its payment (`WebhookEvent.payment`); the B2B links: `send_invoice_link`, `cancel_invoice_link`, `record_invoice_link_payment` (the `payment_link.paid` webhook), `reconcile_invoice_link` |
+| `models.py` (the end) | `Settlement`, `SettlementLine`, `InvoicePaymentLink`; `WebhookEvent.payment` |
+| `tasks.py` | `reconcile_payments` (02:30), `fetch_settlements` (03:15), both `single_run` |
+| `management/commands/` | `reconcile_payments` (the nightly run's orders, by hand), `fetch_settlements` (`--day`, `--dry-run`) |
+| `fixtures/razorpay_settlements.json` | Razorpay's documented answers for the tests' double; `_inferred` marks what no live answer has shown yet |
+
+### The rules
+
+- **A stuck payment** is an online one created or authorised `SHOP_STUCK_PAYMENT_MINUTES` (15) ago that reached
+  Razorpay (its checkout opened; a staff order's link only once past its 15 days) on an order still unpaid, or one
+  captured on an order still pending. "Ask Razorpay again" (`staff.replay_webhook`) runs `payments.reconcile`: a
+  captured payment is recorded, an authorised one captured first (a failed payment that turned authorised within its
+  3 days), a second payment of a paid order refunded; the answer says what changed. The nightly run does it for every
+  online order still waiting 10 minutes on, and for the B2B links still open.
+- **Settlements** are fetched every morning for yesterday (India) and by hand for any day (a job), for the mode of the
+  keys in force, never both. Each settlement and each of its lines is kept once (Razorpay's settlement id; settlement
+  and entity id), only the fields `settlements.KEPT` names (no card, bank or contact field). A line is matched by
+  Razorpay's id and amount: a payment line to our Payment (one settlement line each) or to a B2B link's payment, a
+  refund line to our Refund; an adjustment always waits for FINANCE. A payment line whose receipt is one of our
+  orders but whose payment we never heard of (a webhook lost) has its order asked of Razorpay first, 50 orders a
+  fetch at most. A settlement whose lines are all ours and whose net is their sum is `matched` and posted to ERPNext
+  once (`erp.producers.razorpay_settlement`: the Journal Entry moves Razorpay Clearing to the bank, the fees to an
+  expense, their GST to input credit; while `ERP_SYNC_SETTLEMENTS` is off it waits and the next fetch posts it). Any
+  other is `mismatched` and opens one inbox item (`settlement`, for `staff.reconcile_settlements`) saying what is
+  wrong in counts; FINANCE matches the rest by hand, always with a note (the audit event's reason). A test-mode
+  settlement is never posted; a posted one is never changed here (a line found after the posting opens its item: the
+  entry is corrected in ERPNext by hand).
+- **The fee**: a line keeps Razorpay's fee without its GST and the GST apart; a settlement's fees are what the money
+  moved says Razorpay kept (gross − net − GST), whatever the fields' convention. Razorpay's `fee` includes its GST
+  (its documentation); should a live answer say otherwise, `settlements.FEE_INCLUDES_TAX` is the one change.
+- **Payment links**: a staff order's (`shop.change_order`; a staff order still waiting for its online payment) is made
+  once and emailed, later the same one again, or cancelled; it lasts 15 days. A B2B invoice's is made for what is
+  outstanding on an invoice the platform keeps a copy of (`ErpMirror`, while `ERP_PULL_B2B` pulls them): its address
+  is answered for staff to send (no B2B customer's contact is kept here). Its payment (the `payment_link.paid`
+  webhook, or asking Razorpay again) is recorded on the link and opens an inbox item (`b2b_payment`): ERPNext's
+  contract takes payment entries only against the platform's own invoices (`create_payment_entry` needs their
+  `examleaf_ref`), so FINANCE posts the Payment Entry in ERPNext by hand and records its name in the panel, which
+  closes the item. Each link's making, cancelling, payment and posting is audited.
+- **Test mode**: test-key rows are out of every list and count unless asked for; Finance today never counts them.
+- **Personal data**: none in a settlement line, an inbox title, an audit detail or a job's result: ids, amounts, days.
+
+### Permissions and pages
+
+| Permission | Who | What |
+|---|---|---|
+| `shop.view_payment` | FINANCE, SALES, SUPPORT, AUDITOR, ADMIN, OWNER | Finance today, payments and a payment's record, offline payments, payment links |
+| `shop.view_refund` | FINANCE, SALES, SUPPORT, AUDITOR, ADMIN, OWNER | refunds and the refund requests waiting |
+| `shop.view_settlement`, `shop.view_settlementline` | FINANCE, AUDITOR, ADMIN, OWNER | settlements and their lines |
+| `staff.replay_webhook` | FINANCE, ADMIN, OWNER (medium) | ask Razorpay again about a payment or a B2B link |
+| `staff.reconcile_settlements` | FINANCE, ADMIN, OWNER (medium) | fetch a day, match a line by hand, record a B2B payment's ERPNext entry |
+| `shop.change_order` | SALES, SALES_REP, ADMIN, OWNER | make, send again or cancel a payment link |
+| `staff.view_cod` | FINANCE, SALES, AUDITOR, ADMIN, OWNER | Finance today's cash-on-delivery rows (also opens the page alone) |
+
+What the panel's Finance module (`examleaf-admin`, `/finance/`) does for each role:
+
+- **FINANCE** starts the day on Finance today: approves the refunds and offline payments waiting (each line opens its
+  list, each request its approval), transfers the bank refunds (Orders' page), asks Razorpay again about a stuck
+  payment, matches what a settlement could not and fetches a day the nightly run missed, posts a paid B2B invoice's
+  Payment Entry in ERPNext and records it, looks up a document's copy in ERPNext, and opens ERPNext's books from the
+  links.
+- **SALES** reads payments, refunds and links, and makes, sends again and cancels a staff order's link or a B2B
+  invoice's; **SALES_REP** makes them through Orders (no lists here).
+- **SUPPORT** reads a payment and its refunds to answer "did my payment go through?" and "where is my refund?" (the
+  refund timelines are under the refunds list); no settlements.
+- **AUDITOR** reads all of it; **ADMIN** and the **owners** do what FINANCE does (approving money stays FINANCE's and
+  the owners').
+
+### Inbox, jobs, settings
+
+- Inbox kinds: `settlement` (a settlement that does not match, for `staff.reconcile_settlements`; done once it
+  matches), `b2b_payment` (a B2B invoice paid by link, for `staff.reconcile_settlements`; done once its entry is
+  recorded).
+- Job kind: `settlement_fetch` (`{"day": "YYYY-MM-DD"}`, a dry run keeps nothing), its result the counts (settlements,
+  new ones, lines, matched now, orders found paid, each state).
+- Settings: `SHOP_STUCK_PAYMENT_MINUTES` (15). The flows `ERP_SYNC_SETTLEMENTS` and `ERP_PULL_B2B` are ERPNext's
+  (`erp/README.md`).

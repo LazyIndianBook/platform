@@ -12,7 +12,8 @@ Commands run in `/srv/examleaf/examleaf-web` on the server. `dj` below stands fo
   legal holds, policy versions, the disclosures and the dark-pattern self-audit
 - [Email](#email): when email fails, bounces and complaints
 - [SMS, phone numbers, passkeys and parental consent](#sms-phone-numbers-passkeys-and-parental-consent)
-- [The shop](#the-shop): payments, refunds, invoices, shipping, GST returns, coupons, offers, staff orders, the catalogue
+- [The shop](#the-shop): payments, refunds, Razorpay's settlements, invoices, shipping, GST returns, coupons, offers,
+  staff orders and payment links (a B2B invoice's too), the catalogue
 - [Couriers and integrations](#couriers-and-integrations): Shiprocket down, dead letters, failed deliveries, returns,
   COD remittances, weight disputes, parcels that stopped moving
 - [Reviews, school orders and stock](#reviews-school-orders-and-stock)
@@ -447,13 +448,18 @@ sign-in), imports and exports included.
 Razorpay's webhook normally completes an order within seconds, even when the customer never comes back from the payment
 page. If it did not:
 
-1. Razorpay Dashboard → Payments: find the payment (the customer's UPI ID or phone, the amount). The receipt of its order
-   is the order number. Note its status: captured, authorized or failed.
-2. `dj reconcile_payments` asks Razorpay about every online order of the website's checkout still awaiting payment
-   (older than 10 minutes; not the staff orders: see "Staff orders and payment links") and records the payments it
-   took: `EL-2026-000123: paid now`. An authorized payment is captured first (when the amount
-   matches). "no payment at Razorpay": it has none for that order (the customer did not pay, or paid another order).
-   "Razorpay could not be asked": try again later.
+1. The panel: Finance (`https://admin.<domain>/finance/`) → "Payments stuck at Razorpay" lists them (an online payment
+   started or authorised 15 minutes ago, `SHOP_STUCK_PAYMENT_MINUTES`, on an order still unpaid; or one captured on an
+   order still pending), or Finance → Payments, searched by the order number or Razorpay's `pay_…` id. Open it and
+   press "Ask Razorpay again" (FINANCE, ADMIN, the owners: `staff.replay_webhook`): the answer says what changed ("the
+   order is paid now; payment 9101 recorded as captured", or "Razorpay has no captured payment for this order"). An
+   authorised payment is captured first; the nightly run (02:30) does the same for every order still waiting.
+2. Without the panel: Razorpay Dashboard → Payments: find the payment (the customer's UPI ID or phone, the amount). The
+   receipt of its order is the order number. Note its status: captured, authorized or failed. Then
+   `dj reconcile_payments` asks Razorpay about every online order still awaiting payment (older than 10 minutes; the
+   staff orders' links included) and records the payments it took: `EL-2026-000123: paid now`. An authorized payment
+   is captured first (when the amount matches). "no payment at Razorpay": it has none for that order (the customer did
+   not pay, or paid another order). "Razorpay could not be asked": try again later.
 3. Why did the webhook not arrive? Dashboard → Webhooks → the delivery log shows what the site answered. 400: the secret
    differs from `RAZORPAY_WEBHOOK_SECRET` (live) or `RAZORPAY_WEBHOOK_SECRET_TEST` in `.env` (correct it,
    `docker compose up -d`, resend the event). No attempts at all: the URL or the events are not set (DEPLOYMENT.md,
@@ -528,20 +534,36 @@ Orders made before this mode was recorded (the security release) count as test o
 real payments before it, mark those live by hand, with the first live order's number:
 `dj shell -c "from shop.models import Order, Payment; o = Order.objects.filter(number__gte='EL-2026-000123', placed_at__isnull=False); Payment.objects.filter(order__in=o).update(livemode=True); print(o.update(livemode=True))"`.
 
-### Reconciling Razorpay settlements (monthly)
+### Razorpay settlements (every morning; the panel's Finance → Settlements)
 
-1. Razorpay Dashboard → Reports: download the month's transactions and settlements as CSV.
-2. Admin → Orders (the ADMIN role: exports need it, and each is logged): filter the list to the month (the date links
-   above it), then Export (CSV or XLSX). Match on the order number: it is the "receipt" of every Razorpay order and in
-   its notes.
-3. Per order, paid online means captured; the settlement is what was captured, less the refunds, less Razorpay's fee and
-   the GST on the fee (the fees are not in the site). The admin index shows revenue net of refunds.
-4. Differences to look at: a captured payment whose order is cancelled and has no refund (it should not happen: see
-   Payments and Refunds in the admin; refund it with the order's "Refund through Razorpay" action, which refunds a
-   cancelled order without changing it, or in the Dashboard); a refund at Razorpay that the site does not know (the webhook was
-   lost: resend it from the Dashboard); disputes and chargebacks (Dashboard → Disputes: answer with the invoice, the
-   tracking number and the delivery date from the order page; the site does not record chargebacks).
-5. Invoices and credit notes are numbered one after the other in each financial year (`EL/2026-27/00001`,
+Every morning at 03:15 the site fetches yesterday's settlements from Razorpay's settlement recon API (the keys in force:
+live or test, never both), keeps each settlement and line once, matches each line to its payment, refund or B2B link
+by Razorpay's id, and posts each settlement that matches to ERPNext once (a Journal Entry: Razorpay Clearing to the
+bank, the fees an expense, the GST on them input credit; while `ERP_SYNC_SETTLEMENTS` is off the matched ones wait and
+the next morning posts them). A payment Razorpay settled that the site never heard of (a lost webhook), on one of our
+orders, is asked of Razorpay first and recorded. Razorpay unreachable: the run tries again for about three hours.
+
+1. A settlement that does not match opens an inbox item for FINANCE ("Razorpay settlement setl_… of 09 Oct 2026: 2
+   lines not ours yet", or "Razorpay's net … is not its lines' …"), and Finance today counts its lines. Open it
+   (Finance → Settlements → "Does not match"): its lines, "Not matched" first.
+2. A payment line: "Match", the payment's number (Finance → Payments: search the line's `pay_…` id or its receipt, the
+   order number; ask Razorpay again first if the payment is stuck) and why. A refund line: the refund's number. An
+   adjustment (a fee reversed, a dispute's hold): "Accept" with why. Each is an audit event with your note; once nothing
+   is left the settlement turns "Matched" and is posted.
+3. A net that differs with every line matched: Razorpay's figure and the lines disagree. Compare Razorpay Dashboard →
+   Settlements → that settlement's transactions with the page's lines; write to Razorpay's support with the
+   settlement id. Do not post by hand while it waits: once Razorpay has corrected it, fetch its day again (step 4),
+   and the settlement takes Razorpay's latest figures and is evaluated anew.
+4. A day the morning run missed (Razorpay was down for longer, the site was off): Finance → Settlements → "Fetch a day"
+   (a dry run first if you like: it keeps nothing), or `dj fetch_settlements --day 2026-10-09` (`--dry-run`). Fetching a
+   day twice changes nothing.
+5. Posted settlements are never changed here: a line that turns up after its settlement was posted opens the inbox
+   item again, and the Journal Entry is corrected in ERPNext by hand (ERPNext → Journal Entry, the settlement id is its
+   reference).
+6. Monthly, as a check: the settlements' net (Finance → Settlements, the month's days) against the bank account's
+   credits by UTR. Disputes and chargebacks are not fetched yet ("Disputes: not set up" on Finance today): Razorpay
+   Dashboard → Disputes, answered with the invoice, the tracking number and the delivery date from the order page.
+7. Invoices and credit notes are numbered one after the other in each financial year (`EL/2026-27/00001`,
    `CN/2026-27/00001`; from FY 2027-28 one series a type: "Tax: rates, documents, series") and a number is never
    reused. Test-mode documents are in their own `T/` and `TC/` series: not for
    the tax return. Cash on delivery: the courier remits the cash it collected (less its fee) some days after delivery;
@@ -676,10 +698,24 @@ email, invoice, as for the website's orders (a book sold out meanwhile: cancelle
 lives 15 days; a staff order not paid in 16 days is cancelled by the daily clean-up, which first asks Razorpay
 whether its link was paid. The order list's filter "created by → not empty" lists the staff orders.
 
-A customer says the link was paid and the order still waits (the webhook was lost): ask Razorpay at once,
+Every link, its state (open, paid, cancelled, expired), when it was sent and when it ends: Finance → Payment links
+(SALES, FINANCE, ADMIN, the owners), where an open one is sent again or cancelled and its address copied.
+
+A customer says the link was paid and the order still waits (the webhook was lost): open its payment (Finance →
+Payments, the order number) and "Ask Razorpay again". Without the panel:
 `dj shell -c "from shop import payments; from shop.models import Order; print(payments.reconcile(Order.objects.get(number='EL-2026-000123')))"`
 records the payment if the link was paid (`True`), `False` means nothing was paid, `None` that Razorpay could not be
 asked.
+
+**A B2B invoice of ERPNext paid by link** (a school's or a bookshop's invoice, made in ERPNext and copied to the
+platform while `ERP_PULL_B2B` is on): Finance → Payment links → Make a link → "A B2B invoice in ERPNext" and its name
+(`ACC-SINV-2026-00007`): the link is made for what is outstanding and its address shown; copy it and send it to the
+customer yourself (the platform keeps no B2B customer's contact). When it is paid (the webhook, or "Ask Razorpay
+again" on its row) an inbox item "Post by hand in ERPNext: invoice … paid ₹…" waits for FINANCE: ERPNext's sync
+cannot post a payment against an invoice it did not get from the platform, so in ERPNext make the Payment Entry
+(Receive, the customer, the invoice, the amount, the reference `pay_…` and its date), submit it, then on the link's row
+"Record the ERPNext entry" with its name (`ACC-PAY-2026-00012`): the item is done and the link shows "Posted". The
+settlement that carries the payment matches it to the link by itself.
 
 ### Payments received offline (NEFT, IMPS, UPI)
 
@@ -689,6 +725,9 @@ asked.
    the reference → "Record the payment".
 3. The order is paid (copies taken, the customer emailed, the invoice made with "bank transfer or UPI to our account,
    reference …"). Refused if the order is no longer waiting for payment or a book has sold out (nothing recorded).
+4. Above the recorder's limit it waits for FINANCE: Finance → Offline payments → "To approve" (or Finance today's
+   "Offline payments to approve") lists them with their UTR; open one, check the UTR and the amount against the bank
+   statement, and approve it (or refuse it with why). The recorded ones are the same page's "Recorded".
 
 Refunds of such payments go by bank transfer or UPI through the refund dialog ("I have not got my refund", above).
 

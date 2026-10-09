@@ -77,6 +77,11 @@ and the security reviews, [SECURITY_REVIEW.md](SECURITY_REVIEW.md) (phases 1 to 
   by staff, staff orders with the discount rule's answer shown before saving, quotes made into orders, the packing
   queue with its slips, 4×6 labels and pick list, bulk jobs (pack, print, cancel, export), the cash-on-delivery risk
   hold, status messages held overnight, and the owners' weekly email of what staff gave away.
+- **Finance for staff** (the panel's Finance module, [shop/README.md](shop/README.md) "Finance"): Finance today (what
+  waits for FINANCE, a line a duty), payments with the stuck ones asked of Razorpay again, refunds and offline payments
+  with the approvals waiting, payment links for staff orders and for ERPNext's B2B invoices, and Razorpay's settlements
+  fetched every morning, matched to the payments and refunds by Razorpay's id (the rest by hand, with a note) and
+  posted to ERPNext once with the fee and the GST on it.
 - **The revision course** for the mobile app, through the REST API: per chapter a revision of a target length (12
   minutes by default) in short clips (ffmpeg makes HLS for low-end phones), one-mark quiz items, flash cards, a
   day-by-day pass plan, book codes printed in the books, entitlements, and a daily reminder through Firebase Cloud
@@ -218,7 +223,8 @@ docker-compose stack):
 | `export_qr --out qr/` | write every paper's QR code as PNG and SVG; refuses `localhost` and http addresses unless `--force` |
 | `bootstrap_roles` | create the role groups and set their permissions from `accounts/roles.py`; run it after every `migrate` |
 | `seed_shop [--stock N]` | create the starting catalogue: the books, the Physics bundle, coupon WELCOME10, three shipping rates |
-| `reconcile_payments [--older-than MINUTES]` | ask Razorpay about online orders still awaiting payment and record payments the site never heard about |
+| `reconcile_payments [--older-than MINUTES]` | ask Razorpay about online orders still awaiting payment (staff orders' links included) and record payments the site never heard about |
+| `fetch_settlements [--day YYYY-MM-DD] [--dry-run]` | a day's Razorpay settlements (yesterday by default) fetched, matched and posted to ERPNext, as the 03:15 run and the panel's "Fetch a day" do |
 | `import_pincodes <csv>` | replace the PIN code table with India Post's directory from data.gov.in |
 | `export_gstr1 --from DATE --to DATE [--out DIR]` | the accountant's GSTR-1 files in the GST Offline Tool's CSV templates: b2cl, b2cs, cdnur, exemp, hsn-b2b, hsn-b2c, docs, and the credit notes' register (the panel runs it as a job: Tax, GSTR-1) |
 | `build_covers` | draw the AVIF and WebP sizes of the four covers and the default link-preview picture into `static/img/` (the website shows them); run it after a cover changes and commit the files |
@@ -561,7 +567,8 @@ endpoint, request and answer examples, the error format, rate limits and the ver
 The printed books, sold online across India, and the store around them: `shop/` (models; `services.py`, every flow;
 `payments.py`, Razorpay; `cart.py`; `tasks.py`; `invoices.py`), its API in `api/shop.py`; templates only for the
 emails (`templates/shop/email/`), the PDFs (`templates/shop/invoice.html` …) and the admin (`templates/shop/admin/`).
-The staff side, the Admin Control Panel's Orders module (`staff_orders.py`, `order_jobs.py`), is described in
+The staff side, the Admin Control Panel's Orders module (`staff_orders.py`, `order_jobs.py`), its Tax module
+(`staff_tax.py`) and its Finance module (`staff_finance.py`, `settlements.py`), is described in
 [shop/README.md](shop/README.md).
 
 ### Set up
@@ -855,6 +862,9 @@ What the test modules cover:
   shop's REST endpoints; `test_admin.py` SALES and SUPPORT in the admin, the order actions, `seed_shop`;
   `test_catalogue.py` categories, collections, attributes, slug redirects, digital products; `test_offers.py` offers and
   the discount split on documents; `test_staff_orders.py` staff orders, payment links, offline payments, notes;
+  `test_settlements.py` Razorpay's settlements (fetched once, matched, the inbox, the ERPNext hook once and never for
+  test keys) through a double of Razorpay's recorded answers; `test_staff_finance.py` the Finance module's API (the
+  stuck payments, Ask Razorpay again, B2B links, the manual match, Finance today);
   `test_store_admin.py` bulk actions, imports and exports, the store dashboard, roles; `test_commerce.py` tracking
   links, reviews, quotations, stock alerts, the GSTR-1 export, order SMS; `test_platform.py` the buckets, pictures, link
   previews, JSON-LD, the web app, the PIN directory; `test_api_contract.py` reviews, back in stock, quotations and the

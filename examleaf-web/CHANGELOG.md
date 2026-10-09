@@ -5,6 +5,49 @@ commits are in `git log` (phase 4: abffe6f and e5abda5; phase 5 A and B with the
 and E: 4e30e59; the redesign's stage 2 so far: ba0b9dd). Details of each feature are in README.md; the numbers of the
 tests are those of `pytest` at the end of the phase.
 
+## Phase B, Finance (9 October 2026)
+
+FINANCE kept the money from the Django admin, Razorpay's Dashboard and a monthly CSV match: the fees were not in the
+site, a payment whose webhook was lost waited for someone to run a command, and a B2B invoice had no way to be paid
+online. Plan 5.8 gives the panel a Finance module that does the platform's part and links ERPNext's
+(`shop/README.md` "Finance" has the rules, API.md "Finance (staff)" the endpoints). 1,561 backend tests pass on
+SQLite (13 skipped, 4,144 subtests), 30 of them new in `shop/test_settlements.py` and `shop/test_staff_finance.py`,
+every network call answered by a double of Razorpay's recorded answers; the authorization matrix covers every new
+endpoint.
+
+- **Razorpay's settlements** (`Settlement`, `SettlementLine`; `shop/settlements.py`): every morning at 03:15
+  yesterday's are read from the settlement recon API through the integrations client (its call log and circuit
+  breaker), for the keys in force only, kept once (a second fetch of a day changes nothing), each line matched by
+  Razorpay's id and amount to our payment, refund or B2B link; a payment Razorpay settled that the site never heard of
+  (a lost webhook) has its order asked of Razorpay first. A settlement whose lines are all ours and whose net is their
+  sum is posted to ERPNext once (`erp.producers.razorpay_settlement`: the Journal Entry with the fee and the GST on it
+  apart), never for test keys; any other opens one inbox item (`settlement`) and FINANCE matches the rest by hand, with
+  a note the audit log keeps. A day can be fetched again as a job (`settlement_fetch`) or by
+  `manage.py fetch_settlements`. The recorded answers the tests use mark what no live answer has shown yet
+  (`_inferred`: Razorpay's fee including its GST is the one knob, `FEE_INCLUDES_TAX`). ERPNext's nightly reconciliation
+  now counts the Razorpay settlements posted for the day, so posting them makes no false difference.
+- **Stuck payments**: one started or authorised `SHOP_STUCK_PAYMENT_MINUTES` (15) ago on an unpaid order, or captured
+  on a pending one; "Ask Razorpay again" (`staff.replay_webhook`) records what Razorpay took, an authorised payment
+  captured first, and says what changed. `reconcile_payments` runs every night at 02:30 (`single_run`), staff orders'
+  links included, and a webhook now keeps the payment it was about (`WebhookEvent.payment`: a payment's record lists
+  the webhooks seen).
+- **Payment links**: every staff order's link with its state, expiry and sends; and links for ERPNext's B2B invoices
+  (`InvoicePaymentLink`, on the invoices `ERP_PULL_B2B` copies): made for what is outstanding, paid through Razorpay's
+  `payment_link.paid`, then an inbox item (`b2b_payment`) for FINANCE to post the Payment Entry in ERPNext by hand and
+  record its name, because ERPNext's contract takes payment entries only against the platform's own invoices.
+- **The staff API** (`/api/v1/staff/finance/`, tag "finance (staff)"): payments and a payment's record, offline
+  payments and refunds with the change requests waiting, links, settlements and their lines, matching by hand and a
+  day fetched, Finance today, a document's copy in ERPNext. New permission `staff.reconcile_settlements` (medium);
+  FINANCE also gains `staff.replay_webhook` and the views of settlements, their lines and the B2B links. Test-key rows
+  are out of every list and count unless asked for.
+- **The console's Finance module** (`/finance/`, under Shop; it replaces the ERPNext-only Finance link): Finance today
+  (a line a duty, each a link to where it is dealt with; a document's copy in ERPNext; ERPNext's books linked), payments
+  with the Stuck tab and a payment's record, refunds with their timelines to tell a customer, offline payments,
+  payment links (new, send again, cancel, a B2B one's ERPNext entry recorded), settlements with their lines matched by
+  hand and a day fetched as a job. Console: Vitest 204 (14 new), Playwright 15 in mock mode (the Finance journey at
+  1280 and 390 px new, every Finance page checked with axe at 1280, 390 and 320 px) and the Finance journey against
+  this backend (`E2E_STAFF_API=real`: FINANCE opens Finance today and, from it, a seeded refund's change request).
+
 ## Phase B, Tax (9 October 2026)
 
 The storefront's GST was a rate typed on each product, its documents numbered by looking for the last serial in one
