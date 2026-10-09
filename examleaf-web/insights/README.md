@@ -276,8 +276,12 @@ FINANCE member's the money and the queues of refunds, bank transfers, settlement
   inbox items yet (the nightly email tells `INSIGHTS_ALERT_EMAILS`).
 - `RtoHistory` waits for the shipping app's parcel outcomes (delivered, returned to origin, lost; the RTO reason); the
   repeated-refusal rule and the RTO model wait for the same.
-- The reports read the settlements (`shop.Settlement`, the Finance module's) and a batch's book and voided codes (the
-  course module's `learn.CodeBatch`) by the field names their briefs gave (`reports.SETTLEMENT_FIELDS`,
-  `reports.recorded_by_the_course`): if a module names a field otherwise, that is the one place to say so.
+- The reports read other modules' models by name, lazily, and are silent where the model is not installed: the
+  Finance module's `shop.Settlement` (its `lines` give a settlement's refunds; `reports.SETTLEMENT_FIELDS` lists the
+  field names tried) and `shop.SettlementLine` (the unmatched-items card: a line matched to no payment, refund or
+  payment link, adjustments apart), and the Course module's `learn.CodeBatch` (its `label` and `product`: a batch's
+  title, for the copies sold) and `BookCode.voided_at` (the codes revoked). `insights/tests/test_other_modules.py` builds
+  stand-ins with those names and is the test that the two sides still fit once the modules are merged; if a module names
+  a field otherwise, `reports.py` and `metrics.py` are the places to say so.
 - `PrintCost` and the stock are to come from ERPNext (Item valuation, purchase orders, stock per warehouse) through the
   integrations; `AccountScore` from its schools and distributors; a batch's dispatch date from its Book Code Batch.
