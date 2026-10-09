@@ -1,6 +1,6 @@
 """When Razorpay hangs (RESILIENCE.md): the real SDK and requests against a local server that takes the connection and
 never answers, so that only the client's own timeout ends the wait. A refund another worker is making. Periodic jobs
-that overlap, and the quotation PDF made by the worker."""
+that overlap, the quotation PDF made by the worker, and the same checkout sent twice at once."""
 
 import threading
 
@@ -12,12 +12,15 @@ from django.core.cache import cache
 from django.db import connection, connections, transaction
 from django.urls import reverse
 from kombu.exceptions import OperationalError
+from rest_framework.test import APIClient
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from accounts.factories import UserFactory
 from shop import payments, tasks
-from shop.factories import KEY, SECRET, ProductFactory, make_order
-from shop.models import Order, Payment, QuoteRequest, Refund, StockAlert
+from shop.factories import ADDRESS, KEY, SECRET, ProductFactory, make_cart, make_order, verified_user
+from shop.models import Order, Payment, Product, QuoteRequest, Refund, StockAlert
 from shop.test_commerce import QUOTE
+from shop.test_robustness import at_once
 
 REAL_REQUEST = requests.Session.request  # before shop/conftest.py's no_network fixture refuses every call
 postgres_only = pytest.mark.skipif(connection.vendor != "postgresql", reason="needs row locks (select_for_update)")
@@ -136,3 +139,39 @@ def test_the_quotation_pdf_is_made_by_the_worker_or_here_while_the_queue_is_down
     client.post(reverse("admin:shop_quoterequest_changelist"), action)
     quote.refresh_from_db()
     assert quote.quotation.name.startswith("quotations/QT-")
+
+
+def cod_customer(settings):
+    """An account with a confirmed address, one book in its cart and a saved address: (its API client's maker, the
+    address's id, the book)."""
+    settings.SHOP_COD_ENABLED = True
+    user, book = verified_user("rahul@example.com"), ProductFactory(stock=5)
+    make_cart((book, 1), user=user)
+
+    def api():
+        signed_in = APIClient()
+        signed_in.credentials(HTTP_AUTHORIZATION=f"Bearer {RefreshToken.for_user(user).access_token}")
+        return signed_in
+
+    address = api().post("/api/v1/addresses/", {**ADDRESS, "phone": "98640 12345"}).json()["id"]
+    return api, address, book
+
+
+@pytest.mark.filterwarnings("ignore::jwt.warnings.InsecureKeyLengthWarning")  # the short development SECRET_KEY
+def test_a_cash_on_delivery_checkout_sent_again_places_no_second_order(settings, db):
+    api, address, book = cod_customer(settings)
+    order = {"address": address, "payment_method": "cod"}
+    first, again = api().post("/api/v1/orders/", order), api().post("/api/v1/orders/", order)
+    assert first.status_code == 201 and again.json() == {"non_field_errors": ["Your cart is empty."]}
+    assert Order.objects.exclude(placed_at=None).count() == 1 and Product.objects.get(pk=book.pk).stock == 4
+
+
+@postgres_only
+@pytest.mark.django_db(transaction=True, serialized_rollback=True)
+@pytest.mark.filterwarnings("ignore::jwt.warnings.InsecureKeyLengthWarning")
+def test_the_same_cash_on_delivery_checkout_sent_twice_at_once_places_one_order(settings):
+    api, address, book = cod_customer(settings)
+    order = {"address": address, "payment_method": "cod"}
+    answers = at_once(*[lambda: api().post("/api/v1/orders/", order).status_code] * 2)
+    assert sorted(answers) == [201, 400]  # the second waited for the first, then found the cart emptied
+    assert Order.objects.exclude(placed_at=None).count() == 1 and Product.objects.get(pk=book.pk).stock == 4
