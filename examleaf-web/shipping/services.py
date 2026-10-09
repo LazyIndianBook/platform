@@ -871,15 +871,26 @@ def resolve_exception(exception, resolution, by=None, dismiss=False):
         state=state, resolution=resolution[:300], resolved_at=now, resolved_by=user, modified=now
     )
     exception.refresh_from_db()
+    if closed:
+        closing([exception.pk])
     return bool(closed)
 
 
 def close_exceptions(shipment, kinds, resolution):
     """The site resolves what the parcel's news has settled (delivered after a failed attempt)."""
     now = timezone.now()
-    ShippingException.objects.filter(shipment=shipment, kind__in=kinds, state="open").update(
+    settled = ShippingException.objects.filter(shipment=shipment, kind__in=kinds, state="open")
+    ids = list(settled.values_list("pk", flat=True))
+    settled.filter(pk__in=ids).update(
         state=ShippingException.State.RESOLVED, resolution=resolution, resolved_at=now, modified=now
     )
+    if ids:
+        closing(ids)
+
+
+def closing(ids):
+    """Tell the staff inbox, once the transaction is committed (exceptions_closed)."""
+    transaction.on_commit(lambda: signals.exceptions_closed.send(sender=ShippingException, ids=ids), robust=True)
 
 
 # PINs

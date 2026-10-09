@@ -91,7 +91,9 @@ charges, `staff.manage_pickup_locations` (`staff/catalogue.py`; the roles: PACKE
 deliveries, FINANCE reconciles COD, ADMIN and the owners all; `accounts/roles.py`). Querysets go through the staff app's
 `scoped()` (a PACKER's parcels are the orders to pack and on their way). Every change is an audit event targeting the
 order (`shipping.booked`, `shipping.ndr_action` with the names of the details changed …; the COD reconciliation is
-`payment.cod_reconciled`, in the money chain). Serializers in `api_serializers.py`.
+`payment.cod_reconciled`, in the money chain). An exception opened (`exception_opened`) files a staff inbox item due
+when it is (FINANCE's for cash on delivery, `act_on_exception`'s otherwise), moved forward with it, and closed once it
+is resolved or dismissed, by staff or by the parcel's news (`exceptions_closed`). Serializers in `api_serializers.py`.
 
 ## Operations
 

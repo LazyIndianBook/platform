@@ -254,9 +254,9 @@ class Approval(models.Model):
 
 class InboxItem(models.Model):
     """Something that waits for a person: an approval, a teacher's request, a deletion, a data request, an incident,
-    a failed job or webhook (staff.signals), a document ERPNext refused for good or a reconciliation's differences
-    (erp/inbox.py). Shown to its assignee, or to everyone holding `permission`; done once acted on. One open item per
-    kind and target."""
+    a failed job or webhook, a parcel's exception, an integration's dead letter, failed event or open circuit
+    (staff.signals), a document ERPNext refused for good or a reconciliation's differences (erp/inbox.py). Shown to its
+    assignee, or to everyone holding `permission`; done once acted on. One open item per kind and target."""
 
     class Kind(models.TextChoices):
         APPROVAL = "approval", "approval"
@@ -268,6 +268,10 @@ class InboxItem(models.Model):
         FAILED_WEBHOOK = "failed_webhook", "failed webhook"
         SYNC_FAILED = "sync_failed", "ERPNext refused a document (a dead letter)"  # erp/inbox.py
         RECONCILIATION = "reconciliation", "ERPNext reconciliation differences"
+        SHIPPING_EXCEPTION = "shipping_exception", "parcel exception"
+        DEAD_LETTER = "dead_letter", "integration task given up"
+        FAILED_EVENT = "failed_event", "provider event not processed"
+        INTEGRATION_DOWN = "integration_down", "integration unavailable"
 
     kind = models.CharField(max_length=20, choices=Kind.choices, db_index=True)
     title = models.CharField(max_length=200, help_text="Names no one: a number, a kind.")

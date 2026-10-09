@@ -100,6 +100,66 @@ def test_a_failed_clip_a_failed_task_a_refused_webhook_and_a_failed_refund_are_f
     assert system["webhooks"]["refused_7_days"] == 2
 
 
+def test_a_parcels_exception_waits_until_its_deadline_and_goes_once_settled(django_capture_on_commit_callbacks):
+    from shipping import services as shipping
+    from shop.models import Shipment
+
+    order = make_order((ProductFactory(), 1))
+    parcel = Shipment.objects.create(order=order, courier="India Post", tracking_number="EA1IN")
+    with django_capture_on_commit_callbacks(execute=True):
+        failed = shipping.open_exception(parcel, "ndr", hours=24, data={"attempts": 1})
+    item = InboxItem.objects.get(kind="shipping_exception")
+    assert (item.target_type, item.target_id, item.permission) == ("shipping.shippingexception", str(failed.pk),
+                                                                   "staff.act_on_exception")  # fmt: skip
+    assert item.title == f"Parcel of {order.number}: delivery failed (NDR)" and item.due_at == failed.due_at
+    sales, packer = make_staff(roles.SALES), make_staff(roles.PACKER)
+    assert kinds(sales) == ["shipping_exception"] and kinds(packer) == []  # who acts on failed deliveries
+    shipping.open_exception(parcel, "ndr", hours=2, data={"attempts": 2})  # a second attempt failed: sooner
+    item.refresh_from_db()
+    assert item.due_at == InboxItem.objects.get().due_at <= timezone.now() + timedelta(hours=2)
+    with django_capture_on_commit_callbacks(execute=True):
+        shipping.resolve_exception(failed, "Called: at home tomorrow.", by=sales)
+    assert kinds(sales) == [] and InboxItem.objects.get().done_at
+    with django_capture_on_commit_callbacks(execute=True):
+        owed = shipping.open_exception(parcel, "cod_overdue", data={"expected": "299.00"}, reference="cod-1")
+    assert InboxItem.objects.get(target_id=str(owed.pk)).permission == "staff.reconcile_cod"  # FINANCE's
+    assert kinds(make_staff(roles.FINANCE)) == ["shipping_exception"]
+    with django_capture_on_commit_callbacks(execute=True):
+        shipping.close_exceptions(parcel, ["cod_overdue"], "Remitted.")  # settled by the parcel's news
+    assert not InboxItem.objects.filter(done_at=None).exists()
+
+
+def test_an_integrations_dead_letter_failed_event_and_open_circuit_wait_until_settled(
+    django_capture_on_commit_callbacks,
+):
+    from integrations import services as integrations
+    from integrations.models import FAILURES_TO_OPEN, InboundEvent, IntegrationAccount
+
+    admin = make_staff(roles.ADMIN)
+    with django_capture_on_commit_callbacks(execute=True):
+        failure = integrations.dead_letter("shipping.tasks.poll_tracking", "t-1", OSError("down"), [], {})
+        event = InboundEvent.objects.create(provider="shiprocket", body="{}", sha256="0" * 64)
+        event.fail("KeyError: 'awb'")
+        account = IntegrationAccount.objects.create(provider="shiprocket", mode="test", enabled=True)
+        for _ in range(FAILURES_TO_OPEN):
+            account.record_failure(OSError("timed out"))
+        integrations.dead_letter("erp.tasks.replay_row", "t-2", OSError("refused"), [1], {})  # (erp/inbox.py's own)
+    assert kinds(admin) == ["dead_letter", "failed_event", "integration_down"]
+    assert sorted(InboxItem.objects.values_list("title", flat=True)) == [
+        f"Dead letter #{failure.pk}: poll_tracking gave up",
+        f"Shiprocket event #{event.pk} not processed",
+        "Shiprocket unavailable: calls wait (its circuit is open)",
+    ]
+    assert kinds(make_staff(roles.SALES)) == []  # the system's watchers': staff.view_system
+    with django_capture_on_commit_callbacks(execute=True):
+        failure.discard("Shiprocket fixed it on their side", by=admin)
+        event.processed_at = timezone.now()  # replayed, and it went through this time
+        event.state = InboundEvent.State.ACCEPTED
+        event.save()
+        account.record_success()
+    assert kinds(admin) == [] and InboxItem.objects.filter(done_at=None).count() == 0
+
+
 def test_the_system_page_shows_health_queues_mail_sms_backups_and_the_audit_chain():
     staff = make_staff(roles.ADMIN)
     from staff.tasks import verify_audit_chain

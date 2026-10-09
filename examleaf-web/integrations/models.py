@@ -352,6 +352,7 @@ class IntegrationFailure(TimeStampedModel):
             self.state, self.resolved_at, self.resolved_by = state, now, user
             for name, value in fields.items():
                 setattr(self, name, value)
+            transaction.on_commit(lambda: signals.dead_letter_closed.send(sender=type(self), failure=self), robust=True)
         return bool(closed)
 
     def replay(self, by=None):

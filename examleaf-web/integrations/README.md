@@ -48,9 +48,11 @@ retry or an open circuit is raised to the caller instead. `InboundEventTask` is 
 task (a failure marks its `InboundEvent` failed); `services.dead_letter()` writes a dead letter for work that retries
 by itself rather than through Celery (the ERPNext outbox).
 
-**Signals** for the staff inbox (`signals.py`, sent after the commit): `integration_failed`, `integration_recovered`,
-`dead_letter_created`, `inbound_event_failed`. The ERPNext sync files its own dead letters in the staff inbox
-(`erp/inbox.py`); nothing else listens yet.
+**Signals** for the staff inbox (`signals.py`, sent after the commit): `integration_failed` and `integration_recovered`
+(an item while the circuit is open), `dead_letter_created` and `dead_letter_closed` (replayed or discarded),
+`inbound_event_failed` (its item closes once a replay processes the event). The staff app files and closes the items
+(`staff/signals.py`), for the holders of `staff.view_system`; the ERPNext sync files its own dead letters instead
+(`erp/inbox.py`, for `erp.replay_sync`).
 
 ## Adding a provider
 

@@ -2,8 +2,9 @@
 the person, and to the owners for a break-glass account), log-outs, failed log-ins and lock-outs of staff accounts;
 role changes from anywhere (the admin's role actions, a teacher's verification, the panel); refunds and payments
 recorded offline, through shop.services; and the inbox items for approvals, teachers' requests, account deletions,
-data requests, incidents, failed clips and failed tasks. A receiver never breaks what sent the signal: its failure is
-logged."""
+data requests, incidents, failed clips and failed tasks, the parcels' exceptions (due when they are), the integrations'
+dead letters, failed events and open circuits, each closed again once settled. A receiver never breaks what sent the
+signal: its failure is logged."""
 
 import functools
 import logging
@@ -23,7 +24,9 @@ from django_fsm.signals import post_transition
 from accounts import roles
 from accounts.models import DeletionRequest, TeacherProfile
 from examleaf.middleware import STAFF_LOGIN_AT, STAFF_SEEN
+from integrations import signals as integration_signals
 from ops.tasks import queue_text_email
+from shipping import signals as shipping_signals
 
 from .audit import ActorType, Outcome, alert, current_request, record, request_fields
 from .models import ChangeRequest, DataRequest, InboxItem, Incident
@@ -284,6 +287,94 @@ def clip_failed(sender, instance, **kwargs):
         open_item(InboxItem.Kind.FAILED_JOB, instance, f"Clip #{instance.pk}: its video failed", "learn.change_clip")
     elif instance.processing == "ready":
         close_items(instance)
+
+
+# The parcels' exceptions (shipping.signals) and the integrations' failures (integrations.signals)
+
+
+@receiver(shipping_signals.exception_opened)
+@quietly
+def parcel_needs_staff(sender, exception, **kwargs):
+    order = exception.shipment.order
+    money = exception.kind == exception.Kind.COD_OVERDUE  # FINANCE's: the cash a courier owes
+    open_item(
+        InboxItem.Kind.SHIPPING_EXCEPTION,
+        exception,
+        f"Parcel of {order.number}: {exception.get_kind_display()}",
+        "staff.reconcile_cod" if money else "staff.act_on_exception",
+        exception.due_at,
+        order=order.number,
+        shipment=exception.shipment_id,
+        exception_kind=exception.kind,
+    )
+
+
+@receiver(post_save, sender="shipping.ShippingException")
+@quietly
+def parcel_deadline_moved(sender, instance, created, **kwargs):
+    """A second failed attempt brings an open exception's deadline forward: its item's too."""
+    if not created:
+        InboxItem.objects.filter(
+            target_type="shipping.shippingexception", target_id=str(instance.pk), done_at=None
+        ).update(due_at=instance.due_at)
+
+
+@receiver(shipping_signals.exceptions_closed)
+@quietly
+def parcel_settled(sender, ids, **kwargs):
+    InboxItem.objects.filter(
+        target_type="shipping.shippingexception", target_id__in=[str(pk) for pk in ids], done_at=None
+    ).update(done_at=timezone.now())
+
+
+FILED_ELSEWHERE = {"erp.tasks.replay_row"}  # the ERPNext sync files its dead letters itself (erp/inbox.py)
+
+
+@receiver(integration_signals.dead_letter_created)
+@quietly
+def dead_letter_waits(sender, failure, **kwargs):
+    if failure.task_name in FILED_ELSEWHERE:
+        return
+    open_item(
+        InboxItem.Kind.DEAD_LETTER,
+        failure,
+        f"Dead letter #{failure.pk}: {failure.operation} gave up",
+        "staff.view_system",
+        operation=failure.operation,
+    )
+
+
+@receiver(integration_signals.dead_letter_closed)
+@quietly
+def dead_letter_done(sender, failure, **kwargs):
+    close_items(failure)
+
+
+@receiver(integration_signals.inbound_event_failed)
+@quietly
+def inbound_event_waits(sender, event, **kwargs):
+    title = f"{event.get_provider_display()} event #{event.pk} not processed"
+    open_item(InboxItem.Kind.FAILED_EVENT, event, title, "staff.view_system", provider=event.provider)
+
+
+@receiver(post_save, sender="integrations.InboundEvent")
+@quietly
+def inbound_event_processed(sender, instance, **kwargs):
+    if instance.processed_at and instance.state != instance.State.FAILED:  # a replay that went through
+        close_items(instance, InboxItem.Kind.FAILED_EVENT)
+
+
+@receiver(integration_signals.integration_failed)
+@quietly
+def integration_down(sender, account, **kwargs):
+    title = f"{account.get_provider_display()} unavailable: calls wait (its circuit is open)"
+    open_item(InboxItem.Kind.INTEGRATION_DOWN, account, title, "staff.view_system", provider=account.provider)
+
+
+@receiver(integration_signals.integration_recovered)
+@quietly
+def integration_back(sender, account, **kwargs):
+    close_items(account, InboxItem.Kind.INTEGRATION_DOWN)
 
 
 @task_failure.connect
