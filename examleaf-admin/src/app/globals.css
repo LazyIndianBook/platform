@@ -1,0 +1,939 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/* ExamLeaf token layer, Direction A "Answer Script" (design: ExamLeaf A - Components.dc.html).
+   Same token NAMES as before (shadcn names + the ExamLeaf additions), so every component and page keeps compiling;
+   only the values and a few component rules change. Paper by default; .band-night is now the ink band (footer,
+   closing call to action). Hex values on purpose (old Android WebViews). */
+:root {
+  color-scheme: light;
+  --background: #f8f5ee; /* paper */
+  --foreground: #1d2230; /* ink */
+  --card: #ffffff;
+  --card-foreground: #1d2230;
+  --popover: #ffffff;
+  --popover-foreground: #1d2230;
+  --primary: #0b2a5b; /* navy: the one action colour */
+  --primary-foreground: #ffffff;
+  --secondary: #f1ece1; /* paper 2: alternate bands, summaries */
+  --secondary-foreground: #1d2230;
+  --muted: #ebe5d7;
+  --muted-foreground: #5b6170; /* 5.9:1 on paper */
+  --accent: #0b2a5b; /* was leaf green; A uses navy for every call to action */
+  --accent-foreground: #ffffff;
+  --destructive: #b42318;
+  --destructive-foreground: #ffffff;
+  --border: #dcd4c4; /* hairlines */
+  --input: #7b8595; /* control borders, 3.7:1 */
+  --ring: #2f8f3a; /* focus ring, 2 px + 2 px offset */
+  --heading: #1d2230;
+  --primary-hover: #1d2230;
+  --accent-hover: #1d2230;
+  --destructive-hover: #a92117;
+  --secondary-hover: #ebe5d7;
+
+  /* Answer Script */
+  --ink: #1d2230;
+  --red-ink: #b3342a; /* marks, ticks, the margin, the stamp, one emphasis per screen; never errors */
+  --red-ink-soft: #e7bdb7;
+  --red-ink-night: #e0786e;
+  --paper-2: #f1ece1;
+  --rule-soft: #e6dfd1;
+
+  --navy: #0b2a5b;
+  --night: #1d2230; /* the ink band */
+  --night-card: #262c3b;
+  --night-muted: #c9cdd6;
+  --night-line: #3a4152;
+  --header-line: #dcd4c4;
+  --gold: #ebc34a;
+  --gold-text: #8a6508;
+  --marker: #ffe27a;
+  --leaf: #1a6e30; /* the wordmark's "Leaf" on paper */
+  --leaf-night: #8fd694;
+  --leaf-light: #8fd694;
+
+  --physics: #0f3560;
+  --physics-pill: #88d4fa;
+  --chemistry: #134043;
+  --chemistry-pill: #a0f4f9;
+  --maths: #2e1d65;
+  --maths-pill: #81d0fb;
+  --biology: #124931;
+  --biology-pill: #a2f8a6;
+  --easy: #1b7f3b;
+  --medium: #1a5fb4;
+  --hard: #a0272d;
+
+  --info-bg: #eef3fb;
+  --info-line: #c9d8f0;
+  --info-fg: #1a5fb4;
+  --success-bg: #ebf5ed;
+  --success-line: #c3e1ca;
+  --success-fg: #1b7f3b;
+  --warning-bg: #fff5d8;
+  --warning-line: #eed58c;
+  --warning-fg: #8a6508;
+  --error-bg: #fcebe9;
+  --error-line: #f1c2bc;
+  --error-fg: #b42318;
+
+  --radius: 4px;
+  --backdrop: rgba(29, 34, 48, 0.55);
+
+  --fs-display: clamp(44px, 6vw, 76px);
+  --fs-h1: clamp(34px, 4.6vw, 56px);
+  --fs-h1-card: clamp(28px, 3vw, 36px);
+  --fs-h2: clamp(28px, 3.4vw, 44px);
+  --fs-title: clamp(22px, 2.4vw, 28px);
+  --fs-card: 22px;
+  --fs-h3: 21px;
+  --fs-h4: 18px;
+  --fs-lead: 19px;
+  --fs-body: 17px;
+  --fs-small: 15px;
+  --fs-caption: 14px;
+  --fs-read: 19px; /* questions and solutions, Source Serif */
+  --measure: 66ch;
+
+  --container: 1200px;
+  --margin-col: 120px; /* the answer booklet's left margin */
+  --marks-col: 112px; /* the examiner's marks column */
+  --gutter: clamp(16px, 4vw, 24px);
+  --gap: 24px;
+  --section: clamp(56px, 7vw, 80px);
+  --header: 72px;
+  --target: 44px;
+  --control: 48px;
+
+  --t-instant: 0ms;
+  --t-fast: 150ms;
+  --t-base: 220ms;
+  --t-slow: 360ms;
+}
+
+@layer base {
+  .band-night {
+    --background: #1d2230;
+    --foreground: #ffffff;
+    --card: #262c3b;
+    --card-foreground: #ffffff;
+    --primary: #f8f5ee;
+    --primary-foreground: #1d2230;
+    --primary-hover: #ffffff;
+    --secondary: #262c3b;
+    --secondary-foreground: #ffffff;
+    --secondary-hover: #2e3546;
+    --muted: #262c3b;
+    --muted-foreground: #c9cdd6;
+    --accent: #f8f5ee;
+    --accent-foreground: #1d2230;
+    --accent-hover: #ffffff;
+    --border: #3a4152;
+    --input: #8a90a0;
+    --ring: #8fd694;
+    --heading: #ffffff;
+    --red-ink: #e0786e;
+    background: var(--background);
+    color: var(--foreground);
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary-hover: var(--secondary-hover);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-hover: var(--accent-hover);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-hover: var(--destructive-hover);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-heading: var(--heading);
+  --color-ink: var(--ink);
+  --color-red-ink: var(--red-ink);
+  --color-red-ink-soft: var(--red-ink-soft);
+  --color-paper-2: var(--paper-2);
+  --color-rule-soft: var(--rule-soft);
+  --color-navy: var(--navy);
+  --color-night: var(--night);
+  --color-night-card: var(--night-card);
+  --color-night-muted: var(--night-muted);
+  --color-night-line: var(--night-line);
+  --color-header-line: var(--header-line);
+  --color-gold: var(--gold);
+  --color-gold-text: var(--gold-text);
+  --color-marker: var(--marker);
+  --color-leaf: var(--leaf);
+  --color-leaf-light: var(--leaf-light);
+  --color-easy: var(--easy);
+  --color-medium: var(--medium);
+  --color-hard: var(--hard);
+  --color-info-bg: var(--info-bg);
+  --color-info-line: var(--info-line);
+  --color-info-fg: var(--info-fg);
+  --color-success-bg: var(--success-bg);
+  --color-success-line: var(--success-line);
+  --color-success-fg: var(--success-fg);
+  --color-warning-bg: var(--warning-bg);
+  --color-warning-line: var(--warning-line);
+  --color-warning-fg: var(--warning-fg);
+  --color-error-bg: var(--error-bg);
+  --color-error-line: var(--error-line);
+  --color-error-fg: var(--error-fg);
+
+  /* src/app/fonts.ts sets the families on <html>. Hind Siliguri stays in every stack for Assamese and Bangla:
+     its Bengali file has a unicode-range, so Latin pages never download it. */
+  --font-head: var(--font-serif), var(--font-hind-bn), var(--font-hind), Georgia, serif;
+  /* the serif's display cut (optical size 60): h1, h2 and the display sizes; everything smaller reads the text cut */
+  --font-display: var(--font-serif-display), var(--font-serif), var(--font-hind-bn), var(--font-hind), Georgia, serif;
+  --font-read: var(--font-serif), var(--font-hind-bn), var(--font-hind), Georgia, serif;
+  --font-body: var(--font-ui), var(--font-hind-bn), var(--font-hind), "Segoe UI", system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, Menlo, Consolas, monospace;
+  --font-sans: var(--font-body);
+
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: var(--radius);
+  --radius-xl: 6px;
+  --radius-btn: 4px;
+  --radius-pill: 999px;
+  --radius-cover: 4px;
+
+  --text-display: var(--fs-display);
+  --text-h1: var(--fs-h1);
+  --text-h1-card: var(--fs-h1-card);
+  --text-h2: var(--fs-h2);
+  --text-title: var(--fs-title);
+  --text-card-title: var(--fs-card);
+  --text-h3: var(--fs-h3);
+  --text-h4: var(--fs-h4);
+  --text-lead: var(--fs-lead);
+  --text-body: var(--fs-body);
+  --text-small: var(--fs-small);
+  --text-caption: var(--fs-caption);
+  --text-read: var(--fs-read);
+
+  --ease-enter: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
+  --breakpoint-nav: 900px;
+}
+
+@theme {
+  --shadow-card: 0 1px 0 rgba(29, 34, 48, 0.04);
+  --shadow-hard: none;
+  --shadow-cover: 0 14px 24px -14px rgba(0, 0, 0, 0.6);
+  --shadow-sheet: 0 30px 50px -30px rgba(29, 34, 48, 0.45);
+  --shadow-dialog: 0 24px 48px rgba(29, 34, 48, 0.28);
+  --shadow-menu: 0 16px 24px rgba(29, 34, 48, 0.25);
+}
+
+/* Control states (button.tsx). live: neither disabled nor aria-disabled, so hover and press apply; off: disabled, or
+   aria-disabled while not busy (a busy control keeps its colour and shows the spinner). Plain selectors, no :is(), so
+   an old WebView still greys a disabled button. */
+@custom-variant live (&:not(:disabled):not([aria-disabled="true"]));
+@custom-variant off {
+  &:disabled:not([aria-busy="true"]) {
+    @slot;
+  }
+  &[aria-disabled="true"]:not([aria-busy="true"]) {
+    @slot;
+  }
+}
+
+@utility container-site {
+  width: 100%;
+  max-width: calc(var(--container) + 48px);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+@utility section {
+  padding-block: var(--section);
+}
+
+@utility grid-auto {
+  display: grid;
+  gap: var(--gap);
+  grid-template-columns: repeat(auto-fit, minmax(min(var(--min, 240px), 100%), 1fr));
+}
+
+/* the mono label: codes, marks, eyebrows. Latin only: Assamese text is never tracked or uppercased (:lang rule). */
+@utility label-mono {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.05em;
+  color: var(--muted-foreground);
+}
+
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--border);
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    scroll-padding-top: 16px;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    background: var(--background);
+    color: var(--foreground);
+    font: 400 var(--fs-body) / 1.65 var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+  main {
+    flex: 1 0 auto;
+  }
+  main:focus,
+  main h1[tabindex="-1"]:focus {
+    outline: none;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-head);
+    color: var(--heading);
+    text-wrap: balance;
+    font-weight: 600;
+  }
+  h1,
+  h2 {
+    font-family: var(--font-display);
+  }
+  h1 {
+    font-size: var(--fs-h1);
+    line-height: 1.02;
+    letter-spacing: -0.02em;
+  }
+  h2 {
+    font-size: var(--fs-h2);
+    line-height: 1.1;
+    letter-spacing: -0.015em;
+  }
+  h3 {
+    font-size: var(--fs-h3);
+    line-height: 1.25;
+  }
+  h4 {
+    font-size: var(--fs-h4);
+    line-height: 1.35;
+  }
+  p,
+  li,
+  dd,
+  figcaption {
+    text-wrap: pretty;
+  }
+  a {
+    color: var(--primary);
+    text-underline-offset: 3px;
+    text-decoration-line: underline;
+  }
+  a:hover {
+    color: var(--red-ink);
+    text-decoration-thickness: 2px;
+  }
+  table {
+    font-variant-numeric: tabular-nums;
+  }
+  code {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+  }
+  :lang(bn),
+  :lang(as) {
+    letter-spacing: 0;
+    text-transform: none;
+    line-height: 1.8;
+  }
+  :lang(bn) :is(h1, h2, h3, h4),
+  :lang(as) :is(h1, h2, h3, h4) {
+    line-height: 1.45;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  ::placeholder {
+    color: var(--muted-foreground);
+    opacity: 1;
+  }
+  input[type="checkbox"],
+  input[type="radio"] {
+    accent-color: var(--primary);
+  }
+}
+
+@layer components {
+  /* ---- The answer booklet: margin | content (red double rule) | marks. Phones: a 12 px rule at the edge. ---- */
+  .sheet {
+    display: grid;
+    grid-template-columns: var(--margin-col) minmax(0, 1fr) var(--marks-col);
+    width: 100%;
+    max-width: calc(var(--container) + var(--margin-col) + var(--marks-col));
+    margin-inline: auto;
+  }
+  .sheet-margin {
+    padding: var(--section) 12px 0 var(--gutter);
+    font: 600 15px/1.4 var(--font-mono);
+    color: var(--red-ink);
+  }
+  /* the margin's number sits 40 px in, in line with the header's wordmark (the artboards) */
+  @media (min-width: 900px) {
+    .sheet-margin {
+      padding-left: 40px;
+    }
+  }
+  .sheet-body {
+    min-width: 0;
+    border-left: 3px double var(--red-ink);
+    padding: var(--section) clamp(20px, 4vw, 48px);
+  }
+  .sheet-marks {
+    padding: var(--section) var(--gutter) 0 16px;
+    font: 600 15px/1.4 var(--font-mono);
+    color: var(--red-ink);
+  }
+  /* one row with its mark: content, then the mark on the same baseline */
+  .marked-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--marks-col);
+    align-items: baseline;
+  }
+  .marked-row > .mark {
+    justify-self: center;
+    font: 600 16px/1 var(--font-mono);
+    color: var(--red-ink);
+  }
+  .marked-row > .mark.allotted {
+    font-weight: 500;
+    color: var(--muted-foreground);
+  }
+  @media (max-width: 899.98px) {
+    .sheet {
+      grid-template-columns: minmax(0, 1fr);
+      border-left: 3px double var(--red-ink);
+    }
+    .sheet-margin {
+      padding: 32px var(--gutter) 0;
+    }
+    .sheet-body {
+      border-left: 0;
+      padding: 8px var(--gutter) 40px;
+    }
+    .sheet-marks {
+      display: none;
+    }
+    .marked-row {
+      grid-template-columns: minmax(0, 1fr) 56px;
+    }
+  }
+
+  /* the section opener: "Q.1 ——— What's inside" in the margin's voice */
+  .q-rule {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+  .q-rule > :first-child {
+    font: 600 15px/1.4 var(--font-mono);
+    color: var(--red-ink);
+  }
+  .q-rule > :nth-child(2) {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  .q-rule > :last-child {
+    font: 500 13px/1.4 var(--font-mono);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
+  /* a big figure in the marks voice: [30] */
+  .numeral {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    line-height: 1;
+    color: var(--red-ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .subject-physics {
+    --base: var(--physics);
+    --pill: var(--physics-pill);
+  }
+  .subject-chemistry {
+    --base: var(--chemistry);
+    --pill: var(--chemistry-pill);
+  }
+  .subject-maths {
+    --base: var(--maths);
+    --pill: var(--maths-pill);
+  }
+  .subject-biology {
+    --base: var(--biology);
+    --pill: var(--biology-pill);
+  }
+
+  .cover {
+    position: relative;
+    display: block;
+    border-radius: var(--radius-cover);
+    box-shadow: var(--shadow-cover);
+    overflow: hidden;
+  }
+  .cover img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  /* the cover row (cover-stage.tsx): quiet, the covers overlapping, nothing turns or lifts */
+  .stage {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 16px 0 40px;
+  }
+  .stage-cover {
+    flex: none;
+    width: min(30vw, 160px);
+  }
+  .stage-cover + .stage-cover {
+    margin-left: max(-48px, -9vw);
+  }
+
+  /* the subject row (subject-tile.tsx, was the sticker tile): cover, name, the book's figures, one link */
+  .tile {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    color: var(--foreground);
+    text-decoration: none;
+  }
+  .tile:hover {
+    color: var(--foreground);
+    background: var(--paper-2);
+  }
+  .tile:active {
+    translate: 0 1px;
+  }
+
+  /* choice controls (choice.tsx): the native checkbox, radio and switch drawn as the board draws them. 22 px boxes
+     with the control border (ink on hover), navy when checked; the switch a 44×26 track, the control grey off (3:1
+     on paper, unlike the board's paler grey) and navy on, its 20 px knob a gradient. Nothing animates. Disabled is
+     paper 2 with a pale border. In forced colours the browser draws its own (gradients would vanish there). Plain
+     selectors, no :is(): a browser that drops a rule then keeps drawing the native control, not half of each. */
+  input[data-slot="checkbox"],
+  input[data-slot="radio"],
+  input[data-slot="switch"] {
+    flex: none;
+    margin: 0;
+    appearance: none;
+    cursor: pointer;
+  }
+  input[data-slot="checkbox"],
+  input[data-slot="radio"] {
+    width: 22px;
+    height: 22px;
+    border: 1.5px solid var(--input);
+    background: var(--card) center / 14px no-repeat;
+  }
+  input[data-slot="checkbox"] {
+    border-radius: 3px;
+  }
+  input[data-slot="radio"] {
+    border-radius: 50%;
+  }
+  input[data-slot="checkbox"]:not(:checked):not(:disabled):hover,
+  input[data-slot="radio"]:not(:checked):not(:disabled):hover {
+    border-color: var(--foreground);
+  }
+  input[data-slot="checkbox"]:checked {
+    border-color: var(--primary);
+    background-color: var(--primary);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+  }
+  input[data-slot="radio"]:checked {
+    border-color: var(--primary);
+    background-image: radial-gradient(circle, var(--primary) 5.5px, transparent 6px);
+  }
+  input[data-slot="checkbox"][aria-invalid="true"],
+  input[data-slot="radio"][aria-invalid="true"] {
+    border-color: var(--destructive);
+  }
+  input[data-slot="checkbox"]:disabled,
+  input[data-slot="radio"]:disabled {
+    cursor: not-allowed;
+    border-color: #c9ccd2;
+    background-color: var(--paper-2);
+  }
+  input[data-slot="checkbox"]:checked:disabled {
+    background-color: #c9ccd2;
+  }
+  input[data-slot="radio"]:checked:disabled {
+    background-image: radial-gradient(circle, #c9ccd2 5.5px, transparent 6px);
+  }
+  input[data-slot="switch"] {
+    width: 44px;
+    height: 26px;
+    border-radius: 999px;
+    background: var(--input) radial-gradient(circle at 13px 13px, #ffffff 10px, transparent 10.5px);
+  }
+  input[data-slot="switch"]:checked {
+    background-color: var(--primary);
+    background-image: radial-gradient(circle at 31px 13px, #ffffff 10px, transparent 10.5px);
+  }
+  input[data-slot="switch"]:disabled {
+    cursor: not-allowed;
+    background-color: #c9ccd2;
+  }
+  @media (forced-colors: active) {
+    input[data-slot="checkbox"],
+    input[data-slot="radio"],
+    input[data-slot="switch"] {
+      appearance: auto;
+    }
+  }
+
+  /* a lucide circle icon drawn filled (Alert, FieldError): the circle in the current colour, its sign in white */
+  svg.icon-filled circle {
+    fill: currentColor;
+  }
+  svg.icon-filled :not(circle) {
+    stroke: #ffffff;
+    stroke-width: 2.5;
+  }
+
+  /* the one emphasis of a view: red ink, italic */
+  .marker {
+    padding: 0;
+    background: none;
+    color: var(--red-ink);
+    font-style: italic;
+  }
+
+  /* the stamp (was the seal): EXAMLEAF · OFFICIAL SOLUTIONS, once per screen */
+  .seal {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 118px;
+    height: 118px;
+    flex: none;
+    margin-left: auto;
+    border: 2px solid var(--red-ink);
+    border-radius: 50%;
+    outline: 1px solid var(--red-ink);
+    outline-offset: -8px;
+    color: var(--red-ink);
+    transform: rotate(-10deg);
+    text-align: center;
+    font: 600 12px/1.35 var(--font-mono);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  /* details.accordion (accordion.tsx): hairline rows under an ink rule; the question in the serif, "+" closed and
+     "−" open in red mono (the sign is an aria-hidden span, so it is never read). Nothing turns or slides. */
+  details.accordion {
+    border-top: 1.5px solid var(--foreground);
+    border-bottom: 1px solid var(--border);
+  }
+  details.accordion + details.accordion {
+    border-top: 0;
+  }
+  details.accordion > summary {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 44px;
+    padding: 16px 0;
+    list-style: none;
+    cursor: pointer;
+    font: 600 19px/1.3 var(--font-head);
+    color: var(--foreground);
+  }
+  details.accordion[open] > summary {
+    padding-bottom: 8px;
+  }
+  details.accordion > summary::-webkit-details-marker {
+    display: none;
+  }
+  details.accordion > summary > [data-sign]::before {
+    content: "+";
+    font: 600 19px/1 var(--font-mono);
+    color: var(--red-ink);
+  }
+  details.accordion[open] > summary > [data-sign]::before {
+    content: "−";
+  }
+  details.accordion > div {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-bottom: 16px;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  details.accordion > div > * {
+    margin: 0;
+  }
+  details.accordion > div > :is(p, ul, ol) {
+    color: #4a5060;
+  }
+
+  /* tables (table.tsx; .table-scroll is the solutions' Markdown): an ink rule on top, the head in the mono label voice
+     over an ink hairline, a hairline under every row, columns 12 px apart with the first and last flush to the rule.
+     The box scrolls sideways by itself; the head sticks while the box scrolls. It is the containing block of what is
+     absolutely placed inside (screen-reader words in a far column), so nothing escapes it and widens the page. */
+  .table-wrap,
+  .table-scroll {
+    position: relative;
+    overflow-x: auto;
+    border-top: 1.5px solid var(--foreground);
+    background: transparent;
+  }
+  .table-wrap table,
+  .table-scroll table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  .table-wrap th,
+  .table-scroll th {
+    position: sticky;
+    top: 0;
+    padding: 10px 6px;
+    border-bottom: 1px solid var(--foreground);
+    background: var(--background);
+    font: 500 12px/1.4 var(--font-mono);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+    text-align: left;
+    white-space: nowrap;
+  }
+  [data-slot="card"] :is(.table-wrap, .table-scroll) th {
+    background: var(--card);
+  }
+  .table-wrap td,
+  .table-scroll td {
+    padding: 12px 6px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  :is(.table-wrap, .table-scroll) :is(th, td):first-child {
+    padding-left: 0;
+  }
+  :is(.table-wrap, .table-scroll) :is(th, td):last-child {
+    padding-right: 0;
+  }
+  .table-wrap tfoot td,
+  .table-wrap tfoot th {
+    border-top: 1.5px solid var(--foreground);
+    font-weight: 700;
+  }
+  /* the total's ink rule, not the last row's hairline (collapsed borders round 1.5 px down at 1x, and then the upper
+     cell wins) */
+  .table-wrap table:has(tfoot) tbody tr:last-child > * {
+    border-bottom: 0;
+  }
+  .num,
+  .table-wrap :is(th, td).num {
+    text-align: right;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  /* legal pages, About, the FAQ: a serif reading column */
+  .prose {
+    max-width: var(--measure);
+    font: 400 18px/1.7 var(--font-read);
+  }
+  .prose > :first-child {
+    margin-top: 0;
+  }
+  .prose h1 {
+    margin: 0 0 16px;
+  }
+  .prose p,
+  .prose ul,
+  .prose ol {
+    margin: 0 0 16px;
+  }
+  .prose ul,
+  .prose ol {
+    padding-left: 24px;
+  }
+  .prose ul {
+    list-style: disc;
+  }
+  .prose ol {
+    list-style: decimal;
+  }
+  .prose h2 {
+    margin: 40px 0 12px;
+    font-family: var(--font-head); /* a title size: the text cut */
+    font-size: var(--fs-title);
+  }
+  .prose h3 {
+    margin: 28px 0 8px;
+  }
+  .prose li + li {
+    margin-top: 6px;
+  }
+  .prose table {
+    margin: 16px 0;
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-body);
+    font-size: 16px;
+  }
+  .prose th,
+  .prose td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+  }
+  mark.placeholder {
+    padding: 0 0.2em;
+    border-radius: 2px;
+    background: #fff1a8;
+    color: var(--foreground);
+    outline: 1px dashed var(--gold-text);
+  }
+}
+
+/* Motion (motion.md + the two Answer Script moments). Everything that moves lives here; with reduced motion the
+   default state is the final one. */
+@media (prefers-reduced-motion: no-preference) {
+  .tile {
+    transition: translate var(--t-fast) var(--ease-enter);
+  }
+  [data-toast] {
+    animation: el-rise var(--t-base) var(--ease-enter) both;
+  }
+  @media (min-width: 900px) {
+    [data-toast] {
+      --rise: -8px;
+    }
+  }
+  /* "the tick lands": a saved score's red circle, played once after the server confirmed (marks-form.tsx) */
+  [data-mark-landed] {
+    animation: el-land var(--t-base) var(--ease-enter) both;
+  }
+  ::view-transition-group(*) {
+    animation-duration: var(--t-slow);
+    animation-timing-function: var(--ease-enter);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+/* "the margin follows": the current question number turns red as its row reaches the top third. Colour only,
+   scroll-linked where supported, static elsewhere (no JavaScript). */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .paper-page .qno {
+      animation: el-current linear both;
+      animation-timeline: view();
+      animation-range: contain 0% contain 40%;
+    }
+  }
+}
+
+@keyframes el-spin {
+  to {
+    rotate: 1turn;
+  }
+}
+@keyframes el-draw {
+  from {
+    transform: scaleX(0);
+  }
+}
+@keyframes el-rise {
+  from {
+    opacity: 0;
+    translate: 0 var(--rise, 8px);
+  }
+}
+@keyframes el-land {
+  from {
+    opacity: 0;
+    scale: 0.9;
+  }
+}
+@keyframes el-current {
+  0%,
+  100% {
+    color: var(--foreground);
+  }
+  50% {
+    color: var(--red-ink);
+  }
+}
+
+@media (max-width: 899.98px) {
+  html:has([data-toast]) {
+    scroll-padding-bottom: 120px;
+  }
+}
+
+svg.lucide {
+  stroke-width: 1.75;
+}
+
+.skip-link {
+  position: absolute;
+  left: 16px;
+  top: -100px;
+  z-index: 50;
+  padding: 10px 16px;
+  border-radius: 4px;
+  background: var(--card);
+  color: var(--primary);
+  font-weight: 600;
+}
+.skip-link:focus {
+  top: 12px;
+}
