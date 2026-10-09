@@ -105,7 +105,7 @@ class HsnRateSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class HsnRateRequestSerializer(serializers.ModelSerializer):
+class NewHsnRateSerializer(serializers.ModelSerializer):
     """A new rate of a code: from a day after its latest rate's start (its history is never rewritten), citing the
     notification and serial number that set it."""
 
@@ -204,10 +204,10 @@ class HsnCodeDetailSerializer(HsnCodeSerializer):
         return HsnProductSerializer(products, many=True, context=context).data
 
 
-class HsnCodeRequestSerializer(serializers.ModelSerializer):
+class NewHsnCodeSerializer(serializers.ModelSerializer):
     """A code new to the master, with its first rate."""
 
-    first_rate = HsnRateRequestSerializer()
+    first_rate = NewHsnRateSerializer()
 
     class Meta:
         model = HsnCode
@@ -279,9 +279,9 @@ class HsnViewSet(TaxView, mixins.ListModelMixin, mixins.RetrieveModelMixin, mixi
         data = HsnCodeDetailSerializer(code, context=self.context_for([code.code])).data
         return Response(data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
-    @extend_schema(request=HsnCodeRequestSerializer, responses={201: HsnCodeDetailSerializer})
+    @extend_schema(request=NewHsnCodeSerializer, responses={201: HsnCodeDetailSerializer})
     def create(self, request, *args, **kwargs):
-        asked = HsnCodeRequestSerializer(data=request.data)
+        asked = NewHsnCodeSerializer(data=request.data)
         asked.is_valid(raise_exception=True)
         data, user = asked.validated_data, self.by()
         first = data.pop("first_rate")
@@ -294,13 +294,13 @@ class HsnViewSet(TaxView, mixins.ListModelMixin, mixins.RetrieveModelMixin, mixi
             raise exceptions.ValidationError({"code": [f"{data['code']} is on the master already."]}) from None
         return self.detail_of(code.code, created=True)
 
-    @extend_schema(request=HsnRateRequestSerializer, responses={201: HsnCodeDetailSerializer})
+    @extend_schema(request=NewHsnRateSerializer, responses={201: HsnCodeDetailSerializer})
     @action(detail=True, methods=["post"])
     def rates(self, request, *args, **kwargs):
         code = self.get_object()
         with transaction.atomic():
             HsnCode.objects.select_for_update().get(pk=code.pk)  # one new rate at a time per code
-            asked = HsnRateRequestSerializer(data=request.data, context={"code": code.code})
+            asked = NewHsnRateSerializer(data=request.data, context={"code": code.code})
             asked.is_valid(raise_exception=True)
             row = HsnRate.objects.create(hsn=code, created_by=self.by(), **asked.validated_data)
             details = {"rate": row.pk, **audit.plain(asked.validated_data)}
@@ -308,7 +308,7 @@ class HsnViewSet(TaxView, mixins.ListModelMixin, mixins.RetrieveModelMixin, mixi
         return self.detail_of(code.code, created=True)
 
 
-class ProblemSerializer(serializers.ModelSerializer):
+class TaxProblemSerializer(serializers.ModelSerializer):
     problem = serializers.SerializerMethodField()
 
     class Meta:
@@ -325,13 +325,13 @@ class ProblemsView(TaxView, generics.GenericAPIView):
     ones off sale too). Not paged: the whole catalogue is checked at once."""
 
     queryset = Product.objects.none()  # (for the schema: the view reads the whole catalogue)
-    serializer_class = ProblemSerializer
+    serializer_class = TaxProblemSerializer
     permissions = {"GET": VIEW_HSN}
     pagination_class = None
 
     @extend_schema(
         parameters=[OpenApiParameter("all", bool, description="also the products off sale")],
-        responses=ProblemSerializer(many=True),
+        responses=TaxProblemSerializer(many=True),
     )
     def get(self, request, *args, **kwargs):
         # ponytail: the catalogue in memory (tens of products); page it past a few thousand
@@ -341,7 +341,7 @@ class ProblemsView(TaxView, generics.GenericAPIView):
         products = list(products)
         found = tax.problems(products)
         rows = [product for product in products if product.pk in found]
-        return Response(ProblemSerializer(rows, many=True, context={"problems": found}).data)
+        return Response(TaxProblemSerializer(rows, many=True, context={"problems": found}).data)
 
 
 # Documents
@@ -686,7 +686,7 @@ class ThresholdsView(TaxView, generics.GenericAPIView):
         return Response(ThresholdCardSerializer(body).data)
 
 
-class CalendarItemSerializer(serializers.Serializer):
+class TaxCalendarItemSerializer(serializers.Serializer):
     key = serializers.CharField()
     title = serializers.CharField()
     covers = serializers.CharField(help_text="the period or year it is for")
@@ -696,10 +696,10 @@ class CalendarItemSerializer(serializers.Serializer):
     past = serializers.BooleanField()
 
 
-class CalendarSerializer(serializers.Serializer):
+class TaxCalendarSerializer(serializers.Serializer):
     month = serializers.CharField()
     qrmp = serializers.BooleanField()
-    items = CalendarItemSerializer(many=True)
+    items = TaxCalendarItemSerializer(many=True)
     crossed = ThresholdRowSerializer(many=True, help_text="the lines the threshold monitor finds crossed")
 
 
@@ -707,7 +707,7 @@ class CalendarView(TaxView, generics.GenericAPIView):
     """What is due in a month (?month=YYYY-MM, this one by default): the returns, payments and cut-offs computed from
     the law's dates and the QRMP switch, and the threshold lines crossed this year."""
 
-    serializer_class = CalendarSerializer
+    serializer_class = TaxCalendarSerializer
     permissions = {"GET": VIEW_THRESHOLDS}
     pagination_class = None
 
@@ -721,13 +721,13 @@ class CalendarView(TaxView, generics.GenericAPIView):
             "items": tax.calendar(month.year, month.month),
             "crossed": [row for row in card["rows"] if row.crossed],
         }
-        return Response(CalendarSerializer(body).data)
+        return Response(TaxCalendarSerializer(body).data)
 
 
 # The GSTR-1 export
 
 
-class Gstr1RequestSerializer(serializers.Serializer):
+class Gstr1Serializer(serializers.Serializer):
     month = serializers.CharField(help_text="YYYY-MM: a month that has begun")
     months = serializers.ChoiceField(choices=[1, 3], default=1, help_text="3: the quarter ending with `month`")
     dry_run = serializers.BooleanField(default=False, help_text="count the documents, write nothing")
@@ -764,10 +764,10 @@ class Gstr1View(TaxView, generics.GenericAPIView):
     permissions = {"POST": "staff.run_gstr1"}
     throttle_scope = "staff_export"
 
-    @extend_schema(request=Gstr1RequestSerializer, responses={202: JobSerializer})
+    @extend_schema(request=Gstr1Serializer, responses={202: JobSerializer})
     def post(self, request, *args, **kwargs):
         user = self.human()
-        asked = Gstr1RequestSerializer(data=request.data)
+        asked = Gstr1Serializer(data=request.data)
         asked.is_valid(raise_exception=True)
         data = asked.validated_data
         params = {"month": data["month"], "months": data["months"]}

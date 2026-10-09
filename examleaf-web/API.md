@@ -1469,17 +1469,17 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 | PUT | `staff/settings/{key}/` | `staff.manage_settings` (by the key or the body: see the table above) |  | `SwitchChangeRequest` | 200 `Setting` |
 | GET | `staff/system/` | `staff.view_system` |  |  | 200 `StaffSystem` |
 | POST | `staff/system/reconcile/` | `staff.replay_webhook` |  | `ReconcileRequest` | 200 `Reconciled` |
-| GET | `staff/tax/calendar/` | `shop.view_taxthreshold` | `month` |  | 200 `Calendar` |
+| GET | `staff/tax/calendar/` | `shop.view_taxthreshold` | `month` |  | 200 `TaxCalendar` |
 | GET | `staff/tax/documents/` | `shop.view_documentseries` | `cancelled`, `cursor`, `document_type`, `financial_year`, `kind`, `month`, `page_size`, `search`, `series`, `test` |  | 200 `PaginatedTaxDocumentList` |
 | GET | `staff/tax/documents/{number}/` | `shop.view_documentseries` |  |  | 200 `TaxDocumentDetail` |
 | POST | `staff/tax/documents/{number}/cancel/` | `staff.cancel_document` |  | `CancelRequest` | 200 `TaxDocument` |
 | GET | `staff/tax/documents/{number}/pdf/` | `shop.view_documentseries` |  |  | 200 `application/pdf` |
-| POST | `staff/tax/gstr1/` | `staff.run_gstr1` |  | `Gstr1RequestRequest` | 202 `Job` |
+| POST | `staff/tax/gstr1/` | `staff.run_gstr1` |  | `Gstr1Request` | 202 `Job` |
 | GET | `staff/tax/hsn/` | `shop.view_hsncode` | `cursor`, `kind`, `page_size`, `q`, `taxability` |  | 200 `PaginatedHsnCodeList` |
-| POST | `staff/tax/hsn/` | `shop.change_hsncode` |  | `HsnCodeRequestRequest` | 201 `HsnCodeDetail` |
+| POST | `staff/tax/hsn/` | `shop.change_hsncode` |  | `NewHsnCodeRequest` | 201 `HsnCodeDetail` |
 | GET | `staff/tax/hsn/{code}/` | `shop.view_hsncode` |  |  | 200 `HsnCodeDetail` |
-| POST | `staff/tax/hsn/{code}/rates/` | `shop.change_hsncode` |  | `HsnRateRequestRequest` | 201 `HsnCodeDetail` |
-| GET | `staff/tax/problems/` | `shop.view_hsncode` | `all` |  | 200 `[Problem]` |
+| POST | `staff/tax/hsn/{code}/rates/` | `shop.change_hsncode` |  | `NewHsnRateRequest` | 201 `HsnCodeDetail` |
+| GET | `staff/tax/problems/` | `shop.view_hsncode` | `all` |  | 200 `[TaxProblem]` |
 | GET | `staff/tax/series/` | `shop.view_documentseries` | `financial_year`, `month` |  | 200 `SeriesRegister` |
 | GET | `staff/tax/thresholds/` | `shop.view_taxthreshold` |  |  | 200 `ThresholdCard` |
 | GET | `staff/users/` | `accounts.view_user` | `board`, `class_level`, `cursor`, `is_active`, `page_size`, `q` |  | 200 `PaginatedCustomerList` |
@@ -1511,8 +1511,6 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **BlankEnum**: null
 - **BookRequest**: `order` string (required, null); `courier_company_id` integer; `courier_name` string; `quoted_rate` decimal (null); `weight_g` integer; `length_cm` integer; `breadth_cm` integer; `height_cm` integer; `pickup_location` integer (null); `courier` CourierEnum; `tracking_number` string; `tracking_url` any
 - **BreakGlassReasonRequest**: `reason` string (required)
-- **Calendar**: `month` string (required); `qrmp` boolean (required); `items` [CalendarItem] (required); `crossed` [ThresholdRow] (required)
-- **CalendarItem**: `key` string (required); `title` string (required); `covers` string (required); `due` date (required); `applies` boolean (required); `note` string (required); `past` boolean (required)
 - **CancelRequest**: `reason` string (required)
 - **CarrierEnum**: one of `manual`, `shiprocket`
 - **ChainEnum**: one of `general`, `money`
@@ -1563,15 +1561,13 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **FraudSignal**: `id` integer (required, read-only); `kind` FraudSignalKindEnum (required); `label` string (required, read-only); `subject` string (required); `window_start` date-time (required); `window_end` date-time (required); `details` any; `created` date-time (required, read-only); `acknowledged_at` date-time (null); `n` integer (required, read-only)
 - **FraudSignalKindEnum**: one of `codes_failed_account`, `codes_failed_ip`, `codes_failed_spike`, `codes_per_account`, `accounts_per_code`, `shared_phone`, `shared_address`
 - **GrantRequest**: `role` RoleEnum (required); `expires_at` date-time (null); `reason` string (required)
-- **Gstr1RequestRequest**: `month` string (required); `months` MonthsEnum; `dry_run` boolean
+- **Gstr1Request**: `month` string (required); `months` MonthsEnum; `dry_run` boolean
 - **HsnCode**: `code` string (required, read-only); `kind` HsnKindEnum (required, read-only); `description` string (required, read-only); `uqc` string (required, read-only); `today` HsnRateBrief (required, null, read-only); `next_change` HsnRateBrief (required, null, read-only); `products` integer (required, read-only); `created` date-time (required, read-only)
 - **HsnCodeDetail**: `code` string (required, read-only); `kind` HsnKindEnum (required, read-only); `description` string (required, read-only); `uqc` string (required, read-only); `today` HsnRateBrief (required, null, read-only); `next_change` HsnRateBrief (required, null, read-only); `products` integer (required, read-only); `created` date-time (required, read-only); `rates` [HsnRate] (required, read-only); `linked` [HsnProduct] (required, read-only)
-- **HsnCodeRequestRequest**: `code` string (required); `kind` HsnKindEnum (required); `description` string (required); `uqc` string; `first_rate` HsnRateRequestRequest (required)
 - **HsnKindEnum**: one of `hsn`, `sac`
 - **HsnProduct**: `id` integer (required, read-only); `slug` string (required, read-only); `title` string (required, read-only); `kind` ProductKindEnum (required, read-only); `gst_rate` decimal (required, read-only); `is_active` boolean (required, read-only); `problem` string (required, read-only)
 - **HsnRate**: `id` integer (required, read-only); `rate` decimal (required, read-only); `taxability` TaxabilityEnum (required, read-only); `effective_from` date (required, read-only); `effective_to` date (required, null, read-only); `until` date (required, null, read-only); `notification` string (required, read-only); `serial` string (required, read-only); `note` string (required, read-only); `created` date-time (required, read-only); `created_by` integer (required, null, read-only)
 - **HsnRateBrief**: `rate` decimal (required); `taxability` TaxabilityEnum (required); `effective_from` date (required); `notification` string (required)
-- **HsnRateRequestRequest**: `rate` decimal (required); `taxability` TaxabilityEnum (required); `effective_from` date (required); `effective_to` date (null); `notification` string (required); `serial` string; `note` string
 - **ImpersonateRequest**: `reason` string (required); `ticket` string (required)
 - **Impersonation**: `token` string (required); `expires_at` date-time (required)
 - **InboxCount**: `open` integer (required); `overdue` integer (required)
@@ -1593,6 +1589,8 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **MonthsEnum**: one of `1`, `3`
 - **NdrActionActionEnum**: one of `re-attempt`, `return`, `fake-attempt`
 - **NdrActionRequest**: `action` NdrActionActionEnum (required); `comments` string (required); `deferred_date` date; `phone` string; `address1` string; `address2` string
+- **NewHsnCodeRequest**: `code` string (required); `kind` HsnKindEnum (required); `description` string (required); `uqc` string; `first_rate` NewHsnRateRequest (required)
+- **NewHsnRateRequest**: `rate` decimal (required); `taxability` TaxabilityEnum (required); `effective_from` date (required); `effective_to` date (null); `notification` string (required); `serial` string; `note` string
 - **Note**: `id` integer (required, read-only); `target_type` string (required); `target_id` string (required); `author` integer (required, read-only); `body` string (required); `pinned` boolean; `created` date-time (required, read-only)
 - **NoteRequest**: `target_type` string (required); `target_id` string (required); `body` string (required); `pinned` boolean
 - **NullEnum**: null
@@ -1650,7 +1648,6 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **PolicyAcknowledgementRequest**: `policy` string (required); `version` string (required)
 - **PostalPrice**: `service` string (required); `label` string (required); `price` decimal (required)
 - **PrintRunAdvice**: `product` string (required, read-only); `title` string (required, read-only); `net_price` decimal (required); `unit_cost` decimal (required); `salvage` decimal (required); `critical_ratio` double (required); `target_quantity` integer (required); `supply` integer (required); `recommended_quantity` integer (required); `reprint_trigger_units` integer (required); `weeks_of_cover` double (null); `projected_leftover` integer (required); `level` LevelEnum; `alert` string; `n` integer (required, read-only)
-- **Problem**: `id` integer (required, read-only); `slug` string (required, read-only); `title` string (required, read-only); `kind` ProductKindEnum (required, read-only); `hsn_code` string (required, read-only); `gst_rate` decimal (required, read-only); `is_active` boolean (required, read-only); `tax_treatment` TaxTreatmentEnum (required, read-only); `problem` string (required, read-only)
 - **Processor**: `id` integer (required, read-only); `name` string (required); `purpose` string (required); `data_categories` string (required); `country` string (required); `contract_signed_on` date (null); `contract_ends_on` date (null); `active` boolean; `notes` string
 - **ProcessorRequest**: `name` string (required); `purpose` string (required); `data_categories` string (required); `country` string (required); `contract_signed_on` date (null); `contract_ends_on` date (null); `active` boolean; `notes` string
 - **ProductKindEnum**: one of `sample-papers`, `solutions`, `bundle`, `digital`
@@ -1693,12 +1690,15 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **StaffUser**: `id` integer (required); `email` email (required); `full_name` string (required); `is_superuser` boolean (required)
 - **SwitchChangeRequest**: `value` any (required, null); `reason` string (required); `effective_from` date-time
 - **SwitchRow**: `key` string (required); `value` any (required); `effective_from` date-time (required); `changed_by` integer (required, null); `reason` string (required); `created` date-time (required)
+- **TaxCalendar**: `month` string (required); `qrmp` boolean (required); `items` [TaxCalendarItem] (required); `crossed` [ThresholdRow] (required)
+- **TaxCalendarItem**: `key` string (required); `title` string (required); `covers` string (required); `due` date (required); `applies` boolean (required); `note` string (required); `past` boolean (required)
 - **TaxCharge**: `label` string (required); `rate` decimal (required); `amount` decimal (required); `taxable` decimal (required); `tax` decimal (required)
 - **TaxDocument**: `key` string (required); `kind` TaxDocumentKindEnum (required); `id` integer (required); `number` string (required); `series` string (required); `financial_year` string (required); `serial` integer (required); `document_type` any (required); `test` boolean (required); `date` date (required); `order` string (required); `against` string (required, null); `place_of_supply` string (required); `total` decimal (required); `taxable_value` decimal (required, null); `exempt_value` decimal (required, null); `tax_amount` decimal (required, null); `cancelled_at` date-time (required, null); `cancel_reason` string (required); `cancelled_by` integer (required, null); `has_pdf` boolean (required)
 - **TaxDocumentDetail**: `key` string (required); `kind` TaxDocumentKindEnum (required); `id` integer (required); `number` string (required); `series` string (required); `financial_year` string (required); `serial` integer (required); `document_type` any (required); `test` boolean (required); `date` date (required); `order` string (required); `against` string (required, null); `place_of_supply` string (required); `total` decimal (required); `taxable_value` decimal (required, null); `exempt_value` decimal (required, null); `tax_amount` decimal (required, null); `cancelled_at` date-time (required, null); `cancel_reason` string (required); `cancelled_by` integer (required, null); `has_pdf` boolean (required); `title` string (required); `lines` [TaxLine] (required); `charges` [TaxCharge] (required); `round_off` decimal (required); `checks` [string] (required); `credit_notes` [string] (required)
 - **TaxDocumentKindEnum**: one of `invoice`, `credit_note`
 - **TaxDocumentTypeEnum**: one of `tax_invoice`, `bill_of_supply`, `invoice_cum_bill_of_supply`
 - **TaxLine**: `title` string (required); `bundle` string (required); `hsn_code` string (required); `quantity` integer (required); `rate` decimal (required); `amount` decimal (required); `taxable` decimal (required); `tax` decimal (required)
+- **TaxProblem**: `id` integer (required, read-only); `slug` string (required, read-only); `title` string (required, read-only); `kind` ProductKindEnum (required, read-only); `hsn_code` string (required, read-only); `gst_rate` decimal (required, read-only); `is_active` boolean (required, read-only); `tax_treatment` TaxTreatmentEnum (required, read-only); `problem` string (required, read-only)
 - **TaxThresholdLineEnum**: one of `gstr9`, `warning`, `e_invoice`, `irp_30_days`, `b2c_large`, `eway_bill`
 - **TaxTreatmentEnum**: one of `split`, `composite`, `mixed`
 - **TaxabilityEnum**: one of `taxable`, `nil`, `exempt`, `non_gst`
