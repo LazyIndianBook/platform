@@ -262,7 +262,7 @@ cursor pagination `{next, previous, results}` (the `cursor` of the links, `page_
 - **The system**: `GET system/`, `POST system/reconcile/` (an order's payment checked with Razorpay again).
 - **Content** (`content/…`, API.md "Content (staff)"; every list and record within the person's subjects):
   `GET content/summary/`; `GET`/`POST content/books/`, `GET`/`PATCH content/books/{id}/`; `GET content/papers/`,
-  `GET`/`PATCH content/papers/{id}/` (`is_published` and `is_sample` need `staff.publish_paper`),
+  `GET`/`PATCH content/papers/{id}/`, `POST content/papers/{id}/publish/` (on the site or off, the open sample),
   `GET content/papers/{id}/qr/` (`?printing=`; `site_url_not_public` on a local site);
   `GET`/`PATCH content/questions/{id}/` and `content/solutions/{id}/` (the PATCH writes the draft, never the live
   text; the API's LaTeX check answers per field with its line), `POST …/submit/`, `discard/`, `rollback/`;

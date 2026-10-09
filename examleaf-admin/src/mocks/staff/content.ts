@@ -60,13 +60,30 @@ const FIXED = SOLUTION.replace("= 0.5$ A", "= 0.50$ A");
 const PNG =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNgAAAAAgABSK+kcQAAAABJRU5ErkJggg==";
 
+/** Two texts line by line, as content/review.py's difflib gives them: the lines kept, those removed before those added. */
 const linesOf = (before: unknown, after: unknown): S["ContentLine"][] => {
   const old = String(before ?? "").split("\n");
   const fresh = String(after ?? "").split("\n");
-  return [
-    ...old.filter((line) => !fresh.includes(line)).map((text) => ({ op: "delete" as const, text })),
-    ...fresh.map((text) => ({ op: old.includes(text) ? ("equal" as const) : ("insert" as const), text })),
-  ];
+  // the longest common subsequence's lengths from each pair of positions to the end
+  const common = old.map(() => fresh.map(() => 0).concat(0)).concat([fresh.map(() => 0).concat(0)]);
+  for (let i = old.length - 1; i >= 0; i--)
+    for (let j = fresh.length - 1; j >= 0; j--)
+      common[i][j] = old[i] === fresh[j] ? common[i + 1][j + 1] + 1 : Math.max(common[i + 1][j], common[i][j + 1]);
+  const lines: S["ContentLine"][] = [];
+  let i = 0;
+  let j = 0;
+  while (i < old.length || j < fresh.length) {
+    if (i < old.length && j < fresh.length && old[i] === fresh[j]) {
+      lines.push({ op: "equal", text: old[i] });
+      i++;
+      j++;
+    } else if (j >= fresh.length || (i < old.length && common[i + 1][j] >= common[i][j + 1])) {
+      lines.push({ op: "delete", text: old[i++] });
+    } else {
+      lines.push({ op: "insert", text: fresh[j++] });
+    }
+  }
+  return lines;
 };
 const change = (field: string, before: unknown, after: unknown): S["ContentChange"] => ({
   field,
@@ -550,7 +567,7 @@ export function contentPermission(method: string, parts: string[]): string {
       const model = area.slice(0, -1);
       if (get) return `content.view_${model}`;
       if (!id) return `content.add_${model}`;
-      if (verb === "rollback") return "staff.publish_paper";
+      if (verb === "rollback" || (area === "papers" && verb === "publish")) return "staff.publish_paper";
       return `content.change_${model}`;
     }
     case "reviews":
@@ -770,10 +787,21 @@ export function contentRoute(t: Tools): Response {
       }
       if (method === "GET" && verb === "history") return t.paginate(world.versions[`papers:${row.id}`] ?? []);
       if (method === "PATCH" && !verb) {
-        if (("is_published" in body || "is_sample" in body) && !t.can("staff.publish_paper"))
-          return t.refuse("staff.publish_paper");
-        for (const key of ["title", "time_text", "is_published", "is_sample"] as const)
-          if (key in body) (row as Record<string, unknown>)[key] = body[key];
+        // the publication is publish/'s: the PATCH leaves it alone
+        for (const key of ["title", "time_text"] as const) if (key in body) row[key] = text(body[key]);
+        t.record("content.paper_changed", t.target("content.paper", row.id, row.code));
+        return t.json(200, paperOf(world, row));
+      }
+      if (method === "POST" && verb === "publish") {
+        const asked = (["is_published", "is_sample"] as const).filter((key) => typeof body[key] === "boolean");
+        if (!asked.length) return t.invalid({ non_field_errors: ["Say is_published, is_sample or both."] });
+        if (body.is_sample === true)
+          for (const other of world.papers)
+            if (other.book === row.book && other.id !== row.id && other.is_sample) {
+              other.is_sample = false; // one open sample per book: it moves here
+              t.record("content.paper_changed", t.target("content.paper", other.id, other.code));
+            }
+        for (const key of asked) row[key] = body[key] as boolean;
         const what = "is_published" in body ? (body.is_published ? "published" : "unpublished") : "changed";
         t.record(`content.paper_${what}`, t.target("content.paper", row.id, row.code));
         return t.json(200, paperOf(world, row));
@@ -1010,11 +1038,21 @@ export function contentRoute(t: Tools): Response {
       const row = byId(world.reports, id);
       if (!row) return t.notFound();
       const where = t.target("content.errorreport", row.id, `Error report #${row.id}`);
-      const refresh = () => ({
-        ...row,
-        can_tell:
-          Boolean(row.email) && ["fixed_online", "fixed_in_printing"].includes(row.state) && !row.reporter_told_at,
-      });
+      const refresh = () => {
+        // what it is about, as the site shows it now (the live texts; a draft waiting said by its state)
+        const question = world.questions.find((each) => each.id === row.linked.question_id);
+        const solution = world.solutions.find((each) => each.id === row.linked.solution_id);
+        return {
+          ...row,
+          linked: {
+            ...row.linked,
+            ...(question ? { question_text: question.text_md } : {}),
+            ...(solution ? { solution_text: solution.body_md, solution_state: solution.state } : {}),
+          },
+          can_tell:
+            Boolean(row.email) && ["fixed_online", "fixed_in_printing"].includes(row.state) && !row.reporter_told_at,
+        };
+      };
       if (method === "GET" && !verb) return t.json(200, refresh());
       if (method === "PATCH" && !verb) {
         if ("staff_note" in body) row.staff_note = text(body.staff_note);

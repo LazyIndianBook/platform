@@ -693,6 +693,12 @@ export const listPapers = (filters: Filters<"/api/v1/staff/content/papers/">, tr
   );
 export const getPaper = (id: number, transport?: Transport) =>
   send(transport, (o) => api.GET("/api/v1/staff/content/papers/{id}/", { ...o, params: { path: { id } } }));
+/** On the site or off it, the book's open sample or not (staff.publish_paper; the sample moves from the book's other
+ *  paper). */
+export const publishPaper = (id: number, body: Schemas["PaperPublishRequest"]) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/content/papers/{id}/publish/", { ...o, params: { path: { id } }, body }),
+  );
 export const updatePaper = (id: number, body: Schemas["PatchedContentPaperDetailRequest"]) =>
   send(undefined, (o) => api.PATCH("/api/v1/staff/content/papers/{id}/", { ...o, params: { path: { id } }, body }));
 /** The paper's QR code and the address it prints, with a print run's label if given (the site's report form reads

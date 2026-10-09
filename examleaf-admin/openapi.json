@@ -8537,7 +8537,7 @@
         "/api/v1/staff/content/papers/": {
             "get": {
                 "operationId": "staff_content_papers_list",
-                "description": "Papers by code (filters subject, board, class_level, book, tier, is_published, changed, q); one with its\nquestions and solutions as a tree; its QR code. Publishing or unpublishing a paper, or making it the book's open\nsample, needs staff.publish_paper too. Its code is in its printed QR code: it never changes here.",
+                "description": "Papers by code (filters subject, board, class_level, book, tier, is_published, changed, q); one with its\nquestions and solutions as a tree; its QR code. Publishing or unpublishing a paper, or making it the book's open\nsample (which the book's other paper then is no longer), is publish/'s (staff.publish_paper), not the PATCH's. Its\ncode is in its printed QR code: it never changes here.",
                 "parameters": [
                     {
                         "in": "query",
@@ -8651,7 +8651,7 @@
         "/api/v1/staff/content/papers/{id}/": {
             "get": {
                 "operationId": "staff_content_papers_retrieve",
-                "description": "Papers by code (filters subject, board, class_level, book, tier, is_published, changed, q); one with its\nquestions and solutions as a tree; its QR code. Publishing or unpublishing a paper, or making it the book's open\nsample, needs staff.publish_paper too. Its code is in its printed QR code: it never changes here.",
+                "description": "Papers by code (filters subject, board, class_level, book, tier, is_published, changed, q); one with its\nquestions and solutions as a tree; its QR code. Publishing or unpublishing a paper, or making it the book's open\nsample (which the book's other paper then is no longer), is publish/'s (staff.publish_paper), not the PATCH's. Its\ncode is in its printed QR code: it never changes here.",
                 "parameters": [
                     {
                         "in": "path",
@@ -8689,7 +8689,7 @@
             },
             "patch": {
                 "operationId": "staff_content_papers_partial_update",
-                "description": "Papers by code (filters subject, board, class_level, book, tier, is_published, changed, q); one with its\nquestions and solutions as a tree; its QR code. Publishing or unpublishing a paper, or making it the book's open\nsample, needs staff.publish_paper too. Its code is in its printed QR code: it never changes here.",
+                "description": "Papers by code (filters subject, board, class_level, book, tier, is_published, changed, q); one with its\nquestions and solutions as a tree; its QR code. Publishing or unpublishing a paper, or making it the book's open\nsample (which the book's other paper then is no longer), is publish/'s (staff.publish_paper), not the PATCH's. Its\ncode is in its printed QR code: it never changes here.",
                 "parameters": [
                     {
                         "in": "path",
@@ -8738,7 +8738,7 @@
         "/api/v1/staff/content/papers/{id}/history/": {
             "get": {
                 "operationId": "staff_content_papers_history_retrieve",
-                "description": "Papers by code (filters subject, board, class_level, book, tier, is_published, changed, q); one with its\nquestions and solutions as a tree; its QR code. Publishing or unpublishing a paper, or making it the book's open\nsample, needs staff.publish_paper too. Its code is in its printed QR code: it never changes here.",
+                "description": "Papers by code (filters subject, board, class_level, book, tier, is_published, changed, q); one with its\nquestions and solutions as a tree; its QR code. Publishing or unpublishing a paper, or making it the book's open\nsample (which the book's other paper then is no longer), is publish/'s (staff.publish_paper), not the PATCH's. Its\ncode is in its printed QR code: it never changes here.",
                 "parameters": [
                     {
                         "in": "query",
@@ -8831,6 +8831,55 @@
                                 "schema": {
                                     "type": "object",
                                     "additionalProperties": {}
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/content/papers/{id}/publish/": {
+            "post": {
+                "operationId": "staff_content_papers_publish_create",
+                "description": "The paper on the site or off it (every solution behind its printed code with it), and the book's open\nsample or not: made the sample, it stops being the book's other paper's (one per book).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this paper.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "content (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PaperPublishRequest"
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ContentPaperDetail"
                                 }
                             }
                         },
@@ -17899,10 +17948,12 @@
                         "maxLength": 40
                     },
                     "is_published": {
-                        "type": "boolean"
+                        "type": "boolean",
+                        "readOnly": true
                     },
                     "is_sample": {
                         "type": "boolean",
+                        "readOnly": true,
                         "title": "Open sample",
                         "description": "Its solutions open without an account, even when the others need one: the paper the home, book and product pages offer as a sample. One per book."
                     },
@@ -17940,6 +17991,8 @@
                     "drafts",
                     "full_marks",
                     "id",
+                    "is_published",
+                    "is_sample",
                     "number",
                     "pass_marks",
                     "questions",
@@ -25164,6 +25217,19 @@
                     "title"
                 ]
             },
+            "PaperPublishRequest": {
+                "type": "object",
+                "properties": {
+                    "is_published": {
+                        "type": "boolean",
+                        "description": "on the site, or off it"
+                    },
+                    "is_sample": {
+                        "type": "boolean",
+                        "description": "the book's open sample (its solutions need no account); the book's other one stops"
+                    }
+                }
+            },
             "PaperQr": {
                 "type": "object",
                 "properties": {
@@ -25943,14 +26009,6 @@
                         "type": "string",
                         "minLength": 1,
                         "maxLength": 40
-                    },
-                    "is_published": {
-                        "type": "boolean"
-                    },
-                    "is_sample": {
-                        "type": "boolean",
-                        "title": "Open sample",
-                        "description": "Its solutions open without an account, even when the others need one: the paper the home, book and product pages offer as a sample. One per book."
                     },
                     "header_json": {
                         "allOf": [

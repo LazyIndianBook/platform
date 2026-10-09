@@ -73,6 +73,10 @@ export function ImportForm() {
   const [dry, setDry] = useState<Job | null>(null);
   const [dryDone, setDryDone] = useState<Job | null>(null);
   const [apply, setApply] = useState<Job | null>(null);
+  const applied = () => {
+    toast.success(words.applied);
+    router.refresh();
+  };
   const set = (change: Partial<ImportParams>) => {
     setParams({ ...params, ...change });
     setDry(null);
@@ -164,17 +168,17 @@ export function ImportForm() {
                   disabled={Boolean(apply)}
                   onClick={() =>
                     run(async () => {
-                      setApply(
-                        await startImport(
-                          {
-                            subject: params.subject,
-                            commit: params.commit.trim(),
-                            ...(params.fixtures ? { fixtures: true } : {}),
-                            dry_run_job: dryDone.id,
-                          },
-                          false,
-                        ),
+                      const job = await startImport(
+                        {
+                          subject: params.subject,
+                          commit: params.commit.trim(),
+                          ...(params.fixtures ? { fixtures: true } : {}),
+                          dry_run_job: dryDone.id,
+                        },
+                        false,
                       );
+                      setApply(job);
+                      if (job.state === "done") applied(); // (a job already over: JobProgress follows nothing)
                     })
                   }
                 >
@@ -190,15 +194,7 @@ export function ImportForm() {
           <h3 id="import-apply-title" className="m-0 text-[15px] font-semibold">
             {words.applying}
           </h3>
-          <JobProgress
-            job={apply}
-            onDone={(job) => {
-              if (job?.state === "done") {
-                toast.success(words.applied);
-                router.refresh();
-              }
-            }}
-          />
+          <JobProgress job={apply} onDone={(job) => (job?.state === "done" ? applied() : undefined)} />
         </section>
       ) : null}
     </div>

@@ -2762,7 +2762,8 @@ export interface paths {
         /**
          * @description Papers by code (filters subject, board, class_level, book, tier, is_published, changed, q); one with its
          *     questions and solutions as a tree; its QR code. Publishing or unpublishing a paper, or making it the book's open
-         *     sample, needs staff.publish_paper too. Its code is in its printed QR code: it never changes here.
+         *     sample (which the book's other paper then is no longer), is publish/'s (staff.publish_paper), not the PATCH's. Its
+         *     code is in its printed QR code: it never changes here.
          */
         get: operations["staff_content_papers_list"];
         put?: never;
@@ -2783,7 +2784,8 @@ export interface paths {
         /**
          * @description Papers by code (filters subject, board, class_level, book, tier, is_published, changed, q); one with its
          *     questions and solutions as a tree; its QR code. Publishing or unpublishing a paper, or making it the book's open
-         *     sample, needs staff.publish_paper too. Its code is in its printed QR code: it never changes here.
+         *     sample (which the book's other paper then is no longer), is publish/'s (staff.publish_paper), not the PATCH's. Its
+         *     code is in its printed QR code: it never changes here.
          */
         get: operations["staff_content_papers_retrieve"];
         put?: never;
@@ -2794,7 +2796,8 @@ export interface paths {
         /**
          * @description Papers by code (filters subject, board, class_level, book, tier, is_published, changed, q); one with its
          *     questions and solutions as a tree; its QR code. Publishing or unpublishing a paper, or making it the book's open
-         *     sample, needs staff.publish_paper too. Its code is in its printed QR code: it never changes here.
+         *     sample (which the book's other paper then is no longer), is publish/'s (staff.publish_paper), not the PATCH's. Its
+         *     code is in its printed QR code: it never changes here.
          */
         patch: operations["staff_content_papers_partial_update"];
         trace?: never;
@@ -2809,7 +2812,8 @@ export interface paths {
         /**
          * @description Papers by code (filters subject, board, class_level, book, tier, is_published, changed, q); one with its
          *     questions and solutions as a tree; its QR code. Publishing or unpublishing a paper, or making it the book's open
-         *     sample, needs staff.publish_paper too. Its code is in its printed QR code: it never changes here.
+         *     sample (which the book's other paper then is no longer), is publish/'s (staff.publish_paper), not the PATCH's. Its
+         *     code is in its printed QR code: it never changes here.
          */
         get: operations["staff_content_papers_history_retrieve"];
         put?: never;
@@ -2834,6 +2838,26 @@ export interface paths {
          *     draft (to be reviewed).
          */
         post: operations["staff_content_papers_history_restore_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/papers/{id}/publish/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The paper on the site or off it (every solution behind its printed code with it), and the book's open
+         *     sample or not: made the sample, it stops being the book's other paper's (one per book).
+         */
+        post: operations["staff_content_papers_publish_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5984,12 +6008,12 @@ export interface components {
             /** Format: int64 */
             pass_marks: number;
             time_text: string;
-            is_published?: boolean;
+            readonly is_published: boolean;
             /**
              * Open sample
              * @description Its solutions open without an account, even when the others need one: the paper the home, book and product pages offer as a sample. One per book.
              */
-            is_sample?: boolean;
+            readonly is_sample: boolean;
             /** @description its questions on the site */
             readonly questions: number;
             /** @description its questions and solutions with a draft */
@@ -8594,6 +8618,12 @@ export interface components {
              */
             is_sample?: boolean;
         };
+        PaperPublishRequest: {
+            /** @description on the site, or off it */
+            is_published?: boolean;
+            /** @description the book's open sample (its solutions need no account); the book's other one stops */
+            is_sample?: boolean;
+        };
         PaperQr: {
             /**
              * Format: uri
@@ -8861,12 +8891,6 @@ export interface components {
             /** Format: int64 */
             pass_marks?: number;
             time_text?: string;
-            is_published?: boolean;
-            /**
-             * Open sample
-             * @description Its solutions open without an account, even when the others need one: the paper the home, book and product pages offer as a sample. One per book.
-             */
-            is_sample?: boolean;
             /** @description the paper's instruction lines and allotment tables */
             header_json?: components["schemas"]["ContentHeaderRequest"];
         };
@@ -14724,6 +14748,32 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    staff_content_papers_publish_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this paper. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PaperPublishRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentPaperDetail"];
                 };
             };
         };

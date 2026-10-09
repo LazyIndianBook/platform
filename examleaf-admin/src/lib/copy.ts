@@ -1281,6 +1281,11 @@ export const en = {
       unpublishText: (count: number) =>
         `Its ${plural(count, "solution", "solutions")} stop showing on the site and behind its printed QR code until it is published again.`,
       unpublished: "Paper unpublished",
+      makeSample: "Make it the open sample",
+      sampleMade: "Now the book's open sample",
+      sampleHelp: "Its solutions open without an account; the book's other open sample, if any, stops being one.",
+      unsample: "No longer the open sample",
+      sampleRemoved: "No longer the open sample",
       qr: "QR code",
       qrLead: "What the printed code opens: an address of ours, which the site can redirect later.",
       qrAlt: (code: string) => `The QR code of ${code}`,
