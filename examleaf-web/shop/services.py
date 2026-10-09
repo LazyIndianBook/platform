@@ -79,6 +79,7 @@ SUBJECTS = {
     "payment_link": "Pay for order {}",
     "delivery_failed": "Order {} could not be delivered",  # a courier's news (shipping/messages.py)
     "returning": "Order {} is coming back to us",
+    "invoice": "Your invoice for order {}",  # sent again from a support ticket (support.services.resend_invoice)
 }
 
 

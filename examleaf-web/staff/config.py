@@ -46,6 +46,8 @@ SETTINGS = {
         bool, "Maintenance mode: the frontends show the banner", "staff.toggle_maintenance", False
     ),
     "MAINTENANCE_BANNER": Spec(str, "The maintenance banner's text", "staff.toggle_maintenance", ""),
+    # Phase B: support (support/clocks.py): on once counsel says reviews make ExamLeaf an intermediary
+    "SUPPORT_INTERMEDIARY_RULES": Spec(bool, "The IT Rules' grievance clocks (24 hours, 15 days) on grievance tickets"),
 }
 
 

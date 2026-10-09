@@ -90,6 +90,8 @@ ROLES = {
         "shop.view_slughistory",
         # the revision course's content (learn, Phase 6 D); not its learners' data (entitlements, progress, devices)
         *crud("learn", COURSE, ["view", "add", "change", "delete"]),
+        # support: the content-error tickets (ROLE_SCOPES), read and noted on, never answered (plan 5.14)
+        *["support.view_ticket", "support.note_ticket"],
         *PANEL,
     ],
     SALES: [  # the shop: prices and stock, coupons, offers, shipping rates; storefront orders and payments. Packing
@@ -108,6 +110,8 @@ ROLES = {
         *["staff.refund_order", "staff.record_offline_payment", "staff.add_changerequest"],
         # shipping: the parcels, failed deliveries and exceptions (the customer's call), cash on delivery to see
         *["staff.view_parcels", "staff.act_on_exception", "staff.view_cod"],
+        # support: the order, payment and school-order tickets (ROLE_SCOPES)
+        *["support.view_ticket", "support.note_ticket", "staff.handle_ticket", "support.view_savedreply"],
         *PANEL,
     ],
     SUPPORT: [  # help students: look up accounts and records, verify teachers, answer data requests
@@ -133,6 +137,8 @@ ROLES = {
         *["staff.initiate_password_reset", "staff.reset_user_mfa", "staff.impersonate_user"],
         *["staff.view_datarequest", "staff.handle_data_request", "staff.view_processorrecord"],
         *["staff.refund_order", "staff.add_changerequest"],
+        # support: every ticket; the saved replies read and inserted (their changes are ADMIN's)
+        *["support.view_ticket", "support.note_ticket", "staff.handle_ticket", "support.view_savedreply"],
         *PANEL,
     ],
     ADMIN: ALL,  # but SUPERUSER_ONLY's changes, OWNER_ONLY and MONEY_APPROVALS
@@ -168,7 +174,8 @@ ROLES = {
         *["staff.add_changerequest", "staff.view_insights"],  # the insights: aggregates only (insights/README.md)
         *PANEL,
     ],
-    AUDITOR: [VIEW_ALL, "staff.view_auditlog", "staff.export_auditlog"],  # read-only; no reveals, no writes
+    # read-only; no reveals, no writes; the exports a review needs (the audit log, the grievance register)
+    AUDITOR: [VIEW_ALL, "staff.view_auditlog", "staff.export_auditlog", "staff.export_grievances"],
     SALES_REP: [  # school and phone orders, quotations, payment links; no refunds or shipping (SALES has them)
         "content.view_book",
         *crud("shop", ["order"]),
@@ -210,7 +217,12 @@ LIMITS = ["refund_inr", "offline_inr", "discount_percent", "export_rows", "bulk_
 
 # Which objects a role reaches, by scope kind (staff.backends): a PACKER's orders are those to pack and on their way.
 # A permission held only through scoped roles is narrowed to their values; StaffScope rows narrow one person further.
-ROLE_SCOPES = {PACKER: {"order_status": ["paid", "packed", "shipped"]}}
+ROLE_SCOPES = {
+    PACKER: {"order_status": ["paid", "packed", "shipped"]},
+    # support (plan 5.14): SALES answers the tickets about orders, CONTENT_EDITOR notes on the content errors
+    SALES: {"ticket_category": ["order", "payment", "school_order"]},
+    CONTENT_EDITOR: {"ticket_category": ["content_error"]},
+}
 
 # Static separation of duties (NIST RBAC SSD, research 1.2): roles one person may not hold together. The panel's role
 # grant refuses them (staff.services.grant_role); sync_roles warns about anyone who holds a pair (given in the admin).

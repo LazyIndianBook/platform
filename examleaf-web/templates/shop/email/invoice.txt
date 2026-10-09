@@ -1,0 +1,9 @@
+{% autoescape off %}As asked, here is the way to your invoice {{ invoice.number }} for order {{ order.number }}.
+
+It is on the order's page, with the order and its delivery:
+
+{{ site_url }}{{ order.get_link_url }}
+
+This link opens the order without an account: keep it to yourself.
+
+ExamLeaf{% endautoescape %}

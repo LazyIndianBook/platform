@@ -1421,6 +1421,34 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 | GET | `staff/settings/` | `staff.view_sitesetting` |  |  | 200 `[Setting]` |
 | GET | `staff/settings/{key}/` | `staff.view_sitesetting` (by the key or the body: see the table above) |  |  | 200 `[SwitchRow]` |
 | PUT | `staff/settings/{key}/` | `staff.manage_settings` (by the key or the body: see the table above) |  | `SwitchChangeRequest` | 200 `Setting` |
+| GET | `staff/support/agents/` | `support.view_ticket` |  |  | 200 `[Agent]` |
+| GET | `staff/support/saved-replies/` | `support.view_savedreply` | `bin`, `cursor`, `language`, `page_size` |  | 200 `PaginatedSavedReplyList` |
+| POST | `staff/support/saved-replies/` | `support.add_savedreply` |  | `SavedReplyRequest` | 201 `SavedReply` |
+| GET | `staff/support/saved-replies/{id}/` | `support.view_savedreply` |  |  | 200 `SavedReply` |
+| PUT | `staff/support/saved-replies/{id}/` | `support.change_savedreply` |  | `SavedReplyRequest` | 200 `SavedReply` |
+| PATCH | `staff/support/saved-replies/{id}/` | `support.change_savedreply` |  | `PatchedSavedReplyRequest` | 200 `SavedReply` |
+| DELETE | `staff/support/saved-replies/{id}/` | `support.delete_savedreply` |  |  | 204 |
+| POST | `staff/support/saved-replies/{id}/restore/` | `support.delete_savedreply` |  |  | 200 `SavedReply` |
+| GET | `staff/support/summary/` | `support.view_ticket` | `days` |  | 200 `SupportSummary` |
+| GET | `staff/support/tickets/` | `support.view_ticket` | `assignee`, `category`, `cursor`, `language`, `mine`, `open`, `overdue`, `page_size`, `priority`, `q`, `source`, `status`, `unassigned`, `waiting` |  | 200 `PaginatedTicketList` |
+| POST | `staff/support/tickets/` | `staff.handle_ticket` |  | `TicketCreateRequest` | 201 `TicketDetail` |
+| GET | `staff/support/tickets/{number}/` | `support.view_ticket` |  |  | 200 `TicketRecord` |
+| PATCH | `staff/support/tickets/{number}/` | `staff.handle_ticket` |  | `PatchedTicketChangeRequest` | 200 `TicketDetail` |
+| POST | `staff/support/tickets/{number}/acknowledge/` | `staff.handle_ticket` |  | `AcknowledgeRequest` | 200 `Ticket` |
+| POST | `staff/support/tickets/{number}/assign/` | `staff.handle_ticket` |  | `TicketAssignRequest` | 200 `Ticket` |
+| GET | `staff/support/tickets/{number}/attachments/{attachment}/` | `support.view_ticket` |  |  | 200 `application/octet-stream`; 302 |
+| POST | `staff/support/tickets/{number}/book-code/` | `learn.view_bookcode` |  | `BookCodeLookupRequest` | 200 `CodeAnswer` |
+| POST | `staff/support/tickets/{number}/cancel/` | `shop.change_order` (by the key or the body: see the table above) |  | `CancelRequest` | 200 `TicketOrderCancelled`; 201 `ChangeRequest`; 202 `ChangeRequest`; 400 `ChangeRequest` |
+| POST | `staff/support/tickets/{number}/claim/` | `staff.handle_ticket` |  |  | 200 `Ticket` |
+| POST | `staff/support/tickets/{number}/data-request/` | `staff.handle_data_request` |  | `DataRequestStartRequest` | 201 `DataRequest` |
+| POST | `staff/support/tickets/{number}/extend-access/` | `learn.change_entitlement` |  | `ExtendRequest` | 200 `AccessExtended` |
+| POST | `staff/support/tickets/{number}/messages/` | `staff.handle_ticket` (by the key or the body: see the table above) |  | `MessageCreateRequest` | 201 `Message` |
+| POST | `staff/support/tickets/{number}/refund/` | `staff.refund_order` |  | `RefundRequest` | 200 `ChangeRequest`; 201 `ChangeRequest`; 202 `ChangeRequest`; 400 `ChangeRequest` |
+| POST | `staff/support/tickets/{number}/reopen/` | `staff.handle_ticket` |  |  | 200 `Ticket` |
+| POST | `staff/support/tickets/{number}/resend-confirmation/` | `staff.handle_ticket` |  | `OrderActionRequest` | 200 `Detail` |
+| POST | `staff/support/tickets/{number}/resend-invoice/` | `staff.handle_ticket` |  | `OrderActionRequest` | 200 `Detail` |
+| POST | `staff/support/tickets/{number}/reveal/` | `staff.reveal_contact` |  | `TicketRevealRequest` | 200 `TicketRevealed` |
+| POST | `staff/support/tickets/{number}/status/` | `staff.handle_ticket` |  | `StatusRequest` | 200 `Ticket` |
 | GET | `staff/system/` | `staff.view_system` |  |  | 200 `StaffSystem` |
 | POST | `staff/system/reconcile/` | `staff.replay_webhook` |  | `ReconcileRequest` | 200 `Reconciled` |
 | GET | `staff/users/` | `accounts.view_user` | `board`, `class_level`, `cursor`, `is_active`, `page_size`, `q` |  | 200 `PaginatedCustomerList` |
@@ -1437,8 +1465,11 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 | POST | `staff/users/{id}/unsuspend/` | `staff.suspend_user` |  | `ReasonRequest` | 200 `Customer` |
 
 - **AcceptRequest**: `token` string (required); `full_name` string; `password` string
+- **AccessExtended**: `entitlement` integer (required); `valid_until` date (required)
 - **AccessRow**: `id` integer (required); `email` email (required); `roles` [string] (required); `grants` [object] (required); `scopes` object (required); `last_login` date-time (required, null); `dormant` boolean (required); `mfa` boolean (required); `permissions` integer (required); `unused` [string] (required); `last_used` object (required)
+- **AcknowledgeRequest**: `note` string
 - **ActorTypeEnum**: one of `staff`, `user`, `service`, `system`, `anonymous`
+- **Agent**: `id` integer (required); `name` string (required); `handles` boolean (required)
 - **ApiKey**: `id` integer (required, read-only); `name` string (required); `prefix` string (required, read-only); `key` string (required, null, read-only); `scopes` any; `sponsor` integer; `created_by` integer (required, null, read-only); `created` date-time (required, read-only); `expires_at` date-time; `allowed_ips` any; `last_used_at` date-time (required, null, read-only); `last_used_ip` string (required, null, read-only); `revoked_at` date-time (required, null, read-only); `revoked_by` integer (required, null, read-only)
 - **ApiKeyRequest**: `name` string (required); `scopes` any; `sponsor` integer; `expires_at` date-time; `allowed_ips` any
 - **Approval**: `user` integer (required); `decision` DecisionEnum (required); `comment` string; `created` date-time
@@ -1446,12 +1477,15 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **AskActionEnum**: one of `order.refund`, `order.offline_payment`, `product.price`, `coupon.create`
 - **AskRequest**: `action` AskActionEnum (required); `target` string (required); `payload` object (required); `reason` string (required)
 - **AssignRequest**: `assignee` integer (required, null)
+- **Attachment**: `id` integer (required, read-only); `name` string (required, read-only); `content_type` string (required, read-only); `size` integer (required, read-only)
 - **AuditEvent**: `id` integer (required, read-only); `chain` ChainEnum; `ts` date-time (required); `actor_id` integer (null); `actor_type` ActorTypeEnum (required); `actor_roles` any; `on_behalf_of` integer (null); `break_glass` boolean; `action` string (required); `permission` string; `target_type` string; `target_id` string; `target_label` string; `outcome` AuditOutcomeEnum; `reason` string; `change_request_id` integer (null); `request_id` string; `ip` string (null); `user_agent` string; `session_hash` string; `changes` any; `details` any; `prev_hash` string (required); `hash` string (required)
 - **AuditOutcomeEnum**: one of `success`, `denied`, `failed`
 - **Backtest**: `product` string (required, read-only); `horizon_weeks` integer (required); `wape` double (null); `mase_vs_seasonal_naive` double (null); `shown` boolean; `n` integer (required, read-only)
 - **BlankEnum**: null
+- **BookCodeLookupRequest**: `code` string (required)
 - **BookRequest**: `order` string (required, null); `courier_company_id` integer; `courier_name` string; `quoted_rate` decimal (null); `weight_g` integer; `length_cm` integer; `breadth_cm` integer; `height_cm` integer; `pickup_location` integer (null); `courier` CourierEnum; `tracking_number` string; `tracking_url` any
 - **BreakGlassReasonRequest**: `reason` string (required)
+- **CancelRequest**: `order` string; `reason` string (required)
 - **CarrierEnum**: one of `manual`, `shiprocket`
 - **ChainEnum**: one of `general`, `money`
 - **ChangeRequest**: `id` integer (required, read-only); `action` string (required); `label` string (required, read-only); `target_type` string; `target_id` string; `target_label` string; `payload` any; `payload_sha256` string (required); `amount` decimal (null); `maker` integer (required); `reason` string (required); `rule` string; `status` ChangeRequestStatusEnum; `expires_at` date-time (required); `overridden` boolean; `checker` string (required, read-only); `approvals` [Approval] (required, read-only); `result` any (null); `executed_by` integer (null); `executed_at` date-time (null); `created` date-time (required, read-only); `modified` date-time (required, read-only)
@@ -1459,13 +1493,17 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ChannelEnum**: one of `email`, `letter`, `phone`, `form`, `in_person`, `board`
 - **ChapterStat**: `chapter` integer (required); `subject` integer (required, read-only); `number` integer (required, read-only); `title` string (required, read-only); `mean_accuracy` double (null); `trend` double (null); `n` integer (required, read-only)
 - **ClassLevelEnum**: one of `10`, `12`
+- **Clock**: `name` string (required); `kind` string (required); `due` date-time (required); `rule` string (required); `stopped_at` date-time (required, null); `breached` boolean (required)
 - **CloseRequest**: `outcome` DataRequestOutcomeEnum (required); `response` string (required)
 - **CodReconcileRequest**: `utr` string (required); `amount` decimal (required); `on` date
 - **CodRemittance**: `id` integer (required, read-only); `shipment` integer (required, read-only); `order` string (required, read-only); `expected_amount` decimal (required, read-only); `expected_on` date (required, read-only); `remitted_amount` decimal (required, null, read-only); `utr` string (required, read-only); `remitted_at` date (required, null, read-only); `state` CodRemittanceStateEnum (required, read-only); `checked_at` date-time (required, null, read-only)
 - **CodRemittanceStateEnum**: one of `expected`, `overdue`, `remitted`, `mismatch`, `not_expected`
 - **CodeActivation**: `batch` string (required); `district` string (null); `printed` integer (null); `redeemed` integer (required); `redeemed_7d` integer (required); `n` integer (required, read-only)
+- **CodeAnswer**: `found` boolean (required); `batch` string; `subject` string; `redeemed` boolean; `by_requester` boolean; `line` string (required)
+- **CodeRow**: `batch` string (required); `subject` string (required); `redeemed_at` date-time (required)
 - **CohortStat**: `cohort_month` date (required); `source` EntitlementSourceEnum (required); `week_index` integer (required); `active_share` double (null); `churned_share` double (null); `n` integer (required)
 - **CommentRequest**: `comment` string
+- **ConsentRow**: `event` string (required); `method` string (required); `by_parent` boolean (required); `verified_at` date-time (required, null); `notice_version` string (required); `created` date-time (required)
 - **CourierEnum**: one of `India Post`, `Delhivery`, `Blue Dart`, `Ekart`, `DTDC`, `Xpressbees`, `Other`
 - **Customer**: `id` integer (required, read-only); `email` string (required, read-only); `phone` string (required, read-only); `full_name` string (required); `class_level` any (null); `board` string (required, read-only); `district` string; `under_18` boolean (required, read-only); `status` string (required, read-only); `consent` string (required, read-only); `email_verified` boolean (required, read-only); `login_phone_verified` boolean; `created` date-time (required, read-only); `last_login` date-time (null)
 - **CustomerDetail**: `id` integer (required, read-only); `email` string (required, read-only); `phone` string (required, read-only); `full_name` string (required); `class_level` any (null); `board` string (required, read-only); `district` string; `under_18` boolean (required, read-only); `status` string (required, read-only); `consent` string (required, read-only); `email_verified` boolean (required, read-only); `login_phone_verified` boolean; `created` date-time (required, read-only); `last_login` date-time (null); `roles` [string] (required, read-only); `locked` boolean (required, read-only); `mfa` [string] (required, read-only); `teacher` string (required, read-only); `parent_contact` string (required, read-only); `orders` [object] (required, read-only); `consents` [object] (required, read-only); `sessions` [object] (required, read-only); `deletion_due_at` string (required, null, read-only)
@@ -1474,11 +1512,14 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **DataRequestList**: `id` integer (required, read-only); `kind` DataRequestKindEnum (required); `channel` ChannelEnum (required); `user` integer (null); `requester` string (required, read-only); `summary` string (required); `identity_verified` boolean (required, read-only); `identity_note` string (required, read-only); `verified_by` integer (required, null, read-only); `verified_at` date-time (required, null, read-only); `received_at` date-time; `ack_due_at` date-time (required, read-only); `acknowledged_at` date-time (required, null, read-only); `ack_overdue` boolean (required, read-only); `due_at` date-time (required, read-only); `overdue` boolean (required, read-only); `status` DataRequestStatusEnum (required, read-only); `assignee` integer (null); `notes` string; `details` any; `outcome` DataRequestOutcomeEnum (required, read-only); `response` string (required, read-only); `closed_at` date-time (required, null, read-only); `closed_by` integer (required, null, read-only); `created_by` integer (required, null, read-only)
 - **DataRequestOutcomeEnum**: one of `done`, `refused`, `withdrawn`
 - **DataRequestRequest**: `kind` DataRequestKindEnum (required); `channel` ChannelEnum (required); `user` integer (null); `requester` string (required); `summary` string (required); `received_at` date-time; `assignee` integer (null); `notes` string; `details` any
+- **DataRequestStartRequest**: `kind` DataRequestKindEnum (required); `summary` string
 - **DataRequestStatusEnum**: one of `new`, `acknowledged`, `closed`
 - **DecisionEnum**: one of `approve`, `reject`
 - **DeliveryStat**: `courier` string (required); `district` string (null); `median_days` double (required); `p90_days` double (required); `n` integer (required)
 - **Detail**: `detail` string (required)
+- **DeviceRow**: `kind` string (required); `label` string (required); `ip` string (required); `last_seen` date-time (required, null)
 - **Ended**: `sessions` integer (required); `tokens` integer (required)
+- **EntitlementRow**: `id` integer (required); `subject` string (required); `source` string (required); `reference` string (required); `valid_until` date (required, null); `active` boolean (required)
 - **EntitlementSourceEnum**: one of `book_code`, `purchase`, `grant`
 - **ErasureReport**: `erase` [object] (required); `keep` [object] (required); `blocks` [string] (required); `can_erase` boolean (required); `notes` [string] (required)
 - **ErpAccountStatus**: `id` integer (required); `label` string (required); `mode` string (required); `circuit` string (required); `last_success_at` date-time (required, null); `last_error` string (required)
@@ -1496,6 +1537,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ErpRunStatus**: `id` integer (required); `date` date (required); `state` string (required); `differences` integer (required); `open_differences` integer (required); `finished_at` date-time (required, null)
 - **ErpStatus**: `enabled` boolean (required); `mode` string (required); `flows` object (required); `pull_stock` boolean (required); `pull_b2b` boolean (required); `stock_projection` boolean (required); `account` ErpAccountStatus (required, null); `outbox` object (required); `oldest_waiting_at` date-time (required, null); `oldest_waiting_seconds` integer (required, null); `held_aggregates` integer (required); `cursors` [ErpCursorStatus] (required); `last_reconciliation` ErpRunStatus (required, null)
 - **ExportRequest**: `filters` object
+- **ExtendRequest**: `entitlement` integer (required); `days` integer (required); `reason` string (required)
 - **Flag**: `key` string (required); `value` any (required); `effective_from` date-time (required); `changed_by` integer (required, null); `reason` string (required)
 - **Forecast**: `product` string (required, read-only); `title` string (required, read-only); `district` string (null); `week_start` date (required); `p10` double (required); `p50` double (required); `p90` double (required); `n` integer (required, read-only)
 - **FraudSignal**: `id` integer (required, read-only); `kind` FraudSignalKindEnum (required); `label` string (required, read-only); `subject` string (required); `window_start` date-time (required); `window_end` date-time (required); `details` any; `created` date-time (required, read-only); `acknowledged_at` date-time (null); `n` integer (required, read-only)
@@ -1505,7 +1547,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **Impersonation**: `token` string (required); `expires_at` date-time (required)
 - **InboxCount**: `open` integer (required); `overdue` integer (required)
 - **InboxItem**: `id` integer (required, read-only); `kind` InboxKindEnum (required); `title` string (required); `target_type` string; `target_id` string; `permission` string (required); `assignee` integer (null); `due_at` date-time (null); `overdue` boolean (required, read-only); `snoozed_until` date-time (null); `done_at` date-time (null); `done_by` integer (null); `data` any; `created` date-time
-- **InboxKindEnum**: one of `approval`, `teacher_request`, `deletion_request`, `data_request`, `incident`, `failed_job`, `failed_webhook`, `sync_failed`, `reconciliation`, `shipping_exception`, `dead_letter`, `failed_event`, `integration_down`
+- **InboxKindEnum**: one of `approval`, `teacher_request`, `deletion_request`, `data_request`, `incident`, `failed_job`, `failed_webhook`, `sync_failed`, `reconciliation`, `shipping_exception`, `dead_letter`, `failed_event`, `integration_down`, `ticket_due`, `ticket_breach`, `ticket_mention`
 - **Incident**: `id` integer (required, read-only); `title` string (required); `kind` IncidentKindEnum (required); `detected_at` date-time; `noticed_by` integer (required, null, read-only); `description` string; `systems` string; `data_categories` string; `people_affected` integer (null); `children_affected` boolean; `cert_in_due` date-time (required, read-only); `cert_in_overdue` boolean (required, read-only); `cert_in_reported_at` date-time (null); `cert_in_reference` string; `board_due` date-time (required, read-only); `board_overdue` boolean (required, read-only); `board_notified_at` date-time (null); `board_report_at` date-time (null); `board_reference` string; `notice_text` string; `notices_sent` integer; `notices_sent_at` date-time (null); `actions` string; `root_cause` string; `closed_at` date-time (required, null, read-only); `closed_by` integer (required, null, read-only); `created` date-time (required, read-only)
 - **IncidentKindEnum**: one of `data_breach`, `data_leak`, `unauthorised_access`, `malicious_code`, `application_attack`, `denial_of_service`, `loss_of_access`, `other`
 - **IncidentRequest**: `title` string (required); `kind` IncidentKindEnum (required); `detected_at` date-time; `description` string; `systems` string; `data_categories` string; `people_affected` integer (null); `children_affected` boolean; `cert_in_reported_at` date-time (null); `cert_in_reference` string; `board_notified_at` date-time (null); `board_report_at` date-time (null); `board_reference` string; `notice_text` string; `notices_sent` integer; `notices_sent_at` date-time (null); `actions` string; `root_cause` string
@@ -1513,12 +1555,15 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ItemStat**: `item` integer (required); `chapter` integer (required, read-only); `kind` string (required, read-only); `text` string (required, read-only); `n` integer (required); `p` double (null); `discrimination` double (null); `flags` any
 - **Job**: `id` integer (required, read-only); `kind` JobKindEnum (required, read-only); `state` JobStateEnum (required, read-only); `dry_run` boolean (required, read-only); `params` any (required, read-only); `done` integer (required, read-only); `total` integer (required, read-only); `errors` [JobError] (required, read-only); `result` any (required, read-only); `result_url` string (required, null, read-only); `change_request_id` integer (required, null, read-only); `cancel_requested` boolean (required, read-only); `started_by` integer (required, null, read-only); `created` date-time (required, read-only); `started_at` date-time (required, null, read-only); `finished_at` date-time (required, null, read-only)
 - **JobError**: `id` any (required, null); `label` string (required); `message` string (required)
-- **JobKindEnum**: one of `audit_export`, `bulk_action`, `erp_initial_load`
+- **JobKindEnum**: one of `audit_export`, `bulk_action`, `erp_initial_load`, `grievance_export`
 - **JobStartRequest**: `kind` JobKindEnum (required); `params` object; `dry_run` boolean
 - **JobStateEnum**: one of `queued`, `running`, `done`, `failed`, `cancelled`
 - **LevelEnum**: one of `ok`, `watch`, `act`
 - **Manifest**: `url` uri (required)
 - **ManifestRequestRequest**: `shipments` [integer] (required)
+- **Message**: `id` integer (required, read-only); `direction` TicketDirectionEnum (required, read-only); `channel` TicketChannelEnum (required, read-only); `author` integer (required, null, read-only); `author_name` string (required, read-only); `automatic` boolean (required, read-only); `body` string (required, read-only); `sent_at` date-time (required, read-only); `mentions` any (required, read-only); `attachments` [Attachment] (required, read-only); `other_sender` boolean (required, read-only); `dropped` [string] (required, read-only)
+- **MessageCreateDirectionEnum**: one of `out`, `note`
+- **MessageCreateRequest**: `direction` MessageCreateDirectionEnum (required); `body` string (required); `channel` any; `mentions` [integer]
 - **NdrActionActionEnum**: one of `re-attempt`, `return`, `fake-attempt`
 - **NdrActionRequest**: `action` NdrActionActionEnum (required); `comments` string (required); `deferred_date` date; `phone` string; `address1` string; `address2` string
 - **Note**: `id` integer (required, read-only); `target_type` string (required); `target_id` string (required); `author` integer (required, read-only); `body` string (required); `pinned` boolean; `created` date-time (required, read-only)
@@ -1526,6 +1571,11 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **NullEnum**: null
 - **Offboarded**: `roles` [string] (required); `scopes` integer (required); `api_keys` integer (required); `change_requests` integer (required); `sessions` integer (required); `tokens` integer (required)
 - **OfferStat**: `coupon` string (required, read-only); `offer` string (required, read-only); `period_start` date (required); `period_end` date (required); `orders` integer (required); `revenue` decimal (required); `discount_cost` decimal (required); `period_orders` integer (required); `baseline_orders` integer (required); `baseline_revenue` decimal (required); `interval_low` double (null); `interval_high` double (null); `note` string (required); `n` integer (required, read-only)
+- **OrderActionRequest**: `order` string
+- **OrderLine**: `id` integer (required); `title` string (required); `quantity` integer (required); `unit_price` string (required); `discount` string (required, null)
+- **OrderPayment**: `method` string (required); `paid_with` string (required); `status` string (required); `amount` string (required); `razorpay_order_id` string (required, null); `razorpay_payment_id` string (required, null); `created` date-time (required)
+- **OrderRefund**: `amount` string (required); `status` string (required); `razorpay_refund_id` string (required, null); `created` date-time (required)
+- **OrderShipment**: `courier` string (required); `tracking_number` string (required); `tracking_url` string (required); `shipped_at` date-time (required); `delivered_at` date-time (required, null)
 - **PaginatedApiKeyList**: `next` uri (null); `previous` uri (null); `results` [ApiKey] (required)
 - **PaginatedAuditEventList**: `next` uri (null); `previous` uri (null); `results` [AuditEvent] (required)
 - **PaginatedBacktestList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [Backtest] (required)
@@ -1553,19 +1603,24 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **PaginatedPickupLocationList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [PickupLocation] (required)
 - **PaginatedPrintRunAdviceList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [PrintRunAdvice] (required)
 - **PaginatedProcessorList**: `next` uri (null); `previous` uri (null); `results` [Processor] (required)
+- **PaginatedSavedReplyList**: `next` uri (null); `previous` uri (null); `results` [SavedReply] (required)
 - **PaginatedSavedViewList**: `next` uri (null); `previous` uri (null); `results` [SavedView] (required)
 - **PaginatedShipmentChargeList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [ShipmentCharge] (required)
 - **PaginatedShippingExceptionList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [ShippingException] (required)
 - **PaginatedStaffInviteList**: `next` uri (null); `previous` uri (null); `results` [StaffInvite] (required)
+- **PaginatedTicketList**: `next` uri (null); `previous` uri (null); `results` [Ticket] (required)
 - **Parcel**: `id` integer (required, read-only); `order` string (required, read-only); `courier` CourierEnum (required, read-only); `tracking_number` string (required, read-only); `tracking_url` uri (required, read-only); `shipped_at` date-time (required, read-only); `delivered_at` date-time (required, null, read-only); `detail` ParcelDetail (required, null, read-only)
 - **ParcelDetail**: `carrier` CarrierEnum (required, read-only); `account` integer (required, null, read-only); `status` any (required, null, read-only); `reference` string (required, read-only); `external_order_id` string (required, read-only); `external_shipment_id` string (required, read-only); `courier_company_id` integer (required, null, read-only); `courier_name` string (required, read-only); `weight_g` integer (required, null, read-only); `length_cm` integer (required, null, read-only); `breadth_cm` integer (required, null, read-only); `height_cm` integer (required, null, read-only); `charged_weight_g` integer (required, null, read-only); `quoted_rate` decimal (required, null, read-only); `cod_amount` decimal (required, null, read-only); `declared_value` decimal (required, null, read-only); `last_event_at` date-time (required, null, read-only); `pickup_location` integer (required, null, read-only); `pickup_date` date (required, null, read-only); `manifested_at` date-time (required, null, read-only); `has_label` boolean (required, read-only); `has_photo` boolean (required, read-only)
 - **ParcelHistory**: `id` integer (required, read-only); `order` string (required, read-only); `courier` CourierEnum (required, read-only); `tracking_number` string (required, read-only); `tracking_url` uri (required, read-only); `shipped_at` date-time (required, read-only); `delivered_at` date-time (required, null, read-only); `detail` ParcelDetail (required, null, read-only); `events` [ShipmentEvent] (required, read-only); `exceptions` [ShippingException] (required, read-only); `charges` [ShipmentCharge] (required, read-only); `cod_remittance` CodRemittance (required, null, read-only)
 - **ParcelStatusEnum**: one of `booked`, `pickup_problem`, `in_transit`, `out_for_delivery`, `delivered`, `delivery_failed`, `returning`, `returned`, `lost_or_damaged`, `cancelled`, `partial`
+- **PastTicket**: `number` string (required); `subject` string (required); `category` string (required); `status` string (required); `received_at` date-time (required)
 - **PatchedDataRequestRequest**: `kind` DataRequestKindEnum; `channel` ChannelEnum; `user` integer (null); `requester` string; `summary` string; `received_at` date-time; `assignee` integer (null); `notes` string; `details` any
 - **PatchedIncidentRequest**: `title` string; `kind` IncidentKindEnum; `detected_at` date-time; `description` string; `systems` string; `data_categories` string; `people_affected` integer (null); `children_affected` boolean; `cert_in_reported_at` date-time (null); `cert_in_reference` string; `board_notified_at` date-time (null); `board_report_at` date-time (null); `board_reference` string; `notice_text` string; `notices_sent` integer; `notices_sent_at` date-time (null); `actions` string; `root_cause` string
 - **PatchedPickupLocationRequest**: `nickname` string; `address` string; `city` string; `state` string; `pin_code` string; `phone` string; `is_default` boolean; `active` boolean
 - **PatchedProcessorRequest**: `name` string; `purpose` string; `data_categories` string; `country` string; `contract_signed_on` date (null); `contract_ends_on` date (null); `active` boolean; `notes` string
+- **PatchedSavedReplyRequest**: `title` string; `language` TicketLanguageEnum; `body` string
 - **PatchedSavedViewRequest**: `role` string; `list_key` string; `name` string; `filters` any; `columns` any; `sort` any
+- **PatchedTicketChangeRequest**: `category` any; `priority` TicketPriorityEnum; `language` TicketLanguageEnum; `source` TicketSourceEnum; `nch_docket` string; `subject` string; `name` string; `email` any; `phone` string; `order` string; `record` string
 - **Person**: `id` integer (required, read-only); `email` email (required); `full_name` string (required); `is_active` boolean; `is_superuser` boolean; `roles` [string] (required, read-only); `grants` [object] (required, read-only); `scopes` [Scope] (required, read-only); `mfa` boolean (required, read-only); `last_login` date-time (null); `created` date-time (required, read-only)
 - **PhotoRequest**: `photo` binary (required)
 - **PickupLocation**: `id` integer (required, read-only); `nickname` string (required); `address` string; `city` string; `state` string; `pin_code` string (required); `phone` string; `is_default` boolean; `active` boolean; `external_id` string (required, read-only)
@@ -1583,16 +1638,22 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ReasonRequest**: `reason` string (required)
 - **ReconcileRequest**: `order` string (required)
 - **Reconciled**: `order` string (required); `paid` boolean (required, null)
+- **RefundLineRequest**: `item` integer (required); `quantity` integer (required)
+- **RefundRequest**: `order` string; `amount` decimal (null); `lines` [RefundLineRequest]; `reason` string (required)
+- **Requester**: `name` string (required); `email` string (required); `phone` string (required); `user` integer (required, null)
 - **ResolveRequest**: `resolution` string (required); `dismiss` boolean
 - **ResponseText**: `subject` string (required); `body` string (required)
 - **RevealRequest**: `show` [ShowEnum] (required); `reason` string (required)
 - **Revealed**: `email` string (null); `phone` string (null); `login_phone` string (null); `parent_contact` string (null); `parent_name` string (null); `date_of_birth` string (null)
 - **RoleEnum**: one of `ADMIN`, `AUDITOR`, `CONTENT_EDITOR`, `FINANCE`, `MARKETING`, `OWNER`, `PACKER`, `REVIEWER`, `SALES`, `SALES_REP`, `SUPPORT`
+- **SavedReply**: `id` integer (required, read-only); `title` string (required); `language` TicketLanguageEnum; `body` string (required); `variables` [string] (required, read-only); `created_by` integer (required, null, read-only); `created` date-time (required, read-only); `modified` date-time (required, read-only); `deleted_at` date-time (required, null, read-only)
+- **SavedReplyRequest**: `title` string (required); `language` TicketLanguageEnum; `body` string (required)
+- **SavedReplyText**: `id` integer (required); `title` string (required); `language` string (required); `text` string (required)
 - **SavedView**: `id` integer (required, read-only); `owner` integer (required, read-only); `role` string; `list_key` string (required); `name` string (required); `filters` any; `columns` any; `sort` any; `created` date-time (required, read-only); `modified` date-time (required, read-only)
 - **SavedViewRequest**: `role` string; `list_key` string (required); `name` string (required); `filters` any; `columns` any; `sort` any
 - **Scope**: `id` integer (required, read-only); `kind` ScopeKindEnum (required); `value` string (required); `granted_by` integer (required, null, read-only); `created` date-time (required, read-only); `expires_at` date-time (null)
 - **ScopeAddRequest**: `kind` ScopeKindEnum (required); `value` string (required); `expires_at` date-time (null)
-- **ScopeKindEnum**: one of `subject`, `board_class`, `order_status`, `warehouse`, `school`, `ticket_queue`
+- **ScopeKindEnum**: one of `subject`, `board_class`, `order_status`, `warehouse`, `school`, `ticket_queue`, `ticket_category`
 - **SessionsEnded**: `sessions` integer (required); `tokens` integer (required)
 - **Setting**: `key` string (required); `label` string (required); `kind` any (required); `permission` string (required); `value` any (required); `environment` any (required); `source` SettingSourceEnum (required); `effective_from` date-time (required, null); `changed_by` integer (required, null); `reason` string (required); `scheduled` [object] (required)
 - **SettingSourceEnum**: one of `environment`, `database`
@@ -1604,6 +1665,8 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ShippingExceptionKindEnum**: one of `pickup_problem`, `ndr`, `rto`, `lost`, `partial`, `weight_dispute`, `cod_overdue`, `no_movement`
 - **ShippingExceptionStateEnum**: one of `open`, `resolved`, `dismissed`
 - **ShowEnum**: one of `email`, `phone`, `login_phone`, `parent_contact`, `parent_name`, `date_of_birth`
+- **Sidebar**: `account` Customer (required, null); `orders` [SidebarOrder] (required, null); `entitlements` [EntitlementRow] (required, null); `codes` [CodeRow] (required, null); `devices` [DeviceRow] (required, null); `tickets` [PastTicket] (required, null); `consents` [ConsentRow] (required, null)
+- **SidebarOrder**: `number` string (required); `status` string (required); `status_label` string (required); `total` string (required); `payment_method` string (required); `created` date-time (required); `placed_at` date-time (required, null); `is_test` boolean (required); `refund_mode` string (required); `refund_warning` string (required); `linked` boolean (required); `payments` [OrderPayment] (required); `refunds` [OrderRefund] (required); `shipments` [OrderShipment] (required); `invoice` string (required, null); `credit_notes` [string] (required); `items` [OrderLine] (required)
 - **SnoozeRequest**: `until` date-time (required)
 - **StaffBreakGlass**: `reason_required` boolean (required); `reason` string (required, null); `ends_at` date-time (required)
 - **StaffCatalogue**: `permissions` [object] (required); `roles` [object] (required)
@@ -1612,8 +1675,28 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **StaffManifest**: `break_glass` StaffBreakGlass (required, null); `user` StaffUser (required); `roles` [object] (required); `permissions` [string] (required); `scopes` object (required); `role_scopes` object (required); `limits` object (required); `flags` object (required); `policies_due` [object] (required); `reauth_valid_until` date-time (required, null); `idle_timeout_s` integer (required); `absolute_expires_at` date-time (required); `impersonating` StaffImpersonating (required, null); `manifest_version` string (required)
 - **StaffSystem**: `health` any (required); `celery` any (required); `webhooks` any (required); `email` any (required); `sms` any (required); `backups` any (required); `maintenance` any (required); `audit` any (required)
 - **StaffUser**: `id` integer (required); `email` email (required); `full_name` string (required); `is_superuser` boolean (required)
+- **StatusRequest**: `status` TicketStatusEnum (required); `resolution` string; `order` string; `record` string
+- **SupportSummary**: `since` date (required); `until` date (required); `received` integer (required); `by_category` object (required); `by_source` object (required); `first_response_hours` double (required, null); `resolution_hours` double (required, null); `backlog` object (required); `overdue` integer (required); `breaches` object (required)
 - **SwitchChangeRequest**: `value` any (required, null); `reason` string (required); `effective_from` date-time
 - **SwitchRow**: `key` string (required); `value` any (required); `effective_from` date-time (required); `changed_by` integer (required, null); `reason` string (required); `created` date-time (required)
+- **Ticket**: `id` integer (required, read-only); `number` string (required, read-only); `subject` string (required, read-only); `source` TicketSourceEnum (required, read-only); `nch_docket` string (required, read-only); `category` any (required, read-only); `priority` TicketPriorityEnum (required, read-only); `status` TicketStatusEnum (required, read-only); `language` TicketLanguageEnum (required, read-only); `requester` Requester (required, read-only); `assignee` integer (required, null, read-only); `order` string (required, null, read-only); `received_at` date-time (required, read-only); `acknowledged_at` date-time (required, null, read-only); `first_response_at` date-time (required, null, read-only); `resolved_at` date-time (required, null, read-only); `closed_at` date-time (required, null, read-only); `ack_due_at` date-time (required, read-only); `due_at` date-time (required, read-only); `next_due_at` date-time (required, read-only); `ack_breached` boolean (required, read-only); `due_breached` boolean (required, read-only); `overdue` boolean (required, read-only); `clock` string (required, null, read-only); `is_test` boolean (required, read-only); `reopened_count` integer (required, read-only); `message_count` integer (required, read-only); `last_message_at` date-time (required, null, read-only)
+- **TicketAssignRequest**: `assignee` integer (required, null)
+- **TicketCategoryEnum**: one of `order`, `payment`, `book_code`, `qr_solutions`, `content_error`, `school_order`, `privacy_request`, `grievance`
+- **TicketChannelEnum**: one of `web`, `email`, `phone`, `whatsapp`, `sms`, `nch`, `panel`
+- **TicketCreateRequest**: `source` TicketLoggedSourceEnum (required); `nch_docket` string; `name` string; `email` any; `phone` string; `category` any; `priority` TicketPriorityEnum; `subject` string (required); `message` string (required); `received_at` date-time; `order` string
+- **TicketDetail**: `id` integer (required, read-only); `number` string (required, read-only); `subject` string (required, read-only); `source` TicketSourceEnum (required, read-only); `nch_docket` string (required, read-only); `category` any (required, read-only); `priority` TicketPriorityEnum (required, read-only); `status` TicketStatusEnum (required, read-only); `language` TicketLanguageEnum (required, read-only); `requester` Requester (required, read-only); `assignee` integer (required, null, read-only); `order` string (required, null, read-only); `received_at` date-time (required, read-only); `acknowledged_at` date-time (required, null, read-only); `first_response_at` date-time (required, null, read-only); `resolved_at` date-time (required, null, read-only); `closed_at` date-time (required, null, read-only); `ack_due_at` date-time (required, read-only); `due_at` date-time (required, read-only); `next_due_at` date-time (required, read-only); `ack_breached` boolean (required, read-only); `due_breached` boolean (required, read-only); `overdue` boolean (required, read-only); `clock` string (required, null, read-only); `is_test` boolean (required, read-only); `reopened_count` integer (required, read-only); `message_count` integer (required, read-only); `last_message_at` date-time (required, null, read-only); `data_request` integer (required, read-only); `record` string (required, null, read-only); `resolution` string (required, read-only); `complaint_copy_sent_at` date-time (required, null, read-only); `ack_held` boolean (required, read-only); `redress_due_at` date-time (required, null, read-only); `nch_due_at` date-time (required, null, read-only); `dpdp_due_at` date-time (required, null, read-only); `it_due_at` date-time (required, null, read-only); `clocks` [Clock] (required, read-only); `closing_fields` [string] (required, read-only); `transitions` [string] (required, read-only); `messages` [Message] (required, read-only)
+- **TicketDirectionEnum**: one of `in`, `out`, `note`
+- **TicketLanguageEnum**: one of `as`, `bn`, `en`
+- **TicketLoggedSourceEnum**: one of `phone`, `whatsapp`, `nch`, `email`
+- **TicketOrderCancelled**: `order` string (required); `status` string (required)
+- **TicketPriorityEnum**: one of `low`, `medium`, `high`, `urgent`
+- **TicketRecord**: `id` integer (required, read-only); `number` string (required, read-only); `subject` string (required, read-only); `source` TicketSourceEnum (required, read-only); `nch_docket` string (required, read-only); `category` any (required, read-only); `priority` TicketPriorityEnum (required, read-only); `status` TicketStatusEnum (required, read-only); `language` TicketLanguageEnum (required, read-only); `requester` Requester (required, read-only); `assignee` integer (required, null, read-only); `order` string (required, null, read-only); `received_at` date-time (required, read-only); `acknowledged_at` date-time (required, null, read-only); `first_response_at` date-time (required, null, read-only); `resolved_at` date-time (required, null, read-only); `closed_at` date-time (required, null, read-only); `ack_due_at` date-time (required, read-only); `due_at` date-time (required, read-only); `next_due_at` date-time (required, read-only); `ack_breached` boolean (required, read-only); `due_breached` boolean (required, read-only); `overdue` boolean (required, read-only); `clock` string (required, null, read-only); `is_test` boolean (required, read-only); `reopened_count` integer (required, read-only); `message_count` integer (required, read-only); `last_message_at` date-time (required, null, read-only); `data_request` integer (required, read-only); `record` string (required, null, read-only); `resolution` string (required, read-only); `complaint_copy_sent_at` date-time (required, null, read-only); `ack_held` boolean (required, read-only); `redress_due_at` date-time (required, null, read-only); `nch_due_at` date-time (required, null, read-only); `dpdp_due_at` date-time (required, null, read-only); `it_due_at` date-time (required, null, read-only); `clocks` [Clock] (required, read-only); `closing_fields` [string] (required, read-only); `transitions` [string] (required, read-only); `messages` [Message] (required, read-only); `sidebar` Sidebar (required, read-only); `saved_replies` [SavedReplyText] (required, read-only)
+- **TicketReplyChannelEnum**: one of `email`, `phone`, `whatsapp`, `nch`
+- **TicketRevealFieldEnum**: one of `email`, `phone`
+- **TicketRevealRequest**: `show` [TicketRevealFieldEnum] (required); `reason` string (required)
+- **TicketRevealed**: `email` string (required, null); `phone` string (required, null)
+- **TicketSourceEnum**: one of `form`, `email`, `phone`, `whatsapp`, `nch`
+- **TicketStatusEnum**: one of `new`, `open`, `waiting_customer`, `waiting_third_party`, `resolved`, `closed`, `spam`
 - **TokenRequest**: `token` string (required)
 - **Unlocked**: `attempts_cleared` integer (required)
 - **VerifyIdentityRequest**: `note` string (required)

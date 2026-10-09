@@ -9,6 +9,7 @@ from rest_framework_simplejwt.views import TokenVerifyView
 from insights import api as insights
 from shipping import api as shipping
 from staff import api as staff
+from support import views as support
 
 from . import auth, learn, parent_link, shop, views
 
@@ -61,6 +62,7 @@ urlpatterns = [
     path("me/deletion/", views.DeletionView.as_view(), name="me-deletion"),
     path("me/teacher/", views.TeacherView.as_view(), name="me-teacher"),
     path("me/parent-consent/", views.ParentConsentView.as_view(), name="me-parent-consent"),
+    path("me/tickets/", support.MyTicketsView.as_view(), name="me-tickets"),  # My requests (support/views.py)
     path("parent-consent/<str:token>/", parent_link.ParentLinkView.as_view(), name="parent-link"),  # the parent's link
     path("config/", views.ConfigView.as_view(), name="config"),
     path("contact/", views.ContactView.as_view(), name="contact"),  # the contact form

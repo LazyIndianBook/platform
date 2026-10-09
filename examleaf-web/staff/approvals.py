@@ -479,8 +479,10 @@ class RunJob(Action):
         return job, {"job": job.pk, "kind": job.kind, "total": job.total, "params": job.params}, None
 
     def rule(self, maker, change_request):
+        from .jobs import LIMITS  # the kind's own limit: an export's export_rows, a bulk action's bulk_rows
+
         payload = change_request.payload
-        limit = "export_rows" if payload["kind"] == "audit_export" else "bulk_rows"
+        limit = LIMITS.get(payload["kind"], "bulk_rows")
         return over(payload["total"], limit_of(maker, limit), "{amount} rows are above the limit of {limit}.")
 
     def run(self, change_request, by):

@@ -1,0 +1,6 @@
+{% autoescape off %}{{ text }}
+
+---
+Your request {{ ticket.number }}. Reply to this email to add to it; if you have an account, My requests shows its status: {{ site_url }}/account/requests/
+
+ExamLeaf{% endautoescape %}

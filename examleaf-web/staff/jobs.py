@@ -35,6 +35,7 @@ LIMITS = {
     Job.Kind.AUDIT_EXPORT: "export_rows",
     Job.Kind.BULK_ACTION: "bulk_rows",
     Job.Kind.ERP_INITIAL_LOAD: "bulk_rows",
+    Job.Kind.GRIEVANCE_EXPORT: "export_rows",
 }
 
 
@@ -56,6 +57,8 @@ def permission(kind, params):
         return approvals.ACTIONS[params["action"]].maker
     if kind == Job.Kind.ERP_INITIAL_LOAD:
         return "erp.run_initial_load"
+    if kind == Job.Kind.GRIEVANCE_EXPORT:
+        return "staff.export_grievances"
     return None
 
 
@@ -85,6 +88,10 @@ def start(kind, params, *, user, dry_run=False, request=None):
         from erp.producers import initial_load_size
 
         total = initial_load_size(params["invoices_from"])
+    elif kind == Job.Kind.GRIEVANCE_EXPORT:
+        from support.register import tickets
+
+        total = tickets(params).count()
     else:
         total = len(params["targets"])
     with transaction.atomic():
@@ -236,10 +243,18 @@ def erp_initial_load(job, progress):
     return initial_load_job(job, progress)
 
 
+def grievance_export(job, progress):
+    """The grievance register as CSV (support.register.export)."""
+    from support.register import export
+
+    return export(job, progress)
+
+
 RUNNERS = {
     Job.Kind.AUDIT_EXPORT: export_audit,
     Job.Kind.BULK_ACTION: bulk_action,
     Job.Kind.ERP_INITIAL_LOAD: erp_initial_load,
+    Job.Kind.GRIEVANCE_EXPORT: grievance_export,
 }
 
 

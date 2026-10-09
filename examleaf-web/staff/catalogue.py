@@ -16,6 +16,7 @@ ORDERS, PAYMENTS, CUSTOMERS, CONTENT, COURSE = "Orders", "Payments & refunds", "
 CATALOGUE, MARKETING, STAFF, AUDIT = "Catalogue", "Marketing", "Staff & roles", "Audit"
 PRIVACY, SETTINGS, OPERATIONS, ERP_SYNC = "Privacy", "Settings", "Operations", "ERP sync"
 SHIPPING, REPORTS = "Shipping", "Reports"
+SUPPORT = "Support"
 
 
 @dataclass(frozen=True)
@@ -101,6 +102,9 @@ STAFF_ACTIONS = [
     ("manage_pickup_locations", "Add and change the pickup addresses", SHIPPING, MEDIUM),
     ("view_insights", "See the insights: forecasts, print runs, item analysis, cohorts, fraud signals", REPORTS, LOW),
     ("acknowledge_signal", "Acknowledge fraud signals (looked at and handled)", REPORTS, LOW),
+    # support (support/README.md): tickets and the grievance register
+    ("handle_ticket", "Handle support tickets: reply, assign, change, move on, close, acknowledge", SUPPORT, MEDIUM),
+    ("export_grievances", "Export the grievance register (a dated CSV, no personal data)", SUPPORT, HIGH, True),
 ]
 STAFF_MODELS = [
     ("view_changerequest", "See the approvals you take part in", STAFF, LOW),
@@ -146,6 +150,8 @@ OTHERS = {
             ("export_order", "Export orders", ORDERS, HIGH),
         ],
     ),
+    # Support (support/README.md): notes only, a content editor's on content-error tickets
+    **_entries("support", [("note_ticket", "Write internal notes on the tickets you can see", SUPPORT, LOW)]),
     # The ERPNext sync (erp/README.md): its outbox, dead letters, reconciliation and initial load
     **_entries(
         "erp",
@@ -187,6 +193,7 @@ APP_AREAS = {
     "erp": ERP_SYNC,
     "shipping": SHIPPING,
     "insights": REPORTS,
+    "support": SUPPORT,
 }
 SHOP_AREAS = {
     **dict.fromkeys(["payment", "refund", "invoice", "creditnote"], PAYMENTS),

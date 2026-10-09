@@ -162,7 +162,8 @@ def test_the_panels_roles_have_their_permissions_and_nothing_more():
     views = Permission.objects.filter(codename__startswith="view_").count()
     assert auditor.get_all_permissions() >= {"staff.view_auditlog", "staff.export_auditlog", "accounts.view_user"}
     writes = {perm for perm in auditor.get_all_permissions() if not perm.split(".")[1].startswith("view_")}
-    assert writes == {"staff.export_auditlog"} and len(auditor.get_all_permissions()) == views + 1
+    assert writes == {"staff.export_auditlog", "staff.export_grievances"}  # its exports: the log, the register
+    assert len(auditor.get_all_permissions()) == views + 2
     assert not auditor.has_perm("staff.reveal_contact")  # no personal data revealed
     for perm in roles.OWNER_ONLY:  # the owners' own, beyond ADMIN's everything
         assert member(roles.OWNER).has_perm(perm) and not member(roles.ADMIN).has_perm(perm), perm

@@ -175,7 +175,8 @@ class JobStartSerializer(serializers.Serializer):
         default=dict,
         help_text='audit_export: {"filters": {…}} (the audit list\'s); bulk_action: {"action": "order.refund", '
         '"targets": [order numbers, slugs or ids], "payload": {…} (each target\'s, as for change-requests/), '
-        '"reason"}; erp_initial_load: {"invoices_from": "YYYY-MM-DD"} (optional: without it, the catalogue only)',
+        '"reason"}; erp_initial_load: {"invoices_from": "YYYY-MM-DD"} (optional: without it, the catalogue only); '
+        'grievance_export: {"from": "YYYY-MM-DD", "until": "YYYY-MM-DD"} (the days received, both optional)',
     )
     dry_run = serializers.BooleanField(required=False, default=False, help_text="check every row, change nothing")
 
@@ -188,6 +189,17 @@ class JobStartSerializer(serializers.Serializer):
             if not isinstance(filters, dict):
                 raise serializers.ValidationError({"params": {"filters": ["The audit list's filters, as an object."]}})
             data["params"] = {"filters": filters}
+            return data
+        if data["kind"] == Job.Kind.GRIEVANCE_EXPORT:
+            data["params"] = {}
+            for name in ("from", "until"):
+                try:
+                    if day := params.get(name):
+                        data["params"][name] = date.fromisoformat(str(day)).isoformat()
+                except ValueError:
+                    raise serializers.ValidationError({"params": {name: ["A day: YYYY-MM-DD."]}}) from None
+            if data["params"].get("from", "") > data["params"].get("until", "9999"):
+                raise serializers.ValidationError({"params": {"until": ["Not before the first day."]}})
             return data
         if data["kind"] == Job.Kind.ERP_INITIAL_LOAD:
             since = params.get("invoices_from")
