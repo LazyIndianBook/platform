@@ -328,6 +328,53 @@ ENDPOINTS = [
     ("post", "support/saved-replies/{reply}/restore/", "support.delete_savedreply"),
     ("get", "support/summary/", "support.view_ticket"),
     ("get", "support/agents/", "support.view_ticket"),
+    # Course (Phase B): learn/staff_api.py
+    ("get", "course/subjects/", "learn.view_chapter"),
+    ("get", "course/subjects/{course_subject}/outline/", "learn.view_chapter"),
+    ("patch", "course/chapters/{chapter}/", "learn.change_chapter"),
+    ("get", "course/revisions/{revision}/", "learn.view_revision"),
+    ("patch", "course/revisions/{revision}/", "learn.change_revision"),
+    ("post", "course/revisions/{revision}/submit/", "learn.change_revision"),  # (in review: 400)
+    *[
+        ("post", f"course/revisions/{{revision}}/{verb}/", "staff.publish_course")
+        for verb in ["approve", "needs-changes", "publish", "unpublish"]
+    ],
+    *[
+        row
+        for kind, model, key in [
+            ("clips", "clip", "clip"),
+            ("cards", "flashcard", "card"),
+            ("items", "quizitem", "quiz_item"),
+        ]  # fmt: skip
+        for row in [
+            ("get", f"course/{kind}/{{{key}}}/", f"learn.view_{model}"),
+            ("patch", f"course/{kind}/{{{key}}}/", f"learn.change_{model}"),
+            ("post", f"course/{kind}/{{{key}}}/move/", f"learn.change_{model}"),
+            ("post", f"course/{kind}/{{{key}}}/restore/", f"learn.change_{model}"),
+            ("delete", f"course/{kind}/{{{key}}}/", f"learn.delete_{model}"),
+        ]
+    ],
+    ("post", "course/clips/{clip}/retry/", "learn.change_clip"),
+    ("get", "course/items/", "learn.view_quizitem"),
+    ("get", "course/items/{quiz_item}/history/", "learn.view_quizitem"),
+    ("post", "course/items/{quiz_item}/flag/", "staff.triage_report"),
+    ("get", "course/bin/", "learn.view_clip"),
+    ("get", "course/bin/?kind=items", "learn.view_quizitem"),
+    ("get", "course/entitlements/", "learn.view_entitlement"),
+    ("get", "course/entitlements/{entitlement}/", "learn.view_entitlement"),
+    ("post", "course/entitlements/", "learn.add_entitlement"),
+    ("post", "course/entitlements/{entitlement}/extend/", "learn.change_entitlement"),
+    ("post", "course/entitlements/{entitlement}/revoke/", "learn.change_entitlement"),
+    ("get", "course/codes/batches/", "learn.view_codebatch"),
+    ("get", "course/codes/batches/{batch}/", "learn.view_codebatch"),
+    ("post", "course/codes/batches/", "staff.make_book_codes"),
+    ("post", "course/codes/batches/{batch}/dispatched/", "learn.change_codebatch"),
+    ("post", "course/codes/batches/{batch}/void/", "staff.void_book_codes"),
+    ("post", "course/codes/void/", "staff.void_book_codes"),
+    ("post", "course/codes/lookup/", "learn.view_bookcode"),
+    ("get", "course/codes/report/", "learn.view_codebatch"),
+    ("get", "course/learners/{learner}/", "learn.view_entitlement"),
+    ("post", "course/learners/{learner}/devices/{device}/sign-out/", "staff.end_user_sessions"),
     ("post", "people/{person}/offboard/", "staff.assign_role"),  # last: the person goes
 ]
 
@@ -435,6 +482,38 @@ def phase_b_objects(person):
         "erp_failure": IntegrationFailure.objects.create(account=erp, operation="sync", task_id="t-2", **failure).pk,
         "template": MessageTemplate.objects.create(event="otp", channel="sms", category="transactional").pk,
         **content_objects(),
+        **course_objects(),
+    }
+
+
+def course_objects():
+    """A published course of a chapter (its revision in review, submitted by an editor), a learner with an
+    entitlement and a phone, a print run's batch of one code."""
+    from content.models import Subject
+    from learn.models import Chapter, Clip, CodeBatch, Device, Entitlement, FlashCard, QuizItem, Revision
+    from learn.services import make_codes
+    from learn.tests import make_course
+
+    subject = make_course(subject=Subject.objects.get(code="PHY"), chapters=1, clips=2)
+    revision = Revision.objects.get(chapter__subject=subject)
+    Revision.objects.filter(pk=revision.pk).update(status="review", submitted_by=make_staff(roles.CONTENT_EDITOR))
+    learner = UserFactory()
+    entitlement = Entitlement.objects.create(
+        user=learner, subject=subject, valid_until=timezone.localdate() + timedelta(days=30)
+    )
+    make_codes(subject, 1, "PHY-2027-1")
+    CodeBatch.objects.create(label="PHY-2027-1", subject=subject, printed=1, generated_at=timezone.now())
+    return {
+        "course_subject": subject.pk,
+        "chapter": Chapter.objects.get(subject=subject).pk,
+        "revision": revision.pk,
+        "clip": Clip.objects.filter(revision=revision).order_by("order").first().pk,
+        "card": FlashCard.objects.get(chapter__subject=subject).pk,
+        "quiz_item": QuizItem.objects.get(chapter__subject=subject).pk,
+        "entitlement": entitlement.pk,
+        "batch": "PHY-2027-1",
+        "learner": learner.pk,
+        "device": Device.objects.create(user=learner, token="fid-matrix", platform="android").pk,
     }
 
 
