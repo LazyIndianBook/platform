@@ -5,6 +5,7 @@ import "./globals.css";
 import "./console.css";
 
 import type { Metadata, Viewport } from "next";
+import { connection } from "next/server";
 
 import { RouteFocus } from "@/components/providers/route-focus";
 import { Toaster } from "@/components/ui/toaster";
@@ -31,7 +32,9 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = { themeColor: "#0b2a5b", width: "device-width", initialScale: 1 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Every page renders at request time: a prerendered page would carry scripts without the CSP nonce (RESILIENCE.md).
+  await connection();
   return (
     <html lang={copy.lang} className={fontVariables}>
       <body>

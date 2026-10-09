@@ -174,6 +174,7 @@ services:
         NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
         NEXT_PUBLIC_MEDIA_HOST: ${PUBLIC_MEDIA_DOMAIN:-}
     image: examleaf-frontend
+    stop_grace_period: 15s  # the apps answer requests in flight for up to 10 s after SIGTERM (RESILIENCE.md)
     restart: unless-stopped
     environment:
       API_INTERNAL_BASE: http://web:8000  # server components call Django over the compose network
@@ -203,6 +204,7 @@ services:
         NEXT_PUBLIC_WEBSITE_URL: https://${DOMAIN:?set DOMAIN in .env}
         NEXT_PUBLIC_ERP_URL: ${ERP_URL:-}
     image: examleaf-admin
+    stop_grace_period: 15s  # the apps answer requests in flight for up to 10 s after SIGTERM (RESILIENCE.md)
     restart: unless-stopped
     environment:
       API_INTERNAL_BASE: http://web:8000  # server components call Django over the compose network
