@@ -194,7 +194,9 @@ def endpoint(mutating: bool):
                             "idempotency_key",
                         )
                     response = {**json.loads(first.response_data), "duplicate": True}
-                    _log(method, "Duplicate", data, digest, response, duplicate_of=first.name)
+                    response["log"] = _log(
+                        method, "Duplicate", data, digest, response, first.reference_doctype, first.name
+                    )
                     return _finish(response)
                 response, reference_doctype = _run_once(fn, data)
                 response = {"ok": True, "duplicate": False, **response}
@@ -228,7 +230,7 @@ def _first_success(key):
     rows = frappe.get_all(
         LOG,
         filters={"idempotency_key": key, "status": "Success"},
-        fields=["name", "request_hash", "response_data"],
+        fields=["name", "request_hash", "response_data", "reference_doctype"],
         order_by="creation asc",
         limit=1,
     )
@@ -236,7 +238,7 @@ def _first_success(key):
 
 
 def _finish(response):
-    warnings = [strip_html(m) for m in _messages()]
+    warnings = list(dict.fromkeys(strip_html(m) for m in _messages()))  # validate runs on insert and on submit
     frappe.clear_messages()
     if warnings:
         response["warnings"] = warnings
