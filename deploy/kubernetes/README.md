@@ -6,13 +6,14 @@ its Celery processes, the Next.js website, a place for the admin panel, PostgreS
 two Redis, the Ingress and its certificates. ERPNext is a dependency of the chart with its database, backups and
 Ingress prepared, switched off until it is added (section "ERPNext" below). docker-compose
 (`examleaf-web/docker-compose.yml`) stays for development and for a one-machine server; this is the same stack,
-translated. `TESTING.md` records a full run of the chart on a `kind` cluster (ERPNext rendered and validated, not run);
-the chart has not yet run on a real cluster.
+translated. `TESTING.md` records the chart's runs on a `kind` cluster, the latest on Traefik (ERPNext rendered and
+validated, not run); the chart has not yet run on a real cluster.
 
 | Path | What it holds |
 |---|---|
 | `examleaf-platform/` | the chart: `values.yaml` (every setting, each explained), `values-kind.yaml` (the laptop profile), `templates/` |
 | `Makefile` | the images, the chart's checks and the kind cluster (`make` lists the tasks) |
+| `traefik-values.yaml` | Traefik's own settings that go with the chart (section "The ingress controller") |
 | `kind-config.yaml`, `kind-extras.yaml` | the kind test cluster, and its stand-ins for Let's Encrypt and Cloudflare R2 |
 | `TESTING.md` | what was run on kind, and what it showed |
 
@@ -23,10 +24,10 @@ the chart has not yet run on a real cluster.
 | `web` (migrate, bootstrap_roles, gunicorn) | Deployment `examleaf-web`: an init container waits for the database and runs `migrate` and `bootstrap_roles`; gunicorn is ready once `/health/web/` answers |
 | `worker`, `beat`, `media-worker` | Deployments `examleaf-worker`, `examleaf-beat` (always one pod), `examleaf-media-worker` (its own small environment); each waits until the migrations are applied |
 | `frontend` | Deployment `examleaf-frontend` |
-| (none yet) | Deployment `examleaf-admin` at `admin.<domain>`, off until the panel's image exists |
+| (none yet) | Deployment `examleaf-admin` at `admin.<domain>` (Django's paths there go to web), off until the panel's image exists |
 | `db` (postgres:17) | CloudNativePG `Cluster` `examleaf-db` (PostgreSQL 17), continuous backup to a bucket |
 | `redis`, `redis-cache` | Deployments `examleaf-redis-queue` (with a volume) and `examleaf-redis-cache` |
-| `caddy` | four Ingresses for ingress-nginx, certificates from cert-manager |
+| `caddy` | Ingresses and Middlewares for Traefik (k3s's bundled controller), certificates from cert-manager |
 | `.env` | the ConfigMap `examleaf-config` (from `values.yaml` "config") and the Secrets you make (`examleaf-env` …) |
 | volumes `media`, `pgdata`, `redisdata` | PersistentVolumeClaims `examleaf-media`, the Cluster's own, `examleaf-redis-queue` |
 | (none) | with `erpnext.enabled`: frappe/helm's ERPNext (`examleaf-erpnext-*`), its MariaDB `examleaf-erp-db` through mariadb-operator, the site backups, `erp.<domain>` |
@@ -38,7 +39,7 @@ pins (the kind test used exactly these).
 
 | What | Release | Install | Why |
 |---|---|---|---|
-| ingress-nginx | controller v1.15.1 (chart 4.15.1) | its Helm chart, or the provider's manifest from `deploy/static/provider/` | the Ingresses' controller |
+| Traefik | v3.7 (k3s v1.35.9 bundles v3.7.13; chart 41.7.0 is v3.7.14) | bundled with k3s in `kube-system`; elsewhere its Helm chart (`https://traefik.github.io/charts`), with `traefik-values.yaml` | the Ingresses' controller and the Middleware resources the chart uses |
 | cert-manager | v1.21.2 | `kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.21.2/cert-manager.yaml` | the certificates of both hosts; the Barman Cloud plugin needs it too |
 | CloudNativePG | 1.30.1 | `kubectl apply --server-side -f https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.30/releases/cnpg-1.30.1.yaml` | PostgreSQL |
 | Barman Cloud plugin | v0.15.1 | `kubectl apply -f https://github.com/cloudnative-pg/plugin-barman-cloud/releases/download/v0.15.1/manifest.yaml` (after cert-manager, into `cnpg-system`) | backups and restores of PostgreSQL |
@@ -49,45 +50,64 @@ pins (the kind test used exactly these).
 CloudNativePG's own support for Barman Cloud inside the operator is deprecated (removal is announced for 1.31), so the
 chart uses the plugin from the start.
 
-**ingress-nginx is retired.** The Kubernetes project stopped maintaining it in March 2026: v1.15.1 is the last
-release and no security fix will follow. The chart uses it because the plan chose it, and nothing in the chart is
-tied to it but annotations: the Ingresses are plain `networking.k8s.io/v1` resources, the controller-specific
-annotations are listed below, and `ingress.className`, `ingress.annotations` and `ingress.healthAnnotations` change
-them. Choose the replacement (another Ingress controller, or the Gateway API) before the site goes live.
+The chart's routing was first written for ingress-nginx, which the Kubernetes project retired in March 2026 (no
+release or security fix after v1.15.1); it now targets Traefik, which k3s bundles, which is maintained, and which
+serves the Gateway API as well when the chart moves to it.
 
 ### The ingress controller
 
-Three controller-wide settings keep Caddy's behaviour. ingress-nginx adds its own
-`Strict-Transport-Security: max-age=31536000; includeSubDomains` to every https answer, replacing Django's and Next's
-header, which leave out `includeSubDomains` on purpose (DEPLOYMENT.md section 13, `check --deploy`'s W005); it
-compresses nothing unless told to, where Caddy compressed every answer; and it waits 60 seconds for a client's
-headers, where Caddy waited 10. With the Helm chart:
+The chart's Ingresses (`ingressClassName: traefik`) carry Traefik's annotations `router.entrypoints` (`websecure`,
+or `web` for the http redirect) and `router.middlewares`, which name the chart's Middleware resources
+(`templates/middlewares.yaml`): `redirect-https`, `body-limit` (Buffering), `compress`, `strip-server` (Headers),
+`health-auth` (BasicAuth), `health-hide` (ReplacePathRegex) and `admin-allowlist` (IPAllowList), plus `erp-headers`
+and `erp-allowlist` with ERPNext. Traefik adds no headers of its own (no HSTS, no `Server`), so Django's and Next's
+are what the browser gets.
 
-```sh
-helm upgrade --install ingress-nginx ingress-nginx --repo https://kubernetes.github.io/ingress-nginx --version 4.15.1 \
-  --namespace ingress-nginx --create-namespace \
-  --set-string controller.config.hsts=false \
-  --set-string controller.config.use-gzip=true \
-  --set-string controller.config.client-header-timeout=10 \
-  --set controller.service.externalTrafficPolicy=Local
+Two of Traefik's own settings go with them (`traefik-values.yaml`): a read timeout of 5 minutes for a whole request
+(Traefik's default of 60 seconds would cut off a photo from a slow phone, which Caddy gave 5 minutes), and the access
+log as JSON on stdout. Traefik has no separate timeout for the headers: they share the 5 minutes (Caddy gave them 10
+seconds). On k3s they go into a HelmChartConfig for the bundled Traefik, with the visitor's address kept:
+
+```yaml
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    ports:
+      websecure:
+        transport:
+          respondingTimeouts:
+            readTimeout: 300s
+    accessLog:
+      enabled: true
+      format: json
+    service:
+      spec:
+        externalTrafficPolicy: Local
 ```
 
-`externalTrafficPolicy=Local` keeps the visitor's address: Django counts failed log-ins, rate limits and the device
-list by it (`PROXY_COUNT=1` trusts the one proxy in front, as with Caddy). If a load balancer or Cloudflare's proxy
-sits in front of the controller, the address it sees is the balancer's, and every visitor would share one limit: use
-the PROXY protocol (`controller.config.use-proxy-protocol`) or the controller's `use-forwarded-headers` with
-`proxy-real-ip-cidr` set to the balancer's ranges, then try `/api/v1/` from two addresses.
+Saved as `/var/lib/rancher/k3s/server/manifests/traefik-config.yaml` on the server, k3s applies it and redeploys
+Traefik. Anywhere else, Traefik's chart: `helm upgrade --install traefik traefik --repo
+https://traefik.github.io/charts --version 41.7.0 --namespace kube-system -f traefik-values.yaml --set
+service.spec.externalTrafficPolicy=Local` (`ingress.controllerNamespace` follows the namespace you choose).
 
-With ERPNext add `--set-string controller.config.global-allowed-response-headers="Strict-Transport-Security\,X-Content-Type-Options\,Referrer-Policy\,X-Frame-Options"`:
-the controller sets those headers on the ERP's host only (`custom-headers`), and refuses any header not listed there.
+`externalTrafficPolicy: Local` keeps the visitor's address: Django counts failed log-ins, rate limits and the device
+list by it (`PROXY_COUNT=1` trusts the one proxy in front, as with Caddy). Traefik drops a client's own
+`X-Forwarded-*` headers and sends the address it saw, so this holds while nothing else stands in front. On k3s,
+ServiceLB keeps the address with `Local` unless the node has `node-external-ip` set (k3s's documentation). If a load
+balancer or Cloudflare's proxy stands in front, Traefik sees the balancer's address and every visitor would share one
+limit: give the balancer the PROXY protocol and Traefik `ports.websecure.proxyProtocol.trustedIPs`, then try
+`/api/v1/` from two addresses. Trusting the balancer's `X-Forwarded-For` instead (`forwardedHeaders.trustedIPs`) does
+not fit as the site is written: the chain grows by one, and the website's server-side calls, which forward the last
+address (`FrontendClientMiddleware`), would speak for the balancer.
 
-The Ingresses carry these annotations: `proxy-body-size` (10 MB, 500 MB on the clip and revision admin pages, as the
-Caddyfile has them), `proxy-request-buffering: "off"` on those two pages (Caddy streamed a body past its first 10 MB
-too), `preserve-trailing-slash` (the https redirect keeps the whole path, as Caddy's did), `auth-type`, `auth-secret`
-and `auth-realm` on `/health`, `whitelist-source-range` on the admin host when `admin.allowlist` is set (and on the
-ERP's with `erp.allowlist`), `custom-headers` on the ERP's, and `cert-manager.io/cluster-issuer`. ingress-nginx
-1.15.1 does not reload for a change of `preserve-trailing-slash` alone (TESTING.md section 6): a new install has it;
-on a running controller, restart the controller once.
+The http redirect is the chart's (`<release>-http`, a RedirectScheme on the `web` entrypoint for every host): it
+keeps the whole path and query, as Caddy's did, answers 301 to a GET and 308 to anything else (Caddy: 308), and
+leaves cert-manager's HTTP-01 challenges alone, as their longer rule wins. Traefik's own entrypoint redirect
+(`ports.web.http.redirections`) would do the same with `allowACMEByPass: true`; the chart does not need it.
 
 ### A ClusterIssuer
 
@@ -108,23 +128,33 @@ spec:
     solvers:
       - http01:
           ingress:
-            ingressClassName: nginx
+            ingressClassName: traefik
 ```
 
 The chart's NetworkPolicies let the controller reach cert-manager's challenge pods.
 
 ## Images
 
-The chart runs the two images that the repository's Dockerfiles build, unchanged. From this directory:
+Every image of the platform lives under one registry, the chart's `registry` value (default
+`ghcr.io/lazyindianbook`, the owner's GitHub organisation): `examleaf-web` and `examleaf-frontend`, which the
+repository's Dockerfiles build unchanged, the admin panel's `examleaf-admin` once it exists, and ERPNext's
+`examleaf-erp` (section "ERPNext"). From this directory:
 
 ```sh
+docker login ghcr.io          # a token with write:packages
 make images DOMAIN=examleaf.in RAZORPAY_KEY_ID=rzp_live_… TURNSTILE_SITE_KEY=… PUBLIC_MEDIA_DOMAIN=media.examleaf.in
-make push REGISTRY=ghcr.io/lazyindianbook/
+make push
 ```
 
-Both are tagged with the git commit (`TAG`, which can be set). The website's `NEXT_PUBLIC_*` values are compiled into
-its build: a change of domain or of one of those keys means `make images` again. A private registry needs a pull
-secret, named in `imagePullSecrets`.
+Both are tagged with the git commit (`TAG`; `REGISTRY` changes the registry, as the chart's value does). The website's
+`NEXT_PUBLIC_*` values are compiled into its build: a change of domain or of one of those keys means `make images`
+again. The packages of a private repository are private, so the cluster pulls with a Secret, `ghcr-pull`
+(`imagePullSecrets`, and `erpnext.imagePullSecrets` for ERPNext's pods), made from a token with `read:packages`:
+
+```sh
+kubectl -n examleaf create secret docker-registry ghcr-pull --docker-server=ghcr.io \
+  --docker-username=<GitHub user> --docker-password=<token with read:packages>
+```
 
 ## Secrets
 
@@ -134,7 +164,7 @@ and makes none from values:
 | Secret (default name) | Keys | Read by |
 |---|---|---|
 | `examleaf-env` | `SECRET_KEY`, `LEARN_CODE_SECRET` and `INTERNAL_API_TOKEN`, then as the features need them the keys `values.yaml` lists under `secrets.env` (email, SMS, Razorpay, Google, Turnstile, S3, Firebase, Sentry) | web, worker and beat as their environment (every key); the frontend and the admin `INTERNAL_API_TOKEN`; the media worker `SECRET_KEY` and the four S3 keys |
-| `examleaf-health-auth` | `auth`: `monitor:{PLAIN}<HEALTH_CHECK_TOKEN>` | ingress-nginx, for `/health` |
+| `examleaf-health-auth` | type `kubernetes.io/basic-auth`: `username` monitor, `password` HEALTH_CHECK_TOKEN | Traefik's BasicAuth, for `/health` |
 | `examleaf-backup` | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` (the backup bucket's keys, as `scripts/backup.sh` names them) | the Barman Cloud plugin; with ERPNext, mariadb-operator's backups and the site backups; no pod of the site |
 | `examleaf-erp` (ERPNext only) | `db-root-password`, `admin-password` | MariaDB, bench (the site's database), the createSite Job |
 
@@ -144,7 +174,8 @@ that never enter the repository, and load them:
 ```sh
 kubectl create namespace examleaf
 kubectl -n examleaf create secret generic examleaf-env --from-env-file=examleaf.env   # KEY=value lines, no comments
-kubectl -n examleaf create secret generic examleaf-health-auth --from-literal=auth="monitor:{PLAIN}$HEALTH_CHECK_TOKEN"
+kubectl -n examleaf create secret generic examleaf-health-auth --type=kubernetes.io/basic-auth \
+  --from-literal=username=monitor --from-literal=password="$HEALTH_CHECK_TOKEN"
 kubectl -n examleaf create secret generic examleaf-backup \
   --from-literal=AWS_ACCESS_KEY_ID=… --from-literal=AWS_SECRET_ACCESS_KEY=…
 shred -u examleaf.env
@@ -158,8 +189,8 @@ for `SECRET_KEY` and `LEARN_CODE_SECRET`, `token_urlsafe(32)` for `INTERNAL_API_
 for your store (AWS Secrets Manager, Vault, 1Password, Doppler …), the chart renders ExternalSecrets that write the
 same Secrets: `secrets.externalSecret.envKey` (default `examleaf/env`) is one JSON object whose properties are the
 environment's keys, `backupKey` (`examleaf/backup`) holds the two backup keys, `erpKey` (`examleaf/erp`) ERPNext's
-two, and the health Secret's line is made from the `HEALTH_CHECK_TOKEN` property of `envKey`. The ExternalSecrets
-were rendered but not run (TESTING.md section 8).
+two, and the health Secret's password is the `HEALTH_CHECK_TOKEN` property of `envKey`. The ExternalSecrets were
+rendered but not run (TESTING.md section 8).
 
 A changed Secret reaches the pods when they start again: `kubectl -n examleaf rollout restart deployment` (the
 settings in the ConfigMap restart the pods by themselves on `helm upgrade`). RUNBOOK.md's "Secrets and key rotation"
@@ -172,11 +203,16 @@ Two names point at the ingress controller's address (an `A` and an `AAAA` record
 value) and `admin.examleaf.in` (`admin.host`, default `admin.<domain>`) once the admin panel is enabled. cert-manager
 asks Let's Encrypt for each host's certificate once the name resolves to the controller and port 80 answers there.
 
-The main host routes as the Caddyfile does: `/api`, `/_allauth`, `/admin`, `/shop/webhooks`, `/anymail`,
-`/shop/media`, `/learn/preview`, `/learn/hls`, `/account/google`, `/qr` and `/static` to Django, every other path to
-the website; http is redirected to https (308). The admin host sends everything to the admin panel. Its cookies are
-its own (Django's and the panel's are host-only), and `admin.allowlist` (comma separated CIDRs) limits who reaches it
-at all: others get 403 from the controller before the panel's own sign-in.
+Both hosts route as the Caddyfile does: `/api/`, `/_allauth/`, `/admin/`, `/shop/webhooks/`, `/anymail/`,
+`/shop/media/`, `/learn/preview/`, `/learn/hls/`, `/account/google/`, `/qr/` and `/static/` to Django, every other
+path to the website on the main host and to the panel on the admin host; http is redirected to https. The paths keep
+the Caddyfile's trailing slashes (`/api/*` there): Traefik matches a Prefix path character by character, so `/api`
+alone would also have caught `/apiary/`. The admin host needs Django's paths because the panel signs in and calls
+`/api/v1/staff/` on its own host: with the admin on, the chart adds the host to `ALLOWED_HOSTS` and its origin to
+`CSRF_TRUSTED_ORIGINS` (both from the environment, as Django reads them). Its cookies are its own (Django's and the
+panel's are host-only, so a session there is not the website's). `admin.allowlist` (a list of CIDRs) limits who reaches
+the admin host at all, Django's paths there included: others get 403 from Traefik before the panel's own sign-in.
+`/health` is not served on the admin host; the panel's server never sees it (`health-hide`), so it answers 404.
 
 ## Install
 
@@ -187,10 +223,11 @@ helm upgrade --install examleaf examleaf-platform --namespace examleaf --create-
   -f values-production.yaml --set image.tag=<TAG> --set frontend.image.tag=<TAG> --wait --timeout 15m
 ```
 
-`values-production.yaml` is yours, kept outside the repository or without secrets in it: at least `domain`,
-`image.repository` and `frontend.image.repository` (with the registry), the `config` settings that DEPLOYMENT.md
+`values-production.yaml` is yours, kept outside the repository or without secrets in it: at least `domain` (and
+`registry` if the images live elsewhere than `ghcr.io/lazyindianbook`), the `config` settings that DEPLOYMENT.md
 section 4 lists for a first deployment (`EMAIL_BACKEND`, `DEFAULT_FROM_EMAIL`, the seller's details …), `media` and
-`postgres.storage` with the cluster's storage classes, and `postgres.backup`. Then:
+`postgres.storage` with the cluster's storage classes, and `postgres.backup`. The pull Secret `ghcr-pull` ("Images")
+and the Secrets ("Secrets") come first. Then:
 
 ```sh
 kubectl -n examleaf get pods,cluster                             # all Running; the Cluster "Cluster in healthy state"
@@ -215,30 +252,29 @@ kubectl -n examleaf exec $POD -c web -- sh -c "mkdir -p /tmp/books && tar xzf /t
 ## Health checks
 
 The Caddyfile answers `/health` and `/health/*` with 404 unless the header `X-Health-Token` carries
-`HEALTH_CHECK_TOKEN`. ingress-nginx can only compare a header with a value through configuration snippets, which are
-off by default since CVE-2025-1974 and would put the token into the Ingress, so the chart puts `/health` behind the
-controller's basic auth instead: user `monitor`, password `HEALTH_CHECK_TOKEN`, from the Secret
-`examleaf-health-auth`. Anyone else gets 401. Make the Secret before the release: without it ingress-nginx denies
-the path, so that nobody gets through (its documented behaviour; the kind run always had the Secret). `/health` must
-never fall through to the website: the website's server passes Django's paths on to Django (its development proxy),
-and the health pages would be open. The uptime monitor uses basic auth instead of the header (UptimeRobot,
-Better Stack, Uptime Kuma and Pingdom all can):
+`HEALTH_CHECK_TOKEN`. Traefik's middlewares cannot compare a header with a secret value, so the chart puts `/health`
+behind Traefik's BasicAuth instead: user `monitor`, password `HEALTH_CHECK_TOKEN`, from the Secret
+`examleaf-health-auth`. Anyone else gets 401. **The uptime monitor changes**: it sends basic auth instead of the
+header (UptimeRobot, Better Stack, Uptime Kuma and Pingdom all can), with the same token:
 
 ```sh
 curl -s -u "monitor:$HEALTH_CHECK_TOKEN" -H 'Accept: application/json' https://examleaf.in/health/
 ```
 
+`/health` must never reach the website: its server passes Django's paths on to Django (its development proxy), and the
+health pages would be open. Traefik drops a router whose middleware cannot be built, and without its Secret the
+BasicAuth cannot, so `/health` would fall through to the website's router; that router rewrites any `/health` path
+before the website sees it (`health-hide`), and the answer is the website's 404, as Caddy's was while the token was
+unset. TESTING.md section 3 tries it.
+
 Inside the cluster nothing changes: the kubelet asks `/health/web/` directly for web's readiness, with the site's host
 and `X-Forwarded-Proto: https` as the compose health check does; it needs no token, and putting the token into the
-probe would copy the secret into the Deployment.
-
-`/health/`'s Celery check stops at the first worker that answers its ping, and when that is the media worker it
-reports "No worker for Celery task queue celery" although the worker runs (DEPLOYMENT.md section 7: look again); on
-kind that was four asks of six. An uptime monitor should alert only after two failures in a row.
-`cronJobs.healthCheck` (off by default) does not rely on it: on its schedule it runs `manage.py health_check
-health_web` against the web Service (database, cache, storage), then asks the workers which queues they consume, and
-fails unless the default queue (and, with the media worker on, the media queue) has a worker; `kubectl get jobs` (or
-kube-state-metrics) shows a failed run.
+probe would copy the secret into the Deployment. `/health/` waits two seconds for every Celery worker and fails unless
+the default and the media queue each have one (`examleaf.health.WorkerPing`), so the media worker is part of a
+healthy site: `CELERY_HEALTH_QUEUES` in settings.py lists both, and with `mediaWorker.enabled: false` `/health/`
+answers 500 until that list changes.
+`cronJobs.healthCheck` (off by default) runs `manage.py health_check health` against the web Service on a schedule;
+`kubectl get jobs` (or kube-state-metrics) shows a failed run.
 
 ## Upgrades and migrations
 
@@ -276,15 +312,27 @@ out of the window itself, and the rule only catches what it leaves behind. The n
 window is kept as the window's start, so the oldest data in the bucket is up to 31 days old (the Privacy Policy says
 30 days of backups).
 
-**What differs from backup.sh.** The plugin has no counterpart to `BACKUP_AGE_RECIPIENT`: its files are encrypted at
-rest by R2, not by an age key that the server never holds, so whoever has the bucket's keys can read them. Keep those
-keys to the plugin (they are in a Secret of their own, which no pod of the site mounts). For an age-encrypted copy
-off the cluster, as backup.sh made, a dump can be streamed to a computer that has `age`:
+**What differs from backup.sh: encryption.** The plugin has no counterpart to `BACKUP_AGE_RECIPIENT`, so whoever
+holds the bucket's keys can read the backups; keep those keys to the plugin (they are in a Secret of their own, which
+no pod of the site mounts). What the bucket itself offers:
+
+- **Cloudflare R2** encrypts every object at rest with its own keys, always, and refuses the server-side encryption
+  header (`x-amz-server-side-encryption`), so `postgres.backup.encryption` stays empty there. R2 also takes keys of
+  your own per request (SSE-C), which barman-cloud 3.20 can send, but the plugin's ObjectStore has no field for it
+  yet.
+- **AWS S3** (e.g. a bucket in Mumbai, should the private data move there) takes `postgres.backup.encryption:
+  AES256` (S3's own keys) or `aws:kms` (a KMS key the IAM policy controls), set on the base backups and the WAL.
+
+Neither keeps the backups from someone with the bucket's keys, as age did. For a copy that only an offline key opens,
+the documented way stays a dump streamed to a computer that has `age` (no extra image in the cluster):
 
 ```sh
 kubectl -n examleaf exec examleaf-db-1 -c postgres -- pg_dump --format custom examleaf \
   | age --recipient age1… > examleaf-$(date +%Y%m%d-%H%M%S).dump.age
 ```
+
+Keep it off the server, as DEPLOYMENT.md section 9 keeps backup.sh's (a weekly copy, say, besides the continuous
+backups).
 
 **The media volume** is not in these backups. With the buckets of DEPLOYMENT.md section 17 the invoices and the
 pictures are in R2 and the volume holds almost nothing; without them it holds the invoices (tax records: eight years),
@@ -366,8 +414,8 @@ The requests and limits in `values.yaml`, for one node to start:
 | the two Redis | 100m, 128Mi | 1 CPU, 832Mi |
 | **the site** | **about 1 CPU, 2.5Gi** | |
 
-The operators and the controller add about 0.3 CPU and 0.6 GiB (ingress-nginx, cert-manager, CloudNativePG and the
-plugin; on kind they used 164 MiB together), and the cluster itself (k3s, or a managed control plane elsewhere) about
+The operators and the controller add about 0.3 CPU and 0.6 GiB (Traefik, cert-manager, CloudNativePG and the
+plugin; TESTING.md has what they used on kind), and the cluster itself (k3s, or a managed control plane elsewhere) about
 0.5 CPU and 1 GiB. A node of 4 vCPU and 8 GB carries the platform with room for traffic and the admin panel (100m,
 256Mi more). ERPNext asks for about 2.2 CPU and 5.8 GiB more and runs at 6–8 GiB (section "ERPNext"): with it, a node
 of 8 vCPU and 16 GB. TESTING.md has the memory measured on kind; `values-kind.yaml` shows the smallest settings that
@@ -386,7 +434,7 @@ worker-short, worker-long, the scheduler, socketio) and its two Valkey, and from
 | `erp.database` | a standalone `MariaDB` of mariadb-operator, `examleaf-erp-db`, kept by `helm uninstall`: MariaDB 11.8 (v16 needs it, and no supported release runs on PostgreSQL), `utf8mb4` and `utf8mb4_unicode_ci` with `skip-character-set-client-handshake`, a 2 GiB buffer pool in a 4 GiB pod, `innodb-flush-log-at-trx-commit = 1`, the binlog kept 14 days |
 | `erp.database.backup` | a `PhysicalBackup` (mariadb-backup) every day at 02:30 to the platform's bucket under `erpnext/mariadb`, kept 30 days |
 | `erp.siteBackup` | a CronJob every 6 hours: `bench --site all backup --with-files` onto the sites volume, then rclone copies the backups folder (the database dump, the public and private files, `site_config_backup.json`) to the bucket under `erpnext/sites` |
-| `erp.host`, `erp.allowlist` | the Ingress `examleaf-erp` for `erp.examleaf.in`: its certificate, bodies up to 50 MB, HSTS, nosniff, Referrer-Policy and X-Frame-Options set by the controller, an optional allowlist |
+| `erp.host`, `erp.allowlist` | the Ingress `examleaf-erp` for `erp.examleaf.in`: its certificate, HSTS, nosniff, Referrer-Policy and X-Frame-Options set by Traefik (`erp-headers`), an optional allowlist (`erp-allowlist`); no Buffering, so that socketio's WebSockets pass and ERPNext's nginx keeps its own 50 MB limit |
 | NetworkPolicies | ERPNext's pods open to each other within the namespace (its Jobs' pods carry no labels to select them by), its nginx to the controller, its Valkey and MariaDB to the namespace and to mariadb-operator, the web Service to its webhooks |
 
 The `erpnext` values cover the chart's gaps: the custom image, the external MariaDB (the chart's own `mariadb-sts`
@@ -397,10 +445,12 @@ one node.
 
 ### Before switching it on
 
-1. **mariadb-operator** 26.10 ("Operators first") and the controller's `global-allowed-response-headers` ("The ingress
-   controller").
-2. **The image** `ghcr.io/examleaf/erp:<tag>`, built with frappe_docker v4.0.0 in `examleaf-erp/image`
-   (`FRAPPE_BRANCH=v16.50.0`, `apps.json` as a BuildKit secret), and its pull secret `ghcr-pull` in the namespace
+1. **mariadb-operator** 26.10 ("Operators first").
+2. **The image** `<registry>/examleaf-erp:<tag>` (`ghcr.io/lazyindianbook/examleaf-erp`), built and tagged with
+   frappe_docker v4.0.0 in `examleaf-erp/image` (`FRAPPE_BRANCH=v16.50.0`, `apps.json` as a BuildKit secret). Its tag
+   comes from there: `erpnext.image.tag` has no default and the chart refuses to render ERPNext without it.
+   frappe/helm's chart reads only `erpnext.image.repository`, so that value spells the registry out, and the chart
+   refuses one that is not `<registry>/examleaf-erp`. The pull Secret `ghcr-pull` serves it too
    (`erpnext.imagePullSecrets`). Never `frappe/erpnext:latest`, which is the `develop` branch.
 3. **The Secret** `examleaf-erp`, with `db-root-password` (MariaDB's root, which bench uses to make the site's
    database) and `admin-password` (the site's Administrator), or `secrets.externalSecret.erpKey`:
@@ -471,7 +521,7 @@ public. `erp.allowlist`, or a VPN in front, limits who reaches the host at all. 
 the cluster (`http://examleaf-erpnext.examleaf.svc:8080`, with the site's name as the Host), and ERPNext's webhooks
 reach Django the same way (`http://examleaf-web.examleaf.svc:8000/…`). Django checks ALLOWED_HOSTS, so every webhook
 carries the headers `X-Forwarded-Host: examleaf.in` and `X-Forwarded-Proto: https` (Webhook → Headers), or Django
-answers 400; the website's health check had exactly that fault (TESTING.md section 6).
+answers 400; the website's health check had exactly that fault (TESTING.md section 7).
 
 ### ERPNext's sizing
 
@@ -488,21 +538,27 @@ An estimate for 5 to 15 staff and a few hundred synced orders a day (research-er
 | **ERPNext** | **about 2.2 CPU, 5.8 GiB** | about 9.9 GiB |
 
 About 6 to 8 GiB in steady state; with the platform, a node of 8 vCPU and 16 GB. On kind it stays off (TESTING.md
-section 7: rendered and validated against the API server, not run).
+section 6: rendered and validated against the API server, not run).
 
 ## Differences from docker-compose
 
-- **TLS and the edge.** cert-manager and ingress-nginx in place of Caddy. The controller's own HSTS is off and it
-  neither adds nor removes the applications' headers (Django's and Next's are what the browser gets); it redirects
-  http to https with 308, as Caddy did. There is no `Server` header, as with Caddy. It does not serve HTTP/3 (Caddy
-  answered on 443/udp).
+- **TLS and the edge.** cert-manager and Traefik in place of Caddy. Traefik adds no security headers of its own, so
+  Django's and Next's are what the browser gets, and `strip-server` removes gunicorn's `Server` header as Caddy did.
+  The http redirect keeps the whole path; it answers a GET with 301 where Caddy answered 308. HTTP/3 is off (Caddy
+  answered on 443/udp; Traefik's chart has `ports.websecure.http3.enabled`).
 - **The health gate** is basic auth with `HEALTH_CHECK_TOKEN` as the password and answers 401, where Caddy wanted the
   `X-Health-Token` header and answered 404 ("Health checks" above).
-- **Request IDs.** ingress-nginx sends its own `X-Request-ID` unless the client sent one, which it passes on; Caddy
-  always made a new one. A client's own ID therefore reaches the controller's access log as it was sent, while
-  Django, which takes only a UUID, logs one of its own for such a request.
-- **Limits** are per Ingress (`proxy-body-size`) and per controller (the header timeout); nginx's body timeout is
-  60 seconds between two reads rather than Caddy's five minutes for the whole body.
+- **Request IDs.** Traefik makes none: django-guid makes one per request (and takes a client's own only when it is a
+  UUID), so the access log and Django's log share no ID, where Caddy put its own ID into both.
+- **Body limits.** 10 MB on Django's form and API paths, read whole before gunicorn sees them, as Caddy did. The
+  website's pages and Django's file paths stream instead, because Traefik's Buffering also holds back every response
+  until it is complete: the website's streamed pages would lose their streaming, and pictures, invoices and the
+  course's video would go through Traefik's disk. The clip and revision admin pages stream to Django with no limit at
+  the edge (Caddy's was 500 MB): buffering 500 MB there would let anyone park that much on the controller's disk
+  before Django could refuse it, while streamed, Django refuses a body over 1 MB from anyone but signed-in staff
+  before reading it (`learn.uploads.LargeBodyGuard`), and the clip form checks `LEARN_MAX_UPLOAD_MB` for staff.
+- **Timeouts.** A request has 5 minutes, its headers included (`traefik-values.yaml`); Caddy gave the headers 10
+  seconds and the body 5 minutes.
 - **Migrations** run in web's init container, as compose's web command runs them, and the Celery processes wait for
   them (compose waited for web to be healthy). The readiness probe replaces the start-up `health_check` command.
 - **Beat** cannot overlap: Recreate on rollout and a disruption budget against eviction.

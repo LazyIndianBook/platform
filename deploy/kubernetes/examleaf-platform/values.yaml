@@ -226,7 +226,7 @@ beat:
 # own small environment (docker-compose.yml x-media-env, M5): the database, the queue, the buckets and SECRET_KEY,
 # none of the other secrets.
 mediaWorker:
-  enabled: true
+  enabled: true  # /health/ expects a worker for the media queue (CELERY_HEALTH_QUEUES): off, it answers 500
   replicas: 1
   concurrency: 1
   tmpSize: 4Gi  # FFmpeg's working copies of a clip

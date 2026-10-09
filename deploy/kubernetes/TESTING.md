@@ -1,236 +1,186 @@
 # The chart on kind: what was run and what it showed
 
-One run on 9 October 2026, 03:00–04:15 UTC, on a MacBook (Apple silicon) whose Docker is a Colima VM of 4 CPUs,
-6 GiB of memory and a 60 GiB disk (Docker 29.2.1, kind 0.32.0, Helm 4.2.2, kubectl 1.32.2). The first install ran
-images built at 6bcc174 (the integration branch then) with the chart's first commit; what it found (section 6) was
-fixed, and every later step ran images rebuilt at 3685d9c (the platform at 62cf68e, the frontend fix, the chart's
-fixes). Everything was run from `deploy/kubernetes/`. Secrets were made with random values by `make kind-secrets` and
-are not shown. The cluster, the images and the build cache were deleted at the end.
+Two runs on 9 October 2026 on a MacBook (Apple silicon) whose Docker is a Colima VM of 4 CPUs, 6 GiB of memory and a
+60 GiB disk (Docker 29.2.1, kind 0.32.0, Helm 4.2.2, kubectl 1.32.2), each on a one-node cluster from
+`kind-config.yaml` (`kindest/node:v1.35.5`, ports 80 and 443 of the Mac forwarded to it), each deleted afterwards.
+Everything was run from `deploy/kubernetes/`; Secrets were made with random values by `make kind-secrets` and are not
+shown. kubectl 1.32 talks to a 1.35 server, three minor versions apart (it warns); every command below worked.
 
-kubectl 1.32 talks to a 1.35 server here, three minor versions apart (it warns); every command below worked.
+- **Run 2, on Traefik** (04:48–05:25 UTC), sections 1 to 6: the chart as it is now (e5a4f46), images built at
+  3529b96 (the platform with the Celery health fix).
+- **Run 1, on ingress-nginx** (03:00–04:15 UTC), section 7: the chart's first version, which the second replaced
+  where the controller is concerned; what it showed about everything else still stands.
 
-## 1. Images
-
-```sh
-make images TAG=6bcc174 DOMAIN=examleaf.localhost    # the first install
-make images TAG=3685d9c DOMAIN=examleaf.localhost    # after the fixes (the web image from cache but its last two steps)
-```
-
-Both Dockerfiles built unchanged: `examleaf-web:3685d9c` (1.51 GB; 373 MB as kind stores it) and
-`examleaf-frontend:3685d9c` (333 MB; 86 MB), the frontend built for `https://examleaf.localhost`. From a cold cache the
-web image took about 3 minutes (apt 80 s, pip 80 s, collectstatic 13 s) and the frontend about 3 minutes (npm ci 30 s,
-the Next build the rest).
-
-## 2. The cluster and the operators
+## 1. Images and the cluster
 
 ```sh
-make kind-up                           # 03:18:56 → 03:21:46
+make images TAG=3529b96 DOMAIN=examleaf.localhost     # 04:48 → 04:53
+make kind-up                                           # 04:55:37 → 04:58:26
+make kind-secrets
+make kind-load TAG=3529b96                             # 35 s
+make kind-install TAG=3529b96                          # helm upgrade --install … -f values-kind.yaml --wait: 04:59:51 → 05:03:29
 ```
 
-One node, `kindest/node:v1.35.5`, ports 80 and 443 of the Mac forwarded to it. Installed from their release manifests:
-ingress-nginx controller v1.15.1 (with `hsts=false`, `use-gzip=true`, `client-header-timeout=10` patched into its
-ConfigMap), cert-manager v1.21.2, CloudNativePG 1.30.1, the Barman Cloud plugin v0.15.1, then `kind-extras.yaml`
-(a self-signed ClusterIssuer, and RustFS 1.0.1 in the namespace `s3` standing in for R2).
+Both Dockerfiles built unchanged, now named under the registry: `ghcr.io/lazyindianbook/examleaf-web:3529b96`
+(1.51 GB) and `ghcr.io/lazyindianbook/examleaf-frontend:3529b96` (333 MB), the frontend for
+`https://examleaf.localhost`. `kind-up` installed Traefik 3.7.14 from its Helm chart 41.7.0 into `kube-system` (as k3s
+runs its own) with `traefik-values.yaml` (its arguments showed `respondingTimeouts.readTimeout=300s` and
+`accesslog.format=json`), the node's ports 80 and 443 as hostPorts, and the IngressClass `traefik`; then
+cert-manager v1.21.2, CloudNativePG 1.30.1, the Barman Cloud plugin v0.15.1 and `kind-extras.yaml` (a self-signed
+ClusterIssuer, RustFS 1.0.1 standing in for R2). No ingress-nginx anywhere.
 
-```sh
-make kind-secrets                      # examleaf-env, examleaf-health-auth, examleaf-backup (and rustfs-root)
-make kind-load TAG=6bcc174             # 34 s
-make kind-install TAG=6bcc174          # helm upgrade --install … -f values-kind.yaml --wait: 03:24:30 → 03:27:09
-```
+The install took 3 minutes 38 seconds, most of it pulling PostgreSQL's and the plugin's images again: the frontend and
+the admin stand-in ready at once, the database healthy, web's init container from `waiting for the database` through
+the migrations to gunicorn, worker, beat and the media worker out of their wait, the first base backup completed.
+For the first seconds Traefik logged `middleware "examleaf-examleaf-strip-server@kubernetescrd" does not exist` for
+each router (Helm creates the Ingresses before the Middleware resources); nothing after.
 
-The start, as the pods showed it: the frontend and the admin stand-in ready within 7 seconds; CloudNativePG's initdb
-Job, then the instance (its Barman Cloud sidecar image pulled in 27 s) healthy at 03:26:05; web's init container
-printing `waiting for the database` until then, then running every migration and `bootstrap_roles`
-(`STUDENT: 0 permissions … ADMIN: 351 permissions`); gunicorn ready on `/health/web/` at 03:26:25; worker, beat and
-the media worker out of their wait at 03:27:07–11. The ScheduledBackup's immediate base backup ran from 03:26:14 to
-03:27:17 and completed.
+## 2. Routing, as the Caddyfile has it
 
-```
-cluster.postgresql.cnpg.io/examleaf-db   1   1   Cluster in healthy state   examleaf-db-1
-backup.postgresql.cnpg.io/examleaf-db-daily-20261009032442   examleaf-db   plugin   completed
-Initialized=True ConsistentSystemID=True Ready=True ContinuousArchiving=True LastBackupSucceeded=True
-poddisruptionbudget.policy/examleaf-beat         N/A   0   0
-poddisruptionbudget.policy/examleaf-db-primary   1     N/A 0
-```
-
-## 3. Through the ingress, from the Mac
-
-`curl -sk --resolve examleaf.localhost:443:127.0.0.1 …` (the certificate is the self-signed issuer's):
+`curl -sk --resolve examleaf.localhost:443:127.0.0.1 …` (the certificates are the self-signed issuer's):
 
 | Request | Answer |
 |---|---|
-| `https://examleaf.localhost/` | 200, 71.7 kB (the website's home page, with Django's data) |
-| `/shop/` | 200 |
-| `/cart/` | 200 after the fix (a visitor's own page, as the log-in page is) |
-| `/account/login/` | **503 "ExamLeaf cannot be reached just now"** on the first images, 200 after the fix (section 6) |
+| `https://examleaf.localhost/`, `/shop/`, `/cart/`, `/account/login/` | 200 from the website (the account pages included: run 1's fault is fixed) |
 | `/account/` | 307 to `/account/login/?next=%2Faccount%2F` |
-| `/api/v1/config/` | 200 from Django (JSON, gzip) |
+| `/api/v1/config/`, `/_allauth/browser/v1/config` | 200 from Django |
+| `/api` | 308 to `/api/` (the website adds the slash; Caddy sent it there too) |
+| `/apiary/`, `/healthz/`, `/no-such-page/` | 404 from the website (the paths keep the Caddyfile's trailing slashes) |
 | `/static/admin/css/base.css` | 200 from WhiteNoise |
 | `/admin/` | 302 to `/admin/login/?next=/admin/` |
-| `/health/`, `/health/web/`, `/health` without credentials, or with a wrong password | 401 `Basic realm="ExamLeaf health"` |
-| `/health/` with `-u monitor:<HEALTH_CHECK_TOKEN>` | 200, `{"Database…": "OK", "Cache…": "OK", "Storage…": "OK", "Ping…": "OK"}` |
-| `/healthz/`, `/no-such-page/` | 404 from the website |
-| `http://examleaf.localhost/api/v1/config/` | 308 to `https://examleaf.localhost/api/v1/config` (slash lost), after the fix `…/config/` |
-| `https://admin.examleaf.localhost/api/health/` | 200 (the website's image standing in for the admin panel) |
-| `https://admin.examleaf.localhost/health/` | 401 |
-| POST 9 MB to `/api/v1/contact/` | reaches Django (503: the contact form is not set up) |
-| POST 11 MB to `/api/v1/contact/` | 413 from nginx |
-| POST 11 MB to `/admin/learn/clip/add/` and `/admin/learn/revision/add/` | reaches Django (403, signed out) |
+| `/qr/NOPE.png` | 404 from Django |
+| `/health`, `/health/`, `/health/web/` without credentials, or with a wrong password | 401, `www-authenticate: Basic realm="ExamLeaf health"` |
+| `/health/` with `-u monitor:<HEALTH_CHECK_TOKEN>` | 200, `Database`, `Cache`, `Storage`, `WorkerPing` all `OK` |
+| `https://admin.examleaf.localhost/offline/`, `/` | 200 from the admin stand-in (the website's image) |
+| `https://admin.examleaf.localhost/api/v1/config/`, `/_allauth/browser/v1/config`, `/static/…`, `/admin/` | Django's answers on the admin host; no `DisallowedHost` in Django's log (the host is in `ALLOWED_HOSTS`) |
+| `https://admin.examleaf.localhost/api/v1/staff/` | 404 from Django (the panel's API is not built yet) |
+| `https://admin.examleaf.localhost/health`, `/health/` | 404 from the admin stand-in (`health-hide`) |
 
-**Headers.** The website's answer carries Next's own headers (`strict-transport-security: max-age=31536000`,
-`x-frame-options: DENY`, `x-content-type-options: nosniff`, `referrer-policy: same-origin`,
-`cross-origin-opener-policy: same-origin`, `permissions-policy`, its CSP) and Django's answer Django's, with
-`content-encoding: gzip` from the controller and no `Server` header at all, also on the controller's own 401 and 308.
-With the controller's default `hsts: "true"` switched back on for a moment, Django's header became
-`max-age=31536000; includeSubDomains`; with `hsts: "false"` it is Django's `max-age=31536000` again.
+**http.** GET `http://examleaf.localhost/` → 301 `https://examleaf.localhost/`; `/shop/` → `…/shop/`;
+`/api/v1/config/?x=1&y=2` → `…/api/v1/config/?x=1&y=2`; the admin host the same; a POST → 308. The whole path and
+query are kept.
 
-**Request IDs.** The controller's access log and Django's `X-Request-ID` answer carry the same 32-character ID
-(`ec18de1aeb1133fe1e7f07eda38728d5`); a client's own `X-Request-ID: not-a-uuid` reached the access log as it was
-and Django replaced it with its own.
+**Headers.** Django's answer: `strict-transport-security: max-age=31536000`, `x-frame-options: DENY`,
+`x-content-type-options: nosniff`, `referrer-policy`, `cross-origin-opener-policy`, `permissions-policy` (Django's,
+untouched) and no `Server` header, though gunicorn sends `Server: gunicorn` (asked inside the pod): `strip-server`
+removed it. The website's answer: Next's headers and its own gzip. `/api/schema/` (208 kB) came back
+`content-encoding: zstd` (`compress`); the 407-byte `/api/v1/config/` uncompressed (Traefik compresses from 1 KiB).
+Django's answers carry its own `x-request-id`; Traefik's access log (JSON) has `ClientHost: 172.18.0.1` (the kind
+network's gateway: on a laptop every request comes from it), the router and the service, and no request ID.
 
-**Client address.** The controller saw every request from 172.18.0.1, the kind network's gateway (Docker's port
-forwarding), so Django counted all of them as one address: on a laptop that is expected; README.md "The ingress
-controller" says what a real node needs.
+## 3. The health gate
 
-## 4. Inside the cluster
+`/health/` six times, 21 seconds apart (past its 20-second cache): `WorkerPing … OK` and 200 every time (run 1 saw
+"No worker for Celery task queue celery" in four of six before 3529b96).
 
-```sh
-kubectl -n examleaf exec deploy/examleaf-web -c web -- python manage.py migrate --noinput   # No migrations to apply.
-kubectl -n examleaf exec deploy/examleaf-web -c web -- env DJANGO_SUPERUSER_EMAIL=admin@examleaf.localhost \
-  DJANGO_SUPERUSER_FULL_NAME="Kind Test" DJANGO_SUPERUSER_PASSWORD=<random> python manage.py createsuperuser --noinput
-kubectl -n examleaf exec deploy/examleaf-web -c web -- python manage.py check --deploy
-```
+**Without its Secret.** `kubectl -n examleaf delete secret examleaf-health-auth`: Traefik logged
+`Error while reading basic auth middleware error="secret 'examleaf/examleaf-health-auth' not found"` and
+`middleware "examleaf-examleaf-health-auth@kubernetescrd" does not exist` for the health routers, and dropped them.
+`/health/`, `/health/web/` and `/health` then answered **404, the website's page**: they fell through to the website's
+router, whose `health-hide` rewrote them. Without that rewrite they would have been open: asked inside the frontend
+pod with the site's host, as Traefik forwards a request, the website's server passed `/health/` to Django and
+answered 200 with the health JSON. With the Secret back, 401 again and 200 with the token.
 
-`check --deploy` stopped at `mail.E001` (the console email backend, which values-kind.yaml leaves) and warned W005
-and W021; with `EMAIL_BACKEND=anymail.backends.amazon_ses.EmailBackend` it gave W005 and W021 only and exited 0, as
-DEPLOYMENT.md section 7 expects.
+## 4. Body limits
 
-- **Celery.** `celery@examleaf-worker-… ready`, `media@examleaf-media-worker-… ready` (queue `media`), beat
-  `scheduler -> django_celery_beat.schedulers.DatabaseScheduler`, `DatabaseScheduler: Schedule changed`.
-  `celery inspect active_queues` listed the queues `celery` and `media`.
-- **Read-only root filesystems.** In web, WeasyPrint drew a PDF with the rupee sign, Assamese and Hindi (7,069
-  bytes in `/tmp`); in the media worker, FFmpeg made a two-second HLS stream in `/tmp`.
-- **Redis.** The queue: `appendonly yes`, `maxmemory-policy noeviction`, its AOF files on the volume. The cache:
-  `maxmemory 67108864` (values-kind.yaml's 64 MB), `allkeys-lru`, `save ""`.
-- **NetworkPolicies** (kindnet enforces them), probed with a throwaway pod opening TCP connections:
+| Body | Answer |
+|---|---|
+| 9 MB POST to `/api/v1/contact/` | Django's own 503 ("The contact form is not set up yet") |
+| 11 MB POST to `/api/v1/contact/`, to `/_allauth/browser/v1/auth/login`, and to `admin.examleaf.localhost/api/v1/contact/` | 413 from Traefik (`body-limit`), Django never asked |
+| 11 MB POST to `/admin/learn/clip/add/` and `/admin/learn/revision/add/` | 403 "Log in first" from Django: streamed, refused before it was read |
+| 11 MB POST to `/shop/` (the website) | 200: no limit at the edge on the website's paths |
 
-  | From | web 8000 | frontend 3000 | redis-queue | redis-cache | PostgreSQL |
-  |---|---|---|---|---|---|
-  | a pod of the release with another component | blocked | blocked | blocked | blocked | blocked |
-  | a pod labelled as the worker | blocked | blocked | open | open | open |
-  | a pod in the namespace `default` | blocked | blocked | blocked | blocked | blocked |
-
-- **The bucket** (listed with boto3 and the backup Secret's keys): `cnpg/examleaf-db/base/20261009T032614/` (the base
-  backup) and the WAL under `cnpg/examleaf-db/wals/`.
-- **Memory** (working sets, crictl): web 200 MiB (one gunicorn process), worker 169, beat 148, media worker 211,
-  frontend 60, admin 50, PostgreSQL 119 and its sidecar 27, each Redis 4; the release about 1.0 GiB, everything in
-  the node 1.8 GiB (kube-system 600 MiB, cert-manager, CloudNativePG, the plugin and the controller 164 MiB, RustFS
-  64 MiB).
+Bodies of 0.1 to 9 MB, three each, to the same not-set-up contact form: 503 seventeen times of eighteen and once a
+502 from Traefik (1 MB), as the first 9 MB request had been. Django answers that form without reading the body, and
+gunicorn closes a connection whose body it has not read, which can cut Traefik off while it still sends; a request
+whose body Django reads is not affected. Any proxy in front of gunicorn meets the same race.
 
 ## 5. Changes on a running release
 
-**Upgrade** to the fixed images and chart (`make kind-install TAG=3685d9c` again): about 30 seconds. Every Deployment
-rolled one new pod at a time; beat's old pod was terminating, with no new one, until it was gone, and there was never
-more than one beat pod. The Celery processes' waits passed at once (no new migration).
+**The admin allowlist.** `--set 'admin.allowlist={203.0.113.0/24}'` made the Middleware
+`ipAllowList: {sourceRange: [203.0.113.0/24]}`: every path of the admin host, Django's included, answered 403 (9
+bytes) while the main host answered 200. With `{172.18.0.0/16}` (the Mac's address as Traefik sees it) the admin
+host answered 200; without the value the Middleware went and the host answered 200.
 
-**The admin allowlist.** `--set admin.allowlist=203.0.113.0/24`: `admin.examleaf.localhost` answered 403 while the
-main host answered 200; with `172.18.0.0/16` the admin host answered 200; with the allowlist removed, 200.
+**Upgrade** with a changed setting (`--set config.LOG_LEVEL=INFO`, so the ConfigMap's checksum rolls every pod),
+which also took the allowlist away: 29 seconds. Every Deployment rolled; a watch every second counted beat's pods,
+and there was never more than one.
 
-**Restore into a new cluster.** The superuser had been made at 03:30:41, after the base backup of 03:27:17, so it
-could only come back through the WAL.
+**Inside the cluster.** `manage.py check --deploy` with a production email backend: W005 and W021 only.
+`createsuperuser --noinput` through `kubectl exec`: `admin@examleaf.localhost` a superuser. The smoke-test CronJob,
+now `manage.py health_check health` against the web Service, completed on its schedule and by hand
+(`WorkerPing … OK`). The NetworkPolicies, probed with throwaway pods: one of the release with another component
+reached nothing; one labelled as the worker reached the two Redis and PostgreSQL but not web or the frontend; the
+controller's namespace and labels changed (kube-system, `app.kubernetes.io/name: traefik`) and the site answered
+through it throughout. The bucket held the base backup `cnpg/examleaf-db/base/20261009T050305/` and seven WAL files;
+the Cluster reported `ContinuousArchiving=True`.
 
-```sh
-helm upgrade examleaf examleaf-platform -n examleaf -f examleaf-platform/values-kind.yaml --set image.tag=3685d9c \
-  --set frontend.image.tag=3685d9c --set admin.image.tag=3685d9c \
-  --set postgres.name=examleaf-db-restore --set postgres.recovery.enabled=true --set postgres.recovery.serverName=examleaf-db \
-  --wait --timeout 15m                                                     # 03:55:03 → 03:56:25
-```
+**Memory** (working sets): web 164 MiB, worker 168, beat 149, media worker 169, frontend 55, admin 47, PostgreSQL 72
+and its sidecar 20, each Redis 3 to 4, Traefik 30 (ingress-nginx used 64); the release 851 MiB, the node 1.8 GiB in
+all (2.4 GiB with the page cache).
 
-The new Cluster recovered from the bucket (`examleaf-db-restore-1`, timeline 2, out of recovery), with
-`admin@examleaf.localhost | 2026-10-09 03:30:41` and 174 migrations in it; every pod of the site restarted with
-`DATABASE_URL` on `examleaf-db-restore-rw`, `/health/` answered OK, the new cluster took its own base backup and
-archived under `cnpg/examleaf-db-restore/` beside the old one's files. The old Cluster stayed until
-`kubectl delete cluster examleaf-db`.
+## 6. ERPNext and the other options, checked without running them
 
-**Eviction.** `kubectl drain … --pod-selector=app.kubernetes.io/component=beat --dry-run=server` was refused
-(`Cannot evict pod as it would violate the pod's disruption budget`); the same for the worker was allowed.
+ERPNext wants 6 to 8 GiB and the laptop had about 3 GB to spare, so it stayed off. With mariadb-operator 26.10.1's CRDs
+applied (CRDs only), `helm install erpcheck … --dry-run=server --set erpnext.enabled=true --set
+erpnext.image.tag=16.50.0-test --set 'erp.allowlist={10.0.0.0/8}' …` was accepted by the API server: frappe/helm's
+Deployments with `ghcr.io/lazyindianbook/examleaf-erp:16.50.0-test`, the MariaDB, its PhysicalBackup, the
+site-backup CronJob, the `erp-headers` and `erp-allowlist` Middlewares and the ERP's Ingress. Without
+`erpnext.image.tag`, and with `registry` changed but not `erpnext.image.repository`, the chart refused to render, as
+it should. The default values with every optional part on (the autoscalers, the admin with an allowlist, beat off,
+the smoke test, backups to an R2 endpoint with `encryption: aws:kms`) were accepted the same way, and the ObjectStore
+CRD lists `AES256` and `aws:kms` for `encryption`. `helm lint` and `helm template` pass with the default values and
+with values-kind.yaml (`make lint`).
 
-**The shop's clean-up CronJob** (rendered with `beat.enabled=false`, applied, run once with
-`kubectl create job --from=cronjob/examleaf-shop-clean-up`): completed.
+## 7. Run 1, on ingress-nginx
 
-**Uninstall.** `helm uninstall examleaf` removed the Deployments, Services and Ingresses and kept the Cluster
-(still healthy), `examleaf-media` and `examleaf-redis-queue`.
+The same suite on the chart's first version (ingress-nginx controller v1.15.1, images at 6bcc174, then 3685d9c). Its
+routing results are replaced by section 2; the rest did not depend on the controller and still stands:
 
-## 6. What the run found, and what changed
+- **A point-in-time restore**: a row written after the base backup came back in a new Cluster made from the bucket
+  (`helm upgrade --set postgres.name=examleaf-db-restore --set postgres.recovery.enabled=true --set
+  postgres.recovery.serverName=examleaf-db`, 82 seconds); every pod moved to the new `DATABASE_URL`; the new cluster
+  archived under its own name; the old one stayed until deleted.
+- **Eviction**: a server-side dry-run drain of beat was refused (`Cannot evict pod as it would violate the pod's
+  disruption budget`), the worker's allowed.
+- **The shop's clean-up CronJob**, rendered with `beat.enabled=false`, completed when run.
+- **Uninstall** kept the Cluster, `examleaf-media` and `examleaf-redis-queue`.
+- **Read-only root filesystems**: WeasyPrint drew a PDF with the rupee sign, Assamese and Hindi; FFmpeg made an HLS
+  stream; Redis kept compose's settings (AOF and noeviction for the queue, allkeys-lru with no saving for the cache).
 
-1. **The website's account pages answered 503.** `src/proxy.ts` asks Django's `/health/web/` before a visitor's own
-   page, with no forwarded headers; with `DEBUG=0` Django refused the internal host (`Invalid HTTP_HOST header:
-   'examleaf-web:8000'`, 400) and the frontend took Django for down. The same happens under docker-compose
-   (`web:8000`); development, CI and Playwright run with `DEBUG=1`, which allows local hosts. The health check now
-   sends the forwarded headers every other server-side call sends (commit "Frontend: the proxy's health check names
-   the site …"; Vitest 180 of 180, ESLint, Prettier and tsc clean, the new assertion fails against the old proxy).
-2. **ingress-nginx's https redirect dropped a trailing slash**: `preserve-trailing-slash: "true"` on every Ingress.
-   A change of that annotation alone does not reload ingress-nginx 1.15.1 (its comparison of the rewrite settings
-   leaves the field out): on this already-running controller it took effect after `kubectl -n ingress-nginx rollout
-   restart deployment ingress-nginx-controller`. A new install has it from the start.
-3. **gunicorn 26 logged `Control server error: [Errno 30] Read-only file system: '/home/examleaf'`** at every
-   start (its new control socket under `$HOME`; under compose the same call fails for want of the home directory):
-   `--no-control-socket` in `GUNICORN_CMD_ARGS`.
+What run 1 found, and what changed because of it:
+
+1. **The website's account pages answered 503**: `src/proxy.ts` asked Django's `/health/web/` with no forwarded
+   headers, and with `DEBUG=0` Django refused its internal host (400). Fixed in the frontend (2a41671), with a test.
+2. **The https redirect dropped a trailing slash** (ingress-nginx): run 2's redirect keeps it.
+3. **gunicorn 26 logged a control-socket error** at every start on the read-only root: `--no-control-socket`.
 4. **fontconfig had no writable cache** for the PDFs: `XDG_CACHE_HOME=/tmp/.cache`.
-5. **Celery warned that it might run as root**: `runAsGroup: 1000` is not a group of examleaf-web's image (examleaf
-   is 999). The pods now take each image's primary group (`uid=1000(examleaf) gid=999(examleaf) groups=999,1000`).
-6. **The first wait for the migrations took two minutes** in worker and beat: a connection the starting database
-   never answered held it for TCP's retries. Each attempt is now cut at 30 seconds.
-7. **The smoke test failed three scheduled runs of three** with `No worker for Celery task queue celery` while both
-   workers ran, and `/health/` said the same in four asks of six: the ping stops at the first answer (`limit=1` in
-   `examleaf/urls.py`), and when that is the media worker's the default queue looks unserved (DEPLOYMENT.md section 7
-   knows it). The CronJob now checks `/health/web/` and the workers' queues itself; its manual runs passed
-   (`queues with a worker: ['celery', 'media']`).
-
-## 7. ERPNext, checked without running it
-
-The laptop had about 3 GB of memory to spare while other work ran, and ERPNext wants 6–8 GiB, so it stayed off. Its
-part of the chart was rendered (`helm template … --set erpnext.enabled=true`: frappe/helm's seven Deployments, two
-Valkey, the configure Job; this chart's MariaDB, PhysicalBackup, site-backup CronJob, header ConfigMap, Ingress and
-NetworkPolicies; the probes on `/api/method/ping` with the site's Host and no `tcpSocket`) and sent to the API server
-as a dry run after installing mariadb-operator 26.10.1's CRDs only:
-
-```sh
-kubectl apply --server-side -f https://github.com/mariadb-operator/mariadb-operator/releases/download/mariadb-operator-crds-26.10.1/crds.yaml
-helm install erpcheck examleaf-platform -n examleaf --dry-run=server -f examleaf-platform/values-kind.yaml … \
-  --set erpnext.enabled=true --set erpnext.image.tag=16.50.0-test --set erpnext.dbHost=erpcheck-erp-db …
-```
-
-It was accepted, ingress-nginx's admission webhook included. The default values with every optional part on
-(autoscalers, the admin with an allowlist, beat off, the smoke test, backups to an R2 endpoint) were accepted the
-same way. `helm template -s charts/erpnext/templates/job-migrate-site.yaml` and `-s …/job-create-site.yaml` rendered
-the Jobs README.md applies (`bench new-site … --install-app=erpnext --install-app=india_compliance --install-app=hrms
---install-app=offsite_backups --install-app=examleaf_erp`, the passwords from `examleaf-erp`).
+5. **Celery warned that it might run as root** (`runAsGroup: 1000` is not examleaf's group): each image's own group.
+6. **The first wait for the migrations took two minutes**: each attempt is cut at 30 seconds.
+7. **`/health/`'s Celery check flapped** in four of six asks: fixed in the backend (3529b96); the smoke test asks
+   `/health/` again.
 
 ## 8. Not tested, and why
 
 - **Let's Encrypt and real DNS**: kind has neither; the certificates came from the self-signed issuer through the same
-  cert-manager annotations.
-- **Cloudflare R2 itself**: RustFS stood in (the plugin's configuration differs only in the endpoint and keys); the
-  checksum variables that R2 needs were set but could not be proven necessary or sufficient here.
-- **ExternalSecret mode and the autoscalers' scaling**: no External Secrets Operator or metrics-server on kind; both
-  were rendered, and the autoscalers passed the server dry run (the ExternalSecrets were only rendered).
-- **ERPNext running** (section 7), mariadb-operator's backups, and the site-backup CronJob.
-- **More than one node**: ReadWriteMany media, a database failover with `instances: 3`, a real drain with the
-  maintenance window.
-- **The visitor's address on a real node** (externalTrafficPolicy, the PROXY protocol, Cloudflare in front).
-- **Email, SMS, Razorpay, Google sign-in, Turnstile, Sentry, the buckets for media**: no accounts on a laptop.
-- **A clip through the admin** (the media worker was shown to run FFmpeg on a read-only root, not to process an
-  upload), and `import_papers` (no checkout of the books here).
-- **The admin panel**: its image does not exist yet; the website's image stood in.
+  cert-manager annotation.
+- **Cloudflare R2 itself**, and `postgres.backup.encryption` against a real AWS bucket: RustFS stood in.
+- **k3s's own Traefik and its HelmChartConfig**, ServiceLB and `externalTrafficPolicy: Local`: kind ran Traefik from
+  its chart with hostPorts; the visitor's real address on a real node is untested.
+- **ExternalSecret mode and the autoscalers scaling**: no External Secrets Operator or metrics-server on kind.
+- **ERPNext running** (section 6), mariadb-operator's backups, the site-backup CronJob.
+- **More than one node**: ReadWriteMany media, a database failover, a real drain.
+- **Email, SMS, Razorpay, Google sign-in, Turnstile, Sentry, the media buckets**: no accounts on a laptop.
+- **A clip through the admin**, `import_papers`, and the admin panel itself (its image does not exist; the website's
+  stood in, which answers on the admin host only where Django's paths do not).
 
 ## 9. Cleaning up
 
 ```sh
-make kind-down                     # kind delete cluster --name examleaf-test; docker image prune -f
-docker rmi examleaf-web:3685d9c examleaf-frontend:3685d9c examleaf-frontend-deps:test <kindest/node image>
-docker builder prune -af           # 7.2 GB of this run's build cache
-colima ssh -- sudo fstrim -av      # the VM's freed blocks back to the Mac: 2.8 GiB free before, 18 GiB after
+make kind-down                    # kind delete cluster --name examleaf-test; docker image prune -f
+docker rmi ghcr.io/lazyindianbook/examleaf-web:3529b96 ghcr.io/lazyindianbook/examleaf-frontend:3529b96 <kindest/node image>
+colima ssh -- sudo fstrim -av     # the VM's freed blocks back to the Mac (8.9 GiB)
 ```
 
-Images that other work on this machine had pulled (`frappe/erpnext`, `mariadb`, `valkey`) were left alone.
+The build cache was left this time: another agent's ERPNext image build shares it. Images that other work had
+pulled or built (`frappe/erpnext`, `examleaf/erp-dev`, `mariadb`, `valkey`) were left alone.
