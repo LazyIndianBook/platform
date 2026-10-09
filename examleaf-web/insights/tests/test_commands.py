@@ -27,7 +27,8 @@ def test_every_job_and_the_review_run_on_an_empty_database():
         *["delivery_stats", "offer_effectiveness", "fraud_rules"],
     ]
     assert lines[1].startswith("forecast_demand: run #") and "nothing to work on" in lines[1]
-    assert lines[2] == "advise_print_run: run #3 nothing to work on. No demand forecast yet."
+    assert lines[2].startswith("advise_print_run: run #")  # (its number: PostgreSQL's sequences outlive a test)
+    assert lines[2].endswith(" nothing to work on. No demand forecast yet.")
     assert lines[-1] == "fraud_rules: 0 signals new or grown"
     out = StringIO()
     call_command("insights_review", stdout=out)

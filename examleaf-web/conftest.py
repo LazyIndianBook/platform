@@ -8,6 +8,26 @@ from examleaf.celery import app as celery_app
 from examleaf.views import HealthView
 
 
+@pytest.hookimpl(trylast=True)  # after pytest-django's order: the transactional tests last
+def pytest_collection_modifyitems(items):
+    """The transactional tests that restore the database from its snapshot (serialized_rollback) run before the other
+    transactional ones. Those end with a flush whose post_migrate makes the content types, permissions and role groups
+    again under new ids (PostgreSQL keeps its sequences), and the snapshot's rows then collide with them."""
+
+    def serialized(item):
+        marker = item.get_closest_marker("django_db")
+        return bool(marker and marker.kwargs.get("serialized_rollback"))
+
+    def transactional(item):
+        marker = item.get_closest_marker("django_db")
+        fixtures = getattr(item, "fixturenames", ())
+        return bool(marker and marker.kwargs.get("transaction")) or "transactional_db" in fixtures
+
+    starts = [index for index, item in enumerate(items) if transactional(item)]
+    if starts:
+        items[starts[0] :] = sorted(items[starts[0] :], key=lambda item: not serialized(item))  # (a stable sort)
+
+
 @pytest.fixture(autouse=True)
 def fresh_cache():
     cache.clear()  # allauth's rate limits and axes live in the cache
