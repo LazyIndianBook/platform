@@ -1,0 +1,40 @@
+[project]
+name = "examleaf_erp"
+authors = [
+    { name = "ExamLeaf LLP" }
+]
+description = "ExamLeaf's ERPNext app: GST documents and print formats, the platform's sync API, schools and distributors"
+requires-python = ">=3.14,<3.15"
+readme = "README.md"
+license = { text = "GPL-3.0-only" }
+dynamic = ["version"]
+dependencies = [
+    # frappe, erpnext and india_compliance are installed and managed by bench (tool.bench below)
+]
+
+[build-system]
+requires = ["flit_core >=3.4,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.bench.frappe-dependencies]
+frappe = ">=16.50.0,<17.0.0"
+erpnext = ">=16.50.0,<17.0.0"
+india_compliance = ">=16.10.0,<17.0.0"
+
+[tool.ruff]
+line-length = 120
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["F", "E", "W", "I", "UP", "B", "RUF"]
+ignore = [
+    "B904",  # raise inside except without from: the ApiError replaces the exception on purpose
+    "E501",  # long lines in messages and SQL
+    "RUF001", "RUF002", "RUF003",  # ₹ and typographic quotes in messages and comments
+    "RUF012",  # class-level lists in tests
+]
+typing-modules = ["frappe.types.DF"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

@@ -1,0 +1,26 @@
+[
+ {
+  "description": "Rule 46: taxable supplies",
+  "docstatus": 0,
+  "doctype": "Print Heading",
+  "modified": "2026-10-09 10:39:51.588955",
+  "name": "Tax Invoice",
+  "print_heading": "Tax Invoice"
+ },
+ {
+  "description": "Rule 49: exempt supplies only",
+  "docstatus": 0,
+  "doctype": "Print Heading",
+  "modified": "2026-10-09 10:39:51.618615",
+  "name": "Bill of Supply",
+  "print_heading": "Bill of Supply"
+ },
+ {
+  "description": "Rule 46A: taxable and exempt supplies to an unregistered buyer",
+  "docstatus": 0,
+  "doctype": "Print Heading",
+  "modified": "2026-10-09 10:39:51.624272",
+  "name": "Invoice-cum-Bill of Supply",
+  "print_heading": "Invoice-cum-Bill of Supply"
+ }
+]

@@ -1,0 +1,13 @@
+examleaf_erp: ExamLeaf's ERPNext app
+Copyright (C) 2026 ExamLeaf LLP
+
+This app runs only on ExamLeaf's own servers and is not distributed. It links ERPNext and India Compliance, which are
+licensed under the GNU General Public License version 3; should a copy of this app ever be given to anyone outside
+ExamLeaf LLP, it is distributed under the same licence:
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+License as published by the Free Software Foundation, version 3.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
+warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details:
+https://www.gnu.org/licenses/gpl-3.0.txt

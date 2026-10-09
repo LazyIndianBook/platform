@@ -1,0 +1,178 @@
+{
+ "actions": [],
+ "autoname": "format:ADP-{academic_year}-{#####}",
+ "creation": "2026-10-09 12:00:00.000000",
+ "description": "A school's decision on one subject and class for one academic year (research-b2b-predictive 2.2).",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "customer",
+  "customer_name",
+  "academic_year",
+  "class_level",
+  "subject",
+  "item",
+  "column_break_main",
+  "stage",
+  "expected_copies",
+  "adoption_owner",
+  "decided_on",
+  "lost_reason"
+ ],
+ "fields": [
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "School",
+   "link_filters": "[[\"Customer\",\"customer_group\",\"=\",\"School\"]]",
+   "options": "Customer",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "customer.customer_name",
+   "fieldname": "customer_name",
+   "fieldtype": "Data",
+   "label": "School name",
+   "read_only": 1
+  },
+  {
+   "description": "As 2026-27",
+   "fieldname": "academic_year",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Academic year",
+   "reqd": 1
+  },
+  {
+   "description": "1 to 12",
+   "fieldname": "class_level",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Class",
+   "reqd": 1
+  },
+  {
+   "fieldname": "subject",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Subject",
+   "reqd": 1
+  },
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "label": "Book or course",
+   "options": "Item"
+  },
+  {
+   "fieldname": "column_break_main",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Lead",
+   "fieldname": "stage",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Stage",
+   "options": "Lead\nSample Sent\nEvaluating\nRecommended\nOrdered\nDelivered\nPaid\nLost",
+   "reqd": 1
+  },
+  {
+   "fieldname": "expected_copies",
+   "fieldtype": "Int",
+   "label": "Expected copies"
+  },
+  {
+   "default": "__user",
+   "description": "Who follows the school this year",
+   "fieldname": "adoption_owner",
+   "fieldtype": "Link",
+   "label": "Owner",
+   "options": "User"
+  },
+  {
+   "fieldname": "decided_on",
+   "fieldtype": "Date",
+   "label": "Decided on"
+  },
+  {
+   "depends_on": "eval:doc.stage=='Lost'",
+   "fieldname": "lost_reason",
+   "fieldtype": "Small Text",
+   "label": "Lost reason",
+   "mandatory_depends_on": "eval:doc.stage=='Lost'"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-09 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ExamLeaf ERP",
+ "name": "School Adoption",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "EL Admin",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "EL Sales",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "EL Auditor",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "EL Finance",
+   "share": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "customer_name",
+ "track_changes": 1
+}

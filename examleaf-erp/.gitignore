@@ -1,0 +1,5 @@
+compose/.env
+compose/.sync-keys
+image/.build/
+__pycache__/
+*.pyc

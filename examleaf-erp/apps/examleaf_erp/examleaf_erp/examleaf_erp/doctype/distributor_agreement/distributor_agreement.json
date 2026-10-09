@@ -1,0 +1,211 @@
+{
+ "actions": [],
+ "autoname": "DA-.YYYY.-.####",
+ "creation": "2026-10-09 12:00:00.000000",
+ "description": "A distributor's terms and territory, approved by EL Admin (workflow Distributor Agreement Approval).",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "customer",
+  "customer_name",
+  "item_group",
+  "valid_from",
+  "valid_until",
+  "column_break_main",
+  "discount_percent",
+  "payment_terms",
+  "credit_limit",
+  "sor_allowed",
+  "sor_return_cap_percent",
+  "agreement_file",
+  "section_districts",
+  "districts",
+  "pricing_rule",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Distributor",
+   "link_filters": "[[\"Customer\",\"customer_group\",\"=\",\"Distributor\"]]",
+   "options": "Customer",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "customer.customer_name",
+   "fieldname": "customer_name",
+   "fieldtype": "Data",
+   "label": "Distributor name",
+   "read_only": 1
+  },
+  {
+   "default": "All Item Groups",
+   "fieldname": "item_group",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Line (item group)",
+   "options": "Item Group",
+   "reqd": 1
+  },
+  {
+   "fieldname": "valid_from",
+   "fieldtype": "Date",
+   "label": "Valid from",
+   "reqd": 1
+  },
+  {
+   "fieldname": "valid_until",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Valid until",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_main",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "discount_percent",
+   "fieldtype": "Percent",
+   "label": "Trade discount (%)"
+  },
+  {
+   "fieldname": "payment_terms",
+   "fieldtype": "Link",
+   "label": "Payment terms",
+   "options": "Payment Terms Template"
+  },
+  {
+   "fieldname": "credit_limit",
+   "fieldtype": "Currency",
+   "label": "Credit limit",
+   "options": "INR"
+  },
+  {
+   "default": "0",
+   "fieldname": "sor_allowed",
+   "fieldtype": "Check",
+   "label": "Sale or return allowed"
+  },
+  {
+   "depends_on": "sor_allowed",
+   "fieldname": "sor_return_cap_percent",
+   "fieldtype": "Percent",
+   "label": "Returns cap (% of gross invoiced)",
+   "mandatory_depends_on": "sor_allowed"
+  },
+  {
+   "fieldname": "agreement_file",
+   "fieldtype": "Attach",
+   "label": "Signed agreement"
+  },
+  {
+   "fieldname": "section_districts",
+   "fieldtype": "Section Break",
+   "label": "Districts"
+  },
+  {
+   "fieldname": "districts",
+   "fieldtype": "Table",
+   "label": "Districts",
+   "options": "Distributor Agreement District",
+   "reqd": 1
+  },
+  {
+   "description": "Made on approval from the trade discount",
+   "fieldname": "pricing_rule",
+   "fieldtype": "Link",
+   "label": "Pricing rule",
+   "no_copy": 1,
+   "options": "Pricing Rule",
+   "read_only": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended from",
+   "no_copy": 1,
+   "options": "Distributor Agreement",
+   "print_hide": 1,
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-10-09 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ExamLeaf ERP",
+ "name": "Distributor Agreement",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "EL Admin",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "EL Sales",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "EL Auditor",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "EL Finance",
+   "share": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "customer_name",
+ "track_changes": 1
+}

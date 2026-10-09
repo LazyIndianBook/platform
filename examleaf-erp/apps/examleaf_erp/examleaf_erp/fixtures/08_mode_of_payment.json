@@ -1,0 +1,77 @@
+[
+ {
+  "accounts": [
+   {
+    "company": "ExamLeaf LLP",
+    "default_account": "Razorpay Clearing - EL"
+   }
+  ],
+  "docstatus": 0,
+  "doctype": "Mode of Payment",
+  "enabled": 1,
+  "mode_of_payment": "Razorpay",
+  "modified": "2026-10-09 10:45:02.457345",
+  "name": "Razorpay",
+  "type": "Bank"
+ },
+ {
+  "accounts": [
+   {
+    "company": "ExamLeaf LLP",
+    "default_account": "COD in Transit - EL"
+   }
+  ],
+  "docstatus": 0,
+  "doctype": "Mode of Payment",
+  "enabled": 1,
+  "mode_of_payment": "COD",
+  "modified": "2026-10-09 10:45:02.473742",
+  "name": "COD",
+  "type": "Bank"
+ },
+ {
+  "accounts": [
+   {
+    "company": "ExamLeaf LLP",
+    "default_account": "Main Bank - EL"
+   }
+  ],
+  "docstatus": 0,
+  "doctype": "Mode of Payment",
+  "enabled": 1,
+  "mode_of_payment": "UPI",
+  "modified": "2026-10-09 10:45:02.480973",
+  "name": "UPI",
+  "type": "Bank"
+ },
+ {
+  "accounts": [
+   {
+    "company": "ExamLeaf LLP",
+    "default_account": "Main Bank - EL"
+   }
+  ],
+  "docstatus": 0,
+  "doctype": "Mode of Payment",
+  "enabled": 1,
+  "mode_of_payment": "NEFT/RTGS",
+  "modified": "2026-10-09 10:45:02.492536",
+  "name": "NEFT/RTGS",
+  "type": "Bank"
+ },
+ {
+  "accounts": [
+   {
+    "company": "ExamLeaf LLP",
+    "default_account": "Main Bank - EL"
+   }
+  ],
+  "docstatus": 0,
+  "doctype": "Mode of Payment",
+  "enabled": 1,
+  "mode_of_payment": "Cheque",
+  "modified": "2026-10-09 10:45:02.502416",
+  "name": "Cheque",
+  "type": "Bank"
+ }
+]

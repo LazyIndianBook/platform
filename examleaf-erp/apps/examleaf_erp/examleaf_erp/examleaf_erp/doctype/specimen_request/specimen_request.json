@@ -1,0 +1,162 @@
+{
+ "actions": [],
+ "autoname": "SPR-.YYYY.-.#####",
+ "creation": "2026-10-09 12:00:00.000000",
+ "description": "Free inspection copies for a teacher or a school, sent on a delivery challan (research 2.2).",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "customer",
+  "contact",
+  "status",
+  "column_break_main",
+  "dispatched_on",
+  "delivery_challan",
+  "follow_up_on",
+  "section_items",
+  "items",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "School or bookseller",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "contact",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Teacher or contact",
+   "options": "Contact"
+  },
+  {
+   "default": "Requested",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Requested\nDispatched\nFollowed Up\nClosed",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_main",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "dispatched_on",
+   "fieldtype": "Date",
+   "label": "Dispatched on"
+  },
+  {
+   "description": "The Delivery Note the copies travel on (Rule 55)",
+   "fieldname": "delivery_challan",
+   "fieldtype": "Link",
+   "label": "Delivery challan",
+   "options": "Delivery Note"
+  },
+  {
+   "fieldname": "follow_up_on",
+   "fieldtype": "Date",
+   "label": "Follow up on"
+  },
+  {
+   "fieldname": "section_items",
+   "fieldtype": "Section Break",
+   "label": "Copies"
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "label": "Copies",
+   "options": "Specimen Request Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-09 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "ExamLeaf ERP",
+ "name": "Specimen Request",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "EL Admin",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "EL Sales",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "EL Auditor",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "EL Finance",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "EL Packer",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
