@@ -103,3 +103,8 @@ def test_timeouts_5_seconds_to_connect_and_20_for_the_answer_or_the_callers(echo
 def test_a_file_is_described_not_copied():
     assert excerpt(b"%PDF-1.7 binary") == "[PDF, 15 bytes]"
     assert excerpt("plain text with 9864012345") == "plain text with ******2345"
+
+
+def test_secrets_never_reach_the_log():
+    logged = excerpt({"email": "api@examleaf.in", "password": "hunter2-hunter2", "token": "eyJhbGciOi", "id": 7})
+    assert "hunter2" not in logged and "eyJ" not in logged and '"password":"[secret]"' in logged and '"id":7' in logged

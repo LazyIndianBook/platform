@@ -1,8 +1,8 @@
 """What the call log (IntegrationCall.excerpt) and the dead-letter list (IntegrationFailure.args) may keep of a request
-or an answer: no personal data. A phone number keeps its last four digits, an email address its first letter and its
-domain, a name goes, an address is reduced to its PIN code, a proof of delivery (a photograph, a signature) goes; the
-rest of a JSON body stays, cut to EXCERPT characters. Keys decide first (Shiprocket's field names), then a pattern
-catches a phone number or an email address under any other key."""
+or an answer: no secret and no personal data. A password, token or key goes; a phone number keeps its last four
+digits, an email address its first letter and its domain, a name goes, an address is reduced to its PIN code, a proof
+of delivery (a photograph, a signature) goes; the rest of a JSON body stays, cut to EXCERPT characters. Keys decide
+first (Shiprocket's field names), then a pattern catches a phone number or an email address under any other key."""
 
 import json
 import re
@@ -11,6 +11,7 @@ EXCERPT = 1000
 PHONE = re.compile(r"(?<!\d)(?:\+?91[\s-]?|0)?[6-9]\d{2}(?:[\s-]?\d){7}(?!\d)")  # 98640 12345, 986-401-2345
 EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 PIN = re.compile(r"(?<!\d)[1-9]\d{5}(?!\d)")
+SECRET_KEYS = ("password", "token", "secret", "api_key", "apikey", "authorization", "otp")  # first: never kept
 PHONE_KEYS = ("phone", "mobile", "contact")
 EMAIL_KEYS = ("email",)
 NAME_KEYS = ("customer_name", "last_name", "first_name", "consignee_name", "consignee", "delivered_to", "name")
@@ -42,6 +43,8 @@ def scrub(text):
 
 def _key_kind(key):
     key = str(key).lower()
+    if any(name in key for name in SECRET_KEYS):
+        return "secret"
     if key.endswith(KEEP_KEYS) or key in KEEP_KEYS:
         return "keep"
     for kind, names in (
@@ -66,6 +69,8 @@ def redact(value, key=""):
         return [redact(item, key) for item in value]
     if value is None or isinstance(value, bool) or kind == "keep":
         return value
+    if kind == "secret":
+        return "[secret]"
     if kind == "proof":
         return "[proof]" if value else value
     if kind == "phone":

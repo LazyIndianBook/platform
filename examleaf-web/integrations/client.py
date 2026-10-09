@@ -62,6 +62,7 @@ class Client:
     def __init__(self, account, transport=None, force=False):
         """`force`: call even while the circuit is open or the account disabled (staff's connection test)."""
         self.account, self.transport, self.force = account, transport, force
+        self.admitted = False  # within a call the circuit let through: its log-in for a token goes too
 
     def headers(self):
         return {}
@@ -77,9 +78,18 @@ class Client:
         """Call the provider: the decoded JSON answer (None when empty), or the response itself with `raw` (a file).
         `path` is relative to base_url, or a whole URL (a label's file); `timeout` in seconds replaces both
         timeouts. Raises CircuitOpen without calling while the circuit says wait."""
-        if not self.force and not self.account.allows_call():
+        if not (self.force or self.admitted or self.account.allows_call()):
             state = self.account.get_circuit_state_display() if self.account.enabled else "disabled"
             raise CircuitOpen(f"{self.account}: no call made ({state})", account=self.account)
+        outer, self.admitted = not self.admitted, True
+        try:
+            headers = self.headers() if auth else None  # may log in for a token first, as part of this call
+            return self.send(method, path, operation, json, params, timeout, headers, raw)
+        finally:
+            if outer:
+                self.admitted = False
+
+    def send(self, method, path, operation, json, params, timeout, headers, raw):
         url = urlsplit(path)
         logged = f"{url.netloc}{url.path}" if url.netloc else url.path
         call = IntegrationCall(account=self.account, operation=operation, method=method, path=logged[:300])
@@ -87,9 +97,7 @@ class Client:
         limits = httpx.Timeout(timeout) if timeout else self.timeout()
         try:
             with httpx.Client(base_url=self.base_url, timeout=limits, transport=self.transport) as http:
-                response = http.request(
-                    method, path, json=json, params=params, headers=self.headers() if auth else None
-                )
+                response = http.request(method, path, json=json, params=params, headers=headers)
         except httpx.HTTPError as error:  # connection refused or reset, DNS, timeouts, protocol errors
             problem = f"{type(error).__name__}: no answer"
             self._log(call, started, problem, json, None)
