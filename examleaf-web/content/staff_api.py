@@ -357,22 +357,25 @@ class ContentPaperDetailSerializer(ContentPaperSerializer):
 
     class Meta(ContentPaperSerializer.Meta):
         fields = [*ContentPaperSerializer.Meta.fields, "header_json", "tree"]
-        extra_kwargs = {"is_sample": {"required": False}}
-        validators = []  # one open sample per book: validate() says so in words
+        # on the site or not, the open sample or not: POST …/publish/ (staff.publish_paper), never the editor's PATCH
+        read_only_fields = [*ContentPaperSerializer.Meta.read_only_fields, "is_published", "is_sample"]
+        validators = []  # the one open sample per book is the publish action's to keep
 
     @extend_schema_field(ContentTreeQuestionSerializer(many=True))
     def get_tree(self, paper):
         rows = paper.questions.select_related("solution").order_by("order", "pk")
         return ContentTreeQuestionSerializer(rows, many=True).data
 
+
+class PaperPublishSerializer(serializers.Serializer):
+    is_published = serializers.BooleanField(required=False, help_text="on the site, or off it")
+    is_sample = serializers.BooleanField(
+        required=False, help_text="the book's open sample (its solutions need no account); the book's other one stops"
+    )
+
     def validate(self, attrs):
-        paper = self.instance
-        if attrs.get("is_sample") and paper is not None:
-            others = Paper.objects.filter(book=paper.book, is_sample=True).exclude(pk=paper.pk)
-            if others.exists():
-                raise serializers.ValidationError(
-                    {"is_sample": ["Another paper of this book is its open sample: untick that one first."]}
-                )
+        if not attrs:
+            raise serializers.ValidationError({"non_field_errors": ["Say is_published, is_sample or both."]})
         return attrs
 
 
@@ -381,7 +384,8 @@ class PaperViewSet(
 ):
     """Papers by code (filters subject, board, class_level, book, tier, is_published, changed, q); one with its
     questions and solutions as a tree; its QR code. Publishing or unpublishing a paper, or making it the book's open
-    sample, needs staff.publish_paper too. Its code is in its printed QR code: it never changes here."""
+    sample (which the book's other paper then is no longer), is publish/'s (staff.publish_paper), not the PATCH's. Its
+    code is in its printed QR code: it never changes here."""
 
     queryset = Paper.objects.select_related("book__subject")
     filterset_class = PaperFilter
@@ -390,6 +394,7 @@ class PaperViewSet(
     permissions = {
         **dict.fromkeys(["list", "retrieve", "history", "qr"], "content.view_paper"),
         **dict.fromkeys(["partial_update", "restore"], "content.change_paper"),
+        "publish": "staff.publish_paper",
     }
 
     def get_queryset(self):
@@ -412,20 +417,37 @@ class PaperViewSet(
             paper, data=request.data, partial=True, context=self.get_serializer_context()
         )
         data.is_valid(raise_exception=True)
-        values = dict(data.validated_data)
-        user = self.human()
+        return self.change(request, paper, dict(data.validated_data), "changed in the panel")
+
+    @extend_schema(request=PaperPublishSerializer, responses=ContentPaperDetailSerializer)
+    @action(detail=True, methods=["post"], filter_backends=[])
+    def publish(self, request, *args, **kwargs):
+        """The paper on the site or off it (every solution behind its printed code with it), and the book's open
+        sample or not: made the sample, it stops being the book's other paper's (one per book)."""
+        paper = self.get_object()
+        asked = PaperPublishSerializer(data=request.data)
+        asked.is_valid(raise_exception=True)
+        return self.change(request, paper, dict(asked.validated_data), "published in the panel")
+
+    def change(self, request, paper, values, reason):
+        """The fields changed at once, under the paper's lock, as one audit event (published, unpublished or
+        changed); the open sample moved from the book's other paper when this one becomes it."""
         with transaction.atomic():
             paper = Paper.objects.select_for_update().get(pk=paper.pk)
             changes = {field: [getattr(paper, field), value] for field, value in values.items()
                        if getattr(paper, field) != value}  # fmt: skip
-            if {"is_published", "is_sample"} & set(changes) and not user.has_perm("staff.publish_paper", paper):
-                raise exceptions.PermissionDenied(
-                    "You need the permission staff.publish_paper (Publish and unpublish papers)."
-                )
+            if changes.get("is_sample", [None, False])[1]:
+                others = Paper.objects.select_for_update().filter(book_id=paper.book_id, is_sample=True)
+                for other in others.exclude(pk=paper.pk):
+                    other.is_sample = False
+                    other._change_reason = f"the open sample moved to {paper.code}"
+                    other.save(update_fields=["is_sample"])
+                    audit.record("content.paper_changed", request=request, target=other,
+                                 changes={"is_sample": [True, False]})  # fmt: skip
             for field, (_, value) in changes.items():
                 setattr(paper, field, value)
             if changes:
-                paper._change_reason = "changed in the panel"
+                paper._change_reason = reason
                 paper.save()
                 published = changes.get("is_published")
                 verb = "published" if published and published[1] else "unpublished" if published else "changed"

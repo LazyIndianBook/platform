@@ -137,6 +137,7 @@ ENDPOINTS = [
     ("get", "content/papers/", "content.view_paper"),
     ("get", "content/papers/{paper}/", "content.view_paper"),
     ("patch", "content/papers/{paper}/", "content.change_paper"),
+    ("post", "content/papers/{paper}/publish/", "staff.publish_paper"),
     ("get", "content/papers/{paper}/history/", "content.view_paper"),
     ("post", "content/papers/{paper}/history/{paper_version}/restore/", "content.change_paper"),
     ("get", "content/papers/{paper}/qr/", "content.view_paper"),

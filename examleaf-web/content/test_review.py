@@ -9,8 +9,8 @@ from rest_framework.test import APIClient
 from accounts import roles
 from staff.models import InboxItem
 
-from .conftest import CONTENT, SOLUTION, events, make_paper, make_staff, narrowed, signed_in
-from .models import Book, Question, ReviewTask, Solution
+from .conftest import CONTENT, SOLUTION, events, make_paper, narrowed, signed_in
+from .models import Book, Paper, Question, ReviewTask, Solution
 
 pytestmark = pytest.mark.django_db
 FIXED = SOLUTION.replace("$I = 0.5$ A", "$I = 0.50$ A")
@@ -191,12 +191,26 @@ def test_the_history_reads_as_a_diff_and_a_version_comes_back(editor, reviewer):
     assert signed_in(editor).post(f"{CONTENT}books/{book.pk}/history/999999/restore/", {}).status_code == 404
 
 
-def test_publishing_a_paper_needs_its_own_permission(editor, reviewer):
+def test_publishing_a_paper_is_the_reviewers_and_never_the_editors_patch(editor, reviewer):
     paper = make_paper()
-    refused = signed_in(editor).patch(f"{CONTENT}papers/{paper.pk}/", {"is_published": False}, format="json")
+    url = f"{CONTENT}papers/{paper.pk}/"
+    refused = signed_in(editor).post(f"{url}publish/", {"is_published": False}, format="json")
     assert refused.status_code == 403 and refused.json()["code"] == "permission_denied"
-    assert signed_in(editor).patch(f"{CONTENT}papers/{paper.pk}/", {"title": "E-01"}, format="json").status_code == 200
-    admin = make_staff(roles.ADMIN)
-    done = signed_in(admin).patch(f"{CONTENT}papers/{paper.pk}/", {"is_published": False}, format="json")
-    assert done.status_code == 200 and events("content.paper_unpublished").exists()
+    # the editor's PATCH changes the title and leaves the publication alone
+    edited = signed_in(editor).patch(url, {"title": "E-01", "is_published": False}, format="json")
+    assert edited.status_code == 200 and edited.json()["is_published"] is True
+    assert signed_in(reviewer).patch(url, {"title": "E-02"}, format="json").status_code == 403  # nor edits papers
+    assert signed_in(reviewer).post(f"{url}publish/", {}, format="json").status_code == 400
+    done = signed_in(reviewer).post(f"{url}publish/", {"is_published": False}, format="json")
+    assert done.status_code == 200 and done.json()["is_published"] is False
+    assert events("content.paper_unpublished").get().actor_id == reviewer.pk
     assert APIClient().get(f"/api/v1/papers/{paper.code}/").status_code == 404
+
+
+def test_the_open_sample_moves_to_the_paper_made_it(reviewer):
+    first, second = make_paper(number=1), make_paper(number=2)
+    Paper.objects.filter(pk=first.pk).update(is_sample=True)
+    moved = signed_in(reviewer).post(f"{CONTENT}papers/{second.pk}/publish/", {"is_sample": True}, format="json")
+    assert moved.status_code == 200, moved.content
+    assert list(Paper.objects.filter(is_sample=True).values_list("code", flat=True)) == [second.code]
+    assert {event.target_id for event in events("content.paper_changed")} == {str(first.pk), str(second.pk)}

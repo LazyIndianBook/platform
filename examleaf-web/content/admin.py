@@ -23,8 +23,14 @@ class BookAdmin(SimpleHistoryAdmin):
 class PaperAdmin(SimpleHistoryAdmin):
     list_display = ["code", "book", "tier", "number", "full_marks", "is_published", "is_sample"]
     list_filter = ["book__subject", "tier", "is_published", "is_sample"]
-    list_editable = ["is_published"]
     search_fields = ["code", "title"]
+
+    def get_readonly_fields(self, request, obj=None):
+        """On the site or not, the open sample or not: a publisher's (staff.publish_paper), as in the panel."""
+        fields = list(super().get_readonly_fields(request, obj))
+        if not request.user.has_perm("staff.publish_paper"):
+            fields += ["is_published", "is_sample"]
+        return fields
 
 
 class PanelOwned:
