@@ -766,7 +766,7 @@ CELERY_BEAT_SCHEDULE.update(
 # set the copies for sale (off: shadow mode, differences only reported). All off by default. A row is dead after
 # ERP_MAX_ATTEMPTS tries; ERP_WAREHOUSE is the storefront's warehouse in ERPNext; ERP_ALERT_EMAILS get the nightly
 # reconciliation's differences; ERP_MODE=fake answers from an in-memory ERPNext (development); ERP_INSTANCE_PREFIX goes
-# before the idempotency keys when two platforms send to one ERPNext site.
+# before the idempotency keys (not the references: each platform sends to its own ERPNext site).
 INSTALLED_APPS += ["erp"]
 ERP_MODE = env("ERP_MODE", default="erpnext")
 if ERP_MODE not in ("erpnext", "fake"):

@@ -5,6 +5,29 @@ commits are in `git log` (phase 4: abffe6f and e5abda5; phase 5 A and B with the
 and E: 4e30e59; the redesign's stage 2 so far: ba0b9dd). Details of each feature are in README.md; the numbers of the
 tests are those of `pytest` at the end of the phase.
 
+## Phase B, ERPNext in shadow mode (10 October 2026)
+
+The `erp` app had only met the in-memory fake. It now ran in shadow mode against a real ERPNext, the dev stack of
+`examleaf-erp/compose/` standing in for staging: the initial load, orders paid online and by cash on delivery, parcels,
+a refund and a COD remittance mirrored under the platform's numbers, idempotency, the doorbells and the pull, a
+planted difference, dead letters, the rollback by flag and a clean day, each step with its commands, documents and
+times in `erp/SHADOW-RUN.md`. What broke was fixed. 1,519 backend tests pass on SQLite (13 skipped, 3,952 subtests),
+106 of them `erp`'s, 4 new; the Frappe app's 58 (2 new) pass on the stack.
+
+- **A number issued again for another order** (a restored database, a second platform on one site) carried the same
+  reference and was answered as the first order's duplicate, so the second invoice would have been linked to the
+  first one's document: examleaf_erp now answers 409 `conflict` (`order_number`; for a credit note against another
+  invoice, `invoice_number`), a dead letter for staff. The fake refuses the same (`examleaf-erp/API.md` deviation 3).
+- **The pull** no longer reads the storefront's own invoices back over REST (191 needless reads of 192 on its first
+  run; one a document in the parallel run), and mirrors B2B customers as Enabled or Disabled, not "Draft".
+- **`erp_status`** tells its times in India's time, not UTC.
+- **The ERPNext dev stack**: `./dev.sh up` builds its image only when it is missing (a re-pushed base was 1.3 GB on
+  every start); `./dev.sh build` on purpose. The app's webhook test keeps a configured site's own settings.
+- **Documents**: the opening stock goes into ERPNext before the deliveries flow (`erp/README.md`); each platform sends to
+  an ERPNext site of its own, `ERP_INSTANCE_PREFIX` separating keys only (`DEPLOYMENT.md`); ERPNext's in-cluster
+  webhooks need no `X-Forwarded-Proto` (`deploy/kubernetes/README.md`); what the staging site still needs is the
+  record's section 12.
+
 ## Phase B, Tax (9 October 2026)
 
 The storefront's GST was a rate typed on each product, its documents numbered by looking for the last serial in one

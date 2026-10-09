@@ -103,6 +103,20 @@ class TestSyncAPI(IntegrationTestCase):
         )
         self.assertEqual(response["error"]["code"], "conflict")
 
+    def test_a_second_order_under_a_number_is_a_conflict(self):
+        # the shadow run (examleaf-web/erp/SHADOW-RUN.md): a number issued again for another order (a restored
+        # database, a second platform) carries the same reference, and was answered as the first one's duplicate
+        payload = invoice_payload([line(self.book, 1, "299.00")])
+        ok(api.create_sales_invoice(**payload))
+        frappe.db.commit()
+        other = invoice_payload([line(self.book, 3, "299.00")], invoice_number=payload["invoice_number"])
+        other["order_number"] = payload["order_number"][:-1] + ("1" if payload["order_number"][-1] != "1" else "2")
+        response = api.create_sales_invoice(**other)
+        self.assertEqual((response["error"]["code"], response["error"]["field"]), ("conflict", "order_number"))
+        self.assertEqual(frappe.local.response.http_status_code, 409)
+        kept = frappe.db.get_value("Sales Invoice", payload["invoice_number"], ["examleaf_order_no", "grand_total"])
+        self.assertEqual((kept[0], flt(kept[1])), (payload["order_number"], 299.0))
+
     # ---------------------------------------------------------------------------------------------- numbers and kinds
     def test_the_invoice_takes_the_platforms_number_and_passes_india_compliance(self):
         from india_compliance.gst_india.utils import validate_invoice_number
@@ -241,6 +255,16 @@ class TestSyncAPI(IntegrationTestCase):
         self.assertEqual(note.place_of_supply, invoice.place_of_supply)
         self.assertEqual(note.examleaf_order_no, invoice.examleaf_order_no)
         self.assertEqual(sorted(-row.qty for row in note.items), [1, 2])  # two books and the shipping line
+
+    def test_a_credit_note_number_against_another_invoice_is_a_conflict(self):
+        first, second = make_invoice([line(self.book, 1, "299.00")]), make_invoice([line(self.book, 1, "299.00")])
+        frappe.db.commit()
+        note_number = number("CN")
+        ok(self.credit(first, [{"item_code": self.book, "amount": "50.00"}], credit_note_number=note_number))
+        frappe.db.commit()
+        response = self.credit(second, [{"item_code": self.book, "amount": "50.00"}], credit_note_number=note_number)
+        self.assertEqual((response["error"]["code"], response["error"]["field"]), ("conflict", "invoice_number"))
+        self.assertEqual(frappe.db.get_value("Sales Invoice", note_number, "return_against"), first.name)
 
     def test_a_value_only_credit_uses_the_fewest_units(self):
         invoice = make_invoice([line(self.book, 3, "299.00")])

@@ -557,7 +557,7 @@ flag of the same name the panel can set (`staff/README.md`), which wins over the
 | `ERP_MAX_ATTEMPTS` | `10` | no | tries before an outbox row is dead (the delay doubles from a minute, jittered: 10 tries take some 4 to 8 hours) |
 | `ERP_ALERT_EMAILS` | none | recommended | comma-separated addresses for the morning's reconciliation differences (FINANCE) |
 | `ERP_MODE` | `erpnext` | no | `fake`: an in-memory ERPNext (development only) |
-| `ERP_INSTANCE_PREFIX` | empty | when two platforms send to one ERPNext site | goes before every idempotency key (`staging-`), so that a staging copy and production never answer each other's |
+| `ERP_INSTANCE_PREFIX` | empty | no | goes before every idempotency key (`staging-`); it keeps two platforms' keys apart but not their references (`item:1`, `payment:1`: database ids), which would answer each other's on one site, so each platform sends to an ERPNext site of its own (`erp/SHADOW-RUN.md`) |
 | `API_THROTTLE_ERP_EVENTS` | `600/minute` | no | ERPNext's webhook, per client address |
 
 ### Content

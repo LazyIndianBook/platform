@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# The ERPNext development stack (compose.yaml): ./dev.sh up | new-site | test [run-tests args] | restart | login | keys |
-# shell | bench <args> | down | destroy. The site is erp.localhost, served on http://127.0.0.1:8300 (README "Local setup").
+# The ERPNext development stack (compose.yaml): ./dev.sh up | build | new-site | test [run-tests args] | restart | login |
+# keys | shell | bench <args> | down | destroy. The site is erp.localhost, served on http://127.0.0.1:8300 (README "Local
+# setup").
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -49,8 +50,15 @@ case "${1:-}" in
   up)
     ensure_env
     wait_for_memory
+    # the dev image once (./dev.sh build makes it again): BuildKit asks the registry for the base's tag at every build,
+    # and frappe/erpnext pushes its tags again (v16.50.0 did, a 1.3 GB pull: examleaf-web/erp/SHADOW-RUN.md)
+    image=$(compose config --images | grep -m1 '^examleaf/erp-dev:')
+    docker image inspect "$image" >/dev/null 2>&1 || compose build backend
+    if [[ "${2:-}" == "--minimal" ]]; then compose up -d --no-build "${MINIMAL[@]}"; else compose up -d --no-build; fi
+    ;;
+  build)
+    ensure_env
     compose build backend
-    if [[ "${2:-}" == "--minimal" ]]; then compose up -d "${MINIMAL[@]}"; else compose up -d; fi
     ;;
   new-site)
     # each step is skipped when already done, so a failed run can be started again
@@ -102,7 +110,7 @@ json.dump(config, open(path, "w"), indent=1)
   down) compose down ;;
   destroy) compose down -v ;;
   *)
-    echo "usage: ./dev.sh up [--minimal] | new-site | test [args] | restart | login | keys | shell | bench <args> | down | destroy" >&2
+    echo "usage: ./dev.sh up [--minimal] | build | new-site | test [args] | restart | login | keys | shell | bench <args> | down | destroy" >&2
     exit 2
     ;;
 esac

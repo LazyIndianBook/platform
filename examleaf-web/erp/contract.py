@@ -8,7 +8,9 @@ this file.
   Frappe's envelope {"message": <answer>}: {ok: true, name, duplicate, examleaf_ref, log, ...} or, with an HTTP
   status (400, 404, 409, 422, 500), {ok: false, error: {code, message, field}}. The same key with the same body
   answers its first result again (duplicate: true); the same reference under a new key, the short form {ok, name,
-  duplicate: true, docstatus}; the same key with another body is 409 idempotency_key_reused, a bug: never retried.
+  duplicate: true, docstatus}, unless its invoice is another order's (or its credit note another invoice's): 409
+  conflict, a number issued again; the same key with another body is 409 idempotency_key_reused, a bug: never
+  retried.
   Re-reads go through Frappe's REST (GET /api/resource/<Doctype>/<name>) for Sales Invoice, Quotation and Customer;
   stock only through get_stock.
 - The payloads (EVENTS), built from the platform's own documents through the functions their PDFs use
@@ -570,6 +572,12 @@ def doorbell(raw):
     return str(data.get("doctype") or ""), str(data.get("name") or "")
 
 
+def own(doctype, row):
+    """Whether a row of the pull ({name, modified, docstatus, examleaf_ref}) is ERPNext's copy of a storefront
+    invoice or credit note (its examleaf_ref): never B2B (is_b2b), so not read again over REST for nothing."""
+    return doctype == "Sales Invoice" and bool(row.get("examleaf_ref"))
+
+
 def is_b2b(doctype, document):
     """Whether a document read back is B2B, to mirror (the storefront's own invoices and the B2C customer are not)."""
     if doctype == "Sales Invoice":
@@ -584,7 +592,10 @@ def mirror(doctype, document):
     data = {field: document.get(field) for field in MIRROR_FIELDS.get(doctype, ["name", "modified"])}
     if document.get("items"):
         data["items"] = [{field: entry.get(field) for field in MIRROR_ITEM_FIELDS} for entry in document["items"]]
-    status = document.get("status") or {0: "Draft", 1: "Submitted", 2: "Cancelled"}.get(document.get("docstatus"), "")
+    states = {0: "Draft", 1: "Submitted", 2: "Cancelled"}
+    status = document.get("status") or states.get(document.get("docstatus"), "")
+    if doctype == "Customer":  # a master, never submitted (docstatus 0 would read "Draft"): enabled or not
+        status = "Disabled" if document.get("disabled") else "Enabled"
     return str(document.get("examleaf_ref") or ""), str(status), data, str(document.get("modified") or "")
 
 

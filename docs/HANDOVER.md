@@ -22,7 +22,7 @@ ended, what to do next and in which order, and which decisions only the business
 | `examleaf-web/` | Django 6.1 backend: the platform (accounts, content, learn, practice, shop) plus the Phase A apps `staff/`, `shipping/`, `integrations/`, `insights/`, `erp/` | `cd examleaf-web && .venv/bin/python -m pytest -q -p no:cacheprovider` (last runs on the final head: 1,030 passed, 11 skipped on SQLite; 1,040 passed, 1 skipped on PostgreSQL); `ruff check . && ruff format --check .`; `manage.py makemigrations --check` |
 | `examleaf-frontend/` | Next.js 16 public site | `npm run lint && npm run format:check && npm run typecheck && npm test` (180 unit tests); Playwright needs the seeded backend (`scripts/e2e-backend.sh`, README "Tests") |
 | `examleaf-admin/` | Next.js 16 staff console at `admin.<domain>` | same four commands (62 unit tests); `npx playwright test --project=chromium` in mock mode (`STAFF_API_MOCK=1`) or against a seeded Django (its README) |
-| `examleaf-erp/` | ERPNext v16: the private Frappe app `examleaf_erp`, the image build, the dev stack | `cd examleaf-erp/compose && ./dev.sh up && ./dev.sh new-site && ./dev.sh test` (56 tests; needs Docker and about 3 GB RAM); contract in `examleaf-erp/API.md` |
+| `examleaf-erp/` | ERPNext v16: the private Frappe app `examleaf_erp`, the image build, the dev stack | `cd examleaf-erp/compose && ./dev.sh up && ./dev.sh new-site && ./dev.sh test` (58 tests; needs Docker and about 3 GB RAM); contract in `examleaf-erp/API.md` |
 | `deploy/kubernetes/` | Helm umbrella chart `examleaf-platform` (CloudNativePG, Traefik, cert-manager, mariadb-operator and frappe/helm for ERPNext, HA profile, alerts) | `make lint`; `make kind-up && make kind-install` for a one-node test cluster (README.md, TESTING.md records three runs) |
 | `examleaf-web/docker-compose.yml` + `Caddyfile` | the simple production deployment (Caddy, web, worker, beat, media-worker, frontend, optional `admin` profile) | `examleaf-web/DEPLOYMENT.md` |
 
@@ -58,6 +58,9 @@ operations; `DEPLOYMENT.md` the settings table (sections 21 to 24 are the new ap
   12-method idempotent sync API, GST print formats and a hardening bootstrap; the Django outbox relay, signed doorbell
   webhooks with a 15-minute pull, nightly reconciliation, per-flow flags (all off: shadow mode). Ownership: the platform
   keeps B2C customers (never copied), legal invoice numbers, payments, book codes; ERPNext owns stock and the B2B side.
+  Run in shadow mode against a real ERPNext (the dev stack) on 10 October 2026, every flow, the doorbells, idempotency,
+  a planted difference, dead letters and the rollback by flag: `examleaf-web/erp/SHADOW-RUN.md` (what held, the fixes,
+  what the staging site still needs).
 - **Kubernetes**: the chart tested on kind three times (install, routing, health, body limits, backups, point-in-time
   restore, upgrades, network policies, chaos under load with numbers in `deploy/kubernetes/TESTING.md`), HA profile
   (`values-ha.yaml`: replicas, budgets, autoscaling, PgBouncer pooler, replicated PostgreSQL and MariaDB, advisory-locked

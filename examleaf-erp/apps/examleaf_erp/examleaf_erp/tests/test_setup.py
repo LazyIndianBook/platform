@@ -112,22 +112,27 @@ class TestSetup(IntegrationTestCase):
     def test_the_webhooks_are_off_until_configured(self):
         from frappe.integrations.doctype.webhook.webhook import get_webhook_data
 
-        self.assertEqual(frappe.get_all("Webhook", filters={"name": ["like", "EL %"], "enabled": 1}), [])
-        for name in frappe.get_all("Webhook", filters={"name": ["like", "EL %"]}, pluck="name"):
-            hook = frappe.get_doc("Webhook", name)  # the body API.md promises, also for doctypes without examleaf_ref
-            body = get_webhook_data(frappe.new_doc(hook.webhook_doctype), hook)
-            self.assertEqual(sorted(body), ["doctype", "event", "examleaf_ref", "modified", "name"])
-            self.assertEqual((body["doctype"], body["event"]), (hook.webhook_doctype, hook.webhook_docevent))
-        conf = frappe.local.conf
+        # the site's own values put back after (the shadow run's site had its platform configured, and this test
+        # assumed none: examleaf-web/erp/SHADOW-RUN.md)
+        conf, keys = frappe.local.conf, ("examleaf_webhook_base", "examleaf_webhook_secret")
+        saved = {key: conf.pop(key) for key in keys if key in conf}
         try:
+            setup.configure_webhooks()
+            self.assertEqual(frappe.get_all("Webhook", filters={"name": ["like", "EL %"], "enabled": 1}), [])
+            for name in frappe.get_all("Webhook", filters={"name": ["like", "EL %"]}, pluck="name"):
+                hook = frappe.get_doc("Webhook", name)  # the body API.md promises, also for doctypes without a ref
+                body = get_webhook_data(frappe.new_doc(hook.webhook_doctype), hook)
+                self.assertEqual(sorted(body), ["doctype", "event", "examleaf_ref", "modified", "name"])
+                self.assertEqual((body["doctype"], body["event"]), (hook.webhook_doctype, hook.webhook_docevent))
             conf.examleaf_webhook_base, conf.examleaf_webhook_secret = "https://platform.example/erp/hooks/", "s3cret"
             setup.configure_webhooks()
             hook = frappe.get_doc("Webhook", "EL Stock Ledger Entry after_insert")
             self.assertEqual((hook.enabled, hook.request_url, hook.enable_security), (1, conf.examleaf_webhook_base, 1))
             self.assertEqual(hook.get_password("webhook_secret"), "s3cret")
         finally:
-            conf.pop("examleaf_webhook_base")
-            conf.pop("examleaf_webhook_secret")
+            for key in keys:
+                conf.pop(key, None)
+            conf.update(saved)
             setup.configure_webhooks()
 
     def test_user_data_fields_redact_a_b2b_contact(self):

@@ -10,6 +10,7 @@ from django.utils import timezone
 
 from erp.fake import FAKE
 from erp.models import ErpOutbox
+from integrations.models import IntegrationAccount
 from shop.factories import ProductFactory
 from shop.models import BundleItem, Product
 from staff.models import AuditEvent
@@ -93,6 +94,16 @@ def test_status_replay_reconcile_and_pull_when_on(on, book, customer):
     assert "Quotation: 1 row(s)" in run("erp_pull")
     assert "Quotation: 1 row(s)" in run("erp_pull", "--doctype", "Quotation", "--restart")
     assert "Last reconciliation" in run("erp_status")
+
+
+def test_the_status_tells_the_time_in_india(on, book):
+    # the shadow run (SHADOW-RUN.md): a row written at 02:03 in Guwahati was "waiting since 20:33" the day before
+    relay()
+    sent = ErpOutbox.objects.get()
+    ErpOutbox.objects.filter(pk=sent.pk).update(state="pending")
+    said = run("erp_status")
+    assert f"Oldest row waiting: {timezone.localtime(sent.created):%Y-%m-%d %H:%M}" in said
+    assert f"last success {timezone.localtime(IntegrationAccount.objects.get().last_success_at):%Y-%m-%d %H:%M}" in said
 
 
 def test_erpnext_restored_from_a_backup_gets_what_was_sent_since(on, book, customer):

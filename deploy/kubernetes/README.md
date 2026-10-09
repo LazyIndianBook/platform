@@ -818,12 +818,11 @@ a deploy. Both directions stay inside the cluster:
 - **ERPNext to the platform**: its six webhooks post to `examleaf_webhook_base`,
   `http://examleaf-web.examleaf.svc:8000/api/hooks/erp-events/`, signed with the account's webhook token
   (`examleaf_webhook_secret`; both in `site-config.json` above). With ERPNext on, the chart adds web's Service names to
-  `ALLOWED_HOSTS` (DEPLOYMENT.md asks for it), and the NetworkPolicy lets ERPNext's pods reach web. **Open**: Django
-  also redirects a plain-http request to https (`SECURE_SSL_REDIRECT`) unless it carries `X-Forwarded-Proto: https`,
-  and the webhook fixtures send only `Content-Type`, while headers added in Desk are lost at the next `migrate`
-  (Frappe imports the fixtures again). Until `examleaf_erp` adds that header to its webhooks, point
-  `examleaf_webhook_base` at the public `https://examleaf.in/api/hooks/erp-events/`, which Traefik serves from inside
-  the cluster as from outside; the website's health check had the same fault (TESTING.md section 8).
+  `ALLOWED_HOSTS` (DEPLOYMENT.md asks for it), and the NetworkPolicy lets ERPNext's pods reach web. Plain http is
+  enough: the hook's path is exempt from the https redirect (`SECURE_REDIRECT_EXEMPT` in settings.py, since f00d1c7;
+  `examleaf/test_resilience.py`), its HMAC signature being its authentication, so the webhooks need no
+  `X-Forwarded-Proto` header (the fixtures send only `Content-Type`). The ERPNext dev stack's webhooks reached a
+  platform over plain http the same way (`examleaf-web/erp/SHADOW-RUN.md`).
 
 ### ERPNext's sizing
 
