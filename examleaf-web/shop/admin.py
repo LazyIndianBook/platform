@@ -40,6 +40,7 @@ from .models import (
     Collection,
     CollectionItem,
     Coupon,
+    CouponCode,
     CreditNote,
     DocumentSeries,
     HsnCode,
@@ -227,6 +228,23 @@ class SlugHistoryInline(ReadOnlyInline):
     verbose_name_plural = "earlier addresses (they redirect here)"
 
 
+PANEL_FIELDS = ["mrp", "price", "hsn", "tax_treatment", "tax_note", "tax_note_date"]  # the panel's, by permission
+
+
+class PanelOwned:
+    """Made and changed in the panel, through their approval (staff.approvals: coupon.create, coupon.change,
+    offer.create, offer.change): staff see them here, a superuser changes them (Phase B: catalogue)."""
+
+    def has_add_permission(self, request):
+        return request.user.is_superuser
+
+    def has_change_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+
 @admin.register(Product)
 class ProductAdmin(ImportMixin, ExportActionMixin, LoggedExportMixin, admin.ModelAdmin):
     """Products; import and export (ADMIN: shop.import_product, shop.export_product, logged), bulk actions."""
@@ -271,6 +289,20 @@ class ProductAdmin(ImportMixin, ExportActionMixin, LoggedExportMixin, admin.Mode
             return
         books = queryset.exclude(kind__in=[Product.Kind.BUNDLE, Product.Kind.DIGITAL])  # no copies of their own
         self.message_user(request, f"Stock set to {copies} for {books.update(stock=int(copies))} book(s).")
+
+    def get_readonly_fields(self, request, obj=None):
+        """Prices and tax change in the panel's Catalogue (a price through its approval, the tax with
+        staff.change_product_tax): here a superuser's alone (Phase B: catalogue)."""
+        fields = super().get_readonly_fields(request, obj)
+        return fields if request.user.is_superuser else [*fields, *PANEL_FIELDS]
+
+    def has_add_permission(self, request):
+        """New products are made in the panel, with the courier's data and the price through its approval."""
+        return request.user.is_superuser and super().has_add_permission(request)
+
+    def has_import_permission(self, request):
+        """The panel's import (a dry run, then each price through its approval) is staff's; this one a superuser's."""
+        return request.user.is_superuser and super().has_import_permission(request)
 
     def save_model(self, request, obj, form, change):
         if change and "stock" not in form.changed_data:
@@ -354,7 +386,7 @@ class ProductTypeAdmin(admin.ModelAdmin):
 
 
 @admin.register(Coupon)
-class CouponAdmin(admin.ModelAdmin):
+class CouponAdmin(PanelOwned, admin.ModelAdmin):
     list_display = ["code", "kind", "value", "min_order", "valid_from", "valid_until", "uses", "max_uses", "is_active"]
     list_filter = ["is_active", "kind"]
     search_fields = ["code"]
@@ -365,7 +397,7 @@ class CouponAdmin(admin.ModelAdmin):
 
 
 @admin.register(Offer)
-class OfferAdmin(admin.ModelAdmin):
+class OfferAdmin(PanelOwned, admin.ModelAdmin):
     """Automatic discounts, no code needed (RUNBOOK.md "Offers"); the cart applies them after the coupon."""
 
     list_display = ["name", "kind", "value", "scope", "valid_from", "valid_until", "uses", "max_uses", "is_active"]
@@ -382,6 +414,25 @@ class OfferAdmin(admin.ModelAdmin):
     @admin.display(description="used")
     def uses(self, offer):
         return Order.objects.counted().filter(discount_lines__offer=offer).count()
+
+
+@admin.register(CouponCode)
+class CouponCodeAdmin(admin.ModelAdmin):
+    """A school's single-use codes, made by the panel's job (coupon_codes), read here; who used one is its order's."""
+
+    list_display = ["code", "coupon", "note", "created", "used_at"]
+    list_select_related = ["coupon"]
+    search_fields = ["code", "note", "coupon__code"]
+    fields = readonly_fields = ["code", "coupon", "note", "created", "order", "used_at"]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 class ShippingRateForm(forms.ModelForm):
