@@ -17,6 +17,8 @@ from django.db.models import Q
 from django_fsm import can_proceed
 from razorpay.errors import BadRequestError, GatewayError, ServerError, SignatureVerificationError
 
+from examleaf.bulkhead import Bulkhead
+
 from . import services
 from .models import INR, Order, Payment, Refund, WebhookEvent, live_mode, paise
 
@@ -25,6 +27,9 @@ logger = logging.getLogger(__name__)
 # silent Razorpay costs a checkout 3 or 10 seconds and the "could not be reached" answer, never a hung thread. The
 # SDK's own retries stay off (Client.enable_retry): a page retries by the customer's click, a task by Celery.
 TIMEOUT = (3, 10)
+# Razorpay's calls share the providers' half of a process's threads (examleaf/bulkhead.py): over it, a call answers
+# "could not be reached" at once instead of holding a thread every other page needs.
+CALLS = Bulkhead(requests.ConnectionError, "Half of this process's threads are waiting on providers already")
 WEBHOOK_MAX_AGE = timedelta(days=7)  # Razorpay retries a webhook for 24 hours; older signed events are replays
 LINK_DAYS = 15  # a payment link's life, as a quotation's (QuoteRequest.VALID_DAYS)
 API_ERRORS = (requests.RequestException, BadRequestError, GatewayError, ServerError)
@@ -34,8 +39,16 @@ class Unavailable(Exception):
     """Razorpay is not set up or could not be reached; the order stays pending and the page offers a retry."""
 
 
+class Session(requests.Session):
+    """The SDK's HTTP session: every call it makes goes through the bulkhead (CALLS)."""
+
+    def request(self, *args, **kwargs):
+        with CALLS:
+            return super().request(*args, **kwargs)
+
+
 def client():
-    return razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+    return razorpay.Client(session=Session(), auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
 
 
 def test_mode():

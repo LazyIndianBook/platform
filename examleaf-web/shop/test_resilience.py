@@ -16,6 +16,7 @@ from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from accounts.factories import UserFactory
+from examleaf import bulkhead
 from shop import payments, tasks
 from shop.factories import ADDRESS, KEY, SECRET, ProductFactory, make_cart, make_order, verified_user
 from shop.models import Order, Payment, Product, QuoteRequest, Refund, StockAlert
@@ -51,6 +52,23 @@ def test_a_razorpay_that_never_answers_costs_the_timeout_and_the_honest_answer(
     assert answers[0].status_code == 503 and "could not be reached" in answers[0].json()["detail"]
     order.refresh_from_db()
     assert order.status == Order.Status.PENDING  # nothing lost: the customer tries again
+
+
+def test_a_razorpay_call_over_the_providers_half_of_the_threads_answers_at_once(client, within, db):
+    order = make_order((ProductFactory(), 1))
+    Payment.objects.filter(order=order).update(razorpay_order_id=None)
+    taken = [bulkhead.SLOTS.acquire(blocking=False) for _ in range(8)]  # four calls already waiting on providers
+    try:
+        assert sum(taken) == 4  # half of gunicorn's eight threads
+        answers = []
+        assert within(2, lambda: answers.append(client.post(f"/api/v1/orders/t/{order.token}/payment/")))
+        assert answers[0].status_code == 503 and "could not be reached" in answers[0].json()["detail"]
+    finally:
+        for got in taken:
+            if got:
+                bulkhead.SLOTS.release()
+    assert bulkhead.SLOTS.acquire(blocking=False)  # every slot given back
+    bulkhead.SLOTS.release()
 
 
 def test_a_refund_task_meeting_a_silent_razorpay_gives_up_its_try_and_is_retried(

@@ -22,11 +22,16 @@ from django.conf import settings
 from django.utils import timezone
 from django.utils.crypto import salted_hmac
 
+from examleaf.bulkhead import Bulkhead
+
 from .models import SmsLog
 
 logger = logging.getLogger(__name__)
 MSG91 = "https://control.msg91.com/api/v5/"
 TIMEOUT = httpx.Timeout(10, connect=3)  # seconds: 3 to connect, 10 for each read or write (retries: send_sms)
+# MSG91's calls (made in a request only while the queue is down) share the providers' half of a process's threads
+# (examleaf/bulkhead.py): over it, a call fails at once, as MSG91 unreachable.
+CALLS = Bulkhead(httpx.ConnectError, "Half of this process's threads are waiting on providers already")
 KEEP = timedelta(days=90)  # SmsLog rows
 # Limits before SMS_DAILY_CAP (M2), every kind together: per number over the last hour and day, per account over the
 # last day. Then each purpose's share of the day's cap (since midnight, India), so that consent links or order updates
@@ -78,12 +83,13 @@ def msg91(kind, phone, variables):
     refusal too."""
     headers, mobile = {"authkey": settings.MSG91_AUTHKEY}, phone.removeprefix("+")
     template = settings.MSG91_TEMPLATES[kind]
-    if kind == "otp":
-        params = {"template_id": template, "mobile": mobile, "otp": variables["otp"]}
-        response = httpx.post(MSG91 + "otp", params=params, json={}, headers=headers, timeout=TIMEOUT)
-    else:
-        body = {"template_id": template, "short_url": "0", "recipients": [{"mobiles": mobile, **variables}]}
-        response = httpx.post(MSG91 + "flow", json=body, headers=headers, timeout=TIMEOUT)
+    with CALLS:
+        if kind == "otp":
+            params = {"template_id": template, "mobile": mobile, "otp": variables["otp"]}
+            response = httpx.post(MSG91 + "otp", params=params, json={}, headers=headers, timeout=TIMEOUT)
+        else:
+            body = {"template_id": template, "short_url": "0", "recipients": [{"mobiles": mobile, **variables}]}
+            response = httpx.post(MSG91 + "flow", json=body, headers=headers, timeout=TIMEOUT)
     try:
         data = response.json()
     except ValueError:

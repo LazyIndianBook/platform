@@ -67,6 +67,20 @@ def test_a_silent_msg91_costs_its_timeout_and_the_sms_is_tried_again(settings, m
     assert not SmsLog.objects.filter(status=SmsLog.Status.SENT).exists()
 
 
+def test_an_msg91_call_over_the_providers_half_of_the_threads_fails_at_once(settings):
+    from examleaf import bulkhead
+
+    settings.MSG91_TEMPLATES = {kind: f"tpl-{kind}" for kind in settings.SMS_KINDS}
+    taken = [bulkhead.SLOTS.acquire(blocking=False) for _ in range(4)]
+    try:
+        with pytest.raises(httpx.ConnectError, match="waiting on providers"):  # no request made: refused before
+            sms.msg91("otp", "+919864012345", {"otp": "483920"})
+    finally:
+        for got in taken:
+            if got:
+                bulkhead.SLOTS.release()
+
+
 def test_an_sms_task_run_again_does_not_send_again(capsys):
     log = SmsLog.objects.create(kind="otp", phone_hash=sms.phone_hash("+919864012345"), phone_last4="2345")
     for _ in range(2):  # acks_late: the task given to a second worker after the first died with it
