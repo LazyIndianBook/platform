@@ -32,7 +32,8 @@ def test_a_parents_mobile_number_gets_the_link_by_sms(client, settings, capsys):
     assert len(token) <= 30 and re.fullmatch(r"[\w.-]+", token)
     parent, link = Client(), f"/api/v1/parent-consent/{token}/"
     assert parent.get(link).json()["contact"] == "phone"  # the page: "… gave your mobile number"
-    assert parent.get(f"/api/v1/parent-consent/{token[:-1]}x/").status_code == 400  # a changed signature
+    forged = token[:-1] + ("y" if token.endswith("x") else "x")  # a changed signature (never the same one)
+    assert parent.get(f"/api/v1/parent-consent/{forged}/").status_code == 400
     parent.post(link)
     record = ConsentRecord.objects.get(verified_at__isnull=False)
     assert record.method == ConsentRecord.Method.SMS_LINK and not User.objects.get().consent_pending
