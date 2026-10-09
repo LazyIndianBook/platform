@@ -13,6 +13,7 @@ from django.utils import timezone
 from phonenumber_field.phonenumber import to_python as to_phone
 
 from content.models import Board
+from staff.config import site_setting
 
 from . import roles
 from .models import ConsentRecord, User, age_on
@@ -104,7 +105,7 @@ class StudentDetailsForm(forms.Form):
             if value.lower() == (self.cleaned_data.get("email") or "").lower():
                 raise ValidationError("Enter your parent's or guardian's email, not your own.")
             return value.lower()
-        if settings.PARENTAL_CONSENT_MODE == "verified":  # the link goes by SMS: an Indian mobile number
+        if site_setting("PARENTAL_CONSENT_MODE") == "verified":  # the link goes by SMS: an Indian mobile number
             if phone := parent_link_contact(value):
                 return phone
             contact = "email address or mobile number" if settings.SMS_ENABLED else "email address"

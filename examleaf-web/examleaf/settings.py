@@ -732,5 +732,8 @@ CELERY_BEAT_SCHEDULE.update(
     {
         "staff-verify-audit-chain": {"task": "staff.tasks.verify_audit_chain", "schedule": crontab(hour=2, minute=0)},
         "staff-export-audit-log": {"task": "staff.tasks.export_audit_log", "schedule": crontab(hour=6, minute=0)},
+        "staff-expire-access": {"task": "staff.tasks.expire_access", "schedule": crontab(hour=3, minute=15)},
+        "staff-expire-change-requests": {"task": "staff.tasks.expire_change_requests", "schedule": crontab(minute=5)},
+        "staff-watch": {"task": "staff.tasks.watch", "schedule": crontab(minute=35)},
     }
 )

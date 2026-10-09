@@ -1,5 +1,6 @@
-"""/api/: the REST API by version (api/urls.py), its OpenAPI schema and the Swagger UI and Redoc pages, and the
-couriers' webhook (hooks/parcel-events/: shipping/webhooks.py; outside the version, the carrier's address)."""
+"""/api/: the REST API by version (api/urls.py; the staff's: staff/urls.py), its OpenAPI schema and the Swagger UI and
+Redoc pages, and the couriers' webhook (hooks/parcel-events/: shipping/webhooks.py; outside the version, the carrier's
+address)."""
 
 from django.http import JsonResponse
 from django.urls import include, path, re_path
@@ -13,6 +14,7 @@ def not_found(request, *args, **kwargs):
 
 
 urlpatterns = [
+    re_path(r"^(?P<version>v1)/staff/", include(("staff.urls", "staff"))),  # the Admin Control Panel's API
     re_path(r"^(?P<version>v1)/", include(("api.urls", "api"))),
     path("schema/", SpectacularAPIView.as_view(api_version="v1"), name="api-schema"),
     path("docs/", SpectacularSwaggerSplitView.as_view(url_name="api-schema"), name="api-docs"),  # no inline script

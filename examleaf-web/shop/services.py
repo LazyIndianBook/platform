@@ -20,6 +20,7 @@ from django_fsm import can_proceed
 
 from accounts.roles import SALES
 from ops.tasks import queue_email, queue_text_email
+from staff.config import site_setting
 
 from . import invoices, tasks
 from .cart import price
@@ -197,7 +198,7 @@ def create_order(cart, *, user, email, address, method):
     Raises ShopError with what the customer must change first."""
     if method not in CUSTOMER_METHODS:  # "offline" is recorded by staff (record_offline_payment), never chosen
         raise ShopError("Choose online payment or cash on delivery.")
-    if method == Order.Method.COD and not settings.SHOP_COD_ENABLED:
+    if method == Order.Method.COD and not site_setting("SHOP_COD_ENABLED"):  # the panel may switch it
         raise ShopError("Cash on delivery is not available.")
     if method == Order.Method.COD and (problem := cod_problem(user)):
         raise ShopError(problem)

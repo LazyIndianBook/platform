@@ -46,6 +46,7 @@ from practice.forms import AttemptFilter
 from practice.models import Attempt
 from shop.models import INR, ShippingRate
 from shop.views import over_limit
+from staff.config import site_setting
 
 from .auth import check_password
 from .serializers import (
@@ -605,6 +606,13 @@ CONFIG = inline_serializer(
         "web_course": serializers.BooleanField(
             help_text="the revision course's chapter, flash-card and quiz pages on the website; off: the app only"
         ),
+        "maintenance": inline_serializer(
+            "MaintenanceConfig",
+            {
+                "on": serializers.BooleanField(help_text="show the banner; staff may still work"),
+                "banner": serializers.CharField(allow_null=True, help_text="its text; null: none"),
+            },
+        ),
     },
 )
 
@@ -614,7 +622,9 @@ class ConfigView(generics.GenericAPIView):
     (allauth.headless's /_allauth/<client>/v1/config has allauth's own view of them), the bot check, the shop, whether
     the solutions need an account, the parent's consent mode, the support contacts (null while the seller's details
     still hold a [placeholder]), the app's store pages (null until set) and whether the revision course has pages on
-    the website (WEB_COURSE, off by default). Public, cacheable for 5 minutes."""
+    the website (WEB_COURSE, off by default), and maintenance mode with its banner. SHOP_OPEN, SHOP_COD_ENABLED,
+    PARENTAL_CONSENT_MODE, WEB_COURSE and maintenance are the panel's when it has set them (staff.config), the
+    environment's otherwise. Public, cacheable for 5 minutes."""
 
     permission_classes = [permissions.AllowAny]
     authentication_classes = []
@@ -641,6 +651,7 @@ class ConfigView(generics.GenericAPIView):
                     "support": {"email": "help@examleaf.in", "phone": None},
                     "app_links": {"android": "https://play.google.com/store/apps/details?id=…", "ios": None},
                     "web_course": False,
+                    "maintenance": {"on": False, "banner": None},
                 },
             )
         ],
@@ -658,20 +669,24 @@ class ConfigView(generics.GenericAPIView):
                     "turnstile_site_key": settings.TURNSTILE_SITE_KEY if settings.TURNSTILE else None,
                 },
                 "shop": {
-                    "open": settings.SHOP_OPEN,
-                    "cod": settings.SHOP_COD_ENABLED,
+                    "open": site_setting("SHOP_OPEN"),
+                    "cod": site_setting("SHOP_COD_ENABLED"),
                     "cod_max_value": f"{settings.SHOP_COD_MAX_VALUE:.2f}",
                     "currency": INR,
                 },
                 "shipping": ShippingRate.summary(),  # the rates: shipping/
                 "solutions_require_login": settings.SOLUTIONS_REQUIRE_LOGIN,
-                "parental_consent": settings.PARENTAL_CONSENT_MODE,
+                "parental_consent": site_setting("PARENTAL_CONSENT_MODE"),
                 "support": {
                     "email": support_email() or None,  # SUPPORT_EMAIL, else SELLER_EMAIL
                     "phone": None if "[" in seller["phone"] else seller["phone"] or None,
                 },
                 "app_links": {"android": settings.APP_LINK_ANDROID or None, "ios": settings.APP_LINK_IOS or None},
-                "web_course": settings.WEB_COURSE,
+                "web_course": site_setting("WEB_COURSE"),
+                "maintenance": {
+                    "on": site_setting("MAINTENANCE_MODE"),
+                    "banner": site_setting("MAINTENANCE_BANNER") or None,
+                },
             }
         )
         patch_cache_control(response, public=True, max_age=300)

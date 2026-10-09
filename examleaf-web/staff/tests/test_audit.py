@@ -8,6 +8,7 @@ from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 import pytest
+from allauth.account.signals import user_logged_in
 from allauth.mfa.totp.internal.auth import TOTP, format_hotp_value, generate_totp_secret, hotp_value
 from axes.signals import user_locked_out
 from django.contrib.auth.models import Group
@@ -26,7 +27,7 @@ from staff import audit
 from staff.models import GENESIS, AuditEvent, AuditHead, InboxItem
 from staff.tasks import export_audit_log, verify_audit_chain
 
-from .conftest import events, make_staff
+from .conftest import STAFF, events, make_staff, signed_in
 
 pytestmark = pytest.mark.django_db
 BROWSER = "/_allauth/browser/v1"
@@ -264,6 +265,25 @@ def test_the_log_is_fed_by_staff_log_ins_with_an_alert_email_and_log_outs(settin
     assert not events("authn_login_fail", actor_id=student.pk).exists()  # customers' failures stay axes'
 
 
+def test_a_break_glass_log_in_alerts_the_owners_and_every_event_of_its_session_is_marked(
+    settings, django_capture_on_commit_callbacks
+):
+    settings.STAFF_ALERT_EMAILS = ["owner@examleaf.in"]
+    sealed, owner = make_staff(is_superuser=True), make_staff(roles.OWNER)
+    with django_capture_on_commit_callbacks(execute=True):
+        user_logged_in.send(sender=type(sealed), request=signed_in_request(sealed), user=sealed)
+        user_logged_in.send(sender=type(owner), request=signed_in_request(owner), user=owner)
+    alerts = [message.subject for message in mail.outbox if message.to == ["owner@examleaf.in"]]
+    assert alerts == [f"[ExamLeaf] [staff alert] Break-glass account #{sealed.pk} signed in"]  # the founder's: none
+    client = signed_in(sealed)
+    client.get(STAFF + "audit/")  # every request of the session: its events carry the mark
+    client.post(f"{STAFF}users/{UserFactory().pk}/unlock/")
+    marked = events(actor_id=sealed.pk)
+    assert marked.count() == 3 and all(event.break_glass for event in marked)  # log-in, the read, the unlock
+    assert not events(actor_id=owner.pk).filter(break_glass=True).exists()  # the founder's own account is not one
+    assert signed_in(make_staff(roles.AUDITOR)).get(STAFF + "audit/", {"break_glass": "true"}).json()["results"]
+
+
 def test_a_staff_lock_out_is_logged_and_alerts_the_owners(settings, django_capture_on_commit_callbacks):
     settings.STAFF_ALERT_EMAILS = ["owner@examleaf.in"]
     staff = make_staff(roles.SALES)
@@ -309,3 +329,34 @@ def test_an_export_from_the_admin_is_an_event(rf):
     export = events("data_export").get()
     assert export.details == {"model": "accounts.user", "rows": 1, "where": "admin"}
     assert export.permission == "accounts.export_user"
+
+
+def test_only_auditors_and_owners_read_the_log_and_each_read_is_an_event():
+    audit.record("user.unlocked")
+    auditor = make_staff(roles.AUDITOR)
+    assert signed_in(make_staff(roles.ADMIN)).get(STAFF + "audit/").status_code == 403  # AU-9(4)
+    page = signed_in(auditor).get(STAFF + "audit/", {"action": "user.unlocked"}).json()
+    assert [row["action"] for row in page["results"]] == ["user.unlocked"] and "next" in page
+    read = events("audit.read", actor_id=auditor.pk).get()
+    assert read.details == {"filters": {"action": "user.unlocked"}}
+    event = AuditEvent.objects.filter(action="user.unlocked").get()
+    assert signed_in(auditor).get(f"{STAFF}audit/{event.pk}/").json()["hash"] == event.hash
+    assert events("audit.read", actor_id=auditor.pk).count() == 2
+
+
+def test_the_log_exports_as_json_lines_and_above_the_limit_becomes_a_job_an_approver_passes(settings):
+    for n in range(3):
+        audit.record("user.unlocked", reason=f"#{n}")
+    auditor = make_staff(roles.AUDITOR)
+    response = signed_in(auditor).post(STAFF + "audit/export/", {"filters": {"action": "user.unlocked"}}, format="json")
+    assert response.status_code == 200 and response["Content-Type"] == "application/x-ndjson"
+    rows = [json.loads(line) for line in b"".join(response.streaming_content).decode().splitlines()]
+    assert [row["reason"] for row in rows] == ["#0", "#1", "#2"] and all(row["hash"] for row in rows)
+    assert events("audit.exported").get().details["rows"] == 3
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setitem(roles.ROLE_LIMITS[roles.AUDITOR], "export_rows", 2)
+        asked = signed_in(auditor).post(STAFF + "audit/export/", {"filters": {}}, format="json")
+        assert asked.status_code == 202 and asked.json()["kind"] == "audit_export"  # a job (test_jobs.py)
+        assert asked.json()["state"] == "queued" and asked.json()["change_request_id"]  # ADMIN approves it first
+    typo = signed_in(auditor).post(STAFF + "audit/export/", {"filters": {"acton": "user.unlocked"}}, format="json")
+    assert typo.status_code == 400 and "acton" in typo.json()["filters"]  # a typo never widens an export

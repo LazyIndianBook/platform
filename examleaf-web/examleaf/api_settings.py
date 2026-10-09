@@ -108,6 +108,11 @@ SPECTACULAR_SETTINGS = {
         {"name": "learn", "description": "The revision course: chapters, clips, quiz, flash cards, the plan."},
         {"name": "site", "description": "What the server has switched on, and the legal pages."},
         {"name": "insights", "description": "Staff only: forecasts, print runs, item analysis, cohorts, fraud."},
+        {
+            "name": "staff",
+            "description": "The Admin Control Panel (staff only: the panel's session or an API key): the manifest, "
+            "inbox, audit log, approvals, settings and flags, staff and customers, data requests, incidents, system.",
+        },
     ],
     "COMPONENT_SPLIT_REQUEST": True,
     "SWAGGER_UI_DIST": "SIDECAR",
@@ -135,4 +140,28 @@ REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"].update(
 )
 SPECTACULAR_SETTINGS["ENUM_NAME_OVERRIDES"].update(  # "kind" with choices: products, clips, quiz items
     ClipKindEnum="learn.models.Clip.Kind", QuizItemKindEnum="learn.models.QuizItem.Kind"
+)
+
+# The staff API (staff/api.py): per member of staff (or API key); searches of customers, reveals of their details,
+# exports, money actions and approvals, and the invitation links (per client address).
+REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"].update(
+    staff=_env("STAFF_THROTTLE", default="600/minute"),
+    staff_search=_env("STAFF_THROTTLE_SEARCH", default="60/minute"),
+    staff_reveal=_env("STAFF_THROTTLE_REVEAL", default="30/hour"),
+    staff_export=_env("STAFF_THROTTLE_EXPORT", default="10/hour"),
+    staff_money=_env("STAFF_THROTTLE_MONEY", default="120/hour"),
+    staff_invite=_env("STAFF_THROTTLE_INVITE", default="10/hour"),
+)
+SPECTACULAR_SETTINGS["ENUM_NAME_OVERRIDES"].update(
+    ChangeRequestStatusEnum="staff.models.ChangeRequest.Status",
+    DataRequestStatusEnum="staff.models.DataRequest.Status",
+    DataRequestKindEnum="staff.models.DataRequest.Kind",
+    DataRequestOutcomeEnum="staff.models.DataRequest.Outcome",
+    InboxKindEnum="staff.models.InboxItem.Kind",
+    IncidentKindEnum="staff.models.Incident.Kind",
+    ScopeKindEnum="staff.models.StaffScope.Kind",
+    AuditOutcomeEnum="staff.models.AuditEvent.Outcome",
+    SettingSourceEnum="staff.serializers.SETTING_SOURCES",  # "source": a setting's (an entitlement's: settings.py)
+    JobKindEnum="staff.models.Job.Kind",
+    JobStateEnum="staff.models.Job.State",
 )

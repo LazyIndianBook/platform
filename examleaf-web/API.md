@@ -15,7 +15,8 @@ print runs, item analysis, cohorts, fraud signals). Code: `api/` (`auth.py`, `vi
 [Frontend integration guide](#frontend-integration-guide) · [Profile and data rights](#profile-and-data-rights) ·
 [Catalogue and solutions](#catalogue-and-solutions) · [Attempts](#attempts) · [Store catalogue](#store-catalogue) ·
 [Shop](#shop) · [Revision course](#revision-course) · [Site](#site-configuration-and-legal-pages) ·
-[Insights (staff)](#insights-staff) · [Lists](#lists) · [Errors](#errors) · [Rate limits](#rate-limits) · [CORS](#cors) ·
+[Insights (staff)](#insights-staff) · [Lists](#lists) · [Staff API](#staff-api) · [Errors](#errors) ·
+[Rate limits](#rate-limits) · [CORS](#cors) ·
 [Versioning](#versioning) · [Operations](#operations)
 
 [Shop](#shop) · [Revision course](#revision-course) · [Shipping (staff)](#shipping-staff) ·
@@ -113,7 +114,7 @@ active member of staff with an authenticator app, through the website's session.
 | GET | `learn/entitlements/` | confirmed | what the user may watch |
 | GET PUT PATCH | `learn/settings/` | confirmed | exam date, minutes a day, the daily reminder |
 | POST DELETE | `devices/` | signed in | the app's Firebase installation ID, for the reminder |
-| GET | `config/` | anyone | what the server has switched on: log-in methods, Turnstile, the shop, consent mode |
+| GET | `config/` | anyone | what the server has switched on: log-in methods, Turnstile, the shop, consent mode, maintenance |
 | GET | `pages/`, `pages/<slug>/` | anyone | the legal pages: Markdown, the website's HTML, version, last change |
 | POST | `contact/` | anyone | the contact form: a message emailed to the support address |
 | GET | `insights/forecasts/`, `insights/print-runs/`, `insights/backtests/` | staff | the newest demand forecast (`?product=<slug>`, `?district=all` or a district), print-run advice, backtest |
@@ -132,6 +133,7 @@ active member of staff with an authenticator app, through the website's session.
 | GET | `/api/schema/`, `/api/docs/`, `/api/redoc/` | anyone | the OpenAPI schema, Swagger UI, Redoc |
 | any | `/_allauth/app/v1/…`, `/_allauth/browser/v1/…` | anyone; the account and authenticator endpoints need the signed-in session | allauth.headless: log-in, sign-up, codes, passkeys, Google, second step, email, phone, password, re-authentication, signed-in devices (`auth/sessions`); its OpenAPI file `/_allauth/openapi.json` (and `.yaml`) |
 | POST | `/api/hooks/parcel-events/` | the courier, with its token in `x-api-key` | Shiprocket's tracking webhook ([Shipping (staff)](#shipping-staff)); not in the OpenAPI schema |
+| any | `staff/…` | staff only (the panel's session, or an API key), on the admin host | the Admin Control Panel: [Staff API](#staff-api) |
 
 ## Authentication from the app
 
@@ -920,7 +922,11 @@ null while the bot check is off), `shop` (`open`, `cod`, `cod_max_value`, `curre
 `SELLER_PHONE`; each null while it still holds a `[placeholder]`) and `app_links` (`android`, `ios`: the app's pages on
 Google Play and the App Store, `APP_LINK_ANDROID` and `APP_LINK_IOS`; null until set) and `web_course` (`WEB_COURSE`,
 off by default: whether the website draws the revision course's chapter, flash-card and quiz pages, which read the
-same `learn/` endpoints as the app; off, the website shows the course's outline and points to the app). allauth.headless's
+same `learn/` endpoints as the app; off, the website shows the course's outline and points to the app) and
+`maintenance` (`on`; `banner`, its text or null: show it; the server still answers, webhooks and staff work on).
+`shop.open`, `shop.cod`, `parental_consent`, `web_course` and `maintenance` are the Admin Control Panel's values when
+it has set them (`staff/settings/`), the environment's otherwise; the server's own checks read the same values (carts
+and checkout refused while the shop is closed, cash on delivery, a parent's consent). allauth.headless's
 `/_allauth/<client>/v1/config` adds allauth's own view (the providers, the authenticator types, `usersessions`).
 
 `pages/` and `pages/<slug>/` (anyone; cached 15 minutes) are the legal and policy pages, `privacy`, `terms`, `refunds`,
@@ -943,7 +949,7 @@ curl https://examleaf.in/api/v1/config/
 #      "currency": "INR"}, "shipping": {"fee_from": "40.00", "free_above": "499.00"},
 #      "solutions_require_login": true, "parental_consent": "verified",
 #      "support": {"email": "help@examleaf.in", "phone": null}, "app_links": {"android": null, "ios": null},
-#      "web_course": false}
+#      "web_course": false, "maintenance": {"on": false, "banner": null}}
 curl https://examleaf.in/api/v1/pages/privacy/
 # 200 {"slug": "privacy", "title": "Privacy Policy", "version": "2026-10-08", "updated": "...", "markdown": "...",
 #      "html": "<h2>...", "web_url": "https://examleaf.in/privacy/"}
@@ -1006,6 +1012,373 @@ by `title`, `price`; chapters by `number`, `weight`, `frequency`; orders and add
 `?subject=<id>`. The catalogue (boards, subjects, books, papers, categories, collections) is cached on the server for 15
 minutes.
 
+## Staff API
+
+`/api/v1/staff/…` is the Admin Control Panel's (`staff/api.py`; the model, the approvals and the audit log:
+[staff/README.md](staff/README.md)). The panel draws what it answers and decides nothing: every call is checked again.
+
+- **Where.** On the admin host only (`ADMIN_HOSTS`, `admin.examleaf.in`): on any other host every path here is
+  `404 {"detail": "Not found."}`, signed in or not. Empty in development: every host.
+- **Who.** A member of staff on the panel's own session (same origin, the session cookie and `X-CSRFToken` on POST,
+  PUT, PATCH and DELETE), signed in with a second factor; or an integration with an API key,
+  `Authorization: Api-Key elk_<prefix>_<secret>`, holding only the `view_` permissions it was made with. Never the app's
+  JWT. Without either: `401 {"code": "not_authenticated"}` (`WWW-Authenticate: Api-Key`); a member of staff without
+  an authenticator app or a passkey: `403 {"code": "mfa_setup_required"}`.
+- **What.** Each endpoint names the permission it needs for each method (the tables; `app_label.codename`); without
+  it, `403 {"detail": "You need the permission staff.approve_refund (Approve refunds above the maker's limit).",
+  "code": "permission_denied"}`, recorded in the audit log as `authz_fail`. Objects outside the person's scope (a
+  subject, an order status, a school, a work queue) are not found (404, never a 403 that would tell they exist). High
+  and critical permissions (`catalogue/` says which) need a log-in or a re-authentication in the last 5 minutes,
+  through allauth.headless (`auth/reauthenticate` with the password, `auth/2fa/reauthenticate` with a code,
+  `auth/webauthn/reauthenticate` with a passkey): otherwise `403 {"code": "reauthentication_required", "flows":
+  [{"id": "reauthenticate"}, {"id": "mfa_reauthenticate"}]}` (allauth's flow ids); re-authenticate, then send the
+  request again. An action that needs a second person is never a 403: it answers 202 with the change request (`id`,
+  `status` "pending", `checker`), or with the job and its `change_request_id`.
+- **Errors** carry `detail` and `code`, but 400's: `{"field": ["…"]}` (`non_field_errors` for the request as a whole,
+  `params` for a job's); 401 `not_authenticated`, `authentication_failed` (an API key refused), `session_idle`,
+  `session_expired`;
+  403 `permission_denied`, `reauthentication_required`, `mfa_setup_required`, `impersonating`, `link_expired` (a job's
+  file); 404 `not_found` (also every path on a host other than the admin host); 405 `method_not_allowed`; 429
+  `throttled`.
+- **The session's limits.** After the person's idle limit without a request (`idle_timeout_s` in `session/`: 15 minutes
+  for OWNER, ADMIN, FINANCE and PACKER, 30 for the others, the shortest of their roles') or 8 hours after the log-in
+  the session ends: `401 {"code": "session_idle"}` or `{"code": "session_expired"}`; log in again. Do not poll in the
+  background: every request counts as activity.
+- **Answers** are JSON (an audit export: JSON lines), never cached (`Cache-Control: no-store`). Lists are cursor pages,
+  newest first: `{"next": "<url>", "previous": "<url>", "results": [...]}` (`?cursor=` from those links, `?page_size=` up
+  to 200; no count: `inbox/count/` gives the inbox's). Filters are query parameters, listed per endpoint below.
+- **Money actions and approvals** go through `change-requests/`. Send an `Idempotency-Key` header (any unique text): the
+  same key answers the first request again instead of making a second one. 201: it ran at once, within your limits
+  (`limits` in `session/`); 202: it waits for a second person (`status` "pending"); 400 with `detail`: it ran and
+  failed (its preconditions no longer held).
+- **Personal data is masked** (`ra•••@example.com`, `••••••2345`, `203.0.113.x`); opening a customer and revealing a
+  detail are recorded (`sensitive_read`).
+
+| Method | Path (under `/api/v1/staff/`) | Permission | What |
+|---|---|---|---|
+| GET | `session/` | any member of staff | the manifest: user, roles with expiry, permissions, scopes, limits, flags (and `test_mode` off production), the re-authentication window, the idle and absolute limits, `impersonating`, `manifest_version` |
+| GET | `catalogue/` | any member of staff | every catalogued permission (label, area, risk, reauth, approval, alert) and every role (permissions, limits, scopes, conflicts, members) |
+| GET | `inbox/` (`?kind=&mine=&done=&snoozed=`), `inbox/count/` | `staff.view_inbox` | what waits: items assigned to you, or to nobody and needing a permission you hold; open and overdue counts |
+| POST | `inbox/<id>/done/`, `…/snooze/` (`until`), `…/assign/` (`assignee`) | `staff.view_inbox` | act on one |
+| GET | `audit/` (`?actor=&action=&action_prefix=&target_type=&target_id=&outcome=&since=&until=&request_id=&ip=&chain=&permission=&break_glass=&change_request=`), `audit/<id>/` | `staff.view_auditlog` (AUDITOR, OWNER) | the audit log; each read is itself an event; `break_glass` marks a break-glass account's events and an owner's override |
+| POST | `audit/export/` (`filters`) | `staff.export_auditlog` | 200: JSON lines with the hashes, up to 5,000 rows within your `export_rows`; more: 202 and a job (`jobs/`), approved first by ADMIN above your `export_rows` |
+| GET | `jobs/` (`?mine=&state=&kind=`), `jobs/<id>/` | `staff.view_job` | your background jobs (everyone's with `staff.view_system`): `state`, `done` of `total`, the rows' `errors`, `result`, `result_url` |
+| POST | `jobs/` (`kind`, `params`, `dry_run`) | the kind's own: `staff.export_auditlog`; a bulk action's action's (`staff.refund_order` …) | 202: the job, queued (`change_request_id` when above your `export_rows` or `bulk_rows`) |
+| POST | `jobs/<id>/cancel/` | `staff.view_job`, your own job | stop it: at once while queued (its approval withdrawn), at its next row while running |
+| GET | `jobs/<id>/result/?token=` | `staff.view_job`, your own job | its file (`result_url`, a link signed for 5 minutes): 200 the file, or 302 to the private bucket's own signed link |
+| GET | `change-requests/` (`?status=&action=&mine=&awaiting=`), `change-requests/<id>/` | `staff.view_changerequest` | approvals: payload, its SHA-256, rule, approvals, result |
+| POST | `change-requests/` (`action`, `target`, `payload`, `reason`) | `staff.add_changerequest` and the action's own | ask: `order.refund`, `order.offline_payment`, `product.price`, `coupon.create` |
+| POST | `change-requests/<id>/approve/` (`payload_sha256`, `comment`, `override`), `…/reject/` (`comment`) | the action's checker (re-authenticated): FINANCE for money, ADMIN for roles, staff second factors, erasures and exports, the owners for any | approve the payload you read (its hash); reject, or withdraw your own |
+| POST | `change-requests/<id>/execute/` | its maker or a checker (re-authenticated) | run the stored payload, once |
+| GET POST PATCH DELETE | `saved-views/` (`?list_key=`), `saved-views/<id>/` | `staff.view_savedview`, `add_`, `change_`, `delete_` | your saved lists' filters, columns and sort; `role` shares one with a role you hold |
+| GET | `settings/`, `settings/<key>/` | `staff.view_sitesetting` | the site's switches: in effect, the environment's, where from, changes to come; one switch's history |
+| PUT | `settings/<key>/` (`value`, `reason`, `effective_from`) | `staff.manage_settings`; `MAINTENANCE_*`: `staff.toggle_maintenance` | `SHOP_OPEN`, `SHOP_COD_ENABLED`, `PARENTAL_CONSENT_MODE`, `WEB_COURSE`, `MAINTENANCE_MODE`, `MAINTENANCE_BANNER`; null: back to the environment's |
+| GET | `flags/`, `flags/<KEY>/` | `staff.view_featureflag` | the feature flags; one flag's history |
+| PUT | `flags/<KEY>/` (`value`, `reason`, `effective_from`) | `staff.manage_flags` | switch one (null: off) |
+| GET | `api-keys/`, `api-keys/<id>/` | `staff.view_apikey` | integrations' keys: prefix, permissions, sponsor, expiry, last use; never the secret |
+| POST | `api-keys/` (`name`, `scopes`, `expires_at`, `allowed_ips`, `sponsor`), `api-keys/<id>/revoke/` | `staff.manage_api_keys` (OWNER) | make one (the whole key in this answer only), revoke one |
+| GET | `people/`, `people/<id>/`, `people/invites/` | `staff.view_staff` | the staff: roles with who gave them, why, until when; scopes; second factor; invitations |
+| POST | `people/invite/` (`email`, `role`, `reason`) | `staff.assign_role` (OWNER) | an invitation (a privileged role: 202, ADMIN or another owner approves first) |
+| DELETE | `people/invites/<id>/` | `staff.assign_role` | revoke an invitation |
+| POST | `people/<id>/roles/` (`role`, `expires_at`, `reason`) | `staff.assign_role` (OWNER) | give a role (SSD: 400; a privileged role, or one for yourself: 202, ADMIN or another owner approves) |
+| DELETE | `people/<id>/roles/<ROLE>/` (`?reason=`) | `staff.assign_role` | take a role away, at once |
+| POST DELETE | `people/<id>/scopes/` (`kind`, `value`, `expires_at`), `people/<id>/scopes/<scope>/` | `staff.assign_role` | narrow a person to a subject, board and class, order status, warehouse, school or work queue |
+| POST | `people/<id>/end-sessions/` | `staff.assign_role` | sign them out everywhere (sessions ended, refresh tokens blacklisted) |
+| POST | `people/<id>/reset-mfa/` (`reason`) | `staff.reset_user_mfa` | a staff member's second factor reset: 202, ADMIN or an owner approves |
+| POST | `people/<id>/offboard/` (`reason`) | `staff.assign_role` | in one step: deactivated, roles, grants and scopes gone, sessions ended, API keys revoked, requests expired, work unassigned |
+| GET | `access-review/` | `staff.view_staff` | each member: roles, scopes, last log-in, dormant, second factor, action permissions unused in 90 days |
+| POST | `invites/accept/` (`token`; signed out also `full_name`, `password`) | the invitation's token | the one endpoint for people not yet staff |
+| GET | `users/` (`?q=&class_level=&board=&is_active=`), `users/<id>/` | `accounts.view_user` | customers, contacts masked; opening one is logged |
+| POST | `users/<id>/reveal/` (`show`, `reason`) | `staff.reveal_contact` (re-authenticated; 30 an hour) | `email`, `phone`, `login_phone`, `parent_contact`, `parent_name`, `date_of_birth` |
+| POST | `users/<id>/suspend/`, `…/unsuspend/` (`reason`) | `staff.suspend_user` | suspended: signed out, told by email |
+| POST | `users/<id>/unlock/` | `staff.unlock_user` | lift a lock-out after failed log-ins |
+| POST | `users/<id>/resend-verification/` | `staff.resend_verification` | the parent's consent link again, while it waits |
+| POST | `users/<id>/end-sessions/` | `staff.end_user_sessions` | sign them out everywhere |
+| POST | `users/<id>/password-reset/` | `staff.initiate_password_reset` | allauth's reset email to the account's address |
+| POST | `users/<id>/reset-mfa/` (`reason`) | `staff.reset_user_mfa` | 202: another person approves |
+| POST | `users/<id>/impersonate/` (`reason`, `ticket`), `…/impersonate/end/` (`token`) | `staff.impersonate_user` | a 15-minute token for the website's account area (never staff or a child); its end |
+| GET | `data-requests/` (`?status=&kind=&user=&assignee=&overdue=`), `data-requests/<id>/` | `staff.view_datarequest` | the requests queue, with its clocks |
+| POST PATCH | `data-requests/`, `data-requests/<id>/` | `staff.handle_data_request` | record one; change its notes, assignee, details |
+| POST | `data-requests/<id>/acknowledge/`, `…/verify-identity/` (`note`), `…/close/` (`outcome`, `response`) | `staff.handle_data_request` | its steps |
+| GET | `data-requests/<id>/response/`, `data-requests/<id>/erasure-report/` | `staff.view_datarequest` | the answer's text with the contact block; the erasure's dry run |
+| POST | `data-requests/<id>/erase/` (`reason`) | `staff.handle_data_request` (re-authenticated) | 202: the erasure waits for `staff.approve_erasure`; 400 with the dry run while something stops it |
+| POST | `data-requests/<id>/export/` | `staff.export_personal_data` | an access request's data, emailed to the account's own address (202) |
+| GET | `incidents/` (`?kind=&open=`), `incidents/<id>/` | `staff.view_incident` | the breach register with its clocks |
+| POST PATCH | `incidents/`, `incidents/<id>/`, `incidents/<id>/close/` | `staff.manage_incident` | file one (the owners are told), record its reports, close it |
+| GET POST PATCH DELETE | `processors/`, `processors/<id>/` | `staff.view_processorrecord`, `add_`, `change_`, `delete_` | the processor register |
+| GET | `system/` | `staff.view_system` | health checks, Celery's queues and failed tasks, webhooks, email suppressions, the SMS log, the last backup, maintenance, the audit chain's last check |
+| POST | `system/reconcile/` (`order`) | `staff.replay_webhook` | ask Razorpay what became of an online order's payment |
+
+**The manifest** (`session/`, `Cache-Control: no-store`). Keep it in memory, never in `localStorage`; fetch it again after
+any 403 and whenever `manifest_version` changes. `user.is_superuser` true is a break-glass account (no roles, every
+permission, no limits, the shortest idle limit; every event of its session is marked): show it a banner.
+
+```sh
+curl https://examleaf.in/api/v1/staff/session/ -b "sessionid=…"
+# 200 {"user": {"id": 7, "email": "support@examleaf.in", "full_name": "…", "is_superuser": false},
+#      "roles": [{"name": "SUPPORT", "expires_at": null, "granted_by": 1}],
+#      "permissions": ["accounts.view_user", …, "staff.reveal_contact", "staff.view_inbox"],
+#      "scopes": {"ticket_queue": ["data_request"]}, "role_scopes": {},
+#      "limits": {"refund_inr": 1000, "offline_inr": 0, "discount_percent": 0, "export_rows": 100, "bulk_rows": 50},
+#      "flags": {"ERP_SYNC_ORDERS": false}, "reauth_valid_until": "2026-10-09T10:05:00Z", "idle_timeout_s": 1800,
+#      "absolute_expires_at": "2026-10-09T17:59:00Z", "impersonating": null, "manifest_version": "3f9a1c0d2b7e4a55"}
+```
+
+`flags.test_mode` is `true` only off production (`STAFF_TEST_MODE`, `DEBUG`'s by default): show the TEST band; absent,
+it is production. `impersonating` is `{"user_id", "email" (masked), "until"}` while this session's token from
+`users/<id>/impersonate/` lasts (15 minutes, or until `…/impersonate/end/`): show the banner.
+
+**Jobs** (`jobs/`, `staff/jobs.py`) are the background work started from the panel: `audit_export` (`params`:
+`{"filters": {…}}`, the audit list's) and `bulk_action` (`params`: `{"action": "order.refund", "targets": ["EL-2026-…",
+…], "payload": {}, "reason": "…"}`; the actions of `change-requests/`, each target run as its own request through the
+same permission, scope, limits and approval, with an idempotency key per job and target). Above your `export_rows` or
+`bulk_rows` (`limits`) the job waits for ADMIN's approval (`change_request_id`, a change request `job.run` whose payload
+shows the filters or targets); `dry_run` checks every row and changes nothing. `state` is `queued`, `running`, `done`,
+`failed` or `cancelled`; `done` of `total` counts the rows (saved about once a second: poll every few seconds);
+`errors` lists the rows that failed, `[{"id": "EL-NOPE", "label": "EL-NOPE", "message": "No such order …"}]` (`id`
+null: the job's own failure), the first 1,000; `result` sums them up (`{"rows": 4}`; a bulk action's `{"outcomes":
+{"executed": 2, "pending": 1, "refused": 1}, "waiting": [change request ids]}`). `result_url` is for the job's starter
+only, valid 5 minutes (read the job again for a new one); the file is kept a week. Each step is an audit event
+(`job.requested`, `job.started`, `job.done`, `job.failed`, `job.cancelled`, `job.stopped`, `job.result_downloaded`).
+
+**A refund** above the maker's limit waits for finance; the approver sends back the hash of the payload they read, and
+the stored payload runs:
+
+```sh
+curl -X POST https://examleaf.in/api/v1/staff/change-requests/ -H 'Idempotency-Key: 4f0c…' -d '{"action": "order.refund",
+  "target": "EL-2026-000123", "payload": {"amount": "2500.00"}, "reason": "The parcel came damaged"}'
+# 202 {"id": 12, "status": "pending", "payload": {"order": "EL-2026-000123", "amount": "2500.00", "cancel": false},
+#      "payload_sha256": "9b1e…", "amount": "2500.00", "rule": "A refund of ₹2,500.00 is above the limit of ₹1,000.",
+#      "checker": "staff.approve_refund", "expires_at": "…", "approvals": [], …}
+curl -X POST https://examleaf.in/api/v1/staff/change-requests/12/approve/ -d '{"payload_sha256": "9b1e…"}'
+# 200 {"id": 12, "status": "approved", …}       403: not an approver, or the maker      400: another payload
+curl -X POST https://examleaf.in/api/v1/staff/change-requests/12/execute/
+# 200 {"id": 12, "status": "executed", "result": {"refund": 31, "amount": "2500.00", "status": "pending"}, …}
+```
+
+An order not shipped yet is cancelled (its stock back) and refunded in full (`"cancel": true`); a shipped one is refunded
+by the amount, at most what was paid. If the order changed between the request and its run (shipped meanwhile, a refund
+under way), the run fails (`status` "failed", `result.error`) instead of doing something else.
+
+**Customers.** `users/?q=` finds an email address (exactly), a mobile number (any Indian format) or three letters or
+more of a name. A customer's `status` is `active`, `suspended`, `pending_deletion` or `erased`; `consent` is `adult`,
+`declared`, `pending` (a parent's link awaited) or `verified`; the detail adds `locked`, `mfa`, `teacher`, the masked
+`parent_contact`, the latest orders, consents and devices.
+
+```sh
+curl -X POST https://examleaf.in/api/v1/staff/users/42/reveal/ -d '{"show": ["phone"], "reason": "Calling back about EL-2026-000123"}'
+# 200 {"phone": "+919864012345"}      403 {"code": "reauthentication_required"}      429 after 30 an hour
+```
+
+**Data requests** carry `ack_due_at` (48 hours after `received_at`) and `due_at` (a month; 90 days for the DPDP
+rights from 13 May 2027; a grievance or complaint keeps the month), with `ack_overdue` and `overdue`. An erasure's dry
+run lists `erase` (what goes, with counts), `keep` (what stays, why, until when), `blocks` and `can_erase`.
+**Incidents** carry `cert_in_due` (6 hours after `detected_at`) and `board_due` (72 hours), with `cert_in_overdue` and
+`board_overdue` until `cert_in_reported_at` and `board_report_at` are set.
+
+**API keys.** A key is made by an owner for one integration, with `view_` permissions only, for 12 months at most
+(default), optionally from some addresses (`allowed_ips`, CIDR); its answer holds `key` once. Requests with it carry
+`Authorization: Api-Key <key>`; they are throttled per key, recorded as a service in the audit log, refused anything that
+needs a re-authentication, and get 401 when the key is revoked, expired, forged or used from elsewhere.
+
+### Every staff endpoint and field
+
+Generated from the OpenAPI schema and the views' own permission maps (`manage.py staff_api_reference`; a test fails
+when this differs from the code). Paths are under `/api/v1/staff/`, `{id}` an object's id. "Answers" are the
+successful ones; the errors are those above (400, 401, 403, 404, 405, 429). A field is (required) in a request,
+(null) when it may be null, (read-only) in answers only; a `…Request` is what a POST, PUT or PATCH takes, a
+`Paginated…List` a cursor page.
+
+<!-- staff-api-reference -->
+| Method | Path | Permission | Query | Body | Answers |
+|---|---|---|---|---|---|
+| GET | `access-review/` | `staff.view_staff` |  |  | 200 `[AccessRow]` |
+| GET | `api-keys/` | `staff.view_apikey` | `cursor`, `page_size` |  | 200 `PaginatedApiKeyList` |
+| POST | `api-keys/` | `staff.manage_api_keys` |  | `ApiKeyRequest` | 201 `ApiKey` |
+| GET | `api-keys/{id}/` | `staff.view_apikey` |  |  | 200 `ApiKey` |
+| POST | `api-keys/{id}/revoke/` | `staff.manage_api_keys` |  |  | 200 `ApiKey` |
+| GET | `audit/` | `staff.view_auditlog` | `action`, `action_prefix`, `actor`, `actor_type`, `break_glass`, `chain`, `change_request`, `cursor`, `ip`, `outcome`, `page_size`, `permission`, `request_id`, `since`, `target_id`, `target_type`, `until` |  | 200 `PaginatedAuditEventList` |
+| POST | `audit/export/` | `staff.export_auditlog` |  | `ExportRequest` | 200 `application/x-ndjson`; 202 `Job` |
+| GET | `audit/{id}/` | `staff.view_auditlog` |  |  | 200 `AuditEvent` |
+| GET | `catalogue/` | any member of staff |  |  | 200 `StaffCatalogue` |
+| GET | `change-requests/` | `staff.view_changerequest` | `action`, `awaiting`, `cursor`, `mine`, `page_size`, `status` |  | 200 `PaginatedChangeRequestList` |
+| POST | `change-requests/` | `staff.add_changerequest` |  | `AskRequest` | 200 `ChangeRequest`; 201 `ChangeRequest`; 202 `ChangeRequest` |
+| GET | `change-requests/{id}/` | `staff.view_changerequest` |  |  | 200 `ChangeRequest` |
+| POST | `change-requests/{id}/approve/` | `staff.view_changerequest` |  | `ApproveRequest` | 200 `ChangeRequest` |
+| POST | `change-requests/{id}/execute/` | `staff.view_changerequest` |  |  | 200 `ChangeRequest`; 400 `ChangeRequest` |
+| POST | `change-requests/{id}/reject/` | `staff.view_changerequest` |  | `CommentRequest` | 200 `ChangeRequest` |
+| GET | `data-requests/` | `staff.view_datarequest` | `assignee`, `cursor`, `kind`, `overdue`, `page_size`, `status`, `user` |  | 200 `PaginatedDataRequestListList` |
+| POST | `data-requests/` | `staff.handle_data_request` |  | `DataRequestRequest` | 201 `DataRequest` |
+| GET | `data-requests/{id}/` | `staff.view_datarequest` |  |  | 200 `DataRequest` |
+| PATCH | `data-requests/{id}/` | `staff.handle_data_request` |  | `PatchedDataRequestRequest` | 200 `DataRequest` |
+| POST | `data-requests/{id}/acknowledge/` | `staff.handle_data_request` |  |  | 200 `DataRequest` |
+| POST | `data-requests/{id}/close/` | `staff.handle_data_request` |  | `CloseRequest` | 200 `DataRequest` |
+| POST | `data-requests/{id}/erase/` | `staff.handle_data_request` |  | `ReasonRequest` | 202 `ChangeRequest`; 400 `ErasureReport` |
+| GET | `data-requests/{id}/erasure-report/` | `staff.view_datarequest` |  |  | 200 `ErasureReport` |
+| POST | `data-requests/{id}/export/` | `staff.export_personal_data` |  |  | 202 `Detail` |
+| GET | `data-requests/{id}/response/` | `staff.view_datarequest` |  |  | 200 `ResponseText` |
+| POST | `data-requests/{id}/verify-identity/` | `staff.handle_data_request` |  | `VerifyIdentityRequest` | 200 `DataRequest` |
+| GET | `flags/` | `staff.view_featureflag` |  |  | 200 `[Flag]` |
+| GET | `flags/{key}/` | `staff.view_featureflag` |  |  | 200 `[SwitchRow]` |
+| PUT | `flags/{key}/` | `staff.manage_flags` |  | `SwitchChangeRequest` | 200 `SwitchRow` |
+| GET | `inbox/` | `staff.view_inbox` | `cursor`, `done`, `kind`, `mine`, `page_size`, `snoozed` |  | 200 `PaginatedInboxItemList` |
+| GET | `inbox/count/` | `staff.view_inbox` |  |  | 200 `InboxCount` |
+| POST | `inbox/{id}/assign/` | `staff.view_inbox` |  | `AssignRequest` | 200 `InboxItem` |
+| POST | `inbox/{id}/done/` | `staff.view_inbox` |  |  | 200 `InboxItem` |
+| POST | `inbox/{id}/snooze/` | `staff.view_inbox` |  | `SnoozeRequest` | 200 `InboxItem` |
+| GET | `incidents/` | `staff.view_incident` | `cursor`, `kind`, `open`, `page_size` |  | 200 `PaginatedIncidentList` |
+| POST | `incidents/` | `staff.manage_incident` |  | `IncidentRequest` | 201 `Incident` |
+| GET | `incidents/{id}/` | `staff.view_incident` |  |  | 200 `Incident` |
+| PATCH | `incidents/{id}/` | `staff.manage_incident` |  | `PatchedIncidentRequest` | 200 `Incident` |
+| POST | `incidents/{id}/close/` | `staff.manage_incident` |  |  | 200 `Incident` |
+| POST | `invites/accept/` | none: the invitation's token |  | `AcceptRequest` | 200 `Detail` |
+| GET | `jobs/` | `staff.view_job` | `cursor`, `kind`, `mine`, `page_size`, `state` |  | 200 `PaginatedJobList` |
+| POST | `jobs/` | `staff.add_job` (by the key or the body: see the table above) |  | `JobStartRequest` | 202 `Job` |
+| GET | `jobs/{id}/` | `staff.view_job` |  |  | 200 `Job` |
+| POST | `jobs/{id}/cancel/` | `staff.view_job` |  |  | 200 `Job` |
+| GET | `jobs/{id}/result/` | `staff.view_job` | `token` |  | 200 `application/octet-stream`; 302 |
+| GET | `people/` | `staff.view_staff` | `cursor`, `page_size` |  | 200 `PaginatedPersonList` |
+| POST | `people/invite/` | `staff.assign_role` |  | `InviteRequest` | 201 `StaffInvite`; 202 `ChangeRequest` |
+| GET | `people/invites/` | `staff.view_staff` | `cursor`, `page_size` |  | 200 `PaginatedStaffInviteList` |
+| DELETE | `people/invites/{invite}/` | `staff.assign_role` |  |  | 204 |
+| GET | `people/{id}/` | `staff.view_staff` |  |  | 200 `Person` |
+| POST | `people/{id}/end-sessions/` | `staff.assign_role` |  |  | 200 `Ended` |
+| POST | `people/{id}/offboard/` | `staff.assign_role` |  | `ReasonRequest` | 200 `Offboarded` |
+| POST | `people/{id}/reset-mfa/` | `staff.reset_user_mfa` |  | `ReasonRequest` | 202 `ChangeRequest` |
+| POST | `people/{id}/roles/` | `staff.assign_role` |  | `GrantRequest` | 200 `Person`; 202 `ChangeRequest` |
+| DELETE | `people/{id}/roles/{role}/` | `staff.assign_role` |  |  | 200 `Person` |
+| POST | `people/{id}/scopes/` | `staff.assign_role` |  | `ScopeAddRequest` | 201 `Scope` |
+| DELETE | `people/{id}/scopes/{scope}/` | `staff.assign_role` |  |  | 204 |
+| GET | `processors/` | `staff.view_processorrecord` | `cursor`, `page_size` |  | 200 `PaginatedProcessorList` |
+| POST | `processors/` | `staff.add_processorrecord` |  | `ProcessorRequest` | 201 `Processor` |
+| GET | `processors/{id}/` | `staff.view_processorrecord` |  |  | 200 `Processor` |
+| PUT | `processors/{id}/` | `staff.change_processorrecord` |  | `ProcessorRequest` | 200 `Processor` |
+| PATCH | `processors/{id}/` | `staff.change_processorrecord` |  | `PatchedProcessorRequest` | 200 `Processor` |
+| DELETE | `processors/{id}/` | `staff.delete_processorrecord` |  |  | 204 |
+| GET | `saved-views/` | `staff.view_savedview` | `cursor`, `list_key`, `page_size` |  | 200 `PaginatedSavedViewList` |
+| POST | `saved-views/` | `staff.add_savedview` |  | `SavedViewRequest` | 201 `SavedView` |
+| GET | `saved-views/{id}/` | `staff.view_savedview` |  |  | 200 `SavedView` |
+| PUT | `saved-views/{id}/` | `staff.change_savedview` |  | `SavedViewRequest` | 200 `SavedView` |
+| PATCH | `saved-views/{id}/` | `staff.change_savedview` |  | `PatchedSavedViewRequest` | 200 `SavedView` |
+| DELETE | `saved-views/{id}/` | `staff.delete_savedview` |  |  | 204 |
+| GET | `session/` | any member of staff |  |  | 200 `StaffManifest` |
+| GET | `settings/` | `staff.view_sitesetting` |  |  | 200 `[Setting]` |
+| GET | `settings/{key}/` | `staff.view_sitesetting` (by the key or the body: see the table above) |  |  | 200 `[SwitchRow]` |
+| PUT | `settings/{key}/` | `staff.manage_settings` (by the key or the body: see the table above) |  | `SwitchChangeRequest` | 200 `Setting` |
+| GET | `system/` | `staff.view_system` |  |  | 200 `StaffSystem` |
+| POST | `system/reconcile/` | `staff.replay_webhook` |  | `ReconcileRequest` | 200 `Reconciled` |
+| GET | `users/` | `accounts.view_user` | `board`, `class_level`, `cursor`, `is_active`, `page_size`, `q` |  | 200 `PaginatedCustomerList` |
+| GET | `users/{id}/` | `accounts.view_user` |  |  | 200 `CustomerDetail` |
+| POST | `users/{id}/end-sessions/` | `staff.end_user_sessions` |  |  | 200 `SessionsEnded` |
+| POST | `users/{id}/impersonate/` | `staff.impersonate_user` |  | `ImpersonateRequest` | 200 `Impersonation` |
+| POST | `users/{id}/impersonate/end/` | `staff.impersonate_user` |  | `TokenRequest` | 204 |
+| POST | `users/{id}/password-reset/` | `staff.initiate_password_reset` |  |  | 200 `Detail` |
+| POST | `users/{id}/resend-verification/` | `staff.resend_verification` |  |  | 200 `Detail` |
+| POST | `users/{id}/reset-mfa/` | `staff.reset_user_mfa` |  | `ReasonRequest` | 202 `ChangeRequest` |
+| POST | `users/{id}/reveal/` | `staff.reveal_contact` |  | `RevealRequest` | 200 `Revealed` |
+| POST | `users/{id}/suspend/` | `staff.suspend_user` |  | `ReasonRequest` | 200 `Customer` |
+| POST | `users/{id}/unlock/` | `staff.unlock_user` |  |  | 200 `Unlocked` |
+| POST | `users/{id}/unsuspend/` | `staff.suspend_user` |  | `ReasonRequest` | 200 `Customer` |
+
+- **AcceptRequest**: `token` string (required); `full_name` string; `password` string
+- **AccessRow**: `id` integer (required); `email` email (required); `roles` [string] (required); `grants` [object] (required); `scopes` object (required); `last_login` date-time (required, null); `dormant` boolean (required); `mfa` boolean (required); `permissions` integer (required); `unused` [string] (required); `last_used` object (required)
+- **ActorTypeEnum**: one of `staff`, `user`, `service`, `system`, `anonymous`
+- **ApiKey**: `id` integer (required, read-only); `name` string (required); `prefix` string (required, read-only); `key` string (required, null, read-only); `scopes` any; `sponsor` integer; `created_by` integer (required, null, read-only); `created` date-time (required, read-only); `expires_at` date-time; `allowed_ips` any; `last_used_at` date-time (required, null, read-only); `last_used_ip` string (required, null, read-only); `revoked_at` date-time (required, null, read-only); `revoked_by` integer (required, null, read-only)
+- **ApiKeyRequest**: `name` string (required); `scopes` any; `sponsor` integer; `expires_at` date-time; `allowed_ips` any
+- **Approval**: `user` integer (required); `decision` DecisionEnum (required); `comment` string; `created` date-time
+- **ApproveRequest**: `payload_sha256` string (required); `comment` string; `override` boolean
+- **AskActionEnum**: one of `order.refund`, `order.offline_payment`, `product.price`, `coupon.create`
+- **AskRequest**: `action` AskActionEnum (required); `target` string (required); `payload` object (required); `reason` string (required)
+- **AssignRequest**: `assignee` integer (required, null)
+- **AuditEvent**: `id` integer (required, read-only); `chain` ChainEnum; `ts` date-time (required); `actor_id` integer (null); `actor_type` ActorTypeEnum (required); `actor_roles` any; `on_behalf_of` integer (null); `break_glass` boolean; `action` string (required); `permission` string; `target_type` string; `target_id` string; `target_label` string; `outcome` AuditOutcomeEnum; `reason` string; `change_request_id` integer (null); `request_id` string; `ip` string (null); `user_agent` string; `session_hash` string; `changes` any; `details` any; `prev_hash` string (required); `hash` string (required)
+- **AuditOutcomeEnum**: one of `success`, `denied`, `failed`
+- **ChainEnum**: one of `general`, `money`
+- **ChangeRequest**: `id` integer (required, read-only); `action` string (required); `label` string (required, read-only); `target_type` string; `target_id` string; `target_label` string; `payload` any; `payload_sha256` string (required); `amount` decimal (null); `maker` integer (required); `reason` string (required); `rule` string; `status` ChangeRequestStatusEnum; `expires_at` date-time (required); `overridden` boolean; `checker` string (required, read-only); `approvals` [Approval] (required, read-only); `result` any (null); `executed_by` integer (null); `executed_at` date-time (null); `created` date-time (required, read-only); `modified` date-time (required, read-only)
+- **ChangeRequestStatusEnum**: one of `pending`, `approved`, `rejected`, `expired`, `executed`, `failed`
+- **ChannelEnum**: one of `email`, `letter`, `phone`, `form`, `in_person`, `board`
+- **ClassLevelEnum**: one of `10`, `12`
+- **CloseRequest**: `outcome` DataRequestOutcomeEnum (required); `response` string (required)
+- **CommentRequest**: `comment` string
+- **Customer**: `id` integer (required, read-only); `email` string (required, read-only); `phone` string (required, read-only); `full_name` string (required); `class_level` any (null); `board` string (required, read-only); `district` string; `under_18` boolean (required, read-only); `status` string (required, read-only); `consent` string (required, read-only); `email_verified` boolean (required, read-only); `login_phone_verified` boolean; `created` date-time (required, read-only); `last_login` date-time (null)
+- **CustomerDetail**: `id` integer (required, read-only); `email` string (required, read-only); `phone` string (required, read-only); `full_name` string (required); `class_level` any (null); `board` string (required, read-only); `district` string; `under_18` boolean (required, read-only); `status` string (required, read-only); `consent` string (required, read-only); `email_verified` boolean (required, read-only); `login_phone_verified` boolean; `created` date-time (required, read-only); `last_login` date-time (null); `roles` [string] (required, read-only); `locked` boolean (required, read-only); `mfa` [string] (required, read-only); `teacher` string (required, read-only); `parent_contact` string (required, read-only); `orders` [object] (required, read-only); `consents` [object] (required, read-only); `sessions` [object] (required, read-only); `deletion_due_at` string (required, null, read-only)
+- **DataRequest**: `id` integer (required, read-only); `kind` DataRequestKindEnum (required); `channel` ChannelEnum (required); `user` integer (null); `requester` string (required); `summary` string (required); `identity_verified` boolean (required, read-only); `identity_note` string (required, read-only); `verified_by` integer (required, null, read-only); `verified_at` date-time (required, null, read-only); `received_at` date-time; `ack_due_at` date-time (required, read-only); `acknowledged_at` date-time (required, null, read-only); `ack_overdue` boolean (required, read-only); `due_at` date-time (required, read-only); `overdue` boolean (required, read-only); `status` DataRequestStatusEnum (required, read-only); `assignee` integer (null); `notes` string; `details` any; `outcome` DataRequestOutcomeEnum (required, read-only); `response` string (required, read-only); `closed_at` date-time (required, null, read-only); `closed_by` integer (required, null, read-only); `created_by` integer (required, null, read-only)
+- **DataRequestKindEnum**: one of `access`, `correction`, `erasure`, `nomination`, `grievance`, `complaint`
+- **DataRequestList**: `id` integer (required, read-only); `kind` DataRequestKindEnum (required); `channel` ChannelEnum (required); `user` integer (null); `requester` string (required, read-only); `summary` string (required); `identity_verified` boolean (required, read-only); `identity_note` string (required, read-only); `verified_by` integer (required, null, read-only); `verified_at` date-time (required, null, read-only); `received_at` date-time; `ack_due_at` date-time (required, read-only); `acknowledged_at` date-time (required, null, read-only); `ack_overdue` boolean (required, read-only); `due_at` date-time (required, read-only); `overdue` boolean (required, read-only); `status` DataRequestStatusEnum (required, read-only); `assignee` integer (null); `notes` string; `details` any; `outcome` DataRequestOutcomeEnum (required, read-only); `response` string (required, read-only); `closed_at` date-time (required, null, read-only); `closed_by` integer (required, null, read-only); `created_by` integer (required, null, read-only)
+- **DataRequestOutcomeEnum**: one of `done`, `refused`, `withdrawn`
+- **DataRequestRequest**: `kind` DataRequestKindEnum (required); `channel` ChannelEnum (required); `user` integer (null); `requester` string (required); `summary` string (required); `received_at` date-time; `assignee` integer (null); `notes` string; `details` any
+- **DataRequestStatusEnum**: one of `new`, `acknowledged`, `closed`
+- **DecisionEnum**: one of `approve`, `reject`
+- **Detail**: `detail` string (required)
+- **Ended**: `sessions` integer (required); `tokens` integer (required)
+- **ErasureReport**: `erase` [object] (required); `keep` [object] (required); `blocks` [string] (required); `can_erase` boolean (required); `notes` [string] (required)
+- **ExportRequest**: `filters` object
+- **Flag**: `key` string (required); `value` any (required); `effective_from` date-time (required); `changed_by` integer (required, null); `reason` string (required)
+- **GrantRequest**: `role` RoleEnum (required); `expires_at` date-time (null); `reason` string (required)
+- **ImpersonateRequest**: `reason` string (required); `ticket` string (required)
+- **Impersonation**: `token` string (required); `expires_at` date-time (required)
+- **InboxCount**: `open` integer (required); `overdue` integer (required)
+- **InboxItem**: `id` integer (required, read-only); `kind` InboxKindEnum (required); `title` string (required); `target_type` string; `target_id` string; `permission` string (required); `assignee` integer (null); `due_at` date-time (null); `overdue` boolean (required, read-only); `snoozed_until` date-time (null); `done_at` date-time (null); `done_by` integer (null); `data` any; `created` date-time
+- **InboxKindEnum**: one of `approval`, `teacher_request`, `deletion_request`, `data_request`, `incident`, `failed_job`, `failed_webhook`
+- **Incident**: `id` integer (required, read-only); `title` string (required); `kind` IncidentKindEnum (required); `detected_at` date-time; `noticed_by` integer (required, null, read-only); `description` string; `systems` string; `data_categories` string; `people_affected` integer (null); `children_affected` boolean; `cert_in_due` date-time (required, read-only); `cert_in_overdue` boolean (required, read-only); `cert_in_reported_at` date-time (null); `cert_in_reference` string; `board_due` date-time (required, read-only); `board_overdue` boolean (required, read-only); `board_notified_at` date-time (null); `board_report_at` date-time (null); `board_reference` string; `notice_text` string; `notices_sent` integer; `notices_sent_at` date-time (null); `actions` string; `root_cause` string; `closed_at` date-time (required, null, read-only); `closed_by` integer (required, null, read-only); `created` date-time (required, read-only)
+- **IncidentKindEnum**: one of `data_breach`, `data_leak`, `unauthorised_access`, `malicious_code`, `application_attack`, `denial_of_service`, `loss_of_access`, `other`
+- **IncidentRequest**: `title` string (required); `kind` IncidentKindEnum (required); `detected_at` date-time; `description` string; `systems` string; `data_categories` string; `people_affected` integer (null); `children_affected` boolean; `cert_in_reported_at` date-time (null); `cert_in_reference` string; `board_notified_at` date-time (null); `board_report_at` date-time (null); `board_reference` string; `notice_text` string; `notices_sent` integer; `notices_sent_at` date-time (null); `actions` string; `root_cause` string
+- **InviteRequest**: `email` email (required); `role` RoleEnum (required); `reason` string (required)
+- **Job**: `id` integer (required, read-only); `kind` JobKindEnum (required, read-only); `state` JobStateEnum (required, read-only); `dry_run` boolean (required, read-only); `params` any (required, read-only); `done` integer (required, read-only); `total` integer (required, read-only); `errors` [JobError] (required, read-only); `result` any (required, read-only); `result_url` string (required, null, read-only); `change_request_id` integer (required, null, read-only); `cancel_requested` boolean (required, read-only); `started_by` integer (required, null, read-only); `created` date-time (required, read-only); `started_at` date-time (required, null, read-only); `finished_at` date-time (required, null, read-only)
+- **JobError**: `id` any (required, null); `label` string (required); `message` string (required)
+- **JobKindEnum**: one of `audit_export`, `bulk_action`
+- **JobStartRequest**: `kind` JobKindEnum (required); `params` object; `dry_run` boolean
+- **JobStateEnum**: one of `queued`, `running`, `done`, `failed`, `cancelled`
+- **NullEnum**: null
+- **Offboarded**: `roles` [string] (required); `scopes` integer (required); `api_keys` integer (required); `change_requests` integer (required); `sessions` integer (required); `tokens` integer (required)
+- **PaginatedApiKeyList**: `next` uri (null); `previous` uri (null); `results` [ApiKey] (required)
+- **PaginatedAuditEventList**: `next` uri (null); `previous` uri (null); `results` [AuditEvent] (required)
+- **PaginatedChangeRequestList**: `next` uri (null); `previous` uri (null); `results` [ChangeRequest] (required)
+- **PaginatedCustomerList**: `next` uri (null); `previous` uri (null); `results` [Customer] (required)
+- **PaginatedDataRequestListList**: `next` uri (null); `previous` uri (null); `results` [DataRequestList] (required)
+- **PaginatedInboxItemList**: `next` uri (null); `previous` uri (null); `results` [InboxItem] (required)
+- **PaginatedIncidentList**: `next` uri (null); `previous` uri (null); `results` [Incident] (required)
+- **PaginatedJobList**: `next` uri (null); `previous` uri (null); `results` [Job] (required)
+- **PaginatedPersonList**: `next` uri (null); `previous` uri (null); `results` [Person] (required)
+- **PaginatedProcessorList**: `next` uri (null); `previous` uri (null); `results` [Processor] (required)
+- **PaginatedSavedViewList**: `next` uri (null); `previous` uri (null); `results` [SavedView] (required)
+- **PaginatedStaffInviteList**: `next` uri (null); `previous` uri (null); `results` [StaffInvite] (required)
+- **PatchedDataRequestRequest**: `kind` DataRequestKindEnum; `channel` ChannelEnum; `user` integer (null); `requester` string; `summary` string; `received_at` date-time; `assignee` integer (null); `notes` string; `details` any
+- **PatchedIncidentRequest**: `title` string; `kind` IncidentKindEnum; `detected_at` date-time; `description` string; `systems` string; `data_categories` string; `people_affected` integer (null); `children_affected` boolean; `cert_in_reported_at` date-time (null); `cert_in_reference` string; `board_notified_at` date-time (null); `board_report_at` date-time (null); `board_reference` string; `notice_text` string; `notices_sent` integer; `notices_sent_at` date-time (null); `actions` string; `root_cause` string
+- **PatchedProcessorRequest**: `name` string; `purpose` string; `data_categories` string; `country` string; `contract_signed_on` date (null); `contract_ends_on` date (null); `active` boolean; `notes` string
+- **PatchedSavedViewRequest**: `role` string; `list_key` string; `name` string; `filters` any; `columns` any; `sort` any
+- **Person**: `id` integer (required, read-only); `email` email (required); `full_name` string (required); `is_active` boolean; `is_superuser` boolean; `roles` [string] (required, read-only); `grants` [object] (required, read-only); `scopes` [Scope] (required, read-only); `mfa` boolean (required, read-only); `last_login` date-time (null); `created` date-time (required, read-only)
+- **Processor**: `id` integer (required, read-only); `name` string (required); `purpose` string (required); `data_categories` string (required); `country` string (required); `contract_signed_on` date (null); `contract_ends_on` date (null); `active` boolean; `notes` string
+- **ProcessorRequest**: `name` string (required); `purpose` string (required); `data_categories` string (required); `country` string (required); `contract_signed_on` date (null); `contract_ends_on` date (null); `active` boolean; `notes` string
+- **ReasonRequest**: `reason` string (required)
+- **ReconcileRequest**: `order` string (required)
+- **Reconciled**: `order` string (required); `paid` boolean (required, null)
+- **ResponseText**: `subject` string (required); `body` string (required)
+- **RevealRequest**: `show` [ShowEnum] (required); `reason` string (required)
+- **Revealed**: `email` string (null); `phone` string (null); `login_phone` string (null); `parent_contact` string (null); `parent_name` string (null); `date_of_birth` string (null)
+- **RoleEnum**: one of `ADMIN`, `AUDITOR`, `CONTENT_EDITOR`, `FINANCE`, `MARKETING`, `OWNER`, `PACKER`, `REVIEWER`, `SALES`, `SALES_REP`, `SUPPORT`
+- **SavedView**: `id` integer (required, read-only); `owner` integer (required, read-only); `role` string; `list_key` string (required); `name` string (required); `filters` any; `columns` any; `sort` any; `created` date-time (required, read-only); `modified` date-time (required, read-only)
+- **SavedViewRequest**: `role` string; `list_key` string (required); `name` string (required); `filters` any; `columns` any; `sort` any
+- **Scope**: `id` integer (required, read-only); `kind` ScopeKindEnum (required); `value` string (required); `granted_by` integer (required, null, read-only); `created` date-time (required, read-only); `expires_at` date-time (null)
+- **ScopeAddRequest**: `kind` ScopeKindEnum (required); `value` string (required); `expires_at` date-time (null)
+- **ScopeKindEnum**: one of `subject`, `board_class`, `order_status`, `warehouse`, `school`, `ticket_queue`
+- **SessionsEnded**: `sessions` integer (required); `tokens` integer (required)
+- **Setting**: `key` string (required); `label` string (required); `kind` any (required); `permission` string (required); `value` any (required); `environment` any (required); `source` SettingSourceEnum (required); `effective_from` date-time (required, null); `changed_by` integer (required, null); `reason` string (required); `scheduled` [object] (required)
+- **SettingSourceEnum**: one of `environment`, `database`
+- **ShowEnum**: one of `email`, `phone`, `login_phone`, `parent_contact`, `parent_name`, `date_of_birth`
+- **SnoozeRequest**: `until` date-time (required)
+- **StaffCatalogue**: `permissions` [object] (required); `roles` [object] (required)
+- **StaffImpersonating**: `user_id` integer (required); `email` string (required); `until` date-time (required)
+- **StaffInvite**: `id` integer (required, read-only); `email` string (required, read-only); `role` string (required); `invited_by` integer (null); `created` date-time; `expires_at` date-time (required); `accepted_at` date-time (null); `accepted_by` integer (null); `revoked_at` date-time (null)
+- **StaffManifest**: `user` StaffUser (required); `roles` [object] (required); `permissions` [string] (required); `scopes` object (required); `role_scopes` object (required); `limits` object (required); `flags` object (required); `reauth_valid_until` date-time (required, null); `idle_timeout_s` integer (required); `absolute_expires_at` date-time (required); `impersonating` StaffImpersonating (required, null); `manifest_version` string (required)
+- **StaffSystem**: `health` any (required); `celery` any (required); `webhooks` any (required); `email` any (required); `sms` any (required); `backups` any (required); `maintenance` any (required); `audit` any (required)
+- **StaffUser**: `id` integer (required); `email` email (required); `full_name` string (required); `is_superuser` boolean (required)
+- **SwitchChangeRequest**: `value` any (required, null); `reason` string (required); `effective_from` date-time
+- **SwitchRow**: `key` string (required); `value` any (required); `effective_from` date-time (required); `changed_by` integer (required, null); `reason` string (required); `created` date-time (required)
+- **TokenRequest**: `token` string (required)
+- **Unlocked**: `attempts_cleared` integer (required)
+- **VerifyIdentityRequest**: `note` string (required)
+<!-- /staff-api-reference -->
+
 ## Errors
 
 DRF's standard format, always JSON:
@@ -1013,9 +1386,9 @@ DRF's standard format, always JSON:
 | Status | Body |
 |---|---|
 | 400 | the fields' errors: `{"marks_obtained": ["Enter marks from 0 to 70."]}`; others (and the shop's rules) under `non_field_errors`; `{"detail": "Bad request."}` for a request Django refuses before the API sees it (a host name that is not served) |
-| 401 | `{"detail": "Authentication credentials were not provided."}`; a bad or expired token: `{"detail": "Given token not valid for any token type", "code": "token_not_valid", "messages": [...]}` (refresh it); `"code": "password_changed"` or `"user_inactive"` (the password was changed, the account closed: log in again) |
-| 403 | `{"detail": "Confirm your email address first."}` (or another reason; `"The shop opens soon."` while the shop is closed; `"Unlock this subject with the code printed in your book."` for a locked course; `"A parent or guardian has not confirmed this account yet."` for what the course saves while `consent_pending`) |
-| 404 | `{"detail": "No Paper matches the given query."}`, `{"detail": "Not found."}` |
+| 401 | `{"detail": "Authentication credentials were not provided."}`; a bad or expired token: `{"detail": "Given token not valid for any token type", "code": "token_not_valid", "messages": [...]}` (refresh it); `"code": "password_changed"` or `"user_inactive"` (the password was changed, the account closed: log in again); a staff session ended: `"code": "session_idle"` or `"session_expired"` (log in again) |
+| 403 | `{"detail": "Confirm your email address first."}` (or another reason; `"The shop opens soon."` while the shop is closed; `"Unlock this subject with the code printed in your book."` for a locked course; `"A parent or guardian has not confirmed this account yet."` for what the course saves while `consent_pending`); `"code": "reauthentication_required"` (re-authenticate, then send it again), `"mfa_setup_required"` (staff: set up a second factor), `"impersonating"` (a payment, password or account change while staff are logged in as the customer) |
+| 404 | `{"detail": "No Paper matches the given query."}`, `{"detail": "Not found."}` (also anything under `staff/` on a host other than the admin host) |
 | 405, 406, 415 | `{"detail": "..."}` |
 | 413 | `{"detail": "The request body is too large."}` (over 1 MB, `DATA_UPLOAD_MAX_MEMORY_SIZE`) |
 | 429 | `{"detail": "..."}`: DRF's limits say "Request was throttled. Expected available in 38 seconds." and carry a `Retry-After` header; allauth's (codes, password reset, wrong passwords) have their own text and no `Retry-After`; allauth.headless answers `{"status": 429}` |
@@ -1043,6 +1416,12 @@ Counted in the cache (Redis in production), per client address for anonymous req
 | back-in-stock alerts (`POST products/<slug>/stock-alert/`), per client address, the website's included | 10 an hour | fixed |
 | quotation requests (`POST quotes/`), per client address, the website's included | 5 an hour | fixed |
 | the couriers' webhook (`POST /api/hooks/parcel-events/`), per client address | 300 a minute | `API_THROTTLE_PARCEL_EVENTS` |
+| the staff API (`staff/…`), per member of staff or API key | 600 a minute | `STAFF_THROTTLE` |
+| customer searches (`GET staff/users/`) | 60 a minute | `STAFF_THROTTLE_SEARCH` |
+| reveals of a customer's details, and impersonation tokens (`staff/users/<id>/reveal/`, `…/impersonate/`) | 30 an hour | `STAFF_THROTTLE_REVEAL` |
+| audit-log exports (`staff/audit/export/`) | 10 an hour | `STAFF_THROTTLE_EXPORT` |
+| money actions and approvals (`staff/change-requests/` asked, approved, run; role grants, invitations, offboarding) | 120 an hour | `STAFF_THROTTLE_MONEY` |
+| staff invitations accepted (`staff/invites/accept/`), per client address | 10 an hour | `STAFF_THROTTLE_INVITE` |
 
 The rows marked "fixed" are counted by the shop itself and refuse (429) while the cache cannot be read (Redis down); the others
 let requests through meanwhile. `auth/exchange/`, `me/parent-consent/` count in the log-in scope (`API_THROTTLE_AUTH`).

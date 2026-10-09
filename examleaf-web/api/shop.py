@@ -6,7 +6,6 @@ website. The Razorpay webhook stays the website's (/shop/webhooks/razorpay/): it
 did."""
 
 import django_filters
-from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Avg, Count, Prefetch, Q
@@ -57,6 +56,7 @@ from shop.models import (
     validate_indian_mobile,
 )
 from shop.views import QUOTE_SENT, lookup_allowed, over_limit, pdf_response
+from staff.config import site_setting
 
 from .views import DetailSerializer, VerifiedEmail, cached, check_turnstile
 
@@ -66,12 +66,13 @@ SHIPMENTS = Prefetch("shipments", queryset=Shipment.objects.select_related("deta
 
 
 class ShopOpen(permissions.BasePermission):
-    """While SHOP_OPEN is off only staff change carts, check out and pay (the website says "Shop opens soon")."""
+    """While SHOP_OPEN is off (the environment's, or the panel's: staff.config) only staff change carts, check
+    out and pay (the website says "Shop opens soon")."""
 
     message = "The shop opens soon."
 
     def has_permission(self, request, view):
-        if settings.SHOP_OPEN or request.method in permissions.SAFE_METHODS or request.user.is_staff:
+        if site_setting("SHOP_OPEN") or request.method in permissions.SAFE_METHODS or request.user.is_staff:
             return True
         raise exceptions.PermissionDenied(self.message)  # 403 for visitors too (DRF would answer them 401)
 

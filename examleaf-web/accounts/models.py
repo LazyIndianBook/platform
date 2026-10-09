@@ -17,6 +17,7 @@ from model_utils.models import TimeStampedModel
 from phonenumber_field.modelfields import PhoneNumberField
 
 from pages.models import Page
+from staff.config import site_setting
 
 from . import roles
 
@@ -137,7 +138,7 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedModel):
         """PARENTAL_CONSENT_MODE "verified": a student under 18 whose parent has not confirmed through the emailed link
         yet. Such an account can log in and read, not save marks or order (M9)."""
         return (
-            settings.PARENTAL_CONSENT_MODE == "verified"
+            site_setting("PARENTAL_CONSENT_MODE") == "verified"  # the environment's, or the panel's
             and self.is_minor
             and not self.consents.filter(event=ConsentRecord.Event.GIVEN, verified_at__isnull=False).exists()
         )
