@@ -240,21 +240,22 @@ def test_gstr1_export_for_the_accountant(rzp, settings, commit, real_seller, tmp
     with commit():
         services.cancel_order(delhi, "Changed my mind.")  # refunded in full: a credit note
     today, out = timezone.localdate().isoformat(), io.StringIO()
-    call_command("export_gstr1", "--from", today, "--to", today, "--out", str(tmp_path), stdout=out)
-    assert "2 invoices, 1 credit notes" in out.getvalue()
-    prefix = tmp_path / f"gstr1-{today.replace('-', '')}-{today.replace('-', '')}"
-    assert read_csv(f"{prefix}-b2c.csv") == [
-        ["place_of_supply", "rate", "invoices", "taxable_value", "igst", "cgst", "sgst", "shipping"],
-        ["07-Delhi", "0.00", "1", "299.00", "0.00", "0.00", "0.00", "50.00"],
-        ["18-Assam", "0.00", "0", "598.00", "0.00", "0.00", "0.00", "0"],
-        ["18-Assam", "12.00", "1", "100.00", "0.00", "6.00", "6.00", "50.00"],  # its shipping: the highest rate
-    ]
-    assert read_csv(f"{prefix}-hsn.csv")[1:] == [
-        ["4820", "NOS", "12.00", "1", "112.00", "100.00", "0.00", "6.00", "6.00"],
-        ["4901", "NOS", "0.00", "3", "897.00", "897.00", "0.00", "0.00", "0.00"],
-    ]
+    call_command("export_gstr1", "--from", today, "--to", today, "--out", str(tmp_path / "out"), stdout=out)
+    assert "2 invoices, 1 credit notes, 0 cancelled" in out.getvalue()
+    prefix = tmp_path / "out" / f"gstr1-{today.replace('-', '')}-{today.replace('-', '')}"
+    # the shipping follows the goods (50.00 shared 112 : 598, taxed with each): 7.89 at 12 %, 42.11 exempt
+    assert read_csv(f"{prefix}-b2cs.csv")[1:] == [["OE", "18-Assam", "", "12.00", "107.04", "0.00", ""]]
+    exempt = {row[0]: row[1:] for row in read_csv(f"{prefix}-exemp.csv")[1:]}
+    assert exempt["Intra-State supplies to unregistered persons"] == ["0.00", "640.11", "0.00"]
+    assert exempt["Inter-State supplies to unregistered persons"] == ["0.00", "0.00", "0.00"]  # Delhi: credited
+    assert read_csv(f"{prefix}-hsn-b2c.csv")[1:] == [
+        ["4820", "Exercise books, graph books, laboratory notebooks and notebooks", "NOS", "1", "119.89", "12.00",
+         "107.04", "0.00", "6.43", "6.42", "0.00"],
+        ["4901", "Printed books, including Braille books", "NOS", "3", "640.11", "0.00", "640.11", "0.00", "0.00",
+         "0.00", "0.00"],
+    ]  # fmt: skip
     (note,) = read_csv(f"{prefix}-credit-notes.csv")[1:]
-    assert note[4:] == ["07-Delhi", "0.00", "299.00", "0.00", "0.00", "0.00", "50.00"]
+    assert note[4:] == ["07-Delhi", "0.00", "0.00", "0.00", "0.00", "0.00", "349.00", "50.00"]
     assert note[0].startswith("CN/") and note[2] == delhi.invoice.number
 
 
