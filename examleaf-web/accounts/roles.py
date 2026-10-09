@@ -147,6 +147,10 @@ ROLES = {
         # the ERPNext sync: watch it and resolve the nightly reconciliation's differences (replaying is ADMIN's)
         *["erp.view_sync", "erp.resolve_difference"],
         *["staff.view_cod", "staff.reconcile_cod", "staff.view_insights"],  # COD remittances; the reports
+        # tax (shop/staff_tax.py): the HSN and SAC master, the series register, the thresholds and the calendar,
+        # cancelling a document, the GSTR-1 export
+        *["shop.view_hsncode", "shop.change_hsncode", "shop.view_documentseries", "shop.view_taxthreshold"],
+        *["staff.cancel_document", "staff.run_gstr1"],
         *PANEL,
     ],
     PACKER: [  # the packing queue only: the orders to pack and ship (ROLE_SCOPES) and their books; pick, pack, hand

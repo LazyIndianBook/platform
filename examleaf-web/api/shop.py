@@ -999,6 +999,12 @@ class OrderSerializer(OrderBriefSerializer):
 class CheckoutSerializer(serializers.Serializer):
     address = serializers.IntegerField(help_text="the id of one of the customer's addresses (addresses/)")
     payment_method = serializers.ChoiceField(choices=services.CUSTOMER_METHOD_CHOICES)
+    billing_state = serializers.ChoiceField(
+        choices=STATE_CHOICES,
+        required=False,
+        help_text="a cart of courses alone: the state the buyer is billed in, the place of supply (else the "
+        "address's); with books, the delivery address's state decides and another is refused",
+    )
 
     def validate_address(self, value):
         if address := self.context["request"].user.addresses.filter(pk=value).first():
@@ -1232,7 +1238,12 @@ class OrderViewSet(Private, mixins.ListModelMixin, mixins.RetrieveModelMixin, vi
                 if cart is not None and not Cart.objects.select_for_update().filter(pk=cart.pk).exists():
                     cart = None  # emptied by the checkout that held the lock
                 order = services.create_order(
-                    cart, user=user, email=email, address=address, method=data.validated_data["payment_method"]
+                    cart,
+                    user=user,
+                    email=email,
+                    address=address,
+                    method=data.validated_data["payment_method"],
+                    billing_state=data.validated_data.get("billing_state", ""),
                 )
                 if order.is_cod:
                     try:

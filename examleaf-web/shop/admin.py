@@ -41,6 +41,9 @@ from .models import (
     CollectionItem,
     Coupon,
     CreditNote,
+    DocumentSeries,
+    HsnCode,
+    HsnRate,
     Invoice,
     Offer,
     Order,
@@ -58,6 +61,7 @@ from .models import (
     ShippingRate,
     SlugHistory,
     StockAlert,
+    TaxThreshold,
 )
 from .views import pdf_response
 
@@ -108,7 +112,7 @@ class ProductForm(forms.ModelForm):
         fields = [  # as in the admin's fieldsets
             *["title", "slug", "kind", "is_active", "subject", "book", "mrp", "price", "stock", "gst_rate"],
             *["hsn_code", "cover", "description", "isbn", "pages", "weight_grams", "seo_title", "seo_description"],
-            *["product_type", "categories", "related"],
+            *["product_type", "categories", "related", "hsn", "tax_treatment", "tax_note", "tax_note_date"],
         ]
 
     def __init__(self, *args, **kwargs):
@@ -239,6 +243,10 @@ class ProductAdmin(ImportMixin, ExportActionMixin, LoggedExportMixin, admin.Mode
     fieldsets = [
         (None, {"fields": ["title", "slug", "kind", "is_active", "subject", "book"]}),
         ("Price and stock", {"fields": ["mrp", "price", "stock", "gst_rate", "hsn_code"]}),
+        (
+            "Tax (the panel's Tax module keeps the master)",
+            {"fields": ["hsn", "tax_treatment", "tax_note", "tax_note_date"]},
+        ),
         ("The book", {"fields": ["cover", "description", "isbn", "pages", "weight_grams"]}),
         ("Shelves, type and related products", {"fields": ["categories", "product_type", "related"]}),
         ("Search engines", {"fields": ["seo_title", "seo_description"], "classes": ["collapse"]}),
@@ -874,16 +882,16 @@ def pdf_url(document):
 
 @admin.register(Invoice)
 class InvoiceAdmin(DocumentAdmin):
-    list_display = ["number", "order", "created", "pdf_link"]
-    list_filter = ["financial_year", "created"]
+    list_display = ["number", "order", "document_type", "created", "cancelled_at", "pdf_link"]
+    list_filter = ["financial_year", "series", "document_type", "created"]
     search_fields = ["number", "order__number"]
     list_select_related = ["order"]
 
 
 @admin.register(CreditNote)
 class CreditNoteAdmin(DocumentAdmin):
-    list_display = ["number", "invoice", "refund_amount", "created", "pdf_link"]
-    list_filter = ["financial_year", "created"]
+    list_display = ["number", "invoice", "refund_amount", "created", "cancelled_at", "pdf_link"]
+    list_filter = ["financial_year", "series", "created"]
     search_fields = ["number", "invoice__number", "invoice__order__number"]
     list_select_related = ["invoice__order", "refund"]
 
@@ -995,3 +1003,40 @@ class StockAlertAdmin(admin.ModelAdmin):
 
     def has_change_permission(self, request, obj=None):
         return False
+
+
+# Phase B: tax. The master, the series and the monitor's nights, read only: the panel's Tax module keeps them
+# (/api/v1/staff/tax/), so a new rate is never typed over an old one.
+
+
+class HsnRateInline(ReadOnlyInline):
+    model = HsnRate
+    fields = readonly_fields = [
+        "rate",
+        "taxability",
+        "effective_from",
+        "effective_to",
+        "notification",
+        "serial",
+        "note",
+    ]
+
+
+@admin.register(HsnCode)
+class HsnCodeAdmin(ReadOnlyAdmin):
+    list_display = ["code", "kind", "description", "uqc"]
+    list_filter = ["kind"]
+    search_fields = ["code", "description"]
+    inlines = [HsnRateInline]
+
+
+@admin.register(DocumentSeries)
+class DocumentSeriesAdmin(ReadOnlyAdmin):
+    list_display = ["prefix", "financial_year", "document_type", "live", "next_number"]
+    list_filter = ["financial_year", "live"]
+
+
+@admin.register(TaxThreshold)
+class TaxThresholdAdmin(ReadOnlyAdmin):
+    list_display = ["date", "line", "value", "limit", "crossed"]
+    list_filter = ["line", "crossed", "financial_year"]

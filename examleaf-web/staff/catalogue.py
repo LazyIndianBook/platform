@@ -15,7 +15,7 @@ RISKS = [LOW, MEDIUM, HIGH, CRITICAL]
 ORDERS, PAYMENTS, CUSTOMERS, CONTENT, COURSE = "Orders", "Payments & refunds", "Customers", "Content", "Course"
 CATALOGUE, MARKETING, STAFF, AUDIT = "Catalogue", "Marketing", "Staff & roles", "Audit"
 PRIVACY, SETTINGS, OPERATIONS, ERP_SYNC = "Privacy", "Settings", "Operations", "ERP sync"
-SHIPPING, REPORTS = "Shipping", "Reports"
+SHIPPING, REPORTS, TAX = "Shipping", "Reports", "Tax"
 
 
 @dataclass(frozen=True)
@@ -101,6 +101,9 @@ STAFF_ACTIONS = [
     ("manage_pickup_locations", "Add and change the pickup addresses", SHIPPING, MEDIUM),
     ("view_insights", "See the insights: forecasts, print runs, item analysis, cohorts, fraud signals", REPORTS, LOW),
     ("acknowledge_signal", "Acknowledge fraud signals (looked at and handled)", REPORTS, LOW),
+    # Tax (shop/staff_tax.py): cancelling an invoice or a credit note (it keeps its number), the GSTR-1 export job
+    ("cancel_document", "Cancel an invoice or a credit note (it keeps its number)", TAX, HIGH),
+    ("run_gstr1", "Run the month's GSTR-1 export (the accountant's files)", TAX, MEDIUM),
 ]
 STAFF_MODELS = [
     ("view_changerequest", "See the approvals you take part in", STAFF, LOW),
@@ -195,6 +198,7 @@ SHOP_AREAS = {
         ["product", "productimage", "bundleitem", "slughistory", "category", "collection", "collectionitem"], CATALOGUE
     ),
     **dict.fromkeys(["producttype", "attribute", "attributevalue", "shippingrate", "pincode", "stockalert"], CATALOGUE),
+    **dict.fromkeys(["hsncode", "hsnrate", "documentseries", "taxthreshold"], TAX),  # Phase B: tax
 }
 
 

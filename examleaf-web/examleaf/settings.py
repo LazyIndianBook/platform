@@ -803,6 +803,51 @@ CELERY_BEAT_SCHEDULE.update(
     }
 )
 
+# Tax (shop/tax.py; shop/README.md "Tax"; DEPLOYMENT.md "Tax"): the storefront's GST documents. From the financial
+# year SHOP_SERIES_FROM_FY each type of document is numbered in a series of its own, with the prefixes the CA confirms
+# (SHOP_SERIES_PREFIXES as type=prefix pairs, e.g. "tax_invoice=TI,credit_note=CN": two capitals or figures each, all
+# different, none the test series' TC); until then EL holds every invoice and CN the credit notes. Documents print
+# HSN and SAC codes to SHOP_HSN_DIGITS figures (4 up to Rs 5 crore of turnover, 6 above: Notification 78/2020-CT).
+# SHOP_GST_QRMP: the returns are quarterly under QRMP (the tax calendar's dates); the panel may switch it
+# (staff/config.py). The threshold monitor looks every night at 01:45 (shop.tasks.watch_tax_thresholds).
+SHOP_SERIES_FROM_FY = env("SHOP_SERIES_FROM_FY", default="2027-28")
+SHOP_SERIES_PREFIXES = {
+    **{"tax_invoice": "TI", "bill_of_supply": "BS", "invoice_cum_bill_of_supply": "IB", "credit_note": "CN"},
+    **{"debit_note": "DN", "receipt_voucher": "RV", "refund_voucher": "RF"},
+}
+SHOP_SERIES_PREFIXES.update(env.dict("SHOP_SERIES_PREFIXES", default={}))
+SHOP_HSN_DIGITS = env.int("SHOP_HSN_DIGITS", default=4)
+SHOP_GST_QRMP = env.bool("SHOP_GST_QRMP", default=True)
+_fy = SHOP_SERIES_FROM_FY.split("-")
+if len(_fy) != 2 or not all(part.isdigit() for part in _fy) or int(_fy[1]) != (int(_fy[0]) + 1) % 100:
+    raise SystemExit("SHOP_SERIES_FROM_FY is a financial year like 2027-28: see DEPLOYMENT.md.")
+_prefixes = list(SHOP_SERIES_PREFIXES.values())
+if (
+    len(SHOP_SERIES_PREFIXES) != 7
+    or len(set(_prefixes)) != len(_prefixes)
+    or any(len(prefix) != 2 or not all(c.isdigit() or "A" <= c <= "Z" for c in prefix) for prefix in _prefixes)
+    or "TC" in _prefixes
+):
+    raise SystemExit("SHOP_SERIES_PREFIXES: seven types, two capitals or figures each, all different, not TC.")
+if SHOP_HSN_DIGITS not in (4, 6, 8):
+    raise SystemExit("SHOP_HSN_DIGITS is 4, 6 or 8.")
+_TAX_TAG = {"name": "tax (staff)", "description": "The HSN and SAC master, documents, series, thresholds (API.md)."}
+if _TAX_TAG not in SPECTACULAR_SETTINGS["TAGS"]:  # noqa: F405  (once: tests reload this module, the dict is shared)
+    SPECTACULAR_SETTINGS["TAGS"].append(_TAX_TAG)  # noqa: F405
+SPECTACULAR_SETTINGS["ENUM_NAME_OVERRIDES"].update(  # noqa: F405  the tax models' "kind", "line" and types
+    HsnKindEnum="shop.models.HsnCode.Kind",
+    TaxabilityEnum="shop.models.Taxability",
+    TaxDocumentTypeEnum="shop.models.DocumentType",
+    SeriesTypeEnum="shop.models.DocumentSeries.Type",
+    TaxThresholdLineEnum="shop.models.TaxThreshold.Line",
+    TaxTreatmentEnum="shop.models.Product.TaxTreatment",
+    TaxDocumentKindEnum="shop.staff_tax.DOCUMENT_KINDS",
+    ProductKindEnum="shop.models.Product.Kind",  # its name as before, now that several components show it
+)
+CELERY_BEAT_SCHEDULE |= {
+    "shop-tax-thresholds": {"task": "shop.tasks.watch_tax_thresholds", "schedule": crontab(hour=1, minute=45)},
+}
+
 # ---- Resilience (RESILIENCE.md: each knob below, its default and when to change it) --------------------------------
 # Nothing waits without a limit: every call to another service has a connect and a read timeout and a bounded retry,
 # every SQL statement a time limit in the processes that serve people. Kept in one block, after everything it reads.

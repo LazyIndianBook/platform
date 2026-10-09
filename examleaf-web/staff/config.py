@@ -46,6 +46,7 @@ SETTINGS = {
         bool, "Maintenance mode: the frontends show the banner", "staff.toggle_maintenance", False
     ),
     "MAINTENANCE_BANNER": Spec(str, "The maintenance banner's text", "staff.toggle_maintenance", ""),
+    "SHOP_GST_QRMP": Spec(bool, "GST returns quarterly under QRMP (the tax calendar's dates)"),
 }
 
 
