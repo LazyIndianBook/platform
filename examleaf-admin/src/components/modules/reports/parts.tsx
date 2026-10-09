@@ -51,7 +51,7 @@ export function ReportHead({ report, counted }: { report: Envelope; counted?: st
         <span>{counted ?? words.asOf(formatDateTime(report.as_of))}</span>
       </p>
       <details className="max-w-[60rem] rounded-lg border border-border bg-card px-4">
-        <summary className="flex min-h-11 cursor-pointer items-center font-semibold">{words.howCounted}</summary>
+        <summary className="min-h-11 cursor-pointer py-2.5 font-semibold">{words.howCounted}</summary>
         <div className="flex flex-col gap-3 pb-4">
           <p className="m-0 text-[15px] leading-relaxed">{report.definition}</p>
           {report.columns.length ? (

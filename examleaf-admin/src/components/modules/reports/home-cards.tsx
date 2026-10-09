@@ -43,7 +43,7 @@ export function NumberCard({ card }: { card: HomeCard }) {
             {card.test_mode ? <StatusChip tone="waiting">{words.testChip}</StatusChip> : null}
           </p>
           <details>
-            <summary className="flex min-h-11 cursor-pointer items-center text-[15px] font-semibold">
+            <summary className="min-h-11 cursor-pointer py-2.5 text-[15px] font-semibold">
               {words.howCounted}
               <span className="sr-only">: {card.label}</span>
             </summary>
