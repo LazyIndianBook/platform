@@ -441,6 +441,49 @@ class ApiKey(models.Model):
         return self.revoked_at is None and self.expires_at > timezone.now()
 
 
+class Note(models.Model):
+    """A note staff keep on a record (plan 7.1): an order, a customer, a parcel, by the record's `app_label.model` and
+    id (as the audit log names targets); the record's timeline lists them, pinned first. Readable by those who may
+    see the record (in their scope). Its body is what staff typed: never in the audit log, whose event names the
+    record and the note's number."""
+
+    target_type = models.CharField(max_length=60, help_text="app_label.model, e.g. shop.order")
+    target_id = models.CharField(max_length=64)
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    body = models.TextField(max_length=5000)
+    pinned = models.BooleanField(default=False)
+    created = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        default_permissions = ("view", "add")
+        ordering = ["-pinned", "-created", "-pk"]
+        indexes = [models.Index(fields=["target_type", "target_id"], name="staff_note_target")]
+
+    def __str__(self):
+        return f"Note #{self.pk}"
+
+
+class PolicyAcknowledgement(models.Model):
+    """A member of staff's acknowledgement of one version of a policy (research 6: acceptable use, children's data,
+    confidentiality, incident reporting; NIST PS-6): asked again when its version in STAFF_POLICIES changes (the
+    manifest's `policies_due`)."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="policy_acknowledgements")
+    policy = models.CharField(max_length=40)
+    version = models.CharField(max_length=40)
+    acknowledged_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        default_permissions = ()  # each person their own; staff.view_staff reads anyone's
+        ordering = ["-acknowledged_at", "-pk"]
+        constraints = [
+            models.UniqueConstraint(fields=["user", "policy", "version"], name="one_acknowledgement_per_version")
+        ]
+
+    def __str__(self):
+        return f"Acknowledgement #{self.pk}"
+
+
 class Impersonation(models.Model):
     """A member of staff logged in as a customer on the website (research 2.7; staff.services): the token of the
     panel's `users/<id>/impersonate/` opens one website session (`accepted_at`: once), within 15 minutes, which ends at

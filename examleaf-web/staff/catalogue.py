@@ -119,6 +119,8 @@ STAFF_MODELS = [
     ("view_staffinvite", "See staff invitations", STAFF, LOW),
     ("view_datarequest", "See data requests", PRIVACY, LOW),
     ("view_incident", "See the breach register", PRIVACY, LOW),
+    ("view_note", "See staff notes on the records you can see", OPERATIONS, LOW),
+    ("add_note", "Write notes on the records you can see", OPERATIONS, LOW),
     ("view_processorrecord", "See the processor register", PRIVACY, LOW),
     ("add_processorrecord", "Add processors", PRIVACY, MEDIUM),
     ("change_processorrecord", "Change processors", PRIVACY, MEDIUM),

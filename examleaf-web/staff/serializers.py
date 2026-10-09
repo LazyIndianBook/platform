@@ -22,6 +22,8 @@ from .models import (
     InboxItem,
     Incident,
     Job,
+    Note,
+    PolicyAcknowledgement,
     ProcessorRecord,
     RoleGrant,
     SavedView,
@@ -211,6 +213,20 @@ class JobStartSerializer(serializers.Serializer):
             raise serializers.ValidationError({"params": problems})
         data["params"] = {"action": action, "targets": targets, "payload": payload, "reason": reason[:500]}
         return data
+
+
+class NoteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Note
+        fields = ["id", "target_type", "target_id", "author", "body", "pinned", "created"]
+        read_only_fields = ["id", "author", "created"]
+
+
+class PolicyAcknowledgementSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PolicyAcknowledgement
+        fields = ["id", "user", "policy", "version", "acknowledged_at"]
+        read_only_fields = ["id", "user", "acknowledged_at"]
 
 
 class SavedViewSerializer(serializers.ModelSerializer):

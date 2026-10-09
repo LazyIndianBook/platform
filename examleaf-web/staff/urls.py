@@ -17,6 +17,7 @@ router.register("users", api.UserViewSet, basename="user")
 router.register("data-requests", api.DataRequestViewSet, basename="data-request")
 router.register("incidents", api.IncidentViewSet, basename="incident")
 router.register("processors", api.ProcessorViewSet, basename="processor")
+router.register("notes", api.NoteViewSet, basename="note")
 
 urlpatterns = [
     path("session/", api.SessionView.as_view(), name="session"),
@@ -30,5 +31,6 @@ urlpatterns = [
     path("system/", api.SystemView.as_view(), name="system"),
     path("system/reconcile/", api.ReconcileView.as_view(), name="reconcile"),
     path("invites/accept/", api.InviteAcceptView.as_view(), name="invite-accept"),
+    path("policies/ack/", api.PolicyAcknowledgementView.as_view(), name="policy-ack"),
     *router.urls,
 ]

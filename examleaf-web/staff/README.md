@@ -10,7 +10,7 @@ what this API answers and decides nothing itself. The endpoints are in [API.md](
 | `../accounts/roles.py` | the roles (Django groups) and their permissions, `ROLE_LIMITS`, `ROLE_SCOPES`, `SOD_CONFLICTS`, `PRIVILEGED_ROLES`, `OWNER_ONLY`, `MONEY_APPROVALS`, `ADMIN_SITE_ROLES` |
 | `apps.py` | the roles synced after every `migrate` (a post_migrate receiver) |
 | `catalogue.py` | every permission's label, area, risk and what the risk triggers |
-| `models.py` | `StaffPermissions` (the action permissions), `StaffScope`, `RoleGrant`, `AuditEvent` and `AuditHead`, `ChangeRequest` and `Approval`, `Job`, `InboxItem`, `SavedView`, `SiteSetting`, `FeatureFlag`, `ApiKey`, `StaffInvite`, `DataRequest`, `Incident`, `ProcessorRecord` |
+| `models.py` | `StaffPermissions` (the action permissions), `StaffScope`, `RoleGrant`, `AuditEvent` and `AuditHead`, `ChangeRequest` and `Approval`, `Job`, `InboxItem`, `SavedView`, `SiteSetting`, `FeatureFlag`, `ApiKey`, `Note`, `PolicyAcknowledgement`, `Impersonation`, `StaffInvite`, `DataRequest`, `Incident`, `ProcessorRecord` |
 | `jobs.py` | background jobs from the panel: `start()`, `cancel()`, `run()` with its Progress, the runners (`audit_export`, `bulk_action`), the result file's signed link |
 | `backends.py` | `scoped(queryset, user, perm)` and `ScopeBackend` (`user.has_perm(perm, obj)`) |
 | `audit.py` | `record()`, the hash chains, `verify()`, `export_day()`, retention (`purge()`), `alert()` |
@@ -214,6 +214,19 @@ online (which is its refund), ask `approvals.ask("order.refund", …)`: within t
 above it a change request waits for FINANCE in the panel; each step is audited. Packing, shipping and delivery in the
 admin need `staff.pack_order` (`shop/admin.py`).
 
+## Notes and policies
+
+**Notes** (`Note`, `notes/`): what staff keep on a record (an order, a customer, a parcel …), by the record's
+`app_label.model` and id as the audit log names targets; a record's notes are listed pinned first (its timeline's).
+`staff.view_note` and `staff.add_note` (every role of the panel; not PACKER), and only on a record the person may see:
+its model's `view_` permission, in their scope (`scoped()`), else 404. The audit event `note.created` targets the
+record and holds the note's number, never its body.
+
+**Policy acknowledgements** (`PolicyAcknowledgement`, `policies/ack/`, research 6): each member of staff acknowledges
+each version of the policies in `STAFF_POLICIES` (`{key: version}`) once; the manifest's `policies_due` lists what
+they have not, and a new version asks everyone again. Their own by default; `?user=` someone else's with
+`staff.view_staff`. Each acknowledgement is an audit event (`policy.acknowledged`).
+
 ## Jobs
 
 Background work started from the panel (`jobs.py`, plan 3.6). `POST jobs/` with a `kind` and its `params` checks the
@@ -278,6 +291,7 @@ by `result_url` (signed for 5 minutes; a bucket's own signed link behind it) and
 The panel itself (Next.js); the orders, catalogue, content and course modules' own endpoints (their permissions are
 in the catalogue: `staff.publish_paper` waits for the content module); bulk actions beyond the change requests' (a
 bulk job runs those: refunds, offline payments, prices, coupons); replaying a Razorpay webhook from its body (the
-site keeps only the event's id and hash: `system/reconcile/` asks Razorpay again instead); ERPNext's role sync;
-`Note` and `PolicyAcknowledgement` (plan 7.1); the Django admin's own step for a break-glass session's reason; the
-website's page that posts an impersonation token, and its banner (examleaf-frontend).
+site keeps only the event's id and hash: `system/reconcile/` asks Razorpay again instead); ERPNext's role sync; the
+Django admin's own step for a break-glass session's reason; the website's page that posts an impersonation token, and
+its banner (examleaf-frontend); notes in a data request's access export, and their edits; holding the panel shut
+until the policies due are acknowledged (the manifest says which; the console decides).

@@ -11,10 +11,12 @@ from datetime import UTC, datetime, timedelta
 
 from allauth.account import app_settings as account_settings
 from allauth.account.authentication import get_authentication_records
+from django.apps import apps
 from django.conf import settings
 from django.contrib.admin.models import ADDITION, CHANGE, DELETION, LogEntry
 from django.contrib.auth import get_user_model, logout
 from django.contrib.auth.models import Group, Permission
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.files.storage import FileSystemStorage, default_storage
 from django.db import transaction
 from django.db.models import Count, Max, Q
@@ -60,6 +62,8 @@ from .models import (
     InboxItem,
     Incident,
     Job,
+    Note,
+    PolicyAcknowledgement,
     ProcessorRecord,
     RoleGrant,
     SavedView,
@@ -205,6 +209,7 @@ def manifest(request):
         # a break-glass account has none (staff.approvals.limit_of)
         "limits": {name: None if user.is_superuser else roles.limit(names, name) for name in roles.LIMITS},
         "flags": {**feature_flags(), **({"test_mode": True} if settings.STAFF_TEST_MODE else {})},
+        "policies_due": policies_due(user),
     }
     version = hashlib.sha256(json.dumps(audit.plain(body), sort_keys=True).encode()).hexdigest()[:16]
     return {
@@ -259,6 +264,9 @@ MANIFEST = inline_serializer(
         "limits": serializers.DictField(child=serializers.IntegerField(allow_null=True), help_text="null: none"),
         "flags": serializers.DictField(
             child=serializers.JSONField(), help_text="the feature flags; test_mode: true when not production"
+        ),
+        "policies_due": serializers.ListField(
+            child=serializers.DictField(), help_text="policy, version: not acknowledged yet (POST policies/ack/)"
         ),
         "reauth_valid_until": serializers.DateTimeField(allow_null=True),
         "idle_timeout_s": serializers.IntegerField(),
@@ -758,6 +766,123 @@ class SavedViewViewSet(StaffView, viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(owner=self.human())
+
+
+# Notes on records and policy acknowledgements (plan 7.1)
+
+
+def note_target(user, target_type, target_id):
+    """The record a note is on, when `user` may see it (its model's view_ permission, in their scope); 400 for no
+    such kind of record, 404 for a record not found or out of reach."""
+    app_label, _, model_name = str(target_type or "").partition(".")
+    try:
+        model = apps.get_model(app_label, model_name)
+    except (LookupError, ValueError) as error:
+        kinds = {"target_type": ["A kind of record: app_label.model, e.g. shop.order."]}
+        raise serializers.ValidationError(kinds) from error
+    perm = f"{model._meta.app_label}.view_{model._meta.model_name}"
+    try:
+        found = scoped(model._default_manager.filter(pk=target_id), user, perm).first()
+    except ValueError, DjangoValidationError:
+        found = None
+    if found is None:
+        raise exceptions.NotFound("No such record (or not one you may see).")
+    return found
+
+
+TARGET = [
+    OpenApiParameter("target_type", str, required=True, description="app_label.model, e.g. shop.order"),
+    OpenApiParameter("target_id", str, required=True, description="its id"),
+]
+
+
+class NoteViewSet(StaffView, mixins.ListModelMixin, mixins.CreateModelMixin, viewsets.GenericViewSet):
+    """Notes on a record, its timeline's: GET `?target_type=&target_id=` (both), pinned first, all of them; POST one.
+    Only on a record you may see (else 404). The audit log names the record and the note's number, never its body."""
+
+    serializer_class = s.NoteSerializer
+    permissions = {"list": "staff.view_note", "create": "staff.add_note"}
+    pagination_class = None  # a record's notes: few, in one answer
+    filter_backends = []
+
+    def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Note.objects.none()
+        params = self.request.query_params
+        note_target(self.request.user, params.get("target_type"), params.get("target_id"))
+        notes = Note.objects.filter(target_type=params["target_type"], target_id=params["target_id"])
+        return scoped(notes, self.request.user, "staff.view_note")
+
+    @extend_schema(parameters=TARGET)
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    def perform_create(self, serializer):
+        data, user = serializer.validated_data, self.human()
+        found = note_target(user, data["target_type"], data["target_id"])
+        with transaction.atomic():
+            note = serializer.save(author=user, target_type=found._meta.label_lower, target_id=str(found.pk))
+            audit.record(
+                "note.created",
+                request=self.request,
+                target=found,
+                details={"note": note.pk, "pinned": note.pinned},
+            )
+
+
+def policies_due(user):
+    """The versions of STAFF_POLICIES the person has not acknowledged: [{"policy", "version"}]."""
+    done = set(PolicyAcknowledgement.objects.filter(user=user).values_list("policy", "version"))
+    return [
+        {"policy": key, "version": version}
+        for key, version in sorted(settings.STAFF_POLICIES.items())
+        if (key, version) not in done
+    ]
+
+
+class PolicyAcknowledgementView(StaffView, generics.GenericAPIView):
+    """The policies staff acknowledge (research 6: acceptable use, children's data, confidentiality, incident
+    reporting), each version once: GET your acknowledgements (`?user=` someone else's, with staff.view_staff); POST
+    `{policy, version}`, the version in force (STAFF_POLICIES; the manifest's `policies_due` lists what waits)."""
+
+    permissions = {"GET": ANY_STAFF, "POST": ANY_STAFF}
+    queryset = PolicyAcknowledgement.objects.none()  # (for the schema: the views read their own rows)
+    serializer_class = s.PolicyAcknowledgementSerializer
+    pagination_class = None
+
+    @extend_schema(
+        parameters=[OpenApiParameter("user", int, description="someone else's (staff.view_staff)")],
+        responses=s.PolicyAcknowledgementSerializer(many=True),
+    )
+    def get(self, request, *args, **kwargs):
+        user, whose = self.human(), request.query_params.get("user")
+        if whose not in (None, "", str(user.pk)):
+            if not user.has_perm("staff.view_staff"):
+                raise exceptions.PermissionDenied("You need the permission staff.view_staff to see someone else's.")
+            if not whose.isdigit():
+                raise serializers.ValidationError({"user": ["A user's id."]})
+        rows = PolicyAcknowledgement.objects.filter(user_id=int(whose) if whose else user.pk)
+        return Response(self.get_serializer(rows, many=True).data)
+
+    @extend_schema(responses={200: s.PolicyAcknowledgementSerializer, 201: s.PolicyAcknowledgementSerializer})
+    def post(self, request, *args, **kwargs):
+        user, data = self.human(), self.get_serializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        policy, version = data.validated_data["policy"], data.validated_data["version"]
+        if settings.STAFF_POLICIES.get(policy) != version:
+            current = settings.STAFF_POLICIES.get(policy)
+            text = f"The version in force is {current}." if current else "No such policy (STAFF_POLICIES)."
+            raise serializers.ValidationError({"version": [text]})
+        with transaction.atomic():
+            row, created = PolicyAcknowledgement.objects.get_or_create(user=user, policy=policy, version=version)
+            if created:
+                audit.record(
+                    "policy.acknowledged", request=request, target=("staff.policy", policy, policy),
+                    details={"version": version},
+                )  # fmt: skip
+        return Response(
+            self.get_serializer(row).data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK
+        )
 
 
 # Site settings and feature flags

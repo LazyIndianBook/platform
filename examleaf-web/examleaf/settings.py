@@ -713,6 +713,9 @@ STAFF_IDLE_TIMEOUTS = dict.fromkeys(["OWNER", "ADMIN", "FINANCE", "PACKER"], 15 
 # A break-glass session (a superuser's) gives its reason before anything (POST staff/session/reason/) and ends this
 # many hours after its log-in however busy (research 1.6); the owners are told at its start and its end.
 STAFF_BREAK_GLASS_HOURS = env.int("STAFF_BREAK_GLASS_HOURS", default=2)
+# The policies staff acknowledge, each version once, as key=version pairs ("acceptable_use=2026-10,conduct=3"): the
+# manifest's policies_due lists the versions a person has not acknowledged yet (POST staff/policies/ack/).
+STAFF_POLICIES = env.dict("STAFF_POLICIES", default={})
 STAFF_PANEL_URL = env("STAFF_PANEL_URL", default=SITE_URL).rstrip("/")  # the panel's address: invitations link there
 STAFF_ALERT_EMAILS = env.list("STAFF_ALERT_EMAILS", default=[])  # the owners' alerts; empty: OWNER's members
 STAFF_CHANGE_REQUEST_HOURS = env.int("STAFF_CHANGE_REQUEST_HOURS", default=24)  # a change request's life

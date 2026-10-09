@@ -1141,7 +1141,7 @@ minutes.
 
 | Method | Path (under `/api/v1/staff/`) | Permission | What |
 |---|---|---|---|
-| GET | `session/` | any member of staff | the manifest: user, roles with expiry, permissions, scopes, limits, flags (and `test_mode` off production), the re-authentication window, the idle and absolute limits, `impersonating`, `break_glass`, `manifest_version` |
+| GET | `session/` | any member of staff | the manifest: user, roles with expiry, permissions, scopes, limits, flags (and `test_mode` off production), `policies_due`, the re-authentication window, the idle and absolute limits, `impersonating`, `break_glass`, `manifest_version` |
 | POST | `session/reason/` (`reason`) | a break-glass session | its reason, once, before anything else; the owners are told |
 | GET | `catalogue/` | any member of staff | every catalogued permission (label, area, risk, reauth, approval, alert) and every role (permissions, limits, scopes, conflicts, members) |
 | GET | `inbox/` (`?kind=&mine=&done=&snoozed=`), `inbox/count/` | `staff.view_inbox` | what waits: items assigned to you, or to nobody and needing a permission you hold; open and overdue counts |
@@ -1192,6 +1192,8 @@ minutes.
 | GET | `incidents/` (`?kind=&open=`), `incidents/<id>/` | `staff.view_incident` | the breach register with its clocks |
 | POST PATCH | `incidents/`, `incidents/<id>/`, `incidents/<id>/close/` | `staff.manage_incident` | file one (the owners are told), record its reports, close it |
 | GET POST PATCH DELETE | `processors/`, `processors/<id>/` | `staff.view_processorrecord`, `add_`, `change_`, `delete_` | the processor register |
+| GET POST | `notes/` (`?target_type=&target_id=`, both; POST `target_type`, `target_id`, `body`, `pinned`) | `staff.view_note`, `staff.add_note`, and the record's own `view_` (in your scope: else 404) | notes on a record (`shop.order`, `accounts.user` …, by its id), pinned first, all of them: its timeline's; the audit log names the record and the note's number, never its body |
+| GET POST | `policies/ack/` (`?user=`: someone else's, with `staff.view_staff`; POST `policy`, `version`) | any member of staff | your acknowledgements of the policies (`STAFF_POLICIES`), each version once (201, again 200; not the version in force: 400) |
 | GET | `system/` | `staff.view_system` | health checks, Celery's queues and failed tasks, webhooks, email suppressions, the SMS log, the last backup, maintenance, the audit chain's last check |
 | POST | `system/reconcile/` (`order`) | `staff.replay_webhook` | ask Razorpay what became of an online order's payment |
 
@@ -1202,7 +1204,9 @@ permission, no limits, the shortest idle limit; every event of its session is ma
 `reason_required` is true ask why and `POST session/reason/` `{"reason": "…"}` (10 to 500 characters, once: the
 answer is the same object), before which every other staff call answers `403 {"code": "break_glass_reason_required"}`
 (the manifest and `catalogue/` excepted); `ends_at` is its log-in plus 2 hours (`STAFF_BREAK_GLASS_HOURS`), the end
-however busy.
+however busy. `policies_due` lists the policies' versions (`STAFF_POLICIES`) the person has not acknowledged,
+`[{"policy": "acceptable_use", "version": "2026-10"}]`: show them, and `POST policies/ack/` `{"policy", "version"}`
+each once read (research 6: before the rest of the panel).
 
 ```sh
 curl https://examleaf.in/api/v1/staff/session/ -b "sessionid=…"
@@ -1211,7 +1215,8 @@ curl https://examleaf.in/api/v1/staff/session/ -b "sessionid=…"
 #      "permissions": ["accounts.view_user", …, "staff.reveal_contact", "staff.view_inbox"],
 #      "scopes": {"ticket_queue": ["data_request"]}, "role_scopes": {},
 #      "limits": {"refund_inr": 1000, "offline_inr": 0, "discount_percent": 0, "export_rows": 100, "bulk_rows": 50},
-#      "flags": {"ERP_SYNC_ORDERS": false}, "reauth_valid_until": "2026-10-09T10:05:00Z", "idle_timeout_s": 1800,
+#      "flags": {"ERP_SYNC_ORDERS": false}, "policies_due": [], "reauth_valid_until": "2026-10-09T10:05:00Z",
+#      "idle_timeout_s": 1800,
 #      "absolute_expires_at": "2026-10-09T17:59:00Z", "impersonating": null, "break_glass": null,
 #      "manifest_version": "3f9a1c0d2b7e4a55"}
 ```
@@ -1382,6 +1387,8 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 | GET | `staff/jobs/{id}/` | `staff.view_job` |  |  | 200 `Job` |
 | POST | `staff/jobs/{id}/cancel/` | `staff.view_job` |  |  | 200 `Job` |
 | GET | `staff/jobs/{id}/result/` | `staff.view_job` | `token` |  | 200 `application/octet-stream`; 302 |
+| GET | `staff/notes/` | `staff.view_note` | `target_id`, `target_type` |  | 200 `[Note]` |
+| POST | `staff/notes/` | `staff.add_note` |  | `NoteRequest` | 201 `Note` |
 | GET | `staff/people/` | `staff.view_staff` | `cursor`, `page_size` |  | 200 `PaginatedPersonList` |
 | POST | `staff/people/invite/` | `staff.assign_role` |  | `InviteRequest` | 201 `StaffInvite`; 202 `ChangeRequest` |
 | GET | `staff/people/invites/` | `staff.view_staff` | `cursor`, `page_size` |  | 200 `PaginatedStaffInviteList` |
@@ -1394,6 +1401,8 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 | DELETE | `staff/people/{id}/roles/{role}/` | `staff.assign_role` |  |  | 200 `Person` |
 | POST | `staff/people/{id}/scopes/` | `staff.assign_role` |  | `ScopeAddRequest` | 201 `Scope` |
 | DELETE | `staff/people/{id}/scopes/{scope}/` | `staff.assign_role` |  |  | 204 |
+| GET | `staff/policies/ack/` | any member of staff | `user` |  | 200 `[PolicyAcknowledgement]` |
+| POST | `staff/policies/ack/` | any member of staff |  | `PolicyAcknowledgementRequest` | 200 `PolicyAcknowledgement`; 201 `PolicyAcknowledgement` |
 | GET | `staff/processors/` | `staff.view_processorrecord` | `cursor`, `page_size` |  | 200 `PaginatedProcessorList` |
 | POST | `staff/processors/` | `staff.add_processorrecord` |  | `ProcessorRequest` | 201 `Processor` |
 | GET | `staff/processors/{id}/` | `staff.view_processorrecord` |  |  | 200 `Processor` |
@@ -1511,6 +1520,8 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ManifestRequestRequest**: `shipments` [integer] (required)
 - **NdrActionActionEnum**: one of `re-attempt`, `return`, `fake-attempt`
 - **NdrActionRequest**: `action` NdrActionActionEnum (required); `comments` string (required); `deferred_date` date; `phone` string; `address1` string; `address2` string
+- **Note**: `id` integer (required, read-only); `target_type` string (required); `target_id` string (required); `author` integer (required, read-only); `body` string (required); `pinned` boolean; `created` date-time (required, read-only)
+- **NoteRequest**: `target_type` string (required); `target_id` string (required); `body` string (required); `pinned` boolean
 - **NullEnum**: null
 - **Offboarded**: `roles` [string] (required); `scopes` integer (required); `api_keys` integer (required); `change_requests` integer (required); `sessions` integer (required); `tokens` integer (required)
 - **OfferStat**: `coupon` string (required, read-only); `offer` string (required, read-only); `period_start` date (required); `period_end` date (required); `orders` integer (required); `revenue` decimal (required); `discount_cost` decimal (required); `period_orders` integer (required); `baseline_orders` integer (required); `baseline_revenue` decimal (required); `interval_low` double (null); `interval_high` double (null); `note` string (required); `n` integer (required, read-only)
@@ -1560,6 +1571,8 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **PickupLocationRequest**: `nickname` string (required); `address` string; `city` string; `state` string; `pin_code` string (required); `phone` string; `is_default` boolean; `active` boolean
 - **PickupRequestRequest**: `date` date
 - **PickupResult**: `pickup_date` date (required, null)
+- **PolicyAcknowledgement**: `id` integer (required, read-only); `user` integer (required, read-only); `policy` string (required); `version` string (required); `acknowledged_at` date-time (required, read-only)
+- **PolicyAcknowledgementRequest**: `policy` string (required); `version` string (required)
 - **PostalPrice**: `service` string (required); `label` string (required); `price` decimal (required)
 - **PrintRunAdvice**: `product` string (required, read-only); `title` string (required, read-only); `net_price` decimal (required); `unit_cost` decimal (required); `salvage` decimal (required); `critical_ratio` double (required); `target_quantity` integer (required); `supply` integer (required); `recommended_quantity` integer (required); `reprint_trigger_units` integer (required); `weeks_of_cover` double (null); `projected_leftover` integer (required); `level` LevelEnum; `alert` string; `n` integer (required, read-only)
 - **Processor**: `id` integer (required, read-only); `name` string (required); `purpose` string (required); `data_categories` string (required); `country` string (required); `contract_signed_on` date (null); `contract_ends_on` date (null); `active` boolean; `notes` string
@@ -1595,7 +1608,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **StaffCatalogue**: `permissions` [object] (required); `roles` [object] (required)
 - **StaffImpersonating**: `user_id` integer (required); `email` string (required); `until` date-time (required)
 - **StaffInvite**: `id` integer (required, read-only); `email` string (required, read-only); `role` string (required); `invited_by` integer (null); `created` date-time; `expires_at` date-time (required); `accepted_at` date-time (null); `accepted_by` integer (null); `revoked_at` date-time (null)
-- **StaffManifest**: `break_glass` StaffBreakGlass (required, null); `user` StaffUser (required); `roles` [object] (required); `permissions` [string] (required); `scopes` object (required); `role_scopes` object (required); `limits` object (required); `flags` object (required); `reauth_valid_until` date-time (required, null); `idle_timeout_s` integer (required); `absolute_expires_at` date-time (required); `impersonating` StaffImpersonating (required, null); `manifest_version` string (required)
+- **StaffManifest**: `break_glass` StaffBreakGlass (required, null); `user` StaffUser (required); `roles` [object] (required); `permissions` [string] (required); `scopes` object (required); `role_scopes` object (required); `limits` object (required); `flags` object (required); `policies_due` [object] (required); `reauth_valid_until` date-time (required, null); `idle_timeout_s` integer (required); `absolute_expires_at` date-time (required); `impersonating` StaffImpersonating (required, null); `manifest_version` string (required)
 - **StaffSystem**: `health` any (required); `celery` any (required); `webhooks` any (required); `email` any (required); `sms` any (required); `backups` any (required); `maintenance` any (required); `audit` any (required)
 - **StaffUser**: `id` integer (required); `email` email (required); `full_name` string (required); `is_superuser` boolean (required)
 - **SwitchChangeRequest**: `value` any (required, null); `reason` string (required); `effective_from` date-time

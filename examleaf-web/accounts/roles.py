@@ -69,10 +69,10 @@ CATALOGUE = [  # the shop's catalogue structure (CONTENT_EDITOR's; SALES sees it
     *["category", "collection", "collectionitem", "producttype", "attribute", "attributevalue"],
     *["productimage", "bundleitem"],
 ]
-# What every member of staff has in the panel: their inbox and saved views, the approvals they take part in, and
-# their background jobs (each kind needs its own permission too: staff.jobs).
+# What every member of staff has in the panel: their inbox and saved views, the approvals they take part in, their
+# background jobs (each kind needs its own permission too: staff.jobs), and notes on the records they may see.
 INBOX = ["staff.view_inbox", *crud("staff", ["savedview"], ["view", "add", "change", "delete"])]
-PANEL = [*INBOX, "staff.view_changerequest", "staff.view_job", "staff.add_job"]
+PANEL = [*INBOX, "staff.view_changerequest", "staff.view_job", "staff.add_job", "staff.view_note", "staff.add_note"]
 CONTENT = ["book", "paper", "question", "solution"]
 COURSE = ["chapter", "revision", "clip", "flashcard", "quizitem"]
 ORDERS = ["order", "orderitem", "orderdiscount", "ordernote", "payment", "refund", "invoice", "creditnote", "shipment"]

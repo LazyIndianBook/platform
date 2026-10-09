@@ -124,6 +124,8 @@ ENDPOINTS = [
     ("delete", "processors/{processor}/", "staff.delete_processorrecord"),
     ("get", "system/", "staff.view_system"),
     ("post", "system/reconcile/", "staff.replay_webhook"),
+    ("get", "notes/?target_type=accounts.user&target_id={customer}", "staff.view_note"),  # (and the record's own)
+    ("post", "notes/", "staff.add_note"),
     ("post", "people/{person}/offboard/", "staff.assign_role"),  # last: the person goes
 ]
 WHO = sorted(roles.STAFF_ROLES)  # one member of staff per role (OWNER: the founder), and a break-glass account
@@ -322,7 +324,7 @@ def test_every_endpoint_names_a_catalogued_permission_and_a_view_one_for_get():
             assert perm, (path, method, name)
             checked += 1
             if perm == ANY_STAFF:
-                assert path in ("session/", "session/reason/", "catalogue/"), path
+                assert path in ("session/", "session/reason/", "catalogue/", "policies/ack/"), path
                 continue
             assert catalogue.entry(perm) is not None, (path, name, perm)
             if method == "get" and (cls, name) not in BOOKING_READS:
