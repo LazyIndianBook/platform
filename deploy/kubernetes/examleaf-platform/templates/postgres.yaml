@@ -1,0 +1,135 @@
+{{- /* PostgreSQL through CloudNativePG: the Cluster (the database examleaf, owned by examleaf, as docker-compose.yml's
+       db) and, with backup.enabled, the Barman Cloud plugin's ObjectStore and a ScheduledBackup. The operator writes
+       the owner's password into the Secret <cluster>-app, whose "uri" is the site's DATABASE_URL. The Cluster is kept
+       by `helm uninstall`. */ -}}
+{{- $cluster := include "examleaf.dbCluster" . -}}
+{{- /* one ObjectStore for every cluster of the release, so that a restored cluster and its origin share it */ -}}
+{{- $store := printf "%s-db-store" (include "examleaf.fullname" .) -}}
+{{- $labels := dict "ctx" . "component" "database" "app" "postgresql" "version" (.Values.postgres.image | splitList ":" | last) -}}
+{{- $pg := .Values.postgres -}}
+{{- if and $pg.recovery.enabled (not $pg.recovery.serverName) }}
+{{- fail "postgres.recovery.serverName: the name of the cluster whose backups to restore" }}
+{{- end }}
+{{- if and $pg.recovery.enabled (eq $pg.recovery.serverName $cluster) }}
+{{- fail "postgres.recovery: restore into a Cluster of a new name (postgres.name), not the one that took the backups" }}
+{{- end }}
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ $cluster }}
+  labels:
+    {{- include "examleaf.labels" $labels | nindent 4 }}
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  instances: {{ $pg.instances }}
+  imageName: {{ $pg.image }}
+  enablePDB: {{ $pg.enablePDB }}
+  {{- if $pg.recovery.enabled }}
+  bootstrap:
+    recovery:
+      source: origin
+      database: {{ $pg.database }}
+      owner: {{ $pg.owner }}
+      {{- with $pg.recovery.targetTime }}
+      recoveryTarget:
+        targetTime: {{ . | quote }}
+      {{- end }}
+  externalClusters:
+    - name: origin
+      plugin:
+        name: barman-cloud.cloudnative-pg.io
+        parameters:
+          barmanObjectName: {{ $store }}
+          serverName: {{ $pg.recovery.serverName }}
+  {{- else }}
+  bootstrap:
+    initdb:
+      database: {{ $pg.database }}
+      owner: {{ $pg.owner }}
+  {{- end }}
+  {{- with $pg.parameters }}
+  postgresql:
+    parameters:
+      {{- toYaml . | nindent 6 }}
+  {{- end }}
+  storage:
+    size: {{ $pg.storage.size }}
+    {{- with $pg.storage.storageClass }}
+    storageClass: {{ . }}
+    {{- end }}
+  resources:
+    {{- toYaml $pg.resources | nindent 4 }}
+  {{- if or .Values.nodeSelector .Values.tolerations }}
+  affinity:
+    {{- with .Values.nodeSelector }}
+    nodeSelector:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+    tolerations:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+  {{- end }}
+  {{- if $pg.backup.enabled }}
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: {{ $store }}
+  {{- end }}
+{{- if or $pg.backup.enabled $pg.recovery.enabled }}
+---
+# The bucket, as scripts/backup.sh's variables name it: BACKUP_BUCKET (bucket), BACKUP_ENDPOINT_URL (endpointURL),
+# AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY (secrets.backup), BACKUP_KEEP_DAYS (keepDays: the recovery window).
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: {{ $store }}
+  labels:
+    {{- include "examleaf.labels" $labels | nindent 4 }}
+spec:
+  retentionPolicy: {{ printf "%vd" $pg.backup.keepDays | quote }}
+  configuration:
+    destinationPath: {{ printf "s3://%s/%s" (required "postgres.backup.bucket (BACKUP_BUCKET)" $pg.backup.bucket) $pg.backup.path | quote }}
+    {{- with $pg.backup.endpointURL }}
+    endpointURL: {{ . | quote }}
+    {{- end }}
+    s3Credentials:
+      accessKeyId:
+        name: {{ include "examleaf.backupSecret" . }}
+        key: AWS_ACCESS_KEY_ID
+      secretAccessKey:
+        name: {{ include "examleaf.backupSecret" . }}
+        key: AWS_SECRET_ACCESS_KEY
+    wal:
+      compression: {{ $pg.backup.compression }}
+    data:
+      compression: {{ $pg.backup.compression }}
+  instanceSidecarConfiguration:
+    env:  # boto3 with R2 (as the site's AWS_…_CHECKSUM_… settings)
+      - name: AWS_REQUEST_CHECKSUM_CALCULATION
+        value: when_required
+      - name: AWS_RESPONSE_CHECKSUM_VALIDATION
+        value: when_required
+    resources:
+      {{- toYaml $pg.backup.sidecarResources | nindent 6 }}
+{{- end }}
+{{- if $pg.backup.enabled }}
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: {{ $cluster }}-daily
+  labels:
+    {{- include "examleaf.labels" $labels | nindent 4 }}
+spec:
+  schedule: {{ $pg.backup.schedule | quote }}
+  immediate: true  # a first base backup as soon as the cluster runs
+  backupOwnerReference: self
+  cluster:
+    name: {{ $cluster }}
+  method: plugin
+  pluginConfiguration:
+    name: barman-cloud.cloudnative-pg.io
+{{- end }}

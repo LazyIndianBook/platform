@@ -1,0 +1,121 @@
+{{- $fullname := include "examleaf.fullname" . -}}
+{{- $labels := dict "ctx" . "component" "web" "version" .Values.image.tag -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}-web
+  labels:
+    {{- include "examleaf.labels" $labels | nindent 4 }}
+spec:
+  {{- if not .Values.web.autoscaling.enabled }}
+  replicas: {{ .Values.web.replicas }}
+  {{- end }}
+  revisionHistoryLimit: 3
+  strategy:  # one new pod at a time, ready before an old one goes: the migrations run in one pod only
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      {{- include "examleaf.selectorLabels" $labels | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "examleaf.labels" $labels | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      {{- include "examleaf.podSpecCommon" . | nindent 6 }}
+      terminationGracePeriodSeconds: 70  # gunicorn's 60 s timeout, then a little
+      initContainers:
+        # docker-compose.yml's web command before gunicorn: the schema and the role groups brought up to date. A new
+        # cluster's database may still be starting: wait for it first.
+        - name: migrate
+          image: {{ include "examleaf.webImage" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - sh
+            - -c
+            - |
+              until python -c 'import os, psycopg; psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=5).close()' 2> /dev/null; do
+                echo "waiting for the database"; sleep 3
+              done
+              python manage.py migrate --noinput && python manage.py bootstrap_roles
+          {{- include "examleaf.djangoEnv" . | nindent 10 }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          resources:
+            {{- toYaml .Values.initResources | nindent 12 }}
+          volumeMounts:
+            {{- include "examleaf.djangoVolumeMounts" . | nindent 12 }}
+      containers:
+        - name: web
+          image: {{ include "examleaf.webImage" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # the image's command: gunicorn examleaf.wsgi --bind 0.0.0.0:8000 --max-requests 1000 …
+          {{- include "examleaf.djangoEnv" . | nindent 10 }}
+            - name: WEB_CONCURRENCY
+              value: {{ .Values.web.concurrency | quote }}
+            - name: GUNICORN_CMD_ARGS
+              value: {{ .Values.web.gunicornArgs | quote }}
+            {{- with .Values.web.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: 8000
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 2
+            failureThreshold: 60
+          # /health/web/ (database, cache, storage), asked as docker-compose.yml's health check asks it: the site's
+          # host and https as the ingress forwards them. The kubelet calls the pod directly, so the Ingress's /health
+          # gate (basic auth) is not in the way, as Caddy's never was for the compose check.
+          readinessProbe:
+            httpGet:
+              path: /health/web/
+              port: http
+              httpHeaders:
+                - name: Host
+                  value: {{ .Values.domain | quote }}
+                - name: X-Forwarded-Proto
+                  value: https
+                - name: Accept
+                  value: application/json
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # gunicorn answers at all: a database outage makes the pod unready, it never restarts it
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 20
+            failureThreshold: 3
+          lifecycle:
+            preStop:  # the ingress controller stops sending here before gunicorn stops
+              sleep:
+                seconds: 5
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          resources:
+            {{- toYaml .Values.web.resources | nindent 12 }}
+          volumeMounts:
+            {{- include "examleaf.djangoVolumeMounts" . | nindent 12 }}
+      volumes:
+        {{- include "examleaf.djangoVolumes" (dict "ctx" . "tmpSize" .Values.web.tmpSize) | nindent 8 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}-web
+  labels:
+    {{- include "examleaf.labels" $labels | nindent 4 }}
+spec:
+  selector:
+    {{- include "examleaf.selectorLabels" $labels | nindent 4 }}
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http

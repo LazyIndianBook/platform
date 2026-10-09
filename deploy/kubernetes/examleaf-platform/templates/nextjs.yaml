@@ -1,0 +1,121 @@
+{{- /* The two Next.js servers: the website (frontend) and, when enabled, the admin panel, of one shape: the standalone
+       server on port 3000 as the image's unprivileged "node" user, a read-only root filesystem with /tmp and Next's
+       data cache as emptyDirs (docker-compose.yml's read_only and tmpfs), /api/health/ for the probes (the process
+       only: a Django outage must not restart them). Server components call Django over the web Service with
+       INTERNAL_API_TOKEN, so that Django counts each visitor's address. */ -}}
+{{- $fullname := include "examleaf.fullname" . -}}
+{{- range $component := list "frontend" "admin" }}
+{{- $v := index $.Values $component }}
+{{- if or (eq $component "frontend") $v.enabled }}
+{{- $labels := dict "ctx" $ "component" $component "app" (printf "examleaf-%s" $component) "version" $v.image.tag }}
+{{- $siteURL := printf "https://%s" (eq $component "admin" | ternary (include "examleaf.adminHost" $) $.Values.domain) }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}-{{ $component }}
+  labels:
+    {{- include "examleaf.labels" $labels | nindent 4 }}
+spec:
+  {{- if not (and $v.autoscaling $v.autoscaling.enabled) }}
+  replicas: {{ $v.replicas }}
+  {{- end }}
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      {{- include "examleaf.selectorLabels" $labels | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "examleaf.labels" $labels | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") $ | sha256sum }}
+    spec:
+      {{- include "examleaf.podSpecCommon" $ | nindent 6 }}
+      containers:
+        - name: {{ $component }}
+          image: {{ include "examleaf.image" (dict "repository" $v.image.repository "tag" $v.image.tag "appVersion" $.Chart.AppVersion) }}
+          imagePullPolicy: {{ $v.image.pullPolicy }}
+          env:
+            - name: API_INTERNAL_BASE
+              value: http://{{ $fullname }}-web:8000
+            - name: INTERNAL_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "examleaf.envSecret" $ }}
+                  key: INTERNAL_API_TOKEN
+            - name: NEXT_PUBLIC_SITE_URL
+              value: {{ $siteURL }}
+            {{- if eq $component "frontend" }}
+            {{- range $name, $setting := dict "NEXT_PUBLIC_RAZORPAY_KEY_ID" "RAZORPAY_KEY_ID" "NEXT_PUBLIC_TURNSTILE_SITE_KEY" "TURNSTILE_SITE_KEY" "NEXT_PUBLIC_MEDIA_HOST" "PUBLIC_MEDIA_DOMAIN" }}
+            {{- with index $.Values.config $setting }}
+            - name: {{ $name }}
+              value: {{ . | quote }}
+            {{- end }}
+            {{- end }}
+            {{- end }}
+            {{- range $name, $value := $v.env }}
+            - name: {{ $name }}
+              value: {{ $value | quote }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: 3000
+          startupProbe:
+            httpGet:
+              path: /api/health/
+              port: http
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /api/health/
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /api/health/
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: 5
+          securityContext:
+            {{- toYaml $.Values.containerSecurityContext | nindent 12 }}
+          resources:
+            {{- toYaml $v.resources | nindent 12 }}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+            - {name: next-cache, mountPath: /app/.next/cache}
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
+        - name: next-cache  # Next's data cache: each pod its own
+          emptyDir:
+            sizeLimit: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}-{{ $component }}
+  labels:
+    {{- include "examleaf.labels" $labels | nindent 4 }}
+spec:
+  selector:
+    {{- include "examleaf.selectorLabels" $labels | nindent 4 }}
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
+{{- end }}
+{{- end }}

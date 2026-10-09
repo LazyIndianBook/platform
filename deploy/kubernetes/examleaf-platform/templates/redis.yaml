@@ -1,0 +1,117 @@
+{{- /* docker-compose.yml's two Redis: the queue (Celery's broker, saved to disk with AOF, nothing evicted) and the cache
+       (at most maxmemory, the least used keys evicted, nothing saved). The image's redis user (999, group 1000) by
+       number, so its entrypoint never needs root. */ -}}
+{{- $fullname := include "examleaf.fullname" . -}}
+{{- range $part := list "queue" "cache" }}
+{{- $v := index $.Values.redis $part }}
+{{- $labels := dict "ctx" $ "component" (printf "redis-%s" $part) "app" "redis" "version" ($.Values.redis.image | splitList ":" | last) }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}-redis-{{ $part }}
+  labels:
+    {{- include "examleaf.labels" $labels | nindent 4 }}
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  strategy:
+    type: Recreate  # the queue's volume is ReadWriteOnce, and a second cache would only be empty
+  selector:
+    matchLabels:
+      {{- include "examleaf.selectorLabels" $labels | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "examleaf.labels" $labels | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      {{- with $.Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      {{- with $.Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $.Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: redis
+          image: {{ $.Values.redis.image }}
+          imagePullPolicy: IfNotPresent
+          {{- if eq $part "queue" }}
+          args: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+          {{- else }}
+          args: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", {{ $v.maxmemory | quote }}, "--maxmemory-policy", "allkeys-lru"]
+          {{- end }}
+          ports:
+            - name: redis
+              containerPort: 6379
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          securityContext:
+            {{- toYaml $.Values.containerSecurityContext | nindent 12 }}
+          resources:
+            {{- toYaml $v.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          {{- if eq $part "queue" }}
+          persistentVolumeClaim:
+            claimName: {{ $fullname }}-redis-queue
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}-redis-{{ $part }}
+  labels:
+    {{- include "examleaf.labels" $labels | nindent 4 }}
+spec:
+  selector:
+    {{- include "examleaf.selectorLabels" $labels | nindent 4 }}
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis
+{{- end }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $fullname }}-redis-queue
+  labels:
+    {{- include "examleaf.labels" (dict "ctx" . "component" "redis-queue" "app" "redis" "version" (.Values.redis.image | splitList ":" | last)) | nindent 4 }}
+  annotations:
+    helm.sh/resource-policy: keep  # emails queued but not yet sent
+spec:
+  accessModes: [ReadWriteOnce]
+  {{- with .Values.redis.queue.storage.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.redis.queue.storage.size }}

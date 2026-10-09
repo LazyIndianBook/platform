@@ -1,0 +1,412 @@
+# The examleaf-platform chart's settings. ../README.md is the installation guide, values-kind.yaml the laptop profile
+# and ../TESTING.md the record of a run on kind. No secret ever goes into a values file (anyone who can read the
+# repository or the Helm release reads it): the "secrets" section names the Secrets that hold them.
+
+# The site's host name: the main Ingress host, Django's ALLOWED_HOSTS and SITE_URL (https://<domain>). SITE_URL is
+# printed in the books' QR codes, so it is final before the first print run (examleaf-web/DEPLOYMENT.md section 8).
+domain: examleaf.in
+
+# Every resource is called <release>-<part> (examleaf-web, examleaf-db …); fullnameOverride replaces <release>.
+fullnameOverride: ""
+
+# examleaf-web's image (examleaf-web/Dockerfile) for web, worker, beat, media-worker and the jobs. `make images push`
+# (../Makefile) builds and pushes it, tagged with the git commit.
+image:
+  repository: examleaf-web
+  tag: ""  # empty: the chart's appVersion
+  pullPolicy: IfNotPresent
+# Secrets of type kubernetes.io/dockerconfigjson for a private registry: [{name: ghcr-pull}]
+imagePullSecrets: []
+
+# Django's settings that are not secret, as environment variables in the ConfigMap <release>-config. Each is
+# examleaf-web/DEPLOYMENT.md section 13's variable of the same name; null leaves it unset, so Django's default (after
+# each) applies. Quote every value: "1", not 1. Any other variable the site reads can be added the same way.
+config:
+  # Core
+  DEBUG: "0"  # never 1 on a server: with 1 Django refuses every host but localhost and *.localhost
+  ALLOWED_HOSTS: null  # null: <domain>. Comma separated; it must include <domain> (the readiness probe sends it)
+  SITE_URL: null  # null: https://<domain>. The base of the QR codes and of the links in emails and SMS
+  CSRF_TRUSTED_ORIGINS: null  # default SITE_URL; add others only if the site is served under several names
+  SOLUTIONS_REQUIRE_LOGIN: null  # default 1: solutions for signed-in students; 0: for everyone
+  PARENTAL_CONSENT_MODE: null  # default declared (the parent ticks the box); verified: the parent confirms by a link
+  DATA_UPLOAD_MAX_MEMORY_SIZE: null  # default 1048576: the largest form or JSON body in bytes, files not counted
+  PAPERS_ROOT: null  # the books checkout for import_papers (README.md "Content"); null: give --root on the command line
+  # Database, cache and queue (DATABASE_URL comes from CloudNativePG's Secret)
+  CONN_MAX_AGE: null  # default 60: seconds a database connection is kept between requests
+  CACHE_URL: null  # null: redis://<release>-redis-cache:6379/0 (the cache Redis below)
+  CELERY_BROKER_URL: null  # null: redis://<release>-redis-queue:6379/0 (the queue Redis below)
+  CELERY_TASK_ALWAYS_EAGER: null  # default 0 with a broker: tasks go to the worker
+  # Proxy and https: one proxy, ingress-nginx, in front of web, as Caddy is in docker-compose.yml
+  PROXY_COUNT: "1"  # trusts X-Forwarded-Proto and -For from the ingress controller (README.md "Client addresses")
+  USE_X_FORWARDED_HOST: "1"  # the frontend's server-side calls name the site's host in X-Forwarded-Host
+  SECURE_SSL_REDIRECT: null  # default 1; the ingress redirects first, so Django's redirect is a second line only
+  SECURE_HSTS_SECONDS: null  # default 31536000
+  SECURE_HSTS_INCLUDE_SUBDOMAINS: null  # default 0; 1 only when every subdomain is https (check --deploy's W005)
+  SECURE_HSTS_PRELOAD: null  # default 0 (check --deploy's W021)
+  # Email
+  EMAIL_BACKEND: null  # default console (the log); anymail.backends.amazon_ses.EmailBackend on a server
+  DEFAULT_FROM_EMAIL: null  # default "ExamLeaf <noreply@localhost>"; "ExamLeaf <noreply@examleaf.in>"
+  SES_REGION: null  # default ap-south-1
+  ANYMAIL_AMAZON_SES_CONFIGURATION_SET_NAME: null  # with SES bounce handling: examleaf
+  # SMS
+  SMS_BACKEND: null  # default console (phone log-in and SMS off on a server); msg91 with MSG91_AUTHKEY in the Secret
+  MSG91_TEMPLATE_OTP: null  # each the DLT template id MSG91 gives that kind of SMS
+  MSG91_TEMPLATE_ORDER_PLACED: null
+  MSG91_TEMPLATE_ORDER_SHIPPED: null
+  MSG91_TEMPLATE_ORDER_DELIVERED: null
+  MSG91_TEMPLATE_PARENT_CONSENT: null
+  SMS_DAILY_CAP: null  # default 500 SMS a day
+  # Sign-in providers and Turnstile (each with its secret half in the Secret)
+  GOOGLE_CLIENT_ID: null
+  TURNSTILE_SITE_KEY: null  # also compiled into the frontend (../Makefile TURNSTILE_SITE_KEY)
+  # Razorpay and the shop
+  RAZORPAY_KEY_ID: null  # rzp_test_… until going live; also compiled into the frontend (../Makefile RAZORPAY_KEY_ID)
+  SHOP_OPEN: null  # default 1; 0: only staff use the cart and checkout ("Shop opens soon")
+  SHOP_COD_ENABLED: null  # default 0
+  SHOP_COD_MAX_VALUE: null  # default 1500 rupees
+  SHOP_LOW_STOCK: null  # default 5
+  SELLER_LEGAL_NAME: null  # default ExamLeaf LLP. The seller lines print on every invoice: final before the shop opens
+  SELLER_ADDRESS: null  # default "[address], [city], Assam [PIN]"
+  SELLER_GSTIN: null  # default empty: "not registered"
+  SELLER_STATE: null  # default AS
+  SELLER_STATE_CODE: null  # default 18
+  SELLER_EMAIL: null  # default [email]
+  SELLER_PHONE: null  # default [phone]
+  SUPPORT_EMAIL: null  # default SELLER_EMAIL: where the contact form's messages go
+  # Buckets and media: MEDIA_BUCKET, PUBLIC_MEDIA_BUCKET and PUBLIC_MEDIA_DOMAIN together or not at all
+  MEDIA_BUCKET: null  # null: the media volume below
+  PUBLIC_MEDIA_BUCKET: null
+  PUBLIC_MEDIA_DOMAIN: null  # media.examleaf.in, no https://; also compiled into the frontend (../Makefile)
+  S3_ENDPOINT_URL: null  # R2: https://<ACCOUNT_ID>.r2.cloudflarestorage.com; null: AWS S3
+  S3_REGION: null  # default auto (R2); ap-south-1 for AWS S3 Mumbai
+  PUBLIC_S3_ENDPOINT_URL: null  # default the S3_* values: the public bucket's own when it lives elsewhere
+  PUBLIC_S3_REGION: null
+  AWS_REQUEST_CHECKSUM_CALCULATION: when_required  # boto3 with R2, as docker-compose.yml sets them
+  AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+  # Revision course
+  LEARN_MAX_UPLOAD_MB: null  # default 500
+  LEARN_PUBLIC_VIDEO: null  # default 0: processed clips in the private storage, links signed for 10 minutes
+  LEARN_FREE_PREVIEW: null  # default 1
+  LEARN_ACCESS_DAYS: null  # default 365
+  APP_LINK_ANDROID: null  # the app's store pages; empty until the app is out
+  APP_LINK_IOS: null
+  # REST API
+  CORS_ALLOWED_ORIGINS: null  # default none
+  JWT_ACCESS_MINUTES: null  # default 15
+  JWT_REFRESH_DAYS: null  # default 30
+  API_THROTTLE_ANON: null  # default 200/minute
+  API_THROTTLE_USER: null  # default 600/minute
+  API_THROTTLE_AUTH: null  # default 30/minute
+  API_THROTTLE_ORDER_LOOKUP: null  # default 10/hour
+  API_THROTTLE_PAYMENT: null  # default 30/minute
+  API_THROTTLE_COUPON: null  # default 10/hour
+  API_THROTTLE_LEARN_REDEEM: null  # default 5/hour
+  API_THROTTLE_LEARN_REDEEM_ADDRESS: null  # default 5/hour
+  API_THROTTLE_LEARN_QUIZ: null  # default 600/hour
+  # Logging and Sentry (SENTRY_DSN in the Secret)
+  LOG_JSON: null  # default 1 with DEBUG=0: one JSON object per line
+  LOG_LEVEL: null  # default INFO
+  SENTRY_ENVIRONMENT: null  # default production
+  SENTRY_TRACES_SAMPLE_RATE: null  # default 0
+  RELEASE: null  # a version label for Sentry, e.g. the image tag
+
+# The secret settings. The chart never writes a Secret from values; it reads Secrets by these names:
+#   mode "existing":       you create them (kubectl create secret …; README.md "Secrets");
+#   mode "externalSecret": the chart renders ExternalSecret resources (external-secrets.io/v1) and the External
+#                          Secrets Operator fills the same Secrets from your secret store.
+secrets:
+  mode: existing
+  # The site's secret environment: every key becomes an environment variable of web, worker and beat, as .env does in
+  # docker-compose.yml. Required: SECRET_KEY, LEARN_CODE_SECRET, INTERNAL_API_TOKEN. As the features need them
+  # (DEPLOYMENT.md section 13): SECRET_KEY_FALLBACKS, JWT_SIGNING_KEY, SES_ACCESS_KEY_ID, SES_SECRET_ACCESS_KEY,
+  # ANYMAIL_WEBHOOK_SECRET, the provider's ANYMAIL_… API key, MSG91_AUTHKEY, GOOGLE_CLIENT_SECRET,
+  # TURNSTILE_SECRET_KEY, RAZORPAY_KEY_SECRET, RAZORPAY_WEBHOOK_SECRET, RAZORPAY_WEBHOOK_SECRET_TEST, S3_ACCESS_KEY_ID,
+  # S3_SECRET_ACCESS_KEY, PUBLIC_S3_ACCESS_KEY_ID, PUBLIC_S3_SECRET_ACCESS_KEY, FCM_SERVICE_ACCOUNT_JSON, SENTRY_DSN.
+  # The frontend and the admin read INTERNAL_API_TOKEN from it, the media worker SECRET_KEY and the four S3 keys.
+  env: ""  # empty: <release>-env
+  # The uptime monitor's way through the /health gate (README.md "Health checks"): key "auth" holding the line
+  # monitor:{PLAIN}<HEALTH_CHECK_TOKEN> (nginx's basic-auth file). While it is missing nobody gets through.
+  healthAuth: ""  # empty: <release>-health-auth
+  # The database backups' bucket keys, AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY as scripts/backup.sh names them.
+  # Only CloudNativePG's Barman Cloud plugin reads them; no pod of the site does.
+  backup: ""  # empty: <release>-backup
+  externalSecret:
+    storeRef:  # the store that holds the values
+      kind: ClusterSecretStore
+      name: ""
+    refreshInterval: 1h
+    # remote keys, each a JSON object whose properties become the Secret's keys (dataFrom.extract)
+    envKey: examleaf/env
+    backupKey: examleaf/backup
+    # where HEALTH_CHECK_TOKEN is kept; written into the health Secret in the form nginx reads
+    healthTokenKey: examleaf/env
+    healthTokenProperty: HEALTH_CHECK_TOKEN
+
+# The pods' security (Pod Security Standards "restricted"): the images' unprivileged users by number, no privilege
+# escalation, no capabilities, a read-only root filesystem (each pod has an emptyDir at /tmp; the frontend's cache too).
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000  # examleaf in examleaf-web's image, node in the frontend's
+  runAsGroup: 1000
+  fsGroup: 1000  # the media volume's files belong to this group
+  seccompProfile:
+    type: RuntimeDefault
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: [ALL]
+# for every pod of the chart (pin them to one node while the media volume is ReadWriteOnce: README.md "Storage")
+nodeSelector: {}
+tolerations: []
+# the init containers (the migrations, the waits)
+initResources:
+  requests: {cpu: 50m, memory: 192Mi}
+  limits: {cpu: "1", memory: 512Mi}
+
+# Django behind gunicorn (docker-compose.yml "web"). Before gunicorn an init container waits for the database, then
+# runs migrate and bootstrap_roles (as the compose command does on every start); a pod is ready once /health/web/
+# (database, cache, storage) answers 200.
+web:
+  replicas: 1
+  concurrency: 3  # WEB_CONCURRENCY: gunicorn processes in each pod, about 2 x its CPUs + 1
+  gunicornArgs: --worker-class gthread --threads 8 --timeout 60  # GUNICORN_CMD_ARGS, docker-compose.yml's
+  tmpSize: 1Gi  # /tmp: uploads over 2.5 MB, invoice PDFs being drawn
+  resources:
+    requests: {cpu: 250m, memory: 640Mi}
+    limits: {cpu: "1", memory: 1Gi}
+  autoscaling:  # a HorizontalPodAutoscaler (needs metrics-server); replicas is then its business
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+  pdb:
+    maxUnavailable: 1
+  extraEnv: []  # more environment for web only: [{name: X, value: "y"}]
+
+# The Celery worker: the default queue "celery" (emails, invoices, pictures, refunds).
+worker:
+  replicas: 1
+  concurrency: 2  # processes in each pod, as docker-compose.yml
+  tmpSize: 1Gi
+  terminationGracePeriodSeconds: 300  # a running task may finish (CELERY_TASK_TIME_LIMIT is 300 s)
+  resources:
+    requests: {cpu: 100m, memory: 384Mi}
+    limits: {cpu: "1", memory: 768Mi}
+  pdb:
+    maxUnavailable: 1
+
+# Celery beat sends the periodic tasks (the account purge at 03:00 India time, the shop's clean-up at 04:30, the stock
+# alerts …; examleaf-web/README.md lists them). Always one pod, for two would send every task twice: Recreate, so the
+# old pod is gone before the new one starts, and a PodDisruptionBudget that refuses eviction, so a node drain waits
+# for you (README.md "Node maintenance"). enabled false: no beat; cronJobs.shopCleanUp then runs the shop's clean-up.
+beat:
+  enabled: true
+  tmpSize: 256Mi
+  resources:
+    requests: {cpu: 20m, memory: 192Mi}
+    limits: {cpu: 500m, memory: 384Mi}
+  pdb:
+    maxUnavailable: 0
+
+# The media worker: FFmpeg makes the revision course's clips into HLS (queue "media", one video at a time), with its
+# own small environment (docker-compose.yml x-media-env, M5): the database, the queue, the buckets and SECRET_KEY,
+# none of the other secrets.
+mediaWorker:
+  enabled: true
+  replicas: 1
+  concurrency: 1
+  tmpSize: 4Gi  # FFmpeg's working copies of a clip
+  terminationGracePeriodSeconds: 300
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {cpu: "2", memory: 1Gi}
+  pdb:
+    maxUnavailable: 1
+
+# The website (examleaf-frontend, Next.js standalone): every path that is not Django's. Its NEXT_PUBLIC_* values are
+# compiled into the image (../Makefile builds it for https://<domain>); the pod gets the same values at run time, as
+# docker-compose.yml gives them.
+frontend:
+  image:
+    repository: examleaf-frontend
+    tag: ""  # empty: the chart's appVersion
+    pullPolicy: IfNotPresent
+  replicas: 1
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {cpu: "1", memory: 512Mi}
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+  pdb:
+    maxUnavailable: 1
+  env: {}  # more environment: {NAME: "value"}
+
+# The Admin Control Panel (examleaf-admin, Next.js, docs/examleaf-admin-control-panel-plan.md) at admin.<domain>,
+# shaped as the frontend: a placeholder until its image exists.
+admin:
+  enabled: false
+  host: ""  # empty: admin.<domain>
+  image:
+    repository: examleaf-admin
+    tag: ""
+    pullPolicy: IfNotPresent
+  replicas: 1
+  # the client addresses that may open the admin host, comma separated CIDRs (ingress-nginx's
+  # whitelist-source-range; the others get 403); empty: everyone (the panel's own sign-in still applies)
+  allowlist: ""
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {cpu: "1", memory: 512Mi}
+  pdb:
+    maxUnavailable: 1
+  env: {}
+
+# The Ingress resources (ingress-nginx), which do what the Caddyfile does: Django's paths to web and every other path
+# to the frontend on <domain>; admin.<domain> to the admin. ../README.md "The ingress controller" lists the
+# controller-wide settings that go with them (no HSTS of its own, gzip, a 10 s header timeout).
+ingress:
+  className: nginx
+  # cert-manager's ClusterIssuer for the certificates of both hosts; empty: put certificates in the TLS Secrets yourself
+  clusterIssuer: letsencrypt
+  tlsSecret: ""  # the main host's certificate; empty: <release>-tls
+  adminTlsSecret: ""  # empty: <release>-admin-tls
+  bodySize: 10m  # every request body at most 10 MB, as the Caddyfile has it …
+  uploadBodySize: 500m  # … but on the clip and revision admin pages (the fallback for clip videos without a bucket)
+  # /health and /health/* (the Caddyfile answers 404 unless X-Health-Token matches): only the uptime monitor, here
+  # through ingress-nginx's basic auth with secrets.healthAuth. Another controller needs its own equivalent here
+  # (an allowlist of the monitor's addresses, say). Never let /health reach the frontend: it passes Django's paths on.
+  healthAnnotations:
+    nginx.ingress.kubernetes.io/auth-type: basic
+    nginx.ingress.kubernetes.io/auth-realm: ExamLeaf health
+  annotations: {}  # added to every Ingress of the chart
+  # who may reach the pods (the NetworkPolicies): the ingress controller's namespace and pod labels
+  controllerNamespace: ingress-nginx
+  controllerPodLabels:
+    app.kubernetes.io/name: ingress-nginx
+
+# The media volume at /app/media (docker-compose.yml's "media"): invoices, credit notes and quotations, answer sheets
+# and, without buckets, the product pictures and the course's videos. Web, worker, beat and the media worker mount it.
+# ReadWriteMany where the cluster has it (NFS, CephFS, Longhorn …); ReadWriteOnce works while those pods share one
+# node (README.md "Storage"). Kept when the release is uninstalled.
+media:
+  accessMode: ReadWriteMany
+  size: 10Gi
+  storageClass: ""  # empty: the cluster's default
+  existingClaim: ""  # a PersistentVolumeClaim of your own instead
+
+# PostgreSQL through the CloudNativePG operator (installed first: README.md). The Cluster is kept when the release
+# is uninstalled. DATABASE_URL comes from the Secret <name>-app that the operator writes (its "uri").
+postgres:
+  name: ""  # the Cluster's name; empty: <release>-db. A restore makes a new one (README.md "Restore")
+  instances: 1  # 2 or 3 add standbys on other nodes, with automatic failover
+  image: ghcr.io/cloudnative-pg/postgresql:17.11-minimal-trixie  # PostgreSQL 17, as docker-compose.yml's postgres:17
+  database: examleaf
+  owner: examleaf
+  storage:
+    size: 10Gi
+    storageClass: ""
+  parameters: {}  # postgresql.conf settings, e.g. {shared_buffers: 256MB}
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits: {cpu: "2", memory: 1Gi}
+  # the operator's PodDisruptionBudget for the primary; with one instance it blocks a node drain (README.md
+  # "Node maintenance")
+  enablePDB: true
+  # Continuous backup to an S3-compatible bucket (Cloudflare R2) through the Barman Cloud plugin: the WAL as it is
+  # written, and a base backup on the schedule. scripts/backup.sh's variables: BACKUP_BUCKET, BACKUP_ENDPOINT_URL,
+  # BACKUP_KEEP_DAYS; the bucket's keys are secrets.backup. BACKUP_AGE_RECIPIENT has no counterpart (README.md "Backups").
+  backup:
+    enabled: false
+    bucket: ""  # BACKUP_BUCKET
+    path: cnpg  # the folder in the bucket (backup.sh's dumps are under database/, with a lifecycle rule of their own)
+    endpointURL: ""  # BACKUP_ENDPOINT_URL: https://<ACCOUNT_ID>.r2.cloudflarestorage.com; empty: AWS S3
+    keepDays: 30  # BACKUP_KEEP_DAYS: the recovery window
+    schedule: "0 15 2 * * *"  # the base backup: seconds first, on the operator's clock (UTC)
+    compression: gzip
+    sidecarResources:
+      requests: {cpu: 50m, memory: 128Mi}
+      limits: {cpu: "1", memory: 512Mi}
+  # A new Cluster made from the backups instead of an empty one (README.md "Restore"); with backup.enabled the
+  # restored cluster archives under its own name in the same bucket.
+  recovery:
+    enabled: false
+    serverName: ""  # the name of the cluster that took the backups (e.g. examleaf-db)
+    targetTime: ""  # a point in time, e.g. "2026-10-09 02:00:00+05:30"; empty: as late as the archive goes
+
+# Two Redis, as docker-compose.yml runs them, reachable from the site's pods only (NetworkPolicy), without passwords.
+redis:
+  image: redis:7.4.11-alpine  # docker-compose.yml's redis:7-alpine, pinned
+  # Celery's queue: saved to disk (AOF) so that queued emails survive a restart; nothing in it is ever evicted
+  queue:
+    storage:
+      size: 1Gi
+      storageClass: ""
+    resources:
+      requests: {cpu: 50m, memory: 64Mi}
+      limits: {cpu: 500m, memory: 512Mi}
+  # the cache (rate limits, throttles, cached pages): at most maxmemory, the least used keys make room, nothing saved
+  cache:
+    maxmemory: 256mb
+    resources:
+      requests: {cpu: 50m, memory: 64Mi}
+      limits: {cpu: 500m, memory: 320Mi}
+
+# Default deny for ingress within the namespace, then the paths the site needs: the ingress controller to web, the
+# frontend and the admin (and to cert-manager's HTTP-01 solvers), the site's pods to PostgreSQL and the two Redis,
+# the frontend and the admin to web, the CloudNativePG operator to the instances.
+networkPolicy:
+  enabled: true
+  cnpgNamespace: cnpg-system
+
+cronJobs:
+  # manage.py health_check against the web Service: the database, the cache, the storage and a Celery worker, as
+  # /health/ answers the uptime monitor; a failure is a failed Job (kubectl get jobs).
+  healthCheck:
+    enabled: false
+    schedule: "*/15 * * * *"
+  # The shop's daily clean-up (shop.tasks.clean_up: unpaid orders cancelled, lost invoices and refunds queued again,
+  # old guest carts deleted). Beat runs it every day; this CronJob exists only while beat.enabled is false. Beat's other
+  # tasks (the account purge, the stock alerts, the reminders) stop with it.
+  shopCleanUp:
+    schedule: "30 4 * * *"
+    timeZone: Asia/Kolkata
+
+# ERPNext (frappe/helm's erpnext chart 8.0.84: app v16 on MariaDB), the business's system of record beside the
+# platform (docs/examleaf-admin-control-panel-plan.md sections 3.3 and 3.4). Switched off; README.md "ERPNext" lists
+# what it needs first. The keys below are the chart's own, with the values this cluster will give them.
+erpnext:
+  enabled: false
+  # image:  # the custom image built with frappe_docker (apps.json: erpnext, india_compliance, hrms … examleaf_erp)
+  #   repository: ghcr.io/lazyindianbook/examleaf-erp
+  #   tag: ""
+  # dbHost: examleaf-erp-mariadb  # the MariaDB of the MariaDB operator, not the chart's own
+  # dbPort: 3306
+  # dbRootUser: root
+  # dbExistingSecret: examleaf-erp-mariadb-root
+  # dbExistingSecretPasswordKey: password
+  # mariadb-sts:
+  #   enabled: false
+  # persistence:
+  #   worker:  # the sites volume: ReadWriteMany, every ERPNext pod mounts it
+  #     storageClass: ""
+  #     size: 8Gi
+  # ingress:
+  #   enabled: true
+  #   ingressName: examleaf-erp
+  #   className: nginx
+  #   annotations:
+  #     cert-manager.io/cluster-issuer: letsencrypt
+  #   hosts:
+  #     - host: erp.examleaf.in
+  #       paths: [{path: /, pathType: ImplementationSpecific}]
+  #   tls: [{secretName: examleaf-erp-tls, hosts: [erp.examleaf.in]}]
+  # jobs:
+  #   createSite:
+  #     enabled: true
+  #     siteName: erp.examleaf.in
+  #     adminExistingSecret: examleaf-erp-admin
+  #     installApps: [erpnext, india_compliance, hrms, examleaf_erp]

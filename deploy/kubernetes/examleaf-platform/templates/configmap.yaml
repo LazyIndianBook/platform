@@ -1,0 +1,25 @@
+{{- /* The site's settings that are not secret (values.yaml "config"): what docker-compose.yml's .env and x-app give the
+       Django containers, less the secrets. Unset keys stay out, so that Django's own defaults apply. */ -}}
+{{- $fullname := include "examleaf.fullname" . -}}
+{{- $data := dict
+  "ALLOWED_HOSTS" .Values.domain
+  "SITE_URL" (printf "https://%s" .Values.domain)
+  "CACHE_URL" (printf "redis://%s-redis-cache:6379/0" $fullname)
+  "CELERY_BROKER_URL" (printf "redis://%s-redis-queue:6379/0" $fullname) -}}
+{{- range $key, $value := .Values.config }}
+{{- if not (kindIs "invalid" $value) }}
+{{- /* a whole number written without quotes would come out as 3.1536e+07 */ -}}
+{{- if and (kindIs "float64" $value) (eq ($value | int64 | float64) $value) }}{{ $value = $value | int64 }}{{ end }}
+{{- $_ := set $data $key (toString $value) }}
+{{- end }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $fullname }}-config
+  labels:
+    {{- include "examleaf.labels" (dict "ctx" . "component" "config" "app" "examleaf" "version" .Values.image.tag) | nindent 4 }}
+data:
+  {{- range $key, $value := $data }}
+  {{ $key }}: {{ $value | quote }}
+  {{- end }}

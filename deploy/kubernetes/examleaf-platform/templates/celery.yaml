@@ -1,0 +1,106 @@
+{{- /* The three Celery Deployments of docker-compose.yml: worker, beat and media-worker. Same image, same volumes, each
+       waiting for the migrations before it starts; they differ in command, environment and rollout. No probes, as in
+       compose: Kubernetes restarts a process that exits. */ -}}
+{{- define "examleaf.celeryDeployment" -}}
+{{- $ctx := .ctx -}}
+{{- $labels := dict "ctx" $ctx "component" .component "version" $ctx.Values.image.tag -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "examleaf.fullname" $ctx }}-{{ .component }}
+  labels:
+    {{- include "examleaf.labels" $labels | nindent 4 }}
+spec:
+  replicas: {{ .replicas }}
+  revisionHistoryLimit: 3
+  strategy:
+    {{- if .recreate }}
+    type: Recreate
+    {{- else }}
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    {{- end }}
+  selector:
+    matchLabels:
+      {{- include "examleaf.selectorLabels" $labels | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "examleaf.labels" $labels | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $ctx.Template.BasePath "/configmap.yaml") $ctx | sha256sum }}
+    spec:
+      {{- include "examleaf.podSpecCommon" $ctx | nindent 6 }}
+      terminationGracePeriodSeconds: {{ .values.terminationGracePeriodSeconds | default 30 }}
+      initContainers:
+        {{- include "examleaf.waitForMigrations" (dict "ctx" $ctx "env" .env) | nindent 8 }}
+      containers:
+        - name: {{ .component }}
+          image: {{ include "examleaf.webImage" $ctx }}
+          imagePullPolicy: {{ $ctx.Values.image.pullPolicy }}
+          command:
+            {{- toYaml .command | nindent 12 }}
+          {{- .env | nindent 10 }}
+          securityContext:
+            {{- toYaml $ctx.Values.containerSecurityContext | nindent 12 }}
+          resources:
+            {{- toYaml .values.resources | nindent 12 }}
+          volumeMounts:
+            {{- include "examleaf.djangoVolumeMounts" $ctx | nindent 12 }}
+      volumes:
+        {{- include "examleaf.djangoVolumes" (dict "ctx" $ctx "tmpSize" .values.tmpSize) | nindent 8 }}
+{{- end -}}
+
+{{- /* docker-compose.yml x-media-env (M5): the database, the queue, the buckets and SECRET_KEY, nothing else of the
+       site's secrets. A setting that is not set stays unset (optional references), as compose leaves it. */ -}}
+{{- define "examleaf.mediaEnv" -}}
+{{- $fullname := include "examleaf.fullname" . -}}
+env:
+  - name: DATABASE_URL
+    valueFrom:
+      secretKeyRef:
+        name: {{ include "examleaf.dbCluster" . }}-app
+        key: uri
+  - name: CELERY_BROKER_URL
+    valueFrom:
+      configMapKeyRef:
+        name: {{ $fullname }}-config
+        key: CELERY_BROKER_URL
+  - name: SECRET_KEY
+    valueFrom:
+      secretKeyRef:
+        name: {{ include "examleaf.envSecret" . }}
+        key: SECRET_KEY
+  {{- range list "AWS_REQUEST_CHECKSUM_CALCULATION" "AWS_RESPONSE_CHECKSUM_VALIDATION" "MEDIA_BUCKET" "PUBLIC_MEDIA_BUCKET" "PUBLIC_MEDIA_DOMAIN" "S3_ENDPOINT_URL" "S3_REGION" "PUBLIC_S3_ENDPOINT_URL" "PUBLIC_S3_REGION" "LEARN_PUBLIC_VIDEO" "LEARN_MAX_UPLOAD_MB" "LOG_LEVEL" }}
+  - name: {{ . }}
+    valueFrom:
+      configMapKeyRef:
+        name: {{ $fullname }}-config
+        key: {{ . }}
+        optional: true
+  {{- end }}
+  {{- range list "S3_ACCESS_KEY_ID" "S3_SECRET_ACCESS_KEY" "PUBLIC_S3_ACCESS_KEY_ID" "PUBLIC_S3_SECRET_ACCESS_KEY" }}
+  - name: {{ . }}
+    valueFrom:
+      secretKeyRef:
+        name: {{ include "examleaf.envSecret" $ }}
+        key: {{ . }}
+        optional: true
+  {{- end }}
+{{- end -}}
+
+{{- $djangoEnv := include "examleaf.djangoEnv" . -}}
+{{- include "examleaf.celeryDeployment" (dict "ctx" . "component" "worker" "values" .Values.worker "replicas" .Values.worker.replicas "env" $djangoEnv
+      "command" (list "celery" "-A" "examleaf" "worker" "--loglevel" "INFO" "--concurrency" (toString .Values.worker.concurrency))) }}
+{{- if .Values.beat.enabled }}
+---
+{{ include "examleaf.celeryDeployment" (dict "ctx" . "component" "beat" "values" .Values.beat "replicas" 1 "recreate" true "env" $djangoEnv
+      "command" (list "celery" "-A" "examleaf" "beat" "--loglevel" "INFO")) }}
+{{- end }}
+{{- if .Values.mediaWorker.enabled }}
+---
+{{ include "examleaf.celeryDeployment" (dict "ctx" . "component" "media-worker" "values" .Values.mediaWorker "replicas" .Values.mediaWorker.replicas "env" (include "examleaf.mediaEnv" .)
+      "command" (list "celery" "-A" "examleaf" "worker" "--queues" "media" "--hostname" "media@%h" "--loglevel" "INFO" "--concurrency" (toString .Values.mediaWorker.concurrency))) }}
+{{- end }}

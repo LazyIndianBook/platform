@@ -1,0 +1,2 @@
+# helm dependency build fetches the dependencies Chart.lock pins (make deps)
+examleaf-platform/charts/

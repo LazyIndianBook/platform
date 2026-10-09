@@ -1,0 +1,6 @@
+# kept out of the packaged chart
+.DS_Store
+*.swp
+*.tmp
+.git/
+values-kind.yaml

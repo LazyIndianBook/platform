@@ -1,0 +1,22 @@
+apiVersion: v2
+name: examleaf-platform
+description: >-
+  The ExamLeaf platform on Kubernetes: the Django backend (examleaf-web) with its Celery worker, beat and media worker,
+  the Next.js website (examleaf-frontend), a place for the admin panel (examleaf-admin), PostgreSQL through the
+  CloudNativePG operator with backups to an S3-compatible bucket, two Redis, the Ingress and its TLS. ERPNext is a
+  dependency switched off until it is added.
+type: application
+version: 0.1.0
+# the default tag of the site's images when values give none; the Makefile tags them with the git commit
+appVersion: "0.1.0"
+kubeVersion: ">=1.31.0-0"
+home: https://github.com/LazyIndianBook/platform
+sources:
+  - https://github.com/LazyIndianBook/platform/tree/main/deploy/kubernetes
+dependencies:
+  # frappe/helm's ERPNext chart (app v16, MariaDB): docs/examleaf-admin-control-panel-plan.md section 3.4; README.md
+  # "ERPNext" lists what it needs before erpnext.enabled is set
+  - name: erpnext
+    version: 8.0.84
+    repository: https://helm.erpnext.com
+    condition: erpnext.enabled

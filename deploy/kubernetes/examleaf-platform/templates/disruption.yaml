@@ -1,0 +1,55 @@
+{{- /* PodDisruptionBudgets for every Deployment of the site, and the optional HorizontalPodAutoscalers of web and the
+       frontend (they need metrics-server). maxUnavailable 1 lets a drain move a single pod and, with more replicas,
+       keeps all but one serving; beat's 0 refuses eviction, so that two beats never run at once (values.yaml "beat"). */ -}}
+{{- $fullname := include "examleaf.fullname" . -}}
+{{- $parts := list
+  (dict "component" "web" "values" .Values.web "on" true)
+  (dict "component" "worker" "values" .Values.worker "on" true)
+  (dict "component" "beat" "values" .Values.beat "on" .Values.beat.enabled)
+  (dict "component" "media-worker" "values" .Values.mediaWorker "on" .Values.mediaWorker.enabled)
+  (dict "component" "frontend" "values" .Values.frontend "on" true "app" "examleaf-frontend")
+  (dict "component" "admin" "values" .Values.admin "on" .Values.admin.enabled "app" "examleaf-admin")
+-}}
+{{- range $parts }}
+{{- if .on }}
+{{- $component := .component }}
+{{- $labels := dict "ctx" $ "component" .component "app" .app "version" $.Values.image.tag }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $fullname }}-{{ .component }}
+  labels:
+    {{- include "examleaf.labels" $labels | nindent 4 }}
+spec:
+  maxUnavailable: {{ .values.pdb.maxUnavailable }}
+  selector:
+    matchLabels:
+      {{- include "examleaf.selectorLabels" $labels | nindent 6 }}
+{{- with .values.autoscaling }}
+{{- if .enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ $fullname }}-{{ $component }}
+  labels:
+    {{- include "examleaf.labels" $labels | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ $fullname }}-{{ $component }}
+  minReplicas: {{ .minReplicas }}
+  maxReplicas: {{ .maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .targetCPUUtilizationPercentage }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,19 @@
+{{- $fullname := include "examleaf.fullname" . -}}
+ExamLeaf is installed as {{ .Release.Name }} in the namespace {{ .Release.Namespace }}.
+
+Site:   https://{{ .Values.domain }}/   (Django's paths to {{ $fullname }}-web, the rest to {{ $fullname }}-frontend)
+{{- if .Values.admin.enabled }}
+Admin:  https://{{ include "examleaf.adminHost" . }}/
+{{- end }}
+
+Watch it start (web's init container waits for the database, then migrates):
+  kubectl -n {{ .Release.Namespace }} get pods,cluster
+  kubectl -n {{ .Release.Namespace }} logs deploy/{{ $fullname }}-web -c migrate
+
+The first administrator:
+  kubectl -n {{ .Release.Namespace }} exec -it deploy/{{ $fullname }}-web -- python manage.py createsuperuser
+
+Health, as the uptime monitor sees it (basic auth, user "monitor", HEALTH_CHECK_TOKEN as the password):
+  curl -u monitor:<HEALTH_CHECK_TOKEN> -H 'Accept: application/json' https://{{ .Values.domain }}/health/
+
+deploy/kubernetes/README.md has the rest: secrets, DNS, upgrades, backups and restore.

@@ -1,0 +1,19 @@
+{{- /* docker-compose.yml's "media" volume. Kept by `helm uninstall`: it holds the invoices, which are tax records. */ -}}
+{{- if not .Values.media.existingClaim }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "examleaf.fullname" . }}-media
+  labels:
+    {{- include "examleaf.labels" (dict "ctx" . "component" "media" "version" .Values.image.tag) | nindent 4 }}
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  accessModes: [{{ .Values.media.accessMode }}]
+  {{- with .Values.media.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.media.size }}
+{{- end }}
