@@ -7,6 +7,7 @@ import { Problem } from "@/components/data/problem";
 import { Facts, RecordPage } from "@/components/data/record-page";
 import { recordSide } from "@/components/data/record-side";
 import { StatusChip, toneOf } from "@/components/data/status-chip";
+import { NomineeFacts } from "@/components/modules/privacy/nominee";
 import { CustomerActions, CustomerContact, CustomerDanger } from "@/components/modules/users/customer";
 import { CustomerFlagChips } from "@/components/modules/users/users-table";
 import { Section } from "@/components/shell/page-header";
@@ -14,7 +15,7 @@ import { Alert } from "@/components/ui/alert";
 import { Table, TableCell, TableHead } from "@/components/ui/table";
 import { ApiError } from "@/lib/api/errors";
 import { attempt, recordId, staffPage } from "@/lib/api/page";
-import { getUser } from "@/lib/api/staff";
+import { getNominee, getUser } from "@/lib/api/staff";
 import { copy, humanize, labelOf } from "@/lib/copy";
 import { classOf } from "@/lib/display";
 import { formatDate, formatDateTime } from "@/lib/format";
@@ -28,7 +29,10 @@ const text = (value: unknown) => (typeof value === "string" ? value : "");
 export default async function CustomerPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { manifest, transport, path } = await staffPage(`/users/${encodeURIComponent(id)}/`);
-  const user = await attempt(getUser(recordId(id), transport), path, "404");
+  const [user, nominee] = await Promise.all([
+    attempt(getUser(recordId(id), transport), path, "404"),
+    attempt(getNominee(recordId(id), transport), path),
+  ]);
   const back = { href: "/users/", label: copy.users.title };
   if (user instanceof ApiError) {
     return (
@@ -127,6 +131,9 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
         ) : (
           <p className="m-0 text-[15px] text-muted-foreground">{copy.users.noConsents}</p>
         )}
+      </Section>
+      <Section id="nominee" title={copy.legal.nominee} lead={copy.legal.nomineeLead}>
+        {nominee instanceof ApiError ? <Problem error={nominee} /> : <NomineeFacts nominee={nominee} />}
       </Section>
       <Section id="sessions" title={copy.users.sessions}>
         {user.sessions.length ? (

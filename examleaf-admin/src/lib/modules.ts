@@ -63,6 +63,14 @@ export const P = {
   erpView: "erp.view_sync",
   erpReplay: "erp.replay_sync",
   erpResolve: "erp.resolve_difference",
+  // Legal and privacy (Phase B, staff/privacy_api.py): the cockpit and the retention schedule read with requestsView
+  holdsView: "accounts.view_legalhold",
+  holdsManage: "staff.manage_holds",
+  policiesView: "pages.view_page",
+  policiesPublish: "pages.change_page",
+  settingsManage: "staff.manage_settings",
+  darkPatternsView: "staff.view_darkpatternaudit",
+  complianceManage: "staff.manage_compliance",
 } as const;
 
 /** Whether the manifest lists the permission (the shell's only use of permissions: what to draw). */
@@ -112,9 +120,15 @@ export const MODULES: readonly Module[] = [
   { key: "course", href: "/course/", group: "learning", any: ["learn.view_chapter"], soon: true },
   { key: "users", href: "/users/", group: "customers", any: [P.usersView] },
   { key: "partners", href: "/partners/", group: "customers", any: ["accounts.view_teacherprofile"], soon: true },
+  { key: "cockpit", href: "/privacy/", group: "privacy", any: [P.requestsView] },
   { key: "requests", href: "/privacy/requests/", group: "privacy", any: [P.requestsView] },
+  { key: "policies", href: "/privacy/policies/", group: "privacy", any: [P.policiesView] },
   { key: "incidents", href: "/privacy/incidents/", group: "privacy", any: [P.incidentsView] },
   { key: "processors", href: "/privacy/processors/", group: "privacy", any: [P.processorsView] },
+  { key: "retention", href: "/privacy/retention/", group: "privacy", any: [P.requestsView] },
+  { key: "holds", href: "/privacy/holds/", group: "privacy", any: [P.holdsView] },
+  { key: "disclosures", href: "/privacy/disclosures/", group: "privacy", any: [P.settingsView] },
+  { key: "darkPatterns", href: "/privacy/dark-pattern-audit/", group: "privacy", any: [P.darkPatternsView] },
   { key: "insights", href: "/insights/", group: "reports", any: [P.insightsView, P.signalsAcknowledge], soon: true },
   { key: "people", href: "/people/", group: "staff", any: [P.peopleView] },
   { key: "accessReview", href: "/people/access-review/", group: "staff", any: [P.peopleView] },

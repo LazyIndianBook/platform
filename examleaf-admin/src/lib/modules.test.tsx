@@ -14,7 +14,8 @@ const keys = (permissions: string[], erp = "") => visibleModules(manifestWith(pe
 
 describe("P", () => {
   it("names only the backend's codenames (app_label.codename)", () => {
-    for (const perm of Object.values(P)) expect(perm).toMatch(/^(staff|accounts|shipping|insights|erp)\.[a-z_]+$/);
+    for (const perm of Object.values(P))
+      expect(perm).toMatch(/^(staff|accounts|pages|shipping|insights|erp)\.[a-z_]+$/);
   });
 });
 
@@ -44,8 +45,10 @@ describe("visibleModules", () => {
       "orders",
       "users",
       "partners",
+      "cockpit",
       "requests",
       "processors",
+      "retention",
     ]);
     expect(keys(support, "https://erp.example.invalid")).toEqual(keys(support));
   });
@@ -101,6 +104,8 @@ describe("currentModule", () => {
     expect(currentModule("/people/9003/")).toBe("people");
     expect(currentModule("/people/access-review/")).toBe("accessReview");
     expect(currentModule("/settings/api-keys/")).toBe("apiKeys");
+    expect(currentModule("/privacy/")).toBe("cockpit");
+    expect(currentModule("/privacy/holds/12/")).toBe("holds");
     expect(currentModule("/sign-in/")).toBeNull();
   });
 });
