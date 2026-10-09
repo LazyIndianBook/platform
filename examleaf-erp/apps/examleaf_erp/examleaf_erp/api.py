@@ -853,14 +853,14 @@ def find_existing(doctype, ref, name=None, same=None):
     if by_ref:
         if name and by_ref.name != name:
             raise ApiError("conflict", f"{ref} is already {doctype} {by_ref.name}.", 409, "examleaf_ref")
-        for column, (field, value) in same.items():
-            if by_ref.get(column) != value:
-                there = by_ref.get(column) or "nothing"
-                raise ApiError("conflict", f"{doctype} {by_ref.name} is {there}'s, not {value}'s.", 409, field)
         if by_ref.docstatus == 2:
             raise ApiError(
                 "cancelled", f"{doctype} {by_ref.name} of {ref} was cancelled in ERPNext.", 409, "examleaf_ref"
             )
+        for column, (field, value) in same.items():
+            if by_ref.get(column) != value:
+                there = by_ref.get(column) or "nothing"
+                raise ApiError("conflict", f"{doctype} {by_ref.name} is {there}'s, not {value}'s.", 409, field)
         return {"name": by_ref.name, "duplicate": True, "docstatus": by_ref.docstatus}
     if name and (other := frappe.db.get_value(doctype, name, ["docstatus", "examleaf_ref"], as_dict=True)):
         if other.docstatus == 2:
