@@ -1,11 +1,19 @@
+import copy
+import json
+from datetime import date
+from decimal import Decimal
+from pathlib import Path
 from unittest.mock import MagicMock
 
+import httpx
 import pytest
 import razorpay
 import requests
 
 from shop import invoices, payments
 from shop.factories import KEY, SECRET, WEBHOOK_SECRET
+
+RECORDED_SETTLEMENTS = json.loads((Path(__file__).parent / "fixtures" / "razorpay_settlements.json").read_text())
 
 
 def pytest_configure(config):
@@ -52,6 +60,63 @@ def rzp(monkeypatch):
 def commit(django_capture_on_commit_callbacks):
     """`with commit():` runs what the code queues for after the commit (emails, tasks), as production would."""
     return lambda: django_capture_on_commit_callbacks(execute=True)
+
+
+def in_paise(rupees):
+    return int(Decimal(str(rupees)) * 100)
+
+
+class FakeSettlements:
+    """Razorpay's settlement API (the recon by day, a settlement by id) answering from the recorded shapes
+    (fixtures/razorpay_settlements.json) with each test's settlements; `fail` makes every call answer that status."""
+
+    def __init__(self):
+        self.days, self.settlements, self.calls, self.fail = {}, {}, [], None
+
+    def add(self, day, settlement_id, *items, net=None, utr="UTR20261009001"):
+        """A settlement of `day` with these items ({type, entity_id, amount, fee, tax, order_receipt} in rupees: a
+        payment's credit is its amount less its fee, its GST included; a refund's debit its amount and fee; an
+        adjustment's `credit` or `debit` given): Razorpay's own net is its items' unless `net` says otherwise."""
+        rows = []
+        for item in items:
+            row = copy.deepcopy(RECORDED_SETTLEMENTS[f"{item['type']}_item"])
+            amount, fee, tax = (in_paise(item.get(name, 0)) for name in ("amount", "fee", "tax"))
+            credit = {"payment": amount - fee}.get(item["type"], in_paise(item.get("credit", 0)))
+            debit = {"refund": amount + fee}.get(item["type"], in_paise(item.get("debit", 0)))
+            row.update(entity_id=item["entity_id"], amount=amount, fee=fee, tax=tax, credit=credit, debit=debit)
+            row.update(settlement_id=settlement_id, settlement_utr=utr, order_receipt=item.get("order_receipt"))
+            rows.append(row)
+        self.days.setdefault(day, []).extend(rows)
+        own = in_paise(net) if net is not None else sum(row["credit"] - row["debit"] for row in rows)
+        self.settlements[settlement_id] = {**RECORDED_SETTLEMENTS["settlement"], "id": settlement_id, "amount": own,
+                                           "utr": utr}  # fmt: skip
+
+    def handle(self, request):
+        self.calls.append((request.method, request.url.path))
+        if self.fail:
+            return httpx.Response(self.fail, json={"error": {"code": "SERVER_ERROR", "description": "down"}})
+        path, query = request.url.path, request.url.params
+        if path == "/v1/settlements/recon/combined":
+            rows = self.days.get(date(int(query["year"]), int(query["month"]), int(query["day"])), [])
+            skip, count = int(query.get("skip", 0)), int(query.get("count", 10))
+            page = rows[skip : skip + count]
+            return httpx.Response(200, json={**RECORDED_SETTLEMENTS["recon_page"], "count": len(page), "items": page})
+        if path.startswith("/v1/settlements/") and (found := self.settlements.get(path.rsplit("/", 1)[-1])):
+            return httpx.Response(200, json=found)
+        return httpx.Response(400, json={"error": {"code": "BAD_REQUEST_ERROR", "description": "No such id"}})
+
+    def transport(self):
+        return httpx.MockTransport(self.handle)
+
+
+@pytest.fixture
+def razorpay_settlements(monkeypatch):
+    """Razorpay's settlement API answered by FakeSettlements (shop.settlements' calls)."""
+    from shop import settlements
+
+    fake = FakeSettlements()
+    monkeypatch.setattr(settlements, "transport", fake.transport)
+    return fake
 
 
 @pytest.fixture
