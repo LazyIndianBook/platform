@@ -40,6 +40,7 @@ from stdnum.in_ import gstin
 from treebeard.mp_tree import MP_Node
 
 from accounts.models import DeletionRequest
+from content.isbn import changed_isbn
 
 INR = "INR"
 STATES = dict(STATE_CHOICES)
@@ -175,6 +176,11 @@ class Product(TimeStampedModel):
             raise ValidationError({"slug": "This address belongs to a page of the shop: choose another."})
         if self.is_digital and self.hsn_code == "4901":
             raise ValidationError({"hsn_code": "4901 is for printed books: enter the course's SAC code and GST rate."})
+        before = Product.objects.filter(pk=self.pk).values_list("isbn", flat=True).first() if self.pk else None
+        try:  # an ISBN-13 checked when it is set or changed (the book's own check: content/isbn.py)
+            changed_isbn(self.isbn, before)
+        except ValidationError as error:
+            raise ValidationError({"isbn": error.messages}) from error
 
     def save(self, *args, **kwargs):
         """A changed slug leaves its old one in SlugHistory: the old address redirects to the new one (301)."""

@@ -272,6 +272,9 @@ class InboxItem(models.Model):
         DEAD_LETTER = "dead_letter", "integration task given up"
         FAILED_EVENT = "failed_event", "provider event not processed"
         INTEGRATION_DOWN = "integration_down", "integration unavailable"
+        REVIEW = "review", "content review"  # content/review.py
+        ERROR_REPORT = "error_report", "reported mistake"  # content/reports.py
+        LEGAL_DEPOSIT = "legal_deposit", "legal deposit due"  # content/tasks.py
 
     kind = models.CharField(max_length=20, choices=Kind.choices, db_index=True)
     title = models.CharField(max_length=200, help_text="Names no one: a number, a kind.")
@@ -331,6 +334,7 @@ class Job(models.Model):
         AUDIT_EXPORT = "audit_export", "audit log export"
         BULK_ACTION = "bulk_action", "bulk action"
         ERP_INITIAL_LOAD = "erp_initial_load", "ERPNext initial load"  # erp.producers.initial_load
+        CONTENT_IMPORT = "content_import", "import from the books repository"  # content/imports.py
 
     class State(models.TextChoices):
         QUEUED = "queued", "queued"
