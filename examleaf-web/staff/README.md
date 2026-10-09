@@ -258,7 +258,10 @@ by `result_url` (signed for 5 minutes; a bucket's own signed link behind it) and
 `jobs.permission`, its limit in `jobs.LIMITS`, its runner in `jobs.RUNNERS` and its params in
 `serializers.JobStartSerializer`. The ERPNext sync (`erp/README.md`) adds the kind `erp_initial_load`
 (`erp.run_initial_load`, the `bulk_rows` limit) and two kinds of inbox item: `sync_failed` (a dead letter) and
-`reconciliation` (a night's differences).
+`reconciliation` (a night's differences). The tax desk (`shop/README.md` "Tax") adds the kind `gstr1_export`
+(`staff.run_gstr1`, the `export_rows` limit; `{"month": "YYYY-MM", "months": 1 or 3}`, its file the GSTR-1 CSVs
+zipped) and two kinds of inbox item: `tax_threshold` (a turnover line crossed, or a count grown) and
+`credit_note_missing` (a refund past the credit notes' cut-off, or against a cancelled invoice).
 
 ## Data protection
 

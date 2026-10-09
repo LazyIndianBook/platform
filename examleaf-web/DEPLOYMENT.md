@@ -395,6 +395,18 @@ list any variable its clip task comes to need. After a change: `docker compose u
 | `SHOP_LOW_STOCK` | `5` | no | each morning at 8 the SALES role is emailed the books with fewer copies (RUNBOOK.md "Stock, stock alerts and the low-stock email"); also the dashboard's "running out" |
 | `SELLER_LEGAL_NAME`, `SELLER_ADDRESS`, `SELLER_GSTIN`, `SELLER_STATE`, `SELLER_STATE_CODE`, `SELLER_EMAIL`, `SELLER_PHONE` | `ExamLeaf LLP`, `[address], [city], Assam [PIN]`, empty, `AS`, `18`, `[email]`, `[phone]` | required before the shop opens | the seller printed on every invoice (the LLP's registered details; GSTIN empty: "not registered"); no invoice of the real series is numbered while a `[placeholder]` is left |
 
+### Tax
+
+The storefront's GST documents (`shop/tax.py`, `shop/README.md` "Tax"; the panel's Tax module). The HSN and SAC master
+and its dated rates live in the database (seeded by the migration, kept from the panel), not here.
+
+| Variable | Default | Required | What it does; where to get the value |
+|---|---|---|---|
+| `SHOP_SERIES_FROM_FY` | `2027-28` | no | the financial year from which each type of document is numbered in a series of its own; until then `EL` holds every kind of invoice and `CN` the credit notes. Change it only before the year begins: a year's series never changes once it has a document |
+| `SHOP_SERIES_PREFIXES` | `tax_invoice=TI,bill_of_supply=BS,invoice_cum_bill_of_supply=IB,credit_note=CN,debit_note=DN,receipt_voucher=RV,refund_voucher=RF` | before 1 April 2027 | the prefixes the CA confirms, as `type=prefix` pairs (any left out keep their default): two capitals or figures each, all different, never `TC`; ERPNext's B2B series must not use them. The server refuses to start otherwise |
+| `SHOP_HSN_DIGITS` | `4` | no | how many figures of an HSN or SAC code the documents and the GSTR-1 HSN summary carry: 4 up to ₹5 crore of turnover in the year before, 6 above (the threshold monitor warns at ₹4 crore); 4, 6 or 8 |
+| `SHOP_GST_QRMP` | `1` | no | the returns are quarterly under QRMP (GSTR-1 quarterly with the IFF, PMT-06 monthly, GSTR-3B on the 24th for Assam): the tax calendar's dates. The panel's Settings switch it (`staff.manage_settings`) |
+
 ### Integrations and shipping
 
 | Variable | Default | Required | What it does; where to get the value |
