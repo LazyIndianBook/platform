@@ -133,6 +133,7 @@ ROLES = {
         *["staff.initiate_password_reset", "staff.reset_user_mfa", "staff.impersonate_user"],
         *["staff.view_datarequest", "staff.handle_data_request", "staff.view_processorrecord"],
         *["staff.refund_order", "staff.add_changerequest"],
+        *crud("accounts", ["legalhold", "nominee"], ["view"]),  # legal and privacy: what holds an erasure
         *PANEL,
     ],
     ADMIN: ALL,  # but SUPERUSER_ONLY's changes, OWNER_ONLY and MONEY_APPROVALS
@@ -147,6 +148,7 @@ ROLES = {
         # the ERPNext sync: watch it and resolve the nightly reconciliation's differences (replaying is ADMIN's)
         *["erp.view_sync", "erp.resolve_difference"],
         *["staff.view_cod", "staff.reconcile_cod", "staff.view_insights"],  # COD remittances; the reports
+        *["accounts.view_legalhold", "staff.manage_holds"],  # legal holds: a chargeback, a dispute over money
         *PANEL,
     ],
     PACKER: [  # the packing queue only: the orders to pack and ship (ROLE_SCOPES) and their books; pick, pack, hand

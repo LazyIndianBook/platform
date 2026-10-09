@@ -10,7 +10,7 @@ from insights import api as insights
 from shipping import api as shipping
 from staff import api as staff
 
-from . import auth, learn, parent_link, shop, views
+from . import auth, learn, parent_link, privacy, shop, views
 
 router = SimpleRouter()
 router.register("boards", views.BoardViewSet)
@@ -61,6 +61,9 @@ urlpatterns = [
     path("me/deletion/", views.DeletionView.as_view(), name="me-deletion"),
     path("me/teacher/", views.TeacherView.as_view(), name="me-teacher"),
     path("me/parent-consent/", views.ParentConsentView.as_view(), name="me-parent-consent"),
+    path("me/nominee/", privacy.NomineeView.as_view(), name="me-nominee"),  # api/privacy.py: data rights
+    path("me/consent/withdraw/", privacy.ConsentWithdrawView.as_view(), name="me-consent-withdraw"),
+    path("pages/<slug:slug>/versions/", privacy.PageVersionsView.as_view(), name="page-versions"),
     path("parent-consent/<str:token>/", parent_link.ParentLinkView.as_view(), name="parent-link"),  # the parent's link
     path("config/", views.ConfigView.as_view(), name="config"),
     path("contact/", views.ContactView.as_view(), name="contact"),  # the contact form

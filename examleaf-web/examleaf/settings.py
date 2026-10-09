@@ -803,6 +803,38 @@ CELERY_BEAT_SCHEDULE.update(
     }
 )
 
+# Legal and privacy (Phase B: staff/privacy_api.py; staff/README.md "Legal and privacy"). The e-commerce disclosures
+# are site settings the panel changes with their history (staff/config.py, the group "disclosures"); until it does,
+# these stand: the seller's legal name, address and contacts (SELLER_*, SUPPORT_EMAIL). The retention schedule is code
+# (examleaf/retention.py), its clean-up nightly: blanking (04:10) and deleting (04:20) what is kept no longer. A legal
+# page's version published for a later day comes into force just after midnight; the dark-pattern self-audit's
+# reminder opens from 1 December; the erasure ledger's lines not yet in the backups' bucket are copied each night.
+DISCLOSURE_LEGAL_NAME = SHOP_SELLER["name"]
+DISCLOSURE_REGISTERED_ADDRESS = SHOP_SELLER["address"]
+DISCLOSURE_CARE_EMAIL = SUPPORT_EMAIL or SHOP_SELLER["email"]
+DISCLOSURE_CARE_PHONE = SHOP_SELLER["phone"]
+_PRIVACY_TAG = {"name": "privacy (staff)", "description": "Legal and privacy: the cockpit, holds, retention (API.md)."}
+if _PRIVACY_TAG not in SPECTACULAR_SETTINGS["TAGS"]:  # noqa: F405  (once: tests reload this module, the dict is shared)
+    SPECTACULAR_SETTINGS["TAGS"].append(_PRIVACY_TAG)  # noqa: F405
+SPECTACULAR_SETTINGS["ENUM_NAME_OVERRIDES"].update(  # noqa: F405  a consent's "channel", a hold's "reason"
+    ChannelEnum="staff.models.DataRequest.Channel",  # (its name as before: a data request's channel)
+    ConsentChannelEnum="accounts.models.ConsentRecord.Channel",
+    LegalHoldReasonEnum="accounts.models.LegalHold.Reason",
+)
+CELERY_BEAT_SCHEDULE |= {
+    "privacy-trim-records": {"task": "ops.tasks.trim_expired", "schedule": crontab(hour=4, minute=10)},
+    "privacy-purge-records": {"task": "ops.tasks.purge_expired", "schedule": crontab(hour=4, minute=20)},
+    "privacy-publish-policies": {"task": "pages.tasks.publish_due", "schedule": crontab(hour=0, minute=1)},
+    "privacy-dark-pattern-reminder": {
+        "task": "staff.tasks.remind_dark_pattern_audit",
+        "schedule": crontab(hour=7, minute=0),
+    },
+    "privacy-copy-erasure-ledger": {
+        "task": "accounts.tasks.copy_erasure_ledger",
+        "schedule": crontab(hour=3, minute=5),
+    },
+}
+
 # ---- Resilience (RESILIENCE.md: each knob below, its default and when to change it) --------------------------------
 # Nothing waits without a limit: every call to another service has a connect and a read timeout and a bounded retry,
 # every SQL statement a time limit in the processes that serve people. Kept in one block, after everything it reads.

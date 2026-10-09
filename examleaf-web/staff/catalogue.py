@@ -101,6 +101,9 @@ STAFF_ACTIONS = [
     ("manage_pickup_locations", "Add and change the pickup addresses", SHIPPING, MEDIUM),
     ("view_insights", "See the insights: forecasts, print runs, item analysis, cohorts, fraud signals", REPORTS, LOW),
     ("acknowledge_signal", "Acknowledge fraud signals (looked at and handled)", REPORTS, LOW),
+    # Legal and privacy (Phase B, staff/privacy_api.py): legal holds, and the compliance duties
+    ("manage_holds", "Put legal holds on a person or a record, and release them", PRIVACY, HIGH),
+    ("manage_compliance", "Keep the compliance duties: the dark-pattern self-audit and its certificate", PRIVACY, HIGH),
 ]
 STAFF_MODELS = [
     ("view_changerequest", "See the approvals you take part in", STAFF, LOW),
@@ -125,6 +128,7 @@ STAFF_MODELS = [
     ("add_processorrecord", "Add processors", PRIVACY, MEDIUM),
     ("change_processorrecord", "Change processors", PRIVACY, MEDIUM),
     ("delete_processorrecord", "Delete processors", PRIVACY, HIGH),
+    ("view_darkpatternaudit", "See the dark-pattern self-audits and their certificates", PRIVACY, LOW),
 ]
 # Custom permissions of the other apps (Django's verbs are catalogued by rule, below).
 OTHERS = {
