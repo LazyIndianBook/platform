@@ -15,7 +15,7 @@ from drf_spectacular.extensions import OpenApiAuthenticationExtension
 from rest_framework import authentication, exceptions, permissions, throttling
 
 from api.views import ReauthenticationRequired, recently_authenticated
-from examleaf.middleware import BREAK_GLASS, needs_mfa_setup
+from examleaf.middleware import BREAK_GLASS, needs_mfa_setup, needs_passkey
 
 from . import catalogue
 from .models import ApiKey
@@ -54,6 +54,18 @@ class ApiKeyUser:
         return set(self.api_key.scopes)
 
 
+def service_scopes(scopes):
+    """Whether a key's permissions are a service account's (research 2.6): catalogued view permissions of low risk only,
+    as the panel makes them (serializers.ApiKeySerializer) and never more, so a key can never act as staff."""
+    if not isinstance(scopes, list):
+        return False
+    for perm in scopes:
+        entry = catalogue.entry(perm) if isinstance(perm, str) else None
+        if entry is None or entry.risk != catalogue.LOW or ".view_" not in perm:
+            return False
+    return True
+
+
 def allowed_from(key, ip):
     if not key.allowed_ips:
         return True
@@ -79,6 +91,8 @@ class ApiKeyAuthentication(authentication.BaseAuthentication):
             raise exceptions.AuthenticationFailed("Not a valid API key.")
         if not key.is_usable:
             raise exceptions.AuthenticationFailed("This API key is revoked or expired.")
+        if not service_scopes(key.scopes):  # a service account is never staff: a row widened by hand is refused
+            raise exceptions.AuthenticationFailed("This API key holds more than catalogued view permissions.")
         ip = request.META.get("REMOTE_ADDR", "")
         if not allowed_from(key, ip):
             raise exceptions.AuthenticationFailed("This API key is not used from this address.")
@@ -124,11 +138,19 @@ class BreakGlassReasonRequired(exceptions.PermissionDenied):
     default_code = "break_glass_reason_required"
 
 
+class PasskeyRequired(exceptions.PermissionDenied):
+    """A member of STAFF_PASSKEY_ROLES without a passkey or security key adds one before anything but the manifest,
+    the catalogue and their own sessions (plan 3.5; the manifest's `steps`): a step asked for, not a refusal."""
+
+    default_detail = "Add a passkey or a security key on the website's security page first (/account/security/)."
+    default_code = "passkey_required"
+
+
 class StaffPermission(permissions.BasePermission):
     """The permission the view names for this action (or method); none named is refused (deny by default). A
-    break-glass session's reason first (BreakGlassReasonRequired). Then a recent re-authentication when the catalogue's
-    risk says so, or the view's `reauth` actions (approving, running); its `no_reauth` actions skip it (ending an
-    impersonation)."""
+    break-glass session's reason first (BreakGlassReasonRequired), a privileged member's passkey (PasskeyRequired).
+    Then a recent re-authentication when the catalogue's risk says so, or the view's `reauth` actions (approving,
+    running); its `no_reauth` actions skip it (ending an impersonation)."""
 
     def has_permission(self, request, view):
         perm = view.required_permission(request)
@@ -137,6 +159,8 @@ class StaffPermission(permissions.BasePermission):
             return True
         if request.user.is_superuser and not request.session.get(BREAK_GLASS):
             raise BreakGlassReasonRequired()
+        if needs_passkey(request.user):
+            raise PasskeyRequired()
         if not perm:
             self.message = "This endpoint names no permission for this: refused."
             return False

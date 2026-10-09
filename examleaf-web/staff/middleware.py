@@ -25,7 +25,7 @@ STAFF_APIS = re.compile(
     r"^/api/v1/(?:staff|insights|shipping/(?:shipments|exceptions|cod|charges|pickup-locations|orders|manifest))/"
 )
 ADMIN = "/admin/"
-STEPS = {"reauthentication_required", "break_glass_reason_required"}
+STEPS = {"reauthentication_required", "break_glass_reason_required", "passkey_required"}
 WEBHOOKS = {"/shop/webhooks/razorpay/": "Razorpay"}
 # A website session in which a member of staff is logged in as the customer: who, until when, why, the Impersonation
 IMPERSONATING, IMPERSONATION_UNTIL = "impersonating_staff_id", "impersonation_until"

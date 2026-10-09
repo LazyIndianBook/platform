@@ -132,6 +132,20 @@ def needs_mfa_setup(user):
     return user.is_staff and not is_mfa_enabled(user, [Authenticator.Type.TOTP, Authenticator.Type.WEBAUTHN])
 
 
+def needs_passkey(user):
+    """A member of STAFF_PASSKEY_ROLES (OWNER, ADMIN, FINANCE) without a passkey or security key (plan 3.5: phishing-
+    resistant for the privileged roles; TOTP is enough for the others). Break-glass accounts hold their security keys
+    outside the roles. Read once per user object (a request's)."""
+    if not getattr(user, "is_staff", False) or getattr(user, "is_superuser", False):
+        return False
+    if "_needs_passkey" not in user.__dict__:
+        privileged = bool(set(settings.STAFF_PASSKEY_ROLES) & set(user.role_names))
+        user.__dict__["_needs_passkey"] = (
+            privileged and not Authenticator.objects.filter(user=user, type=Authenticator.Type.WEBAUTHN).exists()
+        )
+    return user.__dict__["_needs_passkey"]
+
+
 # A member of staff's session (research 2.3): when it was signed in and last used, in the session itself; and a
 # break-glass session's reason, {"reason", "at"} (staff.api BreakGlassReasonView).
 STAFF_LOGIN_AT, STAFF_SEEN, BREAK_GLASS = "staff:login_at", "staff:seen", "staff:break_glass"
@@ -148,7 +162,13 @@ def idle_limit(user):
     limits, default = settings.STAFF_IDLE_TIMEOUTS, settings.STAFF_IDLE_TIMEOUT
     if user.is_superuser:
         return min([default, *limits.values()])
-    return min([limits.get(name, default) for name in user.role_names], default=default)
+    return idle_limit_of_roles(user.role_names)
+
+
+def idle_limit_of_roles(names):
+    """The idle limit of a set of roles (idle_limit's rule, for the role catalogue and a role change's preview)."""
+    limits, default = settings.STAFF_IDLE_TIMEOUTS, settings.STAFF_IDLE_TIMEOUT
+    return min([limits.get(name, default) for name in names], default=default)
 
 
 def absolute_expiry(session, user):
@@ -169,7 +189,8 @@ class StaffMFAMiddleware:
     Before that, a staff session ends after its idle limit without a request (idle_limit: 15 or 30 minutes by role)
     and 8 hours after its log-in (a break-glass account's: 2 hours, however busy): signed out, an API call is answered
     401 with `code` "session_idle" or "session_expired", any other page goes on signed out (the admin then asks for a
-    log-in).
+    log-in). And a member of STAFF_PASSKEY_ROLES without a passkey (needs_passkey) is sent from the Django admin to
+    the website's security page to add one (the staff API refuses them with `passkey_required`: staff.permissions).
     """
 
     def __init__(self, get_response):
@@ -190,6 +211,10 @@ class StaffMFAMiddleware:
             if path.startswith("/api/"):
                 return JsonResponse({"detail": MFA_SETUP, "code": "mfa_setup_required"}, status=403)
             return redirect(f"{settings.SITE_URL}/account/2fa/")
+        if user.is_authenticated and path.startswith("/admin/") and needs_passkey(user):
+            # the Django admin, as the staff API (staff.permissions: 403 passkey_required): the website's security page
+            # adds passkeys and security keys
+            return redirect(f"{settings.SITE_URL}/account/security/")
         return self.get_response(request)
 
     @staticmethod

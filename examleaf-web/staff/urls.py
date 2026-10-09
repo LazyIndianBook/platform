@@ -1,6 +1,6 @@
 """/api/v1/staff/ (namespace "staff"): the Admin Control Panel's API (staff/api.py, API.md "Staff API")."""
 
-from django.urls import path
+from django.urls import include, path
 from rest_framework.routers import SimpleRouter
 
 from . import api
@@ -25,12 +25,18 @@ urlpatterns = [
     path("catalogue/", api.CatalogueView.as_view(), name="catalogue"),
     path("settings/", api.SettingsView.as_view(), name="settings"),
     path("settings/<str:key>/", api.SettingView.as_view(), name="setting"),
+    path("settings/<str:key>/history/", api.SettingHistoryView.as_view(), name="setting-history"),
     path("flags/", api.FlagsView.as_view(), name="flags"),
     path("flags/<str:key>/", api.FlagView.as_view(), name="flag"),
+    path("flags/<str:key>/history/", api.FlagHistoryView.as_view(), name="flag-history"),
     path("access-review/", api.AccessReviewView.as_view(), name="access-review"),
     path("system/", api.SystemView.as_view(), name="system"),
     path("system/reconcile/", api.ReconcileView.as_view(), name="reconcile"),
     path("invites/accept/", api.InviteAcceptView.as_view(), name="invite-accept"),
     path("policies/ack/", api.PolicyAcknowledgementView.as_view(), name="policy-ack"),
+    # Phase B: the modules' own files, one line each, in the order of their paths
+    path("connections/", include("integrations.api")),
+    path("system/", include("staff.system_api")),
+    path("templates/", include("ops.staff_api")),
     *router.urls,
 ]

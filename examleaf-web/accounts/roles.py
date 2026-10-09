@@ -147,6 +147,7 @@ ROLES = {
         # the ERPNext sync: watch it and resolve the nightly reconciliation's differences (replaying is ADMIN's)
         *["erp.view_sync", "erp.resolve_difference"],
         *["staff.view_cod", "staff.reconcile_cod", "staff.view_insights"],  # COD remittances; the reports
+        "integrations.view_integrationaccount",  # the payment settings: the connections' cards (plan 5.18)
         *PANEL,
     ],
     PACKER: [  # the packing queue only: the orders to pack and ship (ROLE_SCOPES) and their books; pick, pack, hand
@@ -166,6 +167,7 @@ ROLES = {
         *crud("shop", ["review"], ["view", "change"]),
         "shop.view_product",
         *["staff.add_changerequest", "staff.view_insights"],  # the insights: aggregates only (insights/README.md)
+        "ops.view_messagetemplate",  # the message templates (ADMIN changes them)
         *PANEL,
     ],
     AUDITOR: [VIEW_ALL, "staff.view_auditlog", "staff.export_auditlog"],  # read-only; no reveals, no writes
@@ -178,6 +180,85 @@ ROLES = {
         "staff.add_changerequest",
         *PANEL,
     ],
+}
+
+# What each role is for, in two lines for the role catalogue (staff.api: people/roles/; research 1.8): "for people who
+# need to ..." and "they can't ...", per language (English now; "as" and "bn" join with the same keys).
+ROLE_CARDS = {
+    OWNER: {
+        "en": {
+            "for": "For the founder: everything, including giving roles, making API keys, the audit log and the "
+            "override when nobody else can approve.",
+            "cannot": "They can't change the periodic tasks, groups, second factors or sign-in apps: those stay with "
+            "the sealed break-glass accounts.",
+        }
+    },
+    ADMIN: {
+        "en": {
+            "for": "For the operations head: every module of the panel, and approving role changes, exports and "
+            "erasures.",
+            "cannot": "They can't give roles or make API keys (they see both), approve money, or read the audit log.",
+        }
+    },
+    FINANCE: {
+        "en": {
+            "for": "For the accountant: payments, refunds and their approval, offline payments, invoices, cash on "
+            "delivery and the ERPNext reconciliation.",
+            "cannot": "They can't pack or ship orders, change prices or coupons without approval, or manage staff.",
+        }
+    },
+    SALES: {
+        "en": {
+            "for": "For sales and school orders: storefront orders, payment links, coupons and offers, prices and "
+            "stock, quotations.",
+            "cannot": "They can't approve refunds (FINANCE does), pack or ship parcels, or read the audit log.",
+        }
+    },
+    SALES_REP: {
+        "en": {
+            "for": "For school and phone orders: orders, quotations and payment links.",
+            "cannot": "They can't refund, ship, change prices or approve anything.",
+        }
+    },
+    PACKER: {
+        "en": {
+            "for": "For the packing room: the orders to pack, their parcels, labels, pickups and manifests.",
+            "cannot": "They can't see customers, payments or anything outside the packing queue.",
+        }
+    },
+    SUPPORT: {
+        "en": {
+            "for": "For support agents: customers (masked, revealed with a reason), account help, data requests, "
+            "and refunds asked for.",
+            "cannot": "They can't approve refunds or erasures, change settings, or read the audit log.",
+        }
+    },
+    CONTENT_EDITOR: {
+        "en": {
+            "for": "For authors and editors: books, papers, questions, solutions, legal pages and the course's "
+            "content.",
+            "cannot": "They can't publish papers (REVIEWER does), or see customers, orders or money.",
+        }
+    },
+    REVIEWER: {
+        "en": {
+            "for": "For senior editors: reading content and the course, and publishing papers.",
+            "cannot": "They can't see customers, orders or money, or change the shop.",
+        }
+    },
+    MARKETING: {
+        "en": {
+            "for": "For marketing: coupons and offers (large discounts approved by FINANCE), reviews, the insights "
+            "and the message templates.",
+            "cannot": "They can't approve their own discounts, see customers' details, or also hold FINANCE.",
+        }
+    },
+    AUDITOR: {
+        "en": {
+            "for": "For an accountant or a lawyer who reviews: everything read-only, the audit log and its export.",
+            "cannot": "They can't change anything, reveal customers' details, or hold any other role.",
+        }
+    },
 }
 
 # Numbers on capabilities (research 1.4): a refund up to `refund_inr` rupees, an offline payment up to `offline_inr`,

@@ -17,7 +17,7 @@ from accounts import roles
 from accounts.factories import UserFactory
 from accounts.models import User
 from staff import audit
-from staff.models import ApiKey, ChangeRequest, RoleGrant, StaffInvite, StaffScope
+from staff.models import ApiKey, ChangeRequest, RoleGrant, StaffInvite, StaffOffboarding, StaffScope
 from staff.tasks import expire_access
 
 from .conftest import STAFF, events, make_staff, signed_in
@@ -172,8 +172,10 @@ def test_offboarding_takes_everything_away_in_one_step(settings, django_capture_
     )
     with django_capture_on_commit_callbacks(execute=True):
         done = signed_in(owner).post(f"{PEOPLE}{person.pk}/offboard/", {"reason": "Left the company"}).json()
+    checklist = done.pop("offboarding")  # Phase B: its steps recorded (test_offboarding.py)
     assert done == {"roles": [roles.SALES, roles.SUPPORT], "scopes": 1, "api_keys": 1, "change_requests": 1,
                     "sessions": 1, "tokens": 0}  # fmt: skip
+    assert StaffOffboarding.objects.get(pk=checklist).user_id == person.pk
     person = User.objects.get(pk=person.pk)
     assert not (person.is_active or person.is_staff) and not person.groups.exists()
     assert ApiKey.objects.get(pk=key.pk).revoked_at and ChangeRequest.objects.get(pk=change.pk).status == "expired"
