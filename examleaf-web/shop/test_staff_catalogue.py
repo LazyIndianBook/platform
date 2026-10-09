@@ -28,6 +28,7 @@ from shop.models import (
     Offer,
     Product,
     ProductImage,
+    ProductType,
     ShippingRate,
     SlugHistory,
     StockAlert,
@@ -105,6 +106,53 @@ def test_the_list_reads_its_rows_at_once(sales):
         BundleItem.objects.create(bundle=other, product=book())
         book().categories.add(Category.objects.add_root(instance=Category(name="x", slug=f"x-{other.pk}")))
     assert queries() == one
+
+
+def test_no_other_list_asks_once_a_row(sales, marketing, editor):
+    """Stock, back-in-stock requests, coupons (their uses and codes), offers (their uses and scope), rates, the tree,
+    collections and types: the same queries for two rows each as for five."""
+    from shop.factories import CouponFactory
+    from shop.models import CouponCode
+
+    lists = {
+        "stock/": sales,
+        "stock-alerts/": sales,
+        "coupons/": marketing,
+        "offers/": marketing,
+        "shipping-rates/": sales,
+        "categories/": editor,
+        "collections/": editor,
+        "product-types/": editor,
+    }
+
+    def add(count):
+        for _ in range(count):
+            product = book(stock=2)
+            StockAlert.objects.create(product=product, email=f"{product.slug}@example.com")
+            coupon = CouponFactory(single_use=True)
+            CouponCode.objects.create(coupon=coupon, code=f"Q-{coupon.code}")
+            offer = Offer.objects.create(name=f"Offer {product.pk}", value=Decimal("5"), scope=Offer.Scope.PRODUCTS)
+            offer.products.add(product)
+            ShippingRate.objects.create(name=product.slug, states=[], fee=Decimal("40.00"))
+            Category.objects.add_root(instance=Category(name=product.title, slug=product.slug))
+            collection = Collection.objects.create(name=product.title, slug=product.slug)
+            collection.items.create(product=product)
+            kind = ProductType.objects.create(name=product.slug)
+            Attribute.objects.create(product_type=kind, name="Language", code="language")
+
+    def counts():
+        found = {}
+        for url, client in lists.items():
+            with CaptureQueriesContext(connection) as captured:
+                assert client.get(URL + url).status_code == 200, url
+            found[url] = len(captured)
+        return found
+
+    add(2)
+    counts()  # (the first asks fill the session's caches)
+    two = counts()
+    add(3)
+    assert counts() == two
 
 
 # ---- A product: by section; a new one; a change, its parts by permission ----

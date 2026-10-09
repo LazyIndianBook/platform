@@ -1222,7 +1222,7 @@ class CatalogueAlertRowSerializer(serializers.Serializer):
     title = serializers.CharField()
     requests = serializers.IntegerField(source="alert_count")
     last_asked = serializers.DateTimeField(source="alert_last")
-    available = serializers.IntegerField()
+    available = serializers.IntegerField(source="copies_now", help_text="copies to sell now (a bundle: its books')")
 
 
 class StockAlertViewSet(CatalogueView, mixins.ListModelMixin, viewsets.GenericViewSet):
@@ -1242,7 +1242,9 @@ class StockAlertViewSet(CatalogueView, mixins.ListModelMixin, viewsets.GenericVi
     def list(self, request, *args, **kwargs):
         page = self.paginate_queryset(self.get_queryset().prefetch_related(BUNDLE_LINES).order_by("-pk"))
         for product in page:
-            product.available = catalogue.available(product, list(product.bundle_items.all()))
+            product.copies_now = catalogue.available(
+                product, list(product.bundle_items.all())
+            )  # (`available`: a property)
         return self.get_paginated_response(CatalogueAlertRowSerializer(page, many=True).data)
 
 
