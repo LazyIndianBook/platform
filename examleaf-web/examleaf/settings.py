@@ -713,7 +713,7 @@ STAFF_ALERT_EMAILS = env.list("STAFF_ALERT_EMAILS", default=[])  # the owners' a
 STAFF_CHANGE_REQUEST_HOURS = env.int("STAFF_CHANGE_REQUEST_HOURS", default=24)  # a change request's life
 STAFF_DORMANT_DAYS = env.int("STAFF_DORMANT_DAYS", default=45)  # the access review flags staff not logged in since
 # The panel's TEST band (the manifest's flags.test_mode): on wherever this is not the production site.
-STAFF_TEST_MODE = env.bool("STAFF_TEST_MODE", default=DEBUG)
+STAFF_TEST_MODE = env.bool("STAFF_TEST_MODE", default=DEBUG and not TESTING)  # tests look like production
 # The audit log's retention (staff.audit.purge, run as the table's owner): 2 years, money events 8 financial years.
 # Never under a year: CERT-In keeps ICT logs 180 days, the DPDP Rules 1 year (r.6(1)(e), from May 2027).
 STAFF_AUDIT_RETENTION_DAYS = env.int("STAFF_AUDIT_RETENTION_DAYS", default=730)
