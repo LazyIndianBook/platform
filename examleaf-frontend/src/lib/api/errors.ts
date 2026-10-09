@@ -108,6 +108,17 @@ function parse(status: number, body: unknown): ApiError {
   return new ApiError(status, code, message || first || fallback, fields, body);
 }
 
+/** A change the browser stopped waiting for (client.ts's answer timeout) may still have reached Django: the visitor
+ *  checks before sending it again, and nothing sends it again by itself. */
+export const UNCONFIRMED_MESSAGE =
+  "ExamLeaf didn't answer in time, so this may have gone through. Check before you try again.";
+
+/** The ApiError of a call that got no answer (status 0): a change that timed out says it may have gone through. */
+export function noAnswer(method: string, error: unknown): ApiError {
+  const timedOut = error instanceof DOMException && error.name === "TimeoutError";
+  return new ApiError(0, "unavailable", timedOut && method !== "GET" ? UNCONFIRMED_MESSAGE : DEFAULT_MESSAGES[0]);
+}
+
 type Result<T> = { data?: T; error?: unknown; response: Response };
 
 /** The data of an openapi-fetch call, or an ApiError (also when the backend cannot be reached). */
@@ -116,6 +127,7 @@ export async function unwrap<T>(call: Promise<Result<T>>): Promise<T> {
   try {
     result = await call;
   } catch (error) {
+    if (error instanceof ApiError) throw error; // already worded (client.ts's timedFetch)
     if (error instanceof DOMException && error.name === "AbortError") throw error;
     throw new ApiError(0, "unavailable", DEFAULT_MESSAGES[0]);
   }

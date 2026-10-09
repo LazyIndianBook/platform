@@ -1,11 +1,30 @@
 // The API v1 client for client components: same origin (Caddy sends /api/ to Django), the session cookie, and the
 // CSRF token from the csrftoken cookie on every unsafe method (API.md, "Authentication boundaries"). Any 401 means
-// the session ended (or never was, for a signed-in-only call): the visitor goes to log in and comes back here.
+// the session ended (or never was, for a signed-in-only call): the visitor goes to log in and comes back here. No
+// call waits more than 30 s for an answer (timedFetch), and none is ever sent again by itself.
 // Usage: const book = await unwrap(api.GET("/api/v1/books/{slug}/", { params: { path: { slug } }, signal }));
 import createClient, { type Middleware } from "openapi-fetch";
 
-import { ApiError, unwrap } from "./errors";
+import { ApiError, noAnswer, unwrap } from "./errors";
 import type { paths } from "./schema";
+
+/** How long the browser waits for Django's answer: a call with none in 30 s fails as status 0, so no button stays busy
+ *  on a hung connection. */
+export const ANSWER_TIMEOUT_MS = 30_000;
+
+/** The answer timeout with the caller's own signal: AbortSignal.any, or a controller where the browser lacks it
+ *  (Safari before 17.4, Chrome before 116: Next's baseline is Safari 16.4 and Chrome 111). */
+export function withTimeout(signal?: AbortSignal | null): AbortSignal {
+  const timeout = AbortSignal.timeout(ANSWER_TIMEOUT_MS);
+  if (!signal) return timeout;
+  if (typeof AbortSignal.any === "function") return AbortSignal.any([signal, timeout]);
+  const both = new AbortController();
+  for (const each of [signal, timeout]) {
+    if (each.aborted) both.abort(each.reason);
+    each.addEventListener("abort", () => both.abort(each.reason), { once: true });
+  }
+  return both.signal;
+}
 
 export function readCookie(name: string): string | undefined {
   if (typeof document === "undefined") return undefined;
@@ -25,10 +44,22 @@ export async function ensureCsrfCookie() {
   await fetch(`${process.env.NEXT_PUBLIC_API_BASE ?? ""}/_allauth/browser/v1/config`, {
     credentials: "same-origin",
     cache: "no-store",
+    signal: withTimeout(),
   }).catch(() => undefined);
 }
 
 const SAFE = new Set(["GET", "HEAD", "OPTIONS"]);
+
+/** fetch with the answer timeout; a cancelled call stays an AbortError, and a change that timed out says it may have
+ *  gone through (noAnswer), so the visitor checks before pressing again. */
+export async function timedFetch(request: Request): Promise<Response> {
+  try {
+    return await fetch(request, { signal: withTimeout(request.signal) });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") throw error;
+    throw noAnswer(request.method, error);
+  }
+}
 
 export const csrfMiddleware: Middleware = {
   onRequest({ request }) {
@@ -56,6 +87,7 @@ export const sessionMiddleware: Middleware = {
 export const api = createClient<paths>({
   baseUrl: process.env.NEXT_PUBLIC_API_BASE ?? "",
   credentials: "same-origin",
+  fetch: timedFetch,
 });
 api.use(csrfMiddleware, sessionMiddleware);
 

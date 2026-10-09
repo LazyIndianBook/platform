@@ -34,11 +34,13 @@ async function load() {
   return import("./server");
 }
 
-/** A Django that takes the call and never answers: only the call's signal ends it. */
+/** A Django that takes the call and never answers: only the call's signal ends it (at once if it has already gone off,
+ *  as fetch does for a deadline already past). */
 const hung = vi.fn(
   (input: Request | string, init?: RequestInit) =>
     new Promise<Response>((_, reject) => {
       const signal = init?.signal ?? (input as Request).signal;
+      if (signal?.aborted) reject(signal.reason);
       signal?.addEventListener("abort", () => reject(signal.reason));
     }),
 );
