@@ -8,18 +8,14 @@ import "server-only";
 
 import { cookies, headers } from "next/headers";
 
-import { SITE_URL } from "@/lib/site";
+import { FORWARDED_HEADERS } from "@/lib/site";
 
 import type { Transport } from "./staff";
 
 export const API_INTERNAL_BASE = (process.env.API_INTERNAL_BASE ?? "http://localhost:8100").replace(/\/$/, "");
 
-// Django builds absolute URLs and checks ALLOWED_HOSTS with the console's public host, as when Caddy forwards a request
-const site = new URL(SITE_URL);
-export const FORWARDED_HEADERS = {
-  "X-Forwarded-Host": site.host,
-  "X-Forwarded-Proto": site.protocol.replace(":", ""),
-};
+// the console's public host and scheme for Django (src/lib/site.ts), shared with src/proxy.ts's health check
+export { FORWARDED_HEADERS };
 
 const INTERNAL_API_TOKEN = process.env.INTERNAL_API_TOKEN ?? "";
 

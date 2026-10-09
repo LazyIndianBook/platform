@@ -4,6 +4,16 @@
 /** The console's own address (no trailing slash): https://admin.examleaf.in, the host Django sees. */
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3020").replace(/\/$/, "");
 
+/** Sent with every server-side call to Django (and the proxy's health check), which builds absolute URLs and checks
+ *  ALLOWED_HOSTS with the console's public host, as when Caddy forwards a request: it trusts X-Forwarded-Host
+ *  (USE_X_FORWARDED_HOST=1) and, behind a proxy, X-Forwarded-Proto. Without them it sees the internal host (web:8000)
+ *  and, with DEBUG=0, refuses it (400). */
+const site = new URL(SITE_URL);
+export const FORWARDED_HEADERS = {
+  "X-Forwarded-Host": site.host,
+  "X-Forwarded-Proto": site.protocol.replace(":", ""),
+};
+
 /** The public website (https://examleaf.in): where staff set up two-step sign-in and passkeys. */
 export const WEBSITE_URL = (process.env.NEXT_PUBLIC_WEBSITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
 
