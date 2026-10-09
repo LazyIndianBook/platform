@@ -1,10 +1,12 @@
 from django.core.management.base import BaseCommand
+from django.utils import timezone
 
 from erp.tasks import status
 
 
 def when(moment):
-    return f"{moment:%Y-%m-%d %H:%M}" if moment else "never"
+    """In India's time (TIME_ZONE): the database's moments are UTC, which read 5 and a half hours off."""
+    return f"{timezone.localtime(moment):%Y-%m-%d %H:%M}" if moment else "never"
 
 
 class Command(BaseCommand):
