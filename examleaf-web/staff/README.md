@@ -282,6 +282,10 @@ kind `ticket_category`, three kinds of inbox item (`ticket_due`: a ticket's lega
 `ticket_breach`: past it, both for `staff.handle_ticket` and given to the ticket's assignee; `ticket_mention`: a
 colleague named in a note, assigned to them and done once they open the ticket) and the permissions
 `staff.handle_ticket` (medium) and `support.note_ticket`.
+Home and Reports (`insights/README.md`) adds the kind `report_export` (`staff.export_report`, high: FINANCE, the auditor,
+ADMIN and the owners; the `export_rows` limit; params `{"report": "sales", "filters": {...}}`, validated by
+`insights.exports.clean_params` before anything is queued; the starter needs the report's own permissions too), its file
+a CSV with the filters and the member of staff's number at the end.
 
 ## Data protection
 
