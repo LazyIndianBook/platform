@@ -19,6 +19,7 @@ import { requireUser } from "@/lib/auth/session";
 
 import { ChapterLink, ReviseAgainLink } from "./course-links";
 import { CardDeck } from "./flash-cards";
+import { ChapterPlayer } from "./player";
 import { type Question, QuizRun } from "./quiz";
 import { CourseSettings } from "./settings-form";
 
@@ -283,5 +284,27 @@ describe("the flag (config/ web_course)", () => {
       "href",
       "/account/learning/revise-again/",
     );
+  });
+});
+
+describe("ChapterPlayer", () => {
+  it("saves how far the clip was watched one save at a time: what comes meanwhile waits, the latest only", async () => {
+    let finish: (value: unknown) => void = () => undefined;
+    vi.mocked(api.POST).mockImplementation(() => new Promise((resolve) => (finish = resolve)) as never);
+    const clip = { id: 9, chapter: 3, title: "Ohm's law", duration: 120, hls_url: "/hls/9.m3u8", poster_url: "" };
+    const { container } = render(<ChapterPlayer clip={clip as never} save />);
+    const video = container.querySelector("video")!;
+    const at = (seconds: number, type: string) => {
+      Object.defineProperty(video, "currentTime", { value: seconds, configurable: true });
+      Object.defineProperty(video, "duration", { value: 120, configurable: true });
+      video.dispatchEvent(new Event(type));
+    };
+    at(16, "timeupdate"); // sent
+    at(32, "timeupdate"); // waits for the first's answer
+    at(120, "ended"); // takes its place: the latest, completed
+    expect(api.POST).toHaveBeenCalledTimes(1);
+    await act(async () => finish(answer(undefined, 201)));
+    expect(api.POST).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(api.POST).mock.calls[1][1]).toMatchObject({ body: { seconds_watched: 120, completed: true } });
   });
 });

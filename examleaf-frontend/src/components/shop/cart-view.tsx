@@ -282,7 +282,7 @@ export function CartView({
                   size="sm"
                   className="-ml-4 min-h-11"
                   busy={busy === "coupon"}
-                  onClick={() => send("coupon", api.DELETE("/api/v1/cart/coupon/"))}
+                  onClick={() => busy === null && send("coupon", api.DELETE("/api/v1/cart/coupon/"))}
                 >
                   Remove the coupon
                 </Button>
@@ -300,7 +300,7 @@ export function CartView({
                 size="sm"
                 className="min-h-11 px-3 text-sm"
                 busy={busy === "coupon"}
-                onClick={() => send("coupon", api.DELETE("/api/v1/cart/coupon/"))}
+                onClick={() => busy === null && send("coupon", api.DELETE("/api/v1/cart/coupon/"))}
               >
                 Remove <span className="sr-only">the coupon</span>
               </Button>

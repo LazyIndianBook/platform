@@ -11,7 +11,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Price } from "@/components/ui/price";
 import { Stepper } from "@/components/ui/stepper";
-import { api } from "@/lib/api/client";
+import { api, ApiError } from "@/lib/api/client";
 import type { Order } from "@/lib/api/shop";
 
 import { CancelOrder } from "./cancel-order";
@@ -642,6 +642,35 @@ describe("a payment Razorpay refused", () => {
     );
     expect(api.POST).toHaveBeenCalledTimes(1); // the options only: nothing was sent to be confirmed
     expect(container).not.toHaveTextContent(/PAID/);
+    delete (window as { Razorpay?: unknown }).Razorpay;
+  });
+
+  it("says what happens to the money when its confirmation gets no answer, and lets Pay go when the window fails", async () => {
+    const options = { key: "rzp_test_x", order_id: "order_x", amount: 33900, currency: "INR", test_mode: false };
+    vi.mocked(api.POST)
+      .mockReturnValueOnce(answer(options) as never)
+      // the confirmation's 30 s ran out (timedFetch): may have gone through
+      .mockRejectedValueOnce(new ApiError(0, "unavailable", "ExamLeaf didn't answer in time.") as never);
+    let open = (settings: { handler: (response: unknown) => void }) => settings.handler({ razorpay_payment_id: "p" });
+    Object.assign(window, {
+      Razorpay: function (this: Record<string, unknown>, settings: { handler: (response: unknown) => void }) {
+        this.on = () => undefined;
+        this.open = () => open(settings);
+      },
+    });
+    const { container } = render(<PayButton number="EL-2026-000123" total="339.00" nonce="n0nce" />);
+    const pay = await screen.findByRole("button", { name: "Pay ₹339.00" });
+    await waitFor(() => expect(pay).not.toHaveAttribute("aria-busy"));
+    await userEvent.click(pay);
+    expect(await screen.findByText(/we confirm the order or refund it by ourselves/)).toBeInTheDocument();
+    expect(container).not.toHaveTextContent(/PAID/);
+
+    open = () => {
+      throw new Error("Razorpay's window would not open");
+    };
+    await userEvent.click(pay);
+    expect(await screen.findByText(/The payment window could not be loaded/)).toBeInTheDocument();
+    expect(pay).not.toHaveAttribute("aria-busy"); // Pay is ready again, not busy for good
     delete (window as { Razorpay?: unknown }).Razorpay;
   });
 });

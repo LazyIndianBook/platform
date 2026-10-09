@@ -2,7 +2,7 @@
 // the marks form's checks and save (MarksForm, as it is), Download my data (what the file holds, before the download),
 // the deletion confirmed by the typed email address, the address book's draft after a session that ended (401), the
 // teacher request's three states, busy buttons that send once, and My record's filter that matches nothing.
-import { render, screen, within } from "@testing-library/react";
+import { act, render, renderHook, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -20,6 +20,7 @@ import { TeacherAccess } from "./profile-forms";
 import { recordHref, RecordNoMatch } from "./record";
 import { CodeStep, deviceName, shortAddress } from "./security-forms";
 import { AuthenticatorApp } from "./two-factor";
+import { useAction } from "./use-action";
 
 vi.mock("@/lib/api/client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api/client")>()),
@@ -397,5 +398,29 @@ describe("The authenticator app's setup", () => {
     expect(screen.getByRole("list", { name: "Your recovery codes" })).toHaveTextContent("8K2F-Q9TDM4XR-7PLC");
     expect(screen.getByRole("link", { name: "Download" })).toHaveAttribute("download", "examleaf-recovery-codes.txt");
     expect(screen.getByRole("button", { name: "I've saved them" })).toBeInTheDocument();
+  });
+});
+
+describe("useAction", () => {
+  it("sends one request at a time: a second run meanwhile, from any button, sends nothing", async () => {
+    const { result } = renderHook(() => useAction());
+    let finish: () => void = () => undefined;
+    const work = vi.fn(() => new Promise<void>((resolve) => (finish = resolve)));
+    let first: Promise<boolean> = Promise.resolve(false);
+    act(() => {
+      first = result.current.run(work);
+    });
+    let second = true;
+    await act(async () => {
+      second = await result.current.run(work);
+    });
+    expect(second).toBe(false);
+    expect(work).toHaveBeenCalledTimes(1);
+    expect(result.current.busy).toBe(true);
+    await act(async () => {
+      finish();
+      expect(await first).toBe(true);
+    });
+    expect(result.current.busy).toBe(false);
   });
 });
