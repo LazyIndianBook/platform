@@ -14,7 +14,7 @@ RISKS = [LOW, MEDIUM, HIGH, CRITICAL]
 
 ORDERS, PAYMENTS, CUSTOMERS, CONTENT, COURSE = "Orders", "Payments & refunds", "Customers", "Content", "Course"
 CATALOGUE, MARKETING, STAFF, AUDIT = "Catalogue", "Marketing", "Staff & roles", "Audit"
-PRIVACY, SETTINGS, OPERATIONS = "Privacy", "Settings", "Operations"
+PRIVACY, SETTINGS, OPERATIONS, ERP_SYNC = "Privacy", "Settings", "Operations", "ERP sync"
 
 
 @dataclass(frozen=True)
@@ -134,6 +134,28 @@ OTHERS = {
             ("export_order", "Export orders", ORDERS, HIGH),
         ],
     ),
+    # The ERPNext sync (erp/README.md): its outbox, dead letters, reconciliation and initial load
+    **_entries(
+        "erp",
+        [
+            (
+                "view_sync",
+                "See the ERPNext sync: outbox, dead letters, reconciliations, cursors, status",
+                ERP_SYNC,
+                LOW,
+            ),
+            ("replay_sync", "Replay or discard the ERPNext sync's dead letters (a reason to discard)", ERP_SYNC, HIGH),
+            ("resolve_difference", "Resolve the nightly reconciliation's differences, with a note", ERP_SYNC, MEDIUM),
+            (
+                "run_initial_load",
+                "Run the initial load into ERPNext: the catalogue, past invoices (the owners are told)",
+                ERP_SYNC,
+                HIGH,
+                False,
+                True,
+            ),
+        ],
+    ),
 }
 EXPLICIT = {**_entries("staff", STAFF_ACTIONS), **_entries("staff", STAFF_MODELS), **OTHERS}
 # Model permissions that start an action which may need approval (staff.approvals: a price, a coupon).
@@ -150,6 +172,7 @@ APP_AREAS = {
     "ops": OPERATIONS,
     "staff": STAFF,
     "shop": ORDERS,
+    "erp": ERP_SYNC,
 }
 SHOP_AREAS = {
     **dict.fromkeys(["payment", "refund", "invoice", "creditnote"], PAYMENTS),

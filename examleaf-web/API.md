@@ -1219,6 +1219,19 @@ successful ones; the errors are those above (400, 401, 403, 404, 405, 429). A fi
 | POST | `data-requests/{id}/export/` | `staff.export_personal_data` |  |  | 202 `Detail` |
 | GET | `data-requests/{id}/response/` | `staff.view_datarequest` |  |  | 200 `ResponseText` |
 | POST | `data-requests/{id}/verify-identity/` | `staff.handle_data_request` |  | `VerifyIdentityRequest` | 200 `DataRequest` |
+| GET | `erp/cursors/` | `erp.view_sync` | `cursor`, `page_size` |  | 200 `PaginatedErpCursorList` |
+| GET | `erp/dead-letters/` | `erp.view_sync` | `aggregate_id`, `aggregate_type`, `cursor`, `event`, `page_size` |  | 200 `PaginatedErpOutboxList` |
+| GET | `erp/dead-letters/{id}/` | `erp.view_sync` |  |  | 200 `ErpOutbox` |
+| POST | `erp/dead-letters/{id}/discard/` | `erp.replay_sync` |  | `ErpDiscardRequest` | 200 `ErpOutbox` |
+| POST | `erp/dead-letters/{id}/replay/` | `erp.replay_sync` |  |  | 200 `ErpOutbox` |
+| GET | `erp/differences/` | `erp.view_sync` | `cursor`, `kind`, `open`, `page_size`, `run` |  | 200 `PaginatedErpDifferenceList` |
+| GET | `erp/differences/{id}/` | `erp.view_sync` |  |  | 200 `ErpDifference` |
+| POST | `erp/differences/{id}/resolve/` | `erp.resolve_difference` |  | `ErpResolveRequest` | 200 `ErpDifference` |
+| GET | `erp/outbox/` | `erp.view_sync` | `aggregate_id`, `aggregate_type`, `cursor`, `event`, `examleaf_ref`, `page_size`, `state` |  | 200 `PaginatedErpOutboxList` |
+| GET | `erp/outbox/{id}/` | `erp.view_sync` |  |  | 200 `ErpOutbox` |
+| GET | `erp/reconciliations/` | `erp.view_sync` | `cursor`, `date`, `page_size`, `state` |  | 200 `PaginatedErpRunList` |
+| GET | `erp/reconciliations/{id}/` | `erp.view_sync` |  |  | 200 `ErpRunDetail` |
+| GET | `erp/status/` | `erp.view_sync` |  |  | 200 `ErpStatus` |
 | GET | `flags/` | `staff.view_featureflag` |  |  | 200 `[Flag]` |
 | GET | `flags/{key}/` | `staff.view_featureflag` |  |  | 200 `[SwitchRow]` |
 | PUT | `flags/{key}/` | `staff.manage_flags` |  | `SwitchChangeRequest` | 200 `SwitchRow` |
@@ -1312,6 +1325,20 @@ successful ones; the errors are those above (400, 401, 403, 404, 405, 429). A fi
 - **Detail**: `detail` string (required)
 - **Ended**: `sessions` integer (required); `tokens` integer (required)
 - **ErasureReport**: `erase` [object] (required); `keep` [object] (required); `blocks` [string] (required); `can_erase` boolean (required); `notes` [string] (required)
+- **ErpAccountStatus**: `id` integer (required); `label` string (required); `mode` string (required); `circuit` string (required); `last_success_at` date-time (required, null); `last_error` string (required)
+- **ErpCursor**: `id` integer (required, read-only); `doctype` string (required, read-only); `modified_after` string (required, read-only); `last_name` string (required, read-only); `rows_read` integer (required, read-only); `last_run_at` date-time (required, null, read-only); `last_error` string (required, read-only)
+- **ErpCursorStatus**: `doctype` string (required); `modified_after` string (required); `last_run_at` date-time (required, null); `error` string (required)
+- **ErpDifference**: `id` integer (required, read-only); `run` integer (required, read-only); `kind` ErpDifferenceKindEnum (required, read-only); `key` string (required, read-only); `platform_value` string (required, read-only); `erp_value` string (required, read-only); `note` string (required, read-only); `resolved_at` date-time (required, null, read-only); `resolved_by` integer (required, null, read-only)
+- **ErpDifferenceKindEnum**: one of `invoices`, `credit_notes`, `payments`, `settlements`, `deliveries`, `stock`, `missing`
+- **ErpDiscardRequest**: `reason` string (required)
+- **ErpOutbox**: `id` integer (required, read-only); `aggregate_type` string (required, read-only); `aggregate_id` string (required, read-only); `sequence` integer (required, read-only); `event` string (required, read-only); `examleaf_ref` string (required, read-only); `model` string (required, read-only); `object_id` string (required, read-only); `idempotency_key` string (required, read-only); `payload` any (required, null, read-only); `state` ErpOutboxStateEnum (required, read-only); `attempts` integer (required, read-only); `next_at` date-time (required, read-only); `last_error` string (required, read-only); `created` date-time (required, read-only); `sent_at` date-time (required, null, read-only); `response` any (required, null, read-only); `dead_letter` integer (required, null, read-only)
+- **ErpOutboxStateEnum**: one of `pending`, `sending`, `sent`, `failed`, `dead`, `discarded`
+- **ErpReconciliationStateEnum**: one of `running`, `done`, `failed`
+- **ErpResolveRequest**: `note` string (required)
+- **ErpRun**: `id` integer (required, read-only); `date` date (required, read-only); `state` ErpReconciliationStateEnum (required, read-only); `platform_totals` any (required, read-only); `erp_totals` any (required, read-only); `differences_count` integer (required, read-only); `started_at` date-time (required, read-only); `finished_at` date-time (required, null, read-only); `error` string (required, read-only)
+- **ErpRunDetail**: `id` integer (required, read-only); `date` date (required, read-only); `state` ErpReconciliationStateEnum (required, read-only); `platform_totals` any (required, read-only); `erp_totals` any (required, read-only); `differences_count` integer (required, read-only); `started_at` date-time (required, read-only); `finished_at` date-time (required, null, read-only); `error` string (required, read-only); `differences` [ErpDifference] (required, read-only)
+- **ErpRunStatus**: `id` integer (required); `date` date (required); `state` string (required); `differences` integer (required); `open_differences` integer (required); `finished_at` date-time (required, null)
+- **ErpStatus**: `enabled` boolean (required); `mode` string (required); `flows` object (required); `pull_stock` boolean (required); `pull_b2b` boolean (required); `stock_projection` boolean (required); `account` ErpAccountStatus (required, null); `outbox` object (required); `oldest_waiting_at` date-time (required, null); `oldest_waiting_seconds` integer (required, null); `held_aggregates` integer (required); `cursors` [ErpCursorStatus] (required); `last_reconciliation` ErpRunStatus (required, null)
 - **ExportRequest**: `filters` object
 - **Flag**: `key` string (required); `value` any (required); `effective_from` date-time (required); `changed_by` integer (required, null); `reason` string (required)
 - **GrantRequest**: `role` RoleEnum (required); `expires_at` date-time (null); `reason` string (required)
@@ -1319,14 +1346,14 @@ successful ones; the errors are those above (400, 401, 403, 404, 405, 429). A fi
 - **Impersonation**: `token` string (required); `expires_at` date-time (required)
 - **InboxCount**: `open` integer (required); `overdue` integer (required)
 - **InboxItem**: `id` integer (required, read-only); `kind` InboxKindEnum (required); `title` string (required); `target_type` string; `target_id` string; `permission` string (required); `assignee` integer (null); `due_at` date-time (null); `overdue` boolean (required, read-only); `snoozed_until` date-time (null); `done_at` date-time (null); `done_by` integer (null); `data` any; `created` date-time
-- **InboxKindEnum**: one of `approval`, `teacher_request`, `deletion_request`, `data_request`, `incident`, `failed_job`, `failed_webhook`
+- **InboxKindEnum**: one of `approval`, `teacher_request`, `deletion_request`, `data_request`, `incident`, `failed_job`, `failed_webhook`, `sync_failed`, `reconciliation`
 - **Incident**: `id` integer (required, read-only); `title` string (required); `kind` IncidentKindEnum (required); `detected_at` date-time; `noticed_by` integer (required, null, read-only); `description` string; `systems` string; `data_categories` string; `people_affected` integer (null); `children_affected` boolean; `cert_in_due` date-time (required, read-only); `cert_in_overdue` boolean (required, read-only); `cert_in_reported_at` date-time (null); `cert_in_reference` string; `board_due` date-time (required, read-only); `board_overdue` boolean (required, read-only); `board_notified_at` date-time (null); `board_report_at` date-time (null); `board_reference` string; `notice_text` string; `notices_sent` integer; `notices_sent_at` date-time (null); `actions` string; `root_cause` string; `closed_at` date-time (required, null, read-only); `closed_by` integer (required, null, read-only); `created` date-time (required, read-only)
 - **IncidentKindEnum**: one of `data_breach`, `data_leak`, `unauthorised_access`, `malicious_code`, `application_attack`, `denial_of_service`, `loss_of_access`, `other`
 - **IncidentRequest**: `title` string (required); `kind` IncidentKindEnum (required); `detected_at` date-time; `description` string; `systems` string; `data_categories` string; `people_affected` integer (null); `children_affected` boolean; `cert_in_reported_at` date-time (null); `cert_in_reference` string; `board_notified_at` date-time (null); `board_report_at` date-time (null); `board_reference` string; `notice_text` string; `notices_sent` integer; `notices_sent_at` date-time (null); `actions` string; `root_cause` string
 - **InviteRequest**: `email` email (required); `role` RoleEnum (required); `reason` string (required)
 - **Job**: `id` integer (required, read-only); `kind` JobKindEnum (required, read-only); `state` JobStateEnum (required, read-only); `dry_run` boolean (required, read-only); `params` any (required, read-only); `done` integer (required, read-only); `total` integer (required, read-only); `errors` [JobError] (required, read-only); `result` any (required, read-only); `result_url` string (required, null, read-only); `change_request_id` integer (required, null, read-only); `cancel_requested` boolean (required, read-only); `started_by` integer (required, null, read-only); `created` date-time (required, read-only); `started_at` date-time (required, null, read-only); `finished_at` date-time (required, null, read-only)
 - **JobError**: `id` any (required, null); `label` string (required); `message` string (required)
-- **JobKindEnum**: one of `audit_export`, `bulk_action`
+- **JobKindEnum**: one of `audit_export`, `bulk_action`, `erp_initial_load`
 - **JobStartRequest**: `kind` JobKindEnum (required); `params` object; `dry_run` boolean
 - **JobStateEnum**: one of `queued`, `running`, `done`, `failed`, `cancelled`
 - **NullEnum**: null
@@ -1336,6 +1363,10 @@ successful ones; the errors are those above (400, 401, 403, 404, 405, 429). A fi
 - **PaginatedChangeRequestList**: `next` uri (null); `previous` uri (null); `results` [ChangeRequest] (required)
 - **PaginatedCustomerList**: `next` uri (null); `previous` uri (null); `results` [Customer] (required)
 - **PaginatedDataRequestListList**: `next` uri (null); `previous` uri (null); `results` [DataRequestList] (required)
+- **PaginatedErpCursorList**: `next` uri (null); `previous` uri (null); `results` [ErpCursor] (required)
+- **PaginatedErpDifferenceList**: `next` uri (null); `previous` uri (null); `results` [ErpDifference] (required)
+- **PaginatedErpOutboxList**: `next` uri (null); `previous` uri (null); `results` [ErpOutbox] (required)
+- **PaginatedErpRunList**: `next` uri (null); `previous` uri (null); `results` [ErpRun] (required)
 - **PaginatedInboxItemList**: `next` uri (null); `previous` uri (null); `results` [InboxItem] (required)
 - **PaginatedIncidentList**: `next` uri (null); `previous` uri (null); `results` [Incident] (required)
 - **PaginatedJobList**: `next` uri (null); `previous` uri (null); `results` [Job] (required)

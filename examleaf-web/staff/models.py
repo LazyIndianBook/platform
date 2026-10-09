@@ -254,8 +254,9 @@ class Approval(models.Model):
 
 class InboxItem(models.Model):
     """Something that waits for a person: an approval, a teacher's request, a deletion, a data request, an incident,
-    a failed job or webhook (staff.signals). Shown to its assignee, or to everyone holding `permission`; done once
-    acted on. One open item per kind and target."""
+    a failed job or webhook (staff.signals), a document ERPNext refused for good or a reconciliation's differences
+    (erp/inbox.py). Shown to its assignee, or to everyone holding `permission`; done once acted on. One open item per
+    kind and target."""
 
     class Kind(models.TextChoices):
         APPROVAL = "approval", "approval"
@@ -265,6 +266,8 @@ class InboxItem(models.Model):
         INCIDENT = "incident", "incident"
         FAILED_JOB = "failed_job", "failed job"
         FAILED_WEBHOOK = "failed_webhook", "failed webhook"
+        SYNC_FAILED = "sync_failed", "ERPNext refused a document (a dead letter)"  # erp/inbox.py
+        RECONCILIATION = "reconciliation", "ERPNext reconciliation differences"
 
     kind = models.CharField(max_length=20, choices=Kind.choices, db_index=True)
     title = models.CharField(max_length=200, help_text="Names no one: a number, a kind.")
@@ -315,14 +318,15 @@ class SavedView(TimeStampedModel):
 
 
 class Job(models.Model):
-    """Background work started from the panel (plan 3.6, 7.1): an audit-log export or a bulk action, run by Celery
-    (staff.jobs). Its progress, each failed row's error and the result file (the private storage; a link signed for 5
-    minutes; deleted after a week) are kept on it. Above its starter's limits it waits for an approver first
-    (`change_request`, "job.run"). Every step is an audit event."""
+    """Background work started from the panel (plan 3.6, 7.1): an audit-log export, a bulk action or the ERPNext
+    initial load, run by Celery (staff.jobs). Its progress, each failed row's error and the result file (the private
+    storage; a link signed for 5 minutes; deleted after a week) are kept on it. Above its starter's limits it waits for
+    an approver first (`change_request`, "job.run"). Every step is an audit event."""
 
     class Kind(models.TextChoices):
         AUDIT_EXPORT = "audit_export", "audit log export"
         BULK_ACTION = "bulk_action", "bulk action"
+        ERP_INITIAL_LOAD = "erp_initial_load", "ERPNext initial load"  # erp.producers.initial_load
 
     class State(models.TextChoices):
         QUEUED = "queued", "queued"

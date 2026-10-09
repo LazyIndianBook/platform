@@ -3,8 +3,9 @@ permission (the single action's), and queues it; above the starter's limit (`exp
 for an approver (a ChangeRequest "job.run"). The Celery task `staff.tasks.run_job` calls `run()`: the kind's runner,
 with a Progress that counts the rows, keeps each failed row's error, saves both at most once a second and stops at the
 next row once the job is cancelled. Kinds: `audit_export` (the audit log as JSON lines, a file in the private storage,
-linked for 5 minutes) and `bulk_action` (an approvals action on many targets, each through `approvals.ask` as a
-single request would go: its permission, its scope, its limit and approval). Every step is an audit event."""
+linked for 5 minutes), `bulk_action` (an approvals action on many targets, each through `approvals.ask` as a
+single request would go: its permission, its scope, its limit and approval) and `erp_initial_load` (the ERPNext
+sync's first load: erp.producers). Every step is an audit event."""
 
 import hashlib
 import json
@@ -30,7 +31,11 @@ logger = logging.getLogger(__name__)
 SIGNER = signing.TimestampSigner(salt="staff.job.result")
 LINK_SECONDS = 300  # a result's link, as the private storage's own are (settings.STORAGES "default")
 KEEP_FILES_DAYS = 7  # then the nightly task deletes the result file
-LIMITS = {Job.Kind.AUDIT_EXPORT: "export_rows", Job.Kind.BULK_ACTION: "bulk_rows"}
+LIMITS = {
+    Job.Kind.AUDIT_EXPORT: "export_rows",
+    Job.Kind.BULK_ACTION: "bulk_rows",
+    Job.Kind.ERP_INITIAL_LOAD: "bulk_rows",
+}
 
 
 class Cancelled(Exception):
@@ -49,6 +54,8 @@ def permission(kind, params):
         return "staff.export_auditlog"
     if kind == Job.Kind.BULK_ACTION and isinstance(params, dict) and params.get("action") in bulk_actions():
         return approvals.ACTIONS[params["action"]].maker
+    if kind == Job.Kind.ERP_INITIAL_LOAD:
+        return "erp.run_initial_load"
     return None
 
 
@@ -74,6 +81,10 @@ def start(kind, params, *, user, dry_run=False, request=None):
     (staff.approve_export: ADMIN, the owners). Returns the job."""
     if kind == Job.Kind.AUDIT_EXPORT:
         total = audit_events(user, params["filters"]).count()
+    elif kind == Job.Kind.ERP_INITIAL_LOAD:
+        from erp.producers import initial_load_size
+
+        total = initial_load_size(params["invoices_from"])
     else:
         total = len(params["targets"])
     with transaction.atomic():
@@ -218,7 +229,18 @@ def bulk_action(job, progress):
     return {"outcomes": dict(outcomes), "waiting": waiting}
 
 
-RUNNERS = {Job.Kind.AUDIT_EXPORT: export_audit, Job.Kind.BULK_ACTION: bulk_action}
+def erp_initial_load(job, progress):
+    """The ERPNext sync's initial load (erp.producers.initial_load_job): each product and invoice a row."""
+    from erp.producers import initial_load_job
+
+    return initial_load_job(job, progress)
+
+
+RUNNERS = {
+    Job.Kind.AUDIT_EXPORT: export_audit,
+    Job.Kind.BULK_ACTION: bulk_action,
+    Job.Kind.ERP_INITIAL_LOAD: erp_initial_load,
+}
 
 
 def run(job_id):

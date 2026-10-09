@@ -141,6 +141,8 @@ ROLES = {
         "accounts.view_user",
         *["staff.refund_order", "staff.approve_refund", "staff.record_offline_payment", "staff.approve_payment"],
         *["staff.approve_discount", "staff.add_changerequest"],
+        # the ERPNext sync: watch it and resolve the nightly reconciliation's differences (replaying is ADMIN's)
+        *["erp.view_sync", "erp.resolve_difference"],
         *PANEL,
     ],
     PACKER: [  # the packing queue only: the orders to pack and ship (ROLE_SCOPES) and their books; pick, pack, hand

@@ -737,3 +737,47 @@ CELERY_BEAT_SCHEDULE.update(
         "staff-watch": {"task": "staff.tasks.watch", "schedule": crontab(minute=35)},
     }
 )
+
+# ERPNext (erp/README.md; DEPLOYMENT.md section 24): the platform's documents mirrored in ERPNext through an outbox,
+# ERPNext's stock and B2B documents read back. ERP_ENABLED lets the platform talk to ERPNext (the relay, the pull, the
+# reconciliation, its webhooks); each ERP_SYNC_* records one flow's events in the outbox (while ERP_ENABLED is off they
+# wait); ERP_PULL_STOCK and ERP_PULL_B2B read stock and B2B documents back; ERP_STOCK_PROJECTION lets ERPNext's stock
+# set the copies for sale (off: shadow mode, differences only reported). All off by default. A row is dead after
+# ERP_MAX_ATTEMPTS tries; ERP_WAREHOUSE is the storefront's warehouse in ERPNext; ERP_ALERT_EMAILS get the nightly
+# reconciliation's differences; ERP_MODE=fake answers from an in-memory ERPNext (development); ERP_INSTANCE_PREFIX goes
+# before the idempotency keys when two platforms send to one ERPNext site.
+INSTALLED_APPS += ["erp"]
+ERP_MODE = env("ERP_MODE", default="erpnext")
+if ERP_MODE not in ("erpnext", "fake"):
+    raise SystemExit("ERP_MODE is erpnext or fake (DEPLOYMENT.md section 24).")
+ERP_ENABLED = env.bool("ERP_ENABLED", default=False)
+ERP_SYNC_CATALOGUE = env.bool("ERP_SYNC_CATALOGUE", default=False)
+ERP_SYNC_INVOICES = env.bool("ERP_SYNC_INVOICES", default=False)
+ERP_SYNC_PAYMENTS = env.bool("ERP_SYNC_PAYMENTS", default=False)
+ERP_SYNC_DELIVERIES = env.bool("ERP_SYNC_DELIVERIES", default=False)
+ERP_SYNC_SETTLEMENTS = env.bool("ERP_SYNC_SETTLEMENTS", default=False)
+ERP_PULL_STOCK = env.bool("ERP_PULL_STOCK", default=False)
+ERP_PULL_B2B = env.bool("ERP_PULL_B2B", default=False)
+ERP_STOCK_PROJECTION = env.bool("ERP_STOCK_PROJECTION", default=False)
+ERP_MAX_ATTEMPTS = env.int("ERP_MAX_ATTEMPTS", default=10)
+ERP_WAREHOUSE = env("ERP_WAREHOUSE", default="Main")  # examleaf_erp's: Main, Damaged, At Printer (no suffix)
+ERP_ALERT_EMAILS = env.list("ERP_ALERT_EMAILS", default=[])
+ERP_INSTANCE_PREFIX = env("ERP_INSTANCE_PREFIX", default="")
+REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["erp_events"] = env(  # noqa: F405  ERPNext's webhook, per address
+    "API_THROTTLE_ERP_EVENTS", default="600/minute"
+)
+_ERP_TAG = {"name": "erp (staff)", "description": "The ERPNext sync: outbox, dead letters, reconciliation (API.md)."}
+if _ERP_TAG not in SPECTACULAR_SETTINGS["TAGS"]:  # noqa: F405  (once: tests reload this module, the dict is shared)
+    SPECTACULAR_SETTINGS["TAGS"].append(_ERP_TAG)  # noqa: F405
+SPECTACULAR_SETTINGS["ENUM_NAME_OVERRIDES"].update(  # noqa: F405  the erp models' "state" and "kind"
+    ErpOutboxStateEnum="erp.models.ErpOutbox.State",
+    ErpReconciliationStateEnum="erp.models.ErpReconciliationRun.State",
+    ErpDifferenceKindEnum="erp.models.ErpReconciliationDifference.Kind",
+)
+CELERY_BEAT_SCHEDULE.update(
+    {
+        "erp-relay": {"task": "erp.tasks.relay", "schedule": crontab()},  # every minute, and nudged by each change
+        "erp-pull": {"task": "erp.tasks.pull", "schedule": crontab(minute="*/15")},
+        "erp-reconcile": {"task": "erp.tasks.reconcile_day", "schedule": crontab(hour=3, minute=30)},
+    }
+)

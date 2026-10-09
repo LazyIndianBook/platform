@@ -1,6 +1,6 @@
 """The staff API's serializers: explicit fields only (no mass assignment), personal data masked unless revealed."""
 
-from datetime import timedelta
+from datetime import date, timedelta
 
 from allauth.mfa.models import Authenticator
 from allauth.mfa.utils import is_mfa_enabled
@@ -166,7 +166,8 @@ class JobStartSerializer(serializers.Serializer):
         required=False,
         default=dict,
         help_text='audit_export: {"filters": {…}} (the audit list\'s); bulk_action: {"action": "order.refund", '
-        '"targets": [order numbers, slugs or ids], "payload": {…} (each target\'s, as for change-requests/), "reason"}',
+        '"targets": [order numbers, slugs or ids], "payload": {…} (each target\'s, as for change-requests/), '
+        '"reason"}; erp_initial_load: {"invoices_from": "YYYY-MM-DD"} (optional: without it, the catalogue only)',
     )
     dry_run = serializers.BooleanField(required=False, default=False, help_text="check every row, change nothing")
 
@@ -179,6 +180,13 @@ class JobStartSerializer(serializers.Serializer):
             if not isinstance(filters, dict):
                 raise serializers.ValidationError({"params": {"filters": ["The audit list's filters, as an object."]}})
             data["params"] = {"filters": filters}
+            return data
+        if data["kind"] == Job.Kind.ERP_INITIAL_LOAD:
+            since = params.get("invoices_from")
+            try:
+                data["params"] = {"invoices_from": date.fromisoformat(since).isoformat() if since else None}
+            except TypeError, ValueError:
+                raise serializers.ValidationError({"params": {"invoices_from": ["A day: YYYY-MM-DD."]}}) from None
             return data
         action, targets, payload = params.get("action"), params.get("targets"), params.get("payload", {})
         reason = str(params.get("reason") or "").strip()
