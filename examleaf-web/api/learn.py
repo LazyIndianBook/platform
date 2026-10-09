@@ -14,6 +14,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from content.templatetags.markdown import render
+from insights.jobs.fraud import record_redemption
 from learn import dashboard, plan, services
 from learn.models import (
     CardReview,
@@ -522,7 +523,9 @@ class RedeemView(generics.GenericAPIView):
         try:
             entitlement = services.redeem(request.user, given.validated_data["code"])
         except services.CodeError as error:
+            record_redemption(request, given.validated_data["code"], ok=False)  # insights' fraud rules: hashes only
             raise exceptions.ValidationError({"code": [str(error)]}) from None
+        record_redemption(request, given.validated_data["code"], ok=True)
         return Response(EntitlementSerializer(entitlement).data)
 
 
