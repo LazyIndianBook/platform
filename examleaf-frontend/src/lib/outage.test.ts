@@ -124,9 +124,14 @@ describe("the proxy during an outage", () => {
   it("lets the visitor's own pages render while Django answers", async () => {
     answers.push(json({ status: "ok" }));
     const { proxy } = await import("../proxy");
-    const account = await proxy(new NextRequest("http://localhost:3005/account/"));
+    const before = Date.now();
+    const account = await proxy(
+      // a visitor's own x-request-start is replaced by the moment the proxy took the request (the deadline's start)
+      new NextRequest("http://localhost:3005/account/", { headers: { "x-request-start": "0" } }),
+    );
     expect(account.headers.get("x-middleware-next")).toBe("1");
     expect(account.headers.get("Content-Security-Policy")).toContain("'strict-dynamic'");
+    expect(Number(account.headers.get("x-middleware-request-x-request-start"))).toBeGreaterThanOrEqual(before);
     // asked as the site, as every server-side call is: with DEBUG=0 Django refuses its internal host (web:8000)
     const { FORWARDED_HEADERS } = await import("./site");
     expect(django).toHaveBeenCalledWith(

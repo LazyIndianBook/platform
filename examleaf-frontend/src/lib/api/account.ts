@@ -10,7 +10,7 @@ import { withNext } from "@/lib/auth/next-url";
 
 import { ApiError, unwrap } from "./errors";
 import type { components } from "./schema";
-import { API_INTERNAL_BASE, apiSignal, FORWARDED_HEADERS, personalFetch, publicFetch, serverApi } from "./server";
+import { API_INTERNAL_BASE, djangoFetch, FORWARDED_HEADERS, personalFetch, publicFetch, serverApi } from "./server";
 
 export type Me = components["schemas"]["Profile"];
 export type Attempt = components["schemas"]["Attempt"];
@@ -61,10 +61,9 @@ export async function allauthGet<T>(path: string): Promise<T> {
   const { headers } = await personalFetch();
   let response: Response;
   try {
-    response = await fetch(`${API_INTERNAL_BASE}/_allauth/browser/v1${path}`, {
+    response = await djangoFetch(`${API_INTERNAL_BASE}/_allauth/browser/v1${path}`, {
       headers: { ...FORWARDED_HEADERS, ...headers, Accept: "application/json" },
       cache: "no-store",
-      signal: apiSignal(),
     });
   } catch {
     throw new ApiError(0, "unavailable", "ExamLeaf cannot be reached just now.");

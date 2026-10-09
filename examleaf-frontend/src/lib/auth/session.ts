@@ -9,7 +9,7 @@ import { redirect } from "next/navigation";
 import { cache } from "react";
 
 import { unavailableError } from "@/lib/api/errors";
-import { API_INTERNAL_BASE, apiSignal, FORWARDED_HEADERS, hasSessionCookie, personalFetch } from "@/lib/api/server";
+import { API_INTERNAL_BASE, djangoFetch, FORWARDED_HEADERS, hasSessionCookie, personalFetch } from "@/lib/api/server";
 
 import type { AuthUser } from "./headless";
 import { withNext } from "./next-url";
@@ -21,10 +21,9 @@ const readSession = cache(async (): Promise<AuthUser | null | typeof UNKNOWN> =>
   if (!(await hasSessionCookie())) return null;
   const { headers } = await personalFetch();
   try {
-    const response = await fetch(`${API_INTERNAL_BASE}/_allauth/browser/v1/auth/session`, {
+    const response = await djangoFetch(`${API_INTERNAL_BASE}/_allauth/browser/v1/auth/session`, {
       headers: { ...FORWARDED_HEADERS, ...headers, Accept: "application/json" },
       cache: "no-store",
-      signal: apiSignal(),
     });
     if (SIGNED_OUT.has(response.status)) return null;
     if (response.status === 200) {

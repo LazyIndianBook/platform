@@ -5,8 +5,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const incoming = new Headers();
+// inside unstable_cache's callback Next refuses headers(), as here
+const scope = vi.hoisted(() => ({ cached: false }));
 vi.mock("next/headers", () => ({
-  headers: async () => incoming,
+  headers: async () => {
+    if (scope.cached) throw new Error("headers() inside a function cached with unstable_cache()");
+    return incoming;
+  },
   cookies: async () => ({ toString: () => "sessionid=s1; csrftoken=c1", has: () => true }),
 }));
 // Next's data cache, by the key it is given
@@ -14,7 +19,12 @@ const kept = new Map<string, unknown>();
 vi.mock("next/cache", () => ({
   unstable_cache: (ask: () => Promise<unknown>, key: string[]) => async () => {
     const id = JSON.stringify(key);
-    if (!kept.has(id)) kept.set(id, await ask());
+    if (!kept.has(id)) {
+      scope.cached = true;
+      const asked = ask();
+      scope.cached = false;
+      kept.set(id, await asked);
+    }
     return kept.get(id);
   },
 }));
@@ -58,6 +68,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
+  vi.restoreAllMocks();
 });
 
 describe("the server's API calls", () => {
@@ -113,13 +124,49 @@ describe("the server's API calls", () => {
     expect(kept.size).toBe(0); // nothing kept from a call that failed
   });
 
-  it("keep the caller's own signal beside the deadline: a cancelled call is still an AbortError", async () => {
+  it("count the deadline from the moment the proxy took the request, never from a later one", async () => {
+    vi.stubEnv("API_INTERNAL_TIMEOUT_MS", "10000");
+    hung.mockClear();
     vi.stubGlobal("fetch", hung);
-    const { serverApi, personalFetch } = await load();
-    const { unwrap } = await import("./errors");
-    const controller = new AbortController();
-    const call = unwrap(serverApi.GET("/api/v1/cart/", { ...(await personalFetch()), signal: controller.signal }));
-    controller.abort();
-    await expect(call).rejects.toMatchObject({ name: "AbortError" });
+    const set = vi.spyOn(globalThis, "setTimeout");
+    const { djangoFetch } = await load();
+    try {
+      incoming.set("x-request-start", String(Date.now() - 60_000)); // the page has spent its 10 s already
+      await expect(djangoFetch("http://web:8000/api/v1/books/")).rejects.toMatchObject({ name: "TimeoutError" });
+      expect(hung).not.toHaveBeenCalled(); // nothing is sent once the time is spent
+      incoming.set("x-request-start", String(Date.now() + 60_000)); // a start in the future is now
+      void djangoFetch("http://web:8000/api/v1/books/").catch(() => undefined);
+      await vi.waitFor(() => expect(set).toHaveBeenCalledTimes(1));
+      expect(set.mock.calls[0][1]).toBeLessThanOrEqual(10_000);
+    } finally {
+      incoming.delete("x-request-start");
+    }
+  });
+
+  it("give a kept answer's call the request's deadline, though Next refuses headers() where that call runs", async () => {
+    vi.stubEnv("API_INTERNAL_TIMEOUT_MS", "10000");
+    hung.mockClear();
+    vi.stubGlobal("fetch", hung);
+    const { publicFetch } = await load();
+    try {
+      incoming.set("x-request-start", String(Date.now() - 60_000)); // the request's 10 s are spent
+      const ask = publicFetch("books").fetch(new Request("http://web:8000/api/v1/books/"));
+      await expect(ask).rejects.toMatchObject({ name: "TimeoutError" });
+      expect(hung).not.toHaveBeenCalled(); // not a fresh 10 s of its own (the book page took 20 s that way)
+    } finally {
+      incoming.delete("x-request-start");
+    }
+  });
+
+  it("clear each call's timer once its answer is read: nothing of a call outlives it", async () => {
+    vi.stubEnv("API_INTERNAL_TIMEOUT_MS", "60000");
+    const set = vi.spyOn(globalThis, "setTimeout");
+    const clear = vi.spyOn(globalThis, "clearTimeout");
+    const { djangoFetch } = await load();
+    const answer = await djangoFetch("http://web:8000/api/v1/books/");
+    expect(await answer.json()).toEqual({ ok: true }); // the body, read under the deadline, comes with it
+    const timer = set.mock.results.find((result) => result.type === "return")?.value;
+    expect(clear).toHaveBeenCalledWith(timer);
+    expect(set.mock.calls[0][1]).toBeGreaterThan(59_000); // the request's deadline, not a fixed delay
   });
 });
