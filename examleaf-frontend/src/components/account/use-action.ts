@@ -1,18 +1,21 @@
 "use client";
 
-// One request at a time for the account forms: busy while it runs, the ApiError when it fails (its fields go beside
-// their boxes, its message to the summary). A 401 is not shown: personal() and signedIn() are already taking the
+// One request at a time for the account forms: busy while it runs (a second run meanwhile, from any button, sends
+// nothing), the ApiError when it fails (its fields go beside their boxes, its message to the summary). A 401 is not shown: personal() and signedIn() are already taking the
 // visitor to log in (or to type the password again) and back. A cancelled passkey prompt is not an error.
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { ApiError } from "@/lib/api/errors";
 
 export function useAction() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
+  const running = useRef(false); // set at once, before React re-renders the buttons as busy
 
-  /** Runs the work; true when it succeeded. */
+  /** Runs the work; true when it succeeded (false, sending nothing, while another run is on its way). */
   async function run(work: () => Promise<unknown>): Promise<boolean> {
+    if (running.current) return false;
+    running.current = true;
     setBusy(true);
     setError(null);
     try {
@@ -28,6 +31,7 @@ export function useAction() {
       }
       return false;
     } finally {
+      running.current = false;
       setBusy(false);
     }
   }

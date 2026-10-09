@@ -22,21 +22,37 @@ export function ChapterPlayer({ clip: first, save }: { clip: Clip; save: boolean
   const [unsaved, setUnsaved] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const sentAt = useRef(0);
+  const saving = useRef(false);
+  const queued = useRef<{ seconds: number; completed: boolean } | null>(null);
 
   useEffect(() => {
     const element = box.current;
     if (!element || !save) return;
+    // one save at a time: the server keeps the last it gets, so an older save answered late would lower it. What comes
+    // meanwhile waits, the latest only (completed kept), and goes once the save on its way has its answer.
     const send = (seconds: number, completed: boolean) => {
       sentAt.current = seconds;
+      if (saving.current) {
+        queued.current = { seconds, completed: completed || Boolean(queued.current?.completed) };
+        return;
+      }
+      saving.current = true;
       personal(
         api.POST("/api/v1/learn/clips/{id}/progress/", {
           params: { path: { id: clip.id } },
           body: { seconds_watched: Math.round(seconds), completed },
         }),
-      ).then(
-        () => setUnsaved(false),
-        () => setUnsaved(true),
-      );
+      )
+        .then(
+          () => setUnsaved(false),
+          () => setUnsaved(true),
+        )
+        .finally(() => {
+          saving.current = false;
+          const next = queued.current;
+          queued.current = null;
+          if (next) send(next.seconds, next.completed);
+        });
     };
     const watch = (event: Event) => {
       const video = event.target as HTMLVideoElement;
@@ -50,12 +66,11 @@ export function ChapterPlayer({ clip: first, save }: { clip: Clip; save: boolean
     };
   }, [clip.id, save]);
 
-  const reload = () => {
+  const reload = () =>
     personal(api.GET("/api/v1/learn/clips/{id}/", { params: { path: { id: clip.id } } })).then(
       setClip,
       () => undefined,
     );
-  };
   return (
     <div ref={box} className="course-player">
       <HlsVideo key={clip.hls_url} clip={clip} reload={reload} />

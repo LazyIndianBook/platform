@@ -4,8 +4,8 @@
 // in with a passkey alone, accounts/adapter.py), Google when the server has it, "confirm it's you" before sensitive
 // actions, the signed-in devices, and signing out. An answer is 200 (signed in), or 401 with the flows still to do
 // (one is_pending), or an ApiError (400 with the fields' errors, 409, 410, 429).
-import { ensureCsrfCookie, readCookie } from "@/lib/api/client";
-import { toApiError } from "@/lib/api/errors";
+import { ensureCsrfCookie, readCookie, withTimeout } from "@/lib/api/client";
+import { noAnswer, toApiError } from "@/lib/api/errors";
 
 import { safeNext } from "./next-url";
 import { getCredential } from "./webauthn";
@@ -66,9 +66,10 @@ export async function call(method: string, path: string, body?: unknown, headers
         ...headers,
       },
       body: body === undefined ? undefined : JSON.stringify(body),
+      signal: withTimeout(), // no answer in 30 s: status 0, the busy button released
     });
-  } catch {
-    throw toApiError(0, null);
+  } catch (error) {
+    throw noAnswer(method, error);
   }
   const json = (await response.json().catch(() => null)) as {
     data?: Record<string, unknown>;

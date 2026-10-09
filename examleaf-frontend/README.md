@@ -42,6 +42,9 @@ LTS; Node 20 is past its end of life).
 | `NEXT_PUBLIC_SITE_URL`           | build   | the public address: canonical URLs, Open Graph, sitemap, the host sent to Django        |
 | `API_INTERNAL_BASE`              | runtime | Django for server components (`http://web:8000` in compose)                             |
 | `INTERNAL_API_TOKEN`             | runtime | the secret shared with Django (compose, from `.env`): sent with every server-side call  |
+| `API_INTERNAL_TIMEOUT_MS`        | runtime | how long a request may wait on Django in all (default 10000), then its unavailable page |
+| `NODE_OPTIONS`                   | runtime | the image gives `--max-old-space-size=384` for a 512 MiB memory limit (RESILIENCE.md)   |
+| `KEEP_ALIVE_TIMEOUT`             | runtime | the image gives 125000 ms: longer than a proxy keeps an idle connection                 |
 | `NEXT_PUBLIC_API_BASE`           | build   | the browser's API base; empty = same origin (always, behind Caddy)                      |
 | `NEXT_PUBLIC_RAZORPAY_KEY_ID`    | build   | 8B's pay page; Razorpay's hosts are in the CSP of the two pay pages only                |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | build   | Turnstile's hosts in the CSP (the widget's key itself comes from `GET /api/v1/config/`) |
@@ -219,7 +222,7 @@ then `CI=1 npm run test:e2e`.
 ## Deploy
 
 `Dockerfile`: multi-stage, standalone output, the unprivileged `node` user, a health check on `/api/health/` (the
-process only). `../examleaf-web/docker-compose.yml` builds it as the `frontend` service (`NEXT_PUBLIC_*` as build
+process only; 503 from SIGTERM on). Timeouts, memory, shutdown, the load proof and the knobs: `RESILIENCE.md`. `../examleaf-web/docker-compose.yml` builds it as the `frontend` service (`NEXT_PUBLIC_*` as build
 arguments from `.env`: `DOMAIN`, `RAZORPAY_KEY_ID`, `TURNSTILE_SITE_KEY`, `PUBLIC_MEDIA_DOMAIN`). Caddy sends Django's
 paths to `web:8000` and every other path to `PAGES_UPSTREAM`, whose default is now `frontend:3000`: the Django
 server-rendered pages were removed on 8 October 2026. Set `PAGES_UPSTREAM=web:8000` only to serve an older backend

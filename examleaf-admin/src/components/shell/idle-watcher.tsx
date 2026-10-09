@@ -63,7 +63,7 @@ export function IdleWatcher({ idleSeconds, absoluteEnd }: { idleSeconds: number;
   const leave = useCallback((reason: "idle" | "expired") => {
     if (leaving.current) return;
     leaving.current = true;
-    signOut(reason, true);
+    void signOut(reason, true);
   }, []);
 
   const touch = useCallback(() => {
@@ -134,8 +134,9 @@ export function IdleWatcher({ idleSeconds, absoluteEnd }: { idleSeconds: number;
           <Button
             variant="secondary"
             onClick={() => {
+              if (leaving.current) return;
               leaving.current = true;
-              signOut("signed-out");
+              void signOut("signed-out");
             }}
           >
             {copy.idle.signOutNow}

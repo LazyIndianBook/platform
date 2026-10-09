@@ -67,16 +67,20 @@ export function SignInForm({ next, reason, providerError, google, available }: P
   }, []);
 
   async function run(call: () => Promise<AuthResult>) {
+    if (busy) return;
+    let leaving = false;
     setBusy(true);
     setError(null);
     try {
-      follow(await call(), true);
+      const result = await call();
+      leaving = result.authenticated; // the console loads: the button stays busy, a press meanwhile sends nothing
+      follow(result, true);
     } catch (caught) {
       if (caught instanceof ApiError) setError(caught);
       else if (!(caught instanceof DOMException && caught.name === "NotAllowedError"))
         setError(new ApiError(0, "unavailable", copy.errors.unavailable));
     } finally {
-      setBusy(false);
+      if (!leaving) setBusy(false);
     }
   }
 

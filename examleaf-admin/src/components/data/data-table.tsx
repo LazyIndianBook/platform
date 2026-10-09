@@ -161,6 +161,12 @@ export function DataTable<T>({
   const [jobId, setJobId] = useState<string | null>(null);
   const exporting = useAction();
   const [exportId, setExportId] = useState<string | null>(null);
+  // the jobs whose progress has ended: until then their buttons stay busy, so a second press cannot start a second
+  // job on the same rows (and lose the first one's progress)
+  const [settled, setSettled] = useState<Set<string>>(() => new Set());
+  const ended = (id: string) => setSettled((all) => new Set(all).add(id));
+  const jobRunning = jobId !== null && !settled.has(jobId);
+  const exportRunning = exportId !== null && !settled.has(exportId);
 
   const navigate = (change: (search: URLSearchParams) => void) => {
     const search = new URLSearchParams(params.toString());
@@ -283,7 +289,7 @@ export function DataTable<T>({
             <Button
               variant="secondary"
               size="sm"
-              busy={exporting.busy}
+              busy={exporting.busy || exportRunning}
               onClick={startExport}
               title={copy.table.exportHelp(exportLimit)}
             >
@@ -333,7 +339,15 @@ export function DataTable<T>({
       {exportAction ? (
         <>
           <ErrorSummary error={exporting.error} />
-          {exportId ? <JobProgress jobId={exportId} onDone={() => toast.success(copy.common.done)} /> : null}
+          {exportId ? (
+            <JobProgress
+              jobId={exportId}
+              onDone={(finished) => {
+                ended(exportId);
+                if (finished) toast.success(copy.common.done);
+              }}
+            />
+          ) : null}
         </>
       ) : null}
 
@@ -536,7 +550,9 @@ export function DataTable<T>({
           {jobId ? (
             <JobProgress
               jobId={jobId}
-              onDone={() => {
+              onDone={(finished) => {
+                ended(jobId);
+                if (!finished) return; // its progress could not be read: the rows stay chosen
                 select(new Set());
                 router.refresh();
               }}
@@ -551,7 +567,12 @@ export function DataTable<T>({
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
               <p className="m-0 font-semibold">{copy.table.selected(selected.size)}</p>
               {bulk.map((action) => (
-                <Button key={action.action} size="sm" busy={job.busy} onClick={() => startBulk(action.action)}>
+                <Button
+                  key={action.action}
+                  size="sm"
+                  busy={job.busy || jobRunning}
+                  onClick={() => startBulk(action.action)}
+                >
                   {action.label}
                 </Button>
               ))}

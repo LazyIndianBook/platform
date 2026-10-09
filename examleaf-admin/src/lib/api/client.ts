@@ -3,8 +3,27 @@
 // unsafe method. What the staff API's answers make the browser do lives here too: a 401 sends the person to sign in
 // and back (the draft stays in sessionStorage), a refusal by role or scope asks the shell to read the manifest again,
 // and "confirm it's you" opens the dialog that the transport waits for (reauthentication, then the call once more).
+// No call waits more than 30 s for an answer (withTimeout), and none is sent again by itself.
 import type { Flow } from "@/lib/auth/headless";
 import { withNext } from "@/lib/auth/next-url";
+
+/** How long the browser waits for Django's answer: a call with none in 30 s fails as status 0, so no button stays busy
+ *  on a hung connection. */
+export const ANSWER_TIMEOUT_MS = 30_000;
+
+/** The answer timeout with the caller's own signal: AbortSignal.any, or a controller where the browser lacks it
+ *  (Safari before 17.4, Chrome before 116: Next's baseline is Safari 16.4 and Chrome 111). */
+export function withTimeout(signal?: AbortSignal | null): AbortSignal {
+  const timeout = AbortSignal.timeout(ANSWER_TIMEOUT_MS);
+  if (!signal) return timeout;
+  if (typeof AbortSignal.any === "function") return AbortSignal.any([signal, timeout]);
+  const both = new AbortController();
+  for (const each of [signal, timeout]) {
+    if (each.aborted) both.abort(each.reason);
+    each.addEventListener("abort", () => both.abort(each.reason), { once: true });
+  }
+  return both.signal;
+}
 
 export function readCookie(name: string): string | undefined {
   if (typeof document === "undefined") return undefined;
@@ -20,6 +39,7 @@ export async function ensureCsrfCookie() {
   await fetch(`${process.env.NEXT_PUBLIC_API_BASE ?? ""}/_allauth/browser/v1/config`, {
     credentials: "same-origin",
     cache: "no-store",
+    signal: withTimeout(),
   }).catch(() => undefined);
 }
 

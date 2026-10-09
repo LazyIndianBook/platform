@@ -3,7 +3,8 @@
 //    requests only arrive here in development and CI, where there is no Caddy.
 // 2. Every other path gets its trailing slash (trailingSlash: true; skipTrailingSlashRedirect leaves it to us because
 //    allauth's paths have none).
-// 3. Every page gets a fresh nonce and its Content-Security-Policy (src/lib/security/csp.ts).
+// 3. Every page gets a fresh nonce and its Content-Security-Policy (src/lib/security/csp.ts), and every request the
+//    moment it was taken (x-request-start): the start of its one deadline for Django (src/lib/api/server.ts).
 // 4. A page that is not the visitor's own (isPersonalPage) may be kept by the browser: private, no-cache. Files and
 //    the route handlers (/offline/, /api/health/) keep their own Cache-Control.
 // 5. The visitor's own pages need Django for everything, the session first: while Django's health check fails they
@@ -49,6 +50,7 @@ const UNREACHABLE = statusPage({
 });
 
 export async function proxy(request: NextRequest) {
+  const start = Date.now();
   const { pathname, search } = request.nextUrl;
 
   if (DJANGO_PREFIXES.some((prefix) => pathname.startsWith(prefix) || `${pathname}/` === prefix)) {
@@ -87,6 +89,7 @@ export async function proxy(request: NextRequest) {
   });
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("x-request-start", String(start));
   requestHeaders.set("x-pathname", pathname); // for not-found.tsx, which gets no params
   requestHeaders.set("Content-Security-Policy", csp);
   const response = NextResponse.next({ request: { headers: requestHeaders } });

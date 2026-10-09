@@ -12,6 +12,7 @@
 //   409 conflict               the record changed since it was read (If-Match): reload, the draft kept
 //   429 throttled              retryAfter: the seconds of Retry-After, when the server sends it
 import { copy } from "@/lib/copy";
+import { formatTime } from "@/lib/format";
 
 export type FieldErrors = Record<string, string[]>;
 
@@ -43,6 +44,24 @@ const CODES: Record<number, string> = {
   410: "gone",
   429: "throttled",
 };
+
+/** The ApiError of a call that got no answer (status 0). A change the browser stopped waiting for (client.ts's answer
+ *  timeout) may still have reached Django: it says so, and nothing sends it again by itself. */
+export function noAnswer(method: string, error: unknown): ApiError {
+  const timedOut = error instanceof DOMException && error.name === "TimeoutError";
+  return new ApiError(
+    0,
+    "unavailable",
+    timedOut && method !== "GET" ? copy.errors.unconfirmed : copy.errors.unavailable,
+  );
+}
+
+/** An error in one line: a 429 says when to try again (Retry-After, from this device's clock), anything else in the
+ *  API's words. */
+export function errorText(error: ApiError): string {
+  if (error.status !== 429) return error.message;
+  return error.retryAt === null ? copy.errors.throttled : copy.errors.throttledUntil(formatTime(error.retryAt));
+}
 
 /** The digest of the error a page throws when Django cannot answer: error.tsx says "can't be reached" for it. */
 export const UNAVAILABLE_DIGEST = "examleaf-admin-unavailable";

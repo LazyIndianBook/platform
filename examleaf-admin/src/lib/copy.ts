@@ -87,6 +87,7 @@ export const en = {
   },
   errors: {
     unavailable: "The ExamLeaf server cannot be reached just now. Check your connection, then try again.",
+    unconfirmed: "The server didn't answer in time, so this may have gone through. Check before you try again.",
     signedOut: "Your session has ended. Sign in again; what you typed is kept on this device.",
     forbidden: "You don't have access to this.",
     permissionDenied: "Your role does not allow this.",
@@ -190,6 +191,8 @@ export const en = {
     shortcuts: "Keyboard shortcuts",
     shortcutsSwitch: "Single-key shortcuts",
     signOutEverywhere: "Sign out everywhere",
+    signOutEverywhereFailed:
+      "Your other sessions could not be ended, so you are still signed in here. Try again in a minute.",
     roles: "Roles",
     erp: "In ERPNext",
     erpOpens: "opens ERPNext",

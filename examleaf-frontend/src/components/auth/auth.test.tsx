@@ -18,6 +18,7 @@ import { MfaForm } from "./code-forms";
 import { ErrorSummary } from "./error-summary";
 import { LoginForm } from "./login-form";
 import { PasswordInput } from "./password-input";
+import { PasswordResetKeyForm } from "./password-forms";
 import { SignupForm } from "./signup-form";
 
 // the router's push, to see where a switched-off account is sent (vitest.setup.ts gives a fresh mock per render)
@@ -40,6 +41,7 @@ vi.mock("@/lib/auth/headless", async (importOriginal) => ({
     signup: vi.fn(),
     mfaAuthenticate: vi.fn(),
     passkeyAuthenticate: vi.fn(),
+    checkResetKey: vi.fn(),
   },
   startProviderLogin: vi.fn(),
 }));
@@ -452,5 +454,14 @@ describe("the new pages", () => {
     ).toBeVisible();
     expect(screen.getByRole("link", { name: "Contact us" })).toHaveAttribute("href", "/contact/");
     expect(screen.getByRole("link", { name: "Register again" })).toHaveAttribute("href", "/account/signup/");
+  });
+});
+
+describe("a reset link checked while the server says too many", () => {
+  it("is not called dead: the form shows, and its submit says when to try again", async () => {
+    vi.mocked(auth.checkResetKey).mockRejectedValue(new ApiError(429, "throttled", "Too many tries."));
+    render(<PasswordResetKeyForm resetKey="k-1" next={null} />);
+    expect(await screen.findByRole("heading", { name: "Choose a new password" })).toBeInTheDocument();
+    expect(screen.queryByText("This link does not work any more")).not.toBeInTheDocument();
   });
 });

@@ -234,6 +234,22 @@ describe("bulk actions", () => {
     expect(refresh).toHaveBeenCalled();
   });
 
+  it("stay busy while their job runs: a second press starts no second job on the same rows", async () => {
+    vi.mocked(startJob).mockResolvedValueOnce({ job_id: "42" });
+    let finish: (job: Awaited<ReturnType<typeof getJob>>) => void = () => undefined;
+    vi.mocked(getJob).mockReturnValueOnce(new Promise((resolve) => (finish = resolve)));
+    renderTable();
+    await userEvent.click(screen.getByRole("checkbox", { name: "Select First" }));
+    const mark = within(screen.getByRole("region", { name: "1 selected" })).getByRole("button", { name: "Mark done" });
+    await userEvent.click(mark);
+    await waitFor(() => expect(getJob).toHaveBeenCalled());
+    expect(mark).toHaveAttribute("aria-busy", "true"); // the job was made, and it runs
+    await userEvent.click(mark);
+    expect(startJob).toHaveBeenCalledTimes(1);
+    await act(async () => finish({ id: "42", state: "done", done: 1, total: 1, errors: [], result_url: null }));
+    expect(refresh).toHaveBeenCalled();
+  });
+
   it("say when a second person must approve the job", async () => {
     vi.mocked(startJob).mockRejectedValueOnce(
       new ApiError(403, "approval_required", "Too many rows.", {}, { change_request: { id: 9 } }),

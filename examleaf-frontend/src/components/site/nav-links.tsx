@@ -103,6 +103,8 @@ function NavLinks({ signedIn, cartCount = 0 }: { signedIn: boolean; cartCount?: 
       try {
         const { auth } = await import("@/lib/auth/headless");
         await auth.logout();
+      } catch {
+        // no answer: home all the same; the session ends at its own limits
       } finally {
         // eslint-disable-next-line @next/next/no-location-assign-relative-destination
         window.location.assign("/");
