@@ -41,7 +41,7 @@ from content.models import Board, Book, Paper, Subject
 from content.views import cache_solutions
 from pages.models import Page
 from pages.templatetags.pages import page_html
-from pages.views import CONTACT_SENT, send_contact, support_email
+from pages.views import CONTACT_SENT, support_email
 from practice.forms import AttemptFilter
 from practice.models import Attempt
 from shop.models import INR, ShippingRate
@@ -527,10 +527,12 @@ class ContactUnavailable(exceptions.APIException):
 
 
 class ContactView(generics.GenericAPIView):
-    """The contact form, as on the website's /contact/: the message is emailed to the support address (SUPPORT_EMAIL,
-    else SELLER_EMAIL) with Reply-To the sender, and nothing is stored. Turnstile's token while the bot check is on; 5
-    an hour per client address, the website's form included; a filled-in `website` (the honeypot) is thanked and
-    dropped. 503 while the support address is still a [placeholder]."""
+    """The contact form, as on the website's /contact/: the message becomes a support ticket (support.services
+    .from_contact_form: a number, the legal clocks, the acknowledgement with the number to the sender's address; with
+    SUPPORT_COPY_TO_EMAIL a copy to the support address, SUPPORT_EMAIL else SELLER_EMAIL). Turnstile's token while the
+    bot check is on; 5 an hour per client address, the website's form included; a filled-in `website` (the honeypot)
+    is thanked and dropped. 503 while the support address is still a [placeholder]: the acknowledgement's replies go
+    there."""
 
     permission_classes = [permissions.AllowAny]
     authentication_classes = []
@@ -545,7 +547,9 @@ class ContactView(generics.GenericAPIView):
         data = self.get_serializer(data=request.data)
         data.is_valid(raise_exception=True)
         if not data.validated_data.get("website"):
-            send_contact(*(data.validated_data[name] for name in ("name", "email", "message")))
+            from support.services import from_contact_form
+
+            from_contact_form(*(data.validated_data[name] for name in ("name", "email", "message")), request=request)
         return Response({"detail": CONTACT_SENT})
 
 
