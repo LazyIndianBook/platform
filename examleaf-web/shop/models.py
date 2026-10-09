@@ -37,6 +37,7 @@ from pictures.models import PictureField
 from pictures.validators import MaxSizeValidator
 from simple_history.models import HistoricalRecords
 from stdnum.in_ import gstin
+from taggit.managers import TaggableManager
 from treebeard.mp_tree import MP_Node
 
 from accounts.models import DeletionRequest
@@ -776,6 +777,21 @@ class Order(ConcurrentTransitionMixin, TimeStampedModel):
     created_by = models.ForeignKey(  # a phone or school order made in the admin (services.create_staff_order)
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", editable=False
     )
+
+    # Phase B: orders
+    class Risk(models.TextChoices):  # a cash-on-delivery order's, scored at placement (insights.jobs.risk.rto_risk)
+        LOW = "low", "low"
+        MEDIUM = "medium", "medium"
+        HIGH = "high", "high"
+
+    tags = TaggableManager(blank=True, help_text="Words staff give it: school, awaiting reprint.")
+    held_at = models.DateTimeField("on hold since", null=True, blank=True, editable=False)
+    held_by = models.ForeignKey(  # empty while held: by the site itself (a COD order's risk check)
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", editable=False
+    )
+    hold_reason = models.CharField(max_length=200, blank=True, editable=False)
+    risk_bucket = models.CharField("COD risk", max_length=6, choices=Risk.choices, blank=True, editable=False)
+    risk_reasons = models.JSONField(default=list, blank=True, editable=False, help_text="The strongest three.")
     history = HistoricalRecords(excluded_fields=["shipping_address", "token"])
 
     objects = OrderQuerySet.as_manager()
@@ -849,7 +865,13 @@ class Order(ConcurrentTransitionMixin, TimeStampedModel):
         return lines
 
     def ready_to_pack(self):
-        return (self.status == self.Status.PAID or (self.is_cod and self.placed_at is not None)) and not self.is_test
+        placed = self.status == self.Status.PAID or (self.is_cod and self.placed_at is not None)
+        return placed and not self.is_test and self.held_at is None  # a held order waits for its release
+
+    @property
+    def parcel_returned(self):
+        """A parcel of it came back to us undelivered (the shipping app's status "returned": RTO)."""
+        return self.shipments.filter(detail__status="returned").exists()
 
     def timeline(self):
         """(status, time) for each change of status, from the order's history."""
@@ -883,6 +905,14 @@ class Order(ConcurrentTransitionMixin, TimeStampedModel):
 
     @transition(status, source=[Status.PENDING, Status.PAID, Status.PACKED], target=Status.CANCELLED)
     def cancel(self):
+        pass
+
+    # A cash-on-delivery parcel that came back undelivered (RTO): nothing was collected, so the order is cancelled
+    # (decision 10.1: no "returned" state); its invoice, made at dispatch, gets a credit note (cancel_returned).
+    @transition(
+        status, source=Status.SHIPPED, target=Status.CANCELLED, conditions=[lambda o: o.is_cod and o.parcel_returned]
+    )
+    def cancel_returned(self):
         pass
 
     @transition(
@@ -1033,6 +1063,37 @@ class Refund(TimeStampedModel):
         blank=True,
         related_name="+",
         help_text="The staff member; empty when the customer cancelled or the site refunded by itself.",
+    )
+
+    # Phase B: orders
+    class Method(models.TextChoices):  # RBI (PA guidelines 12.4): to the original method unless the customer agrees
+        SOURCE = "source", "to the way it was paid (Razorpay)"
+        BANK = "bank", "by bank transfer or UPI to the account the customer gave"
+        NONE = "none", "nothing was paid: the credit note only"  # a cash-on-delivery parcel back undelivered
+
+    class Speed(models.TextChoices):  # Razorpay's
+        NORMAL = "normal", "normal (5 to 7 working days)"
+        OPTIMUM = "optimum", "optimum (instant where the bank allows, else normal)"
+
+    method = models.CharField(max_length=6, choices=Method.choices, default=Method.SOURCE)
+    speed = models.CharField(max_length=8, choices=Speed.choices, default=Speed.NORMAL)
+    lines = models.JSONField(
+        default=list, blank=True, help_text="[{item, quantity, amount}]: the books refunded; empty: an amount."
+    )
+    shipping_amount = money_field("shipping refunded", default=0)
+    restock = models.BooleanField(default=False, help_text="The copies refunded went back into stock.")
+    payee = models.TextField(  # integrations.crypto: never shown but to FINANCE, with a reason (logged)
+        blank=True, editable=False, help_text="The customer's bank account or UPI ID, encrypted."
+    )
+    payee_masked = models.CharField(max_length=80, blank=True, editable=False)
+    utr = models.CharField("UTR or UPI reference", max_length=60, blank=True, help_text="Of a transfer by bank or UPI.")
+    paid_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", editable=False
+    )
+    arn = models.CharField("ARN", max_length=40, blank=True, help_text="The bank's reference, from Razorpay.")
+    idempotency_key = models.CharField(max_length=80, blank=True, editable=False)
+    change_request = models.ForeignKey(
+        "staff.ChangeRequest", on_delete=models.SET_NULL, null=True, blank=True, related_name="+", editable=False
     )
 
     class Meta:
@@ -1252,6 +1313,10 @@ class QuoteRequest(TimeStampedModel):
     shipping_fee = models.DecimalField("shipping (₹)", max_digits=8, decimal_places=2, default=0)
     quotation = models.FileField(upload_to="quotations/", blank=True, editable=False)  # the private storage
     quoted_at = models.DateTimeField(null=True, blank=True, editable=False)
+    # Phase B: orders
+    order = models.OneToOneField(  # the staff order it became (services.convert_quote): once
+        Order, on_delete=models.SET_NULL, null=True, blank=True, related_name="quote", editable=False
+    )
 
     class Meta:
         ordering = ["-created"]
@@ -1330,3 +1395,121 @@ def claim_orders_of_a_confirmed_address(sender, request, email_address, **kwargs
 @receiver(user_logged_in)  # every log-in (website, admin, API), for an account made before this existed
 def claim_orders_at_log_in(sender, request, user, **kwargs):
     claim_guest_orders(user, EmailAddress.objects.filter(user=user, verified=True).values_list("email", flat=True))
+
+
+# Phase B: orders
+
+
+class ReturnRequest(ConcurrentTransitionMixin, TimeStampedModel):
+    """A return (RMA, E-Commerce Rules 7(4): defective, deficient, not as described or late goods are taken back),
+    asked for by the customer on the website or by staff for them: the books and copies, a reason code, then staff's
+    decision, the parcel back (with our label or theirs), its inspection (back into stock, or damaged) and the refund,
+    which goes through the order's refund (staff.approvals "order.refund") and gets its credit note as any refund.
+    Exchanges are not built: a refund, then a new order."""
+
+    class Reason(models.TextChoices):
+        DAMAGED = "damaged", "damaged in transit"
+        MISPRINT = "misprint", "misprinted or pages missing"
+        WRONG_ITEM = "wrong_item", "not the book ordered"
+        LATE = "late", "delivered late"
+        NOT_AS_DESCRIBED = "not_as_described", "not as described"
+        OTHER = "other", "another reason"
+
+    class Status(models.TextChoices):
+        REQUESTED = "requested", "requested"
+        APPROVED = "approved", "approved: send it back"
+        DECLINED = "declined", "declined"
+        LABEL_SENT = "label_sent", "return label sent"
+        RECEIVED = "received", "received"
+        RESTOCKED = "restocked", "inspected: back in stock"
+        DAMAGED = "damaged", "inspected: damaged"
+        REFUNDED = "refunded", "refunded"
+
+    OPEN = [Status.REQUESTED, Status.APPROVED, Status.LABEL_SENT, Status.RECEIVED]  # still on its way to a decision
+    INSPECTED = [Status.RESTOCKED, Status.DAMAGED]  # ready for its refund
+
+    order = models.ForeignKey(Order, on_delete=models.PROTECT, related_name="returns")
+    lines = models.JSONField(help_text="[{item, quantity}]: the order's lines and the copies sent back.")
+    reason = models.CharField(max_length=20, choices=Reason.choices)
+    note = models.TextField("the customer's words", max_length=1000, blank=True)
+    by_customer = models.BooleanField(default=False, help_text="Asked for on the website, not by staff.")
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", editable=False
+    )
+    status = FSMField(default=Status.REQUESTED, choices=Status.choices, protected=True, db_index=True)
+    decision_note = models.CharField(max_length=300, blank=True, help_text="Told to the customer: why it was declined.")
+    return_courier = models.CharField(max_length=80, blank=True)
+    return_awb = models.CharField("return AWB", max_length=80, blank=True)
+    photos = models.JSONField(default=list, blank=True, help_text="Their names in the private storage.")
+    received_at = models.DateTimeField(null=True, blank=True)
+    inspected_at = models.DateTimeField(null=True, blank=True)
+    refund = models.OneToOneField(
+        Refund, on_delete=models.SET_NULL, null=True, blank=True, related_name="return_request", editable=False
+    )
+    history = HistoricalRecords(excluded_fields=["note"])  # the customer's words stay out of the copies
+
+    class Meta:
+        ordering = ["-created"]
+
+    def __str__(self):
+        return self.number
+
+    @property
+    def number(self):
+        return f"RR-{self.pk:05d}" if self.pk else "RR-new"
+
+    @property
+    def is_open(self):
+        return self.status in self.OPEN
+
+    @transition(status, source=Status.REQUESTED, target=Status.APPROVED)
+    def approve(self):
+        pass
+
+    @transition(status, source=Status.REQUESTED, target=Status.DECLINED)
+    def decline(self):
+        pass
+
+    @transition(status, source=Status.APPROVED, target=Status.LABEL_SENT)
+    def send_label(self):
+        pass
+
+    @transition(status, source=[Status.APPROVED, Status.LABEL_SENT], target=Status.RECEIVED)  # our label, or theirs
+    def receive(self):
+        self.received_at = timezone.now()
+
+    @transition(status, source=Status.RECEIVED, target=Status.RESTOCKED)
+    def restock(self):
+        self.inspected_at = timezone.now()
+
+    @transition(status, source=Status.RECEIVED, target=Status.DAMAGED)
+    def mark_damaged(self):
+        self.inspected_at = timezone.now()
+
+    @transition(status, source=[Status.RESTOCKED, Status.DAMAGED], target=Status.REFUNDED)
+    def mark_refunded(self):
+        pass
+
+
+class OrderMessage(models.Model):
+    """What the customer was told about an order (services.notify): its kind, the email, and what became of the SMS:
+    sent, held for the morning (none goes from 21:00 to 08:00 India time: tasks.send_held_sms), or dropped (no longer
+    true by then). No address or number here: the order has them. The order's timeline lists these."""
+
+    class Sms(models.TextChoices):
+        NONE = "", "no SMS"
+        SENT = "sent", "sent"
+        HELD = "held", "held for the morning"
+        DROPPED = "dropped", "not sent: no longer true in the morning"
+
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="messages")
+    kind = models.CharField(max_length=30)
+    email = models.BooleanField(default=True)
+    sms = models.CharField(max_length=8, choices=Sms.choices, blank=True, db_index=True)
+    created = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["created", "pk"]
+
+    def __str__(self):
+        return f"{self.kind} for {self.order}"

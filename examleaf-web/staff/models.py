@@ -272,6 +272,10 @@ class InboxItem(models.Model):
         DEAD_LETTER = "dead_letter", "integration task given up"
         FAILED_EVENT = "failed_event", "provider event not processed"
         INTEGRATION_DOWN = "integration_down", "integration unavailable"
+        # Orders (shop/staff_orders.py)
+        ORDER_HOLD = "order_hold", "order on hold"
+        RETURN_REQUEST = "return_request", "return asked for"
+        BANK_REFUND = "bank_refund", "refund to transfer by bank or UPI"
 
     kind = models.CharField(max_length=20, choices=Kind.choices, db_index=True)
     title = models.CharField(max_length=200, help_text="Names no one: a number, a kind.")
@@ -331,6 +335,11 @@ class Job(models.Model):
         AUDIT_EXPORT = "audit_export", "audit log export"
         BULK_ACTION = "bulk_action", "bulk action"
         ERP_INITIAL_LOAD = "erp_initial_load", "ERPNext initial load"  # erp.producers.initial_load
+        # Orders (shop/staff_orders.py): bulk actions on selected orders, and the order export
+        ORDERS_PACK = "orders_pack", "orders marked packed"
+        ORDERS_PRINT = "orders_print", "order documents printed"
+        ORDERS_CANCEL = "orders_cancel", "orders cancelled"
+        ORDERS_EXPORT = "orders_export", "order export"
 
     class State(models.TextChoices):
         QUEUED = "queued", "queued"

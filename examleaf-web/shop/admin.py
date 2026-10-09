@@ -46,6 +46,7 @@ from .models import (
     Order,
     OrderDiscount,
     OrderItem,
+    OrderMessage,
     OrderNote,
     Payment,
     Product,
@@ -53,6 +54,7 @@ from .models import (
     ProductType,
     QuoteRequest,
     Refund,
+    ReturnRequest,
     Review,
     Shipment,
     ShippingRate,
@@ -995,3 +997,23 @@ class StockAlertAdmin(admin.ModelAdmin):
 
     def has_change_permission(self, request, obj=None):
         return False
+
+
+# Phase B: orders (the panel owns their flows: /orders/returns/ and an order's timeline; read-only here)
+
+
+@admin.register(ReturnRequest)
+class ReturnRequestAdmin(ReadOnlyAdmin):
+    list_display = ["number", "order", "status", "reason", "by_customer", "created"]
+    list_filter = ["status", "reason", "by_customer", "created"]
+    search_fields = ["order__number"]
+    list_select_related = ["order"]
+    exclude = ["note"]  # the customer's words: the panel shows them to who handles the return
+
+
+@admin.register(OrderMessage)
+class OrderMessageAdmin(ReadOnlyAdmin):
+    list_display = ["order", "kind", "email", "sms", "created"]
+    list_filter = ["kind", "sms", "created"]
+    search_fields = ["order__number"]
+    list_select_related = ["order"]
