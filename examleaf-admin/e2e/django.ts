@@ -1,7 +1,7 @@
 // What the console's tests need from the Django backend beyond HTTP: staff members to sign in with (a role group, a
 // confirmed email address, a password and an authenticator app with a known secret), the records the real-backend
 // journey works on (a customer with an order paid online, an erasure request, an incident; a paper whose solution is
-// drafted and published), all made and deleted
+// drafted and published; a learner who redeemed a book code), all made and deleted
 // through manage.py shell, and the authenticator's codes (RFC 6238, as allauth checks them).
 import { execFileSync } from "node:child_process";
 import { createHmac } from "node:crypto";
@@ -218,6 +218,40 @@ InboxItem.objects.filter(target_type="content.reviewtask", target_id__in=[str(pk
 tasks.delete()
 Paper.objects.filter(pk=${world.paper}).delete()
 print(Book.objects.filter(pk=${world.book}).delete())
+`);
+}
+
+export type CourseWorld = { learner: number; code: string; batch: string };
+
+/** For the course journey: an adult learner who redeemed a book code of a print run of the run's own (E2E-<stamp>,
+ *  dispatched), and that code as printed, which only this seed knows (the database keeps its digest). */
+export function seedCourse(stamp: number): CourseWorld {
+  return lastJson<CourseWorld>(
+    shell(`
+import json
+from datetime import date
+from django.utils import timezone
+from accounts.models import User
+from learn.models import CodeBatch
+from learn.services import make_codes, redeem
+label = ${py(`E2E-${stamp}`)}
+learner = User.objects.create_user(${py(`admin-ui-real-${stamp}-learner@example.com`)}, ${py(`Learner-${stamp}!`)}, full_name="Course Learner (e2e)", date_of_birth=date(2000, 1, 1))
+plain = make_codes(None, 2, label)
+CodeBatch.objects.create(label=label, printed=2, generated_at=timezone.now(), dispatched_at=timezone.now(), note="The console's tests")
+redeem(learner, plain[0])
+print(json.dumps({"learner": learner.pk, "code": plain[0], "batch": label}))
+`),
+  );
+}
+
+/** Deletes what seedCourse made (the learner with their access; the audit events stay: the log is append-only). */
+export function deleteCourse(world: CourseWorld) {
+  shell(`
+from accounts.models import User
+from learn.models import BookCode, CodeBatch
+BookCode.objects.filter(batch=${py(world.batch)}).delete()
+CodeBatch.objects.filter(label=${py(world.batch)}).delete()
+print(User.objects.filter(pk=${world.learner}, email__startswith="admin-ui-").delete())
 `);
 }
 

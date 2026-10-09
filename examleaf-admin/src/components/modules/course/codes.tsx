@@ -274,7 +274,7 @@ export function BatchesTable({
   return (
     <DataTable
       listKey="course-batches"
-      caption={words.title}
+      caption={words.batches}
       rows={rows}
       columns={columns}
       rowId={(batch) => String(batch.id)}

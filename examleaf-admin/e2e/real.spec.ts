@@ -12,15 +12,19 @@
 // FINANCE finds it by the customer's email (a lookup the API records by its hash), and SUPPORT asks for a refund of two
 // books of three, above their ₹1,000: the 202 and its change request. Content: a CONTENT_EDITOR drafts a solution and
 // submits it, a REVIEWER publishes it from the inbox, and the OWNER's audit trail shows both. Support: SUPPORT answers
-// the customer's ticket, its first reply is recorded, and the OWNER finds the reply in the ticket's audit trail.
+// the customer's ticket, its first reply is recorded, and the OWNER finds the reply in the ticket's audit trail. The
+// course: SUPPORT looks up a seeded book code (its plain text known to the seed alone), opens the learner's page from
+// the answer, which says the view is logged, and the OWNER finds the sensitive read in the learner's audit trail.
 import { type Browser, expect, type Page, test } from "@playwright/test";
 
 import { checkPages, type Codes, csrf, settle, signIn, toast } from "./console";
 import {
   type ContentWorld,
+  type CourseWorld,
   createStaff,
   deleteOrdersWorld,
   deleteContent,
+  deleteCourse,
   deleteRealWorld,
   deleteStaff,
   newSecret,
@@ -29,6 +33,7 @@ import {
   type RealWorld,
   seedOrdersWorld,
   seedContent,
+  seedCourse,
   seedRealWorld,
   seedTicket,
   type Staff,
@@ -57,6 +62,7 @@ const editorCodes: Codes = { last: null };
 const reviewerCodes: Codes = { last: null };
 let content: ContentWorld;
 let ticket: RealTicket;
+let course: CourseWorld;
 let supportId: number;
 let editorId: number;
 let reviewerId: number;
@@ -75,12 +81,14 @@ test.beforeAll(() => {
   reviewerId = createStaff(reviewer, "REVIEWER");
   content = seedContent(stamp);
   ticket = seedTicket(world);
+  course = seedCourse(stamp);
 });
 
 test.afterAll(() => {
   if (world) deleteRealWorld(world);
   if (shop) deleteOrdersWorld(shop);
   if (content) deleteContent(content);
+  if (course) deleteCourse(course);
   deleteStaff([owner.email, support.email, sales.email, finance.email, editor.email, reviewer.email]);
 });
 
@@ -450,6 +458,15 @@ for (const width of [1280, 390]) {
         "/support/new/",
         "/support/replies/",
         "/support/export/",
+        // the course, as this backend answers it: no chapter imported, the seeded print run and its learner
+        "/course/",
+        "/course/items/",
+        "/course/bin/",
+        "/course/entitlements/",
+        "/course/codes/",
+        `/course/codes/${course.batch}/`,
+        "/course/report/",
+        `/course/learners/${course.learner}/`,
       ],
       width,
     );
@@ -571,4 +588,26 @@ test("Orders: SALES makes a staff order, FINANCE finds it, SUPPORT's refund of t
     await expect(dialog.getByText("staff.approve_refund", { exact: true })).toBeVisible();
     await page.context().close();
   });
+});
+
+test("Course: SUPPORT looks up a seeded book code and opens its learner's page; the OWNER finds the logged view", async ({
+  browser,
+}) => {
+  const page = await open(browser);
+  await signIn(page, support, "/course/codes/", supportCodes);
+  await page.getByRole("textbox", { name: "Book code" }).fill(course.code.toLowerCase());
+  await page.getByRole("button", { name: "Look up" }).click();
+  await expect(page.getByText(new RegExp(`by account #${course.learner}: batch ${course.batch}`))).toBeVisible();
+  await page.getByRole("link", { name: "Open the learner's page" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Course Learner (e2e)" })).toBeVisible();
+  await expect(page.getByText(/^This view is logged/)).toBeVisible();
+  await expect(page.getByText("Book code", { exact: false }).first()).toBeVisible();
+  await page.context().close();
+
+  const ownerPage = await open(browser);
+  await signIn(ownerPage, owner, `/audit/?target_type=accounts.user&target_id=${course.learner}`, ownerCodes);
+  await expect(
+    ownerPage.getByRole("region", { name: "Audit trail, a table" }).getByText("sensitive_read").first(),
+  ).toBeVisible();
+  await ownerPage.context().close();
 });
