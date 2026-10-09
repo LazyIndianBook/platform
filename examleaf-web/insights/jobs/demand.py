@@ -206,6 +206,7 @@ def advice(record, cost, forecasts, today):
     supply = product.stock + cost.on_order
     trigger = math.ceil(sum(week.p90 for week in forecasts[:lead]))
     cover = stats.weeks_of_cover(supply, [week.p50 for week in forecasts])
+    cover = cover if cover is None else round(cover, 2)
     leftover = max(0, round(supply - p50))
     level, alert = PrintRunAdvice.Level.OK, ""
     if p50 and (supply <= trigger or (cover is not None and cover < lead + 1)):

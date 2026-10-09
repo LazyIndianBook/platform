@@ -37,7 +37,7 @@ def delivery_stats(today=None):
             transit[courier, district(address, known)].append(days)
     stat_rows = []
     for (courier, where), days in transit.items():
-        median, p90 = stats.quantile(days, 0.5), stats.quantile(days, 0.9)
+        median, p90 = round(stats.quantile(days, 0.5), 2), round(stats.quantile(days, 0.9), 2)
         route = {"courier": courier, "district": where, "n": len(days), "computed_at": now}
         stat_rows.append(DeliveryStat(**route, median_days=median, p90_days=p90))
     return save_stats(DeliveryStat, stat_rows, now)
