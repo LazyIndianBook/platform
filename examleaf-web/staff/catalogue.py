@@ -136,6 +136,13 @@ STAFF_ACTIONS = [
     # support (support/README.md): tickets and the grievance register
     ("handle_ticket", "Handle support tickets: reply, assign, change, move on, close, acknowledge", SUPPORT, MEDIUM),
     ("export_grievances", "Export the grievance register (a dated CSV, no personal data)", SUPPORT, HIGH, True),
+    # Customers (Phase B, staff/customers_api.py): a parent's consent recorded by hand, with the evidence
+    (
+        "verify_consent",
+        "Record a student's parental consent by hand, with a method and where the evidence is (the parent is told)",
+        CUSTOMERS,
+        HIGH,
+    ),
 ]
 STAFF_MODELS = [
     ("view_changerequest", "See the approvals you take part in", STAFF, LOW),

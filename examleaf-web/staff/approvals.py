@@ -71,6 +71,9 @@ def over(amount, limit, text):
 class Action:
     name = label = maker = checker = ""
     generic = True  # may be asked for through POST change-requests/, and named by a bulk action (staff.jobs)
+    bulk = (
+        False  # named by a bulk action though not asked for through change-requests/ (the customers' account actions)
+    )
 
     def checker_for(self, change_request):
         return self.checker
@@ -78,6 +81,11 @@ class Action:
     def account(self, change_request):
         """The id of the account the change is about: its owner never approves it."""
         return None
+
+    def children(self, targets):
+        """How many of a bulk action's `targets` are children's accounts (under 18): a bulk action on any waits for an
+        approver whatever its size (staff.jobs.start, bulk_rule). Most actions are not about accounts: none."""
+        return 0
 
     def validate(self, maker, target, payload):
         """(the target, the payload to store, the amount in rupees or None); raises ValidationError."""
@@ -762,13 +770,20 @@ class RunJob(Action):
     generic = False
 
     def validate(self, maker, target, payload):
+        from .jobs import children_in
+
         job = target
-        return job, {"job": job.pk, "kind": job.kind, "total": job.total, "params": job.params}, None
+        clean = {"job": job.pk, "kind": job.kind, "total": job.total, "params": job.params}
+        if minors := children_in(job.kind, job.params):  # a bulk action on children's accounts: its approver reads it
+            clean["minors"] = minors
+        return job, clean, None
 
     def rule(self, maker, change_request):
         from .jobs import LIMITS
 
         payload = change_request.payload
+        if minors := payload.get("minors"):
+            return bulk_rule(maker, payload["total"], minors)
         limit = LIMITS.get(payload["kind"], "bulk_rows")  # an export's: export_rows; a bulk action's: bulk_rows
         return over(payload["total"], limit_of(maker, limit), "{amount} rows are above the limit of {limit}.")
 
@@ -800,9 +815,19 @@ ACTIONS = {
 }
 
 
-def bulk_rule(maker, rows):
-    """For bulk actions: why `rows` at once need an approver (above the maker's `bulk_rows`), or None."""
+def bulk_rule(maker, rows, minors=0):
+    """For bulk actions: why `rows` at once need an approver, or None. Any child's account among them (`minors` of the
+    rows: Action.children) needs one whatever the count; else the maker's `bulk_rows` decides."""
+    if minors:
+        return (
+            f"{plural(minors, 'account', 'accounts')} of the {rows:,} {'is a child' if minors == 1 else 'are children'}"
+            f"'s (under 18): a bulk action on children needs a second person's approval, however few."
+        )
     return over(rows, limit_of(maker, "bulk_rows"), "{amount} rows at once are above the limit of {limit}.")
+
+
+def plural(count, one, many):
+    return f"{count:,} {one if count == 1 else many}"
 
 
 def _event(change_request, verb, request=None, **kwargs):
@@ -995,3 +1020,8 @@ def expire_due():
         with transaction.atomic():
             count += expire_if_due(ChangeRequest.objects.select_for_update().get(pk=pk))
     return count
+
+
+# The last statement of this module: the modules that define actions of their own (staff/customers.py) import
+# Action from here and add theirs to ACTIONS, so every action is there wherever approvals is imported from.
+from . import customers  # noqa: E402,F401  (the customers' account actions: user.suspend … user.resend_consent)

@@ -141,9 +141,10 @@ def remove_scope(scope, *, by):
         record("authz_change", target=scope.user, details=details)
 
 
-def end_sessions(user, *, request=None, audit=True):
+def end_sessions(user, *, request=None, audit=True, actor=None):
     """Sign the person out everywhere: every session allauth.usersessions tracks (the website, the panel, the app's
-    allauth session) and the app's refresh tokens (blacklisted). Returns (sessions, tokens)."""
+    allauth session) and the app's refresh tokens (blacklisted). Returns (sessions, tokens). `actor`: the member of
+    staff, when no request carries them (a bulk action's job: staff.customers)."""
     sessions = 0
     for session in UserSession.objects.filter(user=user):
         session.end()
@@ -154,6 +155,7 @@ def end_sessions(user, *, request=None, audit=True):
         record(
             "session_ended_by_staff",
             request=request,
+            actor=actor,
             target=user,
             details={"sessions": sessions, "tokens": len(tokens)},
         )
@@ -281,12 +283,15 @@ def offboard(user, *, by, reason, request=None):
 # Customers' accounts (users/)
 
 
-def suspend(user, *, reason, request=None):
+def suspend(user, *, reason, request=None, actor=None):
+    """`actor`: the member of staff, when no request carries them (a bulk action's job: staff.customers)."""
     with transaction.atomic():
         user.is_active = False
         user.save(update_fields=["is_active"])
         sessions, tokens = end_sessions(user, audit=False)
-        record("user.suspended", request=request, target=user, reason=reason, details={"sessions": sessions})
+        record(
+            "user.suspended", request=request, actor=actor, target=user, reason=reason, details={"sessions": sessions}
+        )
     queue_text_email(
         user.email,
         "Your ExamLeaf account is suspended",
@@ -295,11 +300,11 @@ def suspend(user, *, reason, request=None):
     )
 
 
-def unsuspend(user, *, reason, request=None):
+def unsuspend(user, *, reason, request=None, actor=None):
     with transaction.atomic():
         user.is_active = True
         user.save(update_fields=["is_active"])
-        record("user.unsuspended", request=request, target=user, reason=reason)
+        record("user.unsuspended", request=request, actor=actor, target=user, reason=reason)
 
 
 def unlock(user, *, request=None):
@@ -310,9 +315,13 @@ def unlock(user, *, request=None):
     return cleared
 
 
-def resend_verification(user, *, request=None):
+def resend_verification(user, *, request=None, actor=None):
     """The parent's consent link again (PARENTAL_CONSENT_MODE "verified", while it waits). An email address is
-    confirmed by a code at log-in: nothing to send for it from here."""
+    confirmed by a code at log-in: nothing to send for it from here. A text to a parent's mobile number goes from 08:00
+    to 21:00 India time only (as the shop's order texts do); an email at any hour. `actor`: the member of staff, when
+    no request carries them (a bulk action's job: staff.customers); the link's record names them either way."""
+    from shipping.messages import quiet  # (shipping.messages imports shop, which imports this app)
+
     if not user.consent_pending:
         raise serializers.ValidationError(
             {
@@ -322,8 +331,24 @@ def resend_verification(user, *, request=None):
                 ]
             }
         )
-    sent = send_parent_link(user)
-    record("user.verification_resent", request=request, target=user, details={"what": "parent_link", "sent": sent})
+    if "@" not in user.parent_contact and quiet():
+        raise serializers.ValidationError(
+            {
+                "non_field_errors": [
+                    "The parent has a mobile number, not an email address: texts go from 08:00 to 21:00 only. "
+                    "Send it again after 08:00."
+                ]
+            }
+        )
+    by = actor or getattr(request, "user", None)
+    sent = send_parent_link(user, by=by if getattr(by, "pk", None) else None)
+    record(
+        "user.verification_resent",
+        request=request,
+        actor=actor,
+        target=user,
+        details={"what": "parent_link", "sent": sent},
+    )
     if not sent:
         raise exceptions.Throttled(detail="The parent's address or number has had its links for today.")
 

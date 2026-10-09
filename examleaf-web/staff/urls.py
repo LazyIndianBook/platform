@@ -13,7 +13,6 @@ router.register("jobs", api.JobViewSet, basename="job")
 router.register("saved-views", api.SavedViewViewSet, basename="saved-view")
 router.register("api-keys", api.ApiKeyViewSet, basename="api-key")
 router.register("people", api.PeopleViewSet, basename="person")
-router.register("users", api.UserViewSet, basename="user")
 router.register("data-requests", api.DataRequestViewSet, basename="data-request")
 router.register("incidents", api.IncidentViewSet, basename="incident")
 router.register("processors", api.ProcessorViewSet, basename="processor")
@@ -43,5 +42,6 @@ urlpatterns = [
     path("system/", include("staff.system_api")),
     path("tax/", include("shop.staff_tax")),
     path("templates/", include("ops.staff_api")),
+    path("users/", include("staff.customers_api")),  # the customers' routes: staff.api.UserViewSet's, extended
     *router.urls,
 ]

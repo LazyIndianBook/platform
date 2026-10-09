@@ -1045,6 +1045,16 @@ CELERY_BEAT_SCHEDULE |= {
     "support-watch": {"task": "support.tasks.watch_clocks", "schedule": crontab(minute="*/15")},
     "support-purge": {"task": "support.tasks.purge", "schedule": crontab(hour=3, minute=45)},
 }
+# Phase B: customers (staff/customers_api.py, staff/README.md "Customers"; API.md "Customers (staff)"). No setting of
+# its own: the list's tabs, the timeline and the consent list read what the site has; a parent's consent link is
+# recorded when it is sent (accounts.ParentLinkSend, kept a year: examleaf.retention "parent_links").
+_CUSTOMERS_TAG = {"name": "customers (staff)", "description": "Customers: tabs, badges, timeline, consent (API.md)."}
+if _CUSTOMERS_TAG not in SPECTACULAR_SETTINGS["TAGS"]:  # noqa: F405  (once: tests reload this module, the dict is shared)
+    SPECTACULAR_SETTINGS["TAGS"].append(_CUSTOMERS_TAG)  # noqa: F405
+SPECTACULAR_SETTINGS["ENUM_NAME_OVERRIDES"].update(  # noqa: F405  the tabs of the list, the methods of a consent by hand
+    CustomerKindEnum="staff.customers.KINDS",
+    ConsentVerifyMethodEnum="staff.customers_api.METHOD_CHOICES",
+)
 
 # ---- Resilience (RESILIENCE.md: each knob below, its default and when to change it) --------------------------------
 # Nothing waits without a limit: every call to another service has a connect and a read timeout and a bounded retry,
