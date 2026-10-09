@@ -5,6 +5,51 @@ commits are in `git log` (phase 4: abffe6f and e5abda5; phase 5 A and B with the
 and E: 4e30e59; the redesign's stage 2 so far: ba0b9dd). Details of each feature are in README.md; the numbers of the
 tests are those of `pytest` at the end of the phase.
 
+## Phase B, Tax (9 October 2026)
+
+The storefront's GST was a rate typed on each product, its documents numbered by looking for the last serial in one
+EL series, and the shipping taxed at the cart's highest rate. Plan 5.9 and research 5 ask for what decides the tax to
+live in data with dates, for documents of the right type in series, and for FINANCE to see what is due; the panel gets
+a Tax module for it (`shop/README.md` "Tax" has the rules, API.md "Tax (staff)" the endpoints). 1,086 backend tests
+pass on SQLite (12 skipped, 1,793 subtests), 44 of them new in `shop/test_tax.py` and `shop/test_staff_tax.py`, which
+also pass on PostgreSQL (two invoices numbered at once by two threads take consecutive numbers there); the
+authorization matrix covers every new endpoint.
+
+- **The HSN and SAC master** (`HsnCode`, `HsnRate`): each code's rates are its history, dated and citing the
+  notification that set them, never rewritten; the migration seeds eleven codes (books exempt from 22 September 2025
+  under 10/2025-Central Tax (Rate)). A product points to its code and its GST is the code's rate on the day of the
+  order; one that disagrees gets the red chip (`Product.tax_problem`) and a line on the panel's list.
+- **Bundles** are invoiced by their treatment: split into their components (the default), composite or mixed.
+- **The place of supply** is the billing state the checkout now asks for (`Order.billing_state`): a course or an e-book
+  alone where the buyer says, else the parcel's state, else Assam.
+- **Documents**: a tax invoice, a bill of supply or, for a mixed cart, an invoice-cum-bill of supply (Rule 46A),
+  numbered gapless under a row lock from 1 each April (`DocumentSeries`); EL and CN until FY 2026-27, one series a type
+  from `SHOP_SERIES_FROM_FY` (`SHOP_SERIES_PREFIXES`); the test series T and TC kept out of every number and return.
+  Shipping follows the goods it carries (exempt with books, shared by value on a mixed cart), a coupon is allocated
+  pro rata, the HSN codes print to `SHOP_HSN_DIGITS`, and Rule 46's checks are listed. A cancelled document keeps its
+  number and its PDF is marked so.
+- **Credit notes** are refused after 30 November of the year after the invoice's (CGST s.34(2)): the refund still goes
+  out and FINANCE's inbox says so (`credit_note_missing`).
+- **GSTR-1** (`shop/gstr1.py`): b2cl, b2cs, cdnur, exemp, hsn-b2b, hsn-b2c and docs in the Offline Tool's templates;
+  `manage.py export_gstr1` still streams, and the panel runs it as a job (`gstr1_export`, above `export_rows` approved
+  first).
+- **The threshold monitor** (every night at 01:45): ₹2, 4, 5 and 10 crore of turnover, invoices above ₹1 lakh to
+  another state, taxable goods above ₹50,000 in a parcel; the first crossing in a year opens one inbox item
+  (`tax_threshold`). **The calendar** of a month comes from the law's dates and the QRMP switch (`SHOP_GST_QRMP`, a
+  panel setting).
+- **Records**: an order with a real-series document keeps its customer's details 72 months after its year's annual
+  return (`forget_orders` skips it).
+- **The staff API** (`/api/v1/staff/tax/`): the master and its rates (`shop.view_hsncode`, `shop.change_hsncode`), the
+  products that disagree, the documents with their PDF (audited) and cancelling one (`staff.cancel_document`, high),
+  table 13 (`shop.view_documentseries`), the threshold card and the calendar (`shop.view_taxthreshold`), the GSTR-1 job
+  (`staff.run_gstr1`). FINANCE, ADMIN and OWNER hold them; AUDITOR reads.
+- **The console's Tax module** (`/tax/`, under Shop): the month's dates, the threshold card and table 13; the master,
+  a code's history and a new dated rate behind a save bar; the documents, one with its lines and checks, cancelled with
+  its number typed; table 13 by year or month; the GSTR-1 export with its progress and file. The save bar (`ActionForm`
+  `saveBar`: Save and Discard once something is typed, a warning before leaving) is new and shared. Console: Vitest
+  98 (11 new), Playwright 6 in mock mode, every tax page checked with axe at 1280, 390 and 320 px and the tax journey
+  at both widths.
+
 ## The staff console on the staff API as built, and the website's side of an impersonation (9 October 2026)
 
 No backend change. The console (`../examleaf-admin/`) and the website (`../examleaf-frontend/`) now speak the staff
