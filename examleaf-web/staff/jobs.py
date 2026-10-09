@@ -56,6 +56,8 @@ def permission(kind, params):
         return approvals.ACTIONS[params["action"]].maker
     if kind == Job.Kind.ERP_INITIAL_LOAD:
         return "erp.run_initial_load"
+    if kind == Job.Kind.CONTENT_IMPORT:
+        return "staff.import_content"
     return None
 
 
@@ -85,12 +87,14 @@ def start(kind, params, *, user, dry_run=False, request=None):
         from erp.producers import initial_load_size
 
         total = initial_load_size(params["invoices_from"])
+    elif kind == Job.Kind.CONTENT_IMPORT:
+        total = 0  # the source's papers, counted as it runs; no approver: its own dry run comes first
     else:
         total = len(params["targets"])
     with transaction.atomic():
         job = Job.objects.create(kind=kind, params=params, dry_run=dry_run, total=total, started_by=user)
         _event(job, "requested", request)
-        limit = approvals.limit_of(user, LIMITS[kind])
+        limit = approvals.limit_of(user, LIMITS[kind]) if kind in LIMITS else None
         if dry_run or not approvals.over(total, limit, "{amount} {limit}"):
             enqueue(job)
             return job
@@ -236,10 +240,18 @@ def erp_initial_load(job, progress):
     return initial_load_job(job, progress)
 
 
+def content_import(job, progress):
+    """An import from the books repository, a dry run or its apply (content.imports.run_job)."""
+    from content.imports import run_job
+
+    return run_job(job, progress)
+
+
 RUNNERS = {
     Job.Kind.AUDIT_EXPORT: export_audit,
     Job.Kind.BULK_ACTION: bulk_action,
     Job.Kind.ERP_INITIAL_LOAD: erp_initial_load,
+    Job.Kind.CONTENT_IMPORT: content_import,
 }
 
 
