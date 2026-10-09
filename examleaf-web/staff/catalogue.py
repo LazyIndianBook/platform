@@ -101,6 +101,9 @@ STAFF_ACTIONS = [
     ("manage_pickup_locations", "Add and change the pickup addresses", SHIPPING, MEDIUM),
     ("view_insights", "See the insights: forecasts, print runs, item analysis, cohorts, fraud signals", REPORTS, LOW),
     ("acknowledge_signal", "Acknowledge fraud signals (looked at and handled)", REPORTS, LOW),
+    # Content (Phase B): the triage of reported mistakes and the import from the books repository (content/README.md)
+    ("triage_report", "Triage reported mistakes: confirm, reject, mark fixed, tell the reporter", CONTENT, MEDIUM),
+    ("import_content", "Import papers and solutions from the books repository (a dry run first)", CONTENT, HIGH),
 ]
 STAFF_MODELS = [
     ("view_changerequest", "See the approvals you take part in", STAFF, LOW),

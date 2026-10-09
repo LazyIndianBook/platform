@@ -1345,6 +1345,56 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 | POST | `staff/change-requests/{id}/approve/` | `staff.view_changerequest` |  | `ApproveRequest` | 200 `ChangeRequest` |
 | POST | `staff/change-requests/{id}/execute/` | `staff.view_changerequest` |  |  | 200 `ChangeRequest`; 400 `ChangeRequest` |
 | POST | `staff/change-requests/{id}/reject/` | `staff.view_changerequest` |  | `CommentRequest` | 200 `ChangeRequest` |
+| GET | `staff/content/books/` | `content.view_book` | `board`, `class_level`, `cursor`, `format`, `page_size`, `subject` |  | 200 `PaginatedContentBookList` |
+| POST | `staff/content/books/` | `content.add_book` |  | `ContentBookRequest` | 201 `ContentBookDetail` |
+| GET | `staff/content/books/{id}/` | `content.view_book` |  |  | 200 `ContentBookDetail` |
+| PATCH | `staff/content/books/{id}/` | `content.change_book` |  | `PatchedContentBookRequest` | 200 `ContentBookDetail` |
+| GET | `staff/content/books/{id}/history/` | `content.view_book` | `cursor`, `page_size` |  | 200 `ContentVersionPage` |
+| POST | `staff/content/books/{id}/history/{history_id}/restore/` | `content.change_book` |  |  | 200 `object` |
+| GET | `staff/content/errata/` | `content.view_errorreport` | `book`, `cursor`, `page_size`, `printing`, `public` |  | 200 `PaginatedContentErratumList` |
+| GET | `staff/content/imports/` | `content.view_paper` | `cursor`, `page_size` |  | 200 `PaginatedJobList` |
+| GET | `staff/content/legal-deposits/` | `content.view_legaldeposit` | `book`, `cursor`, `library`, `page_size` |  | 200 `PaginatedLegalDepositList` |
+| POST | `staff/content/legal-deposits/` | `content.add_legaldeposit` |  | `LegalDepositRequest` | 201 `LegalDeposit` |
+| GET | `staff/content/legal-deposits/missing/` | `content.view_legaldeposit` |  |  | 200 `[MissingDeposit]` |
+| GET | `staff/content/legal-deposits/{id}/` | `content.view_legaldeposit` |  |  | 200 `LegalDeposit` |
+| GET | `staff/content/legal-deposits/{id}/proof/` | `content.view_legaldeposit` |  |  | 200 `application/octet-stream`; 302 |
+| GET | `staff/content/papers/` | `content.view_paper` | `board`, `book`, `changed`, `class_level`, `cursor`, `is_published`, `page_size`, `q`, `subject`, `tier` |  | 200 `PaginatedContentPaperList` |
+| GET | `staff/content/papers/{id}/` | `content.view_paper` |  |  | 200 `ContentPaperDetail` |
+| PATCH | `staff/content/papers/{id}/` | `content.change_paper` |  | `PatchedContentPaperDetailRequest` | 200 `ContentPaperDetail` |
+| GET | `staff/content/papers/{id}/history/` | `content.view_paper` | `cursor`, `page_size` |  | 200 `ContentVersionPage` |
+| POST | `staff/content/papers/{id}/history/{history_id}/restore/` | `content.change_paper` |  |  | 200 `object` |
+| GET | `staff/content/papers/{id}/qr/` | `content.view_paper` |  |  | 200 `PaperQr` |
+| GET | `staff/content/questions/` | `content.view_question` | `book`, `changed`, `cursor`, `is_published`, `page_size`, `paper`, `q`, `state`, `subject` |  | 200 `PaginatedContentQuestionList` |
+| GET | `staff/content/questions/{id}/` | `content.view_question` |  |  | 200 `ContentQuestionDetail` |
+| PATCH | `staff/content/questions/{id}/` | `content.change_question` |  | `PatchedQuestionUpdateRequest` | 200 `ContentQuestionDetail` |
+| POST | `staff/content/questions/{id}/discard/` | `content.change_question` |  |  | 200 `ContentQuestionDetail` |
+| GET | `staff/content/questions/{id}/history/` | `content.view_question` | `cursor`, `page_size` |  | 200 `ContentVersionPage` |
+| POST | `staff/content/questions/{id}/history/{history_id}/restore/` | `content.change_question` |  |  | 200 `object` |
+| POST | `staff/content/questions/{id}/rollback/` | `staff.publish_paper` |  |  | 200 `ContentQuestionDetail` |
+| POST | `staff/content/questions/{id}/submit/` | `content.change_question` |  | `ContentSubmitRequest` | 201 `ContentOpenReview` |
+| GET | `staff/content/reports/` | `content.view_errorreport` | `book`, `category`, `cursor`, `page_size`, `paper`, `printing`, `state`, `subject`, `teacher` |  | 200 `PaginatedContentReportList` |
+| GET | `staff/content/reports/{id}/` | `content.view_errorreport` |  |  | 200 `ContentReportDetail` |
+| PATCH | `staff/content/reports/{id}/` | `staff.triage_report` |  | `PatchedContentReportUpdateRequest` | 200 `ContentReportDetail` |
+| POST | `staff/content/reports/{id}/confirm/` | `staff.triage_report` |  | `ContentTransitionRequest` | 200 `ContentReportDetail` |
+| POST | `staff/content/reports/{id}/fix-in-printing/` | `staff.triage_report` |  | `ContentTransitionRequest` | 200 `ContentReportDetail` |
+| POST | `staff/content/reports/{id}/fix-online/` | `staff.triage_report` |  | `ContentTransitionRequest` | 200 `ContentReportDetail` |
+| POST | `staff/content/reports/{id}/reject/` | `staff.triage_report` |  | `ContentTransitionRequest` | 200 `ContentReportDetail` |
+| POST | `staff/content/reports/{id}/reopen/` | `staff.triage_report` |  | `ContentTransitionRequest` | 200 `ContentReportDetail` |
+| POST | `staff/content/reports/{id}/tell/` | `staff.triage_report` |  |  | 200 `ContentReportDetail` |
+| GET | `staff/content/reviews/` | `content.view_reviewtask` | `cursor`, `mine`, `open`, `page_size`, `paper`, `stage`, `state`, `subject`, `submitted` |  | 200 `PaginatedContentReviewList` |
+| GET | `staff/content/reviews/{id}/` | `content.view_reviewtask` |  |  | 200 `ContentReviewDetail` |
+| POST | `staff/content/reviews/{id}/approve/` | `staff.publish_paper` |  | `ContentDecisionRequest` | 200 `ContentReviewDetail` |
+| POST | `staff/content/reviews/{id}/needs-changes/` | `staff.publish_paper` |  | `NeedsChangesRequest` | 200 `ContentReviewDetail` |
+| POST | `staff/content/reviews/{id}/publish/` | `staff.publish_paper` |  | `ContentDecisionRequest` | 200 `ContentReviewDetail` |
+| GET | `staff/content/solutions/` | `content.view_solution` | `book`, `changed`, `cursor`, `page_size`, `paper`, `state`, `subject` |  | 200 `PaginatedContentSolutionList` |
+| GET | `staff/content/solutions/{id}/` | `content.view_solution` |  |  | 200 `ContentSolutionDetail` |
+| PATCH | `staff/content/solutions/{id}/` | `content.change_solution` |  | `PatchedSolutionUpdateRequest` | 200 `ContentSolutionDetail` |
+| POST | `staff/content/solutions/{id}/discard/` | `content.change_solution` |  |  | 200 `ContentSolutionDetail` |
+| GET | `staff/content/solutions/{id}/history/` | `content.view_solution` | `cursor`, `page_size` |  | 200 `ContentVersionPage` |
+| POST | `staff/content/solutions/{id}/history/{history_id}/restore/` | `content.change_solution` |  |  | 200 `object` |
+| POST | `staff/content/solutions/{id}/rollback/` | `staff.publish_paper` |  |  | 200 `ContentSolutionDetail` |
+| POST | `staff/content/solutions/{id}/submit/` | `content.change_solution` |  | `ContentSubmitRequest` | 201 `ContentOpenReview` |
+| GET | `staff/content/summary/` | `content.view_errorreport` |  |  | 200 `ContentSummary` |
 | GET | `staff/data-requests/` | `staff.view_datarequest` | `assignee`, `cursor`, `kind`, `overdue`, `page_size`, `status`, `user` |  | 200 `PaginatedDataRequestListList` |
 | POST | `staff/data-requests/` | `staff.handle_data_request` |  | `DataRequestRequest` | 201 `DataRequest` |
 | GET | `staff/data-requests/{id}/` | `staff.view_datarequest` |  |  | 200 `DataRequest` |
@@ -1450,6 +1500,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **AuditOutcomeEnum**: one of `success`, `denied`, `failed`
 - **Backtest**: `product` string (required, read-only); `horizon_weeks` integer (required); `wape` double (null); `mase_vs_seasonal_naive` double (null); `shown` boolean; `n` integer (required, read-only)
 - **BlankEnum**: null
+- **BookFormatEnum**: one of `print`, `ebook`
 - **BookRequest**: `order` string (required, null); `courier_company_id` integer; `courier_name` string; `quoted_rate` decimal (null); `weight_g` integer; `length_cm` integer; `breadth_cm` integer; `height_cm` integer; `pickup_location` integer (null); `courier` CourierEnum; `tracking_number` string; `tracking_url` any
 - **BreakGlassReasonRequest**: `reason` string (required)
 - **CarrierEnum**: one of `manual`, `shiprocket`
@@ -1466,6 +1517,38 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **CodeActivation**: `batch` string (required); `district` string (null); `printed` integer (null); `redeemed` integer (required); `redeemed_7d` integer (required); `n` integer (required, read-only)
 - **CohortStat**: `cohort_month` date (required); `source` EntitlementSourceEnum (required); `week_index` integer (required); `active_share` double (null); `churned_share` double (null); `n` integer (required)
 - **CommentRequest**: `comment` string
+- **ContentBook**: `id` integer (required, read-only); `title` string (required); `subject` integer (required); `subject_code` string (required, read-only); `edition` string; `slug` string (required); `cover` string; `isbn` string; `format` BookFormatEnum; `published_on` date (null); `deposit_due_on` date (required, null, read-only); `papers` integer (required, read-only)
+- **ContentBookDetail**: `id` integer (required, read-only); `title` string (required); `subject` integer (required); `subject_code` string (required, read-only); `edition` string; `slug` string (required); `cover` string; `isbn` string; `format` BookFormatEnum; `published_on` date (null); `deposit_due_on` date (required, null, read-only); `papers` integer (required, read-only); `missing_deposits` [string] (required, read-only)
+- **ContentBookRequest**: `title` string (required); `subject` integer (required); `edition` string; `slug` string (required); `cover` string; `isbn` string; `format` BookFormatEnum; `published_on` date (null)
+- **ContentChange**: `field` string (required); `before` any (required, null); `after` any (required, null); `lines` [ContentLine] (required)
+- **ContentComment**: `author` integer (required, null); `text` string (required); `at` date-time (required); `field` string (required)
+- **ContentDecisionRequest**: `comment` string
+- **ContentErratum**: `id` integer (required, read-only); `book` integer (required, null, read-only); `paper_code` string (required, null, read-only); `question_label` string (required, null, read-only); `step` integer (required, null, read-only); `category` ErrorReportCategoryEnum (required, read-only); `printing` string (required, read-only); `state` ErrorReportStateEnum (required, read-only); `fixed_in` string (required, read-only); `fixed_at` date-time (required, null, read-only); `public` boolean (required, read-only); `created` date-time (required, read-only)
+- **ContentHeader**: `lines` [string]; `allotment` [string]
+- **ContentHeaderRequest**: `lines` [string]; `allotment` [string]
+- **ContentLine**: `op` ContentLineOpEnum (required); `text` string (required)
+- **ContentLineOpEnum**: one of `equal`, `delete`, `insert`
+- **ContentLinked**: `paper_id` integer (required, null); `question_id` integer (required, null); `solution_id` integer (required, null); `question_text` string; `solution_text` string; `solution_state` string (null); `title` string
+- **ContentOpenReview**: `id` integer (required, read-only); `state` ReviewTaskStateEnum (required, read-only); `stage` ReviewTaskStageEnum (required, read-only); `assignee` integer (required, null, read-only); `submitted_by` integer (required, null, read-only); `created` date-time (required, read-only)
+- **ContentPaper**: `id` integer (required, read-only); `code` string (required, read-only); `title` string (required); `book` integer (required, read-only); `book_title` string (required, read-only); `subject_code` string (required, read-only); `tier` TierEnum (required); `number` integer (required); `full_marks` integer (required); `pass_marks` integer (required); `time_text` string (required); `is_published` boolean; `is_sample` boolean; `questions` integer (required, read-only); `drafts` integer (required, read-only)
+- **ContentPaperDetail**: `id` integer (required, read-only); `code` string (required, read-only); `title` string (required); `book` integer (required, read-only); `book_title` string (required, read-only); `subject_code` string (required, read-only); `tier` TierEnum (required); `number` integer (required); `full_marks` integer (required); `pass_marks` integer (required); `time_text` string (required); `is_published` boolean; `is_sample` boolean; `questions` integer (required, read-only); `drafts` integer (required, read-only); `header_json` ContentHeader; `tree` [ContentTreeQuestion] (required, read-only)
+- **ContentQuestion**: `id` integer (required, read-only); `paper` integer (required, read-only); `paper_code` string (required, read-only); `order` integer (required, read-only); `label` string (required, read-only); `number` string (required, read-only); `marks_text` string (required, read-only); `is_published` boolean (required, read-only); `state` ContentStateEnum (required, read-only); `preview` string (required, read-only); `solution` integer (required, null, read-only)
+- **ContentQuestionDetail**: `id` integer (required, read-only); `paper` integer (required, read-only); `paper_code` string (required, read-only); `order` integer (required, read-only); `label` string (required, read-only); `number` string (required, read-only); `marks_text` string (required, read-only); `is_published` boolean (required, read-only); `state` ContentStateEnum (required, read-only); `preview` string (required, read-only); `solution` integer (required, null, read-only); `text_md` string (required, read-only); `table_md` string (required, read-only); `options_json` any (required, read-only); `group_label` string (required, read-only); `part_label` string (required, read-only); `is_alternative` boolean (required, read-only); `tags` [string] (required, read-only); `draft` any (required, read-only); `draft_by` integer (required, null, read-only); `published_at` date-time (required, null, read-only); `published_by` integer (required, null, read-only); `review` object (required, null, read-only)
+- **ContentReport**: `id` integer (required, read-only); `kind` string (required, read-only); `target_id` integer (required, read-only); `subject` string (required, null, read-only); `paper` integer (required, null, read-only); `paper_code` string (required, null, read-only); `question` integer (required, null, read-only); `question_label` string (required, null, read-only); `step` integer (required, null, read-only); `printing` string (required, read-only); `category` ErrorReportCategoryEnum (required, read-only); `note` string (required, read-only); `email` string (required, read-only); `reporter` integer (required, null, read-only); `teacher_verified` boolean (required, read-only); `state` ErrorReportStateEnum (required, read-only); `fixed_in` string (required, read-only); `fixed_at` date-time (required, null, read-only); `resolved_at` date-time (required, null, read-only); `staff_note` string (required, read-only); `reporter_told_at` date-time (required, null, read-only); `public` boolean (required, read-only); `created` date-time (required, read-only); `can_tell` boolean (required, read-only)
+- **ContentReportDetail**: `id` integer (required, read-only); `kind` string (required, read-only); `target_id` integer (required, read-only); `subject` string (required, null, read-only); `paper` integer (required, null, read-only); `paper_code` string (required, null, read-only); `question` integer (required, null, read-only); `question_label` string (required, null, read-only); `step` integer (required, null, read-only); `printing` string (required, read-only); `category` ErrorReportCategoryEnum (required, read-only); `note` string (required, read-only); `email` string (required, read-only); `reporter` integer (required, null, read-only); `teacher_verified` boolean (required, read-only); `state` ErrorReportStateEnum (required, read-only); `fixed_in` string (required, read-only); `fixed_at` date-time (required, null, read-only); `resolved_at` date-time (required, null, read-only); `staff_note` string (required, read-only); `reporter_told_at` date-time (required, null, read-only); `public` boolean (required, read-only); `created` date-time (required, read-only); `can_tell` boolean (required, read-only); `handled_by` integer (required, null, read-only); `linked` ContentLinked (required, read-only)
+- **ContentReview**: `id` integer (required, read-only); `label` string (required, read-only); `kind` string (required, read-only); `target_id` integer (required, read-only); `subject` string (required, null, read-only); `paper` integer (required, null, read-only); `stage` ReviewTaskStageEnum (required, read-only); `state` ReviewTaskStateEnum (required, read-only); `assignee` integer (required, null, read-only); `submitted_by` integer (required, null, read-only); `edited_by` integer (required, null, read-only); `approved_by` integer (required, null, read-only); `approved_at` date-time (required, null, read-only); `published_by` integer (required, null, read-only); `published_at` date-time (required, null, read-only); `rolled_back_by` integer (required, null, read-only); `rolled_back_at` date-time (required, null, read-only); `created` date-time (required, read-only); `fields_changed` [string] (required, read-only); `yours` boolean (required, read-only)
+- **ContentReviewDetail**: `id` integer (required, read-only); `label` string (required, read-only); `kind` string (required, read-only); `target_id` integer (required, read-only); `subject` string (required, null, read-only); `paper` integer (required, null, read-only); `stage` ReviewTaskStageEnum (required, read-only); `state` ReviewTaskStateEnum (required, read-only); `assignee` integer (required, null, read-only); `submitted_by` integer (required, null, read-only); `edited_by` integer (required, null, read-only); `approved_by` integer (required, null, read-only); `approved_at` date-time (required, null, read-only); `published_by` integer (required, null, read-only); `published_at` date-time (required, null, read-only); `rolled_back_by` integer (required, null, read-only); `rolled_back_at` date-time (required, null, read-only); `created` date-time (required, read-only); `fields_changed` [string] (required, read-only); `yours` boolean (required, read-only); `draft` any (required, read-only); `previous` any (required, read-only); `comments` [ContentComment] (required, read-only); `changes` [ContentChange] (required, read-only); `question` integer (required, null, read-only)
+- **ContentSolution**: `id` integer (required, read-only); `question` integer (required, read-only); `question_label` string (required, read-only); `paper` integer (required, read-only); `paper_code` string (required, read-only); `state` ContentStateEnum (required, read-only); `preview` string (required, read-only)
+- **ContentSolutionDetail**: `id` integer (required, read-only); `question` integer (required, read-only); `question_label` string (required, read-only); `paper` integer (required, read-only); `paper_code` string (required, read-only); `state` ContentStateEnum (required, read-only); `preview` string (required, read-only); `question_text` string (required, read-only); `marks_text` string (required, read-only); `body_md` string (required, read-only); `draft` any (required, read-only); `draft_by` integer (required, null, read-only); `published_at` date-time (required, null, read-only); `published_by` integer (required, null, read-only); `review` object (required, null, read-only)
+- **ContentStateEnum**: one of `draft`, `in_review`, `published`
+- **ContentSubmitRequest**: `assignee` integer (null)
+- **ContentSummary**: `reports_open` ReportsOpen (required); `reviews_waiting` integer (required, null); `reviews_mine` integer (required, null); `drafts` integer (required, null); `legal_deposits_missing` [MissingDeposit] (required, null); `last_import` Job (required, null)
+- **ContentTransitionRequest**: `staff_note` string; `fixed_in` string
+- **ContentTreeQuestion**: `id` integer (required, read-only); `order` integer (required, read-only); `label` string (required, read-only); `number` string (required, read-only); `group_label` string (required, read-only); `part_label` string (required, read-only); `is_alternative` boolean (required, read-only); `marks_text` string (required, read-only); `is_published` boolean (required, read-only); `state` ContentStateEnum (required, read-only); `preview` string (required, read-only); `solution` ContentTreeSolution (required, null, read-only)
+- **ContentTreeSolution**: `id` integer (required, read-only); `state` ContentStateEnum (required, read-only)
+- **ContentVersion**: `id` integer (required); `at` date-time (required); `by` integer (required, null); `reason` string (required, null); `type` ContentVersionTypeEnum (required); `changes` [ContentChange] (required)
+- **ContentVersionPage**: `next` uri (required, null); `previous` uri (required, null); `results` [ContentVersion] (required)
+- **ContentVersionTypeEnum**: one of `+`, `~`, `-`
 - **CourierEnum**: one of `India Post`, `Delhivery`, `Blue Dart`, `Ekart`, `DTDC`, `Xpressbees`, `Other`
 - **Customer**: `id` integer (required, read-only); `email` string (required, read-only); `phone` string (required, read-only); `full_name` string (required); `class_level` any (null); `board` string (required, read-only); `district` string; `under_18` boolean (required, read-only); `status` string (required, read-only); `consent` string (required, read-only); `email_verified` boolean (required, read-only); `login_phone_verified` boolean; `created` date-time (required, read-only); `last_login` date-time (null)
 - **CustomerDetail**: `id` integer (required, read-only); `email` string (required, read-only); `phone` string (required, read-only); `full_name` string (required); `class_level` any (null); `board` string (required, read-only); `district` string; `under_18` boolean (required, read-only); `status` string (required, read-only); `consent` string (required, read-only); `email_verified` boolean (required, read-only); `login_phone_verified` boolean; `created` date-time (required, read-only); `last_login` date-time (null); `roles` [string] (required, read-only); `locked` boolean (required, read-only); `mfa` [string] (required, read-only); `teacher` string (required, read-only); `parent_contact` string (required, read-only); `orders` [object] (required, read-only); `consents` [object] (required, read-only); `sessions` [object] (required, read-only); `deletion_due_at` string (required, null, read-only)
@@ -1495,6 +1578,8 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ErpRunDetail**: `id` integer (required, read-only); `date` date (required, read-only); `state` ErpReconciliationStateEnum (required, read-only); `platform_totals` any (required, read-only); `erp_totals` any (required, read-only); `differences_count` integer (required, read-only); `started_at` date-time (required, read-only); `finished_at` date-time (required, null, read-only); `error` string (required, read-only); `differences` [ErpDifference] (required, read-only)
 - **ErpRunStatus**: `id` integer (required); `date` date (required); `state` string (required); `differences` integer (required); `open_differences` integer (required); `finished_at` date-time (required, null)
 - **ErpStatus**: `enabled` boolean (required); `mode` string (required); `flows` object (required); `pull_stock` boolean (required); `pull_b2b` boolean (required); `stock_projection` boolean (required); `account` ErpAccountStatus (required, null); `outbox` object (required); `oldest_waiting_at` date-time (required, null); `oldest_waiting_seconds` integer (required, null); `held_aggregates` integer (required); `cursors` [ErpCursorStatus] (required); `last_reconciliation` ErpRunStatus (required, null)
+- **ErrorReportCategoryEnum**: one of `wrong_answer`, `typo`, `marks`, `unclear`, `display`, `other`, `item_analysis`
+- **ErrorReportStateEnum**: one of `reported`, `confirmed`, `rejected`, `fixed_online`, `fixed_in_printing`
 - **ExportRequest**: `filters` object
 - **Flag**: `key` string (required); `value` any (required); `effective_from` date-time (required); `changed_by` integer (required, null); `reason` string (required)
 - **Forecast**: `product` string (required, read-only); `title` string (required, read-only); `district` string (null); `week_start` date (required); `p10` double (required); `p50` double (required); `p90` double (required); `n` integer (required, read-only)
@@ -1505,7 +1590,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **Impersonation**: `token` string (required); `expires_at` date-time (required)
 - **InboxCount**: `open` integer (required); `overdue` integer (required)
 - **InboxItem**: `id` integer (required, read-only); `kind` InboxKindEnum (required); `title` string (required); `target_type` string; `target_id` string; `permission` string (required); `assignee` integer (null); `due_at` date-time (null); `overdue` boolean (required, read-only); `snoozed_until` date-time (null); `done_at` date-time (null); `done_by` integer (null); `data` any; `created` date-time
-- **InboxKindEnum**: one of `approval`, `teacher_request`, `deletion_request`, `data_request`, `incident`, `failed_job`, `failed_webhook`, `sync_failed`, `reconciliation`, `shipping_exception`, `dead_letter`, `failed_event`, `integration_down`
+- **InboxKindEnum**: one of `approval`, `teacher_request`, `deletion_request`, `data_request`, `incident`, `failed_job`, `failed_webhook`, `sync_failed`, `reconciliation`, `shipping_exception`, `dead_letter`, `failed_event`, `integration_down`, `review`, `error_report`, `legal_deposit`
 - **Incident**: `id` integer (required, read-only); `title` string (required); `kind` IncidentKindEnum (required); `detected_at` date-time; `noticed_by` integer (required, null, read-only); `description` string; `systems` string; `data_categories` string; `people_affected` integer (null); `children_affected` boolean; `cert_in_due` date-time (required, read-only); `cert_in_overdue` boolean (required, read-only); `cert_in_reported_at` date-time (null); `cert_in_reference` string; `board_due` date-time (required, read-only); `board_overdue` boolean (required, read-only); `board_notified_at` date-time (null); `board_report_at` date-time (null); `board_reference` string; `notice_text` string; `notices_sent` integer; `notices_sent_at` date-time (null); `actions` string; `root_cause` string; `closed_at` date-time (required, null, read-only); `closed_by` integer (required, null, read-only); `created` date-time (required, read-only)
 - **IncidentKindEnum**: one of `data_breach`, `data_leak`, `unauthorised_access`, `malicious_code`, `application_attack`, `denial_of_service`, `loss_of_access`, `other`
 - **IncidentRequest**: `title` string (required); `kind` IncidentKindEnum (required); `detected_at` date-time; `description` string; `systems` string; `data_categories` string; `people_affected` integer (null); `children_affected` boolean; `cert_in_reported_at` date-time (null); `cert_in_reference` string; `board_notified_at` date-time (null); `board_report_at` date-time (null); `board_reference` string; `notice_text` string; `notices_sent` integer; `notices_sent_at` date-time (null); `actions` string; `root_cause` string
@@ -1513,14 +1598,19 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ItemStat**: `item` integer (required); `chapter` integer (required, read-only); `kind` string (required, read-only); `text` string (required, read-only); `n` integer (required); `p` double (null); `discrimination` double (null); `flags` any
 - **Job**: `id` integer (required, read-only); `kind` JobKindEnum (required, read-only); `state` JobStateEnum (required, read-only); `dry_run` boolean (required, read-only); `params` any (required, read-only); `done` integer (required, read-only); `total` integer (required, read-only); `errors` [JobError] (required, read-only); `result` any (required, read-only); `result_url` string (required, null, read-only); `change_request_id` integer (required, null, read-only); `cancel_requested` boolean (required, read-only); `started_by` integer (required, null, read-only); `created` date-time (required, read-only); `started_at` date-time (required, null, read-only); `finished_at` date-time (required, null, read-only)
 - **JobError**: `id` any (required, null); `label` string (required); `message` string (required)
-- **JobKindEnum**: one of `audit_export`, `bulk_action`, `erp_initial_load`
+- **JobKindEnum**: one of `audit_export`, `bulk_action`, `erp_initial_load`, `content_import`
 - **JobStartRequest**: `kind` JobKindEnum (required); `params` object; `dry_run` boolean
 - **JobStateEnum**: one of `queued`, `running`, `done`, `failed`, `cancelled`
+- **LegalDeposit**: `id` integer (required, read-only); `book` integer (required); `book_title` string (required, read-only); `edition` string; `library` LegalDepositLibraryEnum (required); `sent_on` date (required); `proof` string (required); `has_file` boolean (required, read-only); `erp_delivery_note` string; `created_by` integer (required, null, read-only); `created` date-time (required, read-only)
+- **LegalDepositLibraryEnum**: one of `national_library`, `connemara`, `asiatic_society`, `delhi_public_library`
+- **LegalDepositRequest**: `book` integer (required); `edition` string; `library` LegalDepositLibraryEnum (required); `sent_on` date (required); `proof` string (required); `proof_file` binary; `erp_delivery_note` string
 - **LevelEnum**: one of `ok`, `watch`, `act`
 - **Manifest**: `url` uri (required)
 - **ManifestRequestRequest**: `shipments` [integer] (required)
+- **MissingDeposit**: `book` integer (required); `title` string (required); `edition` string (required); `subject` string (required); `published_on` date (required); `due_on` date (required); `overdue` boolean (required); `missing` [LegalDepositLibraryEnum] (required)
 - **NdrActionActionEnum**: one of `re-attempt`, `return`, `fake-attempt`
 - **NdrActionRequest**: `action` NdrActionActionEnum (required); `comments` string (required); `deferred_date` date; `phone` string; `address1` string; `address2` string
+- **NeedsChangesRequest**: `comment` string (required); `field` string
 - **Note**: `id` integer (required, read-only); `target_type` string (required); `target_id` string (required); `author` integer (required, read-only); `body` string (required); `pinned` boolean; `created` date-time (required, read-only)
 - **NoteRequest**: `target_type` string (required); `target_id` string (required); `body` string (required); `pinned` boolean
 - **NullEnum**: null
@@ -1534,6 +1624,13 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **PaginatedCodRemittanceList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [CodRemittance] (required)
 - **PaginatedCodeActivationList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [CodeActivation] (required)
 - **PaginatedCohortStatList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [CohortStat] (required)
+- **PaginatedContentBookList**: `next` uri (null); `previous` uri (null); `results` [ContentBook] (required)
+- **PaginatedContentErratumList**: `next` uri (null); `previous` uri (null); `results` [ContentErratum] (required)
+- **PaginatedContentPaperList**: `next` uri (null); `previous` uri (null); `results` [ContentPaper] (required)
+- **PaginatedContentQuestionList**: `next` uri (null); `previous` uri (null); `results` [ContentQuestion] (required)
+- **PaginatedContentReportList**: `next` uri (null); `previous` uri (null); `results` [ContentReport] (required)
+- **PaginatedContentReviewList**: `next` uri (null); `previous` uri (null); `results` [ContentReview] (required)
+- **PaginatedContentSolutionList**: `next` uri (null); `previous` uri (null); `results` [ContentSolution] (required)
 - **PaginatedCustomerList**: `next` uri (null); `previous` uri (null); `results` [Customer] (required)
 - **PaginatedDataRequestListList**: `next` uri (null); `previous` uri (null); `results` [DataRequestList] (required)
 - **PaginatedDeliveryStatList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [DeliveryStat] (required)
@@ -1547,6 +1644,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **PaginatedIncidentList**: `next` uri (null); `previous` uri (null); `results` [Incident] (required)
 - **PaginatedItemStatList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [ItemStat] (required)
 - **PaginatedJobList**: `next` uri (null); `previous` uri (null); `results` [Job] (required)
+- **PaginatedLegalDepositList**: `next` uri (null); `previous` uri (null); `results` [LegalDeposit] (required)
 - **PaginatedOfferStatList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [OfferStat] (required)
 - **PaginatedParcelList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [Parcel] (required)
 - **PaginatedPersonList**: `next` uri (null); `previous` uri (null); `results` [Person] (required)
@@ -1557,15 +1655,21 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **PaginatedShipmentChargeList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [ShipmentCharge] (required)
 - **PaginatedShippingExceptionList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [ShippingException] (required)
 - **PaginatedStaffInviteList**: `next` uri (null); `previous` uri (null); `results` [StaffInvite] (required)
+- **PaperQr**: `url` uri (required); `png` string (required)
 - **Parcel**: `id` integer (required, read-only); `order` string (required, read-only); `courier` CourierEnum (required, read-only); `tracking_number` string (required, read-only); `tracking_url` uri (required, read-only); `shipped_at` date-time (required, read-only); `delivered_at` date-time (required, null, read-only); `detail` ParcelDetail (required, null, read-only)
 - **ParcelDetail**: `carrier` CarrierEnum (required, read-only); `account` integer (required, null, read-only); `status` any (required, null, read-only); `reference` string (required, read-only); `external_order_id` string (required, read-only); `external_shipment_id` string (required, read-only); `courier_company_id` integer (required, null, read-only); `courier_name` string (required, read-only); `weight_g` integer (required, null, read-only); `length_cm` integer (required, null, read-only); `breadth_cm` integer (required, null, read-only); `height_cm` integer (required, null, read-only); `charged_weight_g` integer (required, null, read-only); `quoted_rate` decimal (required, null, read-only); `cod_amount` decimal (required, null, read-only); `declared_value` decimal (required, null, read-only); `last_event_at` date-time (required, null, read-only); `pickup_location` integer (required, null, read-only); `pickup_date` date (required, null, read-only); `manifested_at` date-time (required, null, read-only); `has_label` boolean (required, read-only); `has_photo` boolean (required, read-only)
 - **ParcelHistory**: `id` integer (required, read-only); `order` string (required, read-only); `courier` CourierEnum (required, read-only); `tracking_number` string (required, read-only); `tracking_url` uri (required, read-only); `shipped_at` date-time (required, read-only); `delivered_at` date-time (required, null, read-only); `detail` ParcelDetail (required, null, read-only); `events` [ShipmentEvent] (required, read-only); `exceptions` [ShippingException] (required, read-only); `charges` [ShipmentCharge] (required, read-only); `cod_remittance` CodRemittance (required, null, read-only)
 - **ParcelStatusEnum**: one of `booked`, `pickup_problem`, `in_transit`, `out_for_delivery`, `delivered`, `delivery_failed`, `returning`, `returned`, `lost_or_damaged`, `cancelled`, `partial`
+- **PatchedContentBookRequest**: `title` string; `subject` integer; `edition` string; `slug` string; `cover` string; `isbn` string; `format` BookFormatEnum; `published_on` date (null)
+- **PatchedContentPaperDetailRequest**: `title` string; `tier` TierEnum; `number` integer; `full_marks` integer; `pass_marks` integer; `time_text` string; `is_published` boolean; `is_sample` boolean; `header_json` ContentHeaderRequest
+- **PatchedContentReportUpdateRequest**: `staff_note` string; `public` boolean; `printing` any; `step` integer (null)
 - **PatchedDataRequestRequest**: `kind` DataRequestKindEnum; `channel` ChannelEnum; `user` integer (null); `requester` string; `summary` string; `received_at` date-time; `assignee` integer (null); `notes` string; `details` any
 - **PatchedIncidentRequest**: `title` string; `kind` IncidentKindEnum; `detected_at` date-time; `description` string; `systems` string; `data_categories` string; `people_affected` integer (null); `children_affected` boolean; `cert_in_reported_at` date-time (null); `cert_in_reference` string; `board_notified_at` date-time (null); `board_report_at` date-time (null); `board_reference` string; `notice_text` string; `notices_sent` integer; `notices_sent_at` date-time (null); `actions` string; `root_cause` string
 - **PatchedPickupLocationRequest**: `nickname` string; `address` string; `city` string; `state` string; `pin_code` string; `phone` string; `is_default` boolean; `active` boolean
 - **PatchedProcessorRequest**: `name` string; `purpose` string; `data_categories` string; `country` string; `contract_signed_on` date (null); `contract_ends_on` date (null); `active` boolean; `notes` string
+- **PatchedQuestionUpdateRequest**: `text_md` string; `table_md` string; `options_json` [string]; `marks_text` string; `group_label` string; `part_label` string; `is_alternative` boolean; `order` integer; `label` string; `tags` [string]
 - **PatchedSavedViewRequest**: `role` string; `list_key` string; `name` string; `filters` any; `columns` any; `sort` any
+- **PatchedSolutionUpdateRequest**: `body_md` string
 - **Person**: `id` integer (required, read-only); `email` email (required); `full_name` string (required); `is_active` boolean; `is_superuser` boolean; `roles` [string] (required, read-only); `grants` [object] (required, read-only); `scopes` [Scope] (required, read-only); `mfa` boolean (required, read-only); `last_login` date-time (null); `created` date-time (required, read-only)
 - **PhotoRequest**: `photo` binary (required)
 - **PickupLocation**: `id` integer (required, read-only); `nickname` string (required); `address` string; `city` string; `state` string; `pin_code` string (required); `phone` string; `is_default` boolean; `active` boolean; `external_id` string (required, read-only)
@@ -1583,10 +1687,13 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ReasonRequest**: `reason` string (required)
 - **ReconcileRequest**: `order` string (required)
 - **Reconciled**: `order` string (required); `paid` boolean (required, null)
+- **ReportsOpen**: `total` integer (required); `by_category` object (required)
 - **ResolveRequest**: `resolution` string (required); `dismiss` boolean
 - **ResponseText**: `subject` string (required); `body` string (required)
 - **RevealRequest**: `show` [ShowEnum] (required); `reason` string (required)
 - **Revealed**: `email` string (null); `phone` string (null); `login_phone` string (null); `parent_contact` string (null); `parent_name` string (null); `date_of_birth` string (null)
+- **ReviewTaskStageEnum**: one of `check`, `publish`
+- **ReviewTaskStateEnum**: one of `in_progress`, `approved`, `needs_changes`, `cancelled`
 - **RoleEnum**: one of `ADMIN`, `AUDITOR`, `CONTENT_EDITOR`, `FINANCE`, `MARKETING`, `OWNER`, `PACKER`, `REVIEWER`, `SALES`, `SALES_REP`, `SUPPORT`
 - **SavedView**: `id` integer (required, read-only); `owner` integer (required, read-only); `role` string; `list_key` string (required); `name` string (required); `filters` any; `columns` any; `sort` any; `created` date-time (required, read-only); `modified` date-time (required, read-only)
 - **SavedViewRequest**: `role` string; `list_key` string (required); `name` string (required); `filters` any; `columns` any; `sort` any
@@ -1614,6 +1721,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **StaffUser**: `id` integer (required); `email` email (required); `full_name` string (required); `is_superuser` boolean (required)
 - **SwitchChangeRequest**: `value` any (required, null); `reason` string (required); `effective_from` date-time
 - **SwitchRow**: `key` string (required); `value` any (required); `effective_from` date-time (required); `changed_by` integer (required, null); `reason` string (required); `created` date-time (required)
+- **TierEnum**: one of `E`, `M`, `H`
 - **TokenRequest**: `token` string (required)
 - **Unlocked**: `attempts_cleared` integer (required)
 - **VerifyIdentityRequest**: `note` string (required)

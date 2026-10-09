@@ -5,7 +5,7 @@ from drf_spectacular import openapi
 
 AREAS = {  # the first part of the path (after /api/v1/), by area; "auth" and "learn" are areas already
     **dict.fromkeys(["me", "devices"], "account"),
-    **dict.fromkeys(["boards", "subjects", "books", "papers", "qr"], "catalogue"),
+    **dict.fromkeys(["boards", "subjects", "books", "papers", "qr", "reports", "errata"], "catalogue"),
     "attempts": "record",
     **dict.fromkeys(["products", "categories", "collections", "cart", "addresses", "orders", "quotes"], "shop"),
     **dict.fromkeys(["config", "pages"], "site"),

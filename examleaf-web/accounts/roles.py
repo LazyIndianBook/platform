@@ -75,6 +75,10 @@ INBOX = ["staff.view_inbox", *crud("staff", ["savedview"], ["view", "add", "chan
 PANEL = [*INBOX, "staff.view_changerequest", "staff.view_job", "staff.add_job", "staff.view_note", "staff.add_note"]
 CONTENT = ["book", "paper", "question", "solution"]
 COURSE = ["chapter", "revision", "clip", "flashcard", "quizitem"]
+# the content module's queues (content/README.md): the reviews, the reported mistakes and their triage, the deposits
+CONTENT_PANEL = [
+    *["content.view_reviewtask", "content.view_errorreport", "staff.triage_report", "content.view_legaldeposit"]
+]
 ORDERS = ["order", "orderitem", "orderdiscount", "ordernote", "payment", "refund", "invoice", "creditnote", "shipment"]
 
 ROLES = {
@@ -90,6 +94,10 @@ ROLES = {
         "shop.view_slughistory",
         # the revision course's content (learn, Phase 6 D); not its learners' data (entitlements, progress, devices)
         *crud("learn", COURSE, ["view", "add", "change", "delete"]),
+        # the panel's content module (content/README.md): drafts go to review, reported mistakes are triaged here,
+        # legal deposits recorded; within the person's subjects (StaffScope)
+        *CONTENT_PANEL,
+        "content.add_legaldeposit",
         *PANEL,
     ],
     SALES: [  # the shop: prices and stock, coupons, offers, shipping rates; storefront orders and payments. Packing
@@ -127,6 +135,7 @@ ROLES = {
         "staff.view_parcels",  # "where is my parcel?": the parcel's timeline and its exceptions (the plan, 5.7)
         *crud("learn", ["entitlement"]),  # a course opened by hand (a lost book code, a school's pupils)
         "learn.view_bookcode",
+        "content.view_errorreport",  # the mistakes readers report: to answer "did you get my report?"
         # the panel: masked contacts revealed with a reason (logged), the account actions, data requests, refunds
         # asked for (within ROLE_LIMITS; above them FINANCE approves), a second factor reset (a second person approves)
         *["staff.reveal_contact", "staff.unlock_user", "staff.resend_verification", "staff.end_user_sessions"],
@@ -159,6 +168,9 @@ ROLES = {
         *crud("content", CONTENT, ["view"]),
         *crud("learn", COURSE, ["view"]),
         "staff.publish_paper",
+        # approve, publish and roll back drafts, triage reported mistakes, import from the books repository
+        *CONTENT_PANEL,
+        "staff.import_content",
         *PANEL,
     ],
     MARKETING: [  # coupons and offers (approval above ROLE_LIMITS' discount), reviews

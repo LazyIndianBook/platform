@@ -126,6 +126,52 @@ ENDPOINTS = [
     ("post", "system/reconcile/", "staff.replay_webhook"),
     ("get", "notes/?target_type=accounts.user&target_id={customer}", "staff.view_note"),  # (and the record's own)
     ("post", "notes/", "staff.add_note"),
+    # Content (Phase B): content/staff_api.py
+    ("get", "content/summary/", "content.view_errorreport"),
+    ("get", "content/books/", "content.view_book"),
+    ("post", "content/books/", "content.add_book"),
+    ("get", "content/books/{book}/", "content.view_book"),
+    ("patch", "content/books/{book}/", "content.change_book"),
+    ("get", "content/books/{book}/history/", "content.view_book"),
+    ("post", "content/books/{book}/history/{book_version}/restore/", "content.change_book"),
+    ("get", "content/papers/", "content.view_paper"),
+    ("get", "content/papers/{paper}/", "content.view_paper"),
+    ("patch", "content/papers/{paper}/", "content.change_paper"),
+    ("get", "content/papers/{paper}/history/", "content.view_paper"),
+    ("post", "content/papers/{paper}/history/{paper_version}/restore/", "content.change_paper"),
+    ("get", "content/papers/{paper}/qr/", "content.view_paper"),
+    *[
+        row
+        for model in ["question", "solution"]
+        for row in [
+            ("get", f"content/{model}s/", f"content.view_{model}"),
+            ("get", f"content/{model}s/{{{model}}}/", f"content.view_{model}"),
+            ("patch", f"content/{model}s/{{{model}}}/", f"content.change_{model}"),
+            ("get", f"content/{model}s/{{{model}}}/history/", f"content.view_{model}"),
+            ("post", f"content/{model}s/{{{model}}}/history/{{{model}_version}}/restore/", f"content.change_{model}"),
+            ("post", f"content/{model}s/{{{model}}}/submit/", f"content.change_{model}"),
+            ("post", f"content/{model}s/{{{model}}}/discard/", f"content.change_{model}"),
+            ("post", f"content/{model}s/{{{model}}}/rollback/", "staff.publish_paper"),
+        ]
+    ],
+    ("get", "content/reviews/", "content.view_reviewtask"),
+    ("get", "content/reviews/{review}/", "content.view_reviewtask"),
+    *[("post", f"content/reviews/{{review}}/{verb}/", "staff.publish_paper") for verb in ["approve", "needs-changes"]],
+    ("post", "content/reviews/{review}/publish/", "staff.publish_paper"),
+    ("get", "content/reports/", "content.view_errorreport"),
+    ("get", "content/reports/{report}/", "content.view_errorreport"),
+    ("patch", "content/reports/{report}/", "staff.triage_report"),
+    *[
+        ("post", f"content/reports/{{report}}/{verb}/", "staff.triage_report")
+        for verb in ["confirm", "reject", "fix-online", "fix-in-printing", "reopen", "tell"]
+    ],
+    ("get", "content/errata/", "content.view_errorreport"),
+    ("get", "content/imports/", "content.view_paper"),
+    ("get", "content/legal-deposits/", "content.view_legaldeposit"),
+    ("post", "content/legal-deposits/", "content.add_legaldeposit"),
+    ("get", "content/legal-deposits/missing/", "content.view_legaldeposit"),
+    ("get", "content/legal-deposits/{deposit}/", "content.view_legaldeposit"),
+    ("get", "content/legal-deposits/{deposit}/proof/", "content.view_legaldeposit"),  # 404 without a scan
     ("post", "people/{person}/offboard/", "staff.assign_role"),  # last: the person goes
 ]
 WHO = sorted(roles.STAFF_ROLES)  # one member of staff per role (OWNER: the founder), and a break-glass account
@@ -178,6 +224,43 @@ def objects():
         "processor": ProcessorRecord.objects.create(
             name="Razorpay", purpose="payments", data_categories="orders", country="India"
         ).pk,  # fmt: skip
+        **content_objects(),
+    }
+
+
+def content_objects():
+    """A paper with a question and a solution whose draft waits in a review (someone else's edit), a reported
+    mistake, a legal deposit, and a version of each record."""
+    from content.conftest import make_paper
+    from content.models import ErrorReport, LegalDeposit, ReviewTask, Solution
+
+    paper = make_paper()
+    solution = Solution.objects.get(question__paper=paper)
+    editor = make_staff(roles.CONTENT_EDITOR)
+    Solution.objects.filter(pk=solution.pk).update(draft={"body_md": "$x = 1$"}, state="in_review", draft_by=editor)
+    review = ReviewTask.objects.create(
+        target=solution, subject=paper.book.subject, paper=paper, label="PHY-E01 2(c), solution",
+        draft={"body_md": "$x = 1$"}, submitted_by=editor, edited_by=editor,
+    )  # fmt: skip
+    report = ErrorReport.objects.create(
+        target=solution, subject=paper.book.subject, paper=paper, question=solution.question, category="typo"
+    )
+    deposit = LegalDeposit.objects.create(
+        book=paper.book, edition=paper.book.edition, library="connemara", sent_on=timezone.localdate(), proof="Post"
+    )
+    version = lambda obj: obj.history.order_by("-history_id").first().history_id  # noqa: E731
+    return {
+        "book": paper.book.pk,
+        "book_version": version(paper.book),
+        "paper": paper.pk,
+        "paper_version": version(paper),
+        "question": solution.question.pk,
+        "question_version": version(solution.question),
+        "solution": solution.pk,
+        "solution_version": version(solution),
+        "review": review.pk,
+        "report": report.pk,
+        "deposit": deposit.pk,
     }
 
 

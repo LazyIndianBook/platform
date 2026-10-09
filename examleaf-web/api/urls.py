@@ -10,7 +10,7 @@ from insights import api as insights
 from shipping import api as shipping
 from staff import api as staff
 
-from . import auth, learn, parent_link, shop, views
+from . import auth, learn, parent_link, reports, shop, views
 
 router = SimpleRouter()
 router.register("boards", views.BoardViewSet)
@@ -65,6 +65,8 @@ urlpatterns = [
     path("config/", views.ConfigView.as_view(), name="config"),
     path("contact/", views.ContactView.as_view(), name="contact"),  # the contact form
     path("qr/<str:code>/", views.QrView.as_view(), name="qr"),
+    path("reports/", reports.ReportView.as_view(), name="reports"),  # Report a mistake (content.reports)
+    path("errata/", reports.ErrataView.as_view(), name="errata"),
     path("orders/t/<slug:token>/", shop.OrderLinkView.as_view(), name="order-link"),  # the emails' link
     path("orders/t/<slug:token>/payment/", link({"post": "payment"}), name="order-link-payment"),  # a guest's order
     path("orders/t/<slug:token>/payment/confirm/", link({"post": "payment_confirm"}), name="order-link-confirm"),

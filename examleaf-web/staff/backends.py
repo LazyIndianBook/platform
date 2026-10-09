@@ -56,11 +56,18 @@ MODEL_SCOPES = {
     },
     "shop.quoterequest": {SCHOOL: "school"},
     "accounts.teacherprofile": {SCHOOL: "school_name"},
-    "staff.inboxitem": {TICKET_QUEUE: "kind"},
+    # the content module's queues by their subject; an inbox item names its subject when it has one (a review, a
+    # reported mistake, a legal deposit: content/), and the rest stay in every subject's reach ("?")
+    "content.reviewtask": _content("subject__"),
+    "content.errorreport": _content("subject__"),
+    "content.legaldeposit": _content("book__subject__"),
+    "staff.inboxitem": {TICKET_QUEUE: "kind", SUBJECT: "data__subject?"},
 }
 
 
 def _condition(kind, path, values):
+    if path.endswith("?"):  # a JSON key some rows lack: those stay in reach
+        return _condition(kind, path[:-1], values) | Q(**{f"{path[:-1]}__isnull": True})
     if kind == BOARD_CLASS:  # "ASSEB:12": the board's short name and the class
         condition = Q(pk__in=[])
         for value in values:
