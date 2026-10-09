@@ -4,6 +4,34 @@
  */
 
 export interface paths {
+    "/api/v1/account/impersonate/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The website's side of logging in as a customer (research 2.7), `/api/v1/account/impersonate/` of the account API
+         *     (not the staff API: the website's host). POST the token of the panel's `users/<id>/impersonate/` (the token is the
+         *     credential: no sign-in needed): once per token, within its 15 minutes, the browser is logged in as the customer
+         *     until then, in a session marked as staff's (staff.services.accept_impersonation). DELETE ends it.
+         */
+        post: operations["account_impersonate_create"];
+        /**
+         * @description The website's side of logging in as a customer (research 2.7), `/api/v1/account/impersonate/` of the account API
+         *     (not the staff API: the website's host). POST the token of the panel's `users/<id>/impersonate/` (the token is the
+         *     credential: no sign-in needed): once per token, within its 15 minutes, the browser is logged in as the customer
+         *     until then, in a session marked as staff's (staff.services.accept_impersonation). DELETE ends it.
+         */
+        delete: operations["account_impersonate_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/addresses/": {
         parameters: {
             query?: never;
@@ -757,6 +785,23 @@ export interface paths {
         get: operations["insights_fraud_signals_list"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/insights/fraud-signals/{id}/acknowledge/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Looked at and handled: the signal leaves `?open=1`. Once (again: the same answer); the audit log keeps who. */
+        post: operations["insights_fraud_signals_acknowledge_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1815,7 +1860,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Cash on delivery: expected, overdue, remitted, mismatched (filter state). */
+        /** @description Cash on delivery: expected, overdue, remitted, mismatched (filter state); reconcile one with the bank. */
         get: operations["shipping_cod_list"];
         put?: never;
         post?: never;
@@ -1832,10 +1877,30 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Cash on delivery: expected, overdue, remitted, mismatched (filter state). */
+        /** @description Cash on delivery: expected, overdue, remitted, mismatched (filter state); reconcile one with the bank. */
         get: operations["shipping_cod_retrieve"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping/cod/{id}/reconcile/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The bank's credit for this parcel's cash, matched by its UTR: remitted at the amount expected, otherwise a
+         *     mismatch (and its exception).
+         */
+        post: operations["shipping_cod_reconcile_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3187,6 +3252,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/staff/notes/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Notes on a record, its timeline's: GET `?target_type=&target_id=` (both), pinned first, all of them; POST one.
+         *     Only on a record you may see (else 404). The audit log names the record and the note's number, never its body.
+         */
+        get: operations["staff_notes_list"];
+        put?: never;
+        /**
+         * @description Notes on a record, its timeline's: GET `?target_type=&target_id=` (both), pinned first, all of them; POST one.
+         *     Only on a record you may see (else 404). The audit log names the record and the note's number, never its body.
+         */
+        post: operations["staff_notes_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/staff/people/": {
         parameters: {
             query?: never;
@@ -3435,6 +3524,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/staff/policies/ack/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The policies staff acknowledge (research 6: acceptable use, children's data, confidentiality, incident
+         *     reporting), each version once: GET your acknowledgements (`?user=` someone else's, with staff.view_staff); POST
+         *     `{policy, version}`, the version in force (STAFF_POLICIES; the manifest's `policies_due` lists what waits).
+         */
+        get: operations["staff_policies_ack_list"];
+        put?: never;
+        /**
+         * @description The policies staff acknowledge (research 6: acceptable use, children's data, confidentiality, incident
+         *     reporting), each version once: GET your acknowledgements (`?user=` someone else's, with staff.view_staff); POST
+         *     `{policy, version}`, the version in force (STAFF_POLICIES; the manifest's `policies_due` lists what waits).
+         */
+        post: operations["staff_policies_ack_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/staff/processors/": {
         parameters: {
             query?: never;
@@ -3526,6 +3641,27 @@ export interface paths {
         get: operations["staff_session_retrieve"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/session/reason/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A break-glass session's reason (research 1.6), once, before anything else opens (`break_glass.reason_required`
+         *     in the manifest): kept on the session, in every audit event of the session (`details.break_glass_reason`), and sent
+         *     to the owners. The session ends STAFF_BREAK_GLASS_HOURS after its log-in, however busy.
+         */
+        post: operations["staff_session_reason_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4259,6 +4395,10 @@ export interface components {
             tracking_number?: string;
             tracking_url?: string;
         };
+        BreakGlassReasonRequest: {
+            /** @description why nothing else works: the owners read it */
+            reason: string;
+        };
         BundleItem: {
             readonly product: string;
             readonly title: string;
@@ -4599,6 +4739,20 @@ export interface components {
             outcome: components["schemas"]["DataRequestOutcomeEnum"];
             /** @description the answer sent, as sent */
             response: string;
+        };
+        CodReconcileRequest: {
+            /** @description the bank credit's UTR */
+            utr: string;
+            /**
+             * Format: decimal
+             * @description what the credit gave for this parcel
+             */
+            amount: string;
+            /**
+             * Format: date
+             * @description the credit's day; today by default
+             */
+            on?: string;
         };
         CodRemittance: {
             readonly id: number;
@@ -5378,6 +5532,19 @@ export interface components {
             /** @description the support ticket or mail it answers */
             ticket: string;
         };
+        ImpersonatedUser: {
+            id: number;
+            /** @description masked */
+            email: string;
+        };
+        Impersonating: {
+            /**
+             * Format: date-time
+             * @description the session ends then
+             */
+            until: string;
+            user: components["schemas"]["ImpersonatedUser"];
+        };
         Impersonation: {
             /** @description for the website's account area; 15 minutes */
             token: string;
@@ -5422,9 +5589,13 @@ export interface components {
          *     * `failed_webhook` - failed webhook
          *     * `sync_failed` - ERPNext refused a document (a dead letter)
          *     * `reconciliation` - ERPNext reconciliation differences
+         *     * `shipping_exception` - parcel exception
+         *     * `dead_letter` - integration task given up
+         *     * `failed_event` - provider event not processed
+         *     * `integration_down` - integration unavailable
          * @enum {string}
          */
-        InboxKindEnum: "approval" | "teacher_request" | "deletion_request" | "data_request" | "incident" | "failed_job" | "failed_webhook" | "sync_failed" | "reconciliation";
+        InboxKindEnum: "approval" | "teacher_request" | "deletion_request" | "data_request" | "incident" | "failed_job" | "failed_webhook" | "sync_failed" | "reconciliation" | "shipping_exception" | "dead_letter" | "failed_event" | "integration_down";
         Incident: {
             readonly id: number;
             title: string;
@@ -5781,6 +5952,24 @@ export interface components {
             days: components["schemas"]["PlanDay"][];
             /** @description why there are no days; empty when there are */
             hint: string;
+        };
+        Note: {
+            readonly id: number;
+            /** @description app_label.model, e.g. shop.order */
+            target_type: string;
+            target_id: string;
+            readonly author: number;
+            body: string;
+            pinned?: boolean;
+            /** Format: date-time */
+            readonly created: string;
+        };
+        NoteRequest: {
+            /** @description app_label.model, e.g. shop.order */
+            target_type: string;
+            target_id: string;
+            body: string;
+            pinned?: boolean;
         };
         /** @enum {unknown} */
         NullEnum: null;
@@ -6617,21 +6806,6 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["ShipmentCharge"][];
         };
-        PaginatedShipmentEventList: {
-            /** @example 123 */
-            count: number;
-            /**
-             * Format: uri
-             * @example http://api.example.org/accounts/?page=4
-             */
-            next?: string | null;
-            /**
-             * Format: uri
-             * @example http://api.example.org/accounts/?page=2
-             */
-            previous?: string | null;
-            results: components["schemas"]["ShipmentEvent"][];
-        };
         PaginatedShippingExceptionList: {
             /** @example 123 */
             count: number;
@@ -7231,6 +7405,18 @@ export interface components {
          * @enum {string}
          */
         PlatformEnum: "android" | "ios";
+        PolicyAcknowledgement: {
+            readonly id: number;
+            readonly user: number;
+            policy: string;
+            version: string;
+            /** Format: date-time */
+            readonly acknowledged_at: string;
+        };
+        PolicyAcknowledgementRequest: {
+            policy: string;
+            version: string;
+        };
         PostalPrice: {
             service: string;
             label: string;
@@ -8020,6 +8206,16 @@ export interface components {
             /** @description rendered by the site; $…$ maths left for KaTeX */
             readonly html: string;
         };
+        StaffBreakGlass: {
+            /** @description true: POST session/reason/ before anything else */
+            reason_required: boolean;
+            reason: string | null;
+            /**
+             * Format: date-time
+             * @description its log-in + STAFF_BREAK_GLASS_HOURS, however busy
+             */
+            ends_at: string;
+        };
         StaffCatalogue: {
             /** @description perm, label, area, risk … */
             permissions: {
@@ -8052,6 +8248,7 @@ export interface components {
             revoked_at?: string | null;
         };
         StaffManifest: {
+            break_glass: components["schemas"]["StaffBreakGlass"] | null;
             user: components["schemas"]["StaffUser"];
             /** @description name, expires_at, granted_by */
             roles: {
@@ -8075,6 +8272,10 @@ export interface components {
             flags: {
                 [key: string]: unknown;
             };
+            /** @description policy, version: not acknowledged yet (POST policies/ack/) */
+            policies_due: {
+                [key: string]: unknown;
+            }[];
             /** Format: date-time */
             reauth_valid_until: string | null;
             idle_timeout_s: number;
@@ -8272,6 +8473,47 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    account_impersonate_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TokenRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Impersonating"];
+                };
+            };
+        };
+    };
+    account_impersonate_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     addresses_list: {
         parameters: {
             query?: {
@@ -9499,6 +9741,27 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PaginatedFraudSignalList"];
+                };
+            };
+        };
+    };
+    insights_fraud_signals_acknowledge_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FraudSignal"];
                 };
             };
         };
@@ -11062,6 +11325,32 @@ export interface operations {
             };
         };
     };
+    shipping_cod_reconcile_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this cod remittance. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CodReconcileRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodRemittance"];
+                };
+            };
+        };
+    };
     shipping_exceptions_list: {
         parameters: {
             query?: {
@@ -11330,16 +11619,7 @@ export interface operations {
     };
     shipping_pickup_locations_sync_create: {
         parameters: {
-            query?: {
-                /** @description Which field to use when ordering the results. */
-                ordering?: string;
-                /** @description A page number within the paginated result set. */
-                page?: number;
-                /** @description Number of results to return per page. */
-                page_size?: number;
-                /** @description A search term. */
-                search?: string;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -11351,7 +11631,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PaginatedPickupLocationList"];
+                    "application/json": components["schemas"]["PickupLocation"][];
                 };
             };
         };
@@ -11550,37 +11830,7 @@ export interface operations {
     };
     shipping_shipments_events_list: {
         parameters: {
-            query?: {
-                /**
-                 * @description * `manual` - by hand (staff type the courier and number)
-                 *     * `shiprocket` - Shiprocket
-                 */
-                carrier?: "manual" | "shiprocket";
-                courier_company_id?: number;
-                order?: string;
-                /** @description Which field to use when ordering the results. */
-                ordering?: string;
-                /** @description A page number within the paginated result set. */
-                page?: number;
-                /** @description Number of results to return per page. */
-                page_size?: number;
-                /** @description A search term. */
-                search?: string;
-                /**
-                 * @description * `booked` - booked
-                 *     * `pickup_problem` - pickup problem
-                 *     * `in_transit` - in transit
-                 *     * `out_for_delivery` - out for delivery
-                 *     * `delivered` - delivered
-                 *     * `delivery_failed` - delivery failed
-                 *     * `returning` - returning to us
-                 *     * `returned` - returned to us
-                 *     * `lost_or_damaged` - lost or damaged
-                 *     * `cancelled` - cancelled
-                 *     * `partial` - partly delivered
-                 */
-                status?: "booked" | "cancelled" | "delivered" | "delivery_failed" | "in_transit" | "lost_or_damaged" | "out_for_delivery" | "partial" | "pickup_problem" | "returned" | "returning" | null;
-            };
+            query?: never;
             header?: never;
             path: {
                 /** @description A unique integer value identifying this shipment. */
@@ -11595,7 +11845,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PaginatedShipmentEventList"];
+                    "application/json": components["schemas"]["ShipmentEvent"][];
                 };
             };
         };
@@ -12853,8 +13103,12 @@ export interface operations {
                  *     * `failed_webhook` - failed webhook
                  *     * `sync_failed` - ERPNext refused a document (a dead letter)
                  *     * `reconciliation` - ERPNext reconciliation differences
+                 *     * `shipping_exception` - parcel exception
+                 *     * `dead_letter` - integration task given up
+                 *     * `failed_event` - provider event not processed
+                 *     * `integration_down` - integration unavailable
                  */
-                kind?: "approval" | "data_request" | "deletion_request" | "failed_job" | "failed_webhook" | "incident" | "reconciliation" | "sync_failed" | "teacher_request";
+                kind?: "approval" | "data_request" | "dead_letter" | "deletion_request" | "failed_event" | "failed_job" | "failed_webhook" | "incident" | "integration_down" | "reconciliation" | "shipping_exception" | "sync_failed" | "teacher_request";
                 /** @description true: assigned to me */
                 mine?: boolean;
                 /** @description Number of results to return per page. */
@@ -13263,6 +13517,53 @@ export interface operations {
             };
         };
     };
+    staff_notes_list: {
+        parameters: {
+            query: {
+                /** @description its id */
+                target_id: string;
+                /** @description app_label.model, e.g. shop.order */
+                target_type: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Note"][];
+                };
+            };
+        };
+    };
+    staff_notes_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoteRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Note"];
+                };
+            };
+        };
+    };
     staff_people_list: {
         parameters: {
             query?: {
@@ -13572,6 +13873,59 @@ export interface operations {
             };
         };
     };
+    staff_policies_ack_list: {
+        parameters: {
+            query?: {
+                /** @description someone else's (staff.view_staff) */
+                user?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyAcknowledgement"][];
+                };
+            };
+        };
+    };
+    staff_policies_ack_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PolicyAcknowledgementRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyAcknowledgement"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyAcknowledgement"];
+                };
+            };
+        };
+    };
     staff_processors_list: {
         parameters: {
             query?: {
@@ -13872,6 +14226,29 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StaffManifest"];
+                };
+            };
+        };
+    };
+    staff_session_reason_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BreakGlassReasonRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffBreakGlass"];
                 };
             };
         };

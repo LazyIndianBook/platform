@@ -17,6 +17,8 @@ vi.mock("@/lib/api/staff", async (original) => ({
   acknowledgePolicy: vi.fn(),
 }));
 
+const ends_at = "2026-10-09T12:00:00Z"; // the break-glass box's end
+
 const gate = (extra: Partial<Manifest>) =>
   render(
     <ManifestProvider manifest={manifestWith([], extra)}>
@@ -34,15 +36,18 @@ beforeEach(() => {
 
 describe("SessionGate", () => {
   it("draws nothing when nothing is owed", () => {
-    const { container } = gate({ break_glass: { reason_required: false }, policies_due: [] });
+    const { container } = gate({
+      break_glass: { reason_required: false, reason: "Lost phone.", ends_at },
+      policies_due: [],
+    });
     expect(container).toBeEmptyDOMElement();
   });
 
   it("asks a break-glass session for its reason first, and keeps asking through Escape", async () => {
-    vi.mocked(giveSessionReason).mockResolvedValueOnce(undefined);
+    vi.mocked(giveSessionReason).mockResolvedValueOnce({} as never);
     gate({
-      break_glass: { reason_required: true },
-      policies_due: [{ policy: "handbook", version: "2026-10", title: "The staff handbook" }],
+      break_glass: { reason_required: true, reason: null, ends_at },
+      policies_due: [{ policy: "acceptable_use", version: "2026-10" }],
     });
     const dialog = screen.getByRole("alertdialog", { name: "Why is a break-glass account needed?" });
     expect(screen.queryByText("Read and acknowledge")).toBeNull();
@@ -55,16 +60,14 @@ describe("SessionGate", () => {
   });
 
   it("then asks for each policy due to be acknowledged", async () => {
-    vi.mocked(acknowledgePolicy).mockResolvedValue(undefined);
+    vi.mocked(acknowledgePolicy).mockResolvedValue({} as never);
     const policies = [
-      { policy: "handbook", version: "2026-10", title: "The staff handbook", url: "https://examleaf.in/handbook/" },
-      { policy: "privacy", version: "3", title: "Handling personal data" },
+      { policy: "acceptable_use", version: "2026-10" },
+      { policy: "childrens_data", version: "3" },
     ];
     gate({ policies_due: policies });
-    expect(screen.getByRole("link", { name: /^Read The staff handbook/ })).toHaveAttribute(
-      "href",
-      "https://examleaf.in/handbook/",
-    );
+    expect(screen.getByText("Acceptable use")).toBeInTheDocument(); // STAFF_POLICIES' key, as words
+    expect(screen.getByText("(version 3)")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "I have read them and will follow them" }));
     expect(acknowledgePolicy).toHaveBeenCalledTimes(2);
     expect(acknowledgePolicy).toHaveBeenCalledWith(policies[1]);

@@ -15,6 +15,8 @@ export function manifestWith(permissions: string[], extra: Partial<Manifest> = {
     idle_timeout_s: 1800,
     absolute_expires_at: "2026-10-09T17:59:00Z",
     impersonating: null,
+    break_glass: null,
+    policies_due: [],
     manifest_version: "test",
     ...extra,
   };

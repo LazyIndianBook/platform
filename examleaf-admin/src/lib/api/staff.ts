@@ -24,41 +24,15 @@ import type { components, paths } from "./schema";
 
 export type Schemas = components["schemas"];
 
-// ---- What the backend has not published yet (its contract as given; mocked in src/mocks/staff/). Once `npm run
-// api:types` brings one, delete it here: the generated one takes its place and any difference is a type error. ----
-
-type Json<T> = { content: { "application/json": T } };
-type Operation<Query, Body, Answer> = {
-  parameters: { query?: Query; header?: never; path?: never; cookie?: never };
-  requestBody?: Body extends never ? never : Json<Body>;
-  responses: { 200: Json<Answer>; 201: Json<Answer> };
-};
-
 /** A note on a record (plan 7.1): personal data too, so it goes into the person's access export. */
-export type Note = {
-  id: number;
-  target_type: string;
-  target_id: string;
-  author: number | null;
-  body: string;
-  created: string;
-};
-/** A policy the person has not acknowledged in its current version. */
-export type PolicyDue = { policy: string; version: string; title: string; url?: string | null };
+export type Note = Schemas["Note"];
+/** A policy the person has not acknowledged in its current version (the manifest's `policies_due`, which the schema
+ *  types as a map: STAFF_POLICIES' key and the version in force). */
+export type PolicyDue = { policy: string; version: string };
 /** A break-glass session (research 1.6): its reason, asked before anything else, and the end of its box. */
-export type BreakGlass = { reason_required: boolean; reason?: string | null; until?: string | null };
+export type BreakGlass = Schemas["StaffBreakGlass"];
 
-type NotePage = { next?: string | null; previous?: string | null; results: Note[] };
-
-type Pending = {
-  "/api/v1/staff/notes/": {
-    get: Operation<{ target_type: string; target_id: string; cursor?: string }, never, NotePage>;
-    post: Operation<never, { target_type: string; target_id: string; body: string }, Note>;
-  };
-  "/api/v1/staff/policies/ack/": { post: Operation<never, { policy: string; version: string }, unknown> };
-  "/api/v1/staff/session/reason/": { post: Operation<never, { reason: string }, unknown> };
-};
-const api = createClient<paths & Pending>({ credentials: "same-origin" });
+const api = createClient<paths>({ credentials: "same-origin" });
 
 // ---- The transport and the answers ----
 
@@ -138,7 +112,8 @@ async function send<A extends Answer>(
       if (error.status === 401) sessionEnded(endedBy(error.code));
       if (error.code === "reauth_required" && !retried && (await reauth.request(flowsOf(body))))
         return send(transport, ask, signal, true);
-      if (error.code === "permission_denied") manifestStale();
+      // a refusal by permission, or a break-glass session that owes its reason: the manifest, read again, says which
+      if (error.code === "permission_denied" || error.code === "break_glass_reason_required") manifestStale();
     }
     throw error;
   }
@@ -181,11 +156,9 @@ const once = () => ({ "Idempotency-Key": crypto.randomUUID() });
 
 // ---- The session manifest (GET session/): what the shell draws from ----
 
-export type Manifest = Schemas["StaffManifest"] & {
-  /** Not in the schema yet: a break-glass session's reason (asked before anything else). */
-  break_glass?: BreakGlass | null;
-  /** Not in the schema yet: the policies to acknowledge, once each version. */
-  policies_due?: PolicyDue[];
+export type Manifest = Omit<Schemas["StaffManifest"], "policies_due"> & {
+  /** The policies to acknowledge, once each version. */
+  policies_due: PolicyDue[];
 };
 export type Limits = { refund_inr: number | null; export_rows: number | null; bulk_rows: number | null };
 
@@ -547,7 +520,7 @@ export async function endImpersonation(userId: number, token: string) {
 export const listNotes = (target: { type: string; id: string }, transport?: Transport) =>
   send(transport, (o) =>
     api.GET("/api/v1/staff/notes/", { ...o, params: { query: { target_type: target.type, target_id: target.id } } }),
-  ).then(paged);
+  );
 export const addNote = (target: { type: string; id: string }, body: string) =>
   send(undefined, (o) =>
     api.POST("/api/v1/staff/notes/", { ...o, body: { target_type: target.type, target_id: target.id, body } }),

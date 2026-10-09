@@ -37,7 +37,7 @@ async function RecordSide({ manifest, transport, path, audit, note }: RecordSide
             {copy.notes.title}
           </h2>
           <p className="m-0 text-sm text-muted-foreground">{copy.notes.lead}</p>
-          {notes instanceof ApiError ? <Problem error={notes} /> : <Notes target={note} notes={notes.results} />}
+          {notes instanceof ApiError ? <Problem error={notes} /> : <Notes target={note} notes={notes} />}
         </section>
       ) : null}
       {events ? (

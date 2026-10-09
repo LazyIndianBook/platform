@@ -77,7 +77,7 @@ const EVERYTHING = [
     ...["staff.toggle_maintenance", "staff.view_apikey", "staff.view_system", "staff.replay_webhook"],
     ...["staff.suspend_user", "shop.view_product", "shop.change_product", "shop.view_coupon", "shop.add_coupon"],
     ...["content.view_book", "content.view_paper", "learn.view_chapter"],
-    ...["shipping.view_parcels", "shipping.book_parcel", "insights.view_insights", "erp.view_sync"],
+    ...["staff.view_parcels", "staff.book_parcel", "staff.view_insights", "erp.view_sync"],
   ]),
 ].sort();
 const ROLE_PERMISSIONS: Record<string, string[]> = {
@@ -87,7 +87,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
   SUPPORT,
   AUDITOR: [...EVERYTHING.filter((perm) => perm.split(".")[1].startsWith("view_")), "staff.export_auditlog"],
   CONTENT_EDITOR: [...PANEL, "content.view_book", "content.view_paper", "learn.view_chapter", "shop.view_product"],
-  PACKER: ["staff.view_inbox", "staff.view_savedview", "shop.view_order", "shipping.view_parcels"],
+  PACKER: ["staff.view_inbox", "staff.view_savedview", "shop.view_order", "staff.view_parcels"],
 };
 // accounts/roles.py ROLE_LIMITS (null: none)
 const LIMITS: Record<string, Record<string, number | null>> = {
@@ -339,7 +339,7 @@ function manifest(context: Context, { first, last }: { first: number; last: numb
     flags: { ...Object.fromEntries(world.flags.map((flag) => [flag.key, flag.value])), test_mode: true },
   };
   const until = world.impersonation && Date.parse(world.impersonation.until) > Date.now() ? world.impersonation : null;
-  const policy = { policy: "staff-handbook", version: "2026-10", title: "The staff handbook", url: "/admin/" };
+  const policy = { policy: "acceptable_use", version: "2026-10" }; // STAFF_POLICIES: the key and the version in force
   return json(200, {
     user: { id: who.id, email: who.email, full_name: who.name, is_superuser: who.breakGlass },
     ...body,
@@ -354,8 +354,14 @@ function manifest(context: Context, { first, last }: { first: number; last: numb
         }
       : null,
     manifest_version: payloadHash(body).slice(0, 16),
-    // not in the schema yet (the backend's coming break-glass reason and policy acknowledgements)
-    break_glass: who.breakGlass ? { reason_required: !world.breakGlassReason, reason: world.breakGlassReason } : null,
+    // a break-glass session: its reason first, within a box of STAFF_BREAK_GLASS_HOURS (2) from the log-in
+    break_glass: who.breakGlass
+      ? {
+          reason_required: !world.breakGlassReason,
+          reason: world.breakGlassReason,
+          ends_at: new Date(((first || Date.now() / 1000) + 2 * 3600) * 1000).toISOString(),
+        }
+      : null,
     policies_due:
       cookie(context.request, "staff_mock_policies") === "1" && !world.policiesAcknowledged.includes(policy.policy)
         ? [policy]
@@ -1306,7 +1312,7 @@ async function route(context: Context): Promise<Response> {
         const rows = world.notes.filter(
           (note) => note.target_type === query("target_type") && note.target_id === query("target_id"),
         );
-        return paginate(context, rows, 50);
+        return json(200, rows); // not paged: a record's notes
       }
       if (method === "POST") {
         const note: Note = {

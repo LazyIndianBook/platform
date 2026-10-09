@@ -42,7 +42,7 @@ describe("Banners", () => {
       <Banners
         manifest={manifestWith([], {
           user,
-          break_glass: { reason_required: false, reason: "The owner is locked out." },
+          break_glass: { reason_required: false, reason: "The owner is locked out.", ends_at: "2026-10-09T12:00:00Z" },
         })}
         now={now}
       />,

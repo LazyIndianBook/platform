@@ -82,20 +82,7 @@ function PoliciesDialog({ policies }: { policies: PolicyDue[] }) {
           <ul className="m-0 flex list-none flex-col gap-2 p-0">
             {policies.map((policy) => (
               <li key={`${policy.policy}-${policy.version}`}>
-                {policy.url ? (
-                  <a
-                    href={policy.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-semibold"
-                    data-dialog-safe=""
-                  >
-                    {copy.shell.policyRead(policy.title)}
-                    <span className="sr-only"> {copy.common.opensElsewhere}</span>
-                  </a>
-                ) : (
-                  <span className="font-semibold">{policy.title}</span>
-                )}{" "}
+                <span className="font-semibold">{copy.shell.policyName(policy.policy)}</span>{" "}
                 <span className="text-sm text-muted-foreground">({copy.shell.policyVersion(policy.version)})</span>
               </li>
             ))}

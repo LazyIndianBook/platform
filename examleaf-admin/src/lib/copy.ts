@@ -151,6 +151,14 @@ export const en = {
     signedOutNotice: "You are signed out.",
     googleCancelled: "You didn't finish signing in with Google. Nothing was changed.",
     googleFailed: "Google couldn't sign you in. Please try once more.",
+    // the backend's refusals of a staff Google sign-in (accounts/adapter.py refuse_google), as ?error=
+    googleRefused: {
+      staff_google_domain: "Sign in with your work Google account: the ExamLeaf Workspace address.",
+      staff_google_no_account: "No staff account has this Google address. Ask the owner or an admin to invite you.",
+      staff_google_not_staff: "This account is not a member of staff, so it cannot sign in to the console.",
+      staff_google_break_glass:
+        "A break-glass account signs in with its password and its own second factor, not Google.",
+    } as Record<string, string>,
     inactiveTitle: "This account is switched off",
     inactiveText:
       "A switched-off account cannot sign in to the console. If you think this is a mistake, ask the owner or an admin.",
@@ -217,7 +225,8 @@ export const en = {
     reasonGiven: "Reason recorded",
     policiesTitle: "Read and acknowledge",
     policiesText: "Before you go on, read these policies in their current version. Your acknowledgement is recorded.",
-    policyRead: (title: string) => `Read ${title}`,
+    // STAFF_POLICIES' keys (acceptable_use …) as words: "Acceptable use"
+    policyName: (key: string) => key.charAt(0).toUpperCase() + key.slice(1).replaceAll("_", " "),
     policyVersion: (version: string) => `version ${version}`,
     policiesAcknowledge: "I have read them and will follow them",
     policiesDone: "Acknowledged",

@@ -160,7 +160,11 @@ export function SignInForm({ next, reason, providerError, google, available }: P
       {providerError ? (
         <Alert
           variant="warning"
-          title={providerError === "cancelled" ? copy.auth.googleCancelled : copy.auth.googleFailed}
+          title={
+            providerError === "cancelled"
+              ? copy.auth.googleCancelled
+              : (copy.auth.googleRefused[providerError] ?? copy.auth.googleFailed)
+          }
         />
       ) : null}
       <AuthTitle>{copy.auth.signInTitle}</AuthTitle>

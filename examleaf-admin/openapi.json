@@ -6,6 +6,61 @@
         "description": "Catalogue, solutions, attempts, accounts and the shop for the ExamLeaf app. Guide: API.md."
     },
     "paths": {
+        "/api/v1/account/impersonate/": {
+            "post": {
+                "operationId": "account_impersonate_create",
+                "description": "The website's side of logging in as a customer (research 2.7), `/api/v1/account/impersonate/` of the account API\n(not the staff API: the website's host). POST the token of the panel's `users/<id>/impersonate/` (the token is the\ncredential: no sign-in needed): once per token, within its 15 minutes, the browser is logged in as the customer\nuntil then, in a session marked as staff's (staff.services.accept_impersonation). DELETE ends it.",
+                "tags": [
+                    "account"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TokenRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {}
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Impersonating"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "account_impersonate_destroy",
+                "description": "The website's side of logging in as a customer (research 2.7), `/api/v1/account/impersonate/` of the account API\n(not the staff API: the website's host). POST the token of the panel's `users/<id>/impersonate/` (the token is the\ncredential: no sign-in needed): once per token, within its 15 minutes, the browser is logged in as the customer\nuntil then, in a session marked as staff's (staff.services.accept_impersonation). DELETE ends it.",
+                "tags": [
+                    "account"
+                ],
+                "security": [
+                    {
+                        "cookieAuth": []
+                    },
+                    {}
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
         "/api/v1/addresses/": {
             "get": {
                 "operationId": "addresses_list",
@@ -2137,7 +2192,7 @@
                 ],
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -2186,7 +2241,7 @@
                 ],
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -2235,7 +2290,7 @@
                 ],
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -2284,7 +2339,7 @@
                 ],
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -2333,7 +2388,7 @@
                 ],
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -2382,7 +2437,7 @@
                 ],
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -2431,7 +2486,7 @@
                 ],
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -2443,6 +2498,45 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/PaginatedFraudSignalList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/insights/fraud-signals/{id}/acknowledge/": {
+            "post": {
+                "operationId": "insights_fraud_signals_acknowledge_create",
+                "description": "Looked at and handled: the signal leaves `?open=1`. Once (again: the same answer); the audit log keeps who.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "insights"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FraudSignal"
                                 }
                             }
                         },
@@ -2480,7 +2574,7 @@
                 ],
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -2529,7 +2623,7 @@
                 ],
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -2578,7 +2672,7 @@
                 ],
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -5424,7 +5518,7 @@
                 ],
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -5464,7 +5558,7 @@
                 ],
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -5487,7 +5581,7 @@
         "/api/v1/shipping/cod/": {
             "get": {
                 "operationId": "shipping_cod_list",
-                "description": "Cash on delivery: expected, overdue, remitted, mismatched (filter state).",
+                "description": "Cash on delivery: expected, overdue, remitted, mismatched (filter state); reconcile one with the bank.",
                 "parameters": [
                     {
                         "name": "ordering",
@@ -5546,7 +5640,7 @@
                 ],
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -5569,7 +5663,7 @@
         "/api/v1/shipping/cod/{id}/": {
             "get": {
                 "operationId": "shipping_cod_retrieve",
-                "description": "Cash on delivery: expected, overdue, remitted, mismatched (filter state).",
+                "description": "Cash on delivery: expected, overdue, remitted, mismatched (filter state); reconcile one with the bank.",
                 "parameters": [
                     {
                         "in": "path",
@@ -5586,7 +5680,57 @@
                 ],
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CodRemittance"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/shipping/cod/{id}/reconcile/": {
+            "post": {
+                "operationId": "shipping_cod_reconcile_create",
+                "description": "The bank's credit for this parcel's cash, matched by its UTR: remitted at the amount expected, otherwise a\nmismatch (and its exception).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this cod remittance.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "shipping (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CodReconcileRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -5691,7 +5835,7 @@
                 ],
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -5731,7 +5875,7 @@
                 ],
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -5781,7 +5925,7 @@
                 },
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -5820,7 +5964,7 @@
                 },
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -5869,7 +6013,7 @@
                 ],
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -5936,7 +6080,7 @@
                 ],
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -5973,7 +6117,7 @@
                 },
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -6013,7 +6157,7 @@
                 ],
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -6061,7 +6205,7 @@
                 },
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -6108,7 +6252,7 @@
                 },
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -6132,50 +6276,12 @@
             "post": {
                 "operationId": "shipping_pickup_locations_sync_create",
                 "description": "Our pickup addresses by the courier's nicknames; `sync` reads them from the courier account.",
-                "parameters": [
-                    {
-                        "name": "ordering",
-                        "required": false,
-                        "in": "query",
-                        "description": "Which field to use when ordering the results.",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "name": "page",
-                        "required": false,
-                        "in": "query",
-                        "description": "A page number within the paginated result set.",
-                        "schema": {
-                            "type": "integer"
-                        }
-                    },
-                    {
-                        "name": "page_size",
-                        "required": false,
-                        "in": "query",
-                        "description": "Number of results to return per page.",
-                        "schema": {
-                            "type": "integer"
-                        }
-                    },
-                    {
-                        "name": "search",
-                        "required": false,
-                        "in": "query",
-                        "description": "A search term.",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
                 "tags": [
                     "shipping (staff)"
                 ],
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -6186,7 +6292,10 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/PaginatedPickupLocationList"
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/PickupLocation"
+                                    }
                                 }
                             }
                         },
@@ -6397,7 +6506,7 @@
                 ],
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -6434,7 +6543,7 @@
                 },
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -6484,7 +6593,7 @@
                 ],
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -6524,7 +6633,7 @@
                 ],
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -6550,25 +6659,6 @@
                 "description": "The parcel's timeline, oldest first.",
                 "parameters": [
                     {
-                        "in": "query",
-                        "name": "carrier",
-                        "schema": {
-                            "type": "string",
-                            "enum": [
-                                "manual",
-                                "shiprocket"
-                            ]
-                        },
-                        "description": "* `manual` - by hand (staff type the courier and number)\n* `shiprocket` - Shiprocket"
-                    },
-                    {
-                        "in": "query",
-                        "name": "courier_company_id",
-                        "schema": {
-                            "type": "integer"
-                        }
-                    },
-                    {
                         "in": "path",
                         "name": "id",
                         "schema": {
@@ -6576,71 +6666,6 @@
                         },
                         "description": "A unique integer value identifying this shipment.",
                         "required": true
-                    },
-                    {
-                        "in": "query",
-                        "name": "order",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "name": "ordering",
-                        "required": false,
-                        "in": "query",
-                        "description": "Which field to use when ordering the results.",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "name": "page",
-                        "required": false,
-                        "in": "query",
-                        "description": "A page number within the paginated result set.",
-                        "schema": {
-                            "type": "integer"
-                        }
-                    },
-                    {
-                        "name": "page_size",
-                        "required": false,
-                        "in": "query",
-                        "description": "Number of results to return per page.",
-                        "schema": {
-                            "type": "integer"
-                        }
-                    },
-                    {
-                        "name": "search",
-                        "required": false,
-                        "in": "query",
-                        "description": "A search term.",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "in": "query",
-                        "name": "status",
-                        "schema": {
-                            "type": "string",
-                            "nullable": true,
-                            "enum": [
-                                "booked",
-                                "cancelled",
-                                "delivered",
-                                "delivery_failed",
-                                "in_transit",
-                                "lost_or_damaged",
-                                "out_for_delivery",
-                                "partial",
-                                "pickup_problem",
-                                "returned",
-                                "returning"
-                            ]
-                        },
-                        "description": "* `booked` - booked\n* `pickup_problem` - pickup problem\n* `in_transit` - in transit\n* `out_for_delivery` - out for delivery\n* `delivered` - delivered\n* `delivery_failed` - delivery failed\n* `returning` - returning to us\n* `returned` - returned to us\n* `lost_or_damaged` - lost or damaged\n* `cancelled` - cancelled\n* `partial` - partly delivered"
                     }
                 ],
                 "tags": [
@@ -6648,7 +6673,7 @@
                 ],
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -6659,7 +6684,10 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/PaginatedShipmentEventList"
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/ShipmentEvent"
+                                    }
                                 }
                             }
                         },
@@ -6688,7 +6716,7 @@
                 ],
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -6727,7 +6755,7 @@
                 ],
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -6777,7 +6805,7 @@
                 },
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -6827,7 +6855,7 @@
                 },
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -6876,7 +6904,7 @@
                 },
                 "security": [
                     {
-                        "jwtAuth": []
+                        "apiKey": []
                     },
                     {
                         "cookieAuth": []
@@ -9120,16 +9148,20 @@
                             "enum": [
                                 "approval",
                                 "data_request",
+                                "dead_letter",
                                 "deletion_request",
+                                "failed_event",
                                 "failed_job",
                                 "failed_webhook",
                                 "incident",
+                                "integration_down",
                                 "reconciliation",
+                                "shipping_exception",
                                 "sync_failed",
                                 "teacher_request"
                             ]
                         },
-                        "description": "* `approval` - approval\n* `teacher_request` - teacher access request\n* `deletion_request` - account deletion\n* `data_request` - data request\n* `incident` - incident\n* `failed_job` - failed job\n* `failed_webhook` - failed webhook\n* `sync_failed` - ERPNext refused a document (a dead letter)\n* `reconciliation` - ERPNext reconciliation differences"
+                        "description": "* `approval` - approval\n* `teacher_request` - teacher access request\n* `deletion_request` - account deletion\n* `data_request` - data request\n* `incident` - incident\n* `failed_job` - failed job\n* `failed_webhook` - failed webhook\n* `sync_failed` - ERPNext refused a document (a dead letter)\n* `reconciliation` - ERPNext reconciliation differences\n* `shipping_exception` - parcel exception\n* `dead_letter` - integration task given up\n* `failed_event` - provider event not processed\n* `integration_down` - integration unavailable"
                     },
                     {
                         "in": "query",
@@ -9881,6 +9913,95 @@
                 }
             }
         },
+        "/api/v1/staff/notes/": {
+            "get": {
+                "operationId": "staff_notes_list",
+                "description": "Notes on a record, its timeline's: GET `?target_type=&target_id=` (both), pinned first, all of them; POST one.\nOnly on a record you may see (else 404). The audit log names the record and the note's number, never its body.",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "target_id",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "its id",
+                        "required": true
+                    },
+                    {
+                        "in": "query",
+                        "name": "target_type",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "app_label.model, e.g. shop.order",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "staff"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Note"
+                                    }
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "post": {
+                "operationId": "staff_notes_create",
+                "description": "Notes on a record, its timeline's: GET `?target_type=&target_id=` (both), pinned first, all of them; POST one.\nOnly on a record you may see (else 404). The audit log names the record and the note's number, never its body.",
+                "tags": [
+                    "staff"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NoteRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Note"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
         "/api/v1/staff/people/": {
             "get": {
                 "operationId": "staff_people_list",
@@ -10478,6 +10599,95 @@
                 }
             }
         },
+        "/api/v1/staff/policies/ack/": {
+            "get": {
+                "operationId": "staff_policies_ack_list",
+                "description": "The policies staff acknowledge (research 6: acceptable use, children's data, confidentiality, incident\nreporting), each version once: GET your acknowledgements (`?user=` someone else's, with staff.view_staff); POST\n`{policy, version}`, the version in force (STAFF_POLICIES; the manifest's `policies_due` lists what waits).",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "user",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "someone else's (staff.view_staff)"
+                    }
+                ],
+                "tags": [
+                    "staff"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/PolicyAcknowledgement"
+                                    }
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "post": {
+                "operationId": "staff_policies_ack_create",
+                "description": "The policies staff acknowledge (research 6: acceptable use, children's data, confidentiality, incident\nreporting), each version once: GET your acknowledgements (`?user=` someone else's, with staff.view_staff); POST\n`{policy, version}`, the version in force (STAFF_POLICIES; the manifest's `policies_due` lists what waits).",
+                "tags": [
+                    "staff"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PolicyAcknowledgementRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PolicyAcknowledgement"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PolicyAcknowledgement"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
         "/api/v1/staff/processors/": {
             "get": {
                 "operationId": "staff_processors_list",
@@ -11010,6 +11220,45 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/StaffManifest"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/session/reason/": {
+            "post": {
+                "operationId": "staff_session_reason_create",
+                "description": "A break-glass session's reason (research 1.6), once, before anything else opens (`break_glass.reason_required`\nin the manifest): kept on the session, in every audit event of the session (`details.break_glass_reason`), and sent\nto the owners. The session ends STAFF_BREAK_GLASS_HOURS after its log-in, however busy.",
+                "tags": [
+                    "staff"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/BreakGlassReasonRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/StaffBreakGlass"
                                 }
                             }
                         },
@@ -12897,6 +13146,20 @@
                     "order"
                 ]
             },
+            "BreakGlassReasonRequest": {
+                "type": "object",
+                "properties": {
+                    "reason": {
+                        "type": "string",
+                        "minLength": 10,
+                        "description": "why nothing else works: the owners read it",
+                        "maxLength": 500
+                    }
+                },
+                "required": [
+                    "reason"
+                ]
+            },
             "BundleItem": {
                 "type": "object",
                 "properties": {
@@ -13860,6 +14123,32 @@
                 "required": [
                     "outcome",
                     "response"
+                ]
+            },
+            "CodReconcileRequest": {
+                "type": "object",
+                "properties": {
+                    "utr": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "the bank credit's UTR",
+                        "maxLength": 60
+                    },
+                    "amount": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,8}(?:\\.\\d{0,2})?$",
+                        "description": "what the credit gave for this parcel"
+                    },
+                    "on": {
+                        "type": "string",
+                        "format": "date",
+                        "description": "the credit's day; today by default"
+                    }
+                },
+                "required": [
+                    "amount",
+                    "utr"
                 ]
             },
             "CodRemittance": {
@@ -16199,6 +16488,39 @@
                     "ticket"
                 ]
             },
+            "ImpersonatedUser": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "email": {
+                        "type": "string",
+                        "description": "masked"
+                    }
+                },
+                "required": [
+                    "email",
+                    "id"
+                ]
+            },
+            "Impersonating": {
+                "type": "object",
+                "properties": {
+                    "until": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "the session ends then"
+                    },
+                    "user": {
+                        "$ref": "#/components/schemas/ImpersonatedUser"
+                    }
+                },
+                "required": [
+                    "until",
+                    "user"
+                ]
+            },
             "Impersonation": {
                 "type": "object",
                 "properties": {
@@ -16312,10 +16634,14 @@
                     "failed_job",
                     "failed_webhook",
                     "sync_failed",
-                    "reconciliation"
+                    "reconciliation",
+                    "shipping_exception",
+                    "dead_letter",
+                    "failed_event",
+                    "integration_down"
                 ],
                 "type": "string",
-                "description": "* `approval` - approval\n* `teacher_request` - teacher access request\n* `deletion_request` - account deletion\n* `data_request` - data request\n* `incident` - incident\n* `failed_job` - failed job\n* `failed_webhook` - failed webhook\n* `sync_failed` - ERPNext refused a document (a dead letter)\n* `reconciliation` - ERPNext reconciliation differences"
+                "description": "* `approval` - approval\n* `teacher_request` - teacher access request\n* `deletion_request` - account deletion\n* `data_request` - data request\n* `incident` - incident\n* `failed_job` - failed job\n* `failed_webhook` - failed webhook\n* `sync_failed` - ERPNext refused a document (a dead letter)\n* `reconciliation` - ERPNext reconciliation differences\n* `shipping_exception` - parcel exception\n* `dead_letter` - integration task given up\n* `failed_event` - provider event not processed\n* `integration_down` - integration unavailable"
             },
             "Incident": {
                 "type": "object",
@@ -17294,6 +17620,77 @@
                     "exam_date",
                     "hint",
                     "minutes_per_day"
+                ]
+            },
+            "Note": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "target_type": {
+                        "type": "string",
+                        "description": "app_label.model, e.g. shop.order",
+                        "maxLength": 60
+                    },
+                    "target_id": {
+                        "type": "string",
+                        "maxLength": 64
+                    },
+                    "author": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "body": {
+                        "type": "string",
+                        "maxLength": 5000
+                    },
+                    "pinned": {
+                        "type": "boolean"
+                    },
+                    "created": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "author",
+                    "body",
+                    "created",
+                    "id",
+                    "target_id",
+                    "target_type"
+                ]
+            },
+            "NoteRequest": {
+                "type": "object",
+                "properties": {
+                    "target_type": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "app_label.model, e.g. shop.order",
+                        "maxLength": 60
+                    },
+                    "target_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64
+                    },
+                    "body": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 5000
+                    },
+                    "pinned": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "body",
+                    "target_id",
+                    "target_type"
                 ]
             },
             "NullEnum": {
@@ -19204,37 +19601,6 @@
                     }
                 }
             },
-            "PaginatedShipmentEventList": {
-                "type": "object",
-                "required": [
-                    "count",
-                    "results"
-                ],
-                "properties": {
-                    "count": {
-                        "type": "integer",
-                        "example": 123
-                    },
-                    "next": {
-                        "type": "string",
-                        "nullable": true,
-                        "format": "uri",
-                        "example": "http://api.example.org/accounts/?page=4"
-                    },
-                    "previous": {
-                        "type": "string",
-                        "nullable": true,
-                        "format": "uri",
-                        "example": "http://api.example.org/accounts/?page=2"
-                    },
-                    "results": {
-                        "type": "array",
-                        "items": {
-                            "$ref": "#/components/schemas/ShipmentEvent"
-                        }
-                    }
-                }
-            },
             "PaginatedShippingExceptionList": {
                 "type": "object",
                 "required": [
@@ -20915,6 +21281,58 @@
                 ],
                 "type": "string",
                 "description": "* `android` - Android\n* `ios` - iOS"
+            },
+            "PolicyAcknowledgement": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "user": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "policy": {
+                        "type": "string",
+                        "maxLength": 40
+                    },
+                    "version": {
+                        "type": "string",
+                        "maxLength": 40
+                    },
+                    "acknowledged_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "acknowledged_at",
+                    "id",
+                    "policy",
+                    "user",
+                    "version"
+                ]
+            },
+            "PolicyAcknowledgementRequest": {
+                "type": "object",
+                "properties": {
+                    "policy": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 40
+                    },
+                    "version": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 40
+                    }
+                },
+                "required": [
+                    "policy",
+                    "version"
+                ]
             },
             "PostalPrice": {
                 "type": "object",
@@ -23090,6 +23508,29 @@
                     "markdown"
                 ]
             },
+            "StaffBreakGlass": {
+                "type": "object",
+                "properties": {
+                    "reason_required": {
+                        "type": "boolean",
+                        "description": "true: POST session/reason/ before anything else"
+                    },
+                    "reason": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "ends_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "its log-in + STAFF_BREAK_GLASS_HOURS, however busy"
+                    }
+                },
+                "required": [
+                    "ends_at",
+                    "reason",
+                    "reason_required"
+                ]
+            },
             "StaffCatalogue": {
                 "type": "object",
                 "properties": {
@@ -23187,6 +23628,14 @@
             "StaffManifest": {
                 "type": "object",
                 "properties": {
+                    "break_glass": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/StaffBreakGlass"
+                            }
+                        ],
+                        "nullable": true
+                    },
                     "user": {
                         "$ref": "#/components/schemas/StaffUser"
                     },
@@ -23234,6 +23683,14 @@
                         "additionalProperties": {},
                         "description": "the feature flags; test_mode: true when not production"
                     },
+                    "policies_due": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": {}
+                        },
+                        "description": "policy, version: not acknowledged yet (POST policies/ack/)"
+                    },
                     "reauth_valid_until": {
                         "type": "string",
                         "format": "date-time",
@@ -23261,12 +23718,14 @@
                 },
                 "required": [
                     "absolute_expires_at",
+                    "break_glass",
                     "flags",
                     "idle_timeout_s",
                     "impersonating",
                     "limits",
                     "manifest_version",
                     "permissions",
+                    "policies_due",
                     "reauth_valid_until",
                     "role_scopes",
                     "roles",
