@@ -469,6 +469,7 @@ class PolicyVersionSerializer(serializers.Serializer):
 
 
 class PolicySerializer(serializers.Serializer):
+    id = serializers.IntegerField(help_text="the page's: its audit events and notes name it (pages.page)")
     slug = serializers.CharField()
     title = serializers.CharField()
     version = serializers.CharField()
@@ -516,6 +517,7 @@ def policy_of(page, detail=False):
     upcoming = next((version for version in known if version.upcoming), None)
     current = next(version for version in known if version.in_force)
     body = {
+        "id": page.pk,
         "slug": page.slug,
         "title": page.title,
         "version": page.version,
