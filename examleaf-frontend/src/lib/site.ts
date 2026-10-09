@@ -20,6 +20,7 @@ export const DJANGO_PREFIXES = [
   "/api/schema/",
   "/api/docs/",
   "/api/redoc/",
+  "/api/hooks/", // the couriers' webhook (examleaf-web/shipping/webhooks.py)
   "/_allauth/",
   "/admin/",
   "/shop/webhooks/",

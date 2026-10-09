@@ -44,6 +44,9 @@ def health_checks(eager):
 
 
 ALL_CHECKS = health_checks(settings.CELERY_TASK_ALWAYS_EAGER)
+# /health/integrations/: a second monitor's, apart from the site's own: a provider down (a circuit open 30 minutes),
+# dead letters or failed inbound events waiting for staff (integrations/health.py).
+INTEGRATION_CHECKS = ["integrations.health.Integrations"]
 
 
 # The admin's login is the website's (allauth, through headless: H2): its per-account limit, email confirmation and
@@ -76,6 +79,7 @@ urlpatterns = [
     path("_allauth/", include("allauth.headless.urls")),
     path("health/", HealthView.as_view(checks=ALL_CHECKS), name="health"),
     path("health/web/", HealthView.as_view(checks=WEB_CHECKS), name="health_web"),
+    path("health/integrations/", HealthView.as_view(checks=INTEGRATION_CHECKS), name="health_integrations"),
     path("api/", include("examleaf.api_urls")),  # REST API: api/, examleaf/api_urls.py
     path("learn/", include("learn.urls")),  # revision course: clip files behind signed links, staff preview
     path("admin/", admin.site.urls),

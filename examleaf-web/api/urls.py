@@ -7,6 +7,7 @@ from rest_framework.routers import SimpleRouter
 from rest_framework_simplejwt.views import TokenVerifyView
 
 from insights import api as insights
+from shipping import api as shipping
 
 from . import auth, learn, parent_link, shop, views
 
@@ -88,3 +89,17 @@ store_router = SimpleRouter()
 store_router.register("categories", shop.CategoryViewSet)
 store_router.register("collections", shop.CollectionViewSet)
 urlpatterns += store_router.urls
+
+# Parcels and couriers, for staff (shipping/api.py; API.md "Shipping (staff)"); beside the public shipping/ and
+# shipping/quote/ above, which are the checkout's delivery rates.
+shipping_router = SimpleRouter()
+shipping_router.register("shipping/shipments", shipping.ShipmentViewSet, basename="shipping-shipment")
+shipping_router.register("shipping/exceptions", shipping.ExceptionViewSet, basename="shipping-exception")
+shipping_router.register("shipping/cod", shipping.CodRemittanceViewSet, basename="shipping-cod")
+shipping_router.register("shipping/charges", shipping.ChargeViewSet, basename="shipping-charge")
+shipping_router.register("shipping/pickup-locations", shipping.PickupLocationViewSet, basename="shipping-pickup")
+urlpatterns += [
+    path("shipping/orders/<str:number>/quote/", shipping.OrderQuoteView.as_view(), name="shipping-order-quote"),
+    path("shipping/manifest/", shipping.ManifestView.as_view(), name="shipping-manifest"),
+    *shipping_router.urls,
+]

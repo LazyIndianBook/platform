@@ -12,6 +12,8 @@ Commands run in `/srv/examleaf/examleaf-web` on the server. `dj` below stands fo
 - [Email](#email): when email fails, bounces and complaints
 - [SMS, phone numbers, passkeys and parental consent](#sms-phone-numbers-passkeys-and-parental-consent)
 - [The shop](#the-shop): payments, refunds, invoices, shipping, GST returns, coupons, offers, staff orders, the catalogue
+- [Couriers and integrations](#couriers-and-integrations): Shiprocket down, dead letters, failed deliveries, returns,
+  COD remittances, weight disputes, parcels that stopped moving
 - [Reviews, school orders and stock](#reviews-school-orders-and-stock)
 - [The revision course](#the-revision-course): uploading, failed clips, book codes, access
 - [Insights](#insights): a job failed, a fraud spike, the monthly review, a new season
@@ -78,6 +80,18 @@ Change the value in `.env`, then `docker compose up -d` (it recreates the contai
   sessions stay.
 - **LEARN_CODE_SECRET:** never. Printed book codes work only with the key they were made under (DEPLOYMENT.md
   section 18). Without it a server does not start: `docker compose logs web` shows `learn.E001` at `migrate`.
+- <a id="integration-keys"></a>**INTEGRATION_KEYS** (the key of the integration accounts' credentials and tokens): put
+  a new key first, `INTEGRATION_KEYS=<new>,<old>`, `docker compose up -d`, then `dj rotate_integration_keys`
+  ("Re-encrypted the secrets of N account(s)"), then remove the old key and `docker compose up -d` again. Never remove a
+  key before the rotation has run: secrets encrypted with it can no longer be read (the admin shows "Cannot be read
+  with INTEGRATION_KEYS", calls fail). Lost for good: paste the credentials of each account again (below) and make a
+  new webhook token. Without any key a server with accounts does not start: `integrations.E001` at `migrate`.
+- **Shiprocket's API user** (rotate by the account's `rotate_by`, 90 days; or at once if it leaked): in Shiprocket,
+  Settings → API → Add New API User (a new email address); in the admin, the account → "Replace the credentials" with
+  the new email and password → Save → "Test the connection"; then delete the old API user in Shiprocket. The cached
+  token goes with the old credentials.
+- **The couriers' webhook token:** the account → the action "New webhook token" shows it once; paste it in Shiprocket
+  (Settings → API → Webhooks, the security token) within 24 hours, while the previous one still works.
 - **Suspected breach:** rotate everything above, SECRET_KEY **without** a fallback (a leaked key would otherwise keep
   sessions valid for two weeks) and JWT_SIGNING_KEY (or SECRET_KEY, if it is unset) too, end all sessions
   (`dj shell -c "from django.contrib.sessions.models import Session; Session.objects.all().delete()"`; everyone logs in
@@ -219,6 +233,8 @@ register these texts exactly (`{#var#}` holds at most 30 characters):
 | `MSG91_TEMPLATE_ORDER_SHIPPED` | Service Implicit | `Your ExamLeaf order {#var#} has shipped: {#var#}. -ExamLeaf` | `var1` order number, `var2` courier and tracking number |
 | `MSG91_TEMPLATE_ORDER_DELIVERED` | Service Implicit | `Your ExamLeaf order {#var#} has been delivered. Thank you. -ExamLeaf` | `var1` order number |
 | `MSG91_TEMPLATE_PARENT_CONSENT` | Service Implicit | `{#var#} has registered at ExamLeaf and named you as parent or guardian. To agree, open https://examleaf.in/c/{#var#}/ within 7 days. -ExamLeaf` | `var1` the student's first name ("a student" when the name is not plain letters), `var2` the link's token |
+| `MSG91_TEMPLATE_ORDER_ARRIVING` | Service Implicit | `Your ExamLeaf order {#var#} is out for delivery today. Please keep Rs {#var#} ready for the courier. -ExamLeaf` | `var1` order number, `var2` the cash to collect ("638.00"); cash on delivery only |
+| `MSG91_TEMPLATE_ORDER_NOT_DELIVERED` | Service Implicit | `The courier could not deliver your ExamLeaf order {#var#}. See your order: https://examleaf.in/orders/t/{#var#}/ -ExamLeaf` | `var1` order number, `var2` the order link's token (22 characters) |
 
 In MSG91 the DLT variables become `##var1##`, `##var2##` (the OTP template: `##OTP##`); keep those names. If the DLT
 portal wants the link as a `{#url#}` variable rather than in the text, register it so and tell the developer: the
@@ -427,12 +443,9 @@ link yourself only for a courier whose page you know takes the number in the add
 order's Shipments; correct the link too (empty is not refilled there). The first time each courier is used, open the
 emailed link once with a real number to check it.
 
-Courier APIs are not built. When the volume justifies one (about 30 to 50 parcels a day, or when "delivered", NDR
-and RTO should update by themselves), choose one aggregator: Shiprocket (15 to 25 couriers, no minimum) or a direct
-Delhivery contract (worth it from about 500 orders a month). The shape then: `shop/shipping.py` with
-`create_shipment(order)` and `track(awb)`, and one webhook view mapping the courier's statuses to the existing
-shipped and delivered transitions, its events recorded in `WebhookEvent` as the Razorpay webhook's are (details:
-`../docs/research/2026-10-08-production-features/report.md`, section 6). A consignment above ₹50,000 needs an e-way bill.
+This stays the way for India Post and any courier without an API. A parcel booked with a courier through Shiprocket
+(`shipping/`) is shipped and delivered by the courier's own scans instead, and its row on the order's page is read
+only: see "Couriers and integrations". A consignment above ₹50,000 needs an e-way bill.
 
 ### GST returns (GSTR-1 export)
 
@@ -548,6 +561,89 @@ only is marked delivered at once (no packing). Cancelling a paid order, or refun
 (a part refund does not). A bundle of digital products only (a pass for two subjects sold as one) is a course too: no
 shipping, nothing to pack, delivered once paid. Set the SAC code and GST rate your accountant gives (the form refuses
 4901, the books' HSN).
+
+## Couriers and integrations
+
+Parcels booked with a courier through Shiprocket (`shipping/README.md`), on the integrations framework
+(`integrations/README.md`). Admin → Shop → Shipments lists every parcel by status, courier and last scan, each with
+its timeline, exceptions, charges and COD remittance; Admin → Shipping → Shipping exceptions is the to-do list, by
+deadline; Admin → Integrations has the accounts, the call log, the dead letters and the webhooks received. The admin
+panel will show the same through `/api/v1/shipping/` (API.md "Shipping (staff)").
+
+### Shiprocket is unavailable (a circuit open)
+
+After 5 failures in 5 minutes (no answer, 429, 5xx) the account's circuit opens: calls wait, tasks are put back in the
+queue to try again after 5 minutes, one trial call goes every 5 minutes and closes it on success. The account in Admin
+→ Integrations shows "open: calls wait" and since when; `/health/integrations/` fails once it has been 30 minutes.
+
+1. Look at the account's last error and the call log (Admin → Integrations → Integration calls, filtered by the
+   account): `HTTP 503` or `ConnectTimeout: no answer` is Shiprocket's side (check its status page and its emails);
+   `HTTP 429` is its rate limit (wait); a run of `HTTP 401` is the token or the API user (below).
+2. During an announced outage, the action "Hold the circuit open" stops the calls until "Reset the circuit".
+3. Meanwhile a parcel can go by hand: book it with `courier` and `tracking_number` (API.md), or the order's "Mark
+   shipped" in the admin. Quotes show Shiprocket's last answer, marked stale.
+4. Once it answers again the circuit closes by itself; the waiting tasks run; the 2-hourly poll reads the tracking
+   missed meanwhile.
+
+**401 after 401:** the API user's password changed, the user was deleted, or its modules were narrowed. Replace the
+credentials ("Secrets and key rotation") and test the connection. The token is renewed by itself from day 9 and once
+after a 401.
+
+### Dead letters and failed webhooks
+
+A task that gave up (8 tries over about four hours, or refused: a 422 with Shiprocket's reason) is a dead letter:
+Admin → Integrations → Integration failures, with the operation, its arguments (ids), tries and last error;
+`/health/integrations/` fails while one waits. Read the error, fix the cause (a pickup nickname Shiprocket does not
+know, a product without weight, a COD total that does not add up, the circuit), then "Replay" (it runs once more; a new
+dead letter if it fails again), or "Discard" with the reason (e.g. "booked by hand in Shiprocket's panel"). A webhook
+that could not be processed is an inbound event marked failed (Admin → Integrations → Inbound events): "Process again"
+once the cause is fixed. Rejected events (a wrong or missing token) are kept without their body: many from one
+address are someone else's; many in a row after a token change mean Shiprocket still sends the old one (paste the new
+one, "Secrets and key rotation").
+
+**No webhook for a day while parcels move:** check Shiprocket's webhook settings (enabled, the URL, the token); the
+poll every two hours keeps the parcels up to date meanwhile (`dj shipping_poll_tracking` at once).
+
+### A failed delivery (NDR)
+
+A "delivery failed" scan opens an NDR exception due in 24 hours, with the courier's reason and the attempt count; the
+customer gets an email (and an SMS when they asked for SMS) with the order's link. Call the customer (note what was
+said in the resolution), then act through `POST /api/v1/shipping/shipments/<id>/ndr-action/` (API.md): `re-attempt`
+(with a date, a corrected phone number or address), `fake-attempt` (the courier claimed an attempt that was not made:
+with the parcel's photograph as proof), or `return`. Couriers make up to three more attempts before returning it; a
+later delivery closes the exception by itself.
+
+### A parcel coming back (RTO), lost or damaged
+
+"Returning" opens an RTO exception and emails the customer; "returned" brings it forward (2 days) and notes the order.
+In the packing room: scan the parcel back in, check it, put the copies back in stock (Products → the product's stock)
+or mark them damaged, and acknowledge the RTO in Shiprocket's panel (no API for it). Then the order: a cash-on-delivery
+order cannot be marked cancelled once shipped (its state machine has no such step, and no "returned" state: a decision
+for the founder): it stays shipped, with the note; a prepaid order is sent again (book a new parcel: it gets the
+reference `<order>-R1`) or refunded (the order's refund action). A lost or damaged parcel: claim it with Shiprocket
+(up to ₹5,000 or the order's value), then reship or refund. Resolve the exception with what was done.
+
+### COD remittances
+
+A delivered cash-on-delivery parcel expects its cash 10 working days later (Shiprocket pays D+8 working days, on
+Mondays, Wednesdays and Fridays). Each morning (05:15) the site asks Shiprocket about the awaited ones: remitted (with
+the UTR), mismatched (another amount: an exception) or overdue (2 working days past the day: an exception). Match the
+UTR with the bank statement; for a mismatch or an overdue one, raise it with Shiprocket's support with the AWB and the
+order, and resolve the exception with their answer. `dj shipping_check_cod` asks at once.
+
+### Weight disputes
+
+Each morning (05:30) the courier's weight disputes become exceptions due 7 working days after they were raised (after
+that the courier's weight is accepted for good), with our weight and whether the parcel's photograph exists. To
+dispute: in Shiprocket's panel (no API), with the photograph (the parcel on the scale, label side up) and the
+dimensions; resolve the exception with the outcome. To accept: resolve it as accepted. The charge itself comes with the
+statement (05:00, Admin → Shipping → Shipment charges: "excess weight").
+
+### A parcel that stopped moving
+
+No scan for 5 days opens a "no movement" exception. Read its tracking (Admin → Shop → Shipments → the parcel → "Read the
+tracking now"); then ask Shiprocket's support with the AWB. A parcel the courier reports lost becomes "lost or
+damaged" (above).
 
 ## Reviews, school orders and stock
 
@@ -731,6 +827,8 @@ forecasts move to the new season on the day of the old one's first paper.
   The cache is `redis-cache` and the queue `redis`: `docker compose up -d redis redis-cache`, then the daily clean-up
   queues again the invoices, credit notes and refunds that could not be queued. A web container that will not start
   prints the failing check (`docker compose logs web`).
+- **/health/integrations/ returns 500:** its JSON names what waits: a provider unavailable for 30 minutes (a circuit
+  open), dead letters, failed webhooks ("Couriers and integrations"). The site itself is not down for it.
 - **The queue's Redis (`redis`) is down:** emails and SMS are sent inside the request; the AVIF and WebP sizes of a
   product picture that staff upload are made inside the request too (slower, not an error); a clip video stays
   "processing" until `dj reprocess_clips` queues it again.

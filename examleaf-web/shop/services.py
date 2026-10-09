@@ -76,16 +76,19 @@ SUBJECTS = {
     "refunded": "Refund for order {}",
     "link": "Your link to order {}",
     "payment_link": "Pay for order {}",
+    "delivery_failed": "Order {} could not be delivered",  # a courier's news (shipping/messages.py)
+    "returning": "Order {} is coming back to us",
 }
 
 
 HTML_EMAILS = {"confirmation", "shipped", "payment_link"}  # with the order's lines: <kind>.html, the drawn layout
 
 
-def notify(order, kind, **context):
+def notify(order, kind, sms=True, **context):
     """Email the customer (templates/shop/email/<kind>.txt) once the transaction is committed, and an SMS for the
-    kinds ops.sms.send_order_sms sends (confirmation, shipped, delivered) to accounts that asked for them. The kinds
-    in HTML_EMAILS have an HTML part of their own; the others get the one queue_email makes from the text."""
+    kinds ops.sms.send_order_sms sends (confirmation, shipped, delivered) to accounts that asked for them, unless
+    `sms` is off (the shipping app sends a courier's news by SMS itself, never at night). The kinds in HTML_EMAILS
+    have an HTML part of their own; the others get the one queue_email makes from the text."""
 
     def send():
         context_ = {"order": order, "site_url": settings.SITE_URL, "seller": settings.SHOP_SELLER, **context}
@@ -97,6 +100,8 @@ def notify(order, kind, **context):
             queue_email(message)
         else:
             queue_text_email(order.email, subject, body)
+        if not sms:
+            return
         try:
             from ops.sms import send_order_sms
         except ImportError:  # the SMS gateway (work package A) not installed
@@ -534,13 +539,23 @@ def ship_order(order, courier, tracking_number, tracking_url=""):
         shipment = Shipment.objects.create(
             order=order, courier=courier, tracking_number=tracking_number, tracking_url=tracking_url
         )
-        notify(order, "shipped", shipment=shipment)
-        if order.is_cod:  # the bill travels with the parcel
-            transaction.on_commit(lambda: tasks.generate_invoice.delay(order.pk), robust=True)
+        shipped(order, shipment)
     return order
 
 
-def deliver_order(order):
+def shipped(order, shipment, sms=True, email=True):
+    """What follows order.ship(), in its transaction: the customer is told (the courier, the number, the link) and a
+    cash-on-delivery order's bill is made, as it travels with the parcel. Also the shipping app's, when a courier's
+    first scan says its parcel has left (it sends that SMS itself, `sms` off)."""
+    if email:
+        notify(order, "shipped", sms=sms, shipment=shipment)
+    if order.is_cod:  # the bill travels with the parcel
+        transaction.on_commit(lambda: tasks.generate_invoice.delay(order.pk), robust=True)
+
+
+def deliver_order(order, sms=True):
+    """Delivered: a cash-on-delivery payment is captured (the courier collected the cash) and the customer is told
+    (the SMS unless `sms` is off: the shipping app sends a courier's news by SMS itself)."""
     with transaction.atomic():
         order = _lock(order)
         order.deliver()
@@ -550,7 +565,7 @@ def deliver_order(order):
             if can_proceed(payment.capture):  # the courier collected the cash
                 payment.capture()
                 payment.save()
-        notify(order, "delivered")
+        notify(order, "delivered", sms=sms)
     return order
 
 

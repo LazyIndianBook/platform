@@ -1,0 +1,13 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<form method="post">{% csrf_token %}
+  {% for obj in queryset %}<input type="hidden" name="_selected_action" value="{{ obj.pk }}">{% endfor %}
+  <input type="hidden" name="action" value="{{ action }}">
+  <input type="hidden" name="apply" value="1">
+  <fieldset class="module aligned">
+    <h2>{{ queryset|length }} selected: {{ queryset|join:", " }}</h2>
+    {{ form.as_div }}
+  </fieldset>
+  <div class="submit-row"><input type="submit" value="{{ title }}" class="default"> <a href="" class="button cancel-link">Back</a></div>
+</form>
+{% endblock %}

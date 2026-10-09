@@ -1,5 +1,6 @@
 """ExamLeaf web settings. Deployment values come from the environment or a .env file (see .env.example)."""
 
+import base64
 import sys
 from datetime import timedelta
 from importlib.util import find_spec
@@ -172,7 +173,10 @@ if SMS_BACKEND not in {"console", "msg91"} or (SMS_BACKEND == "msg91" and not MS
     raise SystemExit(f'SMS_BACKEND="{SMS_BACKEND}": use "console", or "msg91" with MSG91_AUTHKEY set (DEPLOYMENT.md).')
 SMS_ENABLED = SMS_BACKEND != "console" or DEBUG or TESTING
 SMS_DAILY_CAP = env.int("SMS_DAILY_CAP", default=500)
-SMS_KINDS = ["otp", "order_placed", "order_shipped", "order_delivered", "parent_consent"]
+SMS_KINDS = [
+    *["otp", "order_placed", "order_shipped", "order_delivered", "parent_consent"],
+    *["order_arriving", "order_not_delivered"],  # a courier's news (shipping/messages.py)
+]
 MSG91_TEMPLATES = {kind: env(f"MSG91_TEMPLATE_{kind.upper()}", default="") for kind in SMS_KINDS}
 
 # django-allauth: email is the login, verified by a code typed on the same page (phone friendly). With SMS on, also a
@@ -610,3 +614,84 @@ CELERY_BEAT_SCHEDULE |= {
     "insights-offers": {"task": "insights.tasks.offer_effectiveness", "schedule": crontab(hour=2, minute=45)},
     "insights-fraud": {"task": "insights.tasks.fraud_rules", "schedule": crontab(hour=3, minute=0)},  # and the email
 }
+
+# Integrations (integrations/README.md; DEPLOYMENT.md "Integrations"): the services others run for us. Their secrets
+# are encrypted with INTEGRATION_KEYS, Fernet keys separated by commas, newest first (make one with
+# python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"); a server refuses to
+# start without one once an account exists (integrations.E001), development and the tests use one made from
+# SECRET_KEY. A call waits INTEGRATIONS_CONNECT_TIMEOUT seconds to connect and INTEGRATIONS_READ_TIMEOUT for its
+# answer; the call log, the inbound events and the dead letters dealt with go after INTEGRATIONS_RETENTION_DAYS.
+INSTALLED_APPS += ["integrations"]
+INTEGRATION_KEYS = env.list("INTEGRATION_KEYS", default=[])
+for _key in INTEGRATION_KEYS:
+    try:
+        _fernet_key = len(base64.urlsafe_b64decode(_key)) == 32
+    except ValueError:  # not base64 (binascii.Error)
+        _fernet_key = False
+    if not _fernet_key:
+        raise SystemExit("INTEGRATION_KEYS holds a value that is not a Fernet key (44 characters): see DEPLOYMENT.md.")
+INTEGRATIONS_CONNECT_TIMEOUT = env.float("INTEGRATIONS_CONNECT_TIMEOUT", default=5)
+INTEGRATIONS_READ_TIMEOUT = env.float("INTEGRATIONS_READ_TIMEOUT", default=20)
+INTEGRATIONS_RETENTION_DAYS = env.int("INTEGRATIONS_RETENTION_DAYS", default=90)
+CELERY_BEAT_SCHEDULE["integrations-retention"] = {
+    "task": "integrations.tasks.purge_old_records",
+    "schedule": crontab(hour=4, minute=45),
+}
+
+# Shipping (shipping/README.md; DEPLOYMENT.md "Shipping"): parcels booked with a courier through Shiprocket (an
+# integration account) or sent by hand. A parcel weighs its books plus SHIPPING_PACKING_GRAMS and is a flyer of
+# SHIPPING_PARCEL_CM (length, breadth, height) unless staff say otherwise. The quote waits SHIPPING_QUOTE_TIMEOUT
+# seconds and is kept 10 minutes; it ranks first the cheapest couriers rated SHIPPING_MIN_RATING or more that deliver
+# within SHIPPING_MAX_DAYS. India Post's Gyan Post is offered only with SHIPPING_GYAN_POST, once the postal division has
+# confirmed in writing that the books qualify. Parcels silent for 6 hours are read again every two hours; exceptions
+# open for staff after 5 days without a scan, at a failed delivery (24 hours to act), for a COD remittance 2 working
+# days late (expected 10 working days after delivery) and for a weight dispute (7 working days to contest). The
+# webhook takes API_THROTTLE_PARCEL_EVENTS per client address; the PIN survey reads SHIPPING_SURVEY_BATCH PINs a week.
+INSTALLED_APPS += ["shipping"]
+SHIPPING_PACKING_GRAMS = env.int("SHIPPING_PACKING_GRAMS", default=50)
+SHIPPING_PARCEL_CM = env.list("SHIPPING_PARCEL_CM", default=["25", "20", "3"])
+SHIPPING_QUOTE_TIMEOUT = env.float("SHIPPING_QUOTE_TIMEOUT", default=3)
+SHIPPING_QUOTE_CACHE_SECONDS = 600
+SHIPPING_MIN_RATING = env.float("SHIPPING_MIN_RATING", default=4)
+SHIPPING_MAX_DAYS = env.int("SHIPPING_MAX_DAYS", default=7)
+SHIPPING_GYAN_POST = env.bool("SHIPPING_GYAN_POST", default=False)
+SHIPPING_POLL_AFTER_HOURS = 6
+SHIPPING_NO_MOVEMENT_DAYS = 5
+SHIPPING_NDR_HOURS = 24
+SHIPPING_COD_REMITTANCE_DAYS = 10
+SHIPPING_COD_GRACE_DAYS = 2
+SHIPPING_DISPUTE_DAYS = 7
+SHIPPING_SURVEY_BATCH = env.int("SHIPPING_SURVEY_BATCH", default=500)
+REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["parcel_events"] = env(  # noqa: F405  the couriers' webhook, per address
+    "API_THROTTLE_PARCEL_EVENTS", default="300/minute"
+)
+_STAFF_TAG = {"name": "shipping (staff)", "description": "Parcels, couriers, exceptions and COD, for staff (API.md)."}
+if _STAFF_TAG not in SPECTACULAR_SETTINGS["TAGS"]:  # noqa: F405  (once: tests reload this module, the dict is shared)
+    SPECTACULAR_SETTINGS["TAGS"].append(_STAFF_TAG)  # noqa: F405
+SPECTACULAR_SETTINGS["ENUM_NAME_OVERRIDES"].update(  # noqa: F405  "status", "state" and "kind" with choices
+    StateEnum="localflavor.in_.in_states.STATE_CHOICES",  # an address's state: its name as before
+    ParcelStatusEnum="shipping.status.Status",
+    ShippingExceptionStateEnum="shipping.models.ShippingException.State",
+    ShippingExceptionKindEnum="shipping.models.ShippingException.Kind",
+    CodRemittanceStateEnum="shipping.models.CodRemittance.State",
+    ShipmentChargeKindEnum="shipping.models.ShipmentCharge.Kind",
+    ShipmentEventSourceEnum="shipping.models.ShipmentEvent.Source",  # "source": a scan's origin, not a course's
+    EntitlementSourceEnum="learn.models.Entitlement.Source",  # a course's (learn, and insights' cohorts)
+)
+CELERY_BEAT_SCHEDULE.update(
+    {
+        "shipping-poll-tracking": {"task": "shipping.tasks.poll_tracking", "schedule": crontab(minute=10, hour="*/2")},
+        "shipping-sync-statement": {"task": "shipping.tasks.sync_statement", "schedule": crontab(hour=5, minute=0)},
+        "shipping-check-cod": {"task": "shipping.tasks.check_cod_remittances", "schedule": crontab(hour=5, minute=15)},
+        "shipping-check-discrepancies": {
+            "task": "shipping.tasks.check_weight_discrepancies",
+            "schedule": crontab(hour=5, minute=30),
+        },
+        "shipping-renew-token": {"task": "shipping.tasks.renew_token", "schedule": crontab(hour=5, minute=45)},
+        "shipping-survey-pins": {
+            "task": "shipping.tasks.survey_pins",
+            "schedule": crontab(hour=6, minute=0, day_of_week="sun"),
+        },
+        "shipping-held-messages": {"task": "shipping.tasks.send_held_messages", "schedule": crontab(hour=8, minute=0)},
+    }
+)

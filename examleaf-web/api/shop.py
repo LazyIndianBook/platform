@@ -50,6 +50,7 @@ from shop.models import (
     PinCode,
     Product,
     Review,
+    Shipment,
     ShippingRate,
     SlugHistory,
     StockAlert,
@@ -61,6 +62,7 @@ from .views import DetailSerializer, VerifiedEmail, cached, check_turnstile
 
 CUSTOMER = [permissions.IsAuthenticated, VerifiedEmail]
 NOT_PAYABLE = "This order is not waiting for an online payment."
+SHIPMENTS = Prefetch("shipments", queryset=Shipment.objects.select_related("detail"))  # a courier's: shipping/
 
 
 class ShopOpen(permissions.BasePermission):
@@ -918,7 +920,7 @@ class OrderSerializer(OrderBriefSerializer):
     shipping_fee = rupees("shipping_fee.amount")
     items = OrderItemSerializer(many=True, read_only=True)
     timeline = serializers.SerializerMethodField()
-    shipments = ShipmentSerializer(many=True, read_only=True)
+    shipments = serializers.SerializerMethodField()
     refunds = RefundSerializer(many=True, read_only=True)
     can_cancel = serializers.BooleanField(read_only=True)
     can_pay = serializers.SerializerMethodField()
@@ -941,6 +943,17 @@ class OrderSerializer(OrderBriefSerializer):
     @extend_schema_field(TimelineSerializer(many=True))
     def get_timeline(self, order):
         return TimelineSerializer([{"status": label, "at": at} for label, at in order.timeline()], many=True).data
+
+    @extend_schema_field(ShipmentSerializer(many=True))
+    def get_shipments(self, order):
+        """The parcels sent: one booked with a courier (shipping/) once it has left, not while it waits for its
+        pickup nor once its booking was cancelled."""
+        sent = [
+            shipment
+            for shipment in order.shipments.all()
+            if (detail := getattr(shipment, "detail", None)) is None or detail.carrier == "manual" or detail.has_left
+        ]
+        return ShipmentSerializer(sent, many=True).data
 
     def get_can_pay(self, order) -> bool:
         return can_pay(order)
@@ -1172,7 +1185,7 @@ class OrderViewSet(Private, mixins.ListModelMixin, mixins.RetrieveModelMixin, vi
         items = Prefetch("items", queryset=OrderItem.objects.select_related("product"))  # is_digital reads them
         if self.action == "list":
             return orders.prefetch_related(items)
-        return orders.select_related("invoice").prefetch_related(items, "shipments", "refunds")
+        return orders.select_related("invoice").prefetch_related(items, SHIPMENTS, "refunds")
 
     def get_serializer_class(self):
         return OrderBriefSerializer if self.action == "list" else OrderSerializer
@@ -1296,7 +1309,7 @@ class OrderLinkView(generics.RetrieveAPIView):
     serializer_class = OrderLinkSerializer
     lookup_field = "token"
     queryset = Order.objects.select_related("invoice").prefetch_related(
-        Prefetch("items", queryset=OrderItem.objects.select_related("product")), "shipments", "refunds"
+        Prefetch("items", queryset=OrderItem.objects.select_related("product")), SHIPMENTS, "refunds"
     )
 
     def retrieve(self, request, *args, **kwargs):

@@ -1,0 +1,13 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p>Paste each token at its provider now (Shiprocket: Settings → API → Webhooks, "Security token"). It is not shown again;
+the previous token is still accepted for 24 hours. The webhook's address is <code>/api/hooks/parcel-events/</code> on the
+site's domain.</p>
+<table>
+  <thead><tr><th>Account</th><th>New webhook token</th></tr></thead>
+  <tbody>
+  {% for account, token in tokens %}<tr><td>{{ account }}</td><td><code>{{ token }}</code></td></tr>{% endfor %}
+  </tbody>
+</table>
+<p><a href="{% url 'admin:integrations_integrationaccount_changelist' %}" class="button">Back to the accounts</a></p>
+{% endblock %}
