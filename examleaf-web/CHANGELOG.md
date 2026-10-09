@@ -5,6 +5,56 @@ commits are in `git log` (phase 4: abffe6f and e5abda5; phase 5 A and B with the
 and E: 4e30e59; the redesign's stage 2 so far: ba0b9dd). Details of each feature are in README.md; the numbers of the
 tests are those of `pytest` at the end of the phase.
 
+## Phase B, Support (9 October 2026)
+
+A small helpdesk of our own (plan 5.14; Frappe Helpdesk is not installed), so that every complaint has a number, the
+deadlines the law sets and an answer on record: the new `support` app (`support/README.md`), the panel's Support
+module (`../examleaf-admin/`, `/support/`) and "My requests" on the website (`../examleaf-frontend/`,
+`/account/requests/`). 1,129 backend tests pass on SQLite (12 skipped, 1,961 subtests), 73 of them the support app's
+(its concurrency test on PostgreSQL, where the support, matrix, contract and roles tests pass too: 244); the
+console's Vitest 119 (32 new), its Playwright 6 in mock mode and 10 against this backend; the website's Vitest 211
+(4 new) and its My requests journey with the 320 px checks.
+
+- **Tickets** (`Ticket`, `TicketMessage`, `TicketAttachment`, `SavedReply`): a number of their own series
+  (`SR-2026-000123`, gapless under a row lock), a source (the website's form, email, a call, WhatsApp, a complaint the
+  National Consumer Helpline forwarded with its docket), a category, a status, the requester as an account or an email
+  address and a mobile number (encrypted at rest with `INTEGRATION_KEYS`, found by keyed hashes, masked in every
+  answer, revealed with a reason), the linked order, data request or paper, and history.
+- **The legal clocks** (`support/clocks.py`) in calendar time in India, never paused and across month ends: 48 hours
+  to acknowledge and a calendar month to redress (E-Commerce Rules), 30 days for an NCH complaint, a month then 90 days
+  for a privacy request (SPDI, then DPDP Rules), the IT Rules' 24 hours and 15 days behind `SUPPORT_INTERMEDIARY_RULES`
+  (off: counsel's answer pending). Every 15 minutes the inbox hears at three quarters of a clock (`ticket_due`) and a
+  breach is flagged once (`ticket_breach`, `support.clock_breached`); resolved tickets close after 4 days.
+- **Where tickets come from**: the contact form now makes one (its number in the acknowledgement; the support address
+  still gets a copy while `SUPPORT_COPY_TO_EMAIL` is on); "My requests" (`GET`/`POST /api/v1/me/tickets/`); email to
+  the support address forwarded to `POST /api/hooks/support-mail/` (the `support_mail` account's token, the raw body
+  kept once, a loop guard, threading by a secret thread id, the headers and the number); staff log calls, WhatsApp
+  messages and NCH complaints. Spam is quarantined and purged after 30 days.
+- **The acknowledgement** by email, or SMS when only a phone is known (`ticket_ack`, held at night); from
+  `SUPPORT_COMPLAINT_COPY_FROM` (1 January 2027) with a copy of the complaint as recorded. Only a person's reply sets
+  the first response.
+- **The staff API** under `/api/v1/staff/support/` (API.md "Support (staff)"): the queue by the next deadline (lookups
+  by email or phone logged as hashes), a ticket with its sidebar (orders with Razorpay ids, payments, refunds,
+  shipments, invoices, entitlements, codes, devices, past tickets, consents; each part by the reader's permissions)
+  and the saved replies filled for it in its language, replies and notes with mentions (`ticket_mention`), statuses
+  with what closing asks for, reopening, assignment, the requester's details revealed, and the actions: a refund
+  through `order.refund` (lines from zero; 202 above the limit), cancel, the invoice and the confirmation again,
+  course access extended, a book code looked up by its digest, a data request started. The summary and the agents.
+  Opening a ticket is a `sensitive_read`; every change an audit event naming the ticket's number only.
+- **Permissions**: `staff.handle_ticket` (medium: SUPPORT, SALES on order, payment and school-order tickets, ADMIN),
+  `support.note_ticket` (a content editor's notes on content errors), `support.view_ticket`, the saved replies' model
+  verbs (changes ADMIN's), `staff.export_grievances` (high: ADMIN, OWNER, AUDITOR); the scope kind `ticket_category`.
+- **The grievance register**: the job `grievance_export` (a dated CSV, no personal data; above `export_rows` it waits
+  for an approver) and `manage.py grievance_register`. An erased account's tickets keep their numbers and dates and
+  lose the person; a test order's tickets stay out of the queue, the summary and the register on a live site.
+- **The console's Support module**: the queue with its tabs and countdowns and the module's numbers, the ticket (the
+  conversation, the reply box with saved replies a keystroke away, internal notes naming colleagues, the deadlines, the
+  status with its closing fields, the actions, assignment, sorting and correcting, the acknowledgement; the customer
+  and the audit trail beside it), logging a call or an NCH complaint, the saved replies (a delete undone within 5
+  seconds) and the grievance register's job; its mock, its Vitest tests and a journey in each Playwright project.
+- **The website**: `/account/requests/` lists the account's requests with their number, status and the latest answer
+  date, and asks a new one; "My requests" in the account's navigation.
+
 ## The staff console on the staff API as built, and the website's side of an impersonation (9 October 2026)
 
 No backend change. The console (`../examleaf-admin/`) and the website (`../examleaf-frontend/`) now speak the staff
