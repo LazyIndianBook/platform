@@ -16,7 +16,7 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { auth, nextRoute, startProviderLogin } from "@/lib/auth/headless";
+import { auth, type AuthResult, nextRoute, startProviderLogin } from "@/lib/auth/headless";
 import { safeNext, withNext } from "@/lib/auth/next-url";
 
 import { AuthTitle, Lead, LinkButton, NextChip } from "./auth-card";
@@ -121,10 +121,16 @@ export function LoginForm({ next, providerError }: { next: string | null; provid
     }
   }
 
+  /** allauth.headless answers a right code or password on a switched-off account with a 401 and no step left to
+   *  do, which nextRoute leaves on this page: the inactive page says why and links Contact (G4). */
+  function switchedOff(result: AuthResult | null) {
+    if (result && !result.authenticated && !result.pending) router.push(withNext("/account/inactive/", next));
+  }
+
   async function confirmCode(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPasswordTry(false);
-    await run(() => auth.confirmCode(code));
+    switchedOff(await run(() => auth.confirmCode(code)));
   }
 
   async function passwordLogin(event: React.FormEvent<HTMLFormElement>) {
@@ -133,7 +139,11 @@ export function LoginForm({ next, providerError }: { next: string | null; provid
     const login = String(form.get("login") ?? "").trim();
     const password = String(form.get("password") ?? "");
     setPasswordTry(true);
-    await run(() => auth.login(sms && !login.includes("@") ? { phone: login, password } : { email: login, password }));
+    switchedOff(
+      await run(() =>
+        auth.login(sms && !login.includes("@") ? { phone: login, password } : { email: login, password }),
+      ),
+    );
   }
 
   const focusCodeField = () => document.getElementById(by === "phone" ? "phone" : "email")?.focus();

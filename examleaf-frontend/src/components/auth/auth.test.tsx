@@ -20,6 +20,16 @@ import { LoginForm } from "./login-form";
 import { PasswordInput } from "./password-input";
 import { SignupForm } from "./signup-form";
 
+// the router's push, to see where a switched-off account is sent (vitest.setup.ts gives a fresh mock per render)
+const { push } = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/account/login/",
+  useRouter: () => ({ push, replace: vi.fn(), refresh: vi.fn(), prefetch: vi.fn(), back: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+  redirect: vi.fn(),
+  notFound: vi.fn(),
+}));
+
 vi.mock("@/lib/auth/headless", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/auth/headless")>()),
   auth: {
@@ -75,6 +85,30 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   window.sessionStorage.clear();
+});
+
+describe("a switched-off account", () => {
+  it("is sent to the inactive page after a right password: allauth answers 401 with no step left", async () => {
+    vi.mocked(auth.login).mockResolvedValue(anonymous);
+    renderLogin(emailOnly, { next: "/s/PHY-E02/" });
+    await userEvent.click(screen.getByText("Log in with email and password"));
+    await userEvent.type(document.getElementById("login")!, "off@example.com");
+    await userEvent.type(document.getElementById("password")!, "Unusual-pass-2026!");
+    await userEvent.click(within(document.querySelector("details form")!).getByRole("button", { name: "Log in" }));
+    expect(auth.login).toHaveBeenCalledWith({ email: "off@example.com", password: "Unusual-pass-2026!" });
+    expect(push).toHaveBeenCalledWith("/account/inactive/?next=%2Fs%2FPHY-E02%2F");
+  });
+
+  it("is sent there after a right code too", async () => {
+    vi.mocked(auth.requestCode).mockResolvedValue(pending("login_by_code"));
+    vi.mocked(auth.confirmCode).mockResolvedValue(anonymous);
+    renderLogin(emailOnly);
+    await typeIn("Email address", "off@example.com");
+    await userEvent.click(screen.getByRole("button", { name: "Email me a code" }));
+    await userEvent.type(screen.getByRole("textbox", { name: /code/i }), "482913");
+    await userEvent.click(screen.getByRole("button", { name: "Log in" }));
+    expect(push).toHaveBeenCalledWith("/account/inactive/");
+  });
 });
 
 describe("the NEXT chip", () => {
