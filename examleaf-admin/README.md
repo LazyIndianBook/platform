@@ -144,8 +144,17 @@ shape), and `<html lang>` with the `:lang` rule and Hind Siliguri in every font 
   `/people/<id>/`, `/people/access-review/`, `/users/` and `/users/<id>/`, `/privacy/requests/` and `<id>/`,
   `/privacy/incidents/` and `<id>/`, `/privacy/processors/`, `/settings/`, `/settings/api-keys/`, `/system/`,
   `/account/` (the session's limits and the person's jobs). Every record page has its notes and its audit trail beside
-  it. `/orders/`, `/shipping/`, `/catalogue/`, `/marketing/`, `/content/`, `/course/`, `/partners/` (distributors,
-  schools, teachers) and `/insights/` say they come in the next phase and where that work is done today.
+  it. `/orders/`, `/shipping/`, `/catalogue/`, `/marketing/`, `/course/`, `/partners/` (distributors, schools,
+  teachers) and `/insights/` say they come in the next phase and where that work is done today.
+- Content (`src/app/(panel)/content/`, `src/components/modules/content/`): `/content/` (what waits: mistakes by kind,
+  reviews for me, drafts, books missing legal deposits, the last import), `/content/books/` and `<id>/` (a book's ISBN,
+  format, edition and publication day, its history), `/content/papers/` and `<id>/` (the questions and solutions as a
+  tree; `?solution=<id>` or `?question=<id>` opens the editor: the Markdown and LaTeX on the left, the text as the
+  site draws it on the right, KaTeX checking every formula before a save, the save bar, Submit for review, the
+  history; the QR code, for a print run with `?printing=`), `/content/reviews/` and `<id>/` (waiting for me, the line
+  diff beside the preview, approve, ask for changes, publish with five seconds to undo), `/content/reports/` and
+  `<id>/` (the triage, Tell the reporter), `/content/errata/`, `/content/imports/` (a dry run's counts and labels,
+  then Apply) and `/content/legal-deposits/`.
 - In ERPNext (links out, in a new tab, said in words and marked with the external-link icon; drawn only when
   `NEXT_PUBLIC_ERP_URL` is set and the manifest has one of the sync's `erp.*` permissions): Finance `/app/accounting`,
   Tax `/app/gst-india`, Inventory `/app/stock`, Purchases `/app/buying`, CRM `/app/crm`.
@@ -251,3 +260,18 @@ cursor pagination `{next, previous, results}` (the `cursor` of the links, `page_
 - **Notes**: `GET`/`POST notes/?target_type=&target_id=` (a record's notes, not paged; only on records the reader may
   see).
 - **The system**: `GET system/`, `POST system/reconcile/` (an order's payment checked with Razorpay again).
+- **Content** (`content/…`, API.md "Content (staff)"; every list and record within the person's subjects):
+  `GET content/summary/`; `GET`/`POST content/books/`, `GET`/`PATCH content/books/{id}/`; `GET content/papers/`,
+  `GET`/`PATCH content/papers/{id}/` (`is_published` and `is_sample` need `staff.publish_paper`),
+  `GET content/papers/{id}/qr/` (`?printing=`; `site_url_not_public` on a local site);
+  `GET`/`PATCH content/questions/{id}/` and `content/solutions/{id}/` (the PATCH writes the draft, never the live
+  text; the API's LaTeX check answers per field with its line), `POST …/submit/`, `discard/`, `rollback/`;
+  `GET …/{id}/history/` and `POST …/history/{history_id}/restore/` for books, papers, questions and solutions;
+  `GET content/reviews/` (`?mine=`, `?open=`), `GET content/reviews/{id}/` (`yours`, `changes` with their lines),
+  `POST …/approve/`, `needs-changes/` (`{comment, field}`), `publish/` (`403 own_edit` for whoever edited or submitted
+  it); `GET content/reports/`, `GET`/`PATCH content/reports/{id}/`, `POST …/confirm/`, `reject/` (`{staff_note}`),
+  `fix-online/`, `fix-in-printing/` (`{fixed_in}`), `reopen/`, `tell/`; `GET content/errata/`;
+  `GET content/imports/` and `POST jobs/` with
+  `{kind: "content_import", params: {subject, commit, fixtures?, dry_run_job?}, dry_run}` (`staff.import_content`, a
+  fresh authentication); `GET`/`POST content/legal-deposits/` (multipart with a scan),
+  `GET content/legal-deposits/missing/`, `content/legal-deposits/{id}/proof/` (the scan, opened from this origin).

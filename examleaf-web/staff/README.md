@@ -258,7 +258,10 @@ by `result_url` (signed for 5 minutes; a bucket's own signed link behind it) and
 `jobs.permission`, its limit in `jobs.LIMITS`, its runner in `jobs.RUNNERS` and its params in
 `serializers.JobStartSerializer`. The ERPNext sync (`erp/README.md`) adds the kind `erp_initial_load`
 (`erp.run_initial_load`, the `bulk_rows` limit) and two kinds of inbox item: `sync_failed` (a dead letter) and
-`reconciliation` (a night's differences).
+`reconciliation` (a night's differences). The content module (`content/README.md`) adds the kind `content_import`
+(`staff.import_content`, high; no row limit and no approver: its own dry run comes first, and an apply names it) and
+three kinds of inbox item, each narrowed to its subject (`data.subject`): `review` (a draft waiting for a reviewer),
+`error_report` (a reported mistake to triage) and `legal_deposit` (a book's copies due at the libraries).
 
 ## Data protection
 
@@ -302,8 +305,8 @@ by `result_url` (signed for 5 minutes; a bucket's own signed link behind it) and
 
 ## Not built yet
 
-The panel itself (Next.js); the orders, catalogue, content and course modules' own endpoints (their permissions are
-in the catalogue: `staff.publish_paper` waits for the content module); bulk actions beyond the change requests' (a
+The panel itself (Next.js); the orders, catalogue and course modules' own endpoints (their permissions are in the
+catalogue); bulk actions beyond the change requests' (a
 bulk job runs those: refunds, offline payments, prices, coupons); replaying a Razorpay webhook from its body (the
 site keeps only the event's id and hash: `system/reconcile/` asks Razorpay again instead); ERPNext's role sync; the
 Django admin's own step for a break-glass session's reason; the website's page that posts an impersonation token, and

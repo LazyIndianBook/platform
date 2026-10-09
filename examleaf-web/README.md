@@ -46,6 +46,11 @@ and the security reviews, [SECURITY_REVIEW.md](SECURITY_REVIEW.md) (phases 1 to 
   backend (`staff/`, API.md "Staff API"): scopes, limits and separation of duties, an append-only hash-chained audit
   log, approvals by a second person, an inbox, the site's switches and feature flags, API keys, staff invitations and
   offboarding, the data requests queue, the breach register and the processor register.
+- **Content in the panel** (`content/README.md`, API.md "Content (staff)"). A question's or a solution's text changes
+  as a draft that a second person reviews and publishes (the site keeps the live text until then; a publish can be
+  rolled back); readers report mistakes from each solution and clip (Turnstile, limits, spam set apart), triaged into
+  errata per print run; imports from the books repository run as a dry run, then its apply; the legal deposits are
+  recorded per library, with an inbox item until all four have the book; ISBNs and LaTeX are checked.
 - **The shop.** The printed books sold across India: cart, coupons, checkout with Razorpay (UPI, cards, net banking) or,
   when `SHOP_COD_ENABLED` is on (it is off by default), cash on delivery, stock under row locks, shipping rates by
   state, PIN code autofill from India Post's directory, order emails (and SMS), courier tracking links, GST invoices and
@@ -231,7 +236,10 @@ section tags come from the work orders (`production/<subject>/orders/ch*.md`).
 
 It reports, per subject, papers, questions, solutions matched, tags, created/updated/unchanged records, and lists every
 solution label it could not match and every question without a solution (it exits with an error if there are any).
-Re-running it changes only what changed in the Markdown, so the edit history stays meaningful.
+Re-running it changes only what changed in the Markdown, so the edit history stays meaningful; a question no longer in
+the books is taken off the site, not deleted, and a draft saved in the panel is left alone. `--dry-run` compares and
+writes nothing. The panel does the same per subject (Content → Imports: a dry run, then its apply, `staff.import_content`;
+content/README.md "Imports"): the command is the shell's way, for a whole repository at once or when the panel is down.
 Current result on the books: 30 papers per subject; Physics 1650, Chemistry 1260, Mathematics 1383, Biology 1590
 questions, every one with its solution and tags; 0 unmatched. On the test papers: 220, 126, 132 and 159 questions;
 then `import_chapter_insights --fixtures` makes the 51 chapters and `build_quiz_items` 69 quiz items.
@@ -243,7 +251,9 @@ then `import_chapter_insights --fixtures` makes the 51 chapters and `build_quiz_
 
 Set `SITE_URL` to the real domain before exporting codes for print: `export_qr` refuses to write codes for `localhost`
 or a plain-http address (a printed book cannot be corrected), unless you pass `--force` for a test run.
-The website answers `/s/<CODE>/` in any case (`/s/phy-e01/` goes to `/s/PHY-E01/`).
+The website answers `/s/<CODE>/` in any case (`/s/phy-e01/` goes to `/s/PHY-E01/`). The panel's page of a paper shows
+its code and gives the picture, also for a print run (`?printing=PHY-2027-2` in the address the code prints, which the
+website's "Report a mistake" then sends with a report).
 
 ## Paths
 

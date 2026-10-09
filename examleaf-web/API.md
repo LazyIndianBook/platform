@@ -15,7 +15,8 @@ print runs, item analysis, cohorts, fraud signals). Code: `api/` (`auth.py`, `vi
 [Frontend integration guide](#frontend-integration-guide) · [Profile and data rights](#profile-and-data-rights) ·
 [Catalogue and solutions](#catalogue-and-solutions) · [Attempts](#attempts) · [Store catalogue](#store-catalogue) ·
 [Shop](#shop) · [Revision course](#revision-course) · [Site](#site-configuration-and-legal-pages) ·
-[Insights (staff)](#insights-staff) · [ERPNext sync (staff)](#erpnext-sync-staff) · [Lists](#lists) ·
+[Insights (staff)](#insights-staff) · [ERPNext sync (staff)](#erpnext-sync-staff) ·
+[Content (staff)](#content-staff) · [Lists](#lists) ·
 [Staff API](#staff-api) · [Errors](#errors) ·
 [Rate limits](#rate-limits) · [CORS](#cors) ·
 [Versioning](#versioning) · [Operations](#operations)
@@ -77,6 +78,8 @@ it, on the panel's session (or an API key), on the admin host only. **Shop open*
 | GET | `papers/`, `papers/<code>/` | anyone | papers: marks, time, instructions, `web_url`, `solutions_url` |
 | GET | `papers/<code>/solutions/` | confirmed (anyone while solutions are open, and for a book's open sample) | the questions in order, each with its solution |
 | GET | `qr/<code>/` | anyone | a scanned code (any case) to its paper and `solutions_url` |
+| POST | `reports/` | anyone | report a mistake in a solution, a question, a quiz item or a clip ([Catalogue and solutions](#catalogue-and-solutions)) |
+| GET | `errata/?book=<slug>` | anyone | a book's published errata: the mistakes confirmed or fixed, with the printings |
 | GET POST | `attempts/` | confirmed | the student's own record; POST saves an attempt |
 | GET PUT PATCH DELETE | `attempts/<id>/` | confirmed | one attempt |
 | GET | `products/`, `products/<slug>/` | anyone | the books and courses on sale: prices, pictures, a bundle's books, categories, attributes |
@@ -432,7 +435,29 @@ When the site's solutions are open (`SOLUTIONS_REQUIRE_LOGIN=0`), and always for
 paper per book, E-01 unless staff choose another), `papers/<code>/solutions/` answers everyone
 (`Cache-Control: public, max-age=300` for a visitor who is not signed in, `private` for a signed-in user); saving
 attempts still needs an account. Otherwise it needs a signed-in student with a confirmed email address (401 without a
-token; 403 `{"detail": "Confirm your email address first."}` with an unconfirmed one).
+token; 403 `{"detail": "Confirm your email address first."}` with an unconfirmed one). A question no longer in the
+books repository is left out (the panel keeps it); a change made in the panel shows only once a reviewer publishes it.
+
+**Report a mistake** `POST reports/` (anyone; a signed-in reader is kept as the reporter, a verified teacher's report
+marked): `kind` is `solution` or `question` (with `paper`, its code, and `question`, its label), `quiz_item` (with
+`quiz_item`, its id) or `clip` (with `clip`, its id); `category` one of `wrong_answer`, `typo`, `marks`, `unclear`,
+`display`, `other`; optional `step` (a solution's marking step, 1 for the first), `printing` (the print run read: the
+printed QR code's `?printing=`, letters, digits and hyphens), `note` (1,000 characters) and `email` (to be told once
+when it is fixed; deleted then, or when the report is rejected). Turnstile's token (`turnstile`) while the bot check is
+on, as for the contact form; at most 5 an hour and 20 a day per client address (429); a filled-in `website` (a
+honeypot) is thanked and dropped; a note that reads as spam (a link, markup, one character over and over) is kept out
+of the staff's queue and deleted after 30 days. **Errata** `GET errata/?book=<slug>` (anyone; `Cache-Control: public,
+max-age=300`; paginated as the other lists): the mistakes staff confirmed or fixed and chose to publish, in paper and
+question order, each with `paper`, `question`, `step`, `category`, `printing`, `state` (`confirmed`, `fixed_online`,
+`fixed_in_printing`), `fixed_in` (the printing that carries the fix), `fixed_at` and `reported_on`.
+
+```sh
+curl -X POST https://examleaf.in/api/v1/reports/ -H "Content-Type: application/json" -d '{"kind": "solution",
+  "paper": "PHY-E01", "question": "2(c)", "step": 2, "printing": "PHY-2027-1", "category": "wrong_answer",
+  "note": "The current should be 0.5 A, not 5 A.", "turnstile": "0.Zx..."}'
+# 201 {"reference": 31, "detail": "Thank you: we will check it, and fix it if it is wrong."}
+# 400 {"question": ["No such question on that paper."]}      429 above 5 an hour or 20 a day
+```
 
 ## Attempts
 
@@ -1081,6 +1106,68 @@ after a rotation the previous one), checked in constant time. A missing or wrong
 `ERP_ENABLED` off: `403 {"detail": "Unknown or missing signature."}`, kept without its body. Otherwise
 `200 {"detail": "Received."}` at once; the body (`{doctype, name, modified, examleaf_ref, event}`) is kept once per
 SHA-256 and read again by a task. 600 a minute per client address (`API_THROTTLE_ERP_EVENTS`).
+
+## Content (staff)
+
+`/api/v1/staff/content/…` (code: `content/staff_api.py`; the workflow: [content/README.md](content/README.md)) is the
+panel's content module: books and papers, the drafts of questions and solutions and their review, the mistakes
+readers report, the errata, the imports from the books repository and the legal deposits. It is part of the
+[Staff API](#staff-api) and keeps all its rules (the admin host, a second factor or an API key, each action's
+catalogued permission, every refusal an `authz_fail` event, cursor pages, `Cache-Control: no-store`), and every list
+and record is narrowed to the person's subjects: a CONTENT_EDITOR narrowed to PHY reaches PHY's books, papers,
+questions, solutions, reviews, reports and deposits, and another subject's record is a 404. Books and papers change at
+once; a question's or a solution's text never does: a change goes to the record's `draft`, a second person reviews and
+publishes it, and the site shows the live text until then. Every change is an audit event targeting the record
+(`content.book_created`, `content.book_changed`, `content.paper_published` / `_unpublished` / `_changed`,
+`content.draft_saved`, `content.question_changed`, `content.draft_discarded`, `content.submitted`,
+`content.review_approved`, `content.review_needs_changes`, `content.published`, `content.rolled_back`,
+`content.version_restored`, `content.report_received`, `content.report_confirm` / `_reject` / `_fix_online` /
+`_fix_in_printing` / `_reopen`, `content.report_changed`, `content.reporter_told`, `content.item_flagged`,
+`content.imported`, `content.legal_deposit_recorded`), never with a reader's address. These endpoints are tagged
+`content (staff)` in the schema; a refusal is `400 {"non_field_errors": ["..."]}` in words.
+
+| Method | Path (under `/api/v1/staff/content/`) | Permission | What |
+|---|---|---|---|
+| GET | `summary/` | `content.view_errorreport` | the module's home: `reports_open` (`total`, `by_category`), `reviews_waiting`, `reviews_mine`, `drafts`, `legal_deposits_missing`, `last_import`; each part `null` for whoever may not see it |
+| GET POST PATCH | `books/`, `books/<id>/` | `content.view_book`; POST `content.add_book`; PATCH `content.change_book` | books (`?subject=PHY&board=&class_level=&format=print|ebook`): `isbn` (13 digits; its check digit checked when it is set or changed, hyphens may be typed), `format`, `edition`, `published_on` and `deposit_due_on` (the legal deposit's clock), `papers`; one adds `missing_deposits` (the libraries still to send to) |
+| GET PATCH | `papers/`, `papers/<id>/` | `content.view_paper`; PATCH `content.change_paper`, and `staff.publish_paper` for `is_published` and `is_sample` | papers by code (`?subject=&board=&class_level=&book=&tier=&is_published=&changed=true&q=`), with `questions` and `drafts`; one adds `header_json` and `tree` (each question in order with its state, a preview and its solution's state). The code never changes here: it is in the printed QR code |
+| GET | `papers/<id>/qr/` (`?printing=PHY-2027-2`) | `content.view_paper` | `{"url", "png"}`: the address the code prints, with the print run when one is named, and the code as a data URL; `400 {"code": "site_url_not_public"}` while `SITE_URL` is not a public https address |
+| GET PATCH | `questions/`, `questions/<id>/`, `solutions/`, `solutions/<id>/` | `content.view_question` / `_solution`; PATCH `content.change_question` / `_solution` | the live text and its `draft` (`state` `published`, `draft` or `in_review`; `draft_by`, `published_at`, `published_by`, the open `review`; `?paper=&book=&subject=&state=&changed=true`). PATCH writes the draft (a question's `text_md`, `table_md`, `options_json`, `marks_text`, `group_label`, `part_label`, `is_alternative`; a solution's `body_md`) after the LaTeX check (`400 {"body_md": ["Line 3: ..."]}`); a question's `order`, `label` and `tags` change at once. A field typed back to its live value leaves the draft; a draft changed while it waits for review withdraws the review |
+| POST | `questions/<id>/submit/`, `solutions/<id>/submit/` (`{"assignee": <id>}` optional); `…/discard/` | `content.change_question` / `_solution` | the draft to a reviewer: `201` with the review, and an inbox item for the subject's reviewers (or the one named); the draft dropped and its review withdrawn |
+| POST | `questions/<id>/rollback/`, `solutions/<id>/rollback/` | `staff.publish_paper` | the last publish from the panel undone: the text before it live again, the text it published back in the draft; refused once the live text changed since (an import, a later publish) |
+| GET POST | `<books|papers|questions|solutions>/<id>/history/`, `…/history/<history_id>/restore/` | the record's view; restore its change | the versions, newest first, each with its `changes` (`field`, `before`, `after`, `lines` of `{"op": "equal" | "delete" | "insert", "text"}`); a restore puts a book's or a paper's fields back at once, a question's or a solution's text into its draft |
+| GET | `reviews/`, `reviews/<id>/` | `content.view_reviewtask` | the queue, oldest first (`?mine=true`: waiting for me, open, for me or nobody, never my own edit; `?submitted=true`; `?open=true|false`; `?subject=&paper=&state=&stage=`); one adds `draft`, `previous`, `comments`, `changes` (the draft against the live text; once published, the text it replaced against it) and `yours` |
+| POST | `reviews/<id>/approve/` `{"comment"}`, `…/needs-changes/` `{"comment", "field"}`, `…/publish/` `{"comment"}` | `staff.publish_paper` | a reviewer's decision; never by whoever edited or submitted the draft (`403 {"code": "own_edit"}`); a publish approves on the way and refuses a draft changed since it was submitted |
+| GET PATCH | `reports/`, `reports/<id>/` | `content.view_errorreport`; PATCH `staff.triage_report` | the reported mistakes, oldest first; the open ones (reported, confirmed) unless `?state=` says (`?category=&subject=&printing=&teacher=true&paper=&book=`); spam never shows. One adds `linked` (the question and solution as the site shows them now) and `handled_by`; the reporter's address is masked. PATCH `{"staff_note", "public"}` (`public`: on the errata) |
+| POST | `reports/<id>/confirm/`, `…/reject/` `{"staff_note"}`, `…/fix-online/`, `…/fix-in-printing/` `{"fixed_in": "PHY-2027-2"}`, `…/reopen/`; `…/tell/` | `staff.triage_report` | one step of the triage: reported, then confirmed or rejected, then fixed online, then fixed in a printing; a rejection reopened. `tell/` emails the reporter once that it is fixed, then forgets their address |
+| GET | `errata/` | `content.view_errorreport` | confirmed and fixed mistakes, per book and printing (`?book=<slug or id>&printing=&public=`) |
+| GET | `imports/` | `content.view_paper` | the imports, newest first: staff jobs of kind `content_import`, within the person's subjects |
+| GET POST | `legal-deposits/`, `legal-deposits/<id>/`, `legal-deposits/<id>/proof/`, `legal-deposits/missing/` | `content.view_legaldeposit`; POST `content.add_legaldeposit` | the copies sent to the four libraries (`?book=&library=`); POST `{"book", "library", "sent_on", "proof", "edition", "erp_delivery_note"}` (`edition`: the book's when left out; JSON, or multipart with `proof_file`, a PDF, JPEG, PNG or WebP of 5 MB at most); `proof/` the scan; `missing/` the published books whose edition some library has not received, with `due_on` and `overdue` |
+
+An import is a staff job: `POST /api/v1/staff/jobs/` `{"kind": "content_import", "params": {"subject": "physics",
+"commit": ""}, "dry_run": true}` (`staff.import_content`, high: a re-authentication within 5 minutes) reads the books
+repository (`commit`: a commit's hash, read with `git archive`; empty, the folder as it is; `"fixtures": true`, the test
+papers, on a test site only), compares it with the database and writes nothing. Its `result` is `{"subject", "commit",
+"source", "papers", "questions", "counts": {"created", "updated", "unchanged", "unmatched", "removed"}, "rows":
+{outcome: [labels]}}`. The apply names it, `{"params": {..., "dry_run_job": 41}, "dry_run": false}`, for the same
+subject and commit within 24 hours, and refuses to run if the repository moved since; it writes each paper in its own
+transaction, only what changed, and unpublishes a question gone from the repository rather than deleting it.
+
+```sh
+curl https://admin.examleaf.in/api/v1/staff/content/reviews/?mine=true -b "sessionid=..."
+# 200 {"next": null, "previous": null, "results": [{"id": 17, "label": "PHY-E01 2(c), solution", "kind": "solution",
+#      "target_id": 412, "subject": "PHY", "paper": 3, "stage": "check", "state": "in_progress", "submitted_by": 9,
+#      "edited_by": 9, ..., "fields_changed": ["body_md"], "yours": false}]}
+curl -X POST https://admin.examleaf.in/api/v1/staff/content/reviews/17/publish/ -b "sessionid=...; csrftoken=..." \
+  -H "X-CSRFToken: ..." -H "Content-Type: application/json" -d '{"comment": ""}'
+# 200 {"id": 17, "state": "approved", "stage": "publish", "published_by": 12, ...}      403 {"code": "own_edit"}
+```
+
+The daily tasks: `content.tasks.flag_items` (02:20) turns the quiz's item analysis (`insights.ItemStat` with flags)
+into reports of category `item_analysis`, once per item and not again within 30 days of one closed;
+`content.tasks.purge_spam` (04:10) deletes spam reports after 30 days; `content.tasks.check_legal_deposits` (07:00)
+keeps one inbox item per published book whose deposits are not all made, due `CONTENT_LEGAL_DEPOSIT_DAYS` after its
+publication.
 
 ## Lists
 
@@ -1763,6 +1850,7 @@ Counted in the cache (Redis in production), per client address for anonymous req
 | reviews (`POST products/<slug>/reviews/`), per client address, the website's included | 5 an hour | fixed |
 | back-in-stock alerts (`POST products/<slug>/stock-alert/`), per client address, the website's included | 10 an hour | fixed |
 | quotation requests (`POST quotes/`), per client address, the website's included | 5 an hour | fixed |
+| mistakes reported (`POST reports/`), per client address, the website's included | 5 an hour and 20 a day | fixed |
 | the couriers' webhook (`POST /api/hooks/parcel-events/`), per client address | 300 a minute | `API_THROTTLE_PARCEL_EVENTS` |
 | the staff API (`staff/…`), per member of staff or API key | 600 a minute | `STAFF_THROTTLE` |
 | customer searches (`GET staff/users/`) | 60 a minute | `STAFF_THROTTLE_SEARCH` |
