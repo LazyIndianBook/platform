@@ -8842,7 +8842,7 @@
         "/api/v1/staff/content/papers/{id}/qr/": {
             "get": {
                 "operationId": "staff_content_papers_qr_retrieve",
-                "description": "The paper's QR code and the address it prints, which the site can redirect later; refused while SITE_URL\nis not a public https address (a printed book cannot be corrected), as export_qr refuses.",
+                "description": "The paper's QR code and the address it prints, which the site can redirect later, with the print run when\none is named; refused while SITE_URL is not a public https address (a printed book cannot be corrected), as\nexport_qr refuses.",
                 "parameters": [
                     {
                         "in": "path",
@@ -8852,6 +8852,14 @@
                         },
                         "description": "A unique integer value identifying this paper.",
                         "required": true
+                    },
+                    {
+                        "in": "query",
+                        "name": "printing",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "the print run the code goes into (PHY-2027-1): the address carries it, and a mistake reported from that page names it"
                     }
                 ],
                 "tags": [
@@ -25162,7 +25170,7 @@
                     "url": {
                         "type": "string",
                         "format": "uri",
-                        "description": "what the code encodes: SITE_URL/s/<CODE>/"
+                        "description": "what the code encodes: SITE_URL/s/<CODE>/ (?printing=<run>)"
                     },
                     "png": {
                         "type": "string",

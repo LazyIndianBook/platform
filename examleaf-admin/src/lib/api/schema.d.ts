@@ -2848,8 +2848,9 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * @description The paper's QR code and the address it prints, which the site can redirect later; refused while SITE_URL
-         *     is not a public https address (a printed book cannot be corrected), as export_qr refuses.
+         * @description The paper's QR code and the address it prints, which the site can redirect later, with the print run when
+         *     one is named; refused while SITE_URL is not a public https address (a printed book cannot be corrected), as
+         *     export_qr refuses.
          */
         get: operations["staff_content_papers_qr_retrieve"];
         put?: never;
@@ -8596,7 +8597,7 @@ export interface components {
         PaperQr: {
             /**
              * Format: uri
-             * @description what the code encodes: SITE_URL/s/<CODE>/
+             * @description what the code encodes: SITE_URL/s/<CODE>/ (?printing=<run>)
              */
             url: string;
             /** @description the code as a data: URL (PNG) */
@@ -14729,7 +14730,10 @@ export interface operations {
     };
     staff_content_papers_qr_retrieve: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description the print run the code goes into (PHY-2027-1): the address carries it, and a mistake reported from that page names it */
+                printing?: string;
+            };
             header?: never;
             path: {
                 /** @description A unique integer value identifying this paper. */

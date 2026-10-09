@@ -433,24 +433,39 @@ class PaperViewSet(
         return Response(ContentPaperDetailSerializer(paper, context=self.get_serializer_context()).data)
 
     @extend_schema(
+        parameters=[
+            OpenApiParameter(
+                "printing",
+                str,
+                description="the print run the code goes into (PHY-2027-1): the address carries it, and a mistake "
+                "reported from that page names it",
+            )
+        ],
         responses=inline_serializer(
             "PaperQr",
             {
-                "url": serializers.URLField(help_text="what the code encodes: SITE_URL/s/<CODE>/"),
+                "url": serializers.URLField(help_text="what the code encodes: SITE_URL/s/<CODE>/ (?printing=<run>)"),
                 "png": serializers.CharField(help_text="the code as a data: URL (PNG)"),
             },
-        )
+        ),
     )
     @action(detail=True, filter_backends=[])
     def qr(self, request, *args, **kwargs):
-        """The paper's QR code and the address it prints, which the site can redirect later; refused while SITE_URL
-        is not a public https address (a printed book cannot be corrected), as export_qr refuses."""
+        """The paper's QR code and the address it prints, which the site can redirect later, with the print run when
+        one is named; refused while SITE_URL is not a public https address (a printed book cannot be corrected), as
+        export_qr refuses."""
         paper = self.get_object()
         site = urlparse(settings.SITE_URL)
         if site.scheme != "https" or site.hostname in ("localhost", "127.0.0.1"):
             raise NotPublic()
-        png = base64.b64encode(paper.qr_image("png")).decode()
-        return Response({"url": paper.landing_url(), "png": f"data:image/png;base64,{png}"})
+        printing = request.query_params.get("printing", "").strip()
+        if printing and not reports.PRINTING.fullmatch(printing):
+            raise serializers.ValidationError(
+                {"printing": ["A print run's label: letters, digits and hyphens, PHY-2027-1."]}
+            )
+        url = paper.landing_url() + (f"?printing={printing}" if printing else "")
+        png = base64.b64encode(paper.qr_image("png", url=url)).decode()
+        return Response({"url": url, "png": f"data:image/png;base64,{png}"})
 
 
 # ---- Questions and solutions: the live text, its draft and its review ----

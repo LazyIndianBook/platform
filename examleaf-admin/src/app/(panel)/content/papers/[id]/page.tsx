@@ -1,8 +1,8 @@
 // /content/papers/<id>/: one paper (GET content/papers/{id}/): its facts, on the site or off it (staff.publish_paper;
 // taking it off is typed), its questions and solutions as a tree with their states, and the editor of the one chosen
 // (?solution=<id> or ?question=<id>: GET content/solutions|questions/{id}/) with its history; the paper's QR code
-// (GET …/qr/: refused, in the API's words, while the site's address is not a public https one); notes and the audit
-// trail beside.
+// (GET …/qr/, for a print run when one is named: ?printing=; refused, in the API's words, while the site's address is
+// not a public https one); notes and the audit trail beside.
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -15,6 +15,9 @@ import { History } from "@/components/modules/content/history";
 import { PaperPublish } from "@/components/modules/content/paper-publish";
 import { ContentState } from "@/components/modules/content/tables";
 import { Section } from "@/components/shell/page-header";
+import { Button } from "@/components/ui/button";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api/errors";
 import { attempt, param, recordId, type SearchParams, staffPage } from "@/lib/api/page";
 import {
@@ -70,7 +73,7 @@ export default async function PaperPage({
   const kind = solutionId ? "solutions" : questionId ? "questions" : null;
   const chosen = solutionId ?? questionId;
   const [qr, record, versions] = await Promise.all([
-    attempt(getPaperQr(paper.id, transport), path),
+    attempt(getPaperQr(paper.id, param(search, "printing"), transport), path),
     solutionId && has(manifest, P.solutionsView)
       ? attempt(getSolution(solutionId, transport), path)
       : questionId && has(manifest, P.questionsView)
@@ -142,7 +145,12 @@ export default async function PaperPage({
                 record={record}
               />
               {versions && !(versions instanceof ApiError) && chosen ? (
-                <Section id="history" title={words.editor.history} lead={words.editor.historyLead} className="mt-6 flex flex-col gap-3">
+                <Section
+                  id="history"
+                  title={words.editor.history}
+                  lead={words.editor.historyLead}
+                  className="mt-6 flex flex-col gap-3"
+                >
                   <History kind={kind} id={chosen} page={versions} />
                 </Section>
               ) : versions instanceof ApiError ? (
@@ -158,7 +166,9 @@ export default async function PaperPage({
           <div className="flex flex-col gap-5">
             {groups(paper.tree).map((group, index) => (
               <div key={`${group.heading}-${index}`} className="flex flex-col gap-1">
-                {group.heading ? <p className="m-0 text-sm font-semibold text-muted-foreground">{group.heading}</p> : null}
+                {group.heading ? (
+                  <p className="m-0 text-sm font-semibold text-muted-foreground">{group.heading}</p>
+                ) : null}
                 <ul className="m-0 flex list-none flex-col p-0">
                   {group.rows.map((row) => (
                     <li
@@ -210,12 +220,26 @@ export default async function PaperPage({
       </Section>
 
       <Section id="qr" title={words.papers.qr} lead={words.papers.qrLead}>
+        <form method="get" action={`${here}#qr`} className="mb-5 flex flex-wrap items-end gap-3">
+          <Field id="qr-printing" label={words.papers.qrPrinting} optional help={words.papers.qrPrintingHelp}>
+            <Input name="printing" defaultValue={param(search, "printing")} autoComplete="off" className="font-mono" />
+          </Field>
+          <Button type="submit" variant="secondary" size="sm">
+            {words.papers.qrShow}
+          </Button>
+        </form>
         {qr instanceof ApiError ? (
           <Problem error={qr} />
         ) : (
           <div className="flex flex-wrap items-center gap-5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={qr.png} alt={words.papers.qrAlt(paper.code)} width={164} height={164} className="border border-border bg-card" />
+            <img
+              src={qr.png}
+              alt={words.papers.qrAlt(paper.code)}
+              width={164}
+              height={164}
+              className="border border-border bg-card"
+            />
             <div className="flex flex-col gap-2 [&>*]:m-0">
               <p className="font-mono text-[15px] break-all">{qr.url}</p>
               <a href={qr.png} download={`${paper.code}.png`} className="font-semibold">

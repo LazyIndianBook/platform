@@ -173,6 +173,11 @@ def test_a_papers_qr_code_prints_an_address_we_control_and_never_a_local_one(set
     settings.SITE_URL = "https://examleaf.in"
     code = client.get(f"{CONTENT}papers/{paper.pk}/qr/").json()
     assert code["url"] == "https://examleaf.in/s/PHY-E01/" and code["png"].startswith("data:image/png;base64,iVBOR")
+    # a print run's code carries its label, for the mistakes reported from it; nothing else rides in the address
+    printed = client.get(f"{CONTENT}papers/{paper.pk}/qr/?printing=PHY-2027-2").json()
+    assert printed["url"] == "https://examleaf.in/s/PHY-E01/?printing=PHY-2027-2" and printed["png"] != code["png"]
+    odd = client.get(f"{CONTENT}papers/{paper.pk}/qr/", {"printing": "PHY 2027/2&next=x"})
+    assert odd.status_code == 400 and "printing" in odd.json()
 
 
 def test_a_question_no_longer_in_the_books_leaves_the_site_but_not_the_panel(editor):

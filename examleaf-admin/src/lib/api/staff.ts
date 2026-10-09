@@ -695,9 +695,12 @@ export const getPaper = (id: number, transport?: Transport) =>
   send(transport, (o) => api.GET("/api/v1/staff/content/papers/{id}/", { ...o, params: { path: { id } } }));
 export const updatePaper = (id: number, body: Schemas["PatchedContentPaperDetailRequest"]) =>
   send(undefined, (o) => api.PATCH("/api/v1/staff/content/papers/{id}/", { ...o, params: { path: { id } }, body }));
-/** The paper's QR code and the address it prints; refused (site_url_not_public) on a plain-http or local site. */
-export const getPaperQr = (id: number, transport?: Transport) =>
-  send(transport, (o) => api.GET("/api/v1/staff/content/papers/{id}/qr/", { ...o, params: { path: { id } } }));
+/** The paper's QR code and the address it prints, with a print run's label if given (the site's report form reads
+ *  it); refused (site_url_not_public) on a plain-http or local site. */
+export const getPaperQr = (id: number, printing = "", transport?: Transport) =>
+  send(transport, (o) =>
+    api.GET("/api/v1/staff/content/papers/{id}/qr/", { ...o, params: { path: { id }, query: query({ printing }) } }),
+  );
 
 export const getQuestion = (id: number, transport?: Transport) =>
   send(transport, (o) => api.GET("/api/v1/staff/content/questions/{id}/", { ...o, params: { path: { id } } }));
@@ -717,13 +720,17 @@ export function draftAction(kind: Drafted, id: number, verb: "submit" | "discard
   const path = { params: { path: { id } } };
   if (kind === "questions") {
     if (verb === "submit")
-      return send(undefined, (o) => api.POST("/api/v1/staff/content/questions/{id}/submit/", { ...o, ...path, body: {} }));
+      return send(undefined, (o) =>
+        api.POST("/api/v1/staff/content/questions/{id}/submit/", { ...o, ...path, body: {} }),
+      );
     if (verb === "discard")
       return send(undefined, (o) => api.POST("/api/v1/staff/content/questions/{id}/discard/", { ...o, ...path }));
     return send(undefined, (o) => api.POST("/api/v1/staff/content/questions/{id}/rollback/", { ...o, ...path }));
   }
   if (verb === "submit")
-    return send(undefined, (o) => api.POST("/api/v1/staff/content/solutions/{id}/submit/", { ...o, ...path, body: {} }));
+    return send(undefined, (o) =>
+      api.POST("/api/v1/staff/content/solutions/{id}/submit/", { ...o, ...path, body: {} }),
+    );
   if (verb === "discard")
     return send(undefined, (o) => api.POST("/api/v1/staff/content/solutions/{id}/discard/", { ...o, ...path }));
   return send(undefined, (o) => api.POST("/api/v1/staff/content/solutions/{id}/rollback/", { ...o, ...path }));
@@ -748,7 +755,9 @@ export function restoreVersion(kind: Versioned, id: number, history_id: number) 
   const path = { params: { path: { id, history_id } } };
   const ask = {
     books: () =>
-      send(undefined, (o) => api.POST("/api/v1/staff/content/books/{id}/history/{history_id}/restore/", { ...o, ...path })),
+      send(undefined, (o) =>
+        api.POST("/api/v1/staff/content/books/{id}/history/{history_id}/restore/", { ...o, ...path }),
+      ),
     papers: () =>
       send(undefined, (o) =>
         api.POST("/api/v1/staff/content/papers/{id}/history/{history_id}/restore/", { ...o, ...path }),
@@ -799,7 +808,8 @@ export const updateReport = (id: number, body: Schemas["PatchedContentReportUpda
 export function reportStep(id: number, verb: ReportStep, body: Schemas["ContentTransitionRequest"] = {}) {
   const options = { params: { path: { id } }, body };
   const ask = {
-    confirm: () => send(undefined, (o) => api.POST("/api/v1/staff/content/reports/{id}/confirm/", { ...o, ...options })),
+    confirm: () =>
+      send(undefined, (o) => api.POST("/api/v1/staff/content/reports/{id}/confirm/", { ...o, ...options })),
     reject: () => send(undefined, (o) => api.POST("/api/v1/staff/content/reports/{id}/reject/", { ...o, ...options })),
     "fix-online": () =>
       send(undefined, (o) => api.POST("/api/v1/staff/content/reports/{id}/fix-online/", { ...o, ...options })),
@@ -825,9 +835,7 @@ export const listImports = (cursor: string, transport?: Transport) =>
 export type ImportParams = { subject: string; commit: string; fixtures?: boolean; dry_run_job?: number };
 /** A dry run, or the apply of one (naming it): a staff job (202), followed with JobProgress. */
 export const startImport = (params: ImportParams, dry_run: boolean) =>
-  send(undefined, (o) =>
-    api.POST("/api/v1/staff/jobs/", { ...o, body: { kind: "content_import", params, dry_run } }),
-  );
+  send(undefined, (o) => api.POST("/api/v1/staff/jobs/", { ...o, body: { kind: "content_import", params, dry_run } }));
 
 export const listDeposits = (filters: Filters<"/api/v1/staff/content/legal-deposits/">, transport?: Transport) =>
   send(transport, (o) =>

@@ -152,8 +152,10 @@ class Paper(models.Model):
     def landing_url(self):  # what the QR code printed on the paper encodes
         return settings.SITE_URL + self.get_absolute_url()
 
-    def qr_image(self, image_format="png"):
-        return make_qr_code_image(self.landing_url(), QRCodeOptions(size=10, border=4, image_format=image_format))
+    def qr_image(self, image_format="png", url=None):  # url: the landing address with a query (a print run's)
+        return make_qr_code_image(
+            url or self.landing_url(), QRCodeOptions(size=10, border=4, image_format=image_format)
+        )
 
 
 class Question(models.Model):

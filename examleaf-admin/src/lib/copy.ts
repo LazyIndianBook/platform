@@ -1285,6 +1285,10 @@ export const en = {
       qrLead: "What the printed code opens: an address of ours, which the site can redirect later.",
       qrAlt: (code: string) => `The QR code of ${code}`,
       qrDownload: "Download the picture",
+      qrPrinting: "Print run",
+      qrPrintingHelp:
+        "Its label, such as PHY-2027-2: the code then carries it, and a mistake reported from it names it.",
+      qrShow: "Show its code",
     },
     editor: {
       solutionTitle: (label: string) => `Solution of ${label}`,

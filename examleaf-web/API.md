@@ -1363,7 +1363,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 | PATCH | `staff/content/papers/{id}/` | `content.change_paper` |  | `PatchedContentPaperDetailRequest` | 200 `ContentPaperDetail` |
 | GET | `staff/content/papers/{id}/history/` | `content.view_paper` | `cursor`, `page_size` |  | 200 `ContentVersionPage` |
 | POST | `staff/content/papers/{id}/history/{history_id}/restore/` | `content.change_paper` |  |  | 200 `object` |
-| GET | `staff/content/papers/{id}/qr/` | `content.view_paper` |  |  | 200 `PaperQr` |
+| GET | `staff/content/papers/{id}/qr/` | `content.view_paper` | `printing` |  | 200 `PaperQr` |
 | GET | `staff/content/questions/` | `content.view_question` | `book`, `changed`, `cursor`, `is_published`, `page_size`, `paper`, `q`, `state`, `subject` |  | 200 `PaginatedContentQuestionList` |
 | GET | `staff/content/questions/{id}/` | `content.view_question` |  |  | 200 `ContentQuestionDetail` |
 | PATCH | `staff/content/questions/{id}/` | `content.change_question` |  | `PatchedQuestionUpdateRequest` | 200 `ContentQuestionDetail` |
