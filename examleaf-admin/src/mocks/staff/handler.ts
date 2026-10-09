@@ -53,7 +53,8 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     P.requestsAdd,
     P.requestsChange,
     "shop.view_order",
-    "erp.view_support",
+    "support.view_ticket",
+    "accounts.view_teacherprofile",
   ],
   FINANCE: [
     P.inboxView,
@@ -76,6 +77,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     "shop.view_product",
     "shop.view_coupon",
     "erp.view_crm",
+    "partners.view_schoolcode",
   ],
 };
 

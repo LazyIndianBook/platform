@@ -72,8 +72,9 @@ export type Module = {
   erp?: string;
 };
 
-// The order of the plan's information architecture (section 8). The ERPNext paths are the desk's workspaces and the
-// Frappe CRM and Helpdesk apps; the base comes from NEXT_PUBLIC_ERP_URL.
+// The order of the plan's information architecture (section 8). The ERPNext paths are the desk's workspaces (CRM is
+// ERPNext's own: Frappe CRM and Helpdesk are not installed, so tickets are the platform's Support); the base comes
+// from NEXT_PUBLIC_ERP_URL. Partners' codenames are the planned `partners` app's and accounts' TeacherProfile.
 export const MODULES: readonly Module[] = [
   { key: "home", href: "/", group: "work", any: [] },
   { key: "inbox", href: "/inbox/", group: "work", any: [P.inboxView] },
@@ -91,6 +92,14 @@ export const MODULES: readonly Module[] = [
   },
   { key: "course", href: "/course/", group: "learning", any: ["learn.view_chapter"], soon: true },
   { key: "users", href: "/users/", group: "customers", any: [P.usersView] },
+  {
+    key: "partners",
+    href: "/partners/",
+    group: "customers",
+    any: ["accounts.view_teacherprofile", "partners.view_schoolcode", "partners.view_schoollicence"],
+    soon: true,
+  },
+  { key: "support", href: "/support/", group: "customers", any: ["support.view_ticket"], soon: true },
   { key: "requests", href: "/privacy/requests/", group: "privacy", any: [P.requestsView] },
   { key: "incidents", href: "/privacy/incidents/", group: "privacy", any: [P.incidentsView] },
   { key: "processors", href: "/privacy/processors/", group: "privacy", any: [P.processorsView] },
@@ -103,8 +112,7 @@ export const MODULES: readonly Module[] = [
   { key: "tax", href: "/app/gst-india", group: "erp", any: ["erp.view_tax"], erp: "/app/gst-india" },
   { key: "inventory", href: "/app/stock", group: "erp", any: ["erp.view_inventory"], erp: "/app/stock" },
   { key: "purchases", href: "/app/buying", group: "erp", any: ["erp.view_purchases"], erp: "/app/buying" },
-  { key: "crm", href: "/crm", group: "erp", any: ["erp.view_crm"], erp: "/crm" },
-  { key: "support", href: "/helpdesk", group: "erp", any: ["erp.view_support"], erp: "/helpdesk" },
+  { key: "crm", href: "/app/crm", group: "erp", any: ["erp.view_crm"], erp: "/app/crm" },
 ];
 
 /** The modules a manifest opens, in order; the ERPNext links only when its address is set. */

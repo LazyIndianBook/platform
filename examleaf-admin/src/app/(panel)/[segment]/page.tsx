@@ -1,6 +1,7 @@
-// /orders/, /catalogue/, /marketing/, /content/, /course/: the modules planned for the next phase, drawn in the
-// sidebar for whoever holds their permissions, each with one honest page that says so and points to the Django admin,
-// which does that work today. No sample data. Any other address, or a module the manifest does not open, is a 404.
+// /orders/, /catalogue/, /marketing/, /content/, /course/, /partners/, /support/: the modules planned for the next
+// phase, drawn in the sidebar for whoever holds their permissions, each with one honest page that says so and where
+// the work is done today (the Django admin; Support's messages by email). No sample data. Any other address, or a
+// module the manifest does not open, is a 404.
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
@@ -40,7 +41,7 @@ export default async function SoonPage({ params }: Params) {
           </a>
         }
       >
-        <p>{copy.soon.text}</p>
+        <p>{copy.soon.today[planned.key] ?? copy.soon.text}</p>
       </EmptyState>
     </>
   );

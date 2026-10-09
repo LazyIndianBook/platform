@@ -234,7 +234,7 @@ export const en = {
       work: "Work",
       shop: "Shop",
       learning: "Content and course",
-      customers: "Customers",
+      customers: "Customers and partners",
       privacy: "Legal and privacy",
       staff: "Staff",
       system: "System",
@@ -251,6 +251,8 @@ export const en = {
       content: "Content",
       course: "Course",
       users: "Customers",
+      partners: "Partners",
+      support: "Support",
       requests: "Data requests",
       incidents: "Incidents",
       processors: "Processors",
@@ -265,7 +267,6 @@ export const en = {
       inventory: "Inventory",
       purchases: "Purchases",
       crm: "CRM",
-      support: "Support",
     },
   },
   table: {
@@ -933,6 +934,11 @@ export const en = {
   soon: {
     title: (module: string) => `${module} comes in the next phase`,
     text: "This module is planned and not built yet. Until it is, the Django admin does this work.",
+    /** Where a module's work is done today when the Django admin does not do it. */
+    today: {
+      support:
+        "This module is planned and not built yet. Until it is, the contact form's messages arrive by email at the support address; the Django admin has the orders and accounts they are about.",
+    } as Record<string, string>,
     admin: "Open the Django admin",
     eyebrow: "Coming next",
   },
