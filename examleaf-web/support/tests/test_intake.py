@@ -86,6 +86,15 @@ def test_the_contact_form_makes_a_ticket_acknowledged_with_its_number_by_email(c
     assert ticket.next_due_at == ticket.due_at  # acknowledged: the queue now waits on its resolution
 
 
+def test_a_form_messages_subject_is_its_first_line_but_the_order_box():
+    assert services.form_subject("Order EL-2026-000123\n\nThe parcel has not come.\nPlease check.") == (
+        "The parcel has not come."
+    )
+    assert services.form_subject("Where is my parcel?\nOrder EL-2026-000123") == "Where is my parcel?"
+    assert services.form_subject("Order EL-2026-000123") == "Order EL-2026-000123"  # nothing else: the line itself
+    assert services.form_subject("  \n\n") == ""  # create_ticket names it "(no subject)"
+
+
 def test_from_the_settings_date_the_acknowledgement_carries_the_complaint_as_recorded(commit, settings):
     settings.SUPPORT_COMPLAINT_COPY_FROM = timezone.localdate()
     with commit():

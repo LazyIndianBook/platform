@@ -226,6 +226,18 @@ def create_ticket(
     return ticket
 
 
+ORDER_LINE = re.compile(r"order\s+" + ORDER_NUMBER.pattern, re.IGNORECASE)
+
+
+def form_subject(text):
+    """A form message's subject: its first line, but the website's "Order EL-2026-000123" line (the form's order box,
+    put at the top) when there is more."""
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    if len(lines) > 1 and ORDER_LINE.fullmatch(lines[0]):
+        lines = lines[1:]
+    return lines[0][:120] if lines else ""
+
+
 def from_contact_form(name, email, text, request=None):
     """The contact form's message as a ticket (its source the website), linked to the account whose confirmed address
     sent it and to the order whose number it names when that order was placed with the same address; the address
@@ -238,7 +250,7 @@ def from_contact_form(name, email, text, request=None):
     ticket = create_ticket(
         source=Source.FORM,
         channel=Channel.WEB,
-        subject=text.split("\n", 1)[0][:120],
+        subject=form_subject(text),
         body=text,
         user=account_for(email),
         name=name,

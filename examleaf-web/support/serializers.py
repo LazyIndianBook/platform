@@ -121,6 +121,7 @@ class MessageSerializer(serializers.ModelSerializer):
     attachments = AttachmentSerializer(many=True, read_only=True)
     other_sender = serializers.SerializerMethodField(help_text="an email from another address than the requester's")
     dropped = serializers.SerializerMethodField(help_text="attachments not kept, and why")
+    mentions = serializers.ListField(child=serializers.IntegerField(), read_only=True, help_text="staff named (ids)")
 
     class Meta:
         model = TicketMessage
@@ -154,7 +155,7 @@ class TicketDetailSerializer(TicketSerializer):
     """A ticket with its requester (masked), its clocks, what closing it asks for, its moves, its messages; the
     sidebar and the saved replies are the view's (by the reader's permissions)."""
 
-    data_request = serializers.PrimaryKeyRelatedField(read_only=True)
+    data_request = serializers.PrimaryKeyRelatedField(read_only=True, allow_null=True)
     record = serializers.SerializerMethodField(help_text="the paper a content error is in (its code)")
     clocks = serializers.SerializerMethodField()
     closing_fields = serializers.SerializerMethodField(help_text="what resolving or closing asks for")
