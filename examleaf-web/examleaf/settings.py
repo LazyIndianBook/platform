@@ -862,7 +862,7 @@ if _PRIVACY_TAG not in SPECTACULAR_SETTINGS["TAGS"]:  # noqa: F405  (once: tests
     SPECTACULAR_SETTINGS["TAGS"].append(_PRIVACY_TAG)  # noqa: F405
 SPECTACULAR_SETTINGS["ENUM_NAME_OVERRIDES"].update(  # noqa: F405  a consent's "channel", a hold's "reason"
     ChannelEnum="staff.models.DataRequest.Channel",  # (its name as before: a data request's channel)
-    ConsentChannelEnum="accounts.models.ConsentRecord.Channel",
+    MessageChannelEnum="accounts.models.ConsentRecord.Channel",  # (and a message template's: the same three)
     LegalHoldReasonEnum="accounts.models.LegalHold.Reason",
 )
 CELERY_BEAT_SCHEDULE |= {
@@ -909,6 +909,72 @@ SPECTACULAR_SETTINGS["ENUM_NAME_OVERRIDES"].update(  # noqa: F405  the orders mo
     OrderRiskEnum="shop.models.Order.Risk",
     ProductKindEnum="shop.models.Product.Kind",
 )
+# Phase B: staff, settings and integrations, system (staff/README.md, integrations/README.md, ops/README.md;
+# DEPLOYMENT.md section 25). A member of STAFF_PASSKEY_ROLES without a passkey or security key sets one up before
+# anything else of the staff API opens (the manifest's steps: passkey_required). A webhook silent for
+# INTEGRATION_WEBHOOK_SILENCE_HOURS is flagged on the connections page. SES's SNS notifications must come from
+# SES_SNS_TOPIC_ARN when it is set (the tracking webhook verifies each one's signature: ops/ses.py). The backups' bucket
+# is checked hourly: no new backup for BACKUP_STALE_HOURS opens an inbox item; BACKUP_KEEP_DAYS is the retention
+# scripts/backup.sh applies. LOG_TIME_SOURCE says where the host's clock is synchronised from (CERT-In: NTP to NIC or
+# NPL servers, or cloud time): a container cannot see it. DEPENDENCY_REPORT_PATH is where the deploy keeps CI's
+# dependency report in the private storage (manage.py load_dependency_report).
+STAFF_PASSKEY_ROLES = env.list("STAFF_PASSKEY_ROLES", default=["OWNER", "ADMIN", "FINANCE"])
+INTEGRATION_WEBHOOK_SILENCE_HOURS = env.int("INTEGRATION_WEBHOOK_SILENCE_HOURS", default=24)
+SES_SNS_TOPIC_ARN = env("SES_SNS_TOPIC_ARN", default="")
+BACKUP_KEEP_DAYS = env.int("BACKUP_KEEP_DAYS", default=30)
+BACKUP_STALE_HOURS = env.int("BACKUP_STALE_HOURS", default=26)
+LOG_TIME_SOURCE = env("LOG_TIME_SOURCE", default="")
+DEPENDENCY_REPORT_PATH = env("DEPENDENCY_REPORT_PATH", default="ops/dependency-report.json")
+REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"].update(  # noqa: F405
+    staff_bulk=env("STAFF_THROTTLE_BULK", default="20/hour"),  # bulk actions started (jobs/ of kind bulk_action)
+    sms_events=env("API_THROTTLE_SMS_EVENTS", default="300/minute"),  # MSG91's delivery reports, per client address
+    staff_test_send=env("STAFF_THROTTLE_TEST_SEND", default="10/hour"),  # a template sent to oneself (SMS cost money)
+)
+for _tag in [
+    {"name": "connections (staff)", "description": "The integrations: cards, tests, credentials, webhooks (API.md)."},
+    {"name": "templates (staff)", "description": "The message templates: DLT and MSG91 ids, test sends (API.md)."},
+]:
+    if _tag not in SPECTACULAR_SETTINGS["TAGS"]:  # noqa: F405  (once: tests reload this module)
+        SPECTACULAR_SETTINGS["TAGS"].append(_tag)  # noqa: F405
+SPECTACULAR_SETTINGS["ENUM_NAME_OVERRIDES"].update(  # noqa: F405  the new models' and answers' choices
+    OffboardingStepKindEnum="staff.models.OffboardingStep.Kind",
+    OffboardingStepStateEnum="staff.models.OffboardingStep.State",
+    RestoreDrillEngineEnum="staff.models.RestoreDrill.Engine",
+    RestoreDrillResultEnum="staff.models.RestoreDrill.Result",
+    ScriptPageEnum="staff.models.ScriptInventory.Page",
+    TemplateLanguageEnum="ops.models.MessageTemplate.Language",
+    TemplateCategoryEnum="ops.models.MessageTemplate.Category",
+    TemplateApprovalEnum="ops.models.MessageTemplate.Approval",
+    InboundEventStateEnum="integrations.models.InboundEvent.State",
+    DeadLetterStateEnum="integrations.models.IntegrationFailure.State",
+    IntegrationModeEnum="integrations.models.IntegrationAccount.Mode",
+    CircuitStateEnum="integrations.models.IntegrationAccount.Circuit",
+    ConnectionProviderEnum="integrations.connections.SPEC",
+    ConnectionKindEnum="integrations.connections.KINDS",
+    ConnectionStatusEnum="integrations.connections.STATUSES",
+    ConnectionModeEnum="integrations.connections.MODES",
+    ConnectionSourceEnum="integrations.connections.SOURCES",
+    CircuitActionEnum=["open", "reset"],
+    WebhookAuthEnum=["token", "signature", "basic_and_sns"],
+    RoleChangeActionEnum=["grant", "revoke"],
+    ChannelEnum="staff.models.DataRequest.Channel",  # (its name before the templates' channel came)
+    RoleEnum="staff.serializers.STAFF_ROLE_CHOICES",  # (one name for the staff roles, whatever the field's)
+)
+CELERY_BEAT_SCHEDULE |= {
+    "staff-check-backups": {"task": "staff.tasks.check_backups", "schedule": crontab(minute=50)},
+    "staff-check-scripts": {"task": "staff.tasks.check_scripts", "schedule": crontab(hour=7, minute=10)},
+    "staff-check-dependencies": {
+        "task": "staff.tasks.check_dependency_report",
+        "schedule": crontab(hour=9, minute=0, day_of_week="mon"),
+    },
+    "staff-weekly-audit-skim": {
+        "task": "staff.tasks.weekly_audit_skim",
+        "schedule": crontab(hour=8, minute=30, day_of_week="mon"),
+    },
+    "ops-sync-ses-suppressions": {"task": "ops.tasks.sync_ses_suppressions", "schedule": crontab(hour=5, minute=50)},
+    "ops-check-templates": {"task": "ops.tasks.check_templates", "schedule": crontab(hour=3, minute=50)},
+    "integrations-watch-webhooks": {"task": "integrations.tasks.watch_webhooks", "schedule": crontab(minute=25)},
+}
 
 # ---- Resilience (RESILIENCE.md: each knob below, its default and when to change it) --------------------------------
 # Nothing waits without a limit: every call to another service has a connect and a read timeout and a bounded retry,

@@ -140,6 +140,64 @@ this backend (`E2E_STAFF_API=real`, the Orders journey new); website: Vitest 210
 - **The console** (`../examleaf-admin/`): `/orders/`, `/orders/<number>/`, `/orders/packing/`, `/orders/returns/`,
   `/orders/new/`, `/orders/quotes/`; DataTable's fixed views, chosen rows with a bulk bar, and Space to look at a row.
   **The website** (`../examleaf-frontend/`): the order page's return form and each return's state.
+## Phase B, Staff, settings and integrations, system (9 October 2026)
+
+The panel's People, Settings and System modules held what Phase A built: roles given and taken, switches with a
+reason, a status page. Plan 5.17 to 5.19 and 7.11 and the research (RBAC 1.8, 2.9, 3.5, 4.8 and 7; integrations
+3.3, 3.10, 4.2 and 5.2) ask for more: what a role may do before it is given, a person's access with its last use, offboarding
+as a checklist, passkeys for the privileged roles, the integrations' keys, webhooks and dead letters handled from the
+panel rather than the shell, the templates DLT registers, and the system's backups, logs, dependencies, hardening and
+scripts in one place. 1,131 backend tests pass on SQLite (11 skipped, 2,104 subtests), 63 of them new; the
+authorization matrix covers every new endpoint, and every call to another service in the tests is a recorded answer.
+Console: Vitest 97, Playwright 9 in mock mode and 10 against this backend (`E2E_STAFF_API=real`).
+
+- **People** (`staff/services.py`): the role catalogue (`people/roles/`: each role's two lines from
+  `accounts/roles.py` `ROLE_CARDS`, its capabilities by area with their risk, limits, scopes, conflicts, ERPNext role
+  profiles, passkey, idle limit and members); a person's Access tab (`people/<id>/access/`: roles with who gave them,
+  when, why and until when, every permission by area with the last use of the high and critical ones from a year of
+  the audit log, open change requests, second factors); a role change previewed before it is asked
+  (`people/<id>/roles/preview/`: gains, losses, limits, scopes, idle limit, separation of duties, the approval and
+  checker, the passkey to come, the ERPNext profiles); the ERPNext user a person should have (`people/<id>/erp/`,
+  applied by hand: ERPNext's role sync is not built).
+- **Offboarding as a checklist** (`StaffOffboarding`, `OffboardingStep`): what the panel did at once, with its counts
+  (deactivated, sessions ended, tokens blacklisted, roles, scopes and temporary grants gone, requests withdrawn,
+  tickets unassigned, API keys revoked), and what an owner ticks by hand (the ERPNext user, external accounts,
+  security keys, the last 90 days reviewed), with an `offboarding` inbox item until the last one. A temporary role
+  that ends opens `role_expired` on the person.
+- **Passkeys and sessions**: a member of `STAFF_PASSKEY_ROLES` (OWNER, ADMIN, FINANCE) without a passkey or security
+  key is asked for one before anything else (`403 passkey_required`, the manifest's `steps`; the Django admin sends
+  them to the website's security page). Each member sees and ends their own sessions (`people/me/sessions/`), and
+  after a second factor changes is offered once to end the others (`offer_end_sessions`).
+- **Settings**: grouped (`staff/config.py` `group`), each setting's and flag's history (`…/history/`), a known
+  switch (the ERPNext ones) true or false only and back to the environment's with null. Bulk actions have their own
+  rate (`STAFF_THROTTLE_BULK`) rather than the exports'.
+- **Connections** (`integrations/connections.py`, `integrations/api.py`; API.md "Connections (staff)"): a card per
+  integration (Razorpay, Shiprocket, manual payments, MSG91, WhatsApp, SES, the buckets, the error tracker, Google,
+  ERPNext): status, mode, where the keys come from and their last four characters, the last test, the calls' errors
+  and p90, the circuit, and what the provider adds (Razorpay's webhook health, SES's bounce and complaint rates from
+  the new `ops.EmailStat`, the buckets, ERPNext's sync). A test is one harmless read; new keys are kept only once
+  they pass it (audited with their last four characters, the owners emailed); modes switched; circuits held open or
+  reset; webhook tokens rotated (shown once, the previous one valid 24 hours); events, calls and dead letters listed,
+  replayed or discarded. Razorpay and MSG91 read their keys from the panel once it holds some, the environment's until
+  then (`integrations/README.md` "Precedence"). Razorpay's webhook silent for `INTEGRATION_WEBHOOK_SILENCE_HOURS`
+  opens `webhook_silent`.
+- **Messaging** (`ops/README.md`): the template registry (`MessageTemplate`: DLT and MSG91 ids, header and suffix,
+  typed variables, category, approval, last use, self-certification; `staff/templates/`, a test sent to oneself),
+  which `ops.sms` sends with before `MSG91_TEMPLATE_<KIND>`; nightly `template_idle` and `template_certify` items;
+  MSG91's delivery reports (`POST /api/hooks/sms-events/`, its token from the connections page, kept once) written
+  on the SMS log; SES's SNS messages' signatures verified (`ops/ses.py`, `SES_SNS_TOPIC_ARN`) and its account
+  suppression list copied each night.
+- **System** (`staff/system_api.py`): a status line per subsystem with when it came to its state; the sync monitor
+  and a link search; the backups (each source's newest object and its SHA-256 from the `.sha256` sidecar
+  `upload_backup` now writes, `backup_stale` after `BACKUP_STALE_HOURS`) and the restore drills (`RestoreDrill`); the
+  log inventory (`examleaf/logs.py`) against CERT-In's 180 days, the clock and `LOG_TIME_SOURCE`; CI's pip-audit and
+  npm audit report (`scripts/dependency_report.py` in the `dependency-audit` job, `manage.py
+  load_dependency_report`); the admin host's hardening, each check with its fix; the checkout's and the console's
+  sign-in's scripts inventoried each day (`ScriptInventory`, PCI DSS 6.4.3 and 11.6.1). On Mondays the owners get the
+  week's high-risk audit events by email.
+- **The console**: the role catalogue, a person's Access, Offboarding and ERPNext tabs, a grant previewed in its form,
+  one's own sessions on the account page, the passkey and end-the-others dialogs, grouped settings with their history,
+  the connections and each connection's page, the templates, and the system's six pages; its mock answers each state.
 
 ## The staff console on the staff API as built, and the website's side of an impersonation (9 October 2026)
 

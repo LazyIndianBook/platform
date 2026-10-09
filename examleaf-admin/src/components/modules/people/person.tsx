@@ -6,6 +6,7 @@
 // which asks for their email address to be typed. Each call may ask to confirm it's you, or make a change request
 // instead (202); separation of duties is the API's (400 with its words).
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 import { ConfirmDialog, ConfirmTyped } from "@/components/data/confirm-typed";
 import { DangerRow } from "@/components/data/record-page";
@@ -34,6 +35,7 @@ import { formatDate } from "@/lib/format";
 import { P } from "@/lib/modules";
 
 import { ROLE_OPTIONS } from "./people-table";
+import { RolePreview } from "./role-preview";
 
 const row = "flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border py-2.5 text-[15px]";
 
@@ -44,6 +46,8 @@ export function PersonRoles({ person }: { person: Person }) {
   const can = useCan();
   const manifest = useManifest();
   const changing = can(P.peopleAssign);
+  const previewing = can(P.peopleView);
+  const [chosen, setChosen] = useState("");
   return (
     <div className="flex flex-col gap-5">
       {person.roles.length ? (
@@ -78,6 +82,7 @@ export function PersonRoles({ person }: { person: Person }) {
                     onConfirm={({ reason }) => revokeRole(person.id, role as Role, reason)}
                   />
                 ) : null}
+                {changing && previewing ? <RevokePreview person={person.id} role={role} name={name} /> : null}
               </li>
             );
           })}
@@ -104,7 +109,12 @@ export function PersonRoles({ person }: { person: Person }) {
               <h3 className="m-0 font-head text-lg">{copy.people.grant}</h3>
               <FormGrid>
                 <Field id={`grant-${person.id}-role`} label={copy.people.role} error={fieldError(error, "role")}>
-                  <Select name="role" defaultValue="" aria-required="true">
+                  <Select
+                    name="role"
+                    defaultValue=""
+                    aria-required="true"
+                    onChange={(event) => setChosen(event.currentTarget.value)}
+                  >
                     <option value="">{copy.people.role}</option>
                     {ROLE_OPTIONS.map((role) => (
                       <option key={role.value} value={role.value}>
@@ -131,11 +141,25 @@ export function PersonRoles({ person }: { person: Person }) {
               >
                 <Textarea name="reason" rows={2} aria-required="true" />
               </Field>
+              {previewing && chosen ? <RolePreview person={person.id} role={chosen} action="grant" /> : null}
             </>
           )}
         </ActionForm>
       ) : null}
     </div>
+  );
+}
+
+/** What taking a role away changes, read when opened. */
+function RevokePreview({ person, role, name }: { person: number; role: string; name: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <details className="basis-full" onToggle={(event) => setOpen(event.currentTarget.open)}>
+      <summary className="inline-flex min-h-11 cursor-pointer items-center text-sm font-semibold text-primary underline underline-offset-3 hover:text-red-ink [&::-webkit-details-marker]:hidden">
+        {copy.management.preview.revokeTitle(name)}
+      </summary>
+      {open ? <RolePreview person={person} role={role} action="revoke" /> : null}
+    </details>
   );
 }
 

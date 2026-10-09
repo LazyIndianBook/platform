@@ -2589,6 +2589,273 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/staff/connections/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description One card per integration, in the page's order: is it working (connected, degraded, expired, disabled,
+         *     not_configured), since when, test or live, where its keys come from, its calls of the day and the week.
+         */
+        get: operations["staff_connections_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/connections/{provider}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One integration's card (the provider's page opens on it). */
+        get: operations["staff_connections_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/connections/{provider}/calls/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The provider's outbound calls, newest first (filters operation, failed), their excerpts redacted when kept. */
+        get: operations["staff_connections_calls_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/connections/{provider}/circuit/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Hold the circuit open (calls wait until it is reset), or reset it (calls go through). */
+        post: operations["staff_connections_circuit_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/connections/{provider}/credentials/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Replace one mode's credentials: tested first, in the same call, and kept only if the test passes (400 with the
+         *     provider's answer otherwise; the old ones stay). Never answered: the card shows their last four characters.
+         */
+        post: operations["staff_connections_credentials_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/connections/{provider}/events/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The provider's inbound events, newest first (filter state), their bodies redacted. */
+        get: operations["staff_connections_events_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/connections/{provider}/events/{id}/replay/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Process one event again (a rejected one never). */
+        post: operations["staff_connections_events_replay_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/connections/{provider}/events/replay-failed/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Process again every failed event received since a time (500 at a time). */
+        post: operations["staff_connections_events_replay_failed_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/connections/{provider}/failures/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The provider's dead letters, newest first (filters state, operation). */
+        get: operations["staff_connections_failures_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/connections/{provider}/failures/{id}/discard/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Give a dead letter up, with the reason. */
+        post: operations["staff_connections_failures_discard_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/connections/{provider}/failures/{id}/replay/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Run a dead letter's task again, once (ERPNext's: the sync's own replay of its outbox row). */
+        post: operations["staff_connections_failures_replay_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/connections/{provider}/mode/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Off, test or live: the account of that mode used from now on (its credentials needed). */
+        post: operations["staff_connections_mode_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/connections/{provider}/test/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Test the connection with the keys in force: one harmless authenticated read (the result kept on its account,
+         *     the call in the call log). A failed test answers 200 with ok false: the test ran.
+         */
+        post: operations["staff_connections_test_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/connections/{provider}/webhooks/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The provider's inbound webhooks: our address to paste, how it authenticates, the token's last four characters
+         *     and its rotation (the previous one's last moment), the week's events by state, and whether it fell silent.
+         */
+        get: operations["staff_connections_webhooks_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/connections/{provider}/webhooks/rotate/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description A new webhook token, answered this once; the previous one is still accepted for 24 hours. */
+        post: operations["staff_connections_webhooks_rotate_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/staff/data-requests/": {
         parameters: {
             query?: never;
@@ -3031,7 +3298,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Every feature flag that has a value, as it stands now. */
+        /**
+         * @description Every feature flag that has a value, as it stands now; and the flags the code reads over an environment's value
+         *     (staff.config.KNOWN_FLAGS: the ERP switches), set or not, with that value and where the one in effect comes from.
+         */
         get: operations["staff_flags_list"];
         put?: never;
         post?: never;
@@ -3052,6 +3322,23 @@ export interface paths {
         get: operations["staff_flag_history"];
         /** @description One flag: GET its history; PUT a new value (true/false or any JSON; null: off) from now or `effective_from`. */
         put: operations["staff_flags_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/flags/{key}/history/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A flag's history, newest first (as GET flags/<KEY>/). */
+        get: operations["staff_flags_history_list"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -4133,6 +4420,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/staff/people/{id}/access/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The Access tab: roles with who gave them and until when, scopes, limits, every permission by area with the
+         *     last use of the high and critical ones, the open change requests about or by them, their second factors.
+         */
+        get: operations["staff_people_access_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/staff/people/{id}/end-sessions/": {
         parameters: {
             query?: never;
@@ -4154,6 +4461,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/staff/people/{id}/erp/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The ERPNext user they should have from their roles (applied by hand in ERPNext: role profiles, enabled). */
+        get: operations["staff_people_erp_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/staff/people/{id}/offboard/": {
         parameters: {
             query?: never;
@@ -4169,6 +4493,40 @@ export interface paths {
          *     offboarding in one step (staff.services.offboard). Only a superuser changes a superuser.
          */
         post: operations["staff_people_offboard_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/people/{id}/offboarding/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Their latest offboarding's checklist: each step, done by the panel or ticked by an owner (who, when). */
+        get: operations["staff_people_offboarding_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/people/{id}/offboarding/tick/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description An owner ticks a step done by hand (or not needed, or back to do), with a note: audited. */
+        post: operations["staff_people_offboarding_tick_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4229,6 +4587,26 @@ export interface paths {
          *     offboarding in one step (staff.services.offboard). Only a superuser changes a superuser.
          */
         delete: operations["staff_people_roles_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/people/{id}/roles/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description What giving or taking away a role would change (gains, losses, limits, scopes, conflicts, the approver),
+         *     before anything is asked: nothing changes.
+         */
+        post: operations["staff_people_roles_preview_create"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -4334,6 +4712,80 @@ export interface paths {
          *     offboarding in one step (staff.services.offboard). Only a superuser changes a superuser.
          */
         delete: operations["staff_people_invites_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/people/me/sessions/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Your own sessions (every member of staff's): browser and system, where from (the address's first octets),
+         *     since when, last seen, and which one is this.
+         */
+        get: operations["staff_people_me_sessions_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/people/me/sessions/{session}/end/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description End one of your other sessions (this one: sign out instead). */
+        post: operations["staff_people_me_sessions_end_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/people/me/sessions/end-others/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description End every session of yours but this one, and the app's refresh tokens: "end all". */
+        post: operations["staff_people_me_sessions_end_others_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/people/roles/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Every staff role: what it is for and what it can't do, its capabilities by area with their risk, its
+         *     limits, scopes and conflicts, its ERPNext role profiles, whether it needs a passkey, its members.
+         */
+        get: operations["staff_people_roles_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -4912,6 +5364,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/staff/settings/{key}/history/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A setting's history, newest first: every value it was given, from when, by whom and why (as GET settings/<key>/,
+         *     under its own name for the Settings page).
+         */
+        get: operations["staff_settings_history_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/staff/system/": {
         parameters: {
             query?: never;
@@ -4925,6 +5397,113 @@ export interface paths {
          *     verification. The panel shows them; Sentry, the logs and the uptime monitor stay where they are.
          */
         get: operations["staff_system_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/system/backups/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The backups (research 7): the newest object of each source in the backups bucket (its time, size, checksum,
+         *     whether it is encrypted; read at most every two hours, the hourly check alerts past BACKUP_STALE_HOURS), the
+         *     retention, and the restore drills, the last one that worked in words on the page.
+         */
+        get: operations["staff_system_backups_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/system/backups/drills/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Restore drills: GET every one, newest first (staff.view_restoredrill); POST one just done (staff.manage_system,
+         *     high: a re-authentication): the day, the engine, the backup restored, whether it worked, how long it took, notes.
+         */
+        get: operations["staff_system_backups_drills_retrieve"];
+        put?: never;
+        /**
+         * @description Restore drills: GET every one, newest first (staff.view_restoredrill); POST one just done (staff.manage_system,
+         *     high: a re-authentication): the day, the engine, the backup restored, whether it worked, how long it took, notes.
+         */
+        post: operations["staff_system_backups_drills_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/system/dependencies/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The dependencies (research 7): CI's last pip-audit and npm audit (the report the deploy loads), the open
+         *     advisories by severity with the 7-day target of the critical ones, and the versions in use.
+         */
+        get: operations["staff_system_dependencies_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/system/hardening/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The admin host's hardening, each check with what it found and the fix: the admin host set apart, staff
+         *     endpoints 404 elsewhere, HSTS, the CSP's frame-ancestors, no-store, the console's robots.txt, the cookies, DEBUG,
+         *     the secret keys, the proxy's stripped header.
+         */
+        get: operations["staff_system_hardening_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/system/logs/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Logs and time (CERT-In's directions; the DPDP Rules): the log inventory (what, where, how long, who reads it,
+         *     and whether that meets the retention in force), the clock against the database's with the host's documented time
+         *     source, and the point of contact registered with CERT-In.
+         */
+        get: operations["staff_system_logs_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4947,6 +5526,67 @@ export interface paths {
          *     it captured is recorded (shop.payments.reconcile). Webhooks keep no body to replay; this asks the source again.
          */
         post: operations["staff_system_reconcile_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/system/scripts/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The scripts the checkout and the console's sign-in load, as the daily check found them (staff.tasks
+         *     .check_scripts): each page's last check, and its scripts with when they were first and last seen.
+         */
+        get: operations["staff_system_scripts_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/system/sync/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The sync monitor (plan 5.19): the ERPNext sync's status, its outbox per flow and state, the newest dead letters
+         *     (replayed and discarded through staff/erp/dead-letters/), ERPNext's doorbells of 7 days, the last week's nightly
+         *     reconciliations with their open differences.
+         */
+        get: operations["staff_system_sync_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/system/sync/links/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description ErpLink lookups (`?q=`): a reference (invoice:EL-2026-000123), an ERPNext name, or a platform object's id; the
+         *     first 50 matches, newest first. A query of fewer than 3 characters finds nothing.
+         */
+        get: operations["staff_system_sync_links_list"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5204,6 +5844,71 @@ export interface paths {
         get: operations["staff_tax_thresholds_retrieve"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/templates/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The template registry (filters channel, language, approval_state, event, category), by event: add one, change
+         *     one (PATCH: what it is for, its channel and language stay), send yourself a test. Never deleted: deactivated.
+         */
+        get: operations["staff_templates_list"];
+        put?: never;
+        /**
+         * @description The template registry (filters channel, language, approval_state, event, category), by event: add one, change
+         *     one (PATCH: what it is for, its channel and language stay), send yourself a test. Never deleted: deactivated.
+         */
+        post: operations["staff_templates_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/templates/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The template registry (filters channel, language, approval_state, event, category), by event: add one, change
+         *     one (PATCH: what it is for, its channel and language stay), send yourself a test. Never deleted: deactivated.
+         */
+        get: operations["staff_templates_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description The template registry (filters channel, language, approval_state, event, category), by event: add one, change
+         *     one (PATCH: what it is for, its channel and language stay), send yourself a test. Never deleted: deactivated.
+         */
+        patch: operations["staff_templates_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/templates/{id}/test/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Send this template to yourself: an SMS to your own confirmed mobile number, an email to your own address. */
+        post: operations["staff_templates_test_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5505,6 +6210,72 @@ export interface components {
             /** @default  */
             password: string;
         };
+        Access: {
+            id: number;
+            /** Format: email */
+            email: string;
+            full_name: string;
+            is_active: boolean;
+            is_superuser: boolean;
+            /** Format: date-time */
+            last_login: string | null;
+            roles: components["schemas"]["AccessRole"][];
+            scopes: components["schemas"]["AccessScope"][];
+            /** @description the roles' own narrowing */
+            role_scopes: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            /** @description null: no limit */
+            limits: {
+                [key: string]: number | null;
+            };
+            idle_timeout_s: number;
+            /** @description how many it holds */
+            permissions: number;
+            capabilities: components["schemas"]["CapabilityArea"][];
+            /** @description change requests about them or by them, still open */
+            pending: components["schemas"]["AccessPending"][];
+            second_factors: components["schemas"]["SecondFactors"];
+            /** @description their role needs a passkey they have not added */
+            passkey_required: boolean;
+            erp_profiles: string[];
+        };
+        AccessPending: {
+            id: number;
+            action: string;
+            status: components["schemas"]["ChangeRequestStatusEnum"];
+            target_label: string;
+            about_them: boolean;
+            by_them: boolean;
+            /** Format: date-time */
+            created: string;
+            /** Format: date-time */
+            expires_at: string;
+        };
+        AccessRole: {
+            name: components["schemas"]["RoleEnum"];
+            /**
+             * @description admin: given in the Django admin, no grant
+             *
+             *     * `panel` - panel
+             *     * `admin` - admin
+             */
+            source: components["schemas"]["AccessRoleSourceEnum"];
+            granted_by: number | null;
+            /** Format: date-time */
+            granted_at: string | null;
+            /** Format: date-time */
+            expires_at: string | null;
+            reason: string;
+        };
+        /**
+         * @description * `panel` - panel
+         *     * `admin` - admin
+         * @enum {string}
+         */
+        AccessRoleSourceEnum: "panel" | "admin";
         AccessRow: {
             id: number;
             /** Format: email */
@@ -5530,9 +6301,61 @@ export interface components {
                 [key: string]: string;
             };
         };
+        AccessScope: {
+            id: number;
+            kind: components["schemas"]["ScopeKindEnum"];
+            value: string;
+            granted_by: number | null;
+            /** Format: date-time */
+            created: string;
+            /** Format: date-time */
+            expires_at: string | null;
+        };
         AccountNominee: {
             user: number;
             nominee: components["schemas"]["PrivacyNominee"] | null;
+        };
+        AccountRow: {
+            id: number;
+            mode: components["schemas"]["IntegrationModeEnum"];
+            /** @description the account in use */
+            enabled: boolean;
+            label: string;
+            /** @description each credential's last four characters */
+            held: {
+                [key: string]: string;
+            };
+            /** @description its secrets cannot be read with INTEGRATION_KEYS */
+            unreadable: boolean;
+            /** Format: date-time */
+            credentials_updated_at: string | null;
+            credentials_updated_by: number | null;
+            /**
+             * Format: date
+             * @description our 90-day rotation
+             */
+            rotate_by: string | null;
+            /** @description negative: overdue */
+            rotate_in_days: number | null;
+            /**
+             * Format: date-time
+             * @description the cached access token (Shiprocket)
+             */
+            token_expires_at: string | null;
+            /** Format: double */
+            token_in_hours: number | null;
+            /** @description its last four characters */
+            webhook_token: string;
+            /** Format: date-time */
+            webhook_rotated_at: string | null;
+        };
+        Actions: {
+            test: boolean;
+            /** @description its keys are the panel's to replace */
+            credentials: boolean;
+            mode: boolean;
+            circuit: boolean;
+            webhooks: boolean;
         };
         /**
          * @description * `staff` - staff
@@ -5589,6 +6412,27 @@ export interface components {
             pin: string;
             /** Use by default */
             is_default?: boolean;
+        };
+        Advisory: {
+            id: string;
+            /** @description python or npm */
+            ecosystem: string;
+            /** @description examleaf-web, examleaf-admin, examleaf-frontend */
+            project: string;
+            package: string;
+            version: string;
+            severity: components["schemas"]["SeverityEnum"];
+            title: string;
+            url: string;
+            fixed_in: string;
+            /** Format: date */
+            first_seen: string;
+            /**
+             * Format: date
+             * @description a critical one's 7-day target
+             */
+            due: string | null;
+            overdue: boolean;
         };
         AnswerRequest: {
             /** @description the option's number from 1, true/false, or the word(s) */
@@ -5818,6 +6662,53 @@ export interface components {
             shown?: boolean;
             readonly n: number;
         };
+        BackupFile: {
+            name: string;
+            /** Format: date-time */
+            at: string;
+            size: number;
+            /** @description kept beside it by manage.py upload_backup */
+            sha256: string;
+            /** @description encrypted with age (BACKUP_AGE_RECIPIENT) */
+            encrypted: boolean;
+        };
+        BackupSource: {
+            key: string;
+            label: string;
+            prefix: string;
+            latest: components["schemas"]["BackupFile"] | null;
+            /** Format: double */
+            age_hours: number | null;
+            stale: boolean;
+            error: string;
+        };
+        Backups: {
+            /** @description a backups bucket is set (BACKUP_BUCKET) */
+            configured: boolean;
+            bucket: string;
+            sources: components["schemas"]["BackupSource"][];
+            /** @description no recent backup in any source (BACKUP_STALE_HOURS) */
+            stale: boolean;
+            /** @description the bucket could not be read */
+            unreadable: boolean;
+            stale_hours: number;
+            /** @description BACKUP_KEEP_DAYS */
+            retention_days: number;
+            /** Format: date-time */
+            checked_at: string;
+            /** @description the newest restore drill that worked */
+            last_proven: components["schemas"]["Proven"] | null;
+            /** @description the newest 20 */
+            drills: components["schemas"]["RestoreDrill"][];
+        };
+        BeforeAfterProfiles: {
+            before: string[];
+            after: string[];
+        };
+        BeforeAfterSeconds: {
+            before: number;
+            after: number;
+        };
         /** @enum {unknown} */
         BlankEnum: "";
         Board: {
@@ -5872,15 +6763,67 @@ export interface components {
             /** @description why nothing else works: the owners read it */
             reason: string;
         };
+        Bucket: {
+            alias: string;
+            bucket: string;
+        };
         BundleItem: {
             readonly product: string;
             readonly title: string;
             /** Format: int64 */
             quantity?: number;
         };
+        Call: {
+            readonly id: number;
+            readonly mode: string;
+            readonly operation: string;
+            readonly method: string;
+            /** @description Without its query string. */
+            readonly path: string;
+            /** @description Empty: no answer (network). */
+            readonly status_code: number | null;
+            readonly duration_ms: number;
+            readonly provider_request_id: string;
+            readonly error: string;
+            readonly excerpt: string;
+            /** Format: date-time */
+            readonly created: string;
+        };
+        Calls: {
+            /** @description calls in the last 24 hours */
+            day: number;
+            day_errors: number;
+            /** @description calls in the last 7 days */
+            week: number;
+            week_errors: number;
+            /** @description the week's 90th percentile, in milliseconds */
+            p90_ms: number | null;
+        };
         CancelRequest: {
             /** @description why: kept with the document */
             reason: string;
+        };
+        Capability: {
+            /** @description app_label.codename */
+            perm: string;
+            label: string;
+            area: string;
+            risk: components["schemas"]["RiskEnum"];
+            /** @description needs a re-authentication in the last 5 minutes */
+            reauth: boolean;
+            /** @description may wait for a second person */
+            approval: boolean;
+            /** @description the owners are told */
+            alert: boolean;
+            /**
+             * Format: date-time
+             * @description the Access tab: its last use in a year (high and critical ones)
+             */
+            last_used?: string | null;
+        };
+        CapabilityArea: {
+            area: string;
+            permissions: components["schemas"]["Capability"][];
         };
         /**
          * @description * `manual` - by hand (staff type the courier and number)
@@ -6201,6 +7144,32 @@ export interface components {
              */
             billing_state?: components["schemas"]["StateEnum"];
         };
+        Circuit: {
+            state: components["schemas"]["CircuitStateEnum"];
+            /** @description opened by staff: no trial call until reset */
+            held_open: boolean;
+            /** Format: date-time */
+            opened_at: string | null;
+            failures: number;
+        };
+        /**
+         * @description * `open` - open
+         *     * `reset` - reset
+         * @enum {string}
+         */
+        CircuitActionEnum: "open" | "reset";
+        CircuitActionRequest: {
+            /** @description why (kept in the audit log; the owners read it) */
+            reason: string;
+            action: components["schemas"]["CircuitActionEnum"];
+        };
+        /**
+         * @description * `closed` - closed: calls go through
+         *     * `open` - open: calls wait
+         *     * `half_open` - half open: one trial call
+         * @enum {string}
+         */
+        CircuitStateEnum: "closed" | "open" | "half_open";
         /**
          * @description * `10` - Class 10
          *     * `12` - Class 12
@@ -6455,19 +7424,117 @@ export interface components {
          * @enum {string}
          */
         ConfirmEnum: "consent" | "deletion";
+        Conflict: {
+            roles: string[];
+            text: string;
+        };
+        ConnectionCard: {
+            provider: components["schemas"]["ConnectionProviderEnum"];
+            name: string;
+            kind: components["schemas"]["ConnectionKindEnum"];
+            status: components["schemas"]["ConnectionStatusEnum"];
+            /**
+             * @description the mode in force
+             *
+             *     * `off` - off
+             *     * `test` - test
+             *     * `live` - live
+             */
+            mode: components["schemas"]["ConnectionModeEnum"];
+            /**
+             * @description where its keys are read from
+             *
+             *     * `panel` - panel
+             *     * `environment` - environment
+             *     * `none` - none
+             */
+            source: components["schemas"]["ConnectionSourceEnum"];
+            /** @description the environment's keys' last characters */
+            held: {
+                [key: string]: string;
+            };
+            accounts: components["schemas"]["AccountRow"][];
+            /** Format: date-time */
+            last_success_at: string | null;
+            /** Format: date-time */
+            last_error_at: string | null;
+            last_error: string;
+            last_test: components["schemas"]["LastTest"];
+            circuit: components["schemas"]["Circuit"];
+            calls: components["schemas"]["Calls"];
+            /** @description the credentials Replace asks for */
+            fields: string[];
+            optional: string[];
+            modes: components["schemas"]["IntegrationModeEnum"][];
+            overlap_warning: string;
+            actions: components["schemas"]["Actions"];
+            extra: components["schemas"]["Extra"];
+        };
         /**
          * @description * `email` - email
-         *     * `sms` - SMS
-         *     * `whatsapp` - WhatsApp
+         *     * `erp` - erp
+         *     * `errors` - errors
+         *     * `payments` - payments
+         *     * `shipping` - shipping
+         *     * `sign_in` - sign_in
+         *     * `sms` - sms
+         *     * `storage` - storage
+         *     * `whatsapp` - whatsapp
          * @enum {string}
          */
-        ConsentChannelEnum: "email" | "sms" | "whatsapp";
+        ConnectionKindEnum: "email" | "erp" | "errors" | "payments" | "shipping" | "sign_in" | "sms" | "storage" | "whatsapp";
+        /**
+         * @description * `off` - off
+         *     * `test` - test
+         *     * `live` - live
+         * @enum {string}
+         */
+        ConnectionModeEnum: "off" | "test" | "live";
+        /**
+         * @description * `razorpay` - razorpay
+         *     * `shiprocket` - shiprocket
+         *     * `manual` - manual
+         *     * `msg91` - msg91
+         *     * `whatsapp` - whatsapp
+         *     * `ses` - ses
+         *     * `storage` - storage
+         *     * `error_tracker` - error_tracker
+         *     * `google` - google
+         *     * `erpnext` - erpnext
+         * @enum {string}
+         */
+        ConnectionProviderEnum: "razorpay" | "shiprocket" | "manual" | "msg91" | "whatsapp" | "ses" | "storage" | "error_tracker" | "google" | "erpnext";
+        ConnectionReasonRequest: {
+            /** @description why (kept in the audit log; the owners read it) */
+            reason: string;
+        };
+        /**
+         * @description * `panel` - panel
+         *     * `environment` - environment
+         *     * `none` - none
+         * @enum {string}
+         */
+        ConnectionSourceEnum: "panel" | "environment" | "none";
+        /**
+         * @description * `connected` - connected
+         *     * `degraded` - degraded
+         *     * `expired` - expired
+         *     * `disabled` - disabled
+         *     * `not_configured` - not_configured
+         * @enum {string}
+         */
+        ConnectionStatusEnum: "connected" | "degraded" | "expired" | "disabled" | "not_configured";
         ConsentWithdrawn: {
             purpose: string;
             channel: string;
             /** Format: date-time */
             withdrawn_at: string;
             detail: string;
+        };
+        Contact: {
+            contact: string;
+            source: components["schemas"]["ContactSourceEnum"];
+            placeholder: boolean;
         };
         /**
          * @description * `email` - email
@@ -6488,6 +7555,12 @@ export interface components {
             /** @description Turnstile's token while the bot check is on */
             turnstile?: string;
         };
+        /**
+         * @description * `panel` - panel
+         *     * `environment` - environment
+         * @enum {string}
+         */
+        ContactSourceEnum: "panel" | "environment";
         Continue: {
             clip: components["schemas"]["NextClip"];
             revision: components["schemas"]["RevisionRef"];
@@ -6509,6 +7582,15 @@ export interface components {
          * @enum {string}
          */
         CourierEnum: "India Post" | "Delhivery" | "Blue Dart" | "Ekart" | "DTDC" | "Xpressbees" | "Other";
+        CredentialsRequest: {
+            /** @description why (kept in the audit log; the owners read it) */
+            reason: string;
+            mode: components["schemas"]["IntegrationModeEnum"];
+            /** @description the provider's fields (the card's `fields`); never answered */
+            credentials: {
+                [key: string]: string;
+            };
+        };
         CreditNote: {
             number: string;
             /** Format: date-time */
@@ -6771,6 +7853,13 @@ export interface components {
          */
         DataRequestStatusEnum: "new" | "acknowledged" | "closed";
         /**
+         * @description * `open` - waiting for staff
+         *     * `replayed` - replayed
+         *     * `discarded` - discarded
+         * @enum {string}
+         */
+        DeadLetterStateEnum: "open" | "replayed" | "discarded";
+        /**
          * @description * `approve` - approved
          *     * `reject` - rejected
          * @enum {string}
@@ -6800,6 +7889,26 @@ export interface components {
             /** Format: int64 */
             n: number;
         };
+        Dependencies: {
+            /** @description a report was loaded */
+            available: boolean;
+            path: string;
+            /** Format: date-time */
+            generated_at: string | null;
+            age_days: number | null;
+            /** @description older than 8 days, or none */
+            stale: boolean;
+            commit: string;
+            /** @description open advisories by severity */
+            counts: {
+                [key: string]: number;
+            };
+            advisories: components["schemas"]["Advisory"][];
+            versions: {
+                [key: string]: string;
+            };
+            error: string;
+        };
         Detail: {
             detail: string;
         };
@@ -6818,6 +7927,10 @@ export interface components {
              */
             token: string;
             platform?: components["schemas"]["PlatformEnum"] | components["schemas"]["BlankEnum"];
+        };
+        DiscardRequest: {
+            /** @description why it is given up (kept with it) */
+            reason: string;
         };
         DisclosureHistory: {
             key: string;
@@ -6900,6 +8013,34 @@ export interface components {
              * @description the PDF, for the order's owner
              */
             url: string;
+        };
+        EmailFigures: {
+            /** @description the last 7 days against SES's review thresholds */
+            rates: components["schemas"]["EmailRates"];
+            suppressed: number;
+            /**
+             * Format: date-time
+             * @description SES's list last read
+             */
+            suppressions_synced: string | null;
+            /** @description SES_SNS_TOPIC_ARN is set */
+            topic_restricted: boolean;
+            /** @description ANYMAIL_WEBHOOK_SECRET is set */
+            webhook_secret_set: boolean;
+        };
+        EmailRates: {
+            sent: number;
+            delivered: number;
+            bounced: number;
+            complained: number;
+            /** Format: double */
+            bounce_rate: number | null;
+            /** Format: double */
+            complaint_rate: number | null;
+            /** Format: double */
+            bounce_limit: number;
+            /** Format: double */
+            complaint_limit: number;
         };
         Ended: {
             sessions: number;
@@ -7034,6 +8175,37 @@ export interface components {
             /** @description why it is given up (kept with its dead letter) */
             reason: string;
         };
+        ErpHealth: {
+            /** @description ERP_ENABLED */
+            enabled: boolean;
+            /** @description outbox rows pending, sending or failing */
+            waiting: number;
+            dead: number;
+            oldest_waiting_seconds: number | null;
+            last_reconciliation: components["schemas"]["ReconciliationLine"] | null;
+            /** @description the sync user's API key is held */
+            key_present: boolean;
+            webhook_secret_set: boolean;
+        };
+        ErpLink: {
+            examleaf_ref: string;
+            model: string;
+            object_id: string;
+            doctype: string;
+            /** @description ERPNext's name of the document */
+            name: string;
+            /** Format: date-time */
+            synced_at: string;
+        };
+        ErpMirror: {
+            /** Format: email */
+            email: string;
+            /** @description the ERPNext user: enabled (or disabled, never deleted) */
+            enabled: boolean;
+            role_profiles: string[];
+            by_role: components["schemas"]["ErpRole"][];
+            erp_in_use: boolean;
+        };
         ErpOutbox: {
             readonly id: number;
             /** @description order, product or settlement. */
@@ -7086,6 +8258,10 @@ export interface components {
         ErpResolveRequest: {
             /** @description what was done about it */
             note: string;
+        };
+        ErpRole: {
+            role: components["schemas"]["RoleEnum"];
+            profiles: string[];
         };
         ErpRun: {
             readonly id: number;
@@ -7153,6 +8329,9 @@ export interface components {
             cursors: components["schemas"]["ErpCursorStatus"][];
             last_reconciliation: components["schemas"]["ErpRunStatus"] | null;
         };
+        ErrorsFigures: {
+            host: string;
+        };
         ExportPart: {
             /** @description the part's name in the file */
             key: string;
@@ -7166,13 +8345,55 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** @description What a provider's card adds (each key present for its provider only). */
+        Extra: {
+            webhook?: components["schemas"]["RazorpayHealth"];
+            sms?: components["schemas"]["SmsFigures"];
+            email?: components["schemas"]["EmailFigures"];
+            storage?: components["schemas"]["StorageFigures"];
+            google?: components["schemas"]["GoogleFigures"];
+            errors?: components["schemas"]["ErrorsFigures"];
+            erp?: components["schemas"]["ErpHealth"];
+            /** @description WhatsApp: the phase it comes in */
+            phase?: string;
+        };
+        Failure: {
+            readonly id: number;
+            readonly account: number | null;
+            readonly operation: string;
+            readonly task_name: string;
+            /** @description {"args": [...], "kwargs": {...}}, redacted. */
+            readonly args: unknown;
+            readonly attempts: number;
+            readonly last_error: string;
+            readonly state: components["schemas"]["DeadLetterStateEnum"];
+            readonly discard_reason: string;
+            /** Format: date-time */
+            readonly resolved_at: string | null;
+            readonly resolved_by: number | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** @description the sync's dead row, if one */
+            readonly erp_outbox: number | null;
+        };
         Flag: {
             key: string;
+            /** @description in effect now (a known flag not set: the environment's) */
             value: unknown;
-            /** Format: date-time */
-            effective_from: string;
+            /**
+             * Format: date-time
+             * @description null: a known flag never set
+             */
+            effective_from: string | null;
             changed_by: number | null;
             reason: string;
+            /** @description a known flag's (staff.config.KNOWN_FLAGS) */
+            label: string;
+            /** @description the Settings page's section: erp, or flags for any other */
+            group: string;
+            /** @description a known flag's value in the environment */
+            environment: unknown;
+            source: components["schemas"]["SettingSourceEnum"];
         };
         FlashCard: {
             readonly id: number;
@@ -7228,6 +8449,11 @@ export interface components {
          * @enum {string}
          */
         FraudSignalKindEnum: "codes_failed_account" | "codes_failed_ip" | "codes_failed_spike" | "codes_per_account" | "accounts_per_code" | "shared_phone" | "shared_address";
+        GoogleFigures: {
+            /** @description STAFF_GOOGLE_DOMAIN: staff's Workspace */
+            domain: string;
+            auto_staff: boolean;
+        };
         GrantRequest: {
             role: components["schemas"]["RoleEnum"];
             /**
@@ -7327,6 +8553,22 @@ export interface components {
             /** @description for orders/t/<token>/ and its payment; also in the emails */
             readonly token: string;
         };
+        HardeningRow: {
+            key: string;
+            label: string;
+            /** @description null: not testable from here */
+            ok: boolean | null;
+            detail: string;
+            fix: string;
+        };
+        /**
+         * @description * `P` - P (promotional)
+         *     * `S` - S (service)
+         *     * `T` - T (transactional)
+         *     * `G` - G (government)
+         * @enum {string}
+         */
+        HeaderSuffixEnum: "P" | "S" | "T" | "G";
         HoldCreateRequest: {
             /** @description the account held (its number) */
             user?: number | null;
@@ -7474,6 +8716,34 @@ export interface components {
             /** Format: date-time */
             expires_at: string;
         };
+        InboundEvent: {
+            readonly id: number;
+            readonly account: number | null;
+            readonly state: components["schemas"]["InboundEventStateEnum"];
+            /**
+             * Provider's event id
+             * @description The provider's own id of what it reports (MSG91: its request ids and statuses, hashed); a repeat under the same id is a duplicate whatever its body.
+             */
+            readonly event_id: string;
+            /** SHA-256 of the body */
+            readonly sha256: string;
+            readonly headers: unknown;
+            /** Format: date-time */
+            readonly received_at: string;
+            /** Format: date-time */
+            readonly processed_at: string | null;
+            readonly error: string;
+            /** @description redacted: no names, phone numbers to 4 digits */
+            readonly body_excerpt: string;
+        };
+        /**
+         * @description * `accepted` - accepted
+         *     * `duplicate` - duplicate (nothing new)
+         *     * `rejected` - rejected (wrong or missing token)
+         *     * `failed` - failed
+         * @enum {string}
+         */
+        InboundEventStateEnum: "accepted" | "duplicate" | "rejected" | "failed";
         InboxCount: {
             open: number;
             overdue: number;
@@ -7523,9 +8793,17 @@ export interface components {
          *     * `order_hold` - order on hold
          *     * `return_request` - return asked for
          *     * `bank_refund` - refund to transfer by bank or UPI
+         *     * `role_expired` - a temporary role ended
+         *     * `offboarding` - offboarding: accounts to close by hand
+         *     * `webhook_silent` - a provider's webhooks fell silent
+         *     * `template_idle` - a message template unused for months
+         *     * `template_certify` - a message template's yearly self-certification
+         *     * `backup_stale` - no recent backup
+         *     * `dependencies_stale` - the dependency report is old
+         *     * `scripts_changed` - the checkout's or console's scripts changed
          * @enum {string}
          */
-        InboxKindEnum: "approval" | "teacher_request" | "deletion_request" | "data_request" | "incident" | "failed_job" | "failed_webhook" | "sync_failed" | "reconciliation" | "shipping_exception" | "dead_letter" | "failed_event" | "integration_down" | "tax_threshold" | "credit_note_missing" | "processor_task" | "compliance" | "order_hold" | "return_request" | "bank_refund";
+        InboxKindEnum: "approval" | "teacher_request" | "deletion_request" | "data_request" | "incident" | "failed_job" | "failed_webhook" | "sync_failed" | "reconciliation" | "shipping_exception" | "dead_letter" | "failed_event" | "integration_down" | "tax_threshold" | "credit_note_missing" | "processor_task" | "compliance" | "order_hold" | "return_request" | "bank_refund" | "role_expired" | "offboarding" | "webhook_silent" | "template_idle" | "template_certify" | "backup_stale" | "dependencies_stale" | "scripts_changed";
         Incident: {
             readonly id: number;
             title: string;
@@ -7627,6 +8905,12 @@ export interface components {
             actions?: string;
             root_cause?: string;
         };
+        /**
+         * @description * `test` - test
+         *     * `live` - live
+         * @enum {string}
+         */
+        IntegrationModeEnum: "test" | "live";
         InviteRequest: {
             /** Format: email */
             email: string;
@@ -7727,6 +9011,12 @@ export interface components {
          * @enum {string}
          */
         JobStateEnum: "queued" | "running" | "done" | "failed" | "cancelled";
+        LastTest: {
+            /** Format: date-time */
+            at: string | null;
+            ok: boolean | null;
+            message: string;
+        };
         Learner: {
             /** Format: date */
             exam_date?: string | null;
@@ -7839,9 +9129,25 @@ export interface components {
          * @enum {string}
          */
         LevelEnum: "ok" | "watch" | "act";
+        LimitChange: {
+            name: string;
+            /** @description null: no limit */
+            before: number | null;
+            after: number | null;
+        };
         LinkSent: {
             /** @description always: If an order matches, we have emailed you a link. */
             detail: string;
+        };
+        LogRow: {
+            key: string;
+            what: string;
+            where: string;
+            kept: string;
+            readers: string;
+            days: number | null;
+            /** @description null: kept as the host decides */
+            meets_retention: boolean | null;
         };
         /**
          * @description Email and password. An address not confirmed yet gets a new code: the 400 answer then carries a
@@ -7853,6 +9159,16 @@ export interface components {
         };
         LogoutRequest: {
             refresh: string;
+        };
+        Logs: {
+            /** @description what the law asks for logs now */
+            retention_days: number;
+            rule: string;
+            /** Format: date */
+            dpdp_from: string;
+            inventory: components["schemas"]["LogRow"][];
+            time: components["schemas"]["SystemClock"];
+            cert_in: components["schemas"]["Contact"];
         };
         LookupRequest: {
             number: string;
@@ -7877,6 +9193,18 @@ export interface components {
         };
         ManifestRequestRequest: {
             shipments: number[];
+        };
+        /**
+         * @description * `email` - email
+         *     * `sms` - SMS
+         *     * `whatsapp` - WhatsApp
+         * @enum {string}
+         */
+        MessageChannelEnum: "email" | "sms" | "whatsapp";
+        ModeRequest: {
+            /** @description why (kept in the audit log; the owners read it) */
+            reason: string;
+            mode: components["schemas"]["ConnectionModeEnum"];
         };
         /**
          * @description * `1` - 1
@@ -8015,6 +9343,52 @@ export interface components {
             change_requests: number;
             sessions: number;
             tokens: number;
+            /** @description its checklist: people/<id>/offboarding/ */
+            offboarding: number;
+        };
+        Offboarding: {
+            readonly id: number;
+            user: number;
+            started_by?: number | null;
+            reason: string;
+            /** Format: date-time */
+            started_at?: string;
+            /**
+             * Format: date-time
+             * @description When its last step was done.
+             */
+            finished_at?: string | null;
+            readonly steps: components["schemas"]["OffboardingStep"][];
+        };
+        OffboardingStep: {
+            key: string;
+            readonly label: string;
+            kind: components["schemas"]["OffboardingStepKindEnum"];
+            state?: components["schemas"]["OffboardingStepStateEnum"];
+            detail?: string;
+            /** Format: date-time */
+            done_at?: string | null;
+            done_by?: number | null;
+        };
+        /**
+         * @description * `auto` - done by the panel
+         *     * `manual` - ticked by an owner
+         * @enum {string}
+         */
+        OffboardingStepKindEnum: "auto" | "manual";
+        /**
+         * @description * `done` - done
+         *     * `todo` - to do
+         *     * `not_needed` - not needed
+         * @enum {string}
+         */
+        OffboardingStepStateEnum: "done" | "todo" | "not_needed";
+        OffboardingTickRequest: {
+            /** @description a step done by hand: its key */
+            step: string;
+            state: components["schemas"]["OffboardingStepStateEnum"];
+            /** @default  */
+            note: string;
         };
         OfferStat: {
             /** @description Stored in capitals; customers may type any case. */
@@ -8745,6 +10119,26 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        OwnSession: {
+            id: number;
+            /** @description Chrome, Firefox …; empty: not known */
+            browser: string;
+            /** @description Android, Windows …; empty: not known */
+            system: string;
+            /** @description the address's first octets: 203.0.113.x */
+            place: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            last_seen_at: string;
+            /** @description this session */
+            current: boolean;
+        };
+        OwnSessionsEnded: {
+            sessions: number;
+            /** @description the app's refresh tokens blacklisted */
+            tokens: number;
+        };
         /** @description An order of the packing queue. */
         PackingRow: {
             number: string;
@@ -8906,6 +10300,19 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["Book"][];
+        };
+        PaginatedCallList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Call"][];
         };
         PaginatedCategoryList: {
             /** @example 123 */
@@ -9146,6 +10553,19 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["ErpRun"][];
         };
+        PaginatedFailureList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Failure"][];
+        };
         PaginatedFlashCardList: {
             /** @example 123 */
             count: number;
@@ -9203,6 +10623,19 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["HsnCode"][];
+        };
+        PaginatedInboundEventList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["InboundEvent"][];
         };
         PaginatedInboxItemList: {
             /**
@@ -10010,6 +11443,36 @@ export interface components {
             columns?: unknown;
             sort?: unknown;
         };
+        PatchedTemplateRequest: {
+            /** @description What it is sent for: otp, order_placed … (ops.sms's kinds). */
+            event?: string;
+            channel?: components["schemas"]["MessageChannelEnum"];
+            /** @default en */
+            language: components["schemas"]["TemplateLanguageEnum"];
+            /** @description As registered: DLT's {#var#} placeholders. */
+            text?: string;
+            /** @description An email's subject. */
+            subject?: string;
+            variables?: components["schemas"]["VariableRequest"][];
+            dlt_template_id?: string;
+            /** Principal entity id */
+            pe_id?: string;
+            /** @description The registered sender id, e.g. EXMLEF. */
+            header?: string;
+            header_suffix?: components["schemas"]["HeaderSuffixEnum"] | components["schemas"]["BlankEnum"];
+            /** MSG91 template id */
+            msg91_id?: string;
+            /** WhatsApp template name */
+            whatsapp_name?: string;
+            category?: components["schemas"]["TemplateCategoryEnum"];
+            approval_state?: components["schemas"]["TemplateApprovalEnum"];
+            /**
+             * Format: date
+             * @description DLT's yearly self-certification.
+             */
+            self_certified_on?: string | null;
+            notes?: string;
+        };
         /**
          * @description * `false_urgency` - False urgency
          *     * `basket_sneaking` - Basket sneaking
@@ -10641,6 +12104,11 @@ export interface components {
             seconds_watched?: number;
             completed?: boolean;
         };
+        Proven: {
+            /** Format: date */
+            on: string;
+            engine: components["schemas"]["RestoreDrillEngineEnum"];
+        };
         PublishRequest: {
             /** @description the new text, in Markdown */
             markdown: string;
@@ -10852,6 +12320,17 @@ export interface components {
          * @enum {string}
          */
         QuoteStatusEnum: "new" | "quoted" | "ordered" | "closed";
+        RazorpayHealth: {
+            /** Format: date-time */
+            last_event_at: string | null;
+            /** Format: double */
+            age_hours: number | null;
+            /** @description online payments captured in the window */
+            paid_in_window: number;
+            window_hours: number;
+            /** @description payments came in, no webhook did */
+            silent: boolean;
+        };
         ReasonRequest: {
             /** @description Why: kept in the audit log */
             reason: string;
@@ -10863,6 +12342,12 @@ export interface components {
         Reconciled: {
             order: string;
             paid: boolean | null;
+        };
+        ReconciliationLine: {
+            /** Format: date */
+            date: string;
+            state: string;
+            differences: number;
         };
         Record: {
             /** @description attempts */
@@ -10947,6 +12432,18 @@ export interface components {
             /** @description why it ends: kept with it and in the audit log */
             reason: string;
         };
+        ReplayFailedRequest: {
+            /**
+             * Format: date-time
+             * @description every failed event received since then
+             */
+            since: string;
+        };
+        Replayed: {
+            replayed: number;
+            /** @description more failed events wait: replay again */
+            more: boolean;
+        };
         ResolveRequest: {
             /** @description what was done, or why it is dismissed */
             resolution: string;
@@ -10960,6 +12457,46 @@ export interface components {
         RestAuthDetail: {
             readonly detail: string;
         };
+        RestoreDrill: {
+            readonly id: number;
+            /** Format: date */
+            performed_on: string;
+            engine: components["schemas"]["RestoreDrillEngineEnum"];
+            /** @description The backup restored: its object's name in the bucket. */
+            backup: string;
+            result: components["schemas"]["RestoreDrillResultEnum"];
+            /** Format: int64 */
+            duration_minutes: number;
+            notes?: string;
+            readonly recorded_by: number | null;
+            /** Format: date-time */
+            readonly created: string;
+        };
+        /**
+         * @description * `platform` - the platform's PostgreSQL
+         *     * `erpnext` - ERPNext's MariaDB and files
+         *     * `both` - both engines
+         * @enum {string}
+         */
+        RestoreDrillEngineEnum: "platform" | "erpnext" | "both";
+        RestoreDrillRequest: {
+            /** Format: date */
+            performed_on: string;
+            engine: components["schemas"]["RestoreDrillEngineEnum"];
+            /** @description The backup restored: its object's name in the bucket. */
+            backup: string;
+            result: components["schemas"]["RestoreDrillResultEnum"];
+            /** Format: int64 */
+            duration_minutes: number;
+            notes?: string;
+        };
+        /**
+         * @description * `passed` - it worked
+         *     * `partial` - it worked in part
+         *     * `failed` - it failed
+         * @enum {string}
+         */
+        RestoreDrillResultEnum: "passed" | "partial" | "failed";
         RetentionRule: {
             key: string;
             records: string;
@@ -11141,6 +12678,52 @@ export interface components {
          */
         RevisionStatusEnum: "published" | "none";
         /**
+         * @description * `low` - low
+         *     * `medium` - medium
+         *     * `high` - high
+         *     * `critical` - critical
+         * @enum {string}
+         */
+        RiskEnum: "low" | "medium" | "high" | "critical";
+        RoleCard: {
+            /** @description for people who need to … */
+            for: string;
+            /** @description they can't … */
+            cannot: string;
+        };
+        RoleCatalogue: {
+            name: components["schemas"]["RoleEnum"];
+            card: components["schemas"]["RoleCard"];
+            /** @description given only with a second person's approval */
+            privileged: boolean;
+            /** @description opens the Django admin */
+            admin_site: boolean;
+            /** @description its members need a passkey or a security key */
+            passkey: boolean;
+            idle_timeout_s: number;
+            /** @description null: no limit */
+            limits: {
+                [key: string]: number | null;
+            };
+            scopes: {
+                [key: string]: string[];
+            };
+            /** @description roles it may not be held with */
+            conflicts: string[];
+            /** @description its ERPNext role profiles */
+            erp_profiles: string[];
+            /** @description active members */
+            members: number;
+            permissions: number;
+            capabilities: components["schemas"]["CapabilityArea"][];
+        };
+        /**
+         * @description * `grant` - grant
+         *     * `revoke` - revoke
+         * @enum {string}
+         */
+        RoleChangeActionEnum: "grant" | "revoke";
+        /**
          * @description * `ADMIN` - ADMIN
          *     * `AUDITOR` - AUDITOR
          *     * `CONTENT_EDITOR` - CONTENT_EDITOR
@@ -11155,6 +12738,47 @@ export interface components {
          * @enum {string}
          */
         RoleEnum: "ADMIN" | "AUDITOR" | "CONTENT_EDITOR" | "FINANCE" | "MARKETING" | "OWNER" | "PACKER" | "REVIEWER" | "SALES" | "SALES_REP" | "SUPPORT";
+        RolePreview: {
+            role: components["schemas"]["RoleEnum"];
+            action: components["schemas"]["RoleChangeActionEnum"];
+            /** @description a grant of a role held: only its end date would change */
+            holds_already: boolean;
+            gains: components["schemas"]["CapabilityArea"][];
+            losses: components["schemas"]["CapabilityArea"][];
+            /** @description the limits that change */
+            limits: components["schemas"]["LimitChange"][];
+            scopes: components["schemas"]["RoleScopeChange"][];
+            idle_timeout_s: components["schemas"]["BeforeAfterSeconds"];
+            /** @description separation of duties: the grant would be refused */
+            conflicts: components["schemas"]["Conflict"][];
+            blocked: boolean;
+            needs_approval: boolean;
+            /** @description why a second person approves it */
+            rule: string;
+            /** @description the permission its approver needs */
+            checker: string;
+            /** @description the role needs a passkey they have not added */
+            passkey_needed: boolean;
+            erp_profiles: components["schemas"]["BeforeAfterProfiles"];
+        };
+        RolePreviewRequestRequest: {
+            role: components["schemas"]["RoleEnum"];
+            /** @default grant */
+            action: components["schemas"]["RoleChangeActionEnum"];
+        };
+        RoleScopeChange: {
+            role: components["schemas"]["RoleEnum"];
+            scopes: {
+                [key: string]: string[];
+            };
+            /** @description false: the narrowing goes with the role */
+            added: boolean;
+        };
+        Rotated: {
+            /** @description shown this once: paste it at the provider */
+            token: string;
+            webhooks: components["schemas"]["WebhookInfo"];
+        };
         SavedView: {
             readonly id: number;
             readonly owner: number;
@@ -11222,6 +12846,47 @@ export interface components {
          * @enum {string}
          */
         ScopeKindEnum: "subject" | "board_class" | "order_status" | "warehouse" | "school" | "ticket_queue";
+        /**
+         * @description * `checkout` - the storefront's checkout
+         *     * `console` - the console's sign-in
+         * @enum {string}
+         */
+        ScriptPageEnum: "checkout" | "console";
+        ScriptRow: {
+            readonly id: number;
+            page: components["schemas"]["ScriptPageEnum"];
+            /** @description Empty: an inline script. */
+            src?: string;
+            sha256: string;
+            /** Format: date-time */
+            first_seen?: string;
+            /** Format: date-time */
+            last_seen?: string;
+            /** @description seen by its page's last check */
+            readonly current: boolean;
+        };
+        ScriptRun: {
+            page: components["schemas"]["ScriptPageEnum"];
+            url: string;
+            /** Format: date-time */
+            at: string | null;
+            /** @description null: not checked yet */
+            ok: boolean | null;
+            error: string;
+            added: number;
+            removed: number;
+        };
+        Scripts: {
+            runs: components["schemas"]["ScriptRun"][];
+            /** @description each page's last check's, then the 50 newest others */
+            scripts: components["schemas"]["ScriptRow"][];
+        };
+        SecondFactors: {
+            authenticator_app: boolean;
+            /** @description a passkey or a security key */
+            passkey: boolean;
+            recovery_codes: boolean;
+        };
         SeriesRegister: {
             financial_year: string;
             month: string | null;
@@ -11284,6 +12949,8 @@ export interface components {
             scheduled: {
                 [key: string]: unknown;
             }[];
+            /** @description the Settings page's section: shop, consent, course, maintenance … */
+            group: string;
         };
         /**
          * @description * `environment` - environment
@@ -11291,6 +12958,15 @@ export interface components {
          * @enum {string}
          */
         SettingSourceEnum: "environment" | "database";
+        /**
+         * @description * `critical` - critical
+         *     * `high` - high
+         *     * `moderate` - moderate
+         *     * `low` - low
+         *     * `unknown` - unknown
+         * @enum {string}
+         */
+        SeverityEnum: "critical" | "high" | "moderate" | "low" | "unknown";
         Shipment: {
             courier: string;
             tracking_number: string;
@@ -11497,6 +13173,19 @@ export interface components {
          * @enum {string}
          */
         SlugEnum: "privacy" | "terms" | "refunds" | "shipping" | "contact";
+        SmsFigures: {
+            sent_today: number;
+            /** @description held back by a limit today */
+            capped_today: number;
+            capped_7_days: number;
+            /** @description delivery reports by state */
+            delivery_7_days: {
+                [key: string]: number;
+            };
+            daily_cap: number;
+            /** @description approved SMS templates in the registry */
+            templates: number;
+        };
         SnoozeRequest: {
             /** Format: date-time */
             until: string;
@@ -11584,6 +13273,10 @@ export interface components {
             impersonating: components["schemas"]["StaffImpersonating"] | null;
             /** @description changes when anything above changes: fetch again */
             manifest_version: string;
+            /** @description what the session does before the rest of the staff API opens: passkey_required (add a passkey on the website's /account/security/; every other call answers 403 passkey_required meanwhile) */
+            steps: components["schemas"]["StepsEnum"][];
+            /** @description true once after a second factor changed: offer to end the other sessions */
+            offer_end_sessions: boolean;
         };
         /**
          * @description * `phone` - by phone
@@ -11697,6 +13390,8 @@ export interface components {
             backups: unknown;
             maintenance: unknown;
             audit: unknown;
+            /** @description one line per subsystem (staff/system_api.py) */
+            status: components["schemas"]["SystemStatus"][];
         };
         StaffUser: {
             id: number;
@@ -11745,6 +13440,15 @@ export interface components {
          * @enum {string}
          */
         StateEnum: "KA" | "AP" | "KL" | "TN" | "MH" | "UP" | "GA" | "GJ" | "RJ" | "HP" | "TG" | "AR" | "AS" | "BR" | "CT" | "HR" | "JH" | "MP" | "MN" | "ML" | "MZ" | "NL" | "OR" | "PB" | "SK" | "TR" | "UT" | "WB" | "AN" | "CH" | "DH" | "DL" | "JK" | "LD" | "LA" | "PY";
+        /**
+         * @description * `passkey_required` - passkey_required
+         * @enum {string}
+         */
+        StepsEnum: "passkey_required";
+        StorageFigures: {
+            buckets: components["schemas"]["Bucket"][];
+            public_domain: string;
+        };
         Streak: {
             /** @description in a row with a clip watched, a quiz answer or a card review */
             days: number;
@@ -11801,6 +13505,89 @@ export interface components {
             /** Format: date-time */
             created: string;
         };
+        Sync: {
+            /** @description as staff/erp/status/ answers it */
+            status: unknown;
+            flows: components["schemas"]["SyncFlow"][];
+            /** @description the newest 20 (replay or discard: staff/erp/dead-letters/) */
+            dead_letters: components["schemas"]["SyncDead"][];
+            dead_count: number;
+            inbound: components["schemas"]["SyncInbound"];
+            /** @description the last 7 nights */
+            reconciliations: components["schemas"]["SyncRun"][];
+        };
+        SyncDead: {
+            id: number;
+            event: string;
+            examleaf_ref: string;
+            aggregate_type: string;
+            aggregate_id: string;
+            attempts: number;
+            last_error: string;
+            /** Format: date-time */
+            created: string;
+        };
+        SyncFlow: {
+            flow: string;
+            /** @description its ERP_SYNC_* switch, as the code reads it */
+            switch: boolean;
+            /** @description its outbox rows by state */
+            states: {
+                [key: string]: number;
+            };
+        };
+        SyncInbound: {
+            /** @description ERPNext's doorbells of 7 days by state */
+            states: {
+                [key: string]: number;
+            };
+            /** Format: date-time */
+            last_received_at: string | null;
+        };
+        SyncRun: {
+            id: number;
+            /** Format: date */
+            date: string;
+            state: string;
+            differences_count: number;
+            open_differences: number;
+            /** Format: date-time */
+            finished_at: string | null;
+            error: string;
+        };
+        SystemClock: {
+            /** @description LOG_TIME_SOURCE: the host's documented time source */
+            source: string;
+            documented: boolean;
+            /** Format: date-time */
+            app_now: string;
+            /** Format: date-time */
+            database_now: string | null;
+            /** @description the database's clock minus the application's */
+            offset_ms: number | null;
+            /** @description within a second (two on SQLite) */
+            ok: boolean;
+        };
+        SystemStatus: {
+            /** @description health, queues, webhooks, email, sms, backups, audit, sync, dependencies … */
+            key: string;
+            state: components["schemas"]["SystemStatusStateEnum"];
+            /** @description in a few words */
+            summary: string;
+            /**
+             * Format: date-time
+             * @description when it came to this state, as far as seen
+             */
+            since: string | null;
+        };
+        /**
+         * @description * `ok` - ok
+         *     * `warn` - warn
+         *     * `bad` - bad
+         *     * `off` - off
+         * @enum {string}
+         */
+        SystemStatusStateEnum: "ok" | "warn" | "bad" | "off";
         /**
          * @description * `shop.creditnote` - shop.creditnote
          *     * `shop.invoice` - shop.invoice
@@ -12019,6 +13806,120 @@ export interface components {
             /** Subject taught */
             subject: string;
         };
+        Template: {
+            readonly id: number;
+            /** @description What it is sent for: otp, order_placed … (ops.sms's kinds). */
+            event: string;
+            channel: components["schemas"]["MessageChannelEnum"];
+            /** @default en */
+            language: components["schemas"]["TemplateLanguageEnum"];
+            /** @description As registered: DLT's {#var#} placeholders. */
+            text?: string;
+            /** @description An email's subject. */
+            subject?: string;
+            variables?: components["schemas"]["Variable"][];
+            dlt_template_id?: string;
+            /** Principal entity id */
+            pe_id?: string;
+            /** @description The registered sender id, e.g. EXMLEF. */
+            header?: string;
+            header_suffix?: components["schemas"]["HeaderSuffixEnum"] | components["schemas"]["BlankEnum"];
+            /** MSG91 template id */
+            msg91_id?: string;
+            /** WhatsApp template name */
+            whatsapp_name?: string;
+            category: components["schemas"]["TemplateCategoryEnum"];
+            approval_state?: components["schemas"]["TemplateApprovalEnum"];
+            /** Format: date-time */
+            readonly last_used_at: string | null;
+            /**
+             * Format: date
+             * @description DLT's yearly self-certification.
+             */
+            self_certified_on?: string | null;
+            notes?: string;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly modified: string;
+            /** @description since its last use (or since it was added) */
+            readonly days_unused: number;
+            /** @description what to see to, in plain words */
+            readonly warnings: string[];
+        };
+        /**
+         * @description * `draft` - draft
+         *     * `submitted` - submitted for approval
+         *     * `approved` - approved
+         *     * `rejected` - rejected
+         *     * `paused` - paused
+         *     * `deactivated` - deactivated
+         * @enum {string}
+         */
+        TemplateApprovalEnum: "draft" | "submitted" | "approved" | "rejected" | "paused" | "deactivated";
+        /**
+         * @description * `transactional` - transactional (one-time codes)
+         *     * `service` - service (about something bought)
+         *     * `promotional` - promotional
+         *     * `utility` - utility (WhatsApp)
+         *     * `authentication` - authentication (WhatsApp)
+         * @enum {string}
+         */
+        TemplateCategoryEnum: "transactional" | "service" | "promotional" | "utility" | "authentication";
+        /**
+         * @description * `en` - English
+         *     * `as` - Assamese
+         *     * `bn` - Bengali
+         * @enum {string}
+         */
+        TemplateLanguageEnum: "en" | "as" | "bn";
+        TemplateRequest: {
+            /** @description What it is sent for: otp, order_placed … (ops.sms's kinds). */
+            event: string;
+            channel: components["schemas"]["MessageChannelEnum"];
+            /** @default en */
+            language: components["schemas"]["TemplateLanguageEnum"];
+            /** @description As registered: DLT's {#var#} placeholders. */
+            text?: string;
+            /** @description An email's subject. */
+            subject?: string;
+            variables?: components["schemas"]["VariableRequest"][];
+            dlt_template_id?: string;
+            /** Principal entity id */
+            pe_id?: string;
+            /** @description The registered sender id, e.g. EXMLEF. */
+            header?: string;
+            header_suffix?: components["schemas"]["HeaderSuffixEnum"] | components["schemas"]["BlankEnum"];
+            /** MSG91 template id */
+            msg91_id?: string;
+            /** WhatsApp template name */
+            whatsapp_name?: string;
+            category: components["schemas"]["TemplateCategoryEnum"];
+            approval_state?: components["schemas"]["TemplateApprovalEnum"];
+            /**
+             * Format: date
+             * @description DLT's yearly self-certification.
+             */
+            self_certified_on?: string | null;
+            notes?: string;
+        };
+        TestResult: {
+            ok: boolean | null;
+            message: string;
+            card: components["schemas"]["ConnectionCard"];
+        };
+        TestSendRequest: {
+            /** @description a value for each variable (30 characters at most); a sample of its type otherwise */
+            variables?: {
+                [key: string]: string;
+            };
+        };
+        TestSent: {
+            sent: boolean;
+            /** @description where it went: the last digits of your number, or your address masked */
+            to: string;
+            detail: string;
+        };
         ThresholdCard: {
             /**
              * Format: date
@@ -12089,8 +13990,36 @@ export interface components {
         TokenVerifyRequest: {
             token: string;
         };
+        /**
+         * @description * `numeric` - numeric
+         *     * `alphanumeric` - alphanumeric
+         *     * `url` - url
+         *     * `urlott` - urlott
+         *     * `cbn` - cbn
+         *     * `email` - email
+         * @enum {string}
+         */
+        TypeEnum: "numeric" | "alphanumeric" | "url" | "urlott" | "cbn" | "email";
         Unlocked: {
             attempts_cleared: number;
+        };
+        Variable: {
+            /** @description as the provider names it: var1, otp … */
+            name: string;
+            type: components["schemas"]["TypeEnum"];
+            /** @description DLT: at most 30 characters */
+            max_length: number;
+            /** @default  */
+            about: string;
+        };
+        VariableRequest: {
+            /** @description as the provider names it: var1, otp … */
+            name: string;
+            type: components["schemas"]["TypeEnum"];
+            /** @description DLT: at most 30 characters */
+            max_length: number;
+            /** @default  */
+            about: string;
         };
         VerificationSent: {
             detail: string;
@@ -12104,6 +14033,42 @@ export interface components {
         VerifyIdentityRequest: {
             /** @description how it was checked: the method, not the document */
             note: string;
+        };
+        /**
+         * @description * `token` - token
+         *     * `signature` - signature
+         *     * `basic_and_sns` - basic_and_sns
+         * @enum {string}
+         */
+        WebhookAuthEnum: "token" | "signature" | "basic_and_sns";
+        WebhookInfo: {
+            provider: components["schemas"]["ConnectionProviderEnum"];
+            /** @description our address, to paste at the provider */
+            url: string;
+            auth: components["schemas"]["WebhookAuthEnum"];
+            /** @description the header it sends the token or signature in */
+            header: string;
+            /** @description its last four characters; empty: none set */
+            token: string;
+            /** Format: date-time */
+            rotated_at: string | null;
+            /**
+             * Format: date-time
+             * @description the previous token's last moment
+             */
+            previous_valid_until: string | null;
+            rotatable: boolean;
+            /** @description its events are listed under events/ */
+            events_kept: boolean;
+            /** @description the last 7 days' events by state */
+            states: {
+                [key: string]: number;
+            };
+            /** Format: date-time */
+            last_event_at: string | null;
+            silence_hours: number;
+            /** @description nothing came in silence_hours while it is in use */
+            silent: boolean;
         };
         WithdrawRequest: {
             /**
@@ -12119,7 +14084,7 @@ export interface components {
              *     * `sms` - SMS
              *     * `whatsapp` - WhatsApp
              */
-            channel?: components["schemas"]["ConsentChannelEnum"] | components["schemas"]["BlankEnum"];
+            channel?: components["schemas"]["MessageChannelEnum"] | components["schemas"]["BlankEnum"];
         };
     };
     responses: never;
@@ -16207,6 +18172,378 @@ export interface operations {
             };
         };
     };
+    staff_connections_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectionCard"][];
+                };
+            };
+        };
+    };
+    staff_connections_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: "erpnext" | "error_tracker" | "google" | "manual" | "msg91" | "razorpay" | "ses" | "shiprocket" | "storage" | "whatsapp";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectionCard"];
+                };
+            };
+        };
+    };
+    staff_connections_calls_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description only the calls that failed */
+                failed?: boolean;
+                operation?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                provider: "erpnext" | "error_tracker" | "google" | "manual" | "msg91" | "razorpay" | "ses" | "shiprocket" | "storage" | "whatsapp";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedCallList"];
+                };
+            };
+        };
+    };
+    staff_connections_circuit_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: "erpnext" | "error_tracker" | "google" | "manual" | "msg91" | "razorpay" | "ses" | "shiprocket" | "storage" | "whatsapp";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CircuitActionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectionCard"];
+                };
+            };
+        };
+    };
+    staff_connections_credentials_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: "erpnext" | "error_tracker" | "google" | "manual" | "msg91" | "razorpay" | "ses" | "shiprocket" | "storage" | "whatsapp";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CredentialsRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestResult"];
+                };
+            };
+        };
+    };
+    staff_connections_events_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /**
+                 * @description * `accepted` - accepted
+                 *     * `duplicate` - duplicate (nothing new)
+                 *     * `rejected` - rejected (wrong or missing token)
+                 *     * `failed` - failed
+                 */
+                state?: "accepted" | "duplicate" | "failed" | "rejected";
+            };
+            header?: never;
+            path: {
+                provider: "erpnext" | "error_tracker" | "google" | "manual" | "msg91" | "razorpay" | "ses" | "shiprocket" | "storage" | "whatsapp";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedInboundEventList"];
+                };
+            };
+        };
+    };
+    staff_connections_events_replay_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                provider: "erpnext" | "error_tracker" | "google" | "manual" | "msg91" | "razorpay" | "ses" | "shiprocket" | "storage" | "whatsapp";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboundEvent"];
+                };
+            };
+        };
+    };
+    staff_connections_events_replay_failed_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: "erpnext" | "error_tracker" | "google" | "manual" | "msg91" | "razorpay" | "ses" | "shiprocket" | "storage" | "whatsapp";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplayFailedRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Replayed"];
+                };
+            };
+        };
+    };
+    staff_connections_failures_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                operation?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /**
+                 * @description * `open` - waiting for staff
+                 *     * `replayed` - replayed
+                 *     * `discarded` - discarded
+                 */
+                state?: "discarded" | "open" | "replayed";
+            };
+            header?: never;
+            path: {
+                provider: "erpnext" | "error_tracker" | "google" | "manual" | "msg91" | "razorpay" | "ses" | "shiprocket" | "storage" | "whatsapp";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedFailureList"];
+                };
+            };
+        };
+    };
+    staff_connections_failures_discard_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                provider: "erpnext" | "error_tracker" | "google" | "manual" | "msg91" | "razorpay" | "ses" | "shiprocket" | "storage" | "whatsapp";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiscardRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Failure"];
+                };
+            };
+        };
+    };
+    staff_connections_failures_replay_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                provider: "erpnext" | "error_tracker" | "google" | "manual" | "msg91" | "razorpay" | "ses" | "shiprocket" | "storage" | "whatsapp";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Failure"];
+                };
+            };
+        };
+    };
+    staff_connections_mode_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: "erpnext" | "error_tracker" | "google" | "manual" | "msg91" | "razorpay" | "ses" | "shiprocket" | "storage" | "whatsapp";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModeRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectionCard"];
+                };
+            };
+        };
+    };
+    staff_connections_test_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: "erpnext" | "error_tracker" | "google" | "manual" | "msg91" | "razorpay" | "ses" | "shiprocket" | "storage" | "whatsapp";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestResult"];
+                };
+            };
+        };
+    };
+    staff_connections_webhooks_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: "erpnext" | "error_tracker" | "google" | "manual" | "msg91" | "razorpay" | "ses" | "shiprocket" | "storage" | "whatsapp";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookInfo"];
+                };
+            };
+        };
+    };
+    staff_connections_webhooks_rotate_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: "erpnext" | "error_tracker" | "google" | "manual" | "msg91" | "razorpay" | "ses" | "shiprocket" | "storage" | "whatsapp";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConnectionReasonRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Rotated"];
+                };
+            };
+        };
+    };
     staff_data_requests_list: {
         parameters: {
             query?: {
@@ -16897,6 +19234,27 @@ export interface operations {
             };
         };
     };
+    staff_flags_history_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SwitchRow"][];
+                };
+            };
+        };
+    };
     staff_inbox_list: {
         parameters: {
             query?: {
@@ -16925,8 +19283,16 @@ export interface operations {
                  *     * `order_hold` - order on hold
                  *     * `return_request` - return asked for
                  *     * `bank_refund` - refund to transfer by bank or UPI
+                 *     * `role_expired` - a temporary role ended
+                 *     * `offboarding` - offboarding: accounts to close by hand
+                 *     * `webhook_silent` - a provider's webhooks fell silent
+                 *     * `template_idle` - a message template unused for months
+                 *     * `template_certify` - a message template's yearly self-certification
+                 *     * `backup_stale` - no recent backup
+                 *     * `dependencies_stale` - the dependency report is old
+                 *     * `scripts_changed` - the checkout's or console's scripts changed
                  */
-                kind?: "approval" | "bank_refund" | "compliance" | "credit_note_missing" | "data_request" | "dead_letter" | "deletion_request" | "failed_event" | "failed_job" | "failed_webhook" | "incident" | "integration_down" | "order_hold" | "processor_task" | "reconciliation" | "return_request" | "shipping_exception" | "sync_failed" | "tax_threshold" | "teacher_request";
+                kind?: "approval" | "backup_stale" | "bank_refund" | "compliance" | "credit_note_missing" | "data_request" | "dead_letter" | "deletion_request" | "dependencies_stale" | "failed_event" | "failed_job" | "failed_webhook" | "incident" | "integration_down" | "offboarding" | "order_hold" | "processor_task" | "reconciliation" | "return_request" | "role_expired" | "scripts_changed" | "shipping_exception" | "sync_failed" | "tax_threshold" | "teacher_request" | "template_certify" | "template_idle" | "webhook_silent";
                 /** @description true: assigned to me */
                 mine?: boolean;
                 /** @description Number of results to return per page. */
@@ -18508,6 +20874,28 @@ export interface operations {
             };
         };
     };
+    staff_people_access_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Access"];
+                };
+            };
+        };
+    };
     staff_people_end_sessions_create: {
         parameters: {
             query?: never;
@@ -18526,6 +20914,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Ended"];
+                };
+            };
+        };
+    };
+    staff_people_erp_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErpMirror"];
                 };
             };
         };
@@ -18552,6 +20962,54 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Offboarded"];
+                };
+            };
+        };
+    };
+    staff_people_offboarding_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Offboarding"];
+                };
+            };
+        };
+    };
+    staff_people_offboarding_tick_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OffboardingTickRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Offboarding"];
                 };
             };
         };
@@ -18641,6 +21099,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Person"];
+                };
+            };
+        };
+    };
+    staff_people_roles_preview_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RolePreviewRequestRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RolePreview"];
                 };
             };
         };
@@ -18768,6 +21252,86 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    staff_people_me_sessions_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnSession"][];
+                };
+            };
+        };
+    };
+    staff_people_me_sessions_end_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    staff_people_me_sessions_end_others_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnSessionsEnded"];
+                };
+            };
+        };
+    };
+    staff_people_roles_list: {
+        parameters: {
+            query?: {
+                /** @description the role cards' language */
+                language?: "as" | "bn" | "en";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleCatalogue"][];
+                };
             };
         };
     };
@@ -19763,6 +22327,27 @@ export interface operations {
             };
         };
     };
+    staff_settings_history_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SwitchRow"][];
+                };
+            };
+        };
+    };
     staff_system_retrieve: {
         parameters: {
             query?: never;
@@ -19778,6 +22363,124 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StaffSystem"];
+                };
+            };
+        };
+    };
+    staff_system_backups_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Backups"];
+                };
+            };
+        };
+    };
+    staff_system_backups_drills_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestoreDrill"];
+                };
+            };
+        };
+    };
+    staff_system_backups_drills_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestoreDrillRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestoreDrill"];
+                };
+            };
+        };
+    };
+    staff_system_dependencies_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Dependencies"];
+                };
+            };
+        };
+    };
+    staff_system_hardening_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HardeningRow"][];
+                };
+            };
+        };
+    };
+    staff_system_logs_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Logs"];
                 };
             };
         };
@@ -19801,6 +22504,66 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Reconciled"];
+                };
+            };
+        };
+    };
+    staff_system_scripts_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Scripts"];
+                };
+            };
+        };
+    };
+    staff_system_sync_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Sync"];
+                };
+            };
+        };
+    };
+    staff_system_sync_links_list: {
+        parameters: {
+            query?: {
+                /** @description a reference, an ERPNext name or an object's id */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErpLink"][];
                 };
             };
         };
@@ -20127,6 +22890,153 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ThresholdCard"];
+                };
+            };
+        };
+    };
+    staff_templates_list: {
+        parameters: {
+            query?: {
+                /**
+                 * @description * `draft` - draft
+                 *     * `submitted` - submitted for approval
+                 *     * `approved` - approved
+                 *     * `rejected` - rejected
+                 *     * `paused` - paused
+                 *     * `deactivated` - deactivated
+                 */
+                approval_state?: "approved" | "deactivated" | "draft" | "paused" | "rejected" | "submitted";
+                /**
+                 * @description * `transactional` - transactional (one-time codes)
+                 *     * `service` - service (about something bought)
+                 *     * `promotional` - promotional
+                 *     * `utility` - utility (WhatsApp)
+                 *     * `authentication` - authentication (WhatsApp)
+                 */
+                category?: "authentication" | "promotional" | "service" | "transactional" | "utility";
+                /**
+                 * @description * `email` - email
+                 *     * `sms` - SMS
+                 *     * `whatsapp` - WhatsApp
+                 */
+                channel?: "email" | "sms" | "whatsapp";
+                event?: string;
+                /**
+                 * @description * `en` - English
+                 *     * `as` - Assamese
+                 *     * `bn` - Bengali
+                 */
+                language?: "as" | "bn" | "en";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Template"][];
+                };
+            };
+        };
+    };
+    staff_templates_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TemplateRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Template"];
+                };
+            };
+        };
+    };
+    staff_templates_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this message template. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Template"];
+                };
+            };
+        };
+    };
+    staff_templates_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this message template. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedTemplateRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Template"];
+                };
+            };
+        };
+    };
+    staff_templates_test_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this message template. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TestSendRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestSent"];
                 };
             };
         };

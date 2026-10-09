@@ -11,7 +11,10 @@ import secrets
 from datetime import timedelta
 
 from django.conf import settings
+from django.core.cache import cache
 from django.db import models, transaction
+from django.db.models.signals import post_delete, post_save
+from django.dispatch import receiver
 from django.utils import timezone
 from django.utils.module_loading import import_string
 from model_utils.models import TimeStampedModel
@@ -27,6 +30,8 @@ PROVIDERS = {
     "ses": "Amazon SES",
     "storage": "Storage (R2 or S3)",
     "erpnext": "ERPNext",
+    "google": "Google sign-in",  # Phase B: its connection test's result is kept on an account (connections.py)
+    "error_tracker": "Error tracker",
 }
 
 
@@ -399,6 +404,14 @@ class InboundEvent(models.Model):
     processed_at = models.DateTimeField(null=True, blank=True)
     state = models.CharField(max_length=10, choices=State.choices, default=State.ACCEPTED, db_index=True)
     error = models.CharField(max_length=500, blank=True)
+    # Phase B: settings and integrations
+    event_id = models.CharField(
+        "provider's event id",
+        max_length=100,
+        blank=True,
+        help_text="The provider's own id of what it reports (MSG91: its request ids and statuses, hashed); a repeat "
+        "under the same id is a duplicate whatever its body.",
+    )
 
     class Meta:
         ordering = ["-received_at"]
@@ -407,7 +420,12 @@ class InboundEvent(models.Model):
                 fields=["provider", "sha256"],
                 condition=~models.Q(state="rejected"),
                 name="one_inbound_event_per_body",
-            )
+            ),
+            models.UniqueConstraint(
+                fields=["provider", "event_id"],
+                condition=~models.Q(state="rejected") & ~models.Q(event_id=""),
+                name="one_inbound_event_per_id",
+            ),
         ]
 
     def __str__(self):
@@ -433,3 +451,16 @@ class InboundEvent(models.Model):
         transaction.on_commit(
             lambda: signals.inbound_event_failed.send(sender=type(self), event=self, error=self.error), robust=True
         )
+
+
+# Phase B: settings and integrations. The panel's keys of a provider are read through a cache (services.panel_keys);
+# any change of one of its accounts forgets them at once, in every process (the shared cache).
+PANEL_KEYS = "integrations:panel-keys:{provider}"
+
+
+@receiver(post_save, sender=IntegrationAccount)
+@receiver(post_delete, sender=IntegrationAccount)
+def forget_panel_keys(sender, instance, **kwargs):
+    key = PANEL_KEYS.format(provider=instance.provider)
+    cache.delete(key)
+    transaction.on_commit(lambda: cache.delete(key), robust=True)  # again: a read before the commit kept the old ones

@@ -3,7 +3,7 @@ from django.contrib.admin.models import CHANGE, LogEntry
 from django.contrib.contenttypes.models import ContentType
 from import_export.admin import ExportMixin
 
-from .models import EmailSuppression, SmsLog
+from .models import EmailSuppression, MessageTemplate, SmsLog
 from .sms import phone_hash
 
 admin.site.index_template = "admin/dashboard.html"  # the app list with today's and the month's numbers above it
@@ -64,6 +64,24 @@ class SmsLogAdmin(admin.ModelAdmin):
         return False
 
     def has_change_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(MessageTemplate)
+class MessageTemplateAdmin(admin.ModelAdmin):
+    """The template registry, read here (the console's Settings, Templates, changes it, each change audited)."""
+
+    list_display = ["event", "channel", "language", "approval_state", "msg91_id", "last_used_at", "self_certified_on"]
+    list_filter = ["channel", "language", "approval_state", "category"]
+    search_fields = ["event", "dlt_template_id", "msg91_id", "whatsapp_name"]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False
 
 

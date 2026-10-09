@@ -15,7 +15,7 @@ const keys = (permissions: string[], erp = "") => visibleModules(manifestWith(pe
 describe("P", () => {
   it("names only the backend's codenames (app_label.codename)", () => {
     for (const perm of Object.values(P))
-      expect(perm).toMatch(/^(staff|accounts|pages|shipping|insights|erp|shop)\.[a-z0-9_]+$/);
+      expect(perm).toMatch(/^(staff|accounts|pages|shipping|insights|erp|shop|integrations|ops)\.[a-z0-9_]+$/);
   });
 });
 
@@ -89,7 +89,7 @@ describe("visibleModules", () => {
   it("groups what is drawn and leaves out empty groups", () => {
     const groups = groupedModules(manifestWith([P.auditView, P.peopleView]), "");
     expect(groups.map((group) => group.group)).toEqual(["work", "staff"]);
-    expect(groups[1].modules.map((m) => m.key)).toEqual(["people", "accessReview"]);
+    expect(groups[1].modules.map((m) => m.key)).toEqual(["people", "roles", "accessReview"]);
   });
 
   it("finds a planned module only for whoever holds its permission", () => {
@@ -114,6 +114,9 @@ describe("currentModule", () => {
     expect(currentModule("/settings/api-keys/")).toBe("apiKeys");
     expect(currentModule("/privacy/")).toBe("cockpit");
     expect(currentModule("/privacy/holds/12/")).toBe("holds");
+    expect(currentModule("/people/roles/")).toBe("roles");
+    expect(currentModule("/settings/connections/razorpay/")).toBe("connections");
+    expect(currentModule("/settings/templates/")).toBe("templates");
     expect(currentModule("/sign-in/")).toBeNull();
   });
 });

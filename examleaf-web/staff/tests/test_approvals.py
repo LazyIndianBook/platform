@@ -187,7 +187,7 @@ def test_nobody_approves_a_change_to_their_own_account():
     assert own.status_code == 403 and "their own account" in own.json()["detail"]
     assert approve(make_staff(roles.FINANCE), asked.json()).status_code == 403  # FINANCE approves money only
     assert approve(admin, asked.json()).status_code == 200  # ADMIN approves roles and staff second factors
-    assert run(admin, asked.json()).json()["result"]["authenticators"] == 1
+    assert run(admin, asked.json()).json()["result"]["authenticators"] == 2  # the authenticator app and the passkey
     assert not founder.authenticator_set.exists()
     assert signed_in(admin).post(f"{STAFF}people/{founder.pk}/reset-mfa/", {"reason": "x"}).status_code == 403
 

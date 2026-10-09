@@ -11,6 +11,7 @@ from django.utils.html import urlize
 from django.utils.safestring import mark_safe
 
 from examleaf.celery import LONG_TASK, single_run
+from integrations.tasks import InboundEventTask
 
 logger = logging.getLogger(__name__)
 
@@ -201,3 +202,75 @@ def record_clean_up(action, counts):
 
     if any(counts.values()):
         audit.record(action, actor_type=audit.ActorType.SYSTEM, details={"rows": counts})
+
+
+# Phase B: settings and integrations (ops/README.md): MSG91's delivery reports, SES's suppression list, the templates
+
+
+@shared_task(base=InboundEventTask, bind=True)
+def process_sms_event(self, event_id):
+    """A delivery report stored by /api/hooks/sms-events/ (ops/webhooks.py) written on its SmsLog rows. Once: a
+    processed event is left alone; a report about no SMS of ours (another sender on the same MSG91 account) says so."""
+    from django.utils import timezone
+
+    from integrations.models import InboundEvent
+
+    from .webhooks import apply_reports
+
+    event = InboundEvent.objects.get(pk=event_id)
+    if event.processed_at or event.state == InboundEvent.State.REJECTED:
+        return
+    changed = apply_reports(event.body, event.headers.get("Content-Type", "application/json"))
+    event.processed_at = timezone.now()
+    if not changed:
+        event.state, event.error = InboundEvent.State.DUPLICATE, "No SMS of ours waits for this report."
+    event.save(update_fields=["processed_at", "state", "error"])
+
+
+@shared_task(**LONG_TASK)  # SES's suppression list, a thousand addresses a page
+@single_run(LONG_TASK["time_limit"])
+def sync_ses_suppressions():
+    """Daily: SES's account-level suppression list read and the addresses missing from ours added (ops/ses.py; none
+    removed, so a second run adds nothing). Only with SES as the email backend."""
+    if "amazon_ses" not in settings.MAILERS["default"]["BACKEND"]:
+        return None
+    from .ses import sync_suppressions
+
+    return sync_suppressions()
+
+
+@shared_task
+@single_run(300)
+def check_templates(now=None):
+    """Nightly: the approved SMS templates unused for IDLE_WARN_DAYS (DLT deactivates one unused for 90 days) and the
+    approved templates whose yearly self-certification is due, each an inbox item for whoever changes templates; done
+    once it is used again, certified, or no longer approved. Returns the counts opened."""
+    from django.utils import timezone
+    from django.utils.dateparse import parse_datetime
+
+    from staff.models import InboxItem
+    from staff.signals import close_items, open_item
+
+    from .models import MessageTemplate
+    from .staff_api import CERTIFY_WARN_DAYS, IDLE_WARN_DAYS
+
+    now = parse_datetime(now) if isinstance(now, str) else now or timezone.now()
+    idle, certify = 0, 0
+    for template in MessageTemplate.objects.all():
+        approved = template.approval_state == MessageTemplate.Approval.APPROVED
+        days = (now - (template.last_used_at or template.created)).days
+        if approved and template.channel == MessageTemplate.Channel.SMS and days >= IDLE_WARN_DAYS:
+            title = f"SMS template #{template.pk} ({template.event}) unused for {days} days: DLT deactivates it at 90"
+            open_item(InboxItem.Kind.TEMPLATE_IDLE, template, title, "ops.change_messagetemplate", days=days)
+            idle += 1
+        else:
+            close_items(template, InboxItem.Kind.TEMPLATE_IDLE)
+        certified = template.self_certified_on
+        due = certified is None or (timezone.localdate(now) - certified).days >= CERTIFY_WARN_DAYS
+        if approved and due:
+            title = f"Template #{template.pk} ({template.event}): its yearly self-certification is due"
+            open_item(InboxItem.Kind.TEMPLATE_CERTIFY, template, title, "ops.change_messagetemplate")
+            certify += 1
+        else:
+            close_items(template, InboxItem.Kind.TEMPLATE_CERTIFY)
+    return {"idle": idle, "certify": certify}

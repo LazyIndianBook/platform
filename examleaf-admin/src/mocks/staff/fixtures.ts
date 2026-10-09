@@ -735,8 +735,18 @@ export function createWorld(me: Me, now = Date.now()): World {
     },
   ];
 
-  const setting = (row: Omit<S["Setting"], "scheduled"> & Partial<S["Setting"]>): S["Setting"] => ({
+  // the Settings page's section of each (staff/config.py Spec.group)
+  const GROUPS: Record<string, string> = {
+    SHOP_OPEN: "shop",
+    SHOP_COD_ENABLED: "shop",
+    PARENTAL_CONSENT_MODE: "consent",
+    WEB_COURSE: "course",
+    MAINTENANCE_MODE: "maintenance",
+    MAINTENANCE_BANNER: "maintenance",
+  };
+  const setting = (row: Omit<S["Setting"], "scheduled" | "group"> & Partial<S["Setting"]>): S["Setting"] => ({
     scheduled: [],
+    group: GROUPS[row.key] ?? "site",
     ...row,
   });
   const settings: S["Setting"][] = [
@@ -833,6 +843,20 @@ export function createWorld(me: Me, now = Date.now()): World {
       row("MAINTENANCE_MODE", true, -80, me.id, "Database upgrade, 10 minutes."),
     ],
   };
+  // a free flag ("flags"), and the ERP switches the code reads over the environment's value (staff/config.py
+  // KNOWN_FLAGS): one set here, the others the environment's
+  const free = { label: "", group: "flags", environment: null, source: "database" as const };
+  const erp = (key: string, label: string, environment: boolean): S["Flag"] => ({
+    key,
+    value: environment,
+    effective_from: null,
+    changed_by: null,
+    reason: "",
+    label,
+    group: "erp",
+    environment,
+    source: "environment",
+  });
   const flags: S["Flag"][] = [
     {
       key: "ERP_SYNC_CUSTOMERS",
@@ -840,6 +864,7 @@ export function createWorld(me: Me, now = Date.now()): World {
       effective_from: at(-48),
       changed_by: finance,
       reason: "Cut-over, step 1.",
+      ...free,
     },
     {
       key: "ERP_SYNC_ORDERS",
@@ -847,11 +872,24 @@ export function createWorld(me: Me, now = Date.now()): World {
       effective_from: at(-24 * 30),
       changed_by: me.id,
       reason: "Not before January.",
+      ...free,
     },
+    erp("ERP_ENABLED", "The platform talks to ERPNext: the relay, the pull, the reconciliation", false),
+    {
+      ...erp("ERP_SYNC_CATALOGUE", "Items and bundles go to ERPNext", false),
+      value: true,
+      effective_from: at(-24 * 2),
+      changed_by: me.id,
+      reason: "Catalogue first, before invoices.",
+      source: "database",
+    },
+    erp("ERP_SYNC_INVOICES", "Invoices and credit notes go to ERPNext", false),
+    erp("ERP_STOCK_PROJECTION", "ERPNext's stock sets the copies for sale (off: shadow mode)", false),
   ];
   const flagHistory: World["flagHistory"] = {
     ERP_SYNC_CUSTOMERS: [row("ERP_SYNC_CUSTOMERS", true, -48, finance, "Cut-over, step 1.")],
     ERP_SYNC_ORDERS: [row("ERP_SYNC_ORDERS", false, -24 * 30, me.id, "Not before January.")],
+    ERP_SYNC_CATALOGUE: [row("ERP_SYNC_CATALOGUE", true, -24 * 2, me.id, "Catalogue first, before invoices.")],
   };
 
   const apiKeys: S["ApiKey"][] = [
@@ -1802,6 +1840,36 @@ export function createWorld(me: Me, now = Date.now()): World {
     backups: { configured: true, latest: "examleaf-20261008-020000.dump.age", size: 734003200, at: at(-20) },
     maintenance: { on: false, banner: "" },
     audit: { last_verification: { action: "audit.verified", ts: at(-9), details: { events: 1240 } }, heads: {} },
+    // one line per subsystem (staff/system_api.py system_status), each state among them
+    status: [
+      { key: "health", state: "bad", summary: "Failing: CeleryCheck", since: at(-1) },
+      { key: "queues", state: "warn", summary: "3 tasks waiting, 2 failed in 7 days", since: at(-30) },
+      { key: "webhooks", state: "warn", summary: "3 refused in 7 days", since: at(-50) },
+      { key: "email", state: "ok", summary: "4210 sent in 7 days; bounces 1.0%, complaints 0.02%", since: at(-24 * 9) },
+      {
+        key: "sms",
+        state: "warn",
+        summary: "3 held by the daily cap today; 16 not delivered in 7 days",
+        since: at(-8),
+      },
+      { key: "backups", state: "bad", summary: "No backup for 26 hours", since: at(-24) },
+      { key: "audit", state: "ok", summary: "Verified", since: at(-24 * 30) },
+      { key: "sync", state: "off", summary: "ERPNext is not switched on (ERP_ENABLED)", since: at(-24 * 60) },
+      {
+        key: "dependencies",
+        state: "bad",
+        summary: "1 critical (1 past 7 days); the report is 3 days old",
+        since: at(-48),
+      },
+      { key: "hardening", state: "warn", summary: "To fix: cookies", since: at(-24 * 20) },
+      { key: "scripts", state: "warn", summary: "Changed: see the inbox", since: at(-5) },
+      {
+        key: "logs",
+        state: "warn",
+        summary: "Set LOG_TIME_SOURCE and the CERT-In point of contact",
+        since: at(-24 * 60),
+      },
+    ],
   };
 
   return {

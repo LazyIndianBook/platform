@@ -61,8 +61,10 @@ jobs:
           docker run --rm examleaf-web:ci python -c "import weasyprint"
 
   dependency-audit:
-    # Known vulnerabilities in the pinned runtime packages (pip-audit, PyPI's advisory database). Reported, not yet
-    # blocking: a finding shows as a failed job without failing the workflow.
+    # Known vulnerabilities in the pinned runtime packages (pip-audit, PyPI's advisory database) and in the two Next.js
+    # apps' production packages (npm audit), written as one report (scripts/dependency_report.py), kept as an artifact
+    # the deploy loads (manage.py load_dependency_report) for the console's System page. Reported, not yet blocking: a
+    # finding shows as a failed job without failing the workflow.
     runs-on: ubuntu-latest
     continue-on-error: true
     defaults:
@@ -73,7 +75,26 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.14"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
       - run: pip install -r requirements.txt pip-audit
+      - name: The audits, as JSON (their findings fail the last step, not these)
+        run: |
+          pip-audit --format json --output ../pip-audit.json || true
+          (cd ../examleaf-frontend && npm audit --omit=dev --json > ../npm-audit-frontend.json) || true
+          (cd ../examleaf-admin && npm audit --omit=dev --json > ../npm-audit-admin.json) || true
+      - name: The dependency report
+        run: >
+          python scripts/dependency_report.py --pip ../pip-audit.json --npm frontend=../npm-audit-frontend.json
+          --npm admin=../npm-audit-admin.json
+          --version "next=$(node -p "require('../examleaf-admin/package.json').dependencies.next")"
+          --commit "$GITHUB_SHA" --output ../dependency-report.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dependency-report
+          path: dependency-report.json
+          retention-days: 90
       - run: pip-audit
 
   frontend:

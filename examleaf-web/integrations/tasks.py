@@ -56,6 +56,15 @@ class InboundEventTask(IntegrationTask):
 
 
 @shared_task
+def watch_webhooks():
+    """Hourly: Razorpay's webhook silent while payments come in (connections.watch_webhooks: an inbox item for ADMIN
+    and the owners alerted, once)."""
+    from .connections import watch_webhooks as watch
+
+    return watch()
+
+
+@shared_task
 def purge_old_records():
     """Daily (celery beat): the call log, the inbound events and the dead letters dealt with, older than
     INTEGRATIONS_RETENTION_DAYS. Returns the counts."""

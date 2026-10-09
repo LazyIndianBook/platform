@@ -17,6 +17,14 @@ const PAGES: Record<string, (id: string) => string> = {
   "shop.order": (id) => `/orders/${id}/`,
   "shop.returnrequest": (id) => `/orders/returns/${id}/`,
   "shop.quoterequest": (id) => `/orders/quotes/${id}/`,
+  // Phase B: a person's page (a temporary role ended), their offboarding's checklist, a connection, the system's pages
+  "staff.person": (id) => `/people/${id}/?tab=access`,
+  "staff.offboarding": (id) => `/people/${id}/?tab=offboarding`,
+  "integrations.connection": (id) => `/settings/connections/${id}/`,
+  "integrations.integrationaccount": () => "/settings/connections/",
+  "ops.messagetemplate": () => "/settings/templates/",
+  "staff.scriptinventory": () => "/system/scripts/",
+  system: (id) => (id === "backups" || id === "dependencies" ? `/system/${id}/` : "/system/"),
 };
 
 export function targetHref(type: string | null | undefined, id: string | null | undefined, action = ""): string | null {

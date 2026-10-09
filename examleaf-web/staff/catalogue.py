@@ -90,7 +90,12 @@ STAFF_ACTIONS = [
     ("manage_flags", "Switch feature flags", SETTINGS, HIGH),
     ("toggle_maintenance", "Switch maintenance mode and its banner", SETTINGS, CRITICAL),
     ("view_system", "See the system: health, queues, webhooks, mail and SMS, backups", OPERATIONS, LOW),
-    ("replay_webhook", "Ask Razorpay again what became of an order's payment", OPERATIONS, MEDIUM),
+    (
+        "replay_webhook",
+        "Replay webhooks and dead letters; ask Razorpay again what became of a payment",
+        OPERATIONS,
+        MEDIUM,
+    ),
     ("view_inbox", "Use the inbox of things that wait", OPERATIONS, LOW),
     # the shipping app's staff API (shipping/api.py) and the insights' (insights/api.py)
     ("view_parcels", "See parcels, their timelines and exceptions, and the pickup addresses", SHIPPING, LOW),
@@ -115,6 +120,16 @@ STAFF_ACTIONS = [
         MEDIUM,
     ),
     ("receive_return", "Receive returned parcels and inspect them: back into stock, or damaged", ORDERS, MEDIUM),
+    # Phase B: staff, settings and integrations, system (the connections page, the system's pages)
+    (
+        "manage_connections",
+        "Test and switch the connections: credentials, webhook tokens, circuits, test and live (the owners are told)",
+        SETTINGS,
+        HIGH,
+        False,
+        True,
+    ),
+    ("manage_system", "Record restore drills and act on the system's pages", OPERATIONS, HIGH),
 ]
 STAFF_MODELS = [
     ("view_changerequest", "See the approvals you take part in", STAFF, LOW),
@@ -140,6 +155,10 @@ STAFF_MODELS = [
     ("change_processorrecord", "Change processors", PRIVACY, MEDIUM),
     ("delete_processorrecord", "Delete processors", PRIVACY, HIGH),
     ("view_darkpatternaudit", "See the dark-pattern self-audits and their certificates", PRIVACY, LOW),
+    # Phase B: offboarding's checklists, the restore drills, the scripts of the checkout and the console's sign-in
+    ("view_staffoffboarding", "See offboarding checklists", STAFF, LOW),
+    ("view_restoredrill", "See the backups' restore drills", OPERATIONS, LOW),
+    ("view_scriptinventory", "See the scripts the checkout and the console's sign-in load", OPERATIONS, LOW),
 ]
 # Custom permissions of the other apps (Django's verbs are catalogued by rule, below).
 OTHERS = {
@@ -202,6 +221,7 @@ APP_AREAS = {
     "erp": ERP_SYNC,
     "shipping": SHIPPING,
     "insights": REPORTS,
+    "integrations": SETTINGS,
 }
 SHOP_AREAS = {
     **dict.fromkeys(["payment", "refund", "invoice", "creditnote"], PAYMENTS),

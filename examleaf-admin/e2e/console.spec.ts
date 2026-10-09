@@ -47,6 +47,20 @@ const PAGES = [
   "/settings/api-keys/",
   "/system/",
   "/account/",
+  // Phase B: staff, settings and integrations, system
+  "/people/roles/",
+  "/people/9003/?tab=access",
+  "/people/9007/?tab=offboarding",
+  "/people/9002/?tab=erp",
+  "/settings/connections/",
+  "/settings/connections/shiprocket/",
+  "/settings/templates/",
+  "/system/sync/",
+  "/system/backups/",
+  "/system/logs/",
+  "/system/dependencies/",
+  "/system/hardening/",
+  "/system/scripts/",
   "/orders/",
   "/orders/EL-2026-000123/",
   "/orders/EL-2026-000137/",
@@ -471,6 +485,74 @@ for (const width of [1280, 390]) {
         await idleSignOut(page, "/users/7105/");
       });
     });
+
+    test("connections: one tested and its keys replaced, both in the audit trail; a person's access and a role change previewed; the system's hardening", async ({
+      page,
+    }) => {
+      await signIn(page, staff, "/settings/connections/", codes);
+      const card = page.locator("[data-slot=card]").filter({ has: page.getByRole("heading", { name: /^Razorpay/ }) });
+
+      await test.step("a connection tested: one harmless read, its result kept", async () => {
+        await expect(card.getByText("Working", { exact: true })).toBeVisible();
+        await card.getByRole("button", { name: /^Test the connection/ }).click();
+        await settle(page, toast(page, "Tested"), staff, codes);
+        await expect(card.getByText(/Connected: Razorpay answered\./).first()).toBeVisible();
+      });
+
+      await test.step("its keys replaced: tested in the same step, shown only by their last four characters", async () => {
+        await card.getByRole("button", { name: /^Replace the keys/ }).click();
+        const dialog = page.getByRole("dialog", { name: "Replace Razorpay's keys" });
+        await expect(dialog.getByText(/regenerated key's predecessor/)).toBeVisible();
+        expect.soft((await axe(page)).violations, "axe on the keys' dialog").toEqual([]);
+        await dialog.getByLabel("Mode").selectOption("test");
+        await dialog.getByLabel("Key id").fill("rzp_test_E2eE2eE2e1234");
+        await dialog.getByLabel("Key secret").fill("e2e-test-secret-0123456789");
+        await dialog.getByLabel("Reason").fill("Keys rotated by the console's tests.");
+        await dialog.getByRole("button", { name: "Replace the keys" }).click();
+        await settle(page, toast(page, "Keys replaced"), staff, codes);
+        await expect(card.getByText(/Key id …1234/).first()).toBeVisible();
+        await expect(page.getByText("e2e-test-secret-0123456789")).toHaveCount(0);
+      });
+
+      await test.step("both in the audit trail", async () => {
+        await page.goto("/audit/");
+        await page.getByRole("searchbox", { name: "Action starts with" }).fill("connection.");
+        await page.getByRole("button", { name: "Apply" }).click();
+        await expect(page).toHaveURL(/action_prefix=connection\./);
+        const table = page.getByRole("region", { name: "Audit trail, a table" });
+        await expect(table.getByText("connection.credentials_replaced").first()).toBeVisible();
+        await expect(table.getByText("connection.tested").first()).toBeVisible();
+      });
+
+      await test.step("a person's Access tab, then a role grant previewed before it is asked", async () => {
+        await page.goto("/people/9003/");
+        await page.getByRole("link", { name: "Access", exact: true }).click();
+        await expect(page).toHaveURL(/\/people\/9003\/\?tab=access$/);
+        await expect(page.getByRole("heading", { level: 2, name: "Access" })).toBeVisible();
+        await expect(page.getByText("Given here").first()).toBeVisible();
+        // each area's permissions are folded: the one that says when a risky permission was last used, opened
+        const used = page.locator("details").filter({ hasText: "staff.reveal_contact" }).first();
+        await used.locator("summary").click();
+        await expect(used.getByText(/last used 3 days ago/)).toBeVisible();
+        await page.getByRole("link", { name: "Overview", exact: true }).click();
+        await page.getByLabel("Role", { exact: true }).selectOption("FINANCE");
+        const preview = page.getByRole("region", { name: "What granting Finance changes" });
+        await expect(preview).toContainText("They gain");
+        await expect(preview).toContainText("Refunds, in rupees: 1,000 → 10,000");
+        await expect(preview).toContainText("A second person approves it before it takes effect.");
+      });
+
+      await test.step("the system opens on a line per subsystem; the hardening rows say what to fix", async () => {
+        await page.goto("/system/");
+        const lines = page.getByRole("region", { name: "At a glance" });
+        await expect(lines.getByRole("link", { name: "Hardening" })).toBeVisible();
+        await lines.getByRole("link", { name: "Hardening" }).click();
+        await expect(page.getByRole("heading", { level: 1, name: "Hardening" })).toBeVisible();
+        const row = page.getByRole("row").filter({ hasText: "__Host- cookies with SameSite Strict" });
+        await expect(row.getByText("Missing")).toBeVisible();
+        await expect(row.getByText(/SESSION_COOKIE_NAME=__Host-sessionid/)).toBeVisible();
+      });
+    });
   });
 }
 
@@ -517,6 +599,32 @@ test("a break-glass session gives its reason, then the policies due are acknowle
     await expect(page.getByRole("region", { name: "Break-glass session" })).toContainText(
       "Reason given: The owner's phone is lost and the shop is down.",
     );
+    await context.close();
+  } finally {
+    deleteStaff([staff.email]);
+  }
+});
+
+test("a privileged role without a passkey adds one before anything else", async ({ browser }) => {
+  const staff = staffFor("passkey");
+  createStaff(staff, "OWNER");
+  try {
+    const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    await context.addCookies([{ name: "staff_mock_passkey", value: "0", url: "http://localhost/" }]);
+    const page = await context.newPage();
+    await signIn(page, staff, "/");
+    const step = page.getByRole("alertdialog", { name: "Add a passkey or a security key" });
+    await expect(step).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(step).toBeVisible();
+    expect.soft((await axe(page)).violations, "axe on the passkey step").toEqual([]);
+    await expect(step.getByRole("link", { name: /Open the account page/ })).toHaveAttribute(
+      "href",
+      /\/account\/security\/$/,
+    );
+    const refused = await page.request.get("/api/v1/staff/inbox/");
+    expect(refused.status()).toBe(403);
+    expect(((await refused.json()) as { code: string }).code).toBe("passkey_required");
     await context.close();
   } finally {
     deleteStaff([staff.email]);

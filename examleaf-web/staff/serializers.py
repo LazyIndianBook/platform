@@ -23,11 +23,13 @@ from .models import (
     Incident,
     Job,
     Note,
+    OffboardingStep,
     PolicyAcknowledgement,
     ProcessorRecord,
     RoleGrant,
     SavedView,
     StaffInvite,
+    StaffOffboarding,
     StaffScope,
 )
 from .privacy import mask_email, mask_ip, mask_phone
@@ -275,6 +277,7 @@ class SettingSerializer(serializers.Serializer):
     changed_by = serializers.IntegerField(allow_null=True)
     reason = serializers.CharField(allow_blank=True)
     scheduled = serializers.ListField(child=serializers.DictField(), help_text="changes still to come")
+    group = serializers.CharField(help_text="the Settings page's section: shop, consent, course, maintenance …")
 
 
 class SwitchRowSerializer(serializers.Serializer):
@@ -296,10 +299,14 @@ class SwitchChangeSerializer(serializers.Serializer):
 
 class FlagSerializer(serializers.Serializer):
     key = serializers.RegexField(FLAG_KEY.pattern)
-    value = serializers.JSONField()
-    effective_from = serializers.DateTimeField()
+    value = serializers.JSONField(help_text="in effect now (a known flag not set: the environment's)")
+    effective_from = serializers.DateTimeField(allow_null=True, help_text="null: a known flag never set")
     changed_by = serializers.IntegerField(allow_null=True)
-    reason = serializers.CharField()
+    reason = serializers.CharField(allow_blank=True)
+    label = serializers.CharField(allow_blank=True, help_text="a known flag's (staff.config.KNOWN_FLAGS)")
+    group = serializers.CharField(help_text="the Settings page's section: erp, or flags for any other")
+    environment = serializers.JSONField(allow_null=True, help_text="a known flag's value in the environment")
+    source = serializers.ChoiceField(choices=SETTING_SOURCES)
 
 
 class ApiKeySerializer(serializers.ModelSerializer):
@@ -700,3 +707,220 @@ class ProcessorSerializer(serializers.ModelSerializer):
 
 class ReconcileSerializer(serializers.Serializer):
     order = serializers.CharField(max_length=20, help_text="the order's number")
+
+
+# Phase B: the role catalogue, the Access tab, a role change's preview, offboarding's checklist, ERPNext's role mirror,
+# a person's own sessions (staff.services)
+
+STAFF_ROLE_CHOICES = sorted(roles.STAFF_ROLES)
+
+
+class CapabilitySerializer(serializers.Serializer):
+    perm = serializers.CharField(help_text="app_label.codename")
+    label = serializers.CharField()
+    area = serializers.CharField()
+    risk = serializers.ChoiceField(choices=catalogue.RISKS)
+    reauth = serializers.BooleanField(help_text="needs a re-authentication in the last 5 minutes")
+    approval = serializers.BooleanField(help_text="may wait for a second person")
+    alert = serializers.BooleanField(help_text="the owners are told")
+    last_used = serializers.DateTimeField(
+        allow_null=True, required=False, help_text="the Access tab: its last use in a year (high and critical ones)"
+    )
+
+
+class CapabilityAreaSerializer(serializers.Serializer):
+    area = serializers.CharField()
+    permissions = CapabilitySerializer(many=True)
+
+
+class RoleCardSerializer(serializers.Serializer):
+    cannot = serializers.CharField(help_text="they can't …")
+
+    def get_fields(self):  # "for": a Python keyword, a field all the same
+        return {"for": serializers.CharField(help_text="for people who need to …"), **super().get_fields()}
+
+
+class RoleCatalogueSerializer(serializers.Serializer):
+    name = serializers.ChoiceField(choices=STAFF_ROLE_CHOICES)
+    card = RoleCardSerializer()
+    privileged = serializers.BooleanField(help_text="given only with a second person's approval")
+    admin_site = serializers.BooleanField(help_text="opens the Django admin")
+    passkey = serializers.BooleanField(help_text="its members need a passkey or a security key")
+    idle_timeout_s = serializers.IntegerField()
+    limits = serializers.DictField(child=serializers.IntegerField(allow_null=True), help_text="null: no limit")
+    scopes = serializers.DictField(child=serializers.ListField(child=serializers.CharField()))
+    conflicts = serializers.ListField(child=serializers.CharField(), help_text="roles it may not be held with")
+    erp_profiles = serializers.ListField(child=serializers.CharField(), help_text="its ERPNext role profiles")
+    members = serializers.IntegerField(help_text="active members")
+    permissions = serializers.IntegerField()
+    capabilities = CapabilityAreaSerializer(many=True)
+
+
+class AccessRoleSerializer(serializers.Serializer):
+    name = serializers.ChoiceField(choices=STAFF_ROLE_CHOICES)
+    source = serializers.ChoiceField(choices=["panel", "admin"], help_text="admin: given in the Django admin, no grant")
+    granted_by = serializers.IntegerField(allow_null=True)
+    granted_at = serializers.DateTimeField(allow_null=True)
+    expires_at = serializers.DateTimeField(allow_null=True)
+    reason = serializers.CharField(allow_blank=True)
+
+
+class AccessScopeSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    kind = serializers.ChoiceField(choices=StaffScope.Kind.choices)
+    value = serializers.CharField()
+    granted_by = serializers.IntegerField(allow_null=True)
+    created = serializers.DateTimeField()
+    expires_at = serializers.DateTimeField(allow_null=True)
+
+
+class AccessPendingSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    action = serializers.CharField()
+    status = serializers.ChoiceField(choices=ChangeRequest.Status.choices)
+    target_label = serializers.CharField(allow_blank=True)
+    about_them = serializers.BooleanField()
+    by_them = serializers.BooleanField()
+    created = serializers.DateTimeField()
+    expires_at = serializers.DateTimeField()
+
+
+class SecondFactorsSerializer(serializers.Serializer):
+    authenticator_app = serializers.BooleanField()
+    passkey = serializers.BooleanField(help_text="a passkey or a security key")
+    recovery_codes = serializers.BooleanField()
+
+
+class AccessSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    email = serializers.EmailField()
+    full_name = serializers.CharField(allow_blank=True)
+    is_active = serializers.BooleanField()
+    is_superuser = serializers.BooleanField()
+    last_login = serializers.DateTimeField(allow_null=True)
+    roles = AccessRoleSerializer(many=True)
+    scopes = AccessScopeSerializer(many=True)
+    role_scopes = serializers.DictField(child=serializers.DictField(), help_text="the roles' own narrowing")
+    limits = serializers.DictField(child=serializers.IntegerField(allow_null=True), help_text="null: no limit")
+    idle_timeout_s = serializers.IntegerField()
+    permissions = serializers.IntegerField(help_text="how many it holds")
+    capabilities = CapabilityAreaSerializer(many=True)
+    pending = AccessPendingSerializer(many=True, help_text="change requests about them or by them, still open")
+    second_factors = SecondFactorsSerializer()
+    passkey_required = serializers.BooleanField(help_text="their role needs a passkey they have not added")
+    erp_profiles = serializers.ListField(child=serializers.CharField())
+
+
+class RolePreviewRequestSerializer(serializers.Serializer):
+    role = serializers.ChoiceField(choices=STAFF_ROLE_CHOICES)
+    action = serializers.ChoiceField(choices=["grant", "revoke"], default="grant")
+
+
+class LimitChangeSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    before = serializers.IntegerField(allow_null=True, help_text="null: no limit")
+    after = serializers.IntegerField(allow_null=True)
+
+
+class RoleScopeChangeSerializer(serializers.Serializer):
+    role = serializers.ChoiceField(choices=STAFF_ROLE_CHOICES)
+    scopes = serializers.DictField(child=serializers.ListField(child=serializers.CharField()))
+    added = serializers.BooleanField(help_text="false: the narrowing goes with the role")
+
+
+class ConflictSerializer(serializers.Serializer):
+    roles = serializers.ListField(child=serializers.CharField())
+    text = serializers.CharField()
+
+
+class BeforeAfterSecondsSerializer(serializers.Serializer):
+    before = serializers.IntegerField()
+    after = serializers.IntegerField()
+
+
+class BeforeAfterProfilesSerializer(serializers.Serializer):
+    before = serializers.ListField(child=serializers.CharField())
+    after = serializers.ListField(child=serializers.CharField())
+
+
+class RolePreviewSerializer(serializers.Serializer):
+    role = serializers.ChoiceField(choices=STAFF_ROLE_CHOICES)
+    action = serializers.ChoiceField(choices=["grant", "revoke"])
+    holds_already = serializers.BooleanField(help_text="a grant of a role held: only its end date would change")
+    gains = CapabilityAreaSerializer(many=True)
+    losses = CapabilityAreaSerializer(many=True)
+    limits = LimitChangeSerializer(many=True, help_text="the limits that change")
+    scopes = RoleScopeChangeSerializer(many=True)
+    idle_timeout_s = BeforeAfterSecondsSerializer()
+    conflicts = ConflictSerializer(many=True, help_text="separation of duties: the grant would be refused")
+    blocked = serializers.BooleanField()
+    needs_approval = serializers.BooleanField()
+    rule = serializers.CharField(allow_blank=True, help_text="why a second person approves it")
+    checker = serializers.CharField(allow_blank=True, help_text="the permission its approver needs")
+    passkey_needed = serializers.BooleanField(help_text="the role needs a passkey they have not added")
+    erp_profiles = BeforeAfterProfilesSerializer()
+
+
+class OffboardingStepSerializer(serializers.ModelSerializer):
+    label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = OffboardingStep
+        fields = ["key", "label", "kind", "state", "detail", "done_at", "done_by"]
+
+    def get_label(self, step) -> str:
+        from .services import STEP_LABELS
+
+        return STEP_LABELS.get(step.key, step.key)
+
+
+class OffboardingSerializer(serializers.ModelSerializer):
+    steps = OffboardingStepSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = StaffOffboarding
+        fields = ["id", "user", "started_by", "reason", "started_at", "finished_at", "steps"]
+
+
+class OffboardingTickSerializer(serializers.Serializer):
+    step = serializers.CharField(max_length=40, help_text="a step done by hand: its key")
+    state = serializers.ChoiceField(choices=OffboardingStep.State.choices)
+    note = serializers.CharField(max_length=300, required=False, allow_blank=True, default="")
+
+
+class ErpRoleSerializer(serializers.Serializer):
+    role = serializers.ChoiceField(choices=STAFF_ROLE_CHOICES)
+    profiles = serializers.ListField(child=serializers.CharField())
+
+
+class ErpMirrorSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    enabled = serializers.BooleanField(help_text="the ERPNext user: enabled (or disabled, never deleted)")
+    role_profiles = serializers.ListField(child=serializers.CharField())
+    by_role = ErpRoleSerializer(many=True)
+    erp_in_use = serializers.BooleanField()
+
+
+class OwnSessionSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    browser = serializers.CharField(allow_blank=True, help_text="Chrome, Firefox …; empty: not known")
+    system = serializers.CharField(allow_blank=True, help_text="Android, Windows …; empty: not known")
+    place = serializers.CharField(allow_blank=True, help_text="the address's first octets: 203.0.113.x")
+    created_at = serializers.DateTimeField()
+    last_seen_at = serializers.DateTimeField()
+    current = serializers.BooleanField(help_text="this session")
+
+
+class OwnSessionsEndedSerializer(serializers.Serializer):
+    sessions = serializers.IntegerField()
+    tokens = serializers.IntegerField(help_text="the app's refresh tokens blacklisted")
+
+
+SYSTEM_STATES = ["ok", "warn", "bad", "off"]  # green, yellow, red; off: not set up here
+
+
+class SystemStatusSerializer(serializers.Serializer):
+    key = serializers.CharField(help_text="health, queues, webhooks, email, sms, backups, audit, sync, dependencies …")
+    state = serializers.ChoiceField(choices=SYSTEM_STATES)
+    summary = serializers.CharField(help_text="in a few words")
+    since = serializers.DateTimeField(allow_null=True, help_text="when it came to this state, as far as seen")

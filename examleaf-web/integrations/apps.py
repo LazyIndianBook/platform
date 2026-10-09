@@ -6,4 +6,5 @@ class IntegrationsConfig(AppConfig):
     verbose_name = "Integrations"
 
     def ready(self):
-        from . import checks  # noqa: F401  INTEGRATION_KEYS on a server (integrations.E001)
+        # INTEGRATION_KEYS on a server (integrations.E001); the connection tests of Razorpay, MSG91, SES, the buckets …
+        from . import checks, connections  # noqa: F401

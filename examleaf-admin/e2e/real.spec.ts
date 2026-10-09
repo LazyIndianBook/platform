@@ -325,12 +325,56 @@ for (const width of [1280, 390]) {
         "/system/",
         "/account/",
         "/users/999999/",
+        // Phase B: the role catalogue, a person's tabs, the connections, the templates and the system's pages, as
+        // this backend answers them unconfigured (no bucket, no dependency report, no provider's keys)
+        "/people/roles/",
+        `/people/${supportId}/?tab=access`,
+        `/people/${supportId}/?tab=offboarding`,
+        `/people/${supportId}/?tab=erp`,
+        "/settings/connections/",
+        "/settings/connections/razorpay/",
+        "/settings/templates/",
+        "/system/sync/",
+        "/system/backups/",
+        "/system/logs/",
+        "/system/dependencies/",
+        "/system/hardening/",
+        "/system/scripts/",
       ],
       width,
     );
     await page.context().close();
   });
 }
+
+test("OWNER: the SUPPORT member's Access tab, then a role grant previewed before it is asked", async ({ browser }) => {
+  const page = await open(browser);
+  await signIn(page, owner, `/people/${supportId}/`, ownerCodes);
+
+  await test.step("the Access tab: where SUPPORT comes from, what it may do, its limits", async () => {
+    await page.getByRole("link", { name: "Access", exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/people/${supportId}/\\?tab=access$`));
+    await expect(page.getByRole("heading", { level: 2, name: "Access" })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "Support", exact: true })).toBeVisible();
+    await expect(page.getByText("Given in the Django admin").first()).toBeVisible(); // made by manage.py shell
+    await expect(page.getByText("staff.reveal_contact").first()).toBeAttached();
+  });
+
+  await test.step("a FINANCE grant previewed: what it gains, and that a second person approves it", async () => {
+    await page.getByRole("link", { name: "Overview", exact: true }).click();
+    await page.getByLabel("Role", { exact: true }).selectOption("FINANCE");
+    const preview = page.getByRole("region", { name: "What granting Finance changes" });
+    await expect(preview).toContainText("They gain");
+    await expect(preview).toContainText("Payments & refunds");
+    await expect(preview).toContainText("A second person approves it before it takes effect.");
+    // nothing changed: the preview asks nothing of anyone
+    const person = (await (await page.request.get(`/api/v1/staff/people/${supportId}/`)).json()) as {
+      roles: string[];
+    };
+    expect(person.roles).toEqual(["SUPPORT"]);
+  });
+  await page.context().close();
+});
 
 test("the idle sign-out comes at the limit the manifest gives the role", async ({ browser }) => {
   const page = await open(browser);

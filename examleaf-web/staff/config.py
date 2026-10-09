@@ -20,8 +20,9 @@ class Spec:
     label: str
     permission: str = "staff.manage_settings"
     default: object = None  # when settings.py has no such name
-    # Phase B: legal
-    group: str = ""  # settings drawn together (the disclosures: staff/privacy_api.py)
+    # Phase B: the Settings page's section (shop, consent, course, maintenance, erp, tax, disclosures …), a text's
+    # length and its own check
+    group: str = "site"  # settings drawn together: the Settings page's section, the disclosures' form
     max_length: int = 300  # a text's
     validate: object = None  # a text's own check: raises ValueError with what is wrong
 
@@ -52,17 +53,23 @@ def iso_date(value):
 
 
 SETTINGS = {
-    "SHOP_OPEN": Spec(bool, "The shop is open: carts, checkout and payment for everyone (off: staff only)"),
-    "SHOP_COD_ENABLED": Spec(bool, "Cash on delivery is offered"),
+    "SHOP_OPEN": Spec(
+        bool, "The shop is open: carts, checkout and payment for everyone (off: staff only)", group="shop"
+    ),
+    "SHOP_COD_ENABLED": Spec(bool, "Cash on delivery is offered", group="shop"),
     "PARENTAL_CONSENT_MODE": Spec(
-        ["declared", "verified"], "A parent's consent: ticked on the form, or verified through a link"
+        ["declared", "verified"], "A parent's consent: ticked on the form, or verified through a link", group="consent"
     ),
-    "WEB_COURSE": Spec(bool, "The revision course's pages on the website"),
+    "WEB_COURSE": Spec(bool, "The revision course's pages on the website", group="course"),
     "MAINTENANCE_MODE": Spec(
-        bool, "Maintenance mode: the frontends show the banner", "staff.toggle_maintenance", False
+        bool, "Maintenance mode: the frontends show the banner", "staff.toggle_maintenance", False, "maintenance"
     ),
-    "MAINTENANCE_BANNER": Spec(str, "The maintenance banner's text", "staff.toggle_maintenance", ""),
-    "SHOP_GST_QRMP": Spec(bool, "GST returns quarterly under QRMP (the tax calendar's dates)"),
+    "MAINTENANCE_BANNER": Spec(str, "The maintenance banner's text", "staff.toggle_maintenance", "", "maintenance"),
+    "SHOP_GST_QRMP": Spec(bool, "GST returns quarterly under QRMP (the tax calendar's dates)", group="tax"),
+    # Orders (shop.services.assess_risk)
+    "SHOP_COD_HIGH_RISK_HOLD": Spec(
+        bool, "A cash-on-delivery order scored high risk waits on hold for a check", group="shop"
+    ),
 }
 
 # Legal and privacy (Phase B): the e-commerce disclosures and the privacy contacts (E-Commerce Rules r.4(1), (2), (4)
@@ -113,8 +120,19 @@ SETTINGS |= {
         group=DISCLOSURES,
     ),
     "NCH_SINCE": Spec(str, "Applied or joined on (YYYY-MM-DD)", default="", group=DISCLOSURES, validate=iso_date),
-    # Orders (shop.services.assess_risk)
-    "SHOP_COD_HIGH_RISK_HOLD": Spec(bool, "A cash-on-delivery order scored high risk waits on hold for a check"),
+}
+# The feature flags the code reads with the environment's value under them (erp.producers.switch: the panel's flag once
+# set, else settings.py's): listed by flags/ with that value whether set or not, in the Settings page's ERP section.
+KNOWN_FLAGS = {
+    "ERP_ENABLED": Spec(bool, "The platform talks to ERPNext: the relay, the pull, the reconciliation", group="erp"),
+    "ERP_SYNC_CATALOGUE": Spec(bool, "Items and bundles go to ERPNext", group="erp"),
+    "ERP_SYNC_INVOICES": Spec(bool, "Invoices and credit notes go to ERPNext", group="erp"),
+    "ERP_SYNC_PAYMENTS": Spec(bool, "Payments and refunds go to ERPNext", group="erp"),
+    "ERP_SYNC_DELIVERIES": Spec(bool, "Delivery notes go to ERPNext", group="erp"),
+    "ERP_SYNC_SETTLEMENTS": Spec(bool, "Cash-on-delivery settlements go to ERPNext", group="erp"),
+    "ERP_PULL_STOCK": Spec(bool, "ERPNext's stock is read back", group="erp"),
+    "ERP_PULL_B2B": Spec(bool, "ERPNext's B2B documents are read back", group="erp"),
+    "ERP_STOCK_PROJECTION": Spec(bool, "ERPNext's stock sets the copies for sale (off: shadow mode)", group="erp"),
 }
 
 

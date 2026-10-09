@@ -12,6 +12,7 @@ from accounts import roles
 from accounts.tests import birthday
 from api.tests import student
 from shop.factories import ProductFactory
+from staff.config import KNOWN_FLAGS
 from staff.models import FeatureFlag, SiteSetting
 
 from .conftest import STAFF, events, make_staff, signed_in
@@ -108,8 +109,17 @@ def test_feature_flags_are_switched_with_a_reason_and_listed_in_the_manifest():
     response = signed_in(admin).put(f"{STAFF}flags/ERP_SYNC_ORDERS/", {"value": True, "reason": "Cut over"},
                                     format="json")  # fmt: skip
     assert response.status_code == 200 and FeatureFlag.objects.get().changed_by == admin
-    [flag] = signed_in(admin).get(STAFF + "flags/").json()
-    assert (flag["key"], flag["value"], flag["reason"]) == ("ERP_SYNC_ORDERS", True, "Cut over")
+    flags = {flag["key"]: flag for flag in signed_in(admin).get(STAFF + "flags/").json()}
+    flag = flags.pop("ERP_SYNC_ORDERS")
+    assert (flag["key"], flag["value"], flag["reason"], flag["source"]) == (
+        "ERP_SYNC_ORDERS",
+        True,
+        "Cut over",
+        "database",
+    )
+    assert set(flags) == set(
+        KNOWN_FLAGS
+    )  # the ERP switches, never set: the environment's value (test_settings_history)
     assert signed_in(make_staff(roles.SUPPORT)).get(STAFF + "session/").json()["flags"] == {"ERP_SYNC_ORDERS": True}
     assert signed_in(admin).put(f"{STAFF}flags/lower_case/", {"value": True, "reason": "x"}).status_code == 404
     assert (
@@ -119,3 +129,33 @@ def test_feature_flags_are_switched_with_a_reason_and_listed_in_the_manifest():
         == 403
     )
     assert events("flag.changed").get().changes == {"ERP_SYNC_ORDERS": [None, True]}
+
+
+def test_each_setting_and_flag_has_its_history_and_the_page_its_groups(settings):
+    settings.ERP_ENABLED = True
+    admin = make_staff(roles.ADMIN)
+    put(admin, "SHOP_OPEN", False)
+    put(admin, "SHOP_OPEN", True, reason="Open again")
+    history = signed_in(admin).get(f"{STAFF}settings/SHOP_OPEN/history/").json()
+    assert [(row["value"], row["reason"], row["changed_by"]) for row in history] == [
+        (True, "Open again", admin.pk),
+        (False, "Launch day", admin.pk),
+    ]
+    assert signed_in(admin).get(f"{STAFF}settings/NOT_A_SETTING/history/").status_code == 404
+    groups = {row["key"]: row["group"] for row in signed_in(admin).get(f"{STAFF}settings/").json()}
+    assert (groups["SHOP_OPEN"], groups["PARENTAL_CONSENT_MODE"], groups["MAINTENANCE_MODE"]) == (
+        "shop",
+        "consent",
+        "maintenance",
+    )
+    flags = {flag["key"]: flag for flag in signed_in(admin).get(f"{STAFF}flags/").json()}
+    erp = flags["ERP_ENABLED"]
+    assert (erp["value"], erp["environment"], erp["source"], erp["group"]) == (True, True, "environment", "erp")
+    url = f"{STAFF}flags/ERP_ENABLED/"
+    assert signed_in(admin).put(url, {"value": "yes", "reason": "x"}, format="json").status_code == 400
+    assert signed_in(admin).put(url, {"value": False, "reason": "Pause the sync"}, format="json").status_code == 200
+    flags = {flag["key"]: flag for flag in signed_in(admin).get(f"{STAFF}flags/").json()}
+    assert (flags["ERP_ENABLED"]["value"], flags["ERP_ENABLED"]["source"]) == (False, "database")
+    [row] = signed_in(admin).get(f"{STAFF}flags/ERP_ENABLED/history/").json()
+    assert (row["value"], row["reason"]) == (False, "Pause the sync")
+    assert signed_in(make_staff(roles.SUPPORT)).get(f"{STAFF}flags/ERP_ENABLED/history/").status_code == 403

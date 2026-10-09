@@ -58,7 +58,9 @@ second-person rules make change requests. Each staff member gets a world of thei
 
 Dev-only cookies change what it answers: `staff_mock_role=SUPPORT` (another role's permissions),
 `staff_mock_reauth_after=<epoch seconds>` (an older authentication counts as stale), `staff_mock_break_glass=1` (a
-break-glass session that owes its reason), `staff_mock_policies=1` (a policy to acknowledge). `next.config.ts` sets the
+break-glass session that owes its reason), `staff_mock_policies=1` (a policy to acknowledge), `staff_mock_passkey=0`
+(OWNER, ADMIN or FINANCE without a passkey: `passkey_required`), `staff_mock_factor_changed=1` (a second factor just
+changed: the offer to end the other sessions, once). `next.config.ts` sets the
 flag only under `next dev`: every build compiles it to "", so a production bundle cannot reach a fixture (the route
 throws and the import sits behind the same check).
 
@@ -143,12 +145,15 @@ shape), and `<html lang>` with the `:lang` rule and Hind Siliguri in every font 
 - Sign-in: `/sign-in/` (email and password, then the authenticator's code, a recovery code or a passkey; Google when
   on), `/set-up-two-step/` (staff without it: set it up on the website), `/no-access/`, `/inactive/`.
 - The panel (`src/app/(panel)/`): `/` Home, `/inbox/`, `/audit/`, `/approvals/` and `/approvals/<id>/`, `/people/`,
-  `/people/<id>/`, `/people/access-review/`, `/users/` and `/users/<id>/` (with the customer's nominee),
+  `/people/<id>/` (tabs `?tab=access`, `offboarding`, `erp`), `/people/roles/`, `/people/access-review/`, `/users/` and
+  `/users/<id>/` (with the customer's nominee),
   `/privacy/` (Legal and privacy's compliance cockpit), `/privacy/requests/` and `<id>/` (the erasure's dry run with
   what the law keeps, each a sentence), `/privacy/policies/` and `<slug>/` (versions, diffs, publishing),
   `/privacy/incidents/` and `<id>/`, `/privacy/processors/`, `/privacy/retention/`, `/privacy/holds/` and `<id>/`,
-  `/privacy/disclosures/`, `/privacy/dark-pattern-audit/`, `/settings/`, `/settings/api-keys/`, `/system/`,
-  `/account/` (the session's limits and the person's jobs). Tax (`src/components/modules/tax/`, its own tabs): `/tax/`
+  `/privacy/disclosures/`, `/privacy/dark-pattern-audit/`, `/settings/` (grouped, each switch's history),
+  `/settings/api-keys/`, `/settings/connections/` and `/settings/connections/<provider>/`, `/settings/templates/`,
+  `/system/` and `/system/sync/`, `backups/`, `logs/`, `dependencies/`, `hardening/`, `scripts/`, `/account/` (the
+  session's limits, one's own sessions and jobs). Tax (`src/components/modules/tax/`, its own tabs): `/tax/`
   (the month's due dates with Previous and Next month, the threshold card, this year's table 13), `/tax/hsn/` (the HSN
   and SAC master, the products that disagree with it, a new code at `#new`) and `/tax/hsn/<code>/` (its rate history,
   its products, a new dated rate behind the save bar), `/tax/documents/` (invoices or credit notes by series, type,
@@ -245,7 +250,8 @@ cursor pagination `{next, previous, results}` (the `cursor` of the links, `page_
 
 - **The session**: `GET session/` (the manifest: `user`, `roles`, `permissions`, `scopes`, `idle_timeout_s`,
   `absolute_expires_at`, `flags.test_mode`, `impersonating`, `break_glass` `{reason_required, reason, ends_at}`,
-  `policies_due` `[{policy, version}]`); `POST session/reason/` (`{reason}`), `POST policies/ack/`
+  `policies_due` `[{policy, version}]`, `steps` (`passkey_required`: a dialog that holds the panel until a passkey is
+  added on the website), `offer_end_sessions`); `POST session/reason/` (`{reason}`), `POST policies/ack/`
   (`{policy, version}`, once each version).
 - **The inbox**: `GET inbox/` (`?mine=1`, `done`, `snoozed`, `kind`), `GET inbox/count/`, `POST inbox/{id}/done/`,
   `snooze/` and `assign/`.
@@ -263,7 +269,20 @@ cursor pagination `{next, previous, results}` (the `cursor` of the links, `page_
   `GET`/`POST api-keys/`, `POST api-keys/{id}/revoke/`.
 - **People (staff)**: `GET people/`, `GET people/{id}/`, `GET`/`POST people/invites/` and `people/invite/`,
   `DELETE people/invites/{invite}/`, `POST`/`DELETE people/{id}/roles/` and `…/roles/{role}/`, `…/scopes/` likewise,
-  `POST people/{id}/end-sessions/`, `reset-mfa/`, `offboard/`; `GET access-review/`.
+  `POST people/{id}/end-sessions/`, `reset-mfa/`, `offboard/`; `GET access-review/`. `GET people/roles/` (the role
+  catalogue), `GET people/{id}/access/`, `POST people/{id}/roles/preview/` (`{role, action}`, as the grant form
+  changes), `GET people/{id}/offboarding/` and `POST …/offboarding/tick/` (`{step, state, note}`),
+  `GET people/{id}/erp/`; one's own sessions: `GET people/me/sessions/`, `POST people/me/sessions/{id}/end/`,
+  `POST people/me/sessions/end-others/`.
+- **Connections**: `GET connections/` and `connections/{provider}/` (the cards), `POST …/test/`, `…/credentials/`
+  (`{mode, credentials, reason}`; a failed test is a 400 on `credentials`), `…/mode/`, `…/circuit/`;
+  `GET …/webhooks/`, `POST …/webhooks/rotate/` (the token once); `GET …/events/` (`state`), `POST …/events/{id}/replay/`,
+  `POST …/events/replay-failed/` (`{since}`); `GET …/calls/` (`operation`, `failed`); `GET …/failures/` (`state`,
+  `operation`), `POST …/failures/{id}/replay/` and `discard/`. Each list has its own cursor in the page's address
+  (`events_cursor`, `calls_cursor`, `failures_cursor`).
+- **Templates**: `GET templates/` (`channel`, `language`, `approval_state`, `event`, `category`; not paged),
+  `POST templates/`, `PATCH templates/{id}/` (always with its `event`, `channel` and `language`),
+  `POST templates/{id}/test/` (`{variables}`: to one's own number or address).
 - **Customers**: `GET users/` (`q`, filters), `GET users/{id}/` (opening it is audited), `POST users/{id}/reveal/`
   with `{show: ["email"], reason}` (answered `{email: …}`, audited and throttled), `suspend/`, `unsuspend/`,
   `unlock/`, `end-sessions/`, `reset-mfa/`, `password-reset/`, `resend-verification/`; `POST users/{id}/impersonate/`
@@ -284,7 +303,6 @@ cursor pagination `{next, previous, results}` (the `cursor` of the links, `page_
   `POST …/{id}/complete/`, `GET`/`POST …/{id}/file/` (the signed copy, multipart).
 - **Notes**: `GET`/`POST notes/?target_type=&target_id=` (a record's notes, not paged; only on records the reader may
   see).
-- **The system**: `GET system/`, `POST system/reconcile/` (an order's payment checked with Razorpay again).
 - **Tax** (the backend's `shop/staff_tax.py`): `GET tax/hsn/` (`q`, `kind`, `taxability`: the rate today, and
   `next_change`), `GET tax/hsn/{code}/` (`rates` oldest first with `until`, `linked` products with their `problem`),
   `POST tax/hsn/` (`{code, kind, description, uqc, first_rate}`: a nested rate's errors come as `first_rate.rate`),
@@ -308,3 +326,8 @@ cursor pagination `{next, previous, results}` (the `cursor` of the links, `page_
   (FINANCE); `GET orders/quotes/`, `orders/quotes/{id}/`, `POST orders/quotes/{id}/convert/`; bulk work as `POST jobs/`
   with `orders_pack`, `orders_print`, `orders_cancel` (250 at most) and `orders_export`. The saved views' `list_key`
   is `orders`.
+- **The system**: `GET system/` (its `status` lines), `POST system/reconcile/` (an order's payment checked with
+  Razorpay again), `GET system/sync/` and `system/sync/links/?q=`, `GET system/backups/`,
+  `GET`/`POST system/backups/drills/`, `GET system/logs/`, `system/dependencies/`, `system/hardening/`,
+  `system/scripts/`.
+- **Settings' history**: `GET settings/{key}/history/`, `GET flags/{key}/history/`.

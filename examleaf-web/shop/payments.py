@@ -11,7 +11,6 @@ from decimal import Decimal
 
 import razorpay
 import requests
-from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django_fsm import can_proceed
@@ -20,7 +19,7 @@ from razorpay.errors import BadRequestError, GatewayError, ServerError, Signatur
 from examleaf.bulkhead import Bulkhead
 
 from . import services
-from .models import INR, Order, Payment, Refund, WebhookEvent, live_mode, paise
+from .models import INR, Order, Payment, Refund, WebhookEvent, live_mode, paise, razorpay_keys
 
 logger = logging.getLogger(__name__)
 # Seconds per Razorpay call, to connect and then for each read of the answer (requests' pair): an unreachable or a
@@ -48,7 +47,13 @@ class Session(requests.Session):
 
 
 def client():
-    return razorpay.Client(session=Session(), auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
+    keys = razorpay_keys()  # the environment's, or the panel's once it holds some (models.razorpay_keys)
+    return razorpay.Client(session=Session(), auth=(keys.key_id, keys.key_secret))
+
+
+def configured():
+    keys = razorpay_keys()
+    return bool(keys.key_id and keys.key_secret)
 
 
 def test_mode():
@@ -60,7 +65,7 @@ def razorpay_order_id(payment):
     Its amount is the order's total in paise, fixed when the order was made."""
     if payment.razorpay_order_id:
         return payment.razorpay_order_id
-    if not (settings.RAZORPAY_KEY_ID and settings.RAZORPAY_KEY_SECRET):
+    if not configured():
         raise Unavailable("Online payment is not set up yet.")
     number = payment.order.number
     try:
@@ -84,7 +89,7 @@ def checkout_options(order):
     payment = order.payments.filter(method=Order.Method.RAZORPAY, razorpay_payment_link_id=None).first()
     address = order.shipping_address
     return {
-        "key": settings.RAZORPAY_KEY_ID,
+        "key": razorpay_keys().key_id,
         "order_id": razorpay_order_id(payment),
         "amount": paise(payment.amount),
         "currency": INR,
@@ -103,7 +108,7 @@ def send_payment_link(order):
     links = order.payments.exclude(razorpay_payment_link_id=None).exclude(status=Payment.Status.FAILED)
     payment = links.first()  # a link cancelled (cancel_payment_link) is never sent again: a new one is made
     if payment is None:
-        if not (settings.RAZORPAY_KEY_ID and settings.RAZORPAY_KEY_SECRET):
+        if not configured():
             raise Unavailable("Online payment is not set up yet.")
         address = order.shipping_address
         try:
@@ -206,14 +211,25 @@ def handle_webhook(body, signature, event_id=""):
     """A Razorpay webhook. Returns False if the signature (HMAC of the raw body with the webhook secret) is wrong or
     no secret is set. Each event is handled once, in one transaction with its record (WebhookEvent: its id and the hash
     of the body, so a replay under another id is caught too); events older than WEBHOOK_MAX_AGE and events for unknown
-    orders (another integration on the same account) are acknowledged and ignored."""
-    secret = settings.RAZORPAY_WEBHOOK_SECRET if live_mode() else settings.RAZORPAY_WEBHOOK_SECRET_TEST
-    if not secret or not signature:
+    orders (another integration on the same account) are acknowledged and ignored. The secret is the keys' mode's from
+    the environment, or the panel's (with the previous one for 24 hours after a rotation: models.razorpay_keys)."""
+    secrets = razorpay_keys().webhook_secrets
+    if not secrets or not signature:
         return False
     try:
-        client().utility.verify_webhook_signature(body.decode(), signature, secret)
+        text = body.decode()
+        verified = False
+        for secret in secrets:
+            try:
+                client().utility.verify_webhook_signature(text, signature, secret)
+                verified = True
+                break
+            except SignatureVerificationError:
+                continue
+        if not verified:
+            return False
         event = json.loads(body)
-    except SignatureVerificationError, UnicodeDecodeError, ValueError:
+    except UnicodeDecodeError, ValueError:
         return False
     digest = hashlib.sha256(body).hexdigest()
     created = event.get("created_at")

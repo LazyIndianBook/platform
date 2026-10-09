@@ -1,4 +1,5 @@
 import factory
+from allauth.mfa.models import Authenticator
 from allauth.mfa.totp.internal.auth import TOTP, generate_totp_secret
 
 from .models import User
@@ -21,3 +22,11 @@ class UserFactory(factory.django.DjangoModelFactory):
         """Staff have an authenticator app, as the site requires (StaffMFAMiddleware); totp=False: one without."""
         if create and user.is_staff and extracted is not False:
             TOTP.activate(user, generate_totp_secret())
+            user._factory_second_factor = True
+
+    @factory.post_generation
+    def passkey(user, create, extracted, **kwargs):
+        """Staff with an authenticator app have a passkey too, as the privileged roles must (STAFF_PASSKEY_ROLES): its
+        row only, never used to sign in. passkey=False: one without (totp=False: neither)."""
+        if create and getattr(user, "_factory_second_factor", False) and extracted is not False:
+            Authenticator.objects.create(user=user, type=Authenticator.Type.WEBAUTHN, data={"name": "Security key"})

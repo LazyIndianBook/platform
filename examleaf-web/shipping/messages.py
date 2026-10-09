@@ -17,7 +17,7 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
-from ops.sms import ORDER_SMS, send_order_sms
+from ops.sms import ORDER_SMS, send_order_sms, template_id
 from shop.services import notify
 
 from .models import ShipmentDetail
@@ -39,7 +39,7 @@ def sms_wanted(order, kind):
         return False
     if not (user and user.login_phone_verified and user.sms_updates):
         return False
-    return settings.SMS_BACKEND != "msg91" or bool(settings.MSG91_TEMPLATES.get(ORDER_SMS[kind]))
+    return settings.SMS_BACKEND != "msg91" or bool(template_id(ORDER_SMS[kind]))  # the registry's, else MSG91_TEMPLATE_
 
 
 def tell(shipment, kind, now=None):

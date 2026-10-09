@@ -11,6 +11,7 @@ import logging
 import time
 
 from allauth.account.signals import user_logged_in
+from allauth.mfa import signals as mfa_signals
 from axes.signals import user_locked_out
 from celery.signals import task_failure
 from django.contrib.auth import get_user_model
@@ -131,6 +132,18 @@ def staff_locked_out(sender, request, username, ip_address, **kwargs):
     if user := staff_with(username):
         record("authn_login_lock", request=request, actor=user, outcome=Outcome.DENIED)
         alert(f"Staff account #{user.pk} locked out", "Ten failed log-ins from one address (django-axes).")
+
+
+@receiver(mfa_signals.authenticator_added)
+@receiver(mfa_signals.authenticator_removed)
+@receiver(mfa_signals.authenticator_reset)
+@quietly
+def second_factor_changed(sender, request=None, user=None, **kwargs):
+    """A member of staff's second factor added, removed or reset (on the website's security pages): the panel's next
+    manifest offers to end their other sessions (staff.services.factor_changed)."""
+    from .services import factor_changed
+
+    factor_changed(user)
 
 
 # Role changes, from anywhere

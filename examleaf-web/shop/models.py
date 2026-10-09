@@ -9,6 +9,7 @@ import re
 import secrets
 from datetime import timedelta
 from decimal import ROUND_HALF_UP, Decimal
+from typing import NamedTuple
 from urllib.parse import quote
 
 from allauth.account.models import EmailAddress
@@ -71,9 +72,36 @@ def paise(money):
     return int(rupees(money.amount if isinstance(money, Money) else money) * 100)
 
 
+class RazorpayKeys(NamedTuple):
+    key_id: str
+    key_secret: str
+    webhook_secrets: list  # the webhook's secret (and, for 24 hours after a rotation in the panel, the previous one)
+
+
+def razorpay_keys():
+    """Razorpay's keys in force (integrations/README.md "Precedence"): the environment's (RAZORPAY_KEY_ID, _SECRET, the
+    webhook secret of the keys' mode) until the panel holds keys of its own (credentials replaced on the connections
+    page, after a passing test); then the enabled account's, and none while none is enabled (switched off there)."""
+    from integrations.services import panel_keys
+
+    panel = panel_keys("razorpay")
+    if panel is None:
+        key_id = settings.RAZORPAY_KEY_ID
+        secret = (
+            settings.RAZORPAY_WEBHOOK_SECRET_TEST
+            if key_id.startswith("rzp_test_")
+            else settings.RAZORPAY_WEBHOOK_SECRET
+        )
+        return RazorpayKeys(key_id, settings.RAZORPAY_KEY_SECRET, [secret] if secret else [])
+    credentials = panel.get("credentials") or {}
+    return RazorpayKeys(
+        credentials.get("key_id", ""), credentials.get("key_secret", ""), panel.get("webhook_secrets", [])
+    )
+
+
 def live_mode():
     """Whether the site runs on Razorpay's live keys now (rzp_live_…; no keys counts as live: no test series)."""
-    return not settings.RAZORPAY_KEY_ID.startswith("rzp_test_")
+    return not razorpay_keys().key_id.startswith("rzp_test_")
 
 
 def validate_indian_mobile(number):

@@ -73,17 +73,55 @@ def phone_hash(phone):
     return salted_hmac("ops.SmsLog.phone", phone, algorithm="sha256").hexdigest()
 
 
-def console(kind, phone, variables):
-    print(f"SMS {kind} to {phone}: {variables}", flush=True)
+def console(kind, phone, variables, template=""):
+    print(f"SMS {kind}{f' (template {template})' if template else ''} to {phone}: {variables}", flush=True)
     return ""
 
 
-def msg91(kind, phone, variables):
+def authkey():
+    """MSG91's authkey in force: the environment's (MSG91_AUTHKEY) until the panel holds one (replaced on the
+    connections page; integrations/README.md "Precedence"), then the enabled account's ("" while none is: refused)."""
+    from integrations.services import panel_keys
+
+    panel = panel_keys("msg91")
+    if panel is None:
+        return settings.MSG91_AUTHKEY
+    return (panel.get("credentials") or {}).get("authkey", "")
+
+
+def template_id(kind, language="en"):
+    """The MSG91 template id an SMS kind is sent with: the template registry's approved one (ops.MessageTemplate) when
+    there is one, the environment's MSG91_TEMPLATE_<KIND> otherwise; "" when neither (the kind is not sent)."""
+    from .models import MessageTemplate
+
+    found = (
+        MessageTemplate.objects.filter(
+            event=kind,
+            channel=MessageTemplate.Channel.SMS,
+            language=language,
+            approval_state=MessageTemplate.Approval.APPROVED,
+        )
+        .exclude(msg91_id="")
+        .values_list("msg91_id", flat=True)
+        .first()
+    )
+    return found or settings.MSG91_TEMPLATES.get(kind, "")
+
+
+def mark_used(kind, template):
+    """The registry's row of a template just sent: its last use (DLT deactivates a template unused for 90 days)."""
+    from .models import MessageTemplate
+
+    rows = MessageTemplate.objects.filter(event=kind, channel=MessageTemplate.Channel.SMS, msg91_id=template)
+    rows.update(last_used_at=timezone.now())
+
+
+def msg91(kind, phone, variables, template=""):
     """MSG91's OTP API for codes (allauth makes the code, MSG91 only delivers it) and its Flow API for the rest, with
-    the template id of MSG91_TEMPLATE_<KIND>. Returns MSG91's request id. HTTP 200 without "type": "success" is a
-    refusal too."""
-    headers, mobile = {"authkey": settings.MSG91_AUTHKEY}, phone.removeprefix("+")
-    template = settings.MSG91_TEMPLATES[kind]
+    the kind's template id (template_id: the registry's, else MSG91_TEMPLATE_<KIND>) or the one given (a test send of a
+    template from the panel). Returns MSG91's request id. HTTP 200 without "type": "success" is a refusal too."""
+    headers, mobile = {"authkey": authkey()}, phone.removeprefix("+")
+    template = template or template_id(kind)
     with CALLS:
         if kind == "otp":
             params = {"template_id": template, "mobile": mobile, "otp": variables["otp"]}
@@ -97,6 +135,7 @@ def msg91(kind, phone, variables):
         data = {}
     if response.status_code != 200 or data.get("type") != "success":
         raise SmsRefused(f"MSG91 {response.status_code}: {data.get('message') or response.text[:200]}")
+    mark_used(kind, template)
     return str(data.get("request_id") or data.get("message") or "")[:100]
 
 
@@ -104,7 +143,7 @@ BACKENDS = {"console": console, "msg91": msg91}
 
 
 @shared_task(autoretry_for=(httpx.TransportError,), retry_backoff=10, max_retries=3)
-def send_sms(kind, phone, variables, log_id=None):
+def send_sms(kind, phone, variables, log_id=None, template=""):
     """Send one SMS (its SmsLog row made by queue_sms), unless SMS_DAILY_CAP were sent since midnight (India) already:
     the last line, whatever the other limits let through (SMS cost money). A network failure is tried again 3 times; a
     refusal is logged as an error (Sentry), not retried. Its row says whether it went: run again (the task given to
@@ -121,7 +160,8 @@ def send_sms(kind, phone, variables, log_id=None):
         logger.error("SMS_DAILY_CAP reached: an SMS (%s) was not sent", kind)
     else:
         try:
-            log.provider_id = BACKENDS[settings.SMS_BACKEND](kind, phone, variables)
+            chosen = {"template": template} if template else {}  # a test send's template (the registry's page)
+            log.provider_id = BACKENDS[settings.SMS_BACKEND](kind, phone, variables, **chosen)
             log.status = SmsLog.Status.SENT
         except SmsRefused as error:
             log.status = SmsLog.Status.FAILED
@@ -129,11 +169,12 @@ def send_sms(kind, phone, variables, log_id=None):
     log.save()
 
 
-def queue_sms(kind, phone, variables, user=None):
+def queue_sms(kind, phone, variables, user=None, template=""):
     """Hand an SMS to the worker, within the limits per number, account and purpose (refusal, M2); if the broker cannot
     be reached, send it here and now (as ops.tasks.queue_email). Returns whether it went on its way: False while SMS
     are off (settings.SMS_ENABLED: a server without a real backend) or when a limit stops it, and then the page must
-    not say that it was sent. The row is written first, so that requests at the same moment count each other."""
+    not say that it was sent. The row is written first, so that requests at the same moment count each other.
+    `template`: an MSG91 template id to send with instead of the kind's (a test send from the template registry)."""
     if not settings.SMS_ENABLED:
         return False
     log = SmsLog.objects.create(
@@ -147,12 +188,13 @@ def queue_sms(kind, phone, variables, user=None):
         SmsLog.objects.filter(pk=log.pk).update(status=SmsLog.Status.CAPPED)
         logger.warning("SMS (%s) not sent: %s", kind, reason)
         return False
+    chosen = {"template": template} if template else {}
     try:
-        send_sms.delay(kind, phone, variables, log.pk)
+        send_sms.delay(kind, phone, variables, log.pk, **chosen)
     except send_sms.OperationalError:
         logger.exception("broker unavailable, sending the SMS synchronously")
         try:
-            send_sms.run(kind, phone, variables, log.pk)
+            send_sms.run(kind, phone, variables, log.pk, **chosen)
         except Exception:
             logger.exception("the SMS could not be sent here either; dropped")
     return True

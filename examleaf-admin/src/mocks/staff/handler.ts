@@ -28,6 +28,7 @@ import {
   type World,
 } from "./fixtures";
 import { ordersJob, ordersJobPermission, ordersPermission, ordersRoute, type OrdersKit } from "./orders";
+import { MANAGEMENT_PERMISSIONS, offerEndSessions, passkeyDue, routeManagement } from "./management";
 
 type S = MockSchemas;
 
@@ -79,6 +80,7 @@ const FINANCE = [
   ...["accounts.view_legalhold", "staff.manage_holds"], // legal holds: a chargeback, a dispute over money
   ...["shop.view_product", "shop.view_invoice", "shop.view_creditnote", "shop.view_returnrequest"],
   ...["shop.view_quoterequest", "shop.export_order"],
+  "integrations.view_integrationaccount", // the connections' cards (the payment settings)
 ];
 // the Orders module's roles (accounts/roles.py): SALES runs the orders, SALES_REP makes staff orders and quotes, PACKER
 // packs and receives returns
@@ -115,6 +117,7 @@ const EVERYTHING = [
     ...["pages.view_page", "pages.change_page", "staff.view_darkpatternaudit", "staff.manage_compliance"],
     ...SALES,
     ...["staff.pack_order", "staff.receive_return"],
+    ...MANAGEMENT_PERMISSIONS, // the connections, the templates, the system's pages (management.ts)
   ]),
 ].sort();
 const ROLE_PERMISSIONS: Record<string, string[]> = {
@@ -418,6 +421,10 @@ function manifest(context: Context, { first, last }: { first: number; last: numb
       cookie(context.request, "staff_mock_policies") === "1" && !world.policiesAcknowledged.includes(policy.policy)
         ? [policy]
         : [],
+    // a privileged role without a passkey adds one first (staff_mock_passkey=0); the offer to end the other sessions
+    // after a second factor changed (staff_mock_factor_changed=1), once
+    steps: passkeyDue(context.request, who.role, who.breakGlass) ? ["passkey_required"] : [],
+    offer_end_sessions: offerEndSessions(context.request, world),
   });
 }
 
@@ -554,6 +561,27 @@ async function route(context: Context): Promise<Response> {
     return json(201, { policy: body.policy, version: body.version, acknowledged_at: now() });
   }
   if (area === "catalogue" && method === "GET") return json(200, { permissions: [], roles: [] });
+
+  // Phase B: a passkey first (but for one's own sessions), then the role catalogue, access, offboarding, history, the
+  // connections, the templates and the system's pages (management.ts)
+  if (passkeyDue(context.request, who.role, who.breakGlass) && !(area === "people" && a === "me"))
+    return json(403, {
+      detail: "Add a passkey or a security key on the website's security page first (/account/security/).",
+      code: "passkey_required",
+    });
+  const managed = await routeManagement(context, {
+    json,
+    noContent,
+    notFound,
+    invalid,
+    refuse,
+    reauth: () => REAUTH(),
+    recentlyAuthenticated: () => recentlyAuthenticated(context.request),
+    record: (action, extra) => record(context, action, extra as Partial<S["AuditEvent"]>),
+    paginate: (rows, size) => paginate(context, rows, size),
+    nextId: () => nextId(world),
+  });
+  if (managed) return managed;
 
   const perm = permissionFor(context);
   if (perm && !can(perm)) {
@@ -1020,15 +1048,27 @@ async function route(context: Context): Promise<Response> {
         reason,
         changes: { [a]: [flag?.value ?? null, change.value] },
       });
-      if (flag)
-        Object.assign(flag, { value: change.value, effective_from: change.effective_from, changed_by: me, reason });
-      else
+      if (flag) {
+        // a known switch set to null goes back to the environment's value (staff/config.py KNOWN_FLAGS)
+        const back = change.value === null && flag.environment !== null;
+        Object.assign(flag, {
+          value: back ? flag.environment : change.value,
+          effective_from: change.effective_from,
+          changed_by: me,
+          reason,
+          source: back ? "environment" : "database",
+        });
+      } else
         world.flags.push({
           key: a,
           value: change.value,
           effective_from: change.effective_from,
           changed_by: me,
           reason,
+          label: "",
+          group: "flags",
+          environment: null,
+          source: "database",
         });
       return json(200, change);
     }

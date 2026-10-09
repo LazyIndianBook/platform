@@ -8,6 +8,7 @@ import { Problem } from "@/components/data/problem";
 import { Facts } from "@/components/data/record-page";
 import { StatusChip } from "@/components/data/status-chip";
 import { MaintenanceForm, ReconcileForm } from "@/components/modules/system/maintenance";
+import { StatusLines, SystemPagesNav } from "@/components/modules/system/status-lines";
 import { PageHeader, Section } from "@/components/shell/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableCell, TableHead } from "@/components/ui/table";
@@ -41,7 +42,12 @@ export default async function SystemPage() {
   const backups = system.backups;
   return (
     <>
-      <PageHeader title={copy.system.title} lead={copy.system.lead} />
+      <PageHeader title={copy.system.title} lead={copy.system.lead} actions={<SystemPagesNav />} />
+      {system.status?.length ? (
+        <Section id="at-a-glance" title={copy.management.system.lines} className="mb-10 flex flex-col gap-3">
+          <StatusLines lines={system.status} now={now} />
+        </Section>
+      ) : null}
       <div className="grid gap-5 min-[1100px]:grid-cols-2">
         <Card>
           <CardHeader>

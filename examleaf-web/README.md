@@ -50,6 +50,12 @@ and the security reviews, [SECURITY_REVIEW.md](SECURITY_REVIEW.md) (phases 1 to 
   the legal pages' versions, the e-commerce disclosures and the yearly dark-pattern self-audit (staff/README.md); the
   tax desk (`shop/README.md` "Tax"): the HSN and SAC master with dated rates, the documents and their series, the
   threshold monitor, the calendar and the GSTR-1 job.
+  Phase B adds the role
+  catalogue, a person's access with its last use and a role change previewed, offboarding as a checklist, passkeys
+  for the privileged roles and one's own sessions; the integrations' connections (keys tested before they are kept,
+  modes, circuits, webhook tokens, events, calls and dead letters), the message templates DLT registers with MSG91's
+  delivery reports, and the system's backups, logs, dependencies, hardening and checkout scripts
+  (`integrations/README.md`, `ops/README.md`, `staff/README.md` "Phase B").
 - **The shop.** The printed books sold across India: cart, coupons, checkout with Razorpay (UPI, cards, net banking) or,
   when `SHOP_COD_ENABLED` is on (it is off by default), cash on delivery, stock under row locks, shipping rates by
   state, PIN code autofill from India Post's directory, order emails (and SMS), courier tracking links, GST invoices and

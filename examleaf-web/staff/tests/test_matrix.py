@@ -6,6 +6,7 @@ DjangoModelPermissions lets any GET through)."""
 
 from datetime import timedelta
 
+import httpx
 import pytest
 from django.urls import URLPattern, URLResolver
 from django.utils import timezone
@@ -15,7 +16,8 @@ from accounts.factories import UserFactory
 from accounts.models import DeletionRequest, LegalHold
 from api import urls as api_urls
 from insights.models import FraudSignal
-from integrations.models import IntegrationAccount
+from integrations.models import InboundEvent, IntegrationAccount, IntegrationFailure
+from ops.models import MessageTemplate
 from shipping.api import OrderQuoteView, ShipmentViewSet
 from shipping.models import CodRemittance, PickupLocation, ShipmentCharge, ShippingException
 from shop import services as shop
@@ -38,6 +40,7 @@ from staff.models import (
     ProcessorRecord,
     SavedView,
     StaffInvite,
+    StaffOffboarding,
     StaffScope,
 )
 from staff.permissions import ANY_STAFF
@@ -209,8 +212,56 @@ ENDPOINTS = [
     ("get", "orders/quotes/{quote}/", "shop.view_quoterequest"),
     ("get", "orders/quotes/{quote}/quotation/", "shop.view_quoterequest"),
     ("post", "orders/quotes/{quote}/convert/", "shop.change_quoterequest"),
+    # Phase B: the people pages' additions, settings' history, the connections, the templates, the system's pages
+    ("get", "people/roles/", "staff.view_staff"),
+    ("get", "people/{person}/access/", "staff.view_staff"),
+    ("post", "people/{person}/roles/preview/", "staff.view_staff"),
+    ("get", "people/{person}/erp/", "staff.view_staff"),
+    ("get", "people/{person}/offboarding/", "staff.view_staffoffboarding"),
+    ("post", "people/{person}/offboarding/tick/", "staff.assign_role"),
+    ("get", "settings/SHOP_OPEN/history/", "staff.view_sitesetting"),
+    ("get", "flags/ERP_ENABLED/history/", "staff.view_featureflag"),
+    ("get", "connections/", "integrations.view_integrationaccount"),
+    ("get", "connections/shiprocket/", "integrations.view_integrationaccount"),
+    ("post", "connections/shiprocket/test/", "staff.manage_connections"),
+    ("post", "connections/shiprocket/credentials/", "staff.manage_connections"),
+    ("post", "connections/shiprocket/mode/", "staff.manage_connections"),
+    ("post", "connections/shiprocket/circuit/", "staff.manage_connections"),
+    ("get", "connections/shiprocket/webhooks/", "integrations.view_integrationaccount"),
+    ("post", "connections/shiprocket/webhooks/rotate/", "staff.manage_connections"),
+    ("get", "connections/shiprocket/events/", "integrations.view_inboundevent"),
+    ("post", "connections/shiprocket/events/replay-failed/", "staff.replay_webhook"),
+    ("post", "connections/shiprocket/events/{inbound}/replay/", "staff.replay_webhook"),
+    ("get", "connections/shiprocket/calls/", "integrations.view_integrationcall"),
+    ("get", "connections/shiprocket/failures/", "integrations.view_integrationfailure"),
+    ("post", "connections/shiprocket/failures/{failure}/replay/", "staff.replay_webhook"),
+    ("post", "connections/shiprocket/failures/{failure}/discard/", "staff.replay_webhook"),
+    ("post", "connections/erpnext/failures/{erp_failure}/discard/", "erp.replay_sync"),  # the sync's own rule
+    ("get", "templates/", "ops.view_messagetemplate"),
+    ("get", "templates/{template}/", "ops.view_messagetemplate"),
+    ("post", "templates/", "ops.add_messagetemplate"),
+    ("patch", "templates/{template}/", "ops.change_messagetemplate"),
+    ("post", "templates/{template}/test/", "ops.change_messagetemplate"),
+    ("get", "system/sync/", "erp.view_sync"),
+    ("get", "system/sync/links/?q=EL-2026", "erp.view_sync"),
+    ("get", "system/backups/", "staff.view_system"),
+    ("get", "system/backups/drills/", "staff.view_restoredrill"),
+    ("post", "system/backups/drills/", "staff.manage_system"),
+    ("get", "system/logs/", "staff.view_system"),
+    ("get", "system/dependencies/", "staff.view_system"),
+    ("get", "system/hardening/", "staff.view_system"),
+    ("get", "system/scripts/", "staff.view_scriptinventory"),
     ("post", "people/{person}/offboard/", "staff.assign_role"),  # last: the person goes
 ]
+
+
+@pytest.fixture(autouse=True)
+def own_pages(monkeypatch):
+    """The hardening page's fetch of the console's robots.txt answered here: nothing leaves the tests."""
+    answer = httpx.MockTransport(lambda request: httpx.Response(200, text="User-agent: *\nDisallow: /\n"))
+    monkeypatch.setattr("staff.system_api.network_transport", lambda: answer)
+
+
 WHO = sorted(roles.STAFF_ROLES)  # one member of staff per role (OWNER: the founder), and a break-glass account
 
 
@@ -283,6 +334,20 @@ def objects():
         "hold": LegalHold.objects.create(user=customer, reason="dispute").pk,
         "deletion": DeletionRequest.objects.create(user=customer).pk,
         "audit": DarkPatternAudit.objects.create(year=2027).pk,
+        **phase_b_objects(person),
+    }
+
+
+def phase_b_objects(person):
+    """An offboarding's checklist, a provider's event and dead letter (ERPNext's too), a message template."""
+    StaffOffboarding.objects.create(user=person, reason="Testing the checklist")
+    failure = {"task_name": "integrations.tasks.purge_old_records", "last_error": "IntegrationUnavailable: no answer"}
+    erp = IntegrationAccount.objects.create(provider="erpnext", mode="live")
+    return {
+        "inbound": InboundEvent.objects.create(provider="shiprocket", body="{}", sha256="a" * 64).pk,
+        "failure": IntegrationFailure.objects.create(operation="track", task_id="t-1", **failure).pk,
+        "erp_failure": IntegrationFailure.objects.create(account=erp, operation="sync", task_id="t-2", **failure).pk,
+        "template": MessageTemplate.objects.create(event="otp", channel="sms", category="transactional").pk,
     }
 
 
@@ -366,7 +431,7 @@ def test_each_role_reaches_the_shipping_and_insights_endpoints_only_with_their_p
 
 
 def test_the_manifest_and_the_catalogue_are_every_staff_members_and_nobody_elses(subtests):
-    for path in ["session/", "catalogue/"]:
+    for path in ["session/", "catalogue/", "people/me/sessions/"]:
         for who in WHO:
             with subtests.test(path=path, who=who):
                 assert signed_in(make_staff(who)).get(STAFF + path).status_code == 200
@@ -429,7 +494,7 @@ def test_every_endpoint_names_a_catalogued_permission_and_a_view_one_for_get():
             assert perm, (path, method, name)
             checked += 1
             if perm == ANY_STAFF:
-                assert path in ("session/", "session/reason/", "catalogue/", "policies/ack/"), path
+                assert path in ANY_STAFF_PATHS, path
                 continue
             assert catalogue.entry(perm) is not None, (path, name, perm)
             if method == "get" and (cls, name) not in BOOKING_READS:
@@ -437,6 +502,10 @@ def test_every_endpoint_names_a_catalogued_permission_and_a_view_one_for_get():
     assert checked > 100, checked
 
 
+ANY_STAFF_PATHS = (  # every member of staff's own: the manifest, the catalogue, the policies, their own sessions
+    *["session/", "session/reason/", "catalogue/", "policies/ack/", "^people/me/sessions/$"],
+    *["^people/me/sessions/end-others/$", r"^people/me/sessions/(?P<session>\d+)/end/$"],
+)
 # Two reads that need more than a view_ permission: the courier's quote (asked of the courier, for a booking) and the
 # label's PDF (the customer's address on it): the packing room's, staff.book_parcel. And the Orders module's packing
 # slip and hand label (the address whole on each): staff.pack_order.

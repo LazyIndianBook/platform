@@ -12,10 +12,14 @@ from .models import (
     DataRequest,
     FeatureFlag,
     Incident,
+    OffboardingStep,
     ProcessorRecord,
+    RestoreDrill,
     RoleGrant,
+    ScriptInventory,
     SiteSetting,
     StaffInvite,
+    StaffOffboarding,
     StaffScope,
 )
 
@@ -78,3 +82,39 @@ class StaffInviteAdmin(ReadOnlyAdmin):
 class AccessAdmin(ReadOnlyAdmin):
     list_select_related = ["user"]
     search_fields = ["user__email"]
+
+
+# Phase B: offboarding's checklists, the restore drills and the scripts' inventory (staff/system_api.py)
+
+
+class OffboardingStepInline(admin.TabularInline):
+    model = OffboardingStep
+    fields = ["key", "kind", "state", "detail", "done_at", "done_by"]
+    readonly_fields = fields
+    extra = 0
+    can_delete = False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(StaffOffboarding)
+class StaffOffboardingAdmin(ReadOnlyAdmin):
+    list_display = ["id", "user", "started_by", "started_at", "finished_at"]
+    list_select_related = ["user", "started_by"]
+    inlines = [OffboardingStepInline]
+
+
+@admin.register(RestoreDrill)
+class RestoreDrillAdmin(ReadOnlyAdmin):
+    list_display = ["performed_on", "engine", "result", "duration_minutes", "recorded_by"]
+    list_filter = ["engine", "result"]
+
+
+@admin.register(ScriptInventory)
+class ScriptInventoryAdmin(ReadOnlyAdmin):
+    list_display = ["page", "src", "sha256", "first_seen", "last_seen"]
+    list_filter = ["page"]

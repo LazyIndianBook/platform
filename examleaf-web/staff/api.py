@@ -46,12 +46,12 @@ from rest_framework.settings import api_settings
 
 from accounts import roles
 from api.views import ReauthenticationRequired, exception_handler, recently_authenticated
-from examleaf.middleware import BREAK_GLASS, absolute_expiry, idle_limit
+from examleaf.middleware import BREAK_GLASS, absolute_expiry, idle_limit, needs_passkey
 
 from . import approvals, audit, catalogue, jobs, services
 from . import serializers as s
 from .backends import scoped, staff_scopes
-from .config import FLAG_KEY, SETTINGS, changed, environment_value, feature_flags, site_setting
+from .config import FLAG_KEY, KNOWN_FLAGS, SETTINGS, changed, environment_value, feature_flags, site_setting
 from .middleware import IMPERSONATING
 from .models import (
     ApiKey,
@@ -69,6 +69,7 @@ from .models import (
     SavedView,
     SiteSetting,
     StaffInvite,
+    StaffOffboarding,
     StaffScope,
 )
 from .permissions import ANY_STAFF, ApiKeyAuthentication, IsStaff, StaffPermission, StaffThrottle, make_key
@@ -221,6 +222,10 @@ def manifest(request):
         "impersonating": impersonating(request),
         "break_glass": break_glass(request),
         "manifest_version": version,
+        # Phase B: what the session must do first (a passkey for the privileged roles: plan 3.5), and, once after a
+        # second factor's change, the offer to end the other sessions
+        "steps": ["passkey_required"] if needs_passkey(user) else [],
+        "offer_end_sessions": services.take_offer(user),
     }
 
 
@@ -282,6 +287,14 @@ MANIFEST = inline_serializer(
         ),
         "break_glass": BREAK_GLASS_SESSION,
         "manifest_version": serializers.CharField(help_text="changes when anything above changes: fetch again"),
+        "steps": serializers.ListField(
+            child=serializers.ChoiceField(choices=["passkey_required"]),
+            help_text="what the session does before the rest of the staff API opens: passkey_required (add a passkey "
+            "on the website's /account/security/; every other call answers 403 passkey_required meanwhile)",
+        ),
+        "offer_end_sessions": serializers.BooleanField(
+            help_text="true once after a second factor changed: offer to end the other sessions"
+        ),
     },
 )
 
@@ -694,6 +707,14 @@ class JobViewSet(StaffView, mixins.ListModelMixin, mixins.RetrieveModelMixin, vi
     }
     throttle_scopes = {"create": "staff_export"}
 
+    def get_throttles(self):
+        """An export's limit for an export (staff_export), a bulk action's own for a bulk action (staff_bulk)."""
+        throttles = super().get_throttles()
+        data = getattr(self.request, "data", None)
+        if self.action == "create" and isinstance(data, dict) and data.get("kind") == Job.Kind.BULK_ACTION:
+            self.throttle_scope = "staff_bulk"
+        return throttles
+
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False) or isinstance(self.request.auth, ApiKey):
             return Job.objects.none()  # (an API key starts none)
@@ -910,6 +931,7 @@ def describe_setting(key):
         "changed_by": current.changed_by_id if current else None,
         "reason": current.reason if current else "",
         "scheduled": [{"value": row.value, "effective_from": row.effective_from} for row in upcoming],
+        "group": spec.group,
     }
 
 
@@ -986,7 +1008,8 @@ class SettingView(StaffView, generics.GenericAPIView):
 
 
 class FlagsView(StaffView, generics.GenericAPIView):
-    """Every feature flag that has a value, as it stands now."""
+    """Every feature flag that has a value, as it stands now; and the flags the code reads over an environment's value
+    (staff.config.KNOWN_FLAGS: the ERP switches), set or not, with that value and where the one in effect comes from."""
 
     permissions = {"GET": "staff.view_featureflag"}
     queryset = FeatureFlag.objects.none()
@@ -998,16 +1021,24 @@ class FlagsView(StaffView, generics.GenericAPIView):
         now, rows = timezone.now(), {}
         for row in FeatureFlag.objects.filter(effective_from__lte=now).order_by("key", "-effective_from", "-pk"):
             rows.setdefault(row.key, row)
-        flags = [
-            {
-                "key": key,
-                "value": row.value,
-                "effective_from": row.effective_from,
-                "changed_by": row.changed_by_id,
-                "reason": row.reason,
-            }
-            for key, row in sorted(rows.items())
-        ]
+        flags = []
+        for key in sorted({*rows, *KNOWN_FLAGS}):
+            row, spec = rows.get(key), KNOWN_FLAGS.get(key)
+            environment = bool(getattr(settings, key, False)) if spec else None
+            set_here = row is not None and (row.value is not None or spec is None)  # a known flag's null: the env's
+            flags.append(
+                {
+                    "key": key,
+                    "value": row.value if set_here else environment,
+                    "effective_from": row.effective_from if row else None,
+                    "changed_by": row.changed_by_id if row else None,
+                    "reason": row.reason if row else "",
+                    "label": spec.label if spec else "",
+                    "group": spec.group if spec else "flags",
+                    "environment": environment,
+                    "source": "database" if set_here else "environment",
+                }
+            )
         return Response(flags)
 
 
@@ -1036,6 +1067,11 @@ class FlagView(StaffView, generics.GenericAPIView):
         data = s.SwitchChangeSerializer(data=request.data)
         data.is_valid(raise_exception=True)
         value, before = data.validated_data["value"], feature_flags().get(key)
+        if key in KNOWN_FLAGS:  # a switch the code reads as one: true, false, or null (the environment's)
+            try:
+                KNOWN_FLAGS[key].check(value)
+            except ValueError as error:
+                raise serializers.ValidationError({"value": [str(error)]}) from error
         with transaction.atomic():
             row = FeatureFlag.objects.create(
                 key=key,
@@ -1054,6 +1090,38 @@ class FlagView(StaffView, generics.GenericAPIView):
             )
         changed(FeatureFlag)
         return Response(s.SwitchRowSerializer(row).data)
+
+
+class SettingHistoryView(StaffView, generics.GenericAPIView):
+    """A setting's history, newest first: every value it was given, from when, by whom and why (as GET settings/<key>/,
+    under its own name for the Settings page)."""
+
+    permissions = {"GET": "staff.view_sitesetting"}
+    queryset = SiteSetting.objects.none()
+    serializer_class = s.SwitchRowSerializer
+    pagination_class = None
+
+    @extend_schema(responses=s.SwitchRowSerializer(many=True))
+    def get(self, request, key, *args, **kwargs):
+        if key not in SETTINGS:
+            raise exceptions.NotFound("No such setting.")
+        return Response(s.SwitchRowSerializer(setting_rows(key), many=True).data)
+
+
+class FlagHistoryView(StaffView, generics.GenericAPIView):
+    """A flag's history, newest first (as GET flags/<KEY>/)."""
+
+    permissions = {"GET": "staff.view_featureflag"}
+    queryset = FeatureFlag.objects.none()
+    serializer_class = s.SwitchRowSerializer
+    pagination_class = None
+
+    @extend_schema(responses=s.SwitchRowSerializer(many=True))
+    def get(self, request, key, *args, **kwargs):
+        if not FLAG_KEY.fullmatch(key):
+            raise exceptions.NotFound("A flag's key: capitals, digits and _, e.g. ERP_SYNC_ORDERS.")
+        rows = FeatureFlag.objects.filter(key=key).order_by("-effective_from", "-pk")
+        return Response(s.SwitchRowSerializer(rows, many=True).data)
 
 
 # API keys
@@ -1137,11 +1205,24 @@ class PeopleViewSet(StaffView, mixins.ListModelMixin, mixins.RetrieveModelMixin,
         **dict.fromkeys(["end_sessions", "offboard"], "staff.assign_role"),
         "revoke_invite": "staff.assign_role",
         "reset_mfa": "staff.reset_user_mfa",
+        # Phase B: the role catalogue, the Access tab and a role change's preview, offboarding's checklist, the ERPNext
+        # role mirror (staff.view_staff to read; the owners tick), and every member of staff's own sessions
+        **dict.fromkeys(["role_catalogue", "access", "preview_role", "erp"], "staff.view_staff"),
+        "offboarding": "staff.view_staffoffboarding",
+        "tick_offboarding": "staff.assign_role",
+        **dict.fromkeys(["own_sessions", "end_own_session", "end_other_sessions"], ANY_STAFF),
     }
     throttle_scopes = dict.fromkeys(["invite", "grant_role", "offboard"], "staff_money")
 
     def get_queryset(self):
-        members = staff_members().prefetch_related("groups", "role_grants", "staff_scopes").order_by("pk")
+        # the staff, and the people who were (an offboarding's record keeps them in reach)
+        people = User.objects.filter(
+            Q(is_staff=True)
+            | Q(is_superuser=True)
+            | Q(groups__name__in=roles.STAFF_ROLES)
+            | Q(offboardings__isnull=False)
+        ).distinct()
+        members = people.prefetch_related("groups", "role_grants", "staff_scopes").order_by("pk")
         return scoped(members, self.request.user, "staff.view_staff")
 
     def target(self):
@@ -1280,6 +1361,7 @@ class PeopleViewSet(StaffView, mixins.ListModelMixin, mixins.RetrieveModelMixin,
                 "change_requests": serializers.IntegerField(),
                 "sessions": serializers.IntegerField(),
                 "tokens": serializers.IntegerField(),
+                "offboarding": serializers.IntegerField(help_text="its checklist: people/<id>/offboarding/"),
             },
         ),
     )
@@ -1290,6 +1372,96 @@ class PeopleViewSet(StaffView, mixins.ListModelMixin, mixins.RetrieveModelMixin,
         return Response(
             services.offboard(self.target(), by=self.human(), reason=data.validated_data["reason"], request=request)
         )
+
+    # Phase B: what a role and a person may do (research 1.8), offboarding's checklist, ERPNext's mirror, own sessions
+
+    @extend_schema(
+        parameters=[OpenApiParameter("language", str, enum=["en", "as", "bn"], description="the role cards' language")],
+        responses=s.RoleCatalogueSerializer(many=True),
+    )
+    @action(detail=False, url_path="roles", pagination_class=None, filter_backends=[])
+    def role_catalogue(self, request, *args, **kwargs):
+        """Every staff role: what it is for and what it can't do, its capabilities by area with their risk, its
+        limits, scopes and conflicts, its ERPNext role profiles, whether it needs a passkey, its members."""
+        language = request.query_params.get("language") or "en"
+        return Response(s.RoleCatalogueSerializer(services.role_catalogue(language), many=True).data)
+
+    @extend_schema(responses=s.AccessSerializer)
+    @action(detail=True)
+    def access(self, request, *args, **kwargs):
+        """The Access tab: roles with who gave them and until when, scopes, limits, every permission by area with the
+        last use of the high and critical ones, the open change requests about or by them, their second factors."""
+        return Response(s.AccessSerializer(services.access(self.get_object())).data)
+
+    @extend_schema(request=s.RolePreviewRequestSerializer, responses=s.RolePreviewSerializer)
+    @action(detail=True, methods=["post"], url_path="roles/preview")
+    def preview_role(self, request, *args, **kwargs):
+        """What giving or taking away a role would change (gains, losses, limits, scopes, conflicts, the approver),
+        before anything is asked: nothing changes."""
+        person, data = self.get_object(), s.RolePreviewRequestSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        preview = services.preview_role_change(person, **data.validated_data, actor=self.human())
+        return Response(s.RolePreviewSerializer(preview).data)
+
+    @extend_schema(responses=s.OffboardingSerializer)
+    @action(detail=True)
+    def offboarding(self, request, *args, **kwargs):
+        """Their latest offboarding's checklist: each step, done by the panel or ticked by an owner (who, when)."""
+        person = self.get_object()
+        offboarding = StaffOffboarding.objects.filter(user=person).prefetch_related("steps").first()
+        if offboarding is None:
+            raise exceptions.NotFound("Not offboarded.")
+        return Response(s.OffboardingSerializer(offboarding).data)
+
+    @extend_schema(request=s.OffboardingTickSerializer, responses=s.OffboardingSerializer)
+    @action(detail=True, methods=["post"], url_path="offboarding/tick")
+    def tick_offboarding(self, request, *args, **kwargs):
+        """An owner ticks a step done by hand (or not needed, or back to do), with a note: audited."""
+        person, data = self.get_object(), s.OffboardingTickSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        offboarding = StaffOffboarding.objects.filter(user=person).first()
+        if offboarding is None:
+            raise exceptions.NotFound("Not offboarded.")
+        values = data.validated_data
+        services.tick_offboarding(
+            offboarding, values["step"], values["state"], values["note"], by=self.human(), request=request
+        )
+        offboarding = StaffOffboarding.objects.prefetch_related("steps").get(pk=offboarding.pk)
+        return Response(s.OffboardingSerializer(offboarding).data)
+
+    @extend_schema(responses=s.ErpMirrorSerializer)
+    @action(detail=True)
+    def erp(self, request, *args, **kwargs):
+        """The ERPNext user they should have from their roles (applied by hand in ERPNext: role profiles, enabled)."""
+        return Response(s.ErpMirrorSerializer(services.erp_mirror(self.get_object())).data)
+
+    @extend_schema(responses=s.OwnSessionSerializer(many=True))
+    @action(detail=False, url_path="me/sessions", pagination_class=None, filter_backends=[])
+    def own_sessions(self, request, *args, **kwargs):
+        """Your own sessions (every member of staff's): browser and system, where from (the address's first octets),
+        since when, last seen, and which one is this."""
+        self.human()
+        return Response(s.OwnSessionSerializer(services.own_sessions(request), many=True).data)
+
+    @extend_schema(
+        request=None,
+        responses={204: None},
+        parameters=[OpenApiParameter("session", int, OpenApiParameter.PATH)],
+    )
+    @action(detail=False, methods=["post"], url_path=r"me/sessions/(?P<session>\d+)/end")
+    def end_own_session(self, request, session=None, *args, **kwargs):
+        """End one of your other sessions (this one: sign out instead)."""
+        self.human()
+        services.end_own_session(request, int(session))
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @extend_schema(request=None, responses=s.OwnSessionsEndedSerializer)
+    @action(detail=False, methods=["post"], url_path="me/sessions/end-others")
+    def end_other_sessions(self, request, *args, **kwargs):
+        """End every session of yours but this one, and the app's refresh tokens: "end all"."""
+        self.human()
+        sessions, tokens = services.end_other_sessions(request)
+        return Response({"sessions": sessions, "tokens": tokens})
 
 
 class AccessReviewView(StaffView, generics.GenericAPIView):
@@ -1850,8 +2022,11 @@ class ProcessorViewSet(StaffView, viewsets.ModelViewSet):
 SYSTEM = inline_serializer(
     "StaffSystem",
     {
-        name: serializers.JSONField()
-        for name in ["health", "celery", "webhooks", "email", "sms", "backups", "maintenance", "audit"]
+        **{
+            name: serializers.JSONField()
+            for name in ["health", "celery", "webhooks", "email", "sms", "backups", "maintenance", "audit"]
+        },
+        "status": s.SystemStatusSerializer(many=True, help_text="one line per subsystem (staff/system_api.py)"),
     },
 )
 
@@ -1924,36 +2099,39 @@ class SystemView(StaffView, generics.GenericAPIView):
         from ops.models import EmailSuppression, SmsLog
         from shop.models import WebhookEvent
 
+        from .system_api import mail_and_sms, system_status
+
         day, week = timezone.now() - timedelta(days=1), timezone.now() - timedelta(days=7)
         failures = InboxItem.objects.filter(kind=InboxItem.Kind.FAILED_WEBHOOK, created__gte=week)
         verified = AuditEvent.objects.filter(action__in=["audit.verified", "audit.chain_broken"]).order_by("-id")
         last = verified.values("action", "ts", "details").first()
-        return Response(
-            {
-                "health": health(),
-                "celery": queues(),
-                "webhooks": {
-                    "last_day": dict(
-                        WebhookEvent.objects.filter(received_at__gte=day).values_list("name").annotate(n=Count("pk"))
-                    ),
-                    "refused_7_days": sum(item.data.get("count", 1) for item in failures),
-                },
-                "email": {
-                    "suppressed": EmailSuppression.objects.count(),
-                    "suppressed_7_days": dict(
-                        EmailSuppression.objects.filter(created__gte=week).values_list("reason").annotate(n=Count("pk"))
-                    ),
-                },
-                "sms": {
-                    "last_day": dict(
-                        SmsLog.objects.filter(created__gte=day).values_list("status").annotate(n=Count("pk"))
-                    )
-                },
-                "backups": backups(),
-                "maintenance": {"on": site_setting("MAINTENANCE_MODE"), "banner": site_setting("MAINTENANCE_BANNER")},
-                "audit": {"last_verification": last, "heads": audit.heads()},
-            }
-        )
+        mail, texts = mail_and_sms()
+        answer = {
+            "health": health(),
+            "celery": queues(),
+            "webhooks": {
+                "last_day": dict(
+                    WebhookEvent.objects.filter(received_at__gte=day).values_list("name").annotate(n=Count("pk"))
+                ),
+                "refused_7_days": sum(item.data.get("count", 1) for item in failures),
+            },
+            "email": {
+                "suppressed": EmailSuppression.objects.count(),
+                "suppressed_7_days": dict(
+                    EmailSuppression.objects.filter(created__gte=week).values_list("reason").annotate(n=Count("pk"))
+                ),
+                **mail,  # Phase B: sent, delivered, bounced and complaints over 7 days, the rates
+            },
+            "sms": {
+                "last_day": dict(SmsLog.objects.filter(created__gte=day).values_list("status").annotate(n=Count("pk"))),
+                **texts,  # Phase B: by kind, the delivery reports and their reasons, OTP volumes, the cap's hits
+            },
+            "backups": backups(),
+            "maintenance": {"on": site_setting("MAINTENANCE_MODE"), "banner": site_setting("MAINTENANCE_BANNER")},
+            "audit": {"last_verification": last, "heads": audit.heads()},
+        }
+        answer["status"] = system_status(answer)
+        return Response(answer)
 
 
 class ReconcileView(StaffView, generics.GenericAPIView):

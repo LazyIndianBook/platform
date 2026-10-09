@@ -54,6 +54,48 @@ by itself rather than through Celery (the ERPNext outbox).
 (`staff/signals.py`), for the holders of `staff.view_system`; the ERPNext sync files its own dead letters instead
 (`erp/inbox.py`, for `erp.replay_sync`).
 
+## Precedence: the environment's keys, then the panel's
+
+Razorpay and MSG91 started with keys in `.env` (`RAZORPAY_*`, `MSG91_AUTHKEY`); the panel can now hold them
+(`services.panel_keys`, `PANEL_MANAGED`). The rule, read through the shared cache and forgotten at every change of an
+account (`models.forget_panel_keys`, at once and again after the commit):
+
+- **No account of the provider holds credentials**: the environment's keys apply, as before. The connections page
+  shows them as `source: environment`, their last four characters only.
+- **An account holds credentials and is enabled**: its keys apply, and Razorpay's webhook secrets are the account's
+  (the current one and, for 24 hours after a rotation, the previous one). `shop.models.razorpay_keys` and
+  `ops.sms.authkey` read them.
+- **Accounts hold credentials, none is enabled**: the provider is switched off (`{}`): no payment link, no SMS.
+
+So the first keys pasted in the panel must be of the mode the environment's run (Razorpay's `rzp_live_` or
+`rzp_test_` key; MSG91's is live),
+take over at once with the environment's webhook secret carried over, and nothing stops between the two
+(`connections.replace_credentials`). Shiprocket and ERPNext have only the panel's (`PANEL_ONLY`); SES, the buckets,
+Google and the error tracker stay in the environment, their cards read-only.
+
+## The connections page
+
+`connections.py` (the providers, the cards and the actions) and `api.py` (`/api/v1/staff/connections/`, API.md
+"Connections (staff)"), for OWNER and ADMIN (`staff.manage_connections`, high: re-authenticated, audited, the owners
+emailed) and read by FINANCE and AUDITOR (`integrations.view_integrationaccount`):
+
+- **A card per provider** (`connections.PROVIDERS`: its kind, the fields its keys need, its modes, its webhook's
+  authentication, whether it has a circuit): status (connected, degraded, expired, disabled, not configured), mode,
+  where the keys come from, each credential's last four characters with who set it and when, the rotation due, the
+  last test, the circuit, the calls of 24 hours and 7 days with their errors and p90, and what the provider adds
+  (Razorpay's webhook health, MSG91's SMS and delivery reports, SES's bounce and complaint rates against 5 % and 0.1 %,
+  the buckets, ERPNext's sync).
+- **Test**: one harmless authenticated read with the keys in force (`CONNECTION_TESTS`), kept on the account.
+- **Replace the keys**: the new ones tested first in the same request and kept only when the test passes; the audit
+  event holds their last four characters before and after, never the keys. **Mode**: test, live or off.
+  **Circuit**: held open or reset (Shiprocket and ERPNext, whose calls go through `client.py`).
+- **Webhooks**: our address, the authentication, the token's last four characters, the week's events by state and
+  `silent` (nothing for `INTEGRATION_WEBHOOK_SILENCE_HOURS` while the account is in use: `tasks.watch_webhooks` opens
+  `webhook_silent` for Razorpay); a new token shown once, the previous one valid 24 hours.
+- **Events, calls and dead letters**: listed, filtered and paged; an event or every failed one since a time processed
+  again (`staff.replay_webhook`); a dead letter replayed once or discarded with a reason (ERPNext's through its
+  outbox: `erp.replay_sync`).
+
 ## Adding a provider
 
 1. Name it: `integrations.models.PROVIDERS["delhivery"] = "Delhivery"` in the new app's `AppConfig.ready()` (the
@@ -76,13 +118,15 @@ by itself rather than through Celery (the ERPNext outbox).
   secrets' backup: a database backup without it cannot be read (RUNBOOK.md "Integration keys").
 - **Rotation of the keys.** Put a new key first (`INTEGRATION_KEYS=new,old`), restart, run
   `manage.py rotate_integration_keys`, then remove the old key and restart again.
-- **Credentials.** Admin → Integrations → Integration accounts: "Replace the credentials" takes the JSON, never shows
-  it again; then the action "Test the connection". "New webhook token" shows the new token once, on a page of its own,
-  to paste at the provider within 24 hours (the previous one works that long).
+- **Credentials.** The panel's Settings → Connections (above): Replace the keys (tested before they are kept),
+  Test, New token. The Django admin's actions stay for a break-glass session: Admin → Integrations → Integration
+  accounts: "Replace the credentials" takes the JSON, never shows it again; then the action "Test the connection".
+  "New webhook token" shows the new token once, on a page of its own, to paste at the provider within 24 hours (the
+  previous one works that long).
 - **Health.** `/health/integrations/` (a second uptime monitor, apart from `/health/`) fails while an enabled account
   has been unavailable for 30 minutes, or dead letters or failed inbound events wait.
-- **Dead letters and failed events.** Admin → Integrations: "Replay" (once) or "Discard" with a reason; an inbound
-  event "Process again".
+- **Dead letters and failed events.** The connection's page in the panel (Replay, Discard with a reason, Process
+  again, or every failed event since a time); the same in Admin → Integrations.
 - **Retention.** `integrations.tasks.purge_old_records` at 04:45 deletes the call log, the inbound events and the
   dead letters dealt with older than `INTEGRATIONS_RETENTION_DAYS` (90); `manage.py integrations_retention` does it
   by hand.
