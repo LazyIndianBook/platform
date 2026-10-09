@@ -114,8 +114,8 @@ effective dates, settlements and accounting exports, DPDP requests, staff manage
 | Catalogue: products and bundles, their HSN/SAC and tax treatment, storefront presentation (slug, cover, description, SEO) | platform | ERPNext Item, Product Bundle and Item Tax Template link | outbox events, idempotent by `examleaf_ref` |
 | Physical stock: receipts from printers, counts, transfers, returns, damaged stock; one Batch per print run | ERPNext | the platform's `available` stock as a projection (ERPNext bin quantity less copies reserved and not yet shipped) | ERPNext webhook as a doorbell on Purchase Receipt, Stock Entry and Stock Reconciliation, then the platform pulls the bin; a pull every 15 minutes; the stock invariant checked nightly |
 | Checkout reservation while a payment is in flight | platform | not synced (released or sold within minutes) | existing `select_for_update` reservation |
-| Storefront orders, payments, refunds, shipments (courier booking, tracking, NDR, RTO, COD remittance) | platform (the storefront's state machine; the `shipping` app drives the couriers) | ERPNext Payment Entry (with the Razorpay payment id), a Delivery Note against the invoice when the parcel leaves (stock out of the print-run batch), Razorpay settlements and COD remittances as Journal Entries | outbox events, idempotent by `examleaf_ref`; test-mode orders never sync |
-| Storefront invoice and credit-note numbers and PDFs (`EL/…`, `CN/…`, and one series per document type from section 7) | platform (the legal document, issued at payment or dispatch as today) | ERPNext mirrors each document with the same name, created by `examleaf_erp`'s idempotent methods with `set_name`; Print Heading "Bill of Supply" when every line is exempt; credit notes as return Sales Invoices | outbox events |
+| Storefront orders, payments, refunds, shipments (courier booking, tracking, NDR, RTO, COD remittance) | platform (the storefront's state machine; the `shipping` app drives the couriers) | ERPNext Payment Entry (with the Razorpay payment id; for COD, on delivery), a Delivery Note against the invoice when the parcel leaves (stock out of the print-run batch), Razorpay settlements and COD remittances as Journal Entries | outbox events, idempotent by `examleaf_ref`; test-mode orders never sync |
+| Storefront invoice and credit-note numbers and PDFs (`EL/…` and `CN/…` today; one series per document type from 1 April 2027, section 10) | platform (the legal document, issued at payment or dispatch as today) | ERPNext mirrors each document with the same name, created by `examleaf_erp`'s idempotent methods with `set_name`; Print Heading "Bill of Supply" when every line is exempt; credit notes as return Sales Invoices | outbox events |
 | GST returns (GSTR-1, GSTR-3B, 2B and IMS), e-invoice IRN for B2B above ₹5 crore, e-way bills | ERPNext (India Compliance) after the cut-over | the platform's `export_gstr1` stays as the cross-check for the first quarter (section 10) | none |
 | B2B quotations, orders, invoices, credit, statements, dunning, price lists and credit limits | ERPNext (Quotation → Sales Order → Delivery Note → Sales Invoice) | the platform's quote form files the request; the platform shows status where the website needs it, and keeps a read-only copy of the price lists the parent-pays channel applies | outbox event at submit; ERPNext webhook as a doorbell, then a pull |
 | Schools, distributors, booksellers, territories, adoptions, agreements, specimen requests | ERPNext (Customer groups and the custom DocTypes) | the platform's teacher and school pages read what they need | doorbell and pull, cached |
@@ -146,7 +146,7 @@ ERPNext v16 and its apps run from one custom image built with `frappe_docker` v4
 passed as a BuildKit secret, since the old base64 build-arg is gone: erpnext, india_compliance, offsite_backups and
 the private `examleaf_erp`, plus any optional app section 10 adopts: hrms, insights, helpdesk, crm). LMS,
 Education, Webshop, Payments, Print Designer, Drive and Books are not installed: they duplicate the course or the
-shop, keep Razorpay out of the platform, are not offered for v16, or are archived (`research-erpnext.md` 4.2). The
+shop, would take Razorpay out of the platform, are not offered for v16, or are archived (`research-erpnext.md` 4.2). The
 image is deployed by the official `frappe/helm` chart (8.0.84) with its gunicorn, three worker queues, scheduler,
 socketio and two Valkey instances, on the same Kubernetes cluster as the platform. Upstream's `latest` tag is
 `develop`, so every tag is pinned.
@@ -214,7 +214,7 @@ The ERPNext chart is current but thin (`research-erpnext.md` 3.1), so the umbrel
 
 | Gap in the chart | What we do |
 |---|---|
-| Every component has `resources: {}` | requests and limits per component from the research's sizing (gunicorn 0.5 vCPU / 1 GiB → 2 GiB; workers 256–512 MiB; MariaDB 1 vCPU / 3–4 GiB) |
+| Every component has `resources: {}` | requests and limits per component from the research's sizing (gunicorn 0.5 vCPU / 1 GiB → 2 GiB; workers 256 MiB → 512 MiB, the long queue 512 MiB → 1.5 GiB; MariaDB 1 vCPU / 3–4 GiB) |
 | Probes only check open ports; workers and the scheduler only wait for the database and Valkey | HTTP probes on `/api/method/ping` for gunicorn and nginx; workers and the scheduler keep the chart's checks; liveness never tests the database |
 | The backup Job writes only to the sites volume (the offsite push was removed in 2023), and there is no CronJob | our CronJob every 6 hours runs `bench --site all backup --with-files` and copies the files to R2; `site_config.json`, which holds the key that decrypts every stored password, is kept separately as a secret |
 | Nothing runs `bench migrate` on `helm upgrade` | the chart's `migrate` Job (maintenance mode on, migrate, off) then `clearCache`, run as a pre-sync hook or a CI step on every upgrade, after a backup |
@@ -300,7 +300,7 @@ engines), errors (Sentry or GlitchTip, section 10), the status page. The panel s
 | FINANCE | the accountant | payments, settlements, refunds (approve), invoices and credit notes, GST and tax masters, expenses, exports, read-only orders and customers |
 | SALES | sales and school orders | storefront orders (phone and school orders, edit, cancel, payment links, request refunds), quotes, coupons and offers (drafts), prices and stock levels, customers; B2B quotations, orders, leads and adoptions in ERPNext; packing and shipping belong to PACKER and refund approval to FINANCE |
 | PACKER | the packing room | the packing queue: pick, pack, print slips and labels, hand over to the courier; scan codes; nothing else |
-| SUPPORT | support agents | tickets, customers (view, verify, unlock, resend emails, reset 2FA with approval), orders (view, request a refund), entitlements (open a course), data requests (queue), impersonate with a reason |
+| SUPPORT | support agents | tickets, customers (view, verify, unlock, resend emails, reset 2FA with approval), orders (view, request a refund), entitlements (open a course), data requests (queue), "view as" a customer with a reason (section 3.5) |
 | CONTENT_EDITOR | authors and editors | books, papers, questions, solutions, errata, legal pages (draft), course content (draft); scoped by subject |
 | REVIEWER | senior editors | publish and roll back content, approve edits, resolve error reports; scoped by subject |
 | MARKETING | marketing | campaigns, coupons (draft), reviews moderation, banners, SEO fields, analytics |
@@ -334,26 +334,58 @@ capability).
 ## 5. Modules (the inventory)
 
 Each module lists what the panel does. "Exists" marks what the backend already has and the panel surfaces;
-"adds" marks new logic (models, services, jobs). Priorities: **must** (Phase A/B), **should** (Phase C/D), **later**
-(Phase E or when the business needs it). The research reports give the competitor references behind each line.
+"adds" marks new logic (models, services, jobs). Priorities: **must** (Phases A to C: in the module's first release,
+or a legal duty by its date, section 9), **should** (Phases C and D), **later** (Phase E or when the business needs
+it). The research reports give the competitor references behind each line.
 
-One subsection per module of section 8. Each starts with the system that owns it and the roles that use it, then
-a table of every capability the research marks must or should, and the notable later ones. The second column says
+One subsection per module of section 8, after 5.0, which holds the rules that apply across all of them. Each starts
+with the system that owns it and the roles that use it, then a table of every capability the research marks must or
+should, and the notable later ones. The second column says
 where the capability comes from: **exists** is backend behaviour the panel only has to surface (from `inventory.md`);
 **adds** names the new model, service or job (section 7 has the fields); **ERPNext** names the doctype or feature
 that does it, opened from the panel. References are to the research files by short name and section: `inv`
 inventory.md, `lms` research-lms-crm-cms.md, `rbac` research-rbac-security.md, `gst` research-commerce-gst.md,
 `b2b` research-b2b-predictive.md, `int` research-integrations.md, `erp` research-erpnext.md. Where two reports give
-one item different priorities, the table takes the higher one and the report's own wording follows in brackets.
+one item different priorities, the table takes the higher one and gives the other report's in parentheses.
 
 For the modules ERPNext owns, "must" means configured in ERPNext and used from the day ERPNext becomes the record
 for that flow (the cut-over in Phase C, section 9); until then the platform's existing behaviour carries on (stock as
 a number on the product, `reconcile_payments`, the GSTR-1 export, quotations by PDF).
 
-Every list in every module follows section 3.6 (server-rendered, cursor pagination, filters in the URL, saved views,
-column chooser, bulk actions as background jobs, export of what is shown, `j`/`k`/`enter`/`/`), and every record
-has the header, timeline and danger section described there; the "Easy and smooth" notes say only what a module
-needs beyond that.
+### 5.0 Across every module
+
+**Owner:** the panel's shell and its shared components. **Used by:** every staff member. Every list follows section
+3.6 and every record has the header, timeline and danger section described there; this table holds the rules that
+apply everywhere, and each module's "Easy and smooth" notes say only what it needs beyond them.
+
+| Capability | Exists / adds / ERPNext | Priority | Reference |
+|---|---|---|---|
+| The panel is the front door for every module; the Django admin stays only on the admin host, for superusers, until each module's screen replaces it (the research recommends keeping record editing in the Django admin and building custom screens for workflows; the decision that the panel is the single front door overrides that, section 1) | exists: the themed Django admin; adds: the panel | must (as a decision) | lms 6.1; rbac 2.4 |
+| Navigation and buttons show only what the person may do, from the manifest, with a tooltip on a disabled action ("Needs: Refund approver"); the API checks again on every call | adds | must | lms 6.6; rbac 1.7 |
+| A record's actions come from its state machine's available transitions, so a button shows only when the move is possible | exists: django-fsm-2 on Order, Payment and Clip, with its admin integration unused | must | inv 3.8, 11.4 |
+| `⌘K` on every page: order numbers, email, the last digits of a phone, book codes, ISBNs, paper codes (PHY-E01), settings; every lookup of a person in the access log | adds | must | lms 6.2 |
+| Searches and filters in the URL, so they can be bookmarked and sent | adds | must | lms 6.2 |
+| Saved views per role as tabs, personal views later | adds: `staff.SavedView` | must | lms 6.2 |
+| Paste an id to open it; `field:value` search with negation and plain dates ("last week") | adds | should | lms 6.2 |
+| Filters with AND and OR, a column chooser, sort and group; peek with Space; recent and pinned pages | adds | should | lms 6.2 |
+| Index tables done right: row checkboxes, a whole-row click target, actions on hover, columns that stack on narrow screens, a toast after each action; Create, Export and Import on the page | adds | must | lms 6.3 |
+| Empty states that say what to do, with separate text for "nothing yet", "the filter matched nothing" and "not set up" | adds | must | lms 6.6 |
+| Undo instead of "are you sure?" for frequent, reversible actions (5 seconds) | adds | must | lms 6.3 |
+| The guard fits the damage: undo for the reversible, a confirm dialog for the irreversible, a typed confirmation for the wide or destructive (voiding a code batch, erasing a customer, deleting an edition, a refund above a set amount) | adds | must | lms 6.4 |
+| Soft delete with a 30-day bin wherever deletion is allowed | adds | must | lms 6.4 |
+| Who changed what and when on every record, with revert where it is safe | exists: simple_history on content, orders, payments, notes and reviews; adds: the missing histories (section 7) | must | lms 6.4; inv 3.9 |
+| A contextual save bar on forms with Save and Discard and a warning before leaving; autosave only for long text | adds | must (save bar); should (autosave) | lms 6.3 |
+| Form and message rules: sections past five inputs, one page per object, no large forms in modals, errors under the field after it loses focus, error toasts that stay, success toasts of three words or fewer | adds | must | lms 6.3 |
+| Progress that can be trusted (a percentage past about 10 seconds); long jobs in the background, reported in the inbox | adds: `staff.Job` | must | lms 6.3 |
+| Export what is shown (the current filter and sort, disabled when the list is empty), as its own permission, generated in the background behind a link valid 24 hours, watermarked with who and when, capped in rows, an approval above the cap | exists: logged exports; adds | must | lms 6.3; rbac 5 |
+| Keyboard selection and a bulk bar (`j` and `k`, `x`, Shift with the arrows, select all); shortcuts listed on "?", two-key "go to" sequences, single-letter shortcuts that can be switched off | adds | should | lms 6.3 |
+| Record locking with take-over after 300 seconds idle | adds | should | lms 6.4 |
+| WCAG 2.2 AA, with the rules a panel breaks most: contrast 4.5:1, focus not hidden under the sticky save bar, a click path for every drag, targets of at least 24 × 24 px, no asking twice, no puzzle at sign-in | adds | must | lms 6.7 |
+| Speed budget: INP of 200 ms or less at the 75th percentile, LCP 2.5 s, CLS 0.1; no slow total counts; virtual lists only where a list really holds thousands of rows | adds | must | lms 6.7 |
+| Phones: one column, large targets, no sideways scrolling | adds | must | lms 6.7 |
+| Help in the same place on every page, labels with units and context, no modals that open by themselves, red only for errors and destructive actions | adds | should | lms 6.6 |
+| Dark mode following the system setting | adds | should | lms 6.7 |
+| The staff interface in Assamese, Bengali and English: Django ships Bengali about 78% translated and no Assamese, so ExamLeaf writes and owns an `as` catalogue; the site's Hind Siliguri subsets carry ৰ and ৱ, with Noto Bengali as the fallback; each person's language saved | adds | should | lms 1.12, 6.7, 7 |
 
 ### 5.1 Home
 
@@ -434,7 +466,7 @@ receives the mirrored documents; B2B orders for schools and distributors are ERP
 | Pre-orders for the next edition or a reprint (no stock taken, notified on arrival); a course pre-sale is taxed on the advance (section 5.9) | adds | should | gst 1, 5.7 |
 | School and gift bulk orders on the storefront (many copies to one address, split by class, codes per student) | ERPNext for schools that order through Sales; the platform issues the codes | should | gst 1 |
 | Order export with the GST fields | exists: `shop.export_order`, logged | must | gst 1; inv 1.2 |
-| Packing queue with a pick list grouped by book and a packing slip (title, ISBN, quantity, school or class) | adds: print templates beside the existing invoice PDF (A4 invoice, packing slip, pick list; the 4×6 inch label comes from the carrier) | must | gst 1; lms 6.8 |
+| Packing queue with a pick list grouped by book and a packing slip (title, ISBN, quantity, school or class) | adds: print templates beside the existing invoice PDF (A4 invoice, packing slip, pick list, and a 4×6 inch label for parcels sent by hand; Shiprocket's labels come from the carrier) | must | gst 1; lms 6.8 |
 | Packer mode on a phone: one column, large targets, the scanner first, no sideways scrolling | adds | must | lms 6.7 |
 | Scan to pack: the order's QR code on the slip, then each book's ISBN barcode (EAN-13); a wrong or extra book shows an error; then mark packed | adds: `BarcodeDetector` on Android Chrome, a JavaScript decoder on iPhones, or a USB or Bluetooth scanner that types | should | lms 6.8 |
 | Abandoned-checkout reminders, only for adult accounts with marketing consent | adds | later (gst 1 says should; lms 3.5 records the decision against it because buyers may be minors) | lms 3.5; gst 1 |
@@ -498,6 +530,7 @@ price changes).
 | Weight and dimensions for every physical product (a flyer by default), which the courier quote needs | exists: `weight` (defaults to 0); adds: required non-zero weight, dimensions | must | int 3.4 |
 | Dark-pattern guardrails in the tools: "only N left" only from real stock, a countdown only with a real end date, no pre-ticked add-ons, every fee shown before checkout, no guilt-trip copy | adds: validation in offers and banners | must | lms 0; gst 6 |
 | History on coupons, offers and shipping rates | adds: simple_history (missing today) | must | inv 3.9, 11.3 |
+| No price manipulation for unreasonable profit and no discrimination between consumers of the same class: different prices only through published channels (the school, distributor and teacher price lists) | a rule for prices, coupons and offers | must | gst 6 (Rule 4(11)) |
 | Import and export of products with a preview and a confirm step | exists: django-import-export (ADMIN only) | must | lms 6.3; inv 1.2 |
 | Sync to ERPNext: item code, HSN, Item Tax Template, Product Bundle, idempotent by `examleaf_ref` | ERPNext: Item, Product Bundle, Item Tax Template | must | erp 5.8 |
 | B2B price lists and trade discounts (distributor, school and teacher tiers, quantity slabs, validity) | ERPNext: Price List, Pricing Rule, Promotional Scheme | must | b2b 1.2; erp 4.3; lms 3.7 |
@@ -536,7 +569,7 @@ counts), FINANCE (valuation), ADMIN; ERPNext's Stock User and Stock Manager.
 | Reorder points tuned to the exam season, and weeks-of-cover alerts | exists: `low_stock_report` at 08:00, `SHOP_LOW_STOCK`; ERPNext: reorder levels; adds: alerts from the forecast (section 5.16) | should | gst 2; b2b 4.2 |
 | Inventory states: available, committed, unavailable, incoming | ERPNext: Stock Reservation, Purchase Order; the projection | should | gst 2 |
 | Stock held by distributors on sale or return | ERPNext: one warehouse per distributor | should | b2b 1.2 |
-| Specimen copies and legal-deposit copies issued as free-sample movements on a delivery challan | ERPNext: Delivery Note or Stock Entry from a Specimen Request, with the challan print format | should (b2b 2.2 makes specimens must, section 5.12) | gst 2, 5.6, 6 |
+| Specimen copies and legal-deposit copies issued as free-sample movements on a delivery challan | ERPNext: Delivery Note or Stock Entry from a Specimen Request, with the challan print format | must (gst 2 says should for specimens; legal deposit is must in gst 6) | gst 2, 5.6, 6; b2b 2.2 |
 | Stock by location (at the printer, a school depot, in transit) | ERPNext: warehouses | later | gst 2 |
 | No Serial Nos for book codes (each copy would carry a serial bundle on every stock line) | a rule | must (as a decision) | erp 4.3 |
 
@@ -564,7 +597,7 @@ FINANCE (COD and costs).
 | Customer messages per event by email, SMS (DLT template) and opted-in WhatsApp, linking to our own tracking page; COD "keep ₹X ready" on out-for-delivery; no marketing; nothing between 21:00 and 08:00 | exists: the tracking page; adds | must | int 3.7 |
 | Failed deliveries (NDR): an inbox item with the reason, the attempts and a 24-hour deadline; the customer's link to pick a date, fix the phone or address, or cancel; staff call (outcome logged), re-attempt, dispute a fake attempt with proof, or return | adds | must (gst 1 says should) | int 3.8; gst 1 |
 | RTO: "returning" warns; "returned" means scan the parcel back in, judge it sellable or damaged, restock through the stock movement, refund a prepaid order or reship it, record the cost (forward freight, RTO freight, the COD charge reversed) | adds; ERPNext: the return into the sellable or damaged warehouse | must (with COD) | int 3.9; gst 1 |
-| COD remittance: an expected row on delivery (the order total, delivered plus 10 working days, or D+2 to D+4 with Early COD less its fee), checked daily against `remittance_status`, overdue by 2 working days or a different amount to the inbox; the bank credit matched by UTR | adds: `shipping.CodRemittance`; ERPNext: the remittance as a Payment Entry or Journal Entry | must (with COD) | int 3.9; gst 1, 4 |
+| COD remittance: an expected row on delivery (the order total, delivered plus 10 working days, or D+2 to D+4 with Early COD less its fee), checked daily against `remittance_status`, overdue by 2 working days or a different amount to the inbox; the bank credit matched by UTR | adds: `shipping.CodRemittance`; ERPNext: a Payment Entry into COD in transit on delivery, and the remittance as a Journal Entry to the bank net of the courier's deductions | must (with COD) | int 3.9; gst 1, 4 |
 | Serviceability survey before launch: every PIN of the North-East districts asked once, a table of PINs with no COD courier and with no courier at all (those go by India Post) | exists: `PinCode` with districts; adds: a job and the table | must | int 2.4 |
 | Reliability: retries with backoff and jitter, errors returned with a 200 treated as failures, a circuit breaker per account, a dead-letter list with Replay and Discard, timeouts (5 s connect, 20 s read, 3 s for the live quote with the last good answer cached 10 minutes) | adds: the `integrations` app (section 5.18) | must | int 3.1, 3.10 |
 | Test mode: a fake carrier answering from recorded fixtures for CI and staging (Shiprocket has no sandbox), and a live smoke test that books a prepaid parcel to our own address, fetches the label, cancels before pickup and checks the reversal; test orders never reach a courier | adds | must | int 0, 3.10 |
@@ -600,7 +633,7 @@ can accept a dispute but not refund.
 | Invoices and credit notes: PDF, resend, regenerate, the series and number, the ERPNext mirror's state | exists: `Invoice`, `CreditNote`, `pdf_view`, `generate_invoice`, `generate_credit_note`; ERPNext: Sales Invoice and its return under the same name | must | inv 2.3, 4.3; erp 5.6 |
 | Razorpay settlement reconciliation: the recon API's payments, refunds and adjustments with fee, tax, settlement id and UTR, matched to orders; unmatched items to the inbox; the settlement posted as a Journal Entry (Razorpay Clearing to the bank, fees as an expense, the GST on fees as common input credit) | adds: the settlement fetch in `integrations`; ERPNext: Journal Entry through the outbox | must | gst 4; int 4.1; erp 4.3, 5.8 |
 | Gateway fee accounting: 2% plus 18% GST on the fee | ERPNext: the settlement entry | must | gst 4 |
-| COD remittance reconciliation: courier statement against AWBs, freight and COD-fee deductions, open COD receivable | adds: `shipping.CodRemittance`; ERPNext: Payment Entry | must (with COD) | gst 4; int 3.9 |
+| COD remittance reconciliation: courier statement against AWBs, freight and COD-fee deductions, open COD receivable | adds: `shipping.CodRemittance`; ERPNext: a Payment Entry on delivery, the remittance as a Journal Entry | must (with COD) | gst 4; int 3.9 |
 | Payment links: create, resend, cancel; for B2B invoices too, created by the platform because Razorpay stays there | exists: `send_payment_link`; adds: links for ERPNext invoices | must | int 4.1; erp 4.2 |
 | Chart of accounts for a publisher: book sales (exempt) and course sales (18%), output and input CGST, SGST and IGST, ITC reversal, RCM payable, TDS payable, inventory of books and of paper at the printer, deferred course revenue, Razorpay clearing, COD in transit, courier payable | ERPNext: the India standard chart plus fixtures for the extra accounts | must | gst 4; erp 4.3 |
 | Purchase and expense bills with the GST split, a Rule 42 tag per line (non-business, exempt only, blocked, taxable only, common), a reverse-charge flag and the bill attached | ERPNext: Purchase Invoice with India Compliance; the Rule 42 tag as a custom field if India Compliance has none (to be checked) | must | gst 4, 5.13 |
@@ -617,7 +650,7 @@ can accept a dispute but not refund.
 | TDS on vendor payments (printers, authors, professionals, rent), rates and thresholds configurable since s.393 of the Income-tax Act 2025 replaced the 194 series | ERPNext: Tax Withholding Category | should | gst 4, 6; erp 4.1 |
 | Expense categories with receipts | ERPNext: Purchase Invoice or Journal Entry (Expense Claim if Frappe HR is installed) | should | gst 4 |
 | Fixed assets and depreciation | ERPNext: Asset | later | gst 4 |
-| A Tally or Zoho export for the accountant | none while ERPNext keeps the books; a Tally XML export only if the CA must keep Tally (section 10) | later | int 4.5; gst 4 |
+| A Tally or Zoho export for the accountant | none while ERPNext keeps the books; a Tally XML export only if the CA must keep Tally (section 10) | must only if the CA keeps Tally; otherwise not built | int 4.5; gst 4 |
 
 **Easy and smooth:** Finance in the panel is a page of what needs FINANCE today (refunds to approve, unmatched
 settlement items, COD overdue, disputes by deadline, sync differences) with links into ERPNext for the ledgers; an
@@ -636,7 +669,7 @@ FINANCE, OWNER; AUDITOR reads; the CA through ERPNext's Auditor role.
 | HSN and SAC master: code, description, taxability (taxable, nil, exempt, non-GST) and rate history (effective from and to, notification and serial number); products point to it and the rate is looked up by date, not typed | exists: `hsn_code` free text and `gst_rate` per product, copied onto each order line; adds: `shop.HsnCode` and `shop.HsnRate`; ERPNext: GST HSN Code and Item Tax Templates | must | gst 5.15, 2; erp 4.1 |
 | The rates that apply seeded with their sources: printed books 4901, 4903 and maps 4905 exempt; notebooks 4820 exempt from 22 Sep 2025; e-books 5%; the revision course 18% (SAC 999293); job-work printing 5%; paper and board 18%; courier and gateway fees 18% | adds: fixtures | must | gst 0.1, 5.1 |
 | Document type by content: tax invoice, bill of supply, or one invoice-cum-bill of supply (Rule 46A) for a mixed cart to an unregistered buyer; registered buyers buy through Sales in ERPNext, where a mixed sale becomes two documents | exists: "Tax invoice" whenever a line is taxed (`shop/invoices.py`); adds: the Rule 46A title and the rule; ERPNext: the `examleaf_erp` split | must | gst 0.3, 5.3 |
-| Mandatory fields (Rule 46): recipient details for an unregistered buyer at ₹50,000 or on request, HSN digits by turnover (4 up to ₹5 crore), place of supply with the state, reverse charge yes or no | exists mostly; adds: the checks | must | gst 5.3 |
+| Mandatory fields (Rule 46): recipient details for an unregistered buyer at ₹50,000 or on request, HSN digits by turnover (4 up to ₹5 crore), place of supply with the state, reverse charge yes or no; goods invoices in triplicate (original for the recipient, duplicate for the transporter, triplicate for the supplier) | exists mostly; adds: the checks and the copy marks | must | gst 5.3 |
 | One series per document type (tax invoice, bill of supply, invoice-cum-bill of supply, credit note, debit note, receipt and refund vouchers), each at most 16 characters, gapless under concurrent requests, rolled over on 1 April, never reused; a cancelled document keeps its number; the test series excluded; the Table 13 register (from, to, total, cancelled per series) | exists: one `EL` series for invoices and bills of supply, `CN` for credit notes, `T` and `TC` for tests, 16 characters; adds: `shop.DocumentSeries` and the register | must | gst 5.4; erp 8 |
 | Billing state captured at checkout, so a course-only order has a place of supply (the address on record, else Assam) | adds: `Order.billing_state` | must | gst 0.4, 5.5 |
 | Shipping follows the goods it carries: shipping on books is exempt like them, and a course has nothing to ship (today `export_gstr1.top_rate` taxes shipping at the cart's highest rate); a COD fee treated like shipping (to be verified) | adds: the allocation | must | gst 5.2 |
@@ -696,7 +729,7 @@ SUPPORT (reads error reports), MARKETING (banners, SEO), ADMIN.
 | SEO fields with a preview; a "hide from search" switch feeding the robots tag and the sitemap | exists: `robots.ts` and `sitemap.ts` in code; adds | should | lms 2.7 |
 | Banners with start and end dates, the end date required so "sale ends Sunday" cannot outlive Sunday | adds: `pages.Banner` | should | lms 2.8, 0 |
 | Media library with tags, a focal point, "used in" and replace everywhere | exists: product pictures (AVIF, WebP); adds | should | lms 2.8, 1.1 |
-| Visual maths input, OCR of scanned back-catalogue papers, A/B tests of copy (adult-facing pages only) | adds | later | lms 2.1, 2.8 |
+| Visual maths input, OCR of scanned back-catalogue papers, A/B tests of copy (adult-facing pages only); registration with the Press Registrar General only if ExamLeaf starts a periodical (books are outside that Act) | adds | later | lms 2.1, 2.8; gst 6 |
 
 **Easy and smooth:** source on the left and the rendered solution on the right, refreshed as the editor types;
 reviewers work from one queue of "waiting for me" with the diff open; reporting a mistake from the public page takes
@@ -744,7 +777,7 @@ school orders), ADMIN.
 | One card scheduler set by staff and explained to students, every interval capped at the days left to the exam; card health per chapter as totals | exists: "I knew it" reviews, wrong answers back after 1, 3 and 7 days; adds | should | lms 1.6 |
 | Expiry reminders, a service message about something the student bought | adds | should | lms 1.7 |
 | Announcements with a display window, and a one-off service push to the entitled learners of a subject with a count before sending (no marketing in push) | exists: the daily FCM reminder; adds | should | lms 1.11 |
-| Unlock rules, drip schedules, timed chapter tests, certificates, leaderboards, a doubt queue, live classes, DRM, offline download, a course copy with a locked master | adds | later | lms 1.1 to 1.11 |
+| Unlock rules, drip schedules, timed chapter tests, certificates, leaderboards, a doubt queue, live classes, DRM, offline download, a course copy with a locked master; a weekly parent digest the parent opts into, reusing the consent link | adds | later | lms 1.1 to 1.11 |
 
 **Easy and smooth:** the outline is one tree page with the actions on each row and a keyboard path for every drag;
 a clip's failure reason is written in words with Retry beside it; the code lookup accepts a typed or scanned code
@@ -782,7 +815,7 @@ ADMIN.
 | **Schools:** account with UDISE code, board, management, medium, streams, classes, enrolment per class, district and PIN, GSTIN (usually none), contacts with roles; the platform's quote form linked to it | ERPNext: Customer (group School) with custom fields; the platform's `QuoteRequest` becomes an ERPNext Lead or Quotation draft | must | b2b 2.2 |
 | Adoption pipeline: lead → sample sent → evaluating → recommended or prescribed → ordered → delivered → paid, with expected copies, who decided and when, and the lost reason | ERPNext: School Adoption | must | b2b 2.2; lms 3.2 |
 | Specimen and inspection copies: one per subject taught per season, sent on a delivery challan, with a follow-up date that feeds the pipeline; requested by verified teachers on the site | ERPNext: Specimen Request → Delivery Note; the platform's request form posts it through the outbox | must | b2b 2.2, 3.2 |
-| School orders with lines per class, PO, delivery to the school, a bill of supply, payment by NEFT, UPI or cheque, a virtual account or instalments; an annual commitment as a blanket order | ERPNext: Quotation → Sales Order → Delivery Note → Sales Invoice, Blanket Order | must | b2b 2.2; erp 4.3 |
+| School orders with lines per class, PO, delivery to the school, a bill of supply, payment by NEFT, UPI or cheque, a virtual account or instalments; an annual commitment as a blanket order; billed to a trust and shipped to the school where that is how the school buys (the place of supply to be verified) | ERPNext: Quotation → Sales Order → Delivery Note → Sales Invoice, Blanket Order, billing and shipping addresses | must | b2b 2.2; erp 4.3; gst 3 |
 | Parent-pays channel: a school's link or code applies the school's price in the shop, delivered home or to the school; the school sees counts per class, never names (schools must not coerce parents to buy from one vendor) | adds: `partners.SchoolCode` and a read-only copy of the school's price list | must | b2b 2.1, 2.2 |
 | Renewals: at the start of each year last year's adoptions become "renewal due" with the new edition, an owner and a date | ERPNext: an `examleaf_erp` job on School Adoption | must | b2b 2.2 |
 | Visits and follow-ups (call, visit, demo, webinar, email; outcome; next date); tasks with reminders and a daily digest | ERPNext: Event, ToDo and assignment on the Customer or Lead | must (visits); should (tasks) | b2b 2.2; lms 3.2 |
@@ -802,6 +835,7 @@ ADMIN.
 | Ambassadors without cash: hand-picked verified teachers per district; benefits are new editions, early access, review panels, errata credit, webinar slots, a certificate; referral codes give the student a discount; no commission to a teacher on their own pupils' purchases | exists: `Coupon`; adds: an owner teacher on a coupon | should | b2b 3.2; lms 3.5 |
 | Teacher activation report (requests, verified, time to verify, expired; verified teachers per school; consented links) | adds | should | b2b 5 |
 | Teacher community and teacher-written content | adds | later | b2b 3.2 |
+| A teacher view built from book codes: a class set's codes linked to a class, chapter-level aggregates with the parental-consent rules applied (the printed book as the seat) | adds | later | lms 7 |
 
 **Easy and smooth:** the panel's Partners page is a season board (specimens due, adoptions by stage, renewals due,
 collections overdue, sale-or-return lines near six months) built from ERPNext's API, with every row opening its
@@ -823,7 +857,7 @@ discount threshold.
 | One message-template registry: per message (event, channel, language) the DLT template id, PE id, the header with its -P, -S, -T or -G suffix, the MSG91 id, the WhatsApp template name, the category and approval state, typed variables (`#numeric#`, `#url#` and so on since November 2025; at most three without justification; at least 30% fixed text), one header per template, URLs whitelisted, the last use (templates idle 90 days are deactivated, with an alert before), the yearly self-certification, a test send and delivery reports | exists: MSG91 templates in settings, `SmsLog`; adds: `ops.MessageTemplate` | must | lms 0, 3.4; int 4.2 |
 | Testimonials and toppers only with written consent given after the result, with the rank, the course, paid or free, the disclaimer in the same size as the claim; no guaranteed ranks or marks; no false scarcity | adds: `pages.Testimonial` | must | lms 0, 3.5 |
 | Reviews: delivered buyers only, moderation, no reviews written by staff posing as customers, a review audit log | exists: `Review` (pending, approved, rejected; history), `ReviewAdmin` approve and reject | must | lms 3.5; gst 6 (Rule 7(2)) |
-| Coupons and automatic offers drafted here, approved above the discount threshold; banners and copy pass the dark-pattern checks of section 5.5 | exists: `Coupon`, `Offer`; adds: the approval | must | lms 3.5; rbac 1.5 |
+| Coupons and automatic offers drafted here, approved above the discount threshold; banners and copy pass the dark-pattern checks of section 5.5 and match the product (Rule 7(3)) | exists: `Coupon`, `Offer`; adds: the approval | must | lms 3.5; rbac 1.5 |
 | "Free" QR solutions behind a sign-up advertised as "free with a free account", or kept open (the CCPA fined an edtech platform for "free" courses that needed a phone number first) | a copy rule until counsel answers | must (as a decision) | lms 0 |
 | Email campaigns to opted-in adults: a subscription type on every email, a send time, "Unsubscribe" and "Manage preferences" in the footer, one-click unsubscribe (RFC 8058) honoured within 2 days, the Gmail bulk-sender rules (SPF, DKIM, DMARC, spam under 0.3%) | adds: `marketing.Campaign` over SES | should | lms 3.4, 0 |
 | Preference centre per topic | exists: SES and the suppression list; adds: SES contact lists with topics | should | lms 3.4 |
@@ -975,7 +1009,7 @@ than 10" rather than a number.
 | Role changes: request → diff preview (permissions gained and lost) → conflict check → approval → effective, optionally with an expiry | adds | must | rbac 1.8, 6 |
 | Invitations to the company domain with the role chosen in advance (privileged roles approved); a signed link, used once, valid 72 hours; MFA enrolled and the policies acknowledged before any page opens | adds: `staff.Invitation` | must | rbac 6 |
 | Policy acknowledgements (acceptable use, children's data, confidentiality, incident reporting with "tell the owner at once"), versioned and asked again on change | adds: `staff.PolicyAcknowledgement` | must | rbac 6 |
-| Sign-in and sessions as section 3.5: passkeys for OWNER, ADMIN and FINANCE, Google Workspace with the `hd` check, idle limits, step-up, the device list with "end this session" and "end all", an offer to end other sessions after a factor change | exists: `StaffMFAMiddleware`, 8-hour sessions, `allauth.usersessions`, reauthentication; adds | must | rbac 2.1, 2.3; int 4.4 |
+| Sign-in and sessions as section 3.5: passkeys for OWNER, ADMIN and FINANCE, Google Workspace with the `hd` check, idle limits, step-up, the device list with "end this session" and "end all", an offer to end other sessions after a factor change, a password change voiding existing access tokens (`CHECK_REVOKE_TOKEN`) | exists: `StaffMFAMiddleware`, 8-hour sessions, `allauth.usersessions`, reauthentication; adds | must | rbac 2.1, 2.3; int 4.4 |
 | Per-staff throttles on reveals, exports, bulk actions and customer searches; the owner told when a staff account is locked | exists: axes; adds: scoped throttles and the lockout alert | must | rbac 2.5 |
 | Offboarding checklist recorded step by step: deactivate, end sessions and refresh tokens, remove roles and scopes, cancel temporary grants, reassign pending requests, tickets and data requests, close external accounts (Workspace, Razorpay, MSG91, AWS, Cloudflare, the error tracker, GitHub, the registrar, SSH keys, shared passwords), revoke API keys, rotate the shared secrets they could read, collect security keys, review their last 90 days | adds; ERPNext: the user disabled, never deleted | must | rbac 2.9; erp 5.5; int 4.4 |
 | ERPNext role mirror: User, role profiles and `enabled`, by hand under about 15 staff and by the outbox later | ERPNext: User, Role Profile (v16 allows several), User Permission | must | erp 5.5 |
@@ -1065,8 +1099,9 @@ restore was proven to work; nothing on this page writes without a reason and an 
 ## 6. Security
 
 - Sign-in: passkeys or an authenticator app for every staff member (phishing-resistant first), Google Workspace
-  SSO on an allowlisted domain, NIST 800-63B password rules (length, breach check, no composition rules, no forced
-  rotation), lockout by axes, login alerts.
+  SSO on an allowlisted domain, NIST 800-63B password rules (length, at least 64 characters allowed, a breach check
+  and a blocklist with context words such as the product's names, no composition rules, no forced rotation),
+  lockout by axes, login alerts.
 - Sessions: a 15-minute idle limit for OWNER, ADMIN, FINANCE and PACKER and 30 minutes for the others, the
   8-hour absolute limit that exists today, the device list with remote log-out, reauthentication before money,
   roles, keys, exports and impersonation; ERPNext sessions cut to 8 to 12 hours (section 3.5).
@@ -1081,8 +1116,8 @@ restore was proven to work; nothing on this page writes without a reason and an 
   year from 13 May 2027; clocks synced by NTP (`research-rbac-security.md` 3.4).
 - Data protection (DPDP Act 2023 and its Rules): consent records with the policy version, verifiable parental
   consent, the data-principal rights queue (access, correction, erasure, grievance) with timelines, retention holds
-  for finance and legal, erasure jobs that leave the audit trail intact, the breach register and the 72-hour
-  notification playbook, children's data never used for tracking.
+  for finance and legal, erasure jobs that leave the audit trail intact, the breach register with CERT-In's 6-hour
+  and the Board's 72-hour clocks and the notification playbook, children's data never used for tracking.
 - Operations: backups with restore tests, secrets rotation, dependency scanning in CI, error tracking, feature
   flags with audit, maintenance mode, webhooks verified and replayable, outbound mail/SMS caps.
 - ERPNext: patched every week, because GitHub lists 87 ERPNext advisories (8 critical) and 53 Frappe advisories
@@ -1102,7 +1137,168 @@ restore was proven to work; nothing on this page writes without a reason and an 
 
 ## 7. Data model additions (summary)
 
-RESEARCH_DATA_MODEL
+Fields in words; the code decides names. "Exists" means the model is there today (`inventory.md` section 3) and
+the row lists only what is added; "new" means a new model. The fewest new apps that keep the domains apart: `staff`,
+`integrations`, `shipping` and `insights` (all in progress), `erp` (next), `partners` and `support` (new); everything
+else extends an app that exists.
+
+### 7.1 `staff` (in progress)
+
+| Model | Fields | Status |
+|---|---|---|
+| AuditLog | id; time in UTC with milliseconds; actor and actor type (staff, user, service, system) with a snapshot of their roles; on behalf of; action; target type, id and a label with no personal data; outcome (success, denied, failed); reason; change request; request id (django-guid's); address, user agent (truncated), session hash; changes as before and after, with personal data and secrets masked or hashed; break-glass flag; previous hash and hash. Append-only: the runtime role may insert and select only, a trigger refuses update, delete and truncate; written under one lock; verified nightly; exported daily. Kept 2 years, money events 8 financial years | new (rbac 3.1–3.4) |
+| ChangeRequest | action; target (content type and id); payload and its SHA-256; amount; maker; reason; state pending → approved, rejected or expired → executed or failed (django-fsm-2); approvals (person, decision, comment, time); expires at (24 hours by default); execution result; idempotency key | new (rbac 1.5) |
+| StaffScope | person, kind (subject, board and class, order state, school, warehouse, ticket queue), value, granted by, expires at | new (rbac 1.9) |
+| RoleGrant | person, role, granted by, granted at, expires at, change request; drives the group membership so that who, when and until when are known | new (rbac 1.8) |
+| Invitation | email, role, invited by, token hash, expires at (72 hours), used at, change request for privileged roles | new (rbac 6) |
+| PolicyAcknowledgement | person, policy, version, time | new (rbac 6) |
+| ApiKey | name, visible prefix, SHA-256 of the key, scopes, expires at (at most 12 months), address allowlist, last used at and from where, sponsor, revoked at | new, when the first inbound integration needs one (rbac 2.6) |
+| InboxItem | kind, target, queue (the capability and scope that may see it), assignee, due at, state (open, snoozed, resolved), snoozed until, source, resolution note | new (section 5.2) |
+| SavedView | owner (a person, or a role for shared views), module, name, the URL's filters, columns, default flag | new (lms 6.2) |
+| Job | kind, started by, parameters, dry-run flag, state, progress, result file, errors per row | new (lms 6.3) |
+| Note | target, author, body, edit history; notes are personal data and go into access exports | new (rbac 5) |
+| Role definitions, permission catalogue, `ROLE_LIMITS`, `SOD_CONFLICTS` | in code, not tables: the roles stay in `accounts/roles.py` as today; the catalogue, limits and conflicts in `staff/permissions.py` (section 4.2) | extends `accounts/roles.py` |
+
+### 7.2 `integrations` (in progress)
+
+| Model | Fields | Status |
+|---|---|---|
+| IntegrationAccount | provider, mode (test or live), credentials encrypted with MultiFernet, cached token and its expiry, webhook token current and previous with the rotation time, rotate by, last success, last error and when, circuit state with its failure count and opened at | new (int 3.2, 3.3, 3.10) |
+| IntegrationCall | account, operation, path, HTTP status, duration, the provider's request id, error, a redacted excerpt (a phone cut to its last 4 digits, an address to its PIN), the target that caused it; kept 90 days | new (int 3.10) |
+| IntegrationFailure | the dead letter: operation, arguments, attempts, last error, target, state (open, replayed, discarded) with who and the reason | new (int 3.10) |
+| InboundEvent | provider, received at, the headers that matter, the raw body and its SHA-256 (unique), the provider's event id, signature valid or not, state (accepted, duplicate, rejected, failed, processed), attempts, error | new; `shop.WebhookEvent` (Razorpay; event id and digest unique) folds in when the Razorpay handler moves (int 3, 5.2) |
+
+### 7.3 `shipping` (in progress)
+
+| Model | Fields | Status |
+|---|---|---|
+| Shipment | adds carrier, our shipment status, external order and shipment ids, courier id, our stored label, weight and charged weight in grams, dimensions, quoted rate, COD amount, last event at, pickup location, the packing photograph, outcome (delivered, RTO, lost) and RTO reason | exists in `shop` (courier, tracking number and URL, shipped at, delivered at) (int 3.2; b2b 4.8) |
+| ShipmentEvent | shipment, source (webhook, poll, staff), the carrier's code and label, our status, occurred at, location, the raw scan, a unique digest of AWB, code, date and activity | new (int 3.2) |
+| ShipmentCharge | shipment, kind (freight, COD charge, RTO freight, excess weight, and their reversals), amount, the statement line it came from (unique) | new (int 3.9) |
+| CodRemittance | shipment, expected amount and date, remitted amount, UTR, date, state (awaiting, remitted, overdue, mismatched) | new (int 3.9) |
+| PickupLocation | the carrier's nickname, address, PIN, default flag | new; one row until a second store exists (int 3.2) |
+| CarrierTariff | carrier and service (Book Post, Gyan Post, Speed Post), weight band, price, effective from and to | new (int 3.4) |
+| ServiceabilityCheck | PIN, carrier, COD possible, prepaid possible, blocked or ODA, checked at | new, for the North-East survey (int 2.4) |
+| NDR cases and weight disputes | inbox items with the shipment attached and a deadline, not models, until their queries outgrow the inbox | (int 3.2) |
+
+### 7.4 `insights` (in progress)
+
+| Model | Fields | Status |
+|---|---|---|
+| ForecastRun | created, method, parameters, data as of, code version | new (b2b 4.12) |
+| Forecast | run, product, district (optional), week, P10, P50, P90 | new (b2b 4.12) |
+| Backtest | run, product, horizon in weeks, WAPE, MASE | new (b2b 4.12) |
+| AccountScore | run, the ERPNext customer (school or distributor only, never a student), score, bucket, reasons | new (b2b 4.5, 4.12) |
+| ItemStat | item (quiz item or question), n, p, discrimination, flags, computed at | new (lms 1.5; b2b 4.7) |
+| PinRtoRate | PIN, district, shipments, RTOs, the rate smoothed toward the district's, computed at | new (b2b 4.8) |
+| Annotation | date, kind (exam, result day, print run, price change), text | new (lms 5.1) |
+| Metric definitions, risk and fraud rules | code (one function per metric, one per rule), with one test each | (lms 5.1; b2b 4.10, 4.12) |
+
+### 7.5 `erp` (next)
+
+| Model | Fields | Status |
+|---|---|---|
+| ErpEvent (the outbox) | id (the idempotency key), aggregate and its id, event, payload, attempts, next try at, state (pending, sent, failed, dead), last error, sent at, the ERPNext name returned; written in the same transaction as the change it describes | new (erp 5.8) |
+| ErpLink | the platform object (content type and id), the ERPNext doctype and name, last synced at and version | new (section 3.2) |
+| ErpInboundEvent | the doorbell: doctype, name, event, modified, received at, signature valid, processed at; deduplicated on doctype, name and modified | new (erp 5.2, 5.8) |
+| PullCursor | doctype, the last `modified` seen, last run | new (erp 5.8) |
+| ReconciliationRun | the day checked, started and finished, counts and totals per check (invoices, taxable and exempt split, credit notes, payments by method, shipped quantities, the stock invariant), differences, the inbox items opened | new (erp 5.8) |
+| Flow switches | `ERP_SYNC_ITEMS`, `ERP_STOCK_FROM_ERP`, `ERP_MIRROR_INVOICES`, `ERP_SYNC_PAYMENTS`, `ERP_SYNC_DELIVERIES`, in site settings with history | (section 3.2) |
+
+### 7.6 Partners on the platform side (`partners`, new; teachers stay in `accounts`)
+
+| Model | Fields | Status |
+|---|---|---|
+| TeacherProfile (version 2) | adds status (requested, checking, verified, rejected, expired, revoked), evidence kind (school ID card, appointment letter, principal's letter), the evidence file in private storage, deleted N days after the decision, and its SHA-256, kept; the school as an ERPNext customer reference, keeping the free-text name for unknown schools; UDISE code; academic year; expires on (the end of the academic year); revoked reason; left the school at; ambassador since; history | exists in `accounts` (school name, district, subject, verified, note, verified at and by) (b2b 3.2) |
+| TeacherClass | teacher, school reference, academic year, class, section, subject, join code, ends on | new (b2b 3.2) |
+| ClassMembership | class, student, state (requested, consented, active, withdrawn, expired), the consent record, scopes (saved marks, course progress, quiz results, per subject), valid until | new (b2b 3.2) |
+| SchoolLicence | school reference, academic year, subjects, seats, valid until, the ERPNext order or invoice it came from | new; creates `Entitlement` rows with the new source "licence" (b2b 2.2) |
+| SchoolCode | school reference, code, the price list it applies, valid from and to, delivery (home or consolidated to the school), active; orders carry the code they used | new (b2b 2.2) |
+| PartnerPriceList and its items | a read-only copy of the ERPNext price lists the storefront applies (list, product, rate or discount, minimum quantity, valid from and to), refreshed by the pull | new (b2b 1.2; erp 5.8) |
+| Event and EventRegistration | title, starts at, link, capacity; teacher, attended | new, when the first webinar runs (b2b 2.2) |
+| Specimen requests | not a platform model: the teacher's request is an outbox event that creates the ERPNext Specimen Request, and the platform keeps the ErpLink and reads its status | (b2b 2.2) |
+
+### 7.7 Commerce additions (`shop`)
+
+| Model | Fields | Status |
+|---|---|---|
+| HsnCode | code, kind (HSN or SAC), description, taxability (taxable, nil, exempt, non-GST) | new (gst 5.15) |
+| HsnRate | code, rate, effective from and to, notification number and serial number | new (gst 5.15) |
+| DocumentSeries | document type (tax invoice, bill of supply, invoice-cum-bill of supply, credit note, debit note, receipt voucher, refund voucher), a two-character prefix, financial year, next number taken under a row lock, live or test | new (gst 5.4) |
+| Invoice and CreditNote | add document type, cancelled with time and reason, and the ERPNext link; the Table 13 register is a query over them per series | exist (number of at most 16 characters, financial year, serial, T-series) (gst 5.4) |
+| TaxUpdate | source, reference, issued on, effective on, affected HSNs or forms, summary, action, owner, status, linked product changes | new (gst 5.15) |
+| Product | adds a reference to `HsnCode` (the rate read by date), tax treatment for bundles (split, composite, mixed) with the CA's note, required weight for physical products, dimensions or a packaging kind (flyer by default), edition and successor, ISBN validation, history | exists (`hsn_code` free text, `gst_rate`, `weight`, `isbn`, `mrp`, `price`, `stock`) (gst 2, 5.2; int 3.4) |
+| Order | adds billing state (and a billing address for course-only orders), tags (django-taggit), a hold (reason, by, at), source (UTM and the last non-direct referrer), risk bucket and reasons, the school code used | exists (gst 0.4, 1; lms 3.6; b2b 4.8, 2.2) |
+| ReturnRequest | order, lines with quantities, reason code (damaged in transit, misprint, wrong item, late, not as described, other), requested by, state (requested, approved or declined, label sent, received, inspected, restocked or damaged, refunded or exchanged), return AWB, photos, the credit note and the refund | new (gst 1) |
+| Refund | adds lines (partial refunds), shipping refund, restock flag, method (to source, or to the customer's chosen bank account or UPI ID), speed, the idempotency key, ARN, the change request | exists (pending, processed, failed) (gst 1; int 4.1) |
+| CouponCode | coupon, code, used by, used at; for bulk single-use codes per school; the coupon gains an owner teacher for ambassador codes | new (lms 3.5; b2b 3.2) |
+| History on Product, Coupon, Offer, ShippingRate | simple_history, which also gives the 30-day prior price | added (inv 3.9; lms 3.5) |
+
+### 7.8 Content and course additions (`content`, `learn`, `pages`)
+
+| Model | Fields | Status |
+|---|---|---|
+| Question and Solution | add a state (draft, in review, published) with the draft text kept apart from the live text until it is approved | exist with history (lms 2.2) |
+| ReviewTask | target, stage, assignee, state (in progress, approved, needs changes, cancelled), comments pinned to a field or phrase | new (lms 2.3) |
+| ErrorReport | target (solution, question, quiz item, clip), paper, question, step, printing (the batch label), category, note, optional email, reporter (an account or none, verified teacher or not), state (reported, confirmed, rejected, fixed online, fixed in printing N), fixed in, staff note, reporter told at, public flag for the errata page | new (lms 2.4; b2b 3.2) |
+| TeacherResource | book or paper, kind (answer key, marking scheme, PDF), file, subject; downloads are audit events with a daily limit | new (b2b 3.2) |
+| LegalDeposit | book, edition, library, sent on, the ERPNext delivery note, proof of dispatch | new (gst 6) |
+| QrScanDay | code, day, count | new (lms 2.6) |
+| Revision | adds a reviewer and a publish-at time | exists (draft or published) (lms 1.1) |
+| Clip, FlashCard, QuizItem | add deleted at (a 30-day bin; a clip keeps its HLS files until the purge); QuizItem gains history | exist (lms 1.1, 1.4, 6.4) |
+| ClipCaption | clip, language, WebVTT file | new (lms 1.2) |
+| QuizAttempt | adds the answer given, kept a short time | exists (`correct`) (lms 1.5; b2b 4.7) |
+| Entitlement | adds the source "licence" and history | exists (sources code, purchase, grant; valid until) (b2b 2.2; inv 3.9) |
+| Page | adds an effective date for each published version | exists (five fixed pages, version, history) (lms 2.8) |
+| Redirect | old path, new path, permanent, made automatically or by hand, by whom | new (lms 2.7) |
+| Banner | text, link, starts at, ends at (required), audience, language | new (lms 2.8) |
+| FaqEntry | category, order, language, question, answer, helpful and unhelpful counts | new (lms 2.8, 4.8) |
+| MediaAsset | file, alt text or decorative, tags, focal point, where it is used | new (lms 2.8) |
+| Testimonial | person, the written consent and its date (after the result), rank, course, paid or free, disclaimer text, valid until | new (lms 0, 3.5) |
+
+### 7.9 Accounts and privacy additions (`accounts`)
+
+| Model | Fields | Status |
+|---|---|---|
+| ConsentRecord | adds a channel (email, SMS, WhatsApp), new methods (an existing verified adult account, a DigiLocker token, staff by hand), verified by, an evidence reference | exists (event, method, purpose, notice version, by parent, verified at, IP hash) (rbac 4.3; lms 3.4) |
+| DataRequest | type, channel, identifiers given, identity check and its result, received at, due at, assignee, holds, response, contact block sent, proof of sending, closed reason, the deletion request it started | new (rbac 5) |
+| Nominee | person, nominee's name, contact, relation, verified at claim | new (rbac 4.2) |
+| Incident | the breach register's fields (section 5.15) | new (rbac 4.4) |
+| Processor | name, purpose, data categories, country or region, contract start and end, how to make it cease or erase | new (rbac 4.2) |
+| LegalHold | target, reason, until, by | new (rbac 4.5) |
+| DeletionRequest | kept after completion as the erasure ledger that is re-applied after any restore | exists (7-day grace, pending, cancelled, done) (rbac 4.5) |
+| Retention schedule | a table in code with the minimum and the source per category, read by the erasure and clean-up jobs | new, in code (rbac 3.4) |
+
+### 7.10 Support (`support`, new)
+
+| Model | Fields | Status |
+|---|---|---|
+| Ticket | customer-visible number; source (form, email, phone, WhatsApp, NCH with its docket); category; priority; status; requester (an account, or an email or phone); assignee; linked order or record; received, acknowledged, first response, resolved and closed times; the legal due times (acknowledge, redress, NCH, DPDP); breach flags; reopened count; the copy of the complaint sent at; CSAT | new (lms 4.1, 4.2, 4.9) |
+| TicketMessage | ticket, direction (in, out, internal note), author, body, attachments, sent at, mail headers for threading | new (lms 4.1) |
+| SavedReply | title, language, body with variables and fallbacks | new (lms 4.3) |
+
+### 7.11 Operations and messaging (`ops`)
+
+| Model | Fields | Status |
+|---|---|---|
+| SiteSettings | one row with history: shop open, COD on, solutions need sign-in, maintenance with reason and expiry, the ERP flow switches, the grievance officer, the nodal contact, customer care, the CERT-In and DPDP contacts, the published rights text, the dark-pattern certificate | new (lms 2.8; rbac 4.4, 7; gst 6) |
+| FeatureFlag | key, state, audience, owner, notes, history (or django-waffle if it supports Django 6.1; checked at build) | new (lms 6.5; rbac 7) |
+| MessageTemplate | event, channel, language, DLT template id, PE id, header and its suffix, MSG91 id, WhatsApp template name, category, approval state, typed variables, last used at, self-certified on | new (int 4.2; lms 3.4) |
+| SmsLog, EmailSuppression | SmsLog's metadata kept a year from May 2027, its message text trimmed early | exist (SmsLog 90 days) (rbac 3.4) |
+| Segment, Campaign | definition and version, kind, purpose, the adults-only rule; segment, template, channel, send at, counts and cost | new in a `marketing` app in Phase D (lms 3.3, 3.4) |
+
+### 7.12 The ERPNext side (`examleaf_erp`)
+
+| Element | What it holds | Status |
+|---|---|---|
+| Custom field `examleaf_ref` | unique, on Customer, Address, Item, Sales Invoice, Payment Entry, Delivery Note, Journal Entry and Specimen Request; the methods look it up before they create | new (erp 5.6) |
+| Other custom fields | Sales Invoice: the order number and the platform's ids. Item: subject, class, board, edition, kind, ISBN. Batch: edition, print date, printer, quantity printed, unit cost, the book-code batch label, approval state. Customer: UDISE code, board, management, medium, streams, classes, enrolment per class, tier, activation state. Supplier: Udyam number and the micro or small flag. Purchase Invoice item: the Rule 42 tag if India Compliance has no equivalent | new (erp 5.6; b2b 2.2; gst 4) |
+| School Adoption | school, academic year, class, subject, item, stage, stage probability, expected copies, decided by and on, lost reason, owner, next action date, the adoption it renews | new DocType (b2b 2.2) |
+| Distributor Agreement | distributor, districts and line with the exclusive flag (one exclusive per district and line), price list, credit limit and payment terms, return windows and the cap as a share of gross invoiced, sale or return allowed, freight terms, valid from and until, the signed file | new DocType (b2b 1.2) |
+| Specimen Request | teacher (name and school, as the platform sends them), school, items, the per-season allowance, status (requested, approved, dispatched, followed up, closed), the delivery note or challan, dispatched on, follow up on, `examleaf_ref` | new DocType (b2b 2.2, 3.2) |
+| ExamLeaf Sync Log | direction, method, the outbox id, status (queued, error, success), request and response, traceback; resync; success rows purged after 90 days | new DocType (erp 5.7, 5.8) |
+| Batch per print run | one core Batch per printing of a title, with the custom fields above; stock lines carry the batch | core, configured (erp 4.3) |
+| Masters as fixtures | customer groups and the one B2C customer with an address per state holding only the state; territories; item groups; Item Tax Templates; price lists; payment terms; dunning types; warehouses; the Print Heading "Bill of Supply"; B2B naming series; the extra accounts (Razorpay Clearing, COD in transit, courier payable, deferred course revenue); roles and role profiles; workflows; notifications; print formats; webhooks with their secret; Accounts Settings (audit trail on, tax category from the shipping address); System Settings (session expiry, email-link login off, 2FA per role, password score) | fixtures exported with the app (erp 4.3, 5.3, 6.5) |
 
 ## 8. The panel's information architecture
 
@@ -1133,8 +1329,328 @@ backups, audit log, logs, dependencies, status).
 
 ## 9. Phases
 
-RESEARCH_PHASES
+The order of work follows the dates that bind, not the modules' order:
+- **Now:** CERT-In's directions (6-hour incident reports, 180 days of logs, NTP, a point of contact) are already in
+  force, and today's log retention falls short (`rbac` 0.2, 4.9).
+- **1 January 2027:** the amended E-Commerce Rules (a copy of the complaint as recorded, the 30-day prior price, the
+  dark-pattern self-audit and certificate, National Consumer Helpline membership) (`lms` 0).
+- **January to March 2027:** the trade's peak, when sample-paper demand ends at the exams (`b2b` 0.3); nothing
+  risky changes in the shop then.
+- **1 April 2027:** the first day of FY 2027-28, the clean point for new document series, opening balances and the
+  first GST period in ERPNext (`gst` 5.4).
+- **13 May 2027:** DPDP Rules 3, 5 to 16, 22 and 23 (notice, security and one-year logs, breaches, retention,
+  children's consent with an age check, rights) (`rbac` 0.1).
+
+### 9.1 Phase A: foundations (in progress, in parallel worktrees)
+
+**Scope and deliverables.**
+- The Django `staff` app: the roles of section 4 in code, action permissions, the permission catalogue, scopes on
+  one auth backend and the `scoped()` helper, limits, separation of duties, RoleGrant, ChangeRequest, the
+  hash-chained append-only AuditLog with its nightly verification and daily export, the session manifest, the
+  idle limits and step-up, InboxItem, SavedView, Job.
+- The `examleaf-admin` shell at `admin.examleaf.in`: the sidebar from the manifest with ERPNext's entries as deep
+  links, `⌘K`, the inbox count, the list, record and form primitives from the public site's components, the
+  step-up dialog, the TEST banner, first versions of Home and Inbox.
+- `shipping` and `integrations`: the carrier interface with its manual and Shiprocket implementations, the
+  shipment fields and events, the webhook and the polling net, the status mapping, NDR and RTO handling, COD
+  remittance, the packing-room booking flow; IntegrationAccount, calls, failures and inbound events, MultiFernet,
+  circuit breakers, test mode with recorded fixtures and the live smoke test.
+- `insights`: the metric definitions, item statistics, seasonal-naive forecasts with backtests and the newsvendor
+  print-run size, the COD risk and fraud rules.
+- `deploy/kubernetes/`: the umbrella chart (CloudNativePG, mariadb-operator, Valkey, `frappe/helm` 8.0.84 with our
+  image, ingress-nginx, cert-manager) with the patches of section 3.4, and the `kind` profile.
+- `examleaf-erp/`: the Frappe app with its fixtures and the skeleton of its idempotent methods, the image build
+  (frappe_docker v4, `apps.json` as a BuildKit secret, pinned tags, an image scan) and the dev compose.
+
+**Exit criteria.**
+- Tests: the table of role × endpoint × method, so every capability is refused to a role without it; one test per
+  approval path (a refund above the cap, an offline payment above the value, a role grant, an export above N rows);
+  the audit chain verified and an update or delete refused; a staff account without an authenticator cannot pass
+  step-up; the carriers against recorded fixtures, including duplicate webhooks and the status mapping; seasonal
+  naive with growth 1.0 reproduces last season and a fixture item's p comes out as expected; the admin crawl, role,
+  dashboard and staff-order tests still green (`inv` 2.7, 11.11).
+- Docs: RUNBOOK entries for break-glass, restoring both engines, rotating keys (MultiFernet, the Shiprocket API
+  user, webhook tokens) and patching ERPNext; the new apps in the README; the chart's values documented.
+- Security checks: staff endpoints answer 404 on the public host; `no-store` and the CSP on the admin host;
+  `x-middleware-subrequest` stripped at the proxy; pip-audit, npm audit and the image scan in CI; ERPNext's
+  security settings (section 3.5) applied by fixtures and checked by a test.
+- Operations: `kind` brings up the whole stack; an ERPNext site is created with its apps; the backup CronJob writes
+  to R2, and a restore of both engines into a scratch namespace works.
+
+**Depends on:** a Shiprocket account (Lite) with an API user, R2 buckets with bucket lock, a Google OAuth client
+with an Internal consent screen.
+
+**At the end the business can** book, label and track Shiprocket parcels from the packing room, with failed
+deliveries, returns and COD remittances followed up (the live smoke test passed); see what waits in one inbox;
+approve against the exact payload; and the owner has an audit trail of staff actions. Customers see nothing change.
+
+### 9.2 Phase B: the panel's own modules, and the sync in shadow (next; the 1 January 2027 items by then)
+
+**Scope and deliverables.**
+- The Django `erp` app (outbox, links, doorbells, the 15-minute pull, the nightly reconciliation, the flow
+  switches), running against an ERPNext staging site in shadow.
+- The staff APIs and panel modules the platform owns, with their must items from section 5: Orders (the packing
+  queue, refunds with approvals, returns, the controls on staff discounts and offline payments), Customers,
+  Content (the editor with preview, drafts, review, error reports, the import job, legal deposit), Course (the
+  outline, clips, the book-code batch page with voiding, entitlements, the learner page, item statistics), Support
+  (tickets with the legal clocks, saved replies, the sidebar and its actions, "My requests", the grievance
+  export), Legal and privacy (the cockpit, the rights queue, erasure with holds, the breach and processor registers,
+  the retention fixes, policy versions, the e-commerce disclosures, the dark-pattern self-audit), Tax (the HSN master
+  with dated rates, bundle treatments, billing state, shipping following the goods, the Rule 46A title, one series
+  per document type ready to start on 1 April 2027, the threshold monitor, the missing GSTR-1 sections in the
+  export), Catalogue (the prior price, histories, approvals for price changes, ISBN and weight checks), Staff
+  (invitations, acknowledgements, offboarding, Google sign-in with the `hd` check, passkeys for the privileged
+  roles, the Access tab, role-change previews), Settings (site settings with history, the connections page, the SES
+  and MSG91 hardening, the template registry) and System (the audit viewer, the sync monitor, backups, 180 days of
+  logs, dependencies, the admin host's hardening, the checkout script check).
+
+**Exit criteria.**
+- Tests: every new endpoint in the role table; the legal clocks in calendar time across month ends; the prior price
+  from a price-history fixture; series numbers gapless under two concurrent requests and rolled over on 1 April;
+  the HSN rate looked up by date across the 22 September 2025 change; the erasure dry run honouring each hold; the
+  minors' rule on every send path; the outbox idempotent (one event sent twice makes one ERPNext document) and the
+  reconciliation finding a difference planted on staging.
+- Docs: a one-page guide per role; RUNBOOK's shell recipes replaced by panel actions (staff onboarding and MFA reset, log
+  everyone out, data requests by letter, the purge of 8-year-old orders, the consent-pending list, stuck payments,
+  the test and live fix-up, regenerating an invoice, GSTR-1, reprocessing clips, printing book codes, axes unlock); the CA's answers on the series and the bundle treatment recorded.
+- Security checks: an access-log event for every person lookup and every view of a child's record; reveal and
+  export throttles; step-up on every money, role, key and export action, each with a test; a review of the
+  authorization tests against OWASP API1, API3 and API5.
+
+**Depends on:** Phase A; the CA on the series and the bundle treatment, and the lawyer on joining the National
+Consumer Helpline (section 10); the ERPNext staging site.
+
+**Deadline:** the 1 January 2027 items are live by 31 December 2026; if the phase runs late, they ship first on
+their own.
+
+**At the end the business can** run the storefront, support and content from the panel without the Django admin
+or shell recipes; give every complaint a number and a clock; meet the 1 January 2027 rules; invite and offboard
+staff in one place; and see the ERPNext mirror working on staging.
+
+### 9.3 Phase C: partners, then the ERPNext cut-over (January to May 2027)
+
+**Scope and deliverables.**
+- Partners on the platform: TeacherProfile version 2 with evidence, expiry and inbox items, gated teacher
+  resources, specimen requests posted to ERPNext, school codes and the read-only partner price lists for the
+  parent-pays channel, school licences.
+- ERPNext in production for the B2B parties and pipeline before the books move: schools, distributors and
+  booksellers loaded by Data Import, agreements, adoptions, quotations and specimen requests, price lists, credit
+  limits, payment terms and dunning types, the B2B series and print formats, SSO and role profiles for SALES and
+  FINANCE. B2B orders, deliveries, invoices and specimen dispatches start in ERPNext on 1 April 2027 with the stock
+  and the books; until then the 2026-27 season's school and distributor orders stay on the platform's quotations
+  and staff orders, as today.
+- The cut-over of stock and storefront money on 1 April 2027 (below), then the Finance and Inventory summaries in
+  the panel, settlements and COD remittances as entries, GSTR-1 from India Compliance checked against the export.
+- The DPDP items due on 13 May 2027: the parent's identity and age check (DigiLocker through API Setu, or an
+  existing adult account, section 10), one year of logs and processing records, the nominee record, the itemised
+  notice with its withdrawal and complaint links.
+- The should items of the modules built in Phase B that staff ask for first (inbox notifications, collision
+  detection, SLA targets, the help centre, autosave, scheduled releases, the QR registry, redirects, banners).
+
+**The cut-over plan.**
+1. **Why 1 April 2027:** it starts a financial year, so the new series, the opening balances and the first GST
+   period begin clean; it comes after the exams, so nothing changes in the peak; and it comes before the specimen
+   and adoption season of July to September (`b2b` 0.3, 5).
+2. **Initial load by Data Import**, which keeps the names it is given (`erp` 5.8): the item master (or the outbox's
+   upsert, which also keeps names), opening stock per print-run batch at its valuation through an opening Stock
+   Reconciliation, suppliers and the open B2B receivables (the parties are already there), and the opening balances
+   from the CA's trial balance at 31 March 2027.
+3. **Parallel run from 1 January 2027:** the outbox mirrors every live storefront document, payment, settlement and
+   dispatch to the staging site, and the reconciliation runs every night. The switch needs 30 days in a row
+   without an unexplained difference, and one month's GSTR-1 from India Compliance matching the platform's export
+   table by table.
+4. **Switch-over on the night of 31 March:** the last FY 2026-27 documents are numbered; the outbox is pointed at
+   production; the flows are switched on in order (items, then stock from ERPNext with the platform's own stock
+   read-only, then invoices and credit notes, payments, deliveries and settlements); a reconciliation runs the next
+   morning.
+5. **Reconciliation after:** nightly, and read every morning by FINANCE for the first two weeks; the first GSTR-1
+   filed from ERPNext only after FINANCE and the CA sign off the comparison.
+6. **Rollback by flag:** turning a flow's switch off stops its events, which wait as pending and replay when it is
+   back on. The platform never stops being the record for its documents, so ERPNext's mirror can be rebuilt by
+   replaying the outbox (`erp` 5.8). For stock, the switch hands `available` back to the platform's own number,
+   set from the last projection and checked by a count.
+
+**Exit criteria.**
+- Tests: a specimen request makes the round trip (the platform's form, the ERPNext document, the status back); the
+  parent-pays price comes from the copy; the cut-over rehearsed on staging (a full Data Import and a month's
+  replay) passes the reconciliation; the rollback rehearsed (switch off, events wait, switch on, events replay, no
+  duplicates); the integration user's write to a doctype it does not own is refused.
+- Docs: the cut-over runbook with its go and no-go checklist; month-end in ERPNext; the teacher-verification guide.
+- Security checks: ERPNext's role profiles in the access review; Resilient Tech in the processor register; the DPDP
+  items checked by counsel against Rules 3, 6, 7, 8, 10 and 14 before 13 May 2027.
+
+**Depends on:** Phase B; the CA's opening balances, valuation method and answer on filing GSTR-1 from ERPNext; the
+lawyer on the Rule 10 method; API Setu onboarding, which needs a registered entity.
+
+**At the end the business can** keep its books, stock, B2B selling, credit and GST returns in ERPNext from 1 April
+2027, with every storefront document mirrored under its legal number; run the 2027-28 specimen and adoption season
+on School Adoption and Specimen Request; verify teachers properly; and meet the DPDP duties from 13 May 2027.
+
+### 9.4 Phase D: growth and depth (from May 2027, before the 2027-28 peak)
+
+**Scope and deliverables.** Marketing (segments, campaigns to consenting adults with a preference centre, quiet
+hours, surveys, the order's source, campaign ROI); WhatsApp utility messages if the founder chooses them; deeper
+analytics (cohorts, funnels, cookieless counts, content performance, offer effectiveness); the should predictions
+(sales projections, distributor sell-through, school scoring, delivery delay, the COD risk score); B2B depth
+(schemes, claims, reps and commission, the dealer locator, sale-or-return stock); teachers' classes and the teacher
+dashboard, only after counsel and the founder's decision; school dashboards and rosters with consent; the rest of
+the Course and Staff should items (captions, the watermark, the card scheduler, re-marking, temporary elevation,
+"who can", login alerts, API keys); the optional ERPNext apps if section 10's triggers are met.
+
+**Exit criteria.** Every prediction beats its baseline in a backtest before it shows; the minors' rule tested on
+every new send path; the teacher links reviewed by counsel before release; deliverability within Gmail's bulk-sender
+limits on a test campaign.
+
+**At the end the business can** market lawfully to parents, teachers and schools, size the 2028 print runs from a
+backtested forecast, and run the school channel on scores and sell-through rather than guesses.
+
+### 9.5 Phase E: later, when volume or the law asks
+
+E-invoicing once turnover nears ₹5 crore (India Compliance; the threshold monitor warns at ₹4 crore), Delhivery
+direct, India Post's bulk API if Gyan Post applies, 17TRACK, a distributor portal on examleaf.in, beat plans, DRM
+and offline downloads, timed tests, certificates and leaderboards, live classes, A/B tests on adult pages,
+abandoned-cart reminders for adults, a referral programme, multi-touch attribution, Frappe Insights and a warehouse
+export, consent-manager artefacts, a Zoho or Tally sync if the CA asks for one, a second node with RWX storage, and
+the PostgreSQL question once ERPNext v17 ships.
+
+### 9.6 Operations, from Phase A onwards
+
+| Duty | How | Reference |
+|---|---|---|
+| Backups | CloudNativePG continuously to R2; mariadb-operator's physical backups daily; the ERPNext site with its files every 6 hours; `site_config.json` in the secret store; an immutable copy in a bucket-locked R2 bucket; an alert past 26 hours; 30-day rotation | erp 6.1; rbac 7 |
+| Restore drills | every quarter, both engines, into a scratch namespace, the erasure ledger re-applied; date, who, result and duration on the backups page; the first before the cut-over rehearsal | erp 6.1; rbac 4.5, 7 |
+| ERPNext patching | weekly: the Tuesday releases applied within the week, critical and high within 7 days; backup → image rebuilt with the pinned apps → `helm upgrade` → migrate (reads allowed) → cache clear; majors only after a staging run | erp 3.3, 6.3, 6.6 |
+| The platform's dependencies | pip-audit, npm audit and the image scan in CI; critical advisories fixed within 7 days | rbac 7 |
+| Access reviews | every quarter in both systems, from the first quarter after Phase A; dormant accounts flagged at 45 days; the break-glass accounts tested | rbac 6, 1.6 |
+| Secrets | a rotation date per secret: Shiprocket's API user every 90 days, webhook tokens with 24 hours of overlap, R2 tokens second-token-first, MultiFernet keys by command | int 3.3, 4.10; rbac 7 |
+| Logs | shipped off the node; 180 days now, one year from 13 May 2027; NTP documented; the CERT-In 6-hour procedure and point of contact in RUNBOOK | rbac 4.7, 4.9 |
+| Legal calendar | GST due dates, the 30 November credit-note cut-off and the Rule 42 true-up; 1 January 2027; 13 May 2027; the yearly dark-pattern self-audit and DLT self-certification; MariaDB 11.8's end of life on 4 June 2028 (one major upgrade inside v16's life, which ends in 2029) | gst 5.15; lms 0; int 4.2; erp 1.2 |
+| Time | about 2 to 4 hours a week for patches, migrations, restore drills and reconciliation alerts (an estimate) | erp 7 |
 
 ## 10. Risks and decisions for the founder
 
-RESEARCH_DECISIONS
+### 10.1 Decisions
+
+The first rows restate what is settled; the rest need the founder's word, and the plan proceeds on the
+recommendation until it gets it.
+
+| Decision | Recommendation | Consequence |
+|---|---|---|
+| ERPNext's database (settled) | MariaDB 11.8 through mariadb-operator; the platform, the panel and every new service on PostgreSQL 17; looked at again when ERPNext v17 ships with India Compliance tested on Postgres (erp 2.5, 8) | Two engines to run, back up, restore and patch; reports across both go through a nightly job or Insights; a later move to Postgres is an unsupported dump, convert and restore, planned as its own project with a full reconciliation |
+| Kubernetes or Compose (settled: Kubernetes) | The umbrella chart on one node, as it is being built; Compose for development only. Frappe calls Compose its canonical production method, so the chart's gaps are ours to patch (section 3.4; erp 3, 8) | More moving parts than Compose (operators, a patched chart, a migrate hook); in return one way to deploy, back up and watch both systems, and a `kind` profile for tests. A second node needs RWX storage first |
+| Self-hosted or Frappe Cloud | Self-hosted on our cluster: the data beside the platform, the sync on the private network, one way of operating. Frappe Cloud (₹2,050 to ₹4,100 a month on a private bench, India Compliance credits included, no Kubernetes) is the fallback if the weekly patching is missed two months running (erp 7, 8) | We patch every week and drill restores ourselves (about 2 to 4 hours a week, an estimate) and buy India Compliance credits |
+| Frappe HR | Not now; installed when there are more than a handful of salaried staff. It has no ESI component and no PF or ESIC return files, so those stay manual either way (erp 4.2) | Payroll stays where it is; staff HR data stays minimal (DPDP s.7(i)); adding it later is an image rebuild and `install-app` |
+| Frappe Insights | Later (Phase E), when the panel's and ERPNext's reports leave a gap; pointed at ERPNext and at a read-only PostgreSQL role that sees only roll-up views without names (erp 2.5, 4.2; lms 5.7) | One more AGPL app to patch (3 advisories in 2026, 2 of them critical); unmodified and staff-only, so the network clause does not apply |
+| Frappe Helpdesk | Not installed. Tickets stay in the platform's `support` app (section 5.14): they carry minors' personal data that the design keeps out of ERPNext, the legal clocks belong with the DPDP queue, the agent's sidebar is platform data, Helpdesk has no WhatsApp channel, and a modified Helpdesk with its customer portal open would bring in the AGPL's network clause (erp 1.3, 4.2, 5.8; lms 4) | We build a small helpdesk (tickets, messages, saved replies, clocks); tickets from schools and distributors live there too, linked to their ERPNext customer |
+| Frappe CRM | Not installed. The school and distributor pipeline runs on ERPNext's own Lead, Opportunity and Quotation with School Adoption and Specimen Request; revisited when several reps need built-in calling and a kanban (erp 4.2, 4.3) | A plainer pipeline screen; the panel's Partners board gives the season view |
+| Apps not installed | LMS, Education, Webshop, Payments, Print Designer, Drive, Books (erp 0, 4.2) | None |
+| Gyan Post | Ask the Guwahati postal division in writing whether the sample-paper books qualify. Until it answers, India Post goes through the manual flow (Book Post, Speed Post); if it says yes, Gyan Post becomes the default for prepaid book orders and the bulk-customer API becomes worth its paperwork (int 2.7, 6.1) | ₹25 for 500 g against ₹54 to ₹70 by courier into the North East, tracked, but no COD; a packet that does not qualify is charged double the shortfall on delivery |
+| Shiprocket plan | Lite now; Business (₹199 a month) at about 50 parcels a month, refunded at 100; Engage 360, Fastrr checkout and Sense not used (int 1.12, 2.7, 6.1) | No sandbox, so the recorded-fixture fake and the live smoke test are the test plan |
+| WhatsApp, and its provider | Not before Phase D, then utility templates only, opted in per number (usually a parent's), through MSG91: one vendor and one invoice with SMS, the lowest fixed cost; its webhooks are unsigned, so a secret header and deduplication (int 4.2, 6.1) | Charges per message (assume service and in-window messages are charged from 1 October 2026, where Meta's pages disagree); INR billing by 31 December 2026; an opt-in record for every number |
+| Error tracking: Sentry or GlitchTip | GlitchTip on our own cluster (MIT, the same SDK, about 512 MB of memory on PostgreSQL), because Sentry's service stores data only in the US or the EU, chosen once, and the privacy policy makes promises about where data goes (int 4.9, 6.1) | One more service to run and patch, no fee (Sentry Team would be US$26 a month), uptime and heartbeat monitors included; if Sentry is chosen instead, it goes into the processor register with its region |
+| Tally export or Zoho | Neither while ERPNext keeps the books: the CA gets ERPNext's Auditor role, its reports and the GST files; a Tally XML export only if the CA must keep Tally, a Zoho sync only if the accountant moves to Zoho (int 4.5; gst 4) | One set of books; if the CA insists on Tally, ERPNext becomes a sub-ledger and the two need a monthly reconciliation |
+| GST on a book sold with a printed course code | The course as its own priced line on the invoice (split supplies, 18% on the course line), confirmed by a CA's opinion or an advance ruling from the Assam AAR before the next print run's price is set; the panel carries all three treatments per bundle (gst 0.2, 5.2, 8) | If the CA calls it a mixed supply, the whole price is taxed at 18%; if composite with the book as the principal supply, the whole is exempt; a change applies to invoices from its date, never backwards |
+| Legal form | Confirm with the lawyer that ExamLeaf is a company, which E-Commerce Rule 4(1)(a) asks of an e-commerce entity; if it is a proprietorship or partnership, decide on incorporating before 1 January 2027 (gst 6, 8; rbac 8) | It also decides the Companies Act's 8-year books and the audit trail that cannot be switched off (ERPNext has it on regardless) and DigiLocker onboarding, which needs a registered entity |
+| QRMP | Opt in while turnover is under ₹5 crore, if the CA agrees: quarterly GSTR-1 with the IFF for B2B invoices in the first two months, PMT-06 by the 25th, GSTR-3B by the 24th for Assam (gst 5.11, 8) | Far fewer filings for a mostly B2C publisher; tax still paid monthly; the threshold monitor warns before ₹5 crore forces monthly filing |
+| A `returned` order state | Not added. The return lives on the shipment's outcome: a returned COD order becomes cancelled with the reason, and the invoice issued at dispatch gets a credit note (or a cancellation, if the CA prefers); a returned prepaid order is reshipped or refunded, the customer asked which (int 3.6, 6.1) | The order state machine and the reports that count its states stay as they are; a "Returned" saved view filters on the shipment's outcome |
+| India Compliance's API credits as a processor | Buy credits (₹0.50, ₹0.40 and ₹0.30 each plus GST, at least 1,000 a year, about ₹500 to ₹2,500 a year by estimate); GSTIN checks offline by default, so credits go on returns and e-way bills; Resilient Tech in the processor register with its contract (erp 4.1) | Invoice and party data pass through `asp.resilient.tech` to an unnamed GSP; the storefront's invoices carry a state, not a name, so little personal data goes |
+| One series per document type | Separate series for the tax invoice, bill of supply, invoice-cum-bill of supply, credit note and the rest from 1 April 2027, with the cut-over, prefixes confirmed by the CA; the B2B series in ERPNext on prefixes that never collide (gst 5.4; erp 8) | Table 13 reports each series; the current `EL` series closes with FY 2026-27 |
+| Who files GSTR-1 | India Compliance in ERPNext from the cut-over, because it holds every document (B2B and the storefront's mirror) and files over the API with an OTP; the platform's export stays as the cross-check for the first quarter (erp 8; gst 5.12) | One filing path; the CA signs off the comparison before the first filing |
+| The storefront stays B2C | No GSTIN at checkout; a buyer who needs a B2B document orders through Sales in ERPNext, where a mixed sale is split into a tax invoice and a bill of supply (gst 0.3, 3) | The platform never issues two documents for one cart; a registered buyer who wants input credit on the course buys through Sales |
+| Parental verification by 13 May 2027 | Both methods Rule 10 allows: an existing verified adult account where the parent has one, DigiLocker through API Setu otherwise; the outcome stored, not the date of birth (rbac 4.3, 8; int 4.7) | API Setu needs a registered entity, vetting, signed terms, quarterly usage reports and a yearly audit by a CERT-In-empanelled auditor, so the application starts in Phase B |
+| Learner analytics on under-18s | Aggregate only, with no per-student lists, until counsel says whether ExamLeaf is an "educational institution" under the Fourth Schedule (b2b 0.4, 4.6; lms 0) | Teachers' class links and any individual nudges wait; the school channel works on aggregates |
+| Thresholds | Set by the owner; the plan's placeholders are refunds up to ₹2,000 without approval, exports of 500 rows, idle limits of 15 and 30 minutes; and the students' password minimum (10 today; NIST asks for 15 where a password is the only factor, but NIST is US guidance) (rbac 2.2, 8) | They are attributes in code, changed by a reviewed pull request |
+| Where logs are kept for 180 days and a year | R2 with lifecycle rules, written only by the export job; CERT-In's FAQ allows logs outside India if they are produced on demand (rbac 3.4, 8; int 4.10) | R2 has no India jurisdiction; if counsel wants logs in India, a bucket on AWS Mumbai instead |
+
+### 10.2 Questions for advisers, consolidated from every report
+
+**For the CA**
+1. A book sold with a printed course code: split supplies, composite or mixed, and is an Assam advance ruling worth
+   seeking? (gst 0.2, 8; b2b 0.1, 6)
+2. HSN 4901 in GSTR-1 Table 8: "exempted" or "nil rated"? (gst 5.11, 8; erp 4.1, 8)
+3. One series per document type: which prefixes, and does the bill of supply leave the shared `EL` series? (gst
+   5.4; erp 8)
+4. File GSTR-1 from India Compliance in ERPNext rather than the platform's export? QRMP or monthly? (erp 8; gst 8)
+5. The books of account from 1 April 2027: ERPNext, or Tally or Zoho? The trial balance and opening stock valuation
+   at 31 March 2027; FIFO or weighted average; the GST that cannot be claimed in the inventory cost. (rbac 8; int
+   4.5; gst 2, 5.13)
+6. Reverse charge: payments to authors, editors and question-setters (copyright or a plain service, and the rate),
+   goods transport, imported software, advocates, rent from an unregistered landlord. (gst 5.13, 8)
+7. The rate when the printer prints on its own paper, after 22 September 2025. (gst 5.1, 8)
+8. The revenue policy for course access and bundles (AS 9 or Ind AS 115; straight-line over the access period?).
+   (gst 4, 8)
+9. B2C credit notes netted in Table 7, and refunds after the 30 November cut-off. (gst 5.8, 8)
+10. A returned COD parcel whose invoice was issued at dispatch: a credit note, or a cancellation of the invoice?
+    (gst 5.4, 5.8; inv 4.3)
+11. Shipping and a COD fee in mixed carts: do they follow the goods? (gst 5.2, 8)
+12. Has Rule 138(14)(e) been updated to point at Notification 10/2025, for notebook consignments; and Assam's
+    intra-state e-way bill threshold? (gst 5.10, 8; int 6.2)
+13. Does COD cash affect the 95%-digital condition of the tax-audit threshold? (gst 6, 8)
+14. Does aggregate turnover include exempt book sales (for the ₹5 crore e-invoice threshold); do exempt supplies
+    appear in the HSN table and bills of supply in Table 13; the UQC for books and services; the e-book's SAC?
+    (gst 0.5, 5.1, 5.11; int 4.6, 6.2)
+15. The items the commerce report marks for checking: ITC on free samples, the Finance Act 2026's relaxation of
+    post-sale discounts, the IRN cancellation window, GSTR-1A, the GSTR-9C threshold and late fees, bill-to and
+    ship-to place of supply. (gst 3, 5.5, 5.6, 5.9, 5.11)
+16. TDS under s.393 of the Income-tax Act 2025 for printers, authors, professionals and rent; and whether ExamLeaf is
+    a micro or small enterprise under Udyam (buyers' 45-day duty, s.43B(h), MSME Form 1). (gst 4, 6; b2b 6)
+
+**For the lawyer**
+1. Is ExamLeaf an "educational institution" under the DPDP Rules' Fourth Schedule? If not, which learning analytics
+   on under-18s does s.9(3) allow, and is an opt-in "on track" card behavioural monitoring? (lms 0, 8; rbac 8; b2b
+   4.6)
+2. The legal form against E-Commerce Rule 4(1)(a), and the Companies Act's books and audit trail. (gst 6, 8; rbac 8)
+3. Which Rule 10 method for parents (DigiLocker, an existing adult account, or both)? (rbac 8)
+4. Is the revision course "coaching" under the 2024 guidelines on misleading advertisements? Do "free" QR solutions
+   behind a sign-up need a disclosure? (lms 0, 8)
+5. How does a company join the National Consumer Helpline's convergence programme, mandatory from 1 January 2027?
+   (lms 8)
+6. Do user reviews make ExamLeaf an intermediary under the IT Rules, with their 24-hour and 15-day timelines? (rbac
+   4.6, 8)
+7. Teachers' class links: the consent design, and school deployments where the school is the fiduciary and
+   ExamLeaf its processor under s.8(2). (b2b 0.4, 3.2, 4.6)
+8. The distributor agreement: the exclusive-territory clause (Competition Act s.3(4)), the returns cap, sale or
+   return. (b2b 0.2, 1.2)
+9. Processor contracts under s.8(5) (Resilient Tech, Razorpay, Shiprocket, MSG91, SES, R2, Google, the error
+   tracker) and where logs and error reports may be kept. (rbac 4.2, 8; erp 4.1; int 4.9, 4.10)
+10. Do the Legal Metrology (Packaged Commodities) Rules apply to single books or to shrink-wrapped sets? What is the
+    Delivery of Books Act's deadline in the Act's own text? (gst 6, 8)
+11. Does Assam have its own rule on schools selling books or naming shops (the 2018 fee act is a scanned PDF)? (b2b
+    2.1, 6)
+12. Any amendment of the DPDP Rules' 18-month timeline (the January 2026 proposal to shorten it, mainly for
+    significant data fiduciaries). (rbac 0.1; int 6.2)
+
+**For the postal division (Guwahati)**
+1. In writing: do ExamLeaf's sample-paper books qualify for Gyan Post? (int 0.7, 2.2, 6.1)
+2. GST on Gyan Post; whether registration can still be bought for Book Post after September 2025; the 2026 Speed
+   Post parcel tariff and access to the Tariff API. (int 2.2, 6.2)
+3. The bulk-customer API's current version after the August 2025 software change, and COD for contract customers
+   with its remittance time. (int 2.2, 2.6, 6.2)
+
+**For the couriers**
+1. Shiprocket: its API rate limit, the webhook retry schedule, whether label links expire, whether several API users
+   can coexist (for rotation), any API for COD remittance batches, weight disputes and RTO acknowledgement. (int 6.2)
+2. The zone of a parcel within Assam (B or E) per courier. (int 6.2)
+3. Delhivery: how it treats an exempt book consignment above ₹50,000, since its API asks for an e-way bill. (int 4.6,
+   6.2)
+
+**For the other providers**
+1. Razorpay: its rate limits, T+1 or T+2 settlement, normal-refund timing. (int 6.2)
+2. Meta and MSG91: GST on the INR rates, whether service messages are charged from 1 October 2026, MSG91's real
+   WhatsApp rate card. (int 6.2)
+
+### 10.3 Risks
+
+| Risk | What could happen | What the plan does | What remains |
+|---|---|---|---|
+| Sync drift between the platform and ERPNext | an invoice, payment, delivery or stock movement missing or doubled on one side; GSTR-1 from ERPNext disagreeing with the legal documents | one writer per fact; the outbox written in the same transaction; idempotent methods keyed on `examleaf_ref` and `set_name`; webhooks only as doorbells, a 15-minute pull and a nightly reconciliation with the stock invariant; dead letters in the inbox; a 30-day clean parallel run before the switch; rollback by flag (sections 3.2, 9) | a difference is found the next morning, not at once; the first quarter's GSTR-1 is compared by hand |
+| ERPNext's advisories | 87 ERPNext advisories (8 critical) and 53 Frappe advisories (2 critical) so far in 2026, including template injection and remote code execution | weekly patching (critical and high within 7 days); Desk behind SSO and an IP allowlist or VPN; no portal; Server Scripts off; `Administrator` sealed; least-privilege integration user with `restrict_ip` (sections 3.5, 6) | a patch week missed is a real exposure; Frappe Cloud is the fallback (section 10.1) |
+| Children's data | tracking or profiling under-18s (s.9(3)), a breach of a child's data, or a missed breach notice; penalties up to ₹200 crore each, ₹250 crore for failed safeguards | minors kept out of every marketing path; analytics aggregate with minimum cell sizes; every staff view of a child's record logged; B2C data kept out of ERPNext; the breach register with its 6-hour and 72-hour clocks; the Rule 10 age check by 13 May 2027 (sections 5.13, 5.15, 5.16) | the "educational institution" question is open, so the learning features stay conservative until counsel answers |
+| One node | a node failure stops the shop, the panel and ERPNext together; RWO volumes tie pods to the node | offsite backups of both engines and the ERPNext files every 6 hours (point-in-time recovery available for MariaDB); quarterly restore drills; a rebuild runbook tested in `kind` (sections 3.4, 9) | recovery takes hours, not minutes; a second node with RWX storage when revenue justifies it |
+| People | one owner as the only approver; operations at 2 to 4 hours a week on a small team; the CA and lawyer on the critical path; the cut-over, the 13 May 2027 duties and the season's tail all fall in the same spring | the owner's override with a reason and an alert; break-glass accounts tested quarterly; one-page role guides; the cut-over dated after the exams; the 1 January items able to ship alone; questions to advisers sent in Phase B (sections 4, 9, 10.2) | if the CA's answers come late, the cut-over date moves; the plan holds the platform as the record until it does |
+| The couriers' weak signals | Shiprocket's webhooks are unsigned and carry no event id; reviews report fake delivery attempts and disputed weights | the constant-time token check, raw bodies kept, tracking re-read before any change that moves money or stock, polling as the net, photographs on the scale, flyers, NDR calls within hours, fake-attempt claims with proof (section 5.7; int 1.13, 3.6) | a courier's bad attempt still costs an RTO; Delhivery direct is the second option |
+| GST data through a third party | every India Compliance API call passes through Resilient Tech's server to an unnamed GSP | recorded as a processor; storefront invoices carry a state, not a name; GSTIN checks offline (section 6) | the GSP is not named in its documents; the contract and the processor register are the controls |
+| Engine and version churn | MariaDB 11.8 ends on 4 June 2028, inside v16's life; v17's Postgres support is untested for the apps we use | one MariaDB major upgrade planned before mid-2028; v17 approached as its own project with a reconciliation (sections 3.3, 9) | the owner's "one engine" waits for v17 at the earliest |
+| Authorization in the wrong layer | a check that lives only in Next.js middleware is bypassed (as CVE-2025-29927 showed) | Django authorizes every staff call; the manifest only draws the UI; the bypass header stripped at the proxy; the role table of tests (sections 4.2, 5.19) | none beyond the usual: every new endpoint needs its row in the test table |
+| Logs and records too short today | CERT-In's 180 days are not met now, and DPDP's year from 13 May 2027 is not met either | the retention fixes in Phase B; logs shipped off the node; minimal metadata kept for the full period (sections 5.15, 5.19) | until Phase B ships, an incident could not be fully reconstructed from logs |
+| Data location | R2 has no India jurisdiction; Sentry's service is US or EU only | GlitchTip on the cluster; processors recorded with their regions; an AWS Mumbai bucket if counsel asks (section 10.1) | a government restriction on transfers under s.16 would need a quick move, which the processor register makes visible |
