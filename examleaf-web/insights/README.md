@@ -124,21 +124,26 @@ taken as Poisson, the normal approximation on the log scale). Below 30 orders on
 too, or when the interval holds 1, the note says "Not conclusive". It never names a winner: stopping as soon as a test
 looks good turns a 5 % false-positive rate into 26 %.
 
-### Fraud rules (`fraud_rules`, 03:00, then the email)
+### Fraud rules (`fraud_rules`, 03:00, then the email; the book codes' again every hour)
 
 Each finding is a `FraudSignal`: its kind, the subject's hash, a count, a window, and details with no personal data
 (the batches, and the order numbers or book code ids behind it, at most 20, for staff to open):
 
-- failed book codes from one account (5) or one IP address (10) in an hour, and an hour with at least 20 failures
-  and three times the median hour of the week before (OWASP's token cracking); every try in the app is kept as a
-  `RedemptionAttempt` (hashes of the account, the address and the code, the batch, the outcome; 180 days);
+- failed book codes from one account (5), one IP address (10) or one device (5; the app sends its device token with
+  the code, kept as a hash) in an hour, and an hour with at least 20 failures and three times the median hour of the
+  week before (OWASP's token cracking); every try in the app is kept as a `RedemptionAttempt` (hashes of the account,
+  the address, the device and the code, the batch, the outcome, a voided code's `void`; 180 days);
+- codes redeemed from a print run not yet marked dispatched in the panel, within 30 days (a leak from the printer:
+  `codes_undispatched`, the batch's hash and its label);
 - one account redeeming more than 4 codes in 30 days (resale); one code tried by 3 accounts (a shared photo);
 - 3 accounts sharing a phone number or an address on cash-on-delivery or coupon orders in 90 days.
 
-A signal seen again updates the open one; once acknowledged (admin action), it comes back only if it grew. The email
-to `INSIGHTS_ALERT_EMAILS` lists the night's new or grown signals and the print runs to act on. Not yet, for want of
-data: redemptions from a batch not yet dispatched (no dispatch date: ERPNext's Book Code Batch), repeated COD refusals
-(no parcel outcome: the shipping app).
+A signal seen again updates the open one; once acknowledged (admin action), it comes back only if it grew. Each open
+signal is an inbox item of kind `fraud_signal` (for `staff.acknowledge_signal`), closed when the signal is
+acknowledged; the panel's print run page lists the signals that name it. The email to `INSIGHTS_ALERT_EMAILS` lists
+the night's new or grown signals and the print runs to act on; the book codes' rules run again every hour
+(`code_fraud_rules`, at :40), and a new spike of failures or a leak is emailed within that hour. Not yet, for want of
+data: repeated COD refusals (no parcel outcome: the shipping app).
 
 ### Rules without a job
 
@@ -175,8 +180,8 @@ data: redemptions from a batch not yet dispatched (no dispatch date: ERPNext's B
 
 - The API is on the staff app's rules (`staff.api.StaffAppView`): `staff.view_insights` (FINANCE, MARKETING, ADMIN,
   the owners, AUDITOR) reads, `staff.acknowledge_signal` (ADMIN, the owners) acknowledges a fraud signal there and in
-  the admin; on the admin host only; refusals and acknowledgements in the audit log. Fraud signals do not file staff
-  inbox items yet (the nightly email tells `INSIGHTS_ALERT_EMAILS`).
+  the admin; on the admin host only; refusals and acknowledgements in the audit log. Fraud signals file staff inbox
+  items (`fraud_signal`), closed by the acknowledgement.
 - `RtoHistory` waits for the shipping app's parcel outcomes (delivered, returned to origin, lost; the RTO reason); the
   repeated-refusal rule and the RTO model wait for the same.
 - `PrintCost` and the stock are to come from ERPNext (Item valuation, purchase orders, stock per warehouse) through the

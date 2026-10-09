@@ -17,7 +17,7 @@ print runs, item analysis, cohorts, fraud signals). Code: `api/` (`auth.py`, `vi
 [Shop](#shop) · [Revision course](#revision-course) · [Site](#site-configuration-and-legal-pages) ·
 [Insights (staff)](#insights-staff) · [ERPNext sync (staff)](#erpnext-sync-staff) · [Orders (staff)](#orders-staff) ·
 [Tax (staff)](#tax-staff) · [Legal and privacy (staff)](#legal-and-privacy-staff) · [Content (staff)](#content-staff) ·
-[Support (staff)](#support-staff) · [Connections (staff)](#connections-staff) · [Templates (staff)](#templates-staff) ·
+[Support (staff)](#support-staff) · [Course (staff)](#course-staff) · [Connections (staff)](#connections-staff) · [Templates (staff)](#templates-staff) ·
 [Lists](#lists) ·
 [Staff API](#staff-api) · [Errors](#errors) ·
 [Rate limits](#rate-limits) · [CORS](#cors) ·
@@ -1580,6 +1580,84 @@ or missing token."}`, kept without its body; more than `SUPPORT_MAIL_MAX_BYTES` 
 {"detail": "Received."}` at once: the body is kept once per SHA-256 and read by a task, which drops our own mail,
 auto-replies, bounces and lists, and threads the rest by the thread id in its headers, a known Message-ID, or the
 `[SR-…]` number from the requester's own address. 120 a minute per client address (`API_THROTTLE_SUPPORT_MAIL`).
+
+## Course (staff)
+
+`/api/v1/staff/course/…` (code: `learn/staff_api.py`, its rules in `learn/course.py` and `learn/codes.py`; the app:
+[learn/README.md](learn/README.md)) is the panel's Course module: a subject's outline and its row actions, a
+revision's review and its publish now or at a time, the 30-day bin, the quiz bank with its item analysis, access to
+the course, the print runs' book codes with their lookup and report, and one learner's page for support. It keeps
+every rule of the [Staff API](#staff-api): the admin host only, a second factor or an API key, each action's
+catalogued permission (area "Course"), every refusal an `authz_fail` event, cursor pages, `Cache-Control: no-store`;
+the schema tags it `course (staff)`. A CONTENT_EDITOR or a REVIEWER narrowed to subjects reaches those subjects'
+chapters, revisions, clips, cards, items, entitlements and print runs; another subject's record is a 404. Every change
+is an audit event targeting the record (`course.chapter_changed`, `course.revision_changed`, `_submitted`,
+`_approved`, `_needs_changes`, `_scheduled`, `_published`, `_unpublished`, `course.clip_changed`,
+`course.card_changed`, `course.item_changed`, `course.moved`, `course.deleted`, `course.restored`, `course.purged`,
+`course.clip_retried`, `course.item_flagged`, `course.entitlement_granted`, `_extended`, `_revoked`,
+`course.batch_requested`, `course.codes_made`, `course.batch_dispatched`, `course.batch_voided`,
+`course.code_voided`, `course.code_lookup`, `course.device_signed_out`). A book code is never kept nor logged: it is
+read by its digest and named in the audit trail by its keyed hash (`code_hash`). A search by email is a
+`customer.lookup` event with the query's keyed hash; a learner's page, and a code's redeemer shown by the lookup, are
+`sensitive_read` events (`child: true` for a minor). A refusal is `400` in words, on its field or in
+`non_field_errors`.
+
+| Method | Path (under `/api/v1/staff/course/`) | Permission | What |
+|---|---|---|---|
+| GET | `subjects/` | `learn.view_chapter` | the subjects with chapters, each counted: `chapters`, `published`, `in_review`, `scheduled`, `clips`, `failed`, `cards`, `items`, `bin` |
+| GET | `subjects/<id>/outline/` | `learn.view_chapter` | its chapters by number, each with `must_do`, its `revision` (`status`, `target_minutes`, the `minutes` of its ready clips, `publish_at`, its clips in order with `processing`, `reason` in words and `free`), its `cards` and `items` in order (`flagged`: the item's open report in the content triage); `completion_rule`, `free_preview` |
+| PATCH | `chapters/<id>/` (`must_do`) | `learn.change_chapter` | the chapter's must-do note (Markdown) |
+| GET PATCH | `revisions/<id>/` (`title`, `target_minutes` 1 to 60) | `learn.view_revision`; PATCH `learn.change_revision` | a revision with its chapter, `status`, `submitted_by`, `reviewer`, `publish_at`, `minutes`, its `clips`, the `cards` and `items` that go live with it, and `transitions`: the moves the reader may make now |
+| POST | `revisions/<id>/submit/` | `learn.change_revision` | a draft sent to review: an inbox item (kind `review`) for the subject's reviewers |
+| POST | `revisions/<id>/approve/` `{"comment"}`, `…/needs-changes/` `{"comment"}`, `…/publish/` `{"publish_at"}`, `…/unpublish/` | `staff.publish_course` | approved; sent back to draft (the comment required: an inbox item for whoever submitted it); published now (a ready clip needed) or at `publish_at` (to come, within a year: approved, and published by the five-minute task); back to draft. Never by whoever submitted it: `403 {"code": "own_edit"}` |
+| GET PATCH DELETE | `clips/<id>/`, `cards/<id>/`, `items/<id>/` | `learn.view_`, `change_`, `delete_` + `clip`, `flashcard`, `quizitem` | one row (a binned one too, with `bin_until`). PATCH its fields, as the admin's form checks them: a clip's `title`, `kind`, `notes`, `is_free_preview`, `tags`; a card's `front`, `back`, `tags`; an item's `kind`, `text`, `options`, `answer`, `explanation`, `topic`, `marks`, `difficulty`, `bloom`, `tags`. DELETE puts it in the bin (200, its row of the bin): the app and the website stop showing it at once |
+| POST | `<clips|cards|items>/<id>/move/` `{"to": "first" | "last" | "before" | "after", "target": <id>}` | the row's `change_` | the row moved among its siblings (a revision's clips, a chapter's cards or items), their `order` written again densely in one transaction: the keyboard's path for every drag |
+| POST | `<clips|cards|items>/<id>/restore/` | the row's `change_` | out of the bin within 30 days, back at its place among its siblings |
+| POST | `clips/<id>/retry/` | `learn.change_clip` | a failed clip, or one processing for over an hour, processed again from its uploaded video |
+| GET | `bin/?kind=clips|cards|items` | the kind's `view_` | the bin, newest first: `title`, `chapter`, `deleted_at`, `bin_until` (then the nightly purge deletes the row and a clip's files) |
+| GET | `items/` (`?subject=&chapter=&kind=&marks=&topic=&tag=&source=book|app&difficulty=&bloom=` (`none`: not set) `&flags=any|low_discrimination|too_easy|too_hard|distractor&n_too_small=&flagged=&q=`) | `learn.view_quizitem` | the quiz bank by subject, chapter and order: each item's metadata, `source` (the book question it came from) and `stats` from the nightly item analysis (`n`, `p`, `discrimination`, `flags`, `computed_at`; `n_too_small` under 30 learners: N/A) |
+| GET | `items/<id>/history/` | `learn.view_quizitem` | its versions, newest first, each with `changes` (`field`, `before`, `after`) |
+| POST | `items/<id>/flag/` `{"note"}` | `staff.triage_report` | "needs checking": a report of category `item_analysis` in the content triage (201), or the one open already (200, `created: false`) |
+| GET POST | `entitlements/` (`?subject=PHY|ALL&source=&state=active|ended|revoked&user=&q=`), `entitlements/<id>/` | `learn.view_entitlement`; POST `learn.add_entitlement` | access: `user` (`id`, `name`, the email masked, `is_minor`), `subject`, `source`, `valid_until`, `state`, `can_extend`, `can_revoke`; one adds `history`. `q` is an account's whole email address (a `customer.lookup`; throttled as `staff_search`). POST `{"user", "subject", "valid_until", "reason", "reference"}` grants; a closed or staff account, a day gone or more than two years ahead, or open access that covers it already is refused |
+| POST | `entitlements/<id>/extend/` `{"days", "reason"}`, `…/revoke/` `{"reason"}` | `learn.change_entitlement` | 1 to 365 days from its end (or today); access ending yesterday, `revoked_at` set. Progress is never touched: access given again finds it |
+| GET POST | `codes/batches/` (`?subject=PHY|ALL&state=generating|failed|ready|dispatched|void&q=`), `codes/batches/<key>/` | `learn.view_codebatch`; POST `staff.make_book_codes` | print runs (`key`: the label, or `~` and the id for a label from before the panel): `printed`, `codes`, `redeemed`, `void`, `state`, `product`, `job`; one adds `redeemed_by_week`, `signals` (its fraud signals), `activation_rate`, `file_until` and `generation` (the job: its `result_url` for its starter until the file goes). POST `{"label", "subject", "count", "product": "<slug>", "note"}`: 202 `{"batch", "job"}` |
+| POST | `codes/batches/<key>/dispatched/` `{"at"}` | `learn.change_codebatch` | the books left (once, once its codes are made; `at` empty: now) |
+| POST | `codes/batches/<key>/void/` `{"reason"}` | `staff.void_book_codes` | every unused code of the run voided (`{"batch", "voided"}`), its printer's file deleted, the owners told |
+| POST | `codes/void/` `{"code", "reason"}` | `staff.void_book_codes` | one unused code voided (a redeemed one refused: revoke its access instead) |
+| POST | `codes/lookup/` `{"code"}` | `learn.view_bookcode` (`STAFF_THROTTLE_CODE_LOOKUP`, 120 an hour) | the code in one `line`: `state` (unknown, unused, redeemed, void), `batch`, `batch_state`, `subject`, `redeemed_at`, `redeemed_by` (`id`, the email masked, `is_minor`), `voided_at` |
+| GET | `codes/report/` | `learn.view_codebatch` | per print run: `printed`, `sold` (its book's copies sold online), `activated`, `revoked`, `void`, `activation_rate`, `districts` (each under `min_cell`, 10, hidden: `hidden: true`, no number); `totals`; `definitions` of each number |
+| GET | `learners/<user>/` | `learn.view_entitlement` (the account within `accounts.view_user`'s reach; a staff account is a 404) | one learner's course: `logged: true`, `summary_only` (a child, or an unknown age: counts and `last_active_week` only, never a time), `summary`, `entitlements`, `codes` (null without `learn.view_bookcode`), `devices`, `chapters` (progress, quiz answers and accuracy, card reviews), `tickets` (null without `support.view_ticket`) |
+| POST | `learners/<user>/devices/<id>/sign-out/` | `staff.end_user_sessions` | a phone taken off the account (204): no reminder reaches it until the app registers it again |
+
+No endpoint lists learners or orders them by a score: a learner is reached one at a time, from a ticket, an access row
+or a code.
+
+The jobs: a print run's codes are made by `POST course/codes/batches/` as a staff job of kind `code_batch`
+(`staff.make_book_codes`, high, the owners alerted): the codes' digests kept and the codes written once into the
+printer's file (CSV: `code`, `batch`, `subject`), its starter's to download for 24 hours, then deleted by the hourly
+purge; a run whose job failed is made again by `POST /api/v1/staff/jobs/` `{"kind": "code_batch", "params":
+{"batch": <id>}}`. The bulk actions are `bulk_action` jobs naming `item_metadata` (`{"topic", "marks", "difficulty",
+"bloom", "tags_add", "tags_remove"}`, the fields to change only), `entitlement.grant` (targets: account ids; `{"subject",
+"valid_until", "reference"}`), `entitlement.extend` (`{"days"}`) or `entitlement.revoke`, a dry run first; above the
+starter's `bulk_rows` the job waits for an approver.
+
+```sh
+curl -X POST https://admin.examleaf.in/api/v1/staff/course/codes/lookup/ -b "sessionid=...; csrftoken=..." \
+  -H "X-CSRFToken: ..." -H "Content-Type: application/json" -d '{"code": "7kqm 3xpa 9trw"}'
+# 200 {"state": "redeemed", "line": "Redeemed on 20 Sep 2026 by account #7101: batch PHY-2027-1 (Physics).",
+#      "batch": "PHY-2027-1", "batch_state": "dispatched", "subject": "Physics", "redeemed_at": "...",
+#      "redeemed_by": {"id": 7101, "email": "ri•••@example.com", "is_minor": true}, "voided_at": null}
+curl -X POST https://admin.examleaf.in/api/v1/staff/course/clips/506/move/ -b "sessionid=...; csrftoken=..." \
+  -H "X-CSRFToken: ..." -H "Content-Type: application/json" -d '{"to": "before", "target": 504}'
+# 200 {"id": 506, "order": 1, ...}
+```
+
+The tasks: `learn.tasks.publish_due` (every 5 minutes) publishes the approved revisions whose time has come (one with
+no ready clip waits, an inbox item says so); `learn.tasks.purge_bin` (04:30) deletes the rows 30 days in the bin and a
+clip's video and HLS files with them; `learn.tasks.purge_code_files` (hourly) deletes the printers' files after 24
+hours; `insights.tasks.code_fraud_rules` (hourly) runs the book codes' fraud rules (failed codes per account, address
+and device, a spike, resale, a shared photo, a run redeemed before it was dispatched), each signal an inbox item of
+kind `fraud_signal` and the urgent ones emailed to `INSIGHTS_ALERT_EMAILS` within the hour.
 
 ## Lists
 

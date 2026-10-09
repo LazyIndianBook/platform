@@ -185,6 +185,19 @@ shape), and `<html lang>` with the `:lang` rule and Hind Siliguri in every font 
   the deadlines, the status, the actions, the customer and the audit trail beside it), `/support/new/` (a call, a
   WhatsApp message, an NCH complaint or an email logged), `/support/replies/` and `/support/export/` (the grievance
   register).
+- Course (`src/app/(panel)/course/`, `src/components/modules/course/`): `/course/` (the subjects, and the chosen one's
+  outline as `?subject=PHY`: each chapter's must-do note, revision, clips, cards and quiz items, every row dragged by
+  its handle or moved with "Move to…", a card edited, a row deleted: a clip once its title is typed, a card or an item
+  with five seconds to undo), `/course/revisions/<id>/` (submit, approve, send back, publish now or at a time, back to
+  draft; the title and length), `/course/clips/<id>/` (the reason in words with Retry beside it, the poster and the
+  staff player, its details, delete or restore), `/course/bin/` (`?kind=clips|cards|items`, restore the chosen),
+  `/course/items/` and `<id>/` (the quiz bank with its item analysis and "N/A", the metadata of many changed with a dry
+  run; an item's text, key and metadata, "Needs checking", its history), `/course/entitlements/` (access found by
+  subject, source, state or a whole email address; extended or revoked, one at once or many with a dry run; given to
+  one account or to many), `/course/codes/` and `<key>/` (the lookup box answering in one line with Void this code; a
+  print run made with the printer's file; the print runs, one with its weeks, signals, Mark dispatched and Void the
+  run), `/course/report/` (per print run, districts under 10 hidden) and `/course/learners/<id>/` (from a ticket's
+  sidebar, an access row or a code; says at the top that the view is logged; a child's a summary).
 - In ERPNext (links out, in a new tab, said in words and marked with the external-link icon; drawn only when
   `NEXT_PUBLIC_ERP_URL` is set and the manifest has one of the sync's `erp.*` permissions): Finance `/app/accounting`,
   GST returns `/app/gst-india`, Inventory `/app/stock`, Purchases `/app/buying`, CRM `/app/crm`.
@@ -228,8 +241,10 @@ nothing animates with reduced motion.
   hold that the erasure's dry run then names, the disclosures saved with a reason, both found in the audit trail); the
   Orders module (SUPPORT's refund of two books above their limit answered with its change request; the packing queue's
   mark packed undone, then sent); the support queue (a ticket opened, a saved reply put in with Alt 1 and sent, the
-  status moved on, an NCH complaint logged); the idle sign-out; and a break-glass session's reason and a policy
-  acknowledged before anything else.
+  status moved on, an NCH complaint logged); the Course module (a clip moved first with "Move to…", a colleague's
+  revision scheduled while one's own waits for another reviewer, a book code looked up and voided once VOID is typed,
+  a redeemed code's learner page: logged, a child's a summary); the idle sign-out; and a break-glass session's reason
+  and a policy acknowledged before anything else.
 - **Against the real backend** an OWNER, a SUPPORT, a SALES and a FINANCE member are made for the run, with an adult
   customer, an order of ₹1,500 paid online, the customer's erasure request and an incident: SUPPORT reads the manifest
   and the inbox and asks for a refund above their ₹1,000 (a 202 and a change request, which the maker cannot approve:
@@ -242,7 +257,10 @@ nothing animates with reduced motion.
   minutes, after which the API answers 401. Then the Orders module,
   on three books and an order of one of each paid online and sent: SALES makes a staff order (the rule's answer shown
   before saving; made at once within 20%), FINANCE finds it by the customer's email, and SUPPORT asks for a refund of
-  two of its books, ₹1,900: the 202 and its change request.
+  two of its books, ₹1,900: the 202 and its change request. Then the Course module, on a learner who redeemed a book
+  code of a print run made for the run: SUPPORT looks the code up (its plain text known to the seed alone), opens the
+  learner's page from the answer, which says the view is logged, and the OWNER finds the `sensitive_read` in the
+  learner's audit trail.
 
 ## Deploy
 
@@ -377,3 +395,21 @@ reason}`), `…/refund/` and `…/cancel/` (with an `Idempotency-Key`; 202 a cha
   `GET support/agents/`; `GET POST support/saved-replies/` (`?bin=true`), `PATCH DELETE …/{id}/`, `POST …/{id}/restore/`;
   the grievance register as `POST jobs/` `{kind: "grievance_export", params: {from, until}}` and `GET
 jobs/?kind=grievance_export&mine=true`.
+- **Course** (`course/…`, API.md "Course (staff)"; within the person's subjects): `GET course/subjects/`,
+  `GET course/subjects/{id}/outline/`, `PATCH course/chapters/{id}/` (`must_do`); `GET`/`PATCH course/revisions/{id}/`
+  (`transitions`: the buttons), `POST …/submit/`, `approve/`, `needs-changes/` (`{comment}`), `publish/`
+  (`{publish_at}`, null: now), `unpublish/` (`403 own_edit` for whoever submitted it); `GET`/`PATCH`/`DELETE
+course/clips/{id}/`, `course/cards/{id}/`, `course/items/{id}/` (DELETE answers the bin's row), `POST …/move/`
+  (`{to, target}`), `…/restore/`, `course/clips/{id}/retry/`; `GET course/bin/?kind=`; `GET course/items/` (the bank's
+  filters), `GET course/items/{id}/history/`, `POST course/items/{id}/flag/` (`{note}`: `created` false when one is
+  open); `GET`/`POST course/entitlements/` (`q`: a whole email address, recorded by its hash),
+  `GET course/entitlements/{id}/`, `POST …/extend/` (`{days, reason}`), `…/revoke/` (`{reason}`);
+  `GET`/`POST course/codes/batches/` (202 `{batch, job}`; `product` a slug, suggested by `orders/products/?q=`),
+  `GET course/codes/batches/{key}/` (a label, or `~` and the id), `POST …/dispatched/` (`{at}`), `…/void/`
+  (`{reason}`), `POST course/codes/void/` (`{code, reason}`), `POST course/codes/lookup/` (`{code}`; throttled),
+  `GET course/codes/report/`; `GET course/learners/{user}/` (a sensitive read: never prefetched),
+  `POST …/devices/{id}/sign-out/`; bulk work as `POST jobs/` `{kind: "bulk_action", params: {action, targets,
+payload, reason}, dry_run}` with `item_metadata`, `entitlement.grant`, `entitlement.extend` and `entitlement.revoke`,
+  and a failed print run made again with `{kind: "code_batch", params: {batch}}`. The saved views' `list_key`s are
+  `course-items`, `course-entitlements` and `course-batches`. The mock (`src/mocks/staff/course.ts`) holds every
+  state these pages draw.

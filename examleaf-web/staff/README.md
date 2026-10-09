@@ -132,6 +132,8 @@ than do something else. Each step is an audit event `<action>.requested|approved
 | `user.reset_mfa` | `staff.reset_user_mfa` | the same (a customer's), `staff.approve_role_change` (staff) | always |
 | `user.erase` (`DeletionRequest.complete`) | `staff.handle_data_request` | `staff.approve_erasure` | always (staff started it) |
 | `job.run` (a job above its starter's limit: `jobs.start`) | `staff.view_job` (the job's own permission is checked first) | `staff.approve_export` | above the kind's own limit (`jobs.LIMITS`): an export's `export_rows` (the grievance register's too), a bulk action's `bulk_rows` |
+| `entitlement.grant`, `entitlement.extend`, `entitlement.revoke` (`learn/approvals.py`: `learn.course.grant`, `extend`, `revoke`) | `learn.add_entitlement`; `learn.change_entitlement` | `staff.approve_export` | never on their own: they are the course's bulk actions, and the job waits above `bulk_rows` (`job.run`) |
+| `item_metadata` (`learn.course.set_metadata`: topic, marks, difficulty, Bloom level, tags added and taken off) | `learn.change_quizitem` | `staff.approve_export` | as above |
 
 The checkers' permissions: `approve_refund`, `approve_payment` and `approve_discount` are FINANCE's (and the owners');
 `approve_role_change`, `approve_erasure` and `approve_export` ADMIN's (and the owners'). `approvals.bulk_rule(maker,
@@ -282,6 +284,14 @@ kind `ticket_category`, three kinds of inbox item (`ticket_due`: a ticket's lega
 `ticket_breach`: past it, both for `staff.handle_ticket` and given to the ticket's assignee; `ticket_mention`: a
 colleague named in a note, assigned to them and done once they open the ticket) and the permissions
 `staff.handle_ticket` (medium) and `support.note_ticket`.
+The Course module (`learn/README.md`) adds the kind `code_batch` (`staff.make_book_codes`, high, the owners alerted;
+no row limit and no approver: `count` codes of one print run, `{"batch": <id>}` to make again a run whose job failed;
+its file, the codes once, is its starter's for 24 hours: `KEEP_FILES`, then `learn.tasks.purge_code_files` deletes
+it), the bulk actions above, one kind of inbox item, `fraud_signal` (a fraud rule's signal on book codes or orders,
+for `staff.acknowledge_signal`, closed when the signal is acknowledged), the `review` kind's reuse for a revision
+waiting (for `staff.publish_course`) and `failed_job`'s for a clip that failed or a scheduled publish that waits, and
+the permissions `staff.publish_course` (medium), `staff.make_book_codes` (high) and `staff.void_book_codes`
+(critical).
 
 ## Data protection
 

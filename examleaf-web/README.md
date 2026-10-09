@@ -81,6 +81,13 @@ and the security reviews, [SECURITY_REVIEW.md](SECURITY_REVIEW.md) (phases 1 to 
   minutes by default) in short clips (ffmpeg makes HLS for low-end phones), one-mark quiz items, flash cards, a
   day-by-day pass plan, book codes printed in the books, entitlements, and a daily reminder through Firebase Cloud
   Messaging.
+- **The course in the panel** (`learn/README.md`, API.md "Course (staff)"): a subject's outline with each row's
+  actions and "Move to…" as the keyboard's way for every drag; revisions submitted, approved by a second person and
+  published now or at a time; a clip's failure in words with Retry beside it; a 30-day bin for clips, cards and quiz
+  items; the quiz bank with its item analysis and bulk metadata edits; access granted, extended and revoked (one at a
+  time or in bulk, a dry run first) without touching progress; print runs of book codes made by a job (the printer's
+  file once, for 24 hours), dispatched and voided, a lookup answering in one line, the codes' fraud rules and report;
+  a learner's page for support, every view logged, a child's a summary without times.
 - **Web platform.** Product pictures in AVIF and WebP, a public and a private storage bucket, a link-preview picture
   per product (the website's SEO tags, JSON-LD and installable web app are the frontend's).
 - **ERPNext** (`erp/`, `erp/README.md`): the platform's items, invoices, credit notes, payments, delivery notes and
@@ -170,6 +177,10 @@ can be edited in the admin:
 | 04:10, 04:20 | the retention schedule's clean-up (`ops.tasks.trim_expired`, `purge_expired`): the SMS log's last digits after 90 days and its rows after a year, webhook records and task results after 7 days, the app's phones silent for 90 days, the orders past their books' period |
 | 04:30 | `shop.tasks.clean_up`: cancel orders never paid or placed (after asking Razorpay), queue again lost refund, invoice and credit note tasks, delete guest carts idle for 30 days, old webhook records and payloads, old stock alerts and the customer details of cancelled unsold orders |
 | 04:30 | forget expired refresh tokens of the API |
+| 04:30 | `learn.tasks.purge_bin`: delete the clips, flash cards and quiz items 30 days in the bin, a clip's video and HLS files with it |
+| every 5 minutes | `learn.tasks.publish_due`: publish the course's revisions approved for a time that has come (`learn/README.md`) |
+| every hour (at :20) | `learn.tasks.purge_code_files`: delete the printers' files of book codes after their 24 hours |
+| every hour (at :40) | `insights.tasks.code_fraud_rules`: the book codes' fraud rules, their inbox items and the urgent ones' email |
 | every hour (at :15) | send the "back in stock" emails |
 | 08:00 | email the SALES role the books running out |
 | 18:00 | send the revision course's reminders (only with `FCM_SERVICE_ACCOUNT_JSON`) |

@@ -876,7 +876,9 @@ your limit FINANCE approves). Exchanges are not built: refund, and the customer 
 
 ## The revision course
 
-Content editors (CONTENT_EDITOR) work in the admin under **Revision course**; DEPLOYMENT.md section 18 has the set-up.
+Content editors (CONTENT_EDITOR) upload in the admin under **Revision course** and run the rest from the panel's
+**Course** module (`learn/README.md`: the outline, review and publish, the bin, the quiz bank, access, book codes);
+DEPLOYMENT.md section 18 has the set-up. The shell recipes below are the fallback for when the panel cannot be used.
 
 ### Uploading and publishing a revision
 
@@ -891,11 +893,18 @@ Content editors (CONTENT_EDITOR) work in the admin under **Revision course**; DE
 4. On each clip (Clips, or the Change link beside the row): notes or transcript (Markdown), the Board questions it
    prepares for (by id; the search in Questions finds them by paper code and label), then **Preview**: the clip as the
    app plays it, both renditions (480p, 720p), the poster and the notes.
-5. **Revisions → select → "Publish the selected revisions"**: only revisions with at least one ready clip are
-   published. The app shows them at once. "Back to draft" hides one again; students keep their progress.
-6. Order of clips: change the numbers, or Clips → select → "Move up" / "Move down".
-7. Quiz items: `build_quiz_items` made them from the papers; check a few per chapter (Quiz items, filtered by subject)
-   and correct or delete what reads badly. Running the command again adds only new ones and keeps edits.
+5. **Panel → Course → the subject → the chapter → its revision → "Submit for review"**: the subject's reviewers find
+   it in their inbox. A REVIEWER who did not submit it approves it, sends it back with what to change, or publishes
+   it now (it needs a ready clip) or at a date and time (India's): a task every 5 minutes publishes it then. The app
+   shows it at once; "Back to draft" hides it again, and students keep their progress. (Fallback: the admin's
+   Revisions → select → "Publish the selected revisions", with `staff.publish_course`.)
+6. Order of clips, cards and quiz items: in the panel's outline, drag a row by its handle or use its "Move to…"
+   (first, last, before or after another). A row deleted there goes into the bin for 30 days (Course → Bin →
+   Restore); a clip's video goes for good with the nightly purge after that.
+7. Quiz items: `build_quiz_items` made them from the papers; check a few per chapter in Course → Quiz bank (filtered by
+   subject, with the item analysis: "N/A" under 30 learners) and correct what reads badly, alone on its page or the
+   metadata of many at once (a dry run first). "Needs checking" sends one to the content triage. Running the command
+   again adds only new ones and keeps edits.
 
 ### A clip that failed
 
@@ -906,7 +915,8 @@ only mp4, mov, m4v, webm or mkv with H.264, HEVC, VP9 or AV1 video and AAC, Opus
 once with "Not a video we take". If the upload itself fails ("The upload was cut off", or "The bucket refused the video
 (403)"), the bucket's CORS rule lacks PUT for the site's origin (DEPLOYMENT.md section 17) or the 15-minute link ran
 out: choose the video again. After a new upload the clip is processed again by itself. To retry without a new upload
-(the bucket or the worker was down):
+(the bucket or the worker was down): **panel → Course → the clip → Retry**, beside the reason in words (shown for a
+failed clip and for one processing for over an hour). The fallback, for many clips at once or without the panel:
 
 ```sh
 docker compose exec web python manage.py reprocess_clips            # the failed ones, and those "processing" for over an hour
@@ -919,38 +929,53 @@ worker restarted): `docker compose ps media-worker`, then the first command.
 
 ### Printing book codes
 
-Each book can carry a code that opens the course in the app (a sticker or a printed slip inside the cover). Make them
-for the print run, one batch per run, and send the CSV to the printer:
+Each book can carry a code that opens the course in the app (a sticker or a printed slip inside the cover). One print
+run, one batch: **panel → Course → Book codes → "Make a print run's codes"** (SALES, ADMIN, OWNER; a recent sign-in):
+its label (`PHY-2027-1`, never reused), the subject (or every subject, for a set of the four books), how many, the
+book they go into and the printer's note. A job makes them (its progress on the page; the owners get an email), and
+**Download the printer's file** gives the CSV (code, batch, subject): it is the only copy of the codes (the database
+keeps a keyed hash), yours to download for 24 hours, then deleted. Send it to the printer over a private channel and
+delete your copy once the print run is checked. Codes look like `7KQM-3XPA-9TRW` (no 0, O, 1 or I). When the books
+leave the printer, open the print run and **Mark dispatched**: a code of a run not yet dispatched that gets redeemed
+is read as a leak by the fraud rules. A run whose job failed shows "Not made" with **Make its codes again**.
+
+A print run printed by mistake, or leaked: its page → **Void the run** (ADMIN, OWNER; its label typed): every unused
+code stops working at once, the codes already redeemed keep what they opened, the printer's file is deleted and the
+owners are told. One code alone (a photo of it posted online): look it up, then **Void this code**.
+
+Set `LEARN_CODE_SECRET` before the first batch and never change it (DEPLOYMENT.md section 18; nothing is made without
+it and a server does not start without it). The fallback without the panel (the same digests, and the print run's row
+for the panel, where it is then marked dispatched):
 
 ```sh
 docker compose exec web python manage.py make_book_codes PHY 5000 --batch PHY-2027-1 --out /app/media/PHY-2027-1.csv
 docker compose cp web:/app/media/PHY-2027-1.csv . && docker compose exec web rm /app/media/PHY-2027-1.csv
 ```
 
-`ALL` instead of `PHY` makes codes that open every subject (a four-book set). The CSV is the only copy of the codes (the
-database keeps a keyed hash): send it to the printer over a private channel and delete it once the print run is checked.
-Codes look like `7KQM-3XPA-9TRW` (no 0, O, 1 or I). Set `LEARN_CODE_SECRET` before the first batch and never change it
-(DEPLOYMENT.md section 18; the command refuses without it and a server does not start without it). A batch printed by
-mistake: Book codes → filter by batch → delete them (ADMIN; a code already redeemed keeps its entitlement).
-
 ### Granting access
 
-Entitlements → Add: the student (by id: find it in Users), the subject (empty: every subject), the last day (empty: no
-end), and why in the note (a school order, a complaint, a reviewer). The app shows the subject open at once. Purchases
-of a digital product in the shop grant themselves when paid; an entitlement is never needed for the free previews.
+**Panel → Course → Access → "Give access"** (SUPPORT, ADMIN, OWNER): the account's number (the customer's page shows
+it), the subject (or every subject), the last day (empty: no end), a reference (a ticket's or a school order's
+number) and why. For a school's pupils, "Give access to many" takes their account numbers: a dry run checks each,
+then Apply (above your bulk limit an approver is asked). Choose rows in the list to extend them (by days, from their
+last day) or revoke them (access ends today); one at a time it happens at once, many as a job with a dry run.
+Revoking never touches a student's progress: access given again picks up where it stopped. The app shows the subject
+open at once. Purchases of a digital product in the shop grant themselves when paid; an entitlement is never needed
+for the free previews. (Fallback: the admin's Entitlements → Add.)
 
 ### A lost code, or "my code says used already"
 
-1. Ask for the code (a photo of the slip) and look it up from the customer's ticket (panel → Support → the ticket →
-   "Look up a book code": its batch and subject, redeemed by them or by another account, in one line; the code is
-   never kept), or in the admin: Book codes → search with the whole code. Not found: a typo (0/O and 1/I are not
-   used), or a code from another batch or a fake.
+1. Ask for the code (a photo of the slip) and look it up: panel → Course → Book codes → the lookup box (typed or
+   scanned; unused, redeemed when and by which account, void, or unknown, in one line; the code is never kept, and the
+   lookup is in the audit trail by the code's hash), or from the customer's ticket ("Look up a book code"). Not found:
+   a typo (0/O and 1/I are not used), or a code from another batch or a fake. The learner's page (from the ticket's
+   sidebar or the lookup's answer) shows their access, codes and devices; opening it is logged.
 2. **Found and not redeemed:** the student can type it again; after 5 tries an hour (right or wrong; per account, and
    separately per internet address) the app must wait.
 3. **Redeemed by this student:** nothing to do (Entitlements, search by the email, shows it).
 4. **Redeemed by someone else:** ask for proof of purchase (the book, the bill). If it holds, grant access as above with
    the note "code #<id> used by another account" and keep the other entitlement unless the code was clearly stolen (then
-   delete that entitlement: ADMIN; its owner will contact you if it was theirs).
+   revoke that entitlement in Course → Access, with why; its owner will contact you if it was theirs).
 5. **No code at all** (lost slip): proof of purchase, then a grant until the end of the exam season.
 
 ## Content
