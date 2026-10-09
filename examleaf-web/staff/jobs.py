@@ -35,6 +35,7 @@ LIMITS = {
     Job.Kind.AUDIT_EXPORT: "export_rows",
     Job.Kind.BULK_ACTION: "bulk_rows",
     Job.Kind.ERP_INITIAL_LOAD: "bulk_rows",
+    Job.Kind.GSTR1_EXPORT: "export_rows",
 }
 
 
@@ -56,6 +57,8 @@ def permission(kind, params):
         return approvals.ACTIONS[params["action"]].maker
     if kind == Job.Kind.ERP_INITIAL_LOAD:
         return "erp.run_initial_load"
+    if kind == Job.Kind.GSTR1_EXPORT:
+        return "staff.run_gstr1"
     return None
 
 
@@ -85,6 +88,10 @@ def start(kind, params, *, user, dry_run=False, request=None):
         from erp.producers import initial_load_size
 
         total = initial_load_size(params["invoices_from"])
+    elif kind == Job.Kind.GSTR1_EXPORT:
+        from shop.gstr1 import document_count, period_of
+
+        total = document_count(*period_of(params["month"], params.get("months", 1)))
     else:
         total = len(params["targets"])
     with transaction.atomic():
@@ -236,10 +243,18 @@ def erp_initial_load(job, progress):
     return initial_load_job(job, progress)
 
 
+def gstr1_export(job, progress):
+    """A period's GSTR-1 files, zipped (shop.gstr1.export_job)."""
+    from shop.gstr1 import export_job
+
+    return export_job(job, progress)
+
+
 RUNNERS = {
     Job.Kind.AUDIT_EXPORT: export_audit,
     Job.Kind.BULK_ACTION: bulk_action,
     Job.Kind.ERP_INITIAL_LOAD: erp_initial_load,
+    Job.Kind.GSTR1_EXPORT: gstr1_export,
 }
 
 

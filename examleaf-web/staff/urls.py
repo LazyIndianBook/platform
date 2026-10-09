@@ -1,6 +1,6 @@
 """/api/v1/staff/ (namespace "staff"): the Admin Control Panel's API (staff/api.py, API.md "Staff API")."""
 
-from django.urls import path
+from django.urls import include, path
 from rest_framework.routers import SimpleRouter
 
 from . import api
@@ -32,5 +32,6 @@ urlpatterns = [
     path("system/reconcile/", api.ReconcileView.as_view(), name="reconcile"),
     path("invites/accept/", api.InviteAcceptView.as_view(), name="invite-accept"),
     path("policies/ack/", api.PolicyAcknowledgementView.as_view(), name="policy-ack"),
+    path("tax/", include("shop.staff_tax")),
     *router.urls,
 ]
