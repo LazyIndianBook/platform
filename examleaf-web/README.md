@@ -26,7 +26,7 @@ and the security reviews, [SECURITY_REVIEW.md](SECURITY_REVIEW.md) (phases 1 to 
 - [Paths](#paths) · [Open or registered solutions](#open-or-registered-solutions)
 - [Sign-in, SMS and email](#sign-in-sms-and-email) · [Roles and permissions](#roles-and-permissions)
 - [Personal data (DPDP Act)](#personal-data-dpdp-act) · [Admin](#admin) · [REST API](#rest-api)
-- [Shop](#shop) · [Revision course](#revision-course) · [Web platform](#web-platform)
+- [Shop](#shop) · [Revision course](#revision-course) · [Web platform](#web-platform) · [Insights](#insights)
 - [Tests](#tests) · [Production](#production)
 - [Data model](#data-model) · [Planned extensions (not built)](#planned-extensions-not-built) ·
   [Phases to come](#phases-to-come) · [Libraries](#libraries)
@@ -56,6 +56,9 @@ and the security reviews, [SECURITY_REVIEW.md](SECURITY_REVIEW.md) (phases 1 to 
   Messaging.
 - **Web platform.** Product pictures in AVIF and WebP, a public and a private storage bucket, a link-preview picture
   per product (the website's SEO tags, JSON-LD and installable web app are the frontend's).
+- **Insights for staff** (`insights/`): nightly demand forecasts per title and district with their backtest against
+  the seasonal naive, print-run advice (the newsvendor's quantity, reprint triggers), the quiz's item analysis,
+  cohorts, code activation, delivery times, fraud signals and what offers did; learner data only as aggregates.
 - **Messages and protection.** An SMS gateway (MSG91, under India's DLT rules) with a daily cap and a log, email through
   Amazon SES with a suppression list fed by bounce and complaint webhooks, Cloudflare Turnstile on public forms,
   passwords of 10 characters that are not in breaches, rate limits, a strict Content-Security-Policy, error reports
@@ -117,6 +120,7 @@ can be edited in the admin:
 
 | When | Task |
 |---|---|
+| 01:00 to 03:00, every 15 minutes | the insights jobs, one task each: backtest, demand forecast, print-run advice, item analysis, cohorts, code activation, delivery times, offer effects, fraud rules and their email (`insights/README.md`; DEPLOYMENT.md section 21) |
 | 03:00 | purge the account deletions whose seven days are over |
 | 03:30 | forget failed log-ins (django-axes) |
 | 03:45 | delete expired sessions |
@@ -180,6 +184,8 @@ docker-compose stack):
 | `make_book_codes <PHY\|CHE\|MAT\|BIO\|ALL> <count> --batch NAME [--out FILE]` | make book codes for a print run as a CSV; the only copy of the codes |
 | `reprocess_clips [ids] [--all]` | queue clips for ffmpeg again (the failed and the stuck ones by default) |
 | `upload_backup <file>` | upload a backup file to the backup bucket (`scripts/backup.sh` calls it); does nothing without `BACKUP_BUCKET` |
+| `insights_run <job>\|all [--date YYYY-MM-DD]` | run an insights job now, as its nightly task does (`all`: in the night's order); `--date` works out the forecasts as on another day |
+| `insights_review` | the monthly review: each title's last four weeks of forecasts beside the copies sold and the seasonal naive |
 
 Django's and the libraries' own commands that the documents rely on: `migrate`, `createsuperuser`,
 `check` (`--deploy`), `makemigrations --check --dry-run`, `sendtestemail`, `collectstatic` (at image build),
@@ -385,6 +391,12 @@ superuser changes a superuser's account or gives roles.
   the emailed code is confirmed, after re-authentication, and the old address is notified.
 - **Mobile numbers and SMS:** the SMS log holds a keyed hash and the last four digits, never the number, is trimmed
   after 90 days, and loses an account's rows when the account is deleted.
+- **Insights:** aggregates only (DPDP Act s. 9(3) forbids tracking or behavioural monitoring of children): no insights
+  row points to an account or a learner (a test checks it), groups of learners under 5 show their size only, and
+  nothing there feeds marketing, prices or offers. The fraud rules count accounts, IP addresses, phone numbers,
+  addresses and book codes by keyed hashes (`INSIGHTS_HASH_SALT`), and keep each book code tried in the app for 180
+  days as hashes, its batch and its outcome. A quiz answer keeps the multiple-choice option chosen (for the item
+  analysis), which Download my data lists with the other answers.
 - **Logs:** the application adds no personal data by design (no logs of good log-ins; Celery's task arguments, which
   hold email texts, are left out of the JSON log lines). The exceptions: django-axes logs each failed log-in and
   lock-out with the email or number as typed, the client address and the browser, and Caddy's access log holds client
@@ -415,7 +427,9 @@ way, reviews and quotation requests waiting, sales by day for two weeks, the boo
 
 The sections: Accounts (Users, Teacher profiles, Consent records, Deletion requests, Email addresses), Content (boards,
 class levels, subjects, books, papers, questions, solutions), Practice (Attempts, Answer sheet uploads), Pages, Shop
-(see "Shop"), Revision course (see there), Ops (SMS log, Email suppressions), MFA (Authenticators), Authentication and
+(see "Shop"), Revision course (see there), Insights (see there: read-only but for the exam seasons and print costs,
+each forecast run with a summary of its numbers, an action to acknowledge fraud signals), Ops (SMS log, Email
+suppressions), MFA (Authenticators), Authentication and
 Authorization (Groups), Periodic Tasks, Celery Results, and the libraries' own: Admin Interface (Themes), Axes, Social
 Accounts, Tags and Token Blacklist. Books, papers, questions, solutions, legal pages, orders and reviews have a History
 button (django-simple-history); payments and order notes keep a history in the database that the admin does not show.
@@ -459,6 +473,8 @@ endpoint, request and answer examples, the error format, rate limits and the ver
   Razorpay webhook stays `/shop/webhooks/razorpay/`.
 - The revision course (`api/learn.py`): chapters (public), clips, progress, the quiz, flash cards, the plan, book
   codes, entitlements, settings and the app's devices.
+- The insights (`insights/api.py`, active staff only): the newest rows of each predictive job, each answer with its
+  method, data time, last backtest and whether the method beats the seasonal naive (API.md, "Insights (staff)").
 - JSON only; page-number pagination (50, at most 200), filters, search and ordering; DRF's error format (a JSON 404
   for unknown `/api/` paths); throttles counted in the cache; CORS only for `CORS_ALLOWED_ORIGINS` and only on `/api/`;
   `X-Request-ID` as on the site. Beat deletes expired refresh tokens daily (`api.tasks.flush_expired_tokens`).
@@ -655,6 +671,22 @@ separate project.
   1.7.3 for the staff player (`static/learn/`, with its licence); the website has its own copies of the fonts and of
   KaTeX.
 
+## Insights
+
+The predictive jobs of the Admin Control Panel, in `insights/` ([insights/README.md](insights/README.md): each job's
+inputs, method, output and how to read it, the monthly review, when a method graduates). At night, one Celery task
+each: the demand forecast per title and week (seasonal naive by week of the season × a damped growth factor, P10 to
+P90, split top-down by district) and its backtest against the seasonal naive (WAPE, seasonal MASE; a method that does
+not beat it is not shown), the print-run advice (the newsvendor's quantile at Cu ÷ (Cu + Co), the reprint trigger,
+weeks of cover, leftovers), the quiz's item analysis (p, point-biserial, TIMSS's flags, once 30 learners answered),
+cohorts, book codes per batch and district, transit days per courier and district, what coupons and offers did (an
+interval, never a winner) and the fraud rules (failed book codes, resale, shared codes, shared phones and addresses)
+with an email of the night's signals. Rules for COD return risk and for school and distributor scores wait for their
+data (the shipping app's parcel outcomes, ERPNext's accounts). Staff enter the exam seasons and the print costs in the
+admin (Insights); every other table there is read-only, and staff read the same rows at `/api/v1/insights/`. No
+library beyond Python's own; no row points to an account, and learner numbers come in groups of 5 or more (DPDP Act s.
+9(3)).
+
 ## Tests
 
 ```sh
@@ -709,6 +741,15 @@ What the test modules cover:
   player; `test_privacy.py` export and deletion of the course data; `test_uploads.py` the direct upload of clip videos
   to the bucket (the signed link, the form, the CSP, the large-body guard); `test_review_lows.py` the book codes' key,
   what one account may add, the reminder's batches, revise-again within what is open.
+- **insights/tests/** (helpers in `helpers.py`, three exam seasons in `conftest.py`): `test_stats.py` the arithmetic
+  against numbers worked out by hand (the growth factor and its damping, a backtest's WAPE and MASE, the newsvendor's
+  P71, the point-biserial, the interval); `test_demand.py` forecasts that repeat last season at a growth of 1, the
+  damping, the district split adding up, a new title's borrowed curve, hidden demand, the backtest and the print-run
+  advice; `test_learning.py` item analysis worked out by hand, the 30-learner gate and each flag, the option chosen,
+  chapter accuracy and cohorts with groups under 5 hidden; `test_codes_delivery.py`, `test_risk.py`, `test_offers.py`;
+  `test_fraud.py` each rule on a case and on ordinary use, tries kept as hashes, the email; `test_api.py` staff only and
+  the answers' method, backtest and n; `test_admin.py` every page with rows; `test_commands.py` every job and the
+  review on an empty database, a failure retried and kept; `test_privacy.py` no key to an account or a learner.
 - **ops/**: `tests.py` health checks, the site with Redis down, request IDs, email fallback, the dashboard,
   `upload_backup`, Sentry scrubbing; `test_resilience.py` a broker that never answers; `test_security.py` the security
   review's operations fixes (health results, sessions, the backup script, development settings refused on a server);
@@ -826,10 +867,16 @@ Running without surprises:
   the body's hash). Around the shop: `Review` (with history), `StockAlert`, `QuoteRequest`.
 - `learn` — `Chapter`, `Revision`, `Clip` (with its processing state machine), `FlashCard`, `QuizItem`, `BookCode`
   (a keyed hash, never the code), `Entitlement`, `Learner` (exam date, minutes a day, reminders), `Progress`,
-  `QuizAttempt`, `CardReview`, `Device` (the app's Firebase installation ID).
+  `QuizAttempt` (right or not, and the multiple-choice option chosen), `CardReview`, `Device` (the app's Firebase
+  installation ID).
 - `ops` — `SmsLog` (a keyed hash of the number, its last four digits, kind, status, the account), `EmailSuppression`;
   the Celery email and SMS tasks, the admin dashboard, the admin theme, the `upload_backup` command.
 - `api` — no models of its own; simplejwt's token blacklist tables hold the refresh tokens.
+- `insights` — what staff enter: `ExamSeason` (a board's exam for a class and year), `PrintCost` (per title: cost and
+  salvage per copy, copies on order, reprint lead time); what the jobs write: `ForecastRun` (method, parameters, data
+  time, code version, status) with its `Forecast`, `Backtest` and `PrintRunAdvice` rows, `ItemStat`, `ChapterStat`,
+  `CohortStat`, `CodeActivationStat`, `DeliveryStat`, `OfferStat`, `FraudSignal`, `RedemptionAttempt` (book codes
+  tried, as hashes) and `AccountScore` (schools and distributors; no rows yet). None points to an account.
 
 ## Planned extensions (not built)
 

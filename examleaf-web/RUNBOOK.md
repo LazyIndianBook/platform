@@ -14,6 +14,7 @@ Commands run in `/srv/examleaf/examleaf-web` on the server. `dj` below stands fo
 - [The shop](#the-shop): payments, refunds, invoices, shipping, GST returns, coupons, offers, staff orders, the catalogue
 - [Reviews, school orders and stock](#reviews-school-orders-and-stock)
 - [The revision course](#the-revision-course): uploading, failed clips, book codes, access
+- [Insights](#insights): a job failed, a fraud spike, the monthly review, a new season
 - [Incidents](#incidents)
 
 ## Backups and restore
@@ -664,6 +665,57 @@ of a digital product in the shop grant themselves when paid; an entitlement is n
    the note "code #<id> used by another account" and keep the other entitlement unless the code was clearly stolen (then
    delete that entitlement: ADMIN; its owner will contact you if it was theirs).
 5. **No code at all** (lost slip): proof of purchase, then a grant until the end of the exam season.
+
+## Insights
+
+The predictive jobs (`insights/README.md`) run at night from 01:00 to 03:00 and keep their rows in the admin under
+Insights; staff read them there or through `/api/v1/insights/`. They never name a student: what they say about
+learners is about groups of 5 or more.
+
+### An insights job failed
+
+1. Sentry reports it (after one retry ten minutes later). For the forecast, the backtest and the print runs the admin
+   says so too: Insights → Forecast runs → status "failed", the error in the notes; the rows of the night before stay
+   the newest, so the panel shows them with their older `data_as_of`.
+2. Run it again by hand and read the line it prints: `dj insights_run forecast_demand` (or the job's name; `all` runs
+   them in the night's order). "nothing to work on" with a reason is not a failure: the exam seasons are missing
+   (enter the next season's and the last one's: Insights → Exam seasons), a line sold nothing last season, or a title
+   has no print cost.
+3. A job that fails again on the same data: copy the error into an issue with the run's id. The jobs only read the
+   shop's and the course's tables, so both go on. Switch the task off meanwhile (Periodic tasks → the `insights-…`
+   entry → untick Enabled, a superuser's change; the next start of beat puts the time back, not the switch).
+
+### A fraud spike
+
+The night's email (to `INSIGHTS_ALERT_EMAILS`) or Insights → Fraud signals (filter "acknowledged at: empty"):
+
+1. **Failed book codes from one account or one IP address**, or an hour far above the usual: someone is guessing
+   codes. The redeem throttle already stops each account and address after 5 tries an hour, and a 12-character code
+   cannot be guessed at that rate; Insights → Redemption attempts (filter by date and outcome) shows the batches and
+   how many accounts and addresses. Many accounts from a few addresses: lower `API_THROTTLE_LEARN_REDEEM_ADDRESS`, or
+   block the addresses at Caddy; a classroom (one address, many accounts, real codes) is not an attack.
+2. **One account redeeming many codes**: resale of codes. The signal's details list the batches and the codes' ids;
+   Book codes → open one → "redeemed by" is the account. Ask before acting: a teacher may have redeemed for a class.
+3. **One code tried by several accounts**: a photo of a code shared. The first redeemer keeps it; the others get "used
+   already" ("A lost code, or my code says used already").
+4. **Accounts sharing a phone number or an address** on COD or coupon orders: a family, a hostel, or one person
+   making accounts to get round a coupon's per-customer limit or the two open COD orders. The details list the orders'
+   numbers: Orders → search each. Cancel an order placed only to abuse a coupon (with a note on it), and stop the
+   coupon (Coupons → untick active) if it is spreading.
+5. Acknowledge what you looked at (Fraud signals → select → "Acknowledge"): it comes back only if it grows. The
+   subject is a keyed hash: the admin's tables match it, nobody can read it back.
+
+### The monthly review, in season
+
+`dj insights_review` prints each title's last four complete weeks: the forecast made before each week, the copies
+sold and the seasonal naive, with both errors (WAPE). Then insights/README.md, "The monthly review": the backtest's
+summary, the print runs to act on, the fraud signals still open, and a note in the season of what changed.
+
+### A new season
+
+Enter its exam dates as soon as the board publishes them (Insights → Exam seasons: board, class, academic year, first
+and last written paper; practicals do not count) and the print costs of the new titles (Insights → Print costs). The
+forecasts move to the new season on the day of the old one's first paper.
 
 ## Incidents
 
