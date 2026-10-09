@@ -299,6 +299,9 @@ class InboxItem(models.Model):
         TICKET_DUE = "ticket_due", "a ticket's legal clock three quarters gone"
         TICKET_BREACH = "ticket_breach", "a ticket past its legal clock"
         TICKET_MENTION = "ticket_mention", "named in a ticket's note"
+        # Phase B: finance (shop/settlements.py, shop/payments.py)
+        SETTLEMENT = "settlement", "a Razorpay settlement that does not match"
+        B2B_PAYMENT = "b2b_payment", "a B2B invoice paid by link: its entry to post in ERPNext"
 
     kind = models.CharField(max_length=20, choices=Kind.choices, db_index=True)
     title = models.CharField(max_length=200, help_text="Names no one: a number, a kind.")
@@ -367,6 +370,8 @@ class Job(models.Model):
         CONTENT_IMPORT = "content_import", "import from the books repository"  # content/imports.py
         # Phase B: support
         GRIEVANCE_EXPORT = "grievance_export", "grievance register export"  # support.register
+        # Phase B: finance
+        SETTLEMENT_FETCH = "settlement_fetch", "Razorpay settlements fetched"  # shop.settlements.fetch_job
 
     class State(models.TextChoices):
         QUEUED = "queued", "queued"
