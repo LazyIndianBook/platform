@@ -10,13 +10,14 @@ what this API answers and decides nothing itself. The endpoints are in [API.md](
 | `../accounts/roles.py` | the roles (Django groups) and their permissions, `ROLE_LIMITS`, `ROLE_SCOPES`, `SOD_CONFLICTS`, `PRIVILEGED_ROLES`, `OWNER_ONLY`, `MONEY_APPROVALS`, `ADMIN_SITE_ROLES` |
 | `apps.py` | the roles synced after every `migrate` (a post_migrate receiver) |
 | `catalogue.py` | every permission's label, area, risk and what the risk triggers |
-| `models.py` | `StaffPermissions` (the action permissions), `StaffScope`, `RoleGrant`, `AuditEvent` and `AuditHead`, `ChangeRequest` and `Approval`, `Job`, `InboxItem`, `SavedView`, `SiteSetting`, `FeatureFlag`, `ApiKey`, `Note`, `PolicyAcknowledgement`, `Impersonation`, `StaffInvite`, `DataRequest`, `Incident`, `ProcessorRecord` |
+| `models.py` | `StaffPermissions` (the action permissions), `StaffScope`, `RoleGrant`, `AuditEvent` and `AuditHead`, `ChangeRequest` and `Approval`, `Job`, `InboxItem`, `SavedView`, `SiteSetting`, `FeatureFlag`, `ApiKey`, `Note`, `PolicyAcknowledgement`, `Impersonation`, `StaffInvite`, `DataRequest`, `Incident`, `ProcessorRecord`, `DarkPatternAudit` |
 | `jobs.py` | background jobs from the panel: `start()`, `cancel()`, `run()` with its Progress, the runners (`audit_export`, `bulk_action`), the result file's signed link |
 | `backends.py` | `scoped(queryset, user, perm)` and `ScopeBackend` (`user.has_perm(perm, obj)`) |
 | `audit.py` | `record()`, the hash chains, `verify()`, `export_day()`, retention (`purge()`), `alert()` |
 | `approvals.py` | maker-checker: `ask()`, `approve()`, `reject()`, `execute()`, the actions and their rules |
 | `services.py` | roles, scopes, invitations, sessions, offboarding; the customers' account actions; impersonation |
-| `privacy.py` | the data requests' clocks, the erasure's dry run, the answer's text, the masks |
+| `privacy.py` | the data requests' clocks, the erasure's dry run and its holds, the processors' tasks, the answer's text with the contact block, the erasure ledger's hash, the masks |
+| `compliance.py`, `privacy_api.py` | Legal and privacy: the cockpit's clocks and calendar; its staff API (`/api/v1/staff/privacy/`) |
 | `config.py` | `site_setting()` and `feature_flag()`: the panel's switches over the environment's |
 | `permissions.py` | `IsStaff`, `StaffPermission`, API keys (`ApiKeyAuthentication`), the per-staff throttle |
 | `api.py`, `serializers.py`, `urls.py` | `/api/v1/staff/` |
@@ -290,13 +291,95 @@ by `result_url` (signed for 5 minutes; a bucket's own signed link behind it) and
   member of staff for the actor and the customer for `on_behalf_of`, with one `impersonation.request` event per
   request.
 
+## Legal and privacy
+
+The panel's Legal and privacy module (plan 5.15; `privacy_api.py`, API.md "Legal and privacy (staff)") on top of the
+registers above. What each part does, and the rule it keeps:
+
+- **The cockpit** (`compliance.py`, `GET privacy/cockpit/`, `staff.view_datarequest`): every clock the Indian rules
+  start, as rows with the record behind each, the overdue first: a data request's 48 hours and month (90 days from
+  13 May 2027), a breach's 6 and 72 hours, a complaint's 48 hours, month and NCH 30 days (the support app's tickets,
+  read lazily: the cockpit says when it is not installed), a parent's consent awaited, a child's deletion waiting for
+  the parent, the year's dark-pattern self-audit; the consents counted by the privacy notice's version; the legal
+  calendar (1 January and 13 May 2027, the self-audit's 1 December and 1 January, the quarterly access review, the
+  restore drill: the system module's `RestoreDrill` when it is there). Numbers and codes only.
+- **Legal holds** (`accounts.LegalHold`, `privacy/holds/`; `staff.manage_holds`, new and high: FINANCE, ADMIN, OWNER;
+  `accounts.view_legalhold`: SUPPORT and AUDITOR read): an account, or one record (an order, an invoice, a credit note,
+  a payment, a refund, a data request), held for a dispute, a chargeback, a claim or an investigation, until a day or
+  until released (with a reason). A hold on the account stops its erasure; a hold on a record keeps it from the
+  retention clean-up; both are lines of the erasure's dry run.
+- **The erasure obeys its holds** (`privacy.erasure_holds`, `DeletionRequest.complete`): the dry run (`erasure_report`)
+  lists each kept part with its `line`, "kept until 31 March 2035: 1 invoice of 2026-27 with the order behind it, for
+  GST and the Companies Act": the books by financial year (`examleaf.retention.books_until`: 8 financial years after,
+  or 72 months after the annual return's due date, whichever is later), a year of processing logs (the audit log's
+  events naming the account by number, the SMS log's rows kept without the account or the last digits), the legal
+  holds, the intermediary rule's 180 days for the registration details when `SUPPORT_INTERMEDIARY_RULES` is on, the
+  consents. A legal hold on the account and a child without the parent's confirmation are `blocks`, and `complete()`
+  raises `DeletionRequest.Held` for them (the nightly purge leaves such a deletion waiting, with an inbox item). A
+  child's parent confirms through their own signed link (`/c/<token>/`, `POST parent-consent/<token>/ {"confirm":
+  "deletion"}`: `parent_confirmed_at`), or staff record it with the evidence's reference
+  (`privacy/deletions/<id>/parent-confirmation/`).
+- **The erasure ledger**: a done `DeletionRequest` keeps a keyed hash of the address erased (`subject_hash`), copied to
+  the backups' bucket at once (`erasures/<id>.json`; `accounts.tasks.copy_erasure_ledger`, and nightly for any missed).
+  After a restore, `manage.py reapply_erasures` erases again every account the ledger names whose address still hashes
+  to it (an id taken by someone else since is never touched; `--dry-run`, `--ledger`, `--export`). RUNBOOK.md has the
+  step.
+- **Processors' tasks**: the processor register says which processor keeps personal data (`holds_personal_data`),
+  which holds marketing lists (`holds_marketing_data`) and what to ask of it (`erasure_action`). Each erasure done opens
+  an inbox item (`processor_task`, for `staff.manage_compliance`: OWNER, ADMIN) per processor that keeps personal data;
+  each marketing consent withdrawn (`POST /api/v1/me/consent/withdraw/`), one per processor that holds marketing lists.
+  The answer to a person (`response_text`, the erasure's confirmation email, the access export's email) carries the
+  contact block (the DPDP contact person, the Grievance Officer, the legal name and address) and, for access, who
+  processes the data (s.11(1)(b)).
+- **The retention schedule** (`examleaf/retention.py`, `privacy/retention/`): one table of each kind of record's least
+  time in law (and the day it changes), what the site keeps and who deletes it. The nightly `ops.tasks.trim_expired`
+  and `purge_expired` act on the rows that name a model: the SMS log's last digits blanked at 90 days and its rows gone
+  after a year, Razorpay's webhook records and the tasks' results after 7 days, the app's phones silent for 90 days, and
+  the orders past their books' period (their customer's details forgotten, the documents' PDFs deleted, a held one
+  left as it is).
+- **Policy versions** (`pages/versions.py`, `privacy/policies/`; `pages.view_page`, `pages.change_page`): each publish of
+  a legal page is a numbered version with the day it is in force from and a line on what changed; one published for a
+  later day waits in `Page.scheduled` until `pages.tasks.publish_due` (just after midnight) puts it in force; a diff of
+  each against the one before. Consent rows keep the version they were given under.
+- **The e-commerce disclosures** (`privacy/disclosures/`; the site settings of the group `disclosures`:
+  `staff.manage_settings`): the legal name and the addresses, customer care, the Grievance Officer, the nodal contact,
+  the page of the return terms, the DPDP contact person (`DATA_PROTECTION_OFFICER`), CERT-In's point of contact (never
+  on the website), the published text on rights requests, the National Consumer Helpline membership. Saved together
+  with one reason, each a `setting.changed` event; the website shows them from `config/`.
+- **The dark-pattern self-audit** (`DarkPatternAudit`, `privacy/dark-pattern-audits/`; `staff.manage_compliance`, new
+  and high: OWNER, ADMIN; `staff.view_darkpatternaudit`: AUDITOR reads): once a year a finding and a fix for each of the
+  CCPA's 13 patterns, the certificate's text and its signed copy; completed once, then unchanged; shown on the website
+  from its `effective_from`. `staff.tasks.remind_dark_pattern_audit` opens one inbox item a year from 1 December.
+- **Nominees** (`accounts.Nominee`): the person's own `GET/PUT/DELETE /api/v1/me/nominee/`; staff read it on
+  `privacy/nominees/<user>/` (`accounts.view_user`, a `sensitive_read`), the contact masked and revealed with a reason
+  (`staff.reveal_contact`). The claim's flow (proving it) is Phase C's.
+- **Children** (the rule for every module): an account under 18 is never marketed to, whatever any consent says, and
+  one of unknown age only on a verified consent: every marketing send, segment, ad audience or export goes through
+  `accounts.audiences.marketable(queryset, channel)` (exported for Phase D's Marketing; nothing sends marketing yet).
+  Every staff view of a child's record is a `sensitive_read` event with `child: true`: opening a customer
+  (`users/<id>/`), revealing a detail, reading a nominee; a module that adds a lookup of a person or a view of their
+  record writes the same event with the same flag.
+- **The consent ledger** is append-only in practice: no endpoint changes or deletes a `ConsentRecord`, the admin reads
+  them, and only the erasure blanks their address hash. Consents carry their `channel` (marketing's email, SMS or
+  WhatsApp), the parental methods of Rule 10 (`adult_account`, `digilocker`, `staff_manual`), `verified_by` and
+  `evidence_ref` (where the evidence is, never the document).
+
+What each role finds there: SUPPORT the cockpit's clocks, the requests, the holds (to read) and a child's deletion
+confirmed by phone; FINANCE the holds (to put and release: chargebacks and disputes over money); CONTENT_EDITOR the
+policy versions (to publish); ADMIN and OWNER everything, with the self-audit and the processors' tasks; AUDITOR reads
+everything.
+
 ## The jobs
 
 | When (India time) | Task |
 |---|---|
+| 00:01 | `pages.tasks.publish_due`: a legal page's version published for that day put in force |
 | 02:00 | `staff.tasks.verify_audit_chain` |
+| 03:05 | `accounts.tasks.copy_erasure_ledger`: the erasure ledger's lines not yet in the backups' bucket |
 | 03:15 | `staff.tasks.expire_access`: roles given until a time, scopes past their time, change requests expired |
+| 04:10, 04:20 | `ops.tasks.trim_expired` and `purge_expired`: the retention schedule's clean-up |
 | 06:00 | `staff.tasks.export_audit_log`: the last 7 UTC days not yet in the bucket |
+| 07:00 | `staff.tasks.remind_dark_pattern_audit`: from 1 December, the coming year's self-audit (once a year) |
 | every hour (:05) | `staff.tasks.expire_change_requests` |
 | every hour (:35) | `staff.tasks.watch`: refunds Razorpay refused, filed in the inbox (and done once refunded) |
 

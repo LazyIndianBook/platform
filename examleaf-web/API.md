@@ -15,7 +15,8 @@ print runs, item analysis, cohorts, fraud signals). Code: `api/` (`auth.py`, `vi
 [Frontend integration guide](#frontend-integration-guide) · [Profile and data rights](#profile-and-data-rights) ·
 [Catalogue and solutions](#catalogue-and-solutions) · [Attempts](#attempts) · [Store catalogue](#store-catalogue) ·
 [Shop](#shop) · [Revision course](#revision-course) · [Site](#site-configuration-and-legal-pages) ·
-[Insights (staff)](#insights-staff) · [ERPNext sync (staff)](#erpnext-sync-staff) · [Lists](#lists) ·
+[Insights (staff)](#insights-staff) · [ERPNext sync (staff)](#erpnext-sync-staff) ·
+[Legal and privacy (staff)](#legal-and-privacy-staff) · [Lists](#lists) ·
 [Staff API](#staff-api) · [Errors](#errors) ·
 [Rate limits](#rate-limits) · [CORS](#cors) ·
 [Versioning](#versioning) · [Operations](#operations)
@@ -68,6 +69,8 @@ it, on the panel's session (or an API key), on the admin host only. **Shop open*
 | POST DELETE | `me/deletion/` | signed in | Delete my account (`password`, or a log-in in the last 5 minutes), due in 7 days; DELETE cancels |
 | GET POST | `me/teacher/` | confirmed | teacher access: its status; ask for it (once) |
 | POST | `me/parent-consent/` | signed in | the parent's link to confirm, again (while `consent_pending`) |
+| GET PUT DELETE | `me/nominee/` | signed in | the person's nominee (DPDP s.14): who acts for them after death or incapacity |
+| POST | `me/consent/withdraw/` | signed in | withdraw a marketing consent (`purpose`, `channel`); its processors are told to stop |
 | POST DELETE | `account/impersonate/` | anyone with the panel's token | a member of staff logged in as the customer: open the session (`{"token"}`), end it ([Profile and data rights](#profile-and-data-rights)) |
 | GET | `me/record/` (`?subject=&tier=`) | confirmed | My record in figures: averages per tier and subject, each paper's best and latest attempt |
 | GET | `me/learning/` | confirmed | the learning dashboard: what is open, progress per subject and chapter, the clip to continue with, revise-again counts, the plan's next three days, the streak |
@@ -117,8 +120,9 @@ it, on the panel's session (or an API key), on the admin host only. **Shop open*
 | GET | `learn/entitlements/` | confirmed | what the user may watch |
 | GET PUT PATCH | `learn/settings/` | confirmed | exam date, minutes a day, the daily reminder |
 | POST DELETE | `devices/` | signed in | the app's Firebase installation ID, for the reminder |
-| GET | `config/` | anyone | what the server has switched on: log-in methods, Turnstile, the shop, consent mode, maintenance |
+| GET | `config/` | anyone | what the server has switched on: log-in methods, Turnstile, the shop, consent mode, maintenance; the e-commerce disclosures and the dark-pattern certificate |
 | GET | `pages/`, `pages/<slug>/` | anyone | the legal pages: Markdown, the website's HTML, version, last change |
+| GET | `pages/<slug>/versions/` | anyone | a legal page's versions: number, in force from, what changed, the one waiting for its day |
 | POST | `contact/` | anyone | the contact form: a message emailed to the support address |
 | GET | `insights/forecasts/`, `insights/print-runs/`, `insights/backtests/` | `staff.view_insights` | the newest demand forecast (`?product=<slug>`, `?district=all` or a district), print-run advice, backtest |
 | GET | `insights/item-stats/` (`?chapter=`), `insights/chapter-stats/`, `insights/cohorts/`, `insights/code-activation/` | `staff.view_insights` | the quiz's item analysis, chapter accuracy, cohorts, book codes per batch and district: aggregates only |
@@ -360,6 +364,28 @@ with the school; a verified teacher gets the `TEACHER` role in `me/`.
 **A parent's link, again** (`me/parent-consent/`, while `consent_pending`): `parent_contact`, the one on record or a
 corrected email address or mobile number (not the student's own), gets a new link to confirm; one link per ten minutes
 (429), 404 when no consent is awaited.
+
+**A child's deletion waits for the parent.** A student under 18 who asks to delete their account (`me/deletion/`) is
+erased once their parent or guardian confirms: the parent gets an email with the same signed link as their consent
+(`/c/<token>/`; a parent known by a mobile number alone is called by staff, who record the confirmation with its
+evidence). That link's `GET parent-consent/<token>/` then carries `deletion` (`{"requested_at", "due_at",
+"confirmed"}`, null otherwise), and `POST parent-consent/<token>/ {"confirm": "deletion"}` is the confirmation (once;
+recorded as the parent's withdrawal in the consent ledger). Until it comes, the deletion waits past its seven days.
+
+**My nominee** (`me/nominee/`, DPDP s.14: who acts for the person after their death or incapacity): `GET` (404 while
+none), `PUT {"name", "contact", "relation"}` (`contact` an email address or an Indian mobile number, not the person's
+own; 201 made, 200 changed; refused once a claim has proved it), `DELETE` (204). Staff see it with the contact masked.
+
+**Withdrawing a marketing consent** (`POST me/consent/withdraw/ {"purpose": "marketing", "channel": "email"}`;
+`channel` `email`, `sms` or `whatsapp`, empty for every one), as easily as it was given (s.6(4)): `201 {"purpose",
+"channel", "withdrawn_at", "detail"}` and a line in the consent ledger; the same again answers `200` with the first
+withdrawal. Each processor that holds marketing data is told to stop (a task in the panel's inbox). No account is
+marketed to without a marketing consent in force, nor any under 18 whatever it says (`accounts.audiences`).
+
+Download my data (`me/export/`, and its summary) also holds `nominee` and `recipients`: who processes the data for
+ExamLeaf (the processor register's name, purpose, kinds of data and country of each, DPDP s.11(1)(b)).
+`me/nominee/` and `me/consent/withdraw/` are throttled as the other data rights (`API_THROTTLE_AUTH`) and refused while
+a member of staff is logged in as the customer.
 
 ```sh
 curl -X POST https://examleaf.in/api/v1/me/teacher/ -H "Authorization: Bearer $ACCESS" -H 'Content-Type: application/json' \
@@ -968,10 +994,23 @@ it has set them (`staff/settings/`), the environment's otherwise; the server's o
 and checkout refused while the shop is closed, cash on delivery, a parent's consent). allauth.headless's
 `/_allauth/<client>/v1/config` adds allauth's own view (the providers, the authenticator types, `usersessions`).
 
+`disclosures` are the e-commerce disclosures the E-Commerce Rules (r.4) ask the site to show, as the panel keeps them
+(Legal and privacy, Disclosures): `legal_name`, `registered_address`, `operating_address`, `care_phone`, `care_email`,
+`care_hours`, `grievance_officer`, `grievance_designation`, `grievance_contact`, `nodal_contact` (resident in India),
+`returns_page` (the slug of the return and refund terms' page), `dpdp_contact` (who answers questions about personal
+data), `rights_text` (how to make a request about one's data), `nch_status` (`not_joined`, `applied`, `member`) and
+`nch_since`; each null while not set yet (or still a `[placeholder]`). CERT-In's point of contact is never here. The
+footer shows the legal name and the Grievance Officer, the contact page all of them. `dark_pattern_certificate` is the
+dark-pattern self-audit's certificate in force (`{"year", "text", "effective_from"}`, from its day on), to display
+prominently; null until one is.
+
 `pages/` and `pages/<slug>/` (anyone; cached 15 minutes) are the legal and policy pages, `privacy`, `terms`, `refunds`,
 `shipping` and `contact`: `slug`, `title`, `version` (consent records keep the privacy notice's), `updated` (the last
 change, as in the page's history), `markdown`, `html` (the website's rendering; a `[placeholder]` still to fill in is
-marked `<mark class="placeholder">`) and `web_url`.
+marked `<mark class="placeholder">`) and `web_url`; `number` (the version in force, counted: "Version 2"),
+`effective_from` (in force from that day) and `summary` (what it changed). `pages/<slug>/versions/` (anyone; cacheable
+15 minutes) lists every version newest first, `[{"number", "version", "effective_from", "summary", "in_force",
+"upcoming"}]`: one published for a later day comes first, `upcoming`, and is in force from its day.
 
 `contact/` (anyone) is the website's contact form: `name` (80 characters at most), `email` (we reply to it), `message`
 (2,000 at most) and `turnstile` while the bot check is on. The message is emailed to the support address with
@@ -1081,6 +1120,49 @@ after a rotation the previous one), checked in constant time. A missing or wrong
 `ERP_ENABLED` off: `403 {"detail": "Unknown or missing signature."}`, kept without its body. Otherwise
 `200 {"detail": "Received."}` at once; the body (`{doctype, name, modified, examleaf_ref, event}`) is kept once per
 SHA-256 and read again by a task. 600 a minute per client address (`API_THROTTLE_ERP_EVENTS`).
+
+## Legal and privacy (staff)
+
+`/api/v1/staff/privacy/…` (code: `staff/privacy_api.py`; the duties behind it: `staff/README.md` "Legal and
+privacy") is the panel's Legal and privacy module beside the data requests, incidents and processors of the
+[Staff API](#staff-api), on all its rules: the admin host only, a member of staff with a second factor (or an API key
+for the reads), each action's catalogued permission (area "Privacy"), a re-authentication for the high ones
+(`staff.manage_holds`, `staff.manage_compliance`, `staff.manage_settings`, `staff.reveal_contact`), every refusal an
+`authz_fail`, `Cache-Control: no-store`, cursor pages newest first. Every change is an audit event, and none names a
+person: accounts by their number, orders by theirs.
+
+| Method | Path (under `/api/v1/staff/`) | Permission | What |
+|---|---|---|---|
+| GET | `privacy/cockpit/` | `staff.view_datarequest` | every clock the rules start, as `clocks` rows, the overdue first: a data request's 48 hours and its month (90 days for the DPDP rights from 13 May 2027), a breach's 6 hours (CERT-In) and 72 hours (the Board), a complaint's 48 hours, month and NCH 30 days (from the support app's tickets when it is installed: `support`), the parents' consents awaited, a child's deletion waiting for the parent, the year's dark-pattern self-audit; each with `rule`, `due_at`, `overdue` and the record behind it (`target_type`, `target_id`, `account`); `counts` of each kind; `consents` by the privacy notice's version; `dark_pattern`; `calendar` (1 January and 13 May 2027, the self-audit, the quarterly access review and restore drill); `inbox` (the processors' tasks open) |
+| GET | `privacy/retention/` | `staff.view_datarequest` | the retention schedule (`examleaf/retention.py`): each kind of record's `minimum` today, `changes_on` and `next_minimum`, its `source`, what is kept (`keep`, `keep_days`, `trim_days`) and `enforced_by` |
+| GET POST | `privacy/holds/` (`?active=&reason=&user=&target_type=`), `privacy/holds/<id>/` | `accounts.view_legalhold`; `staff.manage_holds` to put one | a legal hold on an account (`user`) or one record (`target_type` `shop.order`, `shop.invoice`, `shop.creditnote`, `shop.payment`, `shop.refund` or `staff.datarequest`, `target_id` its number or id), `reason` (`dispute`, `chargeback`, `claim`, `investigation`, `other`), `note`, `until` (today or later; none: until released); the answer's `target_label` names it by number |
+| POST | `privacy/holds/<id>/release/` (`reason`) | `staff.manage_holds` | released, with why; `400` the second time |
+| GET | `privacy/nominees/<user>/` | `accounts.view_user` | the customer's nominee (`null` while none), its `contact` masked; a `sensitive_read` event |
+| POST | `privacy/nominees/<user>/reveal/` (`reason`) | `staff.reveal_contact` | the nominee's contact, with a reason (30 an hour, `staff_reveal`) |
+| POST | `privacy/deletions/<id>/parent-confirmation/` (`evidence_ref`) | `staff.handle_data_request` | a child's deletion confirmed by the parent by phone or letter: recorded with where the evidence is (never the document); `400` for an adult's, a deletion not waiting, or one confirmed already |
+| GET | `privacy/policies/`, `privacy/policies/<slug>/` | `pages.view_page` | the legal pages: the version in force (`number`, `version`, `effective_from`, `summary`), the one `scheduled` for a later day, `placeholders` left; one page adds its `markdown` and every version |
+| GET | `privacy/policies/<slug>/versions/<number>/diff/` | `pages.view_page` | a version against the one before it: `lines` of a unified diff (`hunk`, `added`, `removed`, `context`), `added` and `removed` counts, `title_changed` |
+| POST | `privacy/policies/<slug>/publish/` (`markdown`, `summary`, `title`, `effective_from`) | `pages.change_page` | a new version, numbered: in force today (at once) or from a later day (`scheduled`, in force that night just after midnight); never backdated; `400` for the text in force |
+| POST | `privacy/policies/<slug>/cancel-scheduled/` (`reason`) | `pages.change_page` | the version waiting for its day withdrawn |
+| GET PUT | `privacy/disclosures/` (PUT `values` `{KEY: value}`, `reason`) | `staff.view_sitesetting`; `staff.manage_settings` | the disclosures, the site settings of the group `disclosures` (each with `value`, `environment`, `source`, `public`, `max_length`) and their `history`; PUT saves the changed ones together with one reason (each a `setting.changed` event; `null` back to settings.py's), `400` field by field, or `Nothing changed.` |
+| GET POST PATCH | `privacy/dark-pattern-audits/`, `privacy/dark-pattern-audits/<id>/` | `staff.view_darkpatternaudit`; `staff.manage_compliance` | the yearly self-audit: `year`, `rows` (the 13 patterns, each `{pattern, label, finding, fix}`), `certificate_text`, `effective_from`; one a year; a completed one is not changed (`400`) |
+| POST | `privacy/dark-pattern-audits/<id>/complete/` (`effective_from`) | `staff.manage_compliance` | completed once every row has its finding and fix and the certificate its text: shown on the website (`config/`'s `dark_pattern_certificate`) from `effective_from` (today by default); the year's inbox reminder closes |
+| GET POST | `privacy/dark-pattern-audits/<id>/file/` (POST multipart `file`: PDF, PNG or JPEG, 5 MB at most) | `staff.view_darkpatternaudit`; `staff.manage_compliance` | the signed certificate, kept in the private storage |
+
+The erasure's dry run (`data-requests/<id>/erasure-report/`) gives each kept row a `kind` (`books`, `processing_logs`,
+`legal_hold`, `intermediary`, `consent`, `statistics`, `by_hand`, `test`) and its `line` in words: "kept until 31 March
+2035: 1 invoice of 2026-27 with the order behind it, for GST and the Companies Act (8 financial years, or 72 months after
+the year's annual return)". A legal hold on the account or a child's deletion without the parent's confirmation is in
+`blocks`, and the erasure waits for it (the nightly purge too). The processor register's rows say whether the processor
+keeps personal data (`holds_personal_data`), holds marketing lists (`holds_marketing_data`) and what to ask of it
+(`erasure_action`): an erasure done, or a marketing consent withdrawn, opens a task in the inbox for each.
+
+```sh
+curl https://admin.examleaf.in/api/v1/staff/privacy/holds/ -b "sessionid=…; csrftoken=…" -H "X-CSRFToken: …" \
+  -H "Content-Type: application/json" -d '{"target_type": "shop.order", "target_id": "EL-2026-000123", "reason": "chargeback"}'
+# 201 {"id": 7, "user": null, "target_type": "shop.order", "target_id": "41", "target_label": "Order EL-2026-000123",
+#      "reason": "chargeback", "note": "", "until": null, "active": true, "created": "…", "created_by": 3, …}
+```
 
 ## Lists
 
@@ -1404,6 +1486,29 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 | DELETE | `staff/people/{id}/scopes/{scope}/` | `staff.assign_role` |  |  | 204 |
 | GET | `staff/policies/ack/` | any member of staff | `user` |  | 200 `[PolicyAcknowledgement]` |
 | POST | `staff/policies/ack/` | any member of staff |  | `PolicyAcknowledgementRequest` | 200 `PolicyAcknowledgement`; 201 `PolicyAcknowledgement` |
+| GET | `staff/privacy/cockpit/` | `staff.view_datarequest` |  |  | 200 `Cockpit` |
+| GET | `staff/privacy/dark-pattern-audits/` | `staff.view_darkpatternaudit` | `cursor`, `page_size` |  | 200 `PaginatedDarkPatternAuditList` |
+| POST | `staff/privacy/dark-pattern-audits/` | `staff.manage_compliance` |  | `DarkPatternAuditRequest` | 201 `DarkPatternAudit` |
+| GET | `staff/privacy/dark-pattern-audits/{id}/` | `staff.view_darkpatternaudit` |  |  | 200 `DarkPatternAudit` |
+| PATCH | `staff/privacy/dark-pattern-audits/{id}/` | `staff.manage_compliance` |  | `PatchedDarkPatternAuditRequest` | 200 `DarkPatternAudit` |
+| POST | `staff/privacy/dark-pattern-audits/{id}/complete/` | `staff.manage_compliance` |  | `CompleteRequest` | 200 `DarkPatternAudit` |
+| GET | `staff/privacy/dark-pattern-audits/{id}/file/` | `staff.view_darkpatternaudit` |  |  | 200 `application/octet-stream` |
+| POST | `staff/privacy/dark-pattern-audits/{id}/file/` | `staff.manage_compliance` |  | `CertificateFileRequest` | 200 `DarkPatternAudit` |
+| POST | `staff/privacy/deletions/{id}/parent-confirmation/` | `staff.handle_data_request` |  | `ParentConfirmationRequest` | 200 `PrivacyDeletionConfirmed` |
+| GET | `staff/privacy/disclosures/` | `staff.view_sitesetting` |  |  | 200 `Disclosures` |
+| PUT | `staff/privacy/disclosures/` | `staff.manage_settings` |  | `DisclosuresChangeRequest` | 200 `Disclosures` |
+| GET | `staff/privacy/holds/` | `accounts.view_legalhold` | `active`, `cursor`, `page_size`, `reason`, `target_type`, `user` |  | 200 `PaginatedLegalHoldList` |
+| POST | `staff/privacy/holds/` | `staff.manage_holds` |  | `HoldCreateRequest` | 201 `LegalHold` |
+| GET | `staff/privacy/holds/{id}/` | `accounts.view_legalhold` |  |  | 200 `LegalHold` |
+| POST | `staff/privacy/holds/{id}/release/` | `staff.manage_holds` |  | `ReleaseRequest` | 200 `LegalHold` |
+| GET | `staff/privacy/nominees/{user}/` | `accounts.view_user` |  |  | 200 `AccountNominee` |
+| POST | `staff/privacy/nominees/{user}/reveal/` | `staff.reveal_contact` |  | `RevealReasonRequest` | 200 `PrivacyNomineeContact` |
+| GET | `staff/privacy/policies/` | `pages.view_page` |  |  | 200 `[Policy]` |
+| GET | `staff/privacy/policies/{slug}/` | `pages.view_page` |  |  | 200 `PolicyDetail` |
+| POST | `staff/privacy/policies/{slug}/cancel-scheduled/` | `pages.change_page` |  | `ReleaseRequest` | 200 `PolicyDetail` |
+| POST | `staff/privacy/policies/{slug}/publish/` | `pages.change_page` |  | `PublishRequest` | 200 `PolicyDetail` |
+| GET | `staff/privacy/policies/{slug}/versions/{number}/diff/` | `pages.view_page` |  |  | 200 `PolicyDiff` |
+| GET | `staff/privacy/retention/` | `staff.view_datarequest` |  |  | 200 `[RetentionRule]` |
 | GET | `staff/processors/` | `staff.view_processorrecord` | `cursor`, `page_size` |  | 200 `PaginatedProcessorList` |
 | POST | `staff/processors/` | `staff.add_processorrecord` |  | `ProcessorRequest` | 201 `Processor` |
 | GET | `staff/processors/{id}/` | `staff.view_processorrecord` |  |  | 200 `Processor` |
@@ -1438,6 +1543,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 
 - **AcceptRequest**: `token` string (required); `full_name` string; `password` string
 - **AccessRow**: `id` integer (required); `email` email (required); `roles` [string] (required); `grants` [object] (required); `scopes` object (required); `last_login` date-time (required, null); `dormant` boolean (required); `mfa` boolean (required); `permissions` integer (required); `unused` [string] (required); `last_used` object (required)
+- **AccountNominee**: `user` integer (required); `nominee` PrivacyNominee (required, null)
 - **ActorTypeEnum**: one of `staff`, `user`, `service`, `system`, `anonymous`
 - **ApiKey**: `id` integer (required, read-only); `name` string (required); `prefix` string (required, read-only); `key` string (required, null, read-only); `scopes` any; `sponsor` integer; `created_by` integer (required, null, read-only); `created` date-time (required, read-only); `expires_at` date-time; `allowed_ips` any; `last_used_at` date-time (required, null, read-only); `last_used_ip` string (required, null, read-only); `revoked_at` date-time (required, null, read-only); `revoked_by` integer (required, null, read-only)
 - **ApiKeyRequest**: `name` string (required); `scopes` any; `sponsor` integer; `expires_at` date-time; `allowed_ips` any
@@ -1448,27 +1554,37 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **AssignRequest**: `assignee` integer (required, null)
 - **AuditEvent**: `id` integer (required, read-only); `chain` ChainEnum; `ts` date-time (required); `actor_id` integer (null); `actor_type` ActorTypeEnum (required); `actor_roles` any; `on_behalf_of` integer (null); `break_glass` boolean; `action` string (required); `permission` string; `target_type` string; `target_id` string; `target_label` string; `outcome` AuditOutcomeEnum; `reason` string; `change_request_id` integer (null); `request_id` string; `ip` string (null); `user_agent` string; `session_hash` string; `changes` any; `details` any; `prev_hash` string (required); `hash` string (required)
 - **AuditOutcomeEnum**: one of `success`, `denied`, `failed`
+- **AuditRow**: `pattern` PatternEnum (required); `label` string (required, read-only); `finding` string (required); `fix` string (required)
+- **AuditRowRequest**: `pattern` PatternEnum (required); `finding` string (required); `fix` string (required)
 - **Backtest**: `product` string (required, read-only); `horizon_weeks` integer (required); `wape` double (null); `mase_vs_seasonal_naive` double (null); `shown` boolean; `n` integer (required, read-only)
 - **BlankEnum**: null
 - **BookRequest**: `order` string (required, null); `courier_company_id` integer; `courier_name` string; `quoted_rate` decimal (null); `weight_g` integer; `length_cm` integer; `breadth_cm` integer; `height_cm` integer; `pickup_location` integer (null); `courier` CourierEnum; `tracking_number` string; `tracking_url` any
 - **BreakGlassReasonRequest**: `reason` string (required)
 - **CarrierEnum**: one of `manual`, `shiprocket`
+- **CertificateFileRequest**: `file` binary (required)
 - **ChainEnum**: one of `general`, `money`
 - **ChangeRequest**: `id` integer (required, read-only); `action` string (required); `label` string (required, read-only); `target_type` string; `target_id` string; `target_label` string; `payload` any; `payload_sha256` string (required); `amount` decimal (null); `maker` integer (required); `reason` string (required); `rule` string; `status` ChangeRequestStatusEnum; `expires_at` date-time (required); `overridden` boolean; `checker` string (required, read-only); `approvals` [Approval] (required, read-only); `result` any (null); `executed_by` integer (null); `executed_at` date-time (null); `created` date-time (required, read-only); `modified` date-time (required, read-only)
 - **ChangeRequestStatusEnum**: one of `pending`, `approved`, `rejected`, `expired`, `executed`, `failed`
 - **ChannelEnum**: one of `email`, `letter`, `phone`, `form`, `in_person`, `board`
 - **ChapterStat**: `chapter` integer (required); `subject` integer (required, read-only); `number` integer (required, read-only); `title` string (required, read-only); `mean_accuracy` double (null); `trend` double (null); `n` integer (required, read-only)
 - **ClassLevelEnum**: one of `10`, `12`
+- **Clock**: `kind` ClockKindEnum (required); `label` string (required); `rule` string (required); `started_at` date-time (required, null); `due_at` date-time (required, null); `overdue` boolean (required); `target_type` string (required); `target_id` string (required); `target_label` string (required); `account` integer (required, null)
+- **ClockCount**: `open` integer (required); `overdue` integer (required)
+- **ClockKindEnum**: one of `data_request_ack`, `data_request_answer`, `incident_cert_in`, `incident_board`, `complaint_ack`, `complaint_redress`, `complaint_nch`, `parent_consent`, `deletion_parent`, `dark_pattern_audit`
 - **CloseRequest**: `outcome` DataRequestOutcomeEnum (required); `response` string (required)
+- **Cockpit**: `now` date-time (required); `clocks` [Clock] (required); `counts` object (required); `support` PrivacyCockpitSupport (required); `consents` [PrivacyConsentVersion] (required); `dark_pattern` PrivacyDarkPatternState (required); `calendar` [PrivacyCalendarItem] (required); `inbox` integer (required)
 - **CodReconcileRequest**: `utr` string (required); `amount` decimal (required); `on` date
 - **CodRemittance**: `id` integer (required, read-only); `shipment` integer (required, read-only); `order` string (required, read-only); `expected_amount` decimal (required, read-only); `expected_on` date (required, read-only); `remitted_amount` decimal (required, null, read-only); `utr` string (required, read-only); `remitted_at` date (required, null, read-only); `state` CodRemittanceStateEnum (required, read-only); `checked_at` date-time (required, null, read-only)
 - **CodRemittanceStateEnum**: one of `expected`, `overdue`, `remitted`, `mismatch`, `not_expected`
 - **CodeActivation**: `batch` string (required); `district` string (null); `printed` integer (null); `redeemed` integer (required); `redeemed_7d` integer (required); `n` integer (required, read-only)
 - **CohortStat**: `cohort_month` date (required); `source` EntitlementSourceEnum (required); `week_index` integer (required); `active_share` double (null); `churned_share` double (null); `n` integer (required)
 - **CommentRequest**: `comment` string
+- **CompleteRequest**: `effective_from` date
 - **CourierEnum**: one of `India Post`, `Delhivery`, `Blue Dart`, `Ekart`, `DTDC`, `Xpressbees`, `Other`
 - **Customer**: `id` integer (required, read-only); `email` string (required, read-only); `phone` string (required, read-only); `full_name` string (required); `class_level` any (null); `board` string (required, read-only); `district` string; `under_18` boolean (required, read-only); `status` string (required, read-only); `consent` string (required, read-only); `email_verified` boolean (required, read-only); `login_phone_verified` boolean; `created` date-time (required, read-only); `last_login` date-time (null)
 - **CustomerDetail**: `id` integer (required, read-only); `email` string (required, read-only); `phone` string (required, read-only); `full_name` string (required); `class_level` any (null); `board` string (required, read-only); `district` string; `under_18` boolean (required, read-only); `status` string (required, read-only); `consent` string (required, read-only); `email_verified` boolean (required, read-only); `login_phone_verified` boolean; `created` date-time (required, read-only); `last_login` date-time (null); `roles` [string] (required, read-only); `locked` boolean (required, read-only); `mfa` [string] (required, read-only); `teacher` string (required, read-only); `parent_contact` string (required, read-only); `orders` [object] (required, read-only); `consents` [object] (required, read-only); `sessions` [object] (required, read-only); `deletion_due_at` string (required, null, read-only)
+- **DarkPatternAudit**: `id` integer (required, read-only); `year` integer (required); `rows` [AuditRow]; `certificate_text` string; `effective_from` date (null); `completed_at` date-time (required, null, read-only); `completed_by` integer (required, null, read-only); `created` date-time (required, read-only); `created_by` integer (required, null, read-only); `has_file` boolean (required, read-only)
+- **DarkPatternAuditRequest**: `year` integer (required); `rows` [AuditRowRequest]; `certificate_text` string; `effective_from` date (null)
 - **DataRequest**: `id` integer (required, read-only); `kind` DataRequestKindEnum (required); `channel` ChannelEnum (required); `user` integer (null); `requester` string (required); `summary` string (required); `identity_verified` boolean (required, read-only); `identity_note` string (required, read-only); `verified_by` integer (required, null, read-only); `verified_at` date-time (required, null, read-only); `received_at` date-time; `ack_due_at` date-time (required, read-only); `acknowledged_at` date-time (required, null, read-only); `ack_overdue` boolean (required, read-only); `due_at` date-time (required, read-only); `overdue` boolean (required, read-only); `status` DataRequestStatusEnum (required, read-only); `assignee` integer (null); `notes` string; `details` any; `outcome` DataRequestOutcomeEnum (required, read-only); `response` string (required, read-only); `closed_at` date-time (required, null, read-only); `closed_by` integer (required, null, read-only); `created_by` integer (required, null, read-only)
 - **DataRequestKindEnum**: one of `access`, `correction`, `erasure`, `nomination`, `grievance`, `complaint`
 - **DataRequestList**: `id` integer (required, read-only); `kind` DataRequestKindEnum (required); `channel` ChannelEnum (required); `user` integer (null); `requester` string (required, read-only); `summary` string (required); `identity_verified` boolean (required, read-only); `identity_note` string (required, read-only); `verified_by` integer (required, null, read-only); `verified_at` date-time (required, null, read-only); `received_at` date-time; `ack_due_at` date-time (required, read-only); `acknowledged_at` date-time (required, null, read-only); `ack_overdue` boolean (required, read-only); `due_at` date-time (required, read-only); `overdue` boolean (required, read-only); `status` DataRequestStatusEnum (required, read-only); `assignee` integer (null); `notes` string; `details` any; `outcome` DataRequestOutcomeEnum (required, read-only); `response` string (required, read-only); `closed_at` date-time (required, null, read-only); `closed_by` integer (required, null, read-only); `created_by` integer (required, null, read-only)
@@ -1478,9 +1594,16 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **DecisionEnum**: one of `approve`, `reject`
 - **DeliveryStat**: `courier` string (required); `district` string (null); `median_days` double (required); `p90_days` double (required); `n` integer (required)
 - **Detail**: `detail` string (required)
+- **DisclosureHistory**: `key` string (required); `value` any (required); `effective_from` date-time (required); `changed_by` integer (required, null); `reason` string (required); `created` date-time (required)
+- **DisclosureSetting**: `key` string (required); `label` string (required); `kind` any (required); `max_length` integer (required); `public` boolean (required); `value` any (required); `environment` any (required); `source` SettingSourceEnum (required); `effective_from` date-time (required, null); `changed_by` integer (required, null); `reason` string (required)
+- **Disclosures**: `settings` [DisclosureSetting] (required); `history` [DisclosureHistory] (required)
+- **DisclosuresChangeRequest**: `values` object (required); `reason` string (required)
 - **Ended**: `sessions` integer (required); `tokens` integer (required)
 - **EntitlementSourceEnum**: one of `book_code`, `purchase`, `grant`
-- **ErasureReport**: `erase` [object] (required); `keep` [object] (required); `blocks` [string] (required); `can_erase` boolean (required); `notes` [string] (required)
+- **ErasureErase**: `part` string (required); `what` string (required); `count` integer (required)
+- **ErasureKeep**: `kind` ErasureKeepKindEnum (required); `part` string (required); `what` string (required); `count` integer (required); `why` string (required); `until` date (required, null); `line` string (required)
+- **ErasureKeepKindEnum**: one of `books`, `processing_logs`, `legal_hold`, `intermediary`, `consent`, `statistics`, `by_hand`, `test`
+- **ErasureReport**: `erase` [ErasureErase] (required); `keep` [ErasureKeep] (required); `blocks` [string] (required); `can_erase` boolean (required); `notes` [string] (required)
 - **ErpAccountStatus**: `id` integer (required); `label` string (required); `mode` string (required); `circuit` string (required); `last_success_at` date-time (required, null); `last_error` string (required)
 - **ErpCursor**: `id` integer (required, read-only); `doctype` string (required, read-only); `modified_after` string (required, read-only); `last_name` string (required, read-only); `rows_read` integer (required, read-only); `last_run_at` date-time (required, null, read-only); `last_error` string (required, read-only)
 - **ErpCursorStatus**: `doctype` string (required); `modified_after` string (required); `last_run_at` date-time (required, null); `error` string (required)
@@ -1501,11 +1624,12 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **FraudSignal**: `id` integer (required, read-only); `kind` FraudSignalKindEnum (required); `label` string (required, read-only); `subject` string (required); `window_start` date-time (required); `window_end` date-time (required); `details` any; `created` date-time (required, read-only); `acknowledged_at` date-time (null); `n` integer (required, read-only)
 - **FraudSignalKindEnum**: one of `codes_failed_account`, `codes_failed_ip`, `codes_failed_spike`, `codes_per_account`, `accounts_per_code`, `shared_phone`, `shared_address`
 - **GrantRequest**: `role` RoleEnum (required); `expires_at` date-time (null); `reason` string (required)
+- **HoldCreateRequest**: `user` integer (null); `target_type` any; `target_id` string; `reason` LegalHoldReasonEnum (required); `note` string; `until` date (null)
 - **ImpersonateRequest**: `reason` string (required); `ticket` string (required)
 - **Impersonation**: `token` string (required); `expires_at` date-time (required)
 - **InboxCount**: `open` integer (required); `overdue` integer (required)
 - **InboxItem**: `id` integer (required, read-only); `kind` InboxKindEnum (required); `title` string (required); `target_type` string; `target_id` string; `permission` string (required); `assignee` integer (null); `due_at` date-time (null); `overdue` boolean (required, read-only); `snoozed_until` date-time (null); `done_at` date-time (null); `done_by` integer (null); `data` any; `created` date-time
-- **InboxKindEnum**: one of `approval`, `teacher_request`, `deletion_request`, `data_request`, `incident`, `failed_job`, `failed_webhook`, `sync_failed`, `reconciliation`, `shipping_exception`, `dead_letter`, `failed_event`, `integration_down`
+- **InboxKindEnum**: one of `approval`, `teacher_request`, `deletion_request`, `data_request`, `incident`, `failed_job`, `failed_webhook`, `sync_failed`, `reconciliation`, `shipping_exception`, `dead_letter`, `failed_event`, `integration_down`, `processor_task`, `compliance`
 - **Incident**: `id` integer (required, read-only); `title` string (required); `kind` IncidentKindEnum (required); `detected_at` date-time; `noticed_by` integer (required, null, read-only); `description` string; `systems` string; `data_categories` string; `people_affected` integer (null); `children_affected` boolean; `cert_in_due` date-time (required, read-only); `cert_in_overdue` boolean (required, read-only); `cert_in_reported_at` date-time (null); `cert_in_reference` string; `board_due` date-time (required, read-only); `board_overdue` boolean (required, read-only); `board_notified_at` date-time (null); `board_report_at` date-time (null); `board_reference` string; `notice_text` string; `notices_sent` integer; `notices_sent_at` date-time (null); `actions` string; `root_cause` string; `closed_at` date-time (required, null, read-only); `closed_by` integer (required, null, read-only); `created` date-time (required, read-only)
 - **IncidentKindEnum**: one of `data_breach`, `data_leak`, `unauthorised_access`, `malicious_code`, `application_attack`, `denial_of_service`, `loss_of_access`, `other`
 - **IncidentRequest**: `title` string (required); `kind` IncidentKindEnum (required); `detected_at` date-time; `description` string; `systems` string; `data_categories` string; `people_affected` integer (null); `children_affected` boolean; `cert_in_reported_at` date-time (null); `cert_in_reference` string; `board_notified_at` date-time (null); `board_report_at` date-time (null); `board_reference` string; `notice_text` string; `notices_sent` integer; `notices_sent_at` date-time (null); `actions` string; `root_cause` string
@@ -1516,6 +1640,8 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **JobKindEnum**: one of `audit_export`, `bulk_action`, `erp_initial_load`
 - **JobStartRequest**: `kind` JobKindEnum (required); `params` object; `dry_run` boolean
 - **JobStateEnum**: one of `queued`, `running`, `done`, `failed`, `cancelled`
+- **LegalHold**: `id` integer (required, read-only); `user` integer (required, null, read-only); `target_type` string (required, read-only); `target_id` string (required, read-only); `target_label` string (required, read-only); `reason` LegalHoldReasonEnum (required, read-only); `note` string (required, read-only); `until` date (required, null, read-only); `active` boolean (required, read-only); `created` date-time (required, read-only); `created_by` integer (required, null, read-only); `released_at` date-time (required, null, read-only); `released_by` integer (required, null, read-only); `release_reason` string (required, read-only)
+- **LegalHoldReasonEnum**: one of `dispute`, `chargeback`, `claim`, `investigation`, `other`
 - **LevelEnum**: one of `ok`, `watch`, `act`
 - **Manifest**: `url` uri (required)
 - **ManifestRequestRequest**: `shipments` [integer] (required)
@@ -1535,6 +1661,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **PaginatedCodeActivationList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [CodeActivation] (required)
 - **PaginatedCohortStatList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [CohortStat] (required)
 - **PaginatedCustomerList**: `next` uri (null); `previous` uri (null); `results` [Customer] (required)
+- **PaginatedDarkPatternAuditList**: `next` uri (null); `previous` uri (null); `results` [DarkPatternAudit] (required)
 - **PaginatedDataRequestListList**: `next` uri (null); `previous` uri (null); `results` [DataRequestList] (required)
 - **PaginatedDeliveryStatList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [DeliveryStat] (required)
 - **PaginatedErpCursorList**: `next` uri (null); `previous` uri (null); `results` [ErpCursor] (required)
@@ -1547,6 +1674,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **PaginatedIncidentList**: `next` uri (null); `previous` uri (null); `results` [Incident] (required)
 - **PaginatedItemStatList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [ItemStat] (required)
 - **PaginatedJobList**: `next` uri (null); `previous` uri (null); `results` [Job] (required)
+- **PaginatedLegalHoldList**: `next` uri (null); `previous` uri (null); `results` [LegalHold] (required)
 - **PaginatedOfferStatList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [OfferStat] (required)
 - **PaginatedParcelList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [Parcel] (required)
 - **PaginatedPersonList**: `next` uri (null); `previous` uri (null); `results` [Person] (required)
@@ -1561,30 +1689,52 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ParcelDetail**: `carrier` CarrierEnum (required, read-only); `account` integer (required, null, read-only); `status` any (required, null, read-only); `reference` string (required, read-only); `external_order_id` string (required, read-only); `external_shipment_id` string (required, read-only); `courier_company_id` integer (required, null, read-only); `courier_name` string (required, read-only); `weight_g` integer (required, null, read-only); `length_cm` integer (required, null, read-only); `breadth_cm` integer (required, null, read-only); `height_cm` integer (required, null, read-only); `charged_weight_g` integer (required, null, read-only); `quoted_rate` decimal (required, null, read-only); `cod_amount` decimal (required, null, read-only); `declared_value` decimal (required, null, read-only); `last_event_at` date-time (required, null, read-only); `pickup_location` integer (required, null, read-only); `pickup_date` date (required, null, read-only); `manifested_at` date-time (required, null, read-only); `has_label` boolean (required, read-only); `has_photo` boolean (required, read-only)
 - **ParcelHistory**: `id` integer (required, read-only); `order` string (required, read-only); `courier` CourierEnum (required, read-only); `tracking_number` string (required, read-only); `tracking_url` uri (required, read-only); `shipped_at` date-time (required, read-only); `delivered_at` date-time (required, null, read-only); `detail` ParcelDetail (required, null, read-only); `events` [ShipmentEvent] (required, read-only); `exceptions` [ShippingException] (required, read-only); `charges` [ShipmentCharge] (required, read-only); `cod_remittance` CodRemittance (required, null, read-only)
 - **ParcelStatusEnum**: one of `booked`, `pickup_problem`, `in_transit`, `out_for_delivery`, `delivered`, `delivery_failed`, `returning`, `returned`, `lost_or_damaged`, `cancelled`, `partial`
+- **ParentConfirmationRequest**: `evidence_ref` string (required)
+- **PatchedDarkPatternAuditRequest**: `year` integer; `rows` [AuditRowRequest]; `certificate_text` string; `effective_from` date (null)
 - **PatchedDataRequestRequest**: `kind` DataRequestKindEnum; `channel` ChannelEnum; `user` integer (null); `requester` string; `summary` string; `received_at` date-time; `assignee` integer (null); `notes` string; `details` any
 - **PatchedIncidentRequest**: `title` string; `kind` IncidentKindEnum; `detected_at` date-time; `description` string; `systems` string; `data_categories` string; `people_affected` integer (null); `children_affected` boolean; `cert_in_reported_at` date-time (null); `cert_in_reference` string; `board_notified_at` date-time (null); `board_report_at` date-time (null); `board_reference` string; `notice_text` string; `notices_sent` integer; `notices_sent_at` date-time (null); `actions` string; `root_cause` string
 - **PatchedPickupLocationRequest**: `nickname` string; `address` string; `city` string; `state` string; `pin_code` string; `phone` string; `is_default` boolean; `active` boolean
-- **PatchedProcessorRequest**: `name` string; `purpose` string; `data_categories` string; `country` string; `contract_signed_on` date (null); `contract_ends_on` date (null); `active` boolean; `notes` string
+- **PatchedProcessorRequest**: `name` string; `purpose` string; `data_categories` string; `country` string; `contract_signed_on` date (null); `contract_ends_on` date (null); `active` boolean; `notes` string; `holds_personal_data` boolean; `holds_marketing_data` boolean; `erasure_action` string
 - **PatchedSavedViewRequest**: `role` string; `list_key` string; `name` string; `filters` any; `columns` any; `sort` any
+- **PatternEnum**: one of `false_urgency`, `basket_sneaking`, `confirm_shaming`, `forced_action`, `subscription_trap`, `interface_interference`, `bait_and_switch`, `drip_pricing`, `disguised_advertisement`, `nagging`, `trick_question`, `saas_billing`, `rogue_malware`
 - **Person**: `id` integer (required, read-only); `email` email (required); `full_name` string (required); `is_active` boolean; `is_superuser` boolean; `roles` [string] (required, read-only); `grants` [object] (required, read-only); `scopes` [Scope] (required, read-only); `mfa` boolean (required, read-only); `last_login` date-time (null); `created` date-time (required, read-only)
 - **PhotoRequest**: `photo` binary (required)
 - **PickupLocation**: `id` integer (required, read-only); `nickname` string (required); `address` string; `city` string; `state` string; `pin_code` string (required); `phone` string; `is_default` boolean; `active` boolean; `external_id` string (required, read-only)
 - **PickupLocationRequest**: `nickname` string (required); `address` string; `city` string; `state` string; `pin_code` string (required); `phone` string; `is_default` boolean; `active` boolean
 - **PickupRequestRequest**: `date` date
 - **PickupResult**: `pickup_date` date (required, null)
+- **Policy**: `slug` string (required); `title` string (required); `version` string (required); `number` integer (required); `effective_from` date (required); `summary` string (required); `updated` date-time (required); `placeholders` integer (required); `scheduled` PolicyVersion (required, null); `versions` integer (required)
 - **PolicyAcknowledgement**: `id` integer (required, read-only); `user` integer (required, read-only); `policy` string (required); `version` string (required); `acknowledged_at` date-time (required, read-only)
 - **PolicyAcknowledgementRequest**: `policy` string (required); `version` string (required)
+- **PolicyDetail**: `slug` string (required); `title` string (required); `version` string (required); `number` integer (required); `effective_from` date (required); `summary` string (required); `updated` date-time (required); `placeholders` integer (required); `scheduled` PolicyVersion (required, null); `versions` [PolicyVersion] (required); `markdown` string (required)
+- **PolicyDiff**: `number` integer (required); `version` string (required); `previous` integer (required, null); `effective_from` date (required); `summary` string (required); `title` string (required); `title_changed` boolean (required); `added` integer (required); `removed` integer (required); `lines` [PolicyDiffLine] (required)
+- **PolicyDiffLine**: `kind` PolicyDiffLineKindEnum (required); `text` string (required)
+- **PolicyDiffLineKindEnum**: one of `hunk`, `added`, `removed`, `context`
+- **PolicyVersion**: `number` integer (required); `version` string (required); `title` string (required); `summary` string (required); `effective_from` date (required); `published_at` date-time (required, null); `published_by` integer (required, null); `in_force` boolean (required); `upcoming` boolean (required)
 - **PostalPrice**: `service` string (required); `label` string (required); `price` decimal (required)
 - **PrintRunAdvice**: `product` string (required, read-only); `title` string (required, read-only); `net_price` decimal (required); `unit_cost` decimal (required); `salvage` decimal (required); `critical_ratio` double (required); `target_quantity` integer (required); `supply` integer (required); `recommended_quantity` integer (required); `reprint_trigger_units` integer (required); `weeks_of_cover` double (null); `projected_leftover` integer (required); `level` LevelEnum; `alert` string; `n` integer (required, read-only)
-- **Processor**: `id` integer (required, read-only); `name` string (required); `purpose` string (required); `data_categories` string (required); `country` string (required); `contract_signed_on` date (null); `contract_ends_on` date (null); `active` boolean; `notes` string
-- **ProcessorRequest**: `name` string (required); `purpose` string (required); `data_categories` string (required); `country` string (required); `contract_signed_on` date (null); `contract_ends_on` date (null); `active` boolean; `notes` string
+- **PrivacyCalendarItem**: `date` date (required); `title` string (required); `detail` string (required); `state` PrivacyCalendarItemStateEnum (required)
+- **PrivacyCalendarItemStateEnum**: one of `upcoming`, `in_force`, `done`, `overdue`
+- **PrivacyCockpitSupport**: `installed` boolean (required); `error` string (required)
+- **PrivacyConsentVersion**: `version` string (required); `number` integer (required, null); `in_force` boolean (required); `given` integer (required); `withdrawn` integer (required)
+- **PrivacyDarkPatternState**: `year` integer (required); `due` date (required); `audit` integer (required, null); `state` PrivacyDarkPatternStateStateEnum (required); `completed_at` date-time (required, null); `effective_from` date (required, null); `certificate_year` integer (required, null)
+- **PrivacyDarkPatternStateStateEnum**: one of `missing`, `draft`, `completed`
+- **PrivacyDeletionConfirmed**: `deletion` integer (required); `parent_confirmed_at` date-time (required)
+- **PrivacyNominee**: `name` string (required); `contact` string (required); `relation` string (required); `verified_at` date-time (required, null); `created` date-time (required); `updated` date-time (required)
+- **PrivacyNomineeContact**: `contact` string (required)
+- **Processor**: `id` integer (required, read-only); `name` string (required); `purpose` string (required); `data_categories` string (required); `country` string (required); `contract_signed_on` date (null); `contract_ends_on` date (null); `active` boolean; `notes` string; `holds_personal_data` boolean; `holds_marketing_data` boolean; `erasure_action` string
+- **ProcessorRequest**: `name` string (required); `purpose` string (required); `data_categories` string (required); `country` string (required); `contract_signed_on` date (null); `contract_ends_on` date (null); `active` boolean; `notes` string; `holds_personal_data` boolean; `holds_marketing_data` boolean; `erasure_action` string
+- **PublishRequest**: `markdown` string (required); `title` string; `summary` string (required); `effective_from` date
 - **Quote**: `courier_company_id` integer (required); `courier_name` string (required); `rate` decimal (required); `etd_days` integer (required, null); `rating` double (required, null); `cod` boolean (required); `cod_charges` decimal (required); `rto_charges` decimal (required); `recommended` boolean (required)
 - **QuoteResult**: `couriers` [Quote] (required); `india_post` [PostalPrice] (required); `weight_g` integer (required); `stale` boolean (required); `error` string (required)
 - **ReasonRequest**: `reason` string (required)
 - **ReconcileRequest**: `order` string (required)
 - **Reconciled**: `order` string (required); `paid` boolean (required, null)
+- **ReleaseRequest**: `reason` string (required)
 - **ResolveRequest**: `resolution` string (required); `dismiss` boolean
 - **ResponseText**: `subject` string (required); `body` string (required)
+- **RetentionRule**: `key` string (required); `records` string (required); `minimum` string (required); `minimum_days` integer (required, null); `source` string (required); `changes_on` date (required, null); `next_minimum` string (required, null); `keep` string (required); `keep_days` integer (required, null); `trim_days` integer (required, null); `enforced_by` string (required)
+- **RevealReasonRequest**: `reason` string (required)
 - **RevealRequest**: `show` [ShowEnum] (required); `reason` string (required)
 - **Revealed**: `email` string (null); `phone` string (null); `login_phone` string (null); `parent_contact` string (null); `parent_name` string (null); `date_of_birth` string (null)
 - **RoleEnum**: one of `ADMIN`, `AUDITOR`, `CONTENT_EDITOR`, `FINANCE`, `MARKETING`, `OWNER`, `PACKER`, `REVIEWER`, `SALES`, `SALES_REP`, `SUPPORT`
@@ -1614,6 +1764,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **StaffUser**: `id` integer (required); `email` email (required); `full_name` string (required); `is_superuser` boolean (required)
 - **SwitchChangeRequest**: `value` any (required, null); `reason` string (required); `effective_from` date-time
 - **SwitchRow**: `key` string (required); `value` any (required); `effective_from` date-time (required); `changed_by` integer (required, null); `reason` string (required); `created` date-time (required)
+- **TargetTypeEnum**: one of `shop.creditnote`, `shop.invoice`, `shop.order`, `shop.payment`, `shop.refund`, `staff.datarequest`
 - **TokenRequest**: `token` string (required)
 - **Unlocked**: `attempts_cleared` integer (required)
 - **VerifyIdentityRequest**: `note` string (required)

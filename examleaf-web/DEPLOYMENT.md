@@ -180,7 +180,10 @@ records: keep them eight years) and, without buckets, the product pictures and t
 With the buckets of section 17 the invoices, credit notes and quotations are in the private bucket instead, which these
 backups do not cover.
 
-The bucket keeps what is uploaded until it is deleted, so give it a lifecycle rule that deletes objects under
+The bucket also gets the erasure ledger, a small file per erased account under `erasures/` (a keyed hash of the
+address, never the address: `manage.py reapply_erasures` erases those accounts again after a restore, RUNBOOK.md):
+keep `erasures/` at least as long as the oldest backup, and longer is harmless. The bucket keeps what is uploaded
+until it is deleted, so give it a lifecycle rule that deletes objects under
 `database/` 30 days after they are uploaded (Cloudflare R2's object lifecycle rules, Backblaze B2's lifecycle rules, or
 an S3 lifecycle configuration; with versioning on, old versions must expire too), as the Privacy Policy promises
 ("Backups: 30 days"). Encrypt the uploaded copies with [age](https://age-encryption.org) (`sudo apt install age`): on
@@ -198,12 +201,22 @@ to decrypt). The script reads `BACKUP_KEEP_DAYS` and `BACKUP_AGE_RECIPIENT` from
 - `docker compose logs -f caddy` — the access log (JSON, with the same `X-Request-ID` in the request headers);
 - `docker compose logs db redis redis-cache`.
 
-Docker keeps them in `/var/lib/docker/containers/<id>/<id>-json.log`, rotated at 10 MB, five files per service.
-Rotation is by size, not by time (Docker's json-file driver has no age limit), so the Privacy Policy draft says that a
-fixed amount is kept and fills in the days it lasts: look at the oldest line of `docker compose logs caddy` after a
-month of traffic and put that number in the policy. For a hard limit in days use the journald driver instead
-(`logging: {driver: journald}` in docker-compose.yml and `MaxRetentionSec=30day` in `/etc/systemd/journald.conf`).
-Celery task results are in the admin (Celery Results → Task results) for a week; errors go to Sentry when it is set.
+Docker keeps them in `/var/lib/docker/containers/<id>/<id>-json.log`, rotated at 50 MB, ten files per service (the
+`json-file` driver's `max-size: 50m` and `max-file: "10"` of every service in docker-compose.yml: 500 MB a service).
+CERT-In's Directions ask for 180 days of logs now, and the DPDP Rules a year from 13 May 2027 (the retention schedule,
+`examleaf/retention.py` "security_logs", and the panel's Legal and privacy, Retention). Rotation is by size, not by
+time (Docker's json-file driver has no age limit), so a fixed amount is kept: look at the oldest line of
+`docker compose logs caddy` after a month of traffic, and if the 500 MB last less than 180 days raise `max-file`; put
+the days they last in the Privacy Policy. What is kept on the server is a buffer: copy the logs off it daily (the log
+copy of Phase B's System module, or a shipper of your choice) and keep that copy 180 days, a year from 13 May 2027.
+For a hard limit in days use the journald driver instead (`logging: {driver: journald}` in docker-compose.yml and
+`MaxRetentionSec=180day` in `/etc/systemd/journald.conf`). Celery task results are in the admin (Celery Results →
+Task results) for a week; errors go to Sentry when it is set.
+
+For the Kubernetes chart's next pass (not changed here): the kubelet rotates a container's log at
+`containerLogMaxSize` (10Mi by default) and keeps `containerLogMaxFiles` (5): set `50Mi` and `10` in the nodes'
+kubelet configuration (k3s: `--kubelet-arg=container-log-max-size=50Mi --kubelet-arg=container-log-max-files=10`), and
+ship the pods' logs off the node (the same 180 days, a year from 13 May 2027).
 
 ## 11. Updates
 
@@ -494,8 +507,8 @@ Read by `scripts/backup.sh` (which takes `BACKUP_KEEP_DAYS` and `BACKUP_AGE_RECI
 | `STAFF_TEST_MODE` | `DEBUG`'s | on staging | `1` on any deployment that is not the production site: the panel shows its TEST band (the manifest's `flags.test_mode`) |
 | `STAFF_AUDIT_RETENTION_DAYS`, `STAFF_AUDIT_MONEY_RETENTION_FY` | `730`, `8` | no | the audit log's retention (`manage.py purge_audit`): days of the general chain (365 at least), financial years of the money chain (8 at least); the site refuses to start below |
 | `STAFF_DATA_REQUEST_ACK_HOURS`, `STAFF_DPDP_RULES_FROM`, `STAFF_DPDP_RESPONSE_DAYS` | `48`, `2027-05-13`, `90` | no | a data request's clocks: acknowledged within the hours; answered within a month until the date (the DPDP Rules' rights), within the days after it; move the date if MeitY brings it forward |
-| `DATA_PROTECTION_OFFICER` | a `[placeholder]` | before going live | the Grievance Officer's name, email and phone, quoted in every answer to a data request (DPDP Rules r.9) |
-| `CERT_IN_POINT_OF_CONTACT` | a `[placeholder]` | before going live | the point of contact registered with CERT-In (Annexure II of its Directions), quoted in every incident alert |
+| `DATA_PROTECTION_OFFICER` | a `[placeholder]` | before going live | the contact person for personal data, quoted in every answer to a data request (DPDP Rules r.9); also a panel setting (Legal and privacy, Disclosures), which wins once set, beside the Grievance Officer's own name, designation and contact there |
+| `CERT_IN_POINT_OF_CONTACT` | a `[placeholder]` | before going live | the point of contact registered with CERT-In (Annexure II of its Directions), quoted in every incident alert; also a panel setting (Disclosures), never shown on the website |
 | `STAFF_THROTTLE`, `STAFF_THROTTLE_SEARCH`, `STAFF_THROTTLE_REVEAL`, `STAFF_THROTTLE_EXPORT`, `STAFF_THROTTLE_MONEY`, `STAFF_THROTTLE_INVITE` | `600/minute`, `60/minute`, `30/hour`, `10/hour`, `120/hour`, `10/hour` | no | the staff API's limits per member of staff or API key (API.md "Rate limits") |
 | `STAFF_GOOGLE_DOMAIN` | none: off | with Google for staff | the Workspace's domain (`examleaf.in`): a staff Google sign-in (on the admin host, into a staff account, or by an account of the domain) needs the ID token's `hd` to be it and a confirmed address (section 15, "Google sign-in for staff") |
 | `STAFF_GOOGLE_CLIENT_ID`, `STAFF_GOOGLE_CLIENT_SECRET` | none | recommended with the domain | the Workspace's own OAuth client (an Internal consent screen) for the admin host; without them the website's `GOOGLE_*` client serves the admin host too |
@@ -1049,7 +1062,11 @@ SALES_REP), with every app's permissions (`bootstrap_roles` does the same by han
 (`staff/README.md` "The jobs"). Before staff use it:
 
 1. **Who is told.** Set `STAFF_ALERT_EMAILS` to the owners' addresses (otherwise every active member of OWNER gets
-   the alerts), and `DATA_PROTECTION_OFFICER` and `CERT_IN_POINT_OF_CONTACT` (section 13, "Staff").
+   the alerts), and `DATA_PROTECTION_OFFICER` and `CERT_IN_POINT_OF_CONTACT` (section 13, "Staff"), or set them with
+   the other e-commerce disclosures in the panel (Legal and privacy, Disclosures: the legal name and addresses,
+   customer care, the Grievance Officer, the nodal contact resident in India, before 1 January 2027). Until the panel
+   sets them, the legal name, the registered address and customer care's email and phone are the seller's
+   (`SELLER_LEGAL_NAME`, `SELLER_ADDRESS`, `SUPPORT_EMAIL` or `SELLER_EMAIL`, `SELLER_PHONE`); no other variable.
 2. **The roles.** The founder's own account holds the OWNER role (every catalogued permission), not the superuser
    flag. Superusers (`createsuperuser`) are one or two break-glass accounts only: outside Google sign-in, each with a
    security key and a backup key kept offline, used when nothing else works. Their log-in alerts the owners, every
