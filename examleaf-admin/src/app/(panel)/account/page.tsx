@@ -1,20 +1,19 @@
 // /account/: the person's own account: who they are, their roles and limits (the manifest), their background jobs
 // (GET jobs/?mine=1: exports and bulk actions, with progress, cancel and the file), every browser and app signed in to
-// their account (allauth.usersessions, the website's sessions too: one account), Sign out everywhere, and the way to
-// their two-step sign-in and passkeys, which live on the website's account page.
+// their account (GET people/me/sessions/: the website's sessions too, one account; ending one is audited), End every
+// other session, Sign out everywhere, and the way to their two-step sign-in and passkeys, which live on the website's
+// account page.
 import type { Metadata } from "next";
 
 import { JobProgress } from "@/components/data/job-progress";
 import { Problem } from "@/components/data/problem";
 import { Facts } from "@/components/data/record-page";
 import { StatusChip } from "@/components/data/status-chip";
-import { Sessions } from "@/components/modules/account/sessions";
+import { OwnSessions } from "@/components/modules/account/own-sessions";
 import { PageHeader, Section } from "@/components/shell/page-header";
 import { ApiError } from "@/lib/api/errors";
 import { attempt, staffPage } from "@/lib/api/page";
-import { allauthGet } from "@/lib/api/server";
-import { listJobs, rolesOf } from "@/lib/api/staff";
-import type { Session } from "@/lib/auth/headless";
+import { listJobs, listOwnSessions, rolesOf } from "@/lib/api/staff";
 import { copy, labelOf } from "@/lib/copy";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { has, P } from "@/lib/modules";
@@ -25,7 +24,7 @@ export const metadata: Metadata = { title: copy.account.title };
 export default async function AccountPage() {
   const { manifest, transport, path } = await staffPage("/account/");
   const [sessions, jobs] = await Promise.all([
-    allauthGet<Session[]>("/auth/sessions"),
+    attempt(listOwnSessions(transport), path),
     has(manifest, P.jobsView) ? attempt(listJobs({ mine: true }, transport), path) : null,
   ]);
   const roles = rolesOf(manifest);
@@ -84,12 +83,8 @@ export default async function AccountPage() {
             )}
           </Section>
         ) : null}
-        <Section id="sessions" title={copy.account.sessions} lead={copy.account.sessionsLead}>
-          {sessions.data ? (
-            <Sessions sessions={sessions.data} />
-          ) : (
-            <Problem error={new ApiError(sessions.status, "error", copy.account.sessionsFailed)} />
-          )}
+        <Section id="sessions" title={copy.management.sessions.title} lead={copy.management.sessions.lead}>
+          {sessions instanceof ApiError ? <Problem error={sessions} /> : <OwnSessions sessions={sessions} />}
         </Section>
         <Section id="security" title={copy.account.security} lead={copy.account.securityText}>
           <p className="m-0">

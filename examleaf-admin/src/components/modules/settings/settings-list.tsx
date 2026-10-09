@@ -16,7 +16,7 @@ import { Field } from "@/components/ui/field";
 import { Input, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/native-select";
 import { ApiError } from "@/lib/api/errors";
-import { changeFlag, changeSetting, type Flag, type Setting, switchHistory, type SwitchRow } from "@/lib/api/staff";
+import { changeFlag, changeSetting, type Flag, historyOf, type Setting, type SwitchRow } from "@/lib/api/staff";
 import { copy, labelOf } from "@/lib/copy";
 import { staffLabel } from "@/lib/display";
 import { formatDateTime, fromLocalInput } from "@/lib/format";
@@ -98,7 +98,7 @@ function History({ kind, keyName }: { kind: Kind; keyName: string }) {
       className="basis-full"
       onToggle={(event) => {
         if (!event.currentTarget.open || rows !== null) return;
-        switchHistory(kind, keyName).then(setRows, () => setRows("failed"));
+        historyOf(kind, keyName).then(setRows, () => setRows("failed"));
       }}
     >
       <summary className="inline-flex min-h-11 cursor-pointer items-center font-semibold text-primary underline underline-offset-3 hover:text-red-ink [&::-webkit-details-marker]:hidden">
@@ -137,16 +137,20 @@ function SettingRow({ kind, row }: { kind: Kind; row: Setting | Flag }) {
   const can = useCan();
   const manifest = useManifest();
   const setting = kind === "settings" ? (row as Setting) : null;
+  const flag = kind === "flags" ? (row as Flag) : null;
   const changing = can(setting ? setting.permission : P.flagsChange);
   const valueKind = kindOf(kind, row);
   const id = `${kind}-${row.key.replace(/[^a-z0-9_-]/gi, "_")}`;
-  const source = setting?.source ?? "database";
+  const source = setting?.source ?? flag?.source ?? "database";
+  // a known switch of the code (the ERP flags) has the environment's value under it, as a setting does
+  const environment = setting ? true : flag?.environment !== null && flag?.environment !== undefined;
+  const label = setting?.label || flag?.label;
   return (
     <li className="flex flex-col gap-3 border-b border-border py-4">
       <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
         <div className="flex min-w-0 flex-col gap-1">
           <code className="text-[15px] font-semibold break-all">{row.key}</code>
-          {setting?.label ? <span className="text-sm text-muted-foreground">{setting.label}</span> : null}
+          {label ? <span className="text-sm text-muted-foreground">{label}</span> : null}
           <span className="text-[15px] break-words">{valueText(row.value)}</span>
         </div>
         <StatusChip tone={source === "environment" ? "stopped" : "moving"}>
@@ -156,6 +160,7 @@ function SettingRow({ kind, row }: { kind: Kind; row: Setting | Flag }) {
       <p className="m-0 text-sm text-muted-foreground">
         {[
           setting ? copy.settings.environmentValue(valueText(setting.environment)) : "",
+          flag && environment ? copy.settings.environmentValue(valueText(flag.environment)) : "",
           row.effective_from ? `${copy.settings.columns.effective}: ${formatDateTime(row.effective_from)}` : "",
           row.changed_by ? `${copy.settings.columns.changedBy}: ${staffLabel(row.changed_by, manifest.user.id)}` : "",
           row.reason ? `“${row.reason}”` : "",
@@ -195,7 +200,7 @@ function SettingRow({ kind, row }: { kind: Kind; row: Setting | Flag }) {
                 {(error) => (
                   <>
                     <ValueField id={id} row={row} kind={valueKind} error={error} />
-                    {setting ? <Checkbox name="reset">{copy.settings.backToEnvironment}</Checkbox> : null}
+                    {environment ? <Checkbox name="reset">{copy.settings.backToEnvironment}</Checkbox> : null}
                     <Field
                       id={`${id}-reason`}
                       label={copy.common.reason}
