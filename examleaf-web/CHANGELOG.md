@@ -5,6 +5,58 @@ commits are in `git log` (phase 4: abffe6f and e5abda5; phase 5 A and B with the
 and E: 4e30e59; the redesign's stage 2 so far: ba0b9dd). Details of each feature are in README.md; the numbers of the
 tests are those of `pytest` at the end of the phase.
 
+## Phase B, Home and reports (9 October 2026)
+
+The panel's Home showed what waits (inbox, approvals, clocks, health) but no number of the business, the Django admin's
+dashboard counted its own orders, test-mode orders included, so two screens could give two answers for the same day, and
+there was no report at all. Plan 5.1 and 5.16 ask for every number to be defined once and shown beside its words, cut by
+role, and for the reports the owner, FINANCE and sales open every week, with a floor under which no small group is shown
+and every one of them takeable as a file (`insights/README.md` "Home and Reports" has the rules, API.md "Home and
+reports (staff)" the endpoints). 1,618 backend tests pass on SQLite (95 of them new, in `insights/tests/`), the
+authorization matrix covers every new endpoint and the generated reference is regenerated; the console's 239 Vitest
+tests pass and its mock Playwright journey covers Home and reports at 1280 and 390 px.
+
+- **One definition per number** (`insights/metrics.py`): net revenue (the payments first captured in the period less the
+  refunds processed in it; a cash-on-delivery order when its parcel is delivered), orders placed, orders to pack (the
+  Orders list's own "To pack" tab), codes redeemed, active learners (any course activity in the last 7 days, counted and
+  never listed), clips completed, quotes open, tickets due and breached (the Support list's filters), reports open and
+  items flagged (the Content list's), refunds to approve, bank refunds to mark paid, unmatched settlement items and COD
+  overdue. A function's docstring is its definition, the words the panel shows. Test-mode orders are left out by
+  construction on a live site; a period is India's calendar days; a metric whose source module is not installed yet
+  (Finance's settlements, Course's batches) is skipped, not guessed.
+- **Home** (`GET home/`, any member of staff): the cards of the person's roles whose permissions they hold, each a link to
+  the list or report it counts, already filtered, with the previous period of the same length beside a total as a
+  sentence, how many test orders were left out and when the data was worked out; a card that cannot be worked out is a
+  card with an error, not a Home that does not open. The console streams the numbers on their own, first.
+- **Reports** (`GET reports/…`): sales by title, subject, class, board, edition and period (day, week, month; at most 13
+  months), sales by state (the place of supply), district and PIN code, book codes by print run and district, the
+  course's use by subject and chapter, cash on delivery's ageing and remittance, Razorpay's settlements ("not set up"
+  until the Finance module has them), and the print-run sum worked out again from a typed net price, print cost and
+  salvage (net 195, cost 60, salvage 5 give the 71st percentile). Each says what it counts, column by column, and when
+  it was worked out; none has a row that names or keys a person (a test runs every report over a minor's order, code
+  and progress).
+- **The minimum cell** (`insights/cells.py`, `INSIGHTS_MIN_CELL` 10, `INSIGHTS_MIN_CELL_CLASS` 5, neither below 5: a
+  start-up check): a cell standing on fewer people or orders says "fewer than 10", its numbers null, and no total
+  includes it. The cohort and code-activation endpoints apply it too.
+- **Course health**: a nightly job (03:15) counts the course's use by subject and chapter over complete days, weeks and
+  months, each learner once, in memory, and keeps only the counts (`CourseHealthStat`).
+- **Exports**: any report as the job `report_export` (`staff.export_report`, high: FINANCE, the auditor, ADMIN and the
+  owners; the report's own permissions too; above `export_rows` an approver), a CSV with the filters of the page, a hidden
+  cell as "fewer than 10", spreadsheet formulas written as text, ending with who made it, and the audit event
+  `report.exported`.
+- **The Django admin's dashboard** counts with the same metrics and its "Waiting" line leaves out test orders and shows
+  each item to whoever may open its list.
+- **Console**: Home's numbers first (a link each, the definition on hover and under "How this is counted", "Data as of",
+  the period to choose), `/reports/` (the `insights` entry of the modules became `reports`) with a page for each report,
+  tables and CSS-width bars with the number always beside the bar, the print run in one panel with its range, method and
+  last backtest and editable inputs, "Export as a file" with the job's progress, the mock with every state (small groups,
+  a source not set up, a card in error, test keys, an untested forecast) and the backend's own words, and two Playwright
+  journeys (mock: OWNER's and PACKER's Home, a report, its export; real: the seeded paid order counted once on Home and in
+  the report, the test order in neither).
+- **Seams for the other modules**: the Finance module's `shop.Settlement` and `SettlementLine`, the Course module's
+  `learn.CodeBatch` and `BookCode.voided_at` are read by name and lazily (`insights/tests/test_other_modules.py` stands
+  in for them and is the test that the two still fit); Support's and Content's lists are the definitions of their cards.
+
 ## Phase B, Tax (9 October 2026)
 
 The storefront's GST was a rate typed on each product, its documents numbered by looking for the last serial in one

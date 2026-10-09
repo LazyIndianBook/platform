@@ -53,7 +53,11 @@ order; `src/mocks/staff/orders.ts`), an overdue inbox, a data request near its c
 scheduled setting, revoked API keys, a person who left, and support tickets in every state (new, nearly due, overdue
 with its deadline missed, an acknowledgement missed, waiting, an NCH complaint, a privacy request, a content error,
 resolved, closed, spam) with saved replies in three languages (`src/mocks/staff/support-fixtures.ts` and
-`support-handler.ts`, called from the two files). Signing in stays real: each mock request asks the Django
+`support-handler.ts`, called from the two files), and Home's cards by role and the reports (`reports.ts`, with the
+backend's own words for every definition in `reports-specs.ts` and `reports-words.ts`): five titles' sales over 400
+days, places and districts with small ones the minimum hides, book codes by print run, the course's use with a day too
+small to show, cash on delivery's ageing, Razorpay's settlements, the newsvendor's sum worked out with the backend's
+arithmetic, the insights' own numbered lists, and a report as an export job with a file that ends with who made it. Signing in stays real: each mock request asks the Django
 backend whose session cookie it carries who is signed in (`GET /api/v1/me/`: 401 signed out, 403 `mfa_setup_required`
 for staff without two-step sign-in, the role groups otherwise), "confirm it's you" reads allauth's own record of the
 last authentication, the CSRF token is checked as Django checks it, actions write audit events, and the backend's
@@ -63,7 +67,10 @@ Dev-only cookies change what it answers: `staff_mock_role=SUPPORT` (another role
 `staff_mock_reauth_after=<epoch seconds>` (an older authentication counts as stale), `staff_mock_break_glass=1` (a
 break-glass session that owes its reason), `staff_mock_policies=1` (a policy to acknowledge), `staff_mock_passkey=0`
 (OWNER, ADMIN or FINANCE without a passkey: `passkey_required`), `staff_mock_factor_changed=1` (a second factor just
-changed: the offer to end the other sessions, once). `next.config.ts` sets the
+changed: the offer to end the other sessions, once), and for Home and reports `staff_mock_test_keys=1` (the site runs
+on test keys), `staff_mock_card_error=<card key>` (that card could not be worked out), `staff_mock_settlements=off`
+(the Finance module has not set up Razorpay's settlements), `staff_mock_health=empty` (the overnight count of the
+course's use has not run) and `staff_mock_untested=1` (the forecast has not beaten the seasonal naive). `next.config.ts` sets the
 flag only under `next dev`: every build compiles it to "", so a production bundle cannot reach a fixture (the route
 throws and the import sits behind the same check).
 
@@ -169,8 +176,26 @@ shape), and `<html lang>` with the `:lang` rule and Hind Siliguri in every font 
   its books, money, documents, parcels, the customer masked, risk, hold and tags, the timeline; Danger: cancel, the
   refund dialog, a return), `/orders/packing/` (packer mode), `/orders/returns/` and `<id>/`, `/orders/new/` (a staff
   order, the discount rule's answer before saving) and `/orders/quotes/` and `<id>/` (made into an order once).
-  `/shipping/`, `/catalogue/`, `/marketing/`, `/course/`, `/partners/` (distributors, schools, teachers) and
-  `/insights/` say they come in the next phase and where that work is done today.
+  `/shipping/`, `/catalogue/`, `/marketing/`, `/course/` and `/partners/` (distributors, schools, teachers) say they
+  come in the next phase and where that work is done today.
+- Home and reports (`src/components/modules/reports/`): Home (`/`) draws the numbers of the person's roles first
+  (streamed on their own, so they show as soon as they are ready): the totals (net revenue, orders, codes redeemed,
+  active learners) beside the period before them in a sentence, the queues (orders to pack, quotes, refunds to
+  approve, tickets due, mistakes to triage, COD overdue …) as they stand, each card a link to the list or report it
+  counts with its definition on hover and under "How this is counted", "Data as of", test data said first, the period
+  chosen with `?period=today|month` (7 days by default); the inbox, approvals, clocks and health stay below.
+  `/reports/` (the `insights` entry of the modules became `reports`) lists the reports the role may open, each with a
+  line of what it counts, and how every number is counted; `/reports/sales/` (`?from&to&by&grain`: title, subject,
+  class, board or edition, by day, week or month, a bar beside each net), `/reports/place/` (`?level=state|district|pin`
+  and `&state=`: a state's row opens its districts; a place under the minimum says "fewer than 10"),
+  `/reports/codes/` (by print run and district, `?batch=`), `/reports/course-health/` (`?subject&chapter&grain`: learners,
+  clips, quiz answers and flash cards by day, week or month, the chapters over 28 days), `/reports/cod/` (what the
+  couriers owe by how late, what they remitted, by courier), `/reports/settlements/` (says it is not set up while the
+  Finance module has none), `/reports/cohorts/` (`?page=`) and `/reports/forecasts/` (`?product=`: the print runs with
+  their levels, the sum worked out again from the net price, print cost and salvage typed, and the weekly forecast as a
+  range). Every report page has its tabs by permission, its filters in the address (a plain GET form), tables and CSS-width
+  bars (no chart library) and, for whoever holds `staff.export_report`, "Export as a file" (a job, its file ending
+  with who made it).
 - Content (`src/app/(panel)/content/`, `src/components/modules/content/`): `/content/` (what waits: mistakes by kind,
   reviews for me, drafts, books missing legal deposits, the last import), `/content/books/` and `<id>/` (a book's ISBN,
   format, edition and publication day, its history), `/content/papers/` and `<id>/` (the questions and solutions as a
@@ -228,8 +253,12 @@ nothing animates with reduced motion.
   hold that the erasure's dry run then names, the disclosures saved with a reason, both found in the audit trail); the
   Orders module (SUPPORT's refund of two books above their limit answered with its change request; the packing queue's
   mark packed undone, then sent); the support queue (a ticket opened, a saved reply put in with Alt 1 and sent, the
-  status moved on, an NCH complaint logged); the idle sign-out; and a break-glass session's reason and a policy
-  acknowledged before anything else.
+  status moved on, an NCH complaint logged); Home and reports (the OWNER's numbers with their definitions and the
+  period before, the period of the totals changed, the PACKER's Home with the orders to pack and nothing of the money,
+  a card in error, the sales report grouped by subject with how it is counted, its export as a job whose file ends with
+  who made it, a place and a chapter too small to show, settlements not set up, the print run worked out again with an
+  input that is not rupees refused, and FINANCE without the book codes' tab); the idle sign-out; and a break-glass
+  session's reason and a policy acknowledged before anything else.
 - **Against the real backend** an OWNER, a SUPPORT, a SALES and a FINANCE member are made for the run, with an adult
   customer, an order of ₹1,500 paid online, the customer's erasure request and an incident: SUPPORT reads the manifest
   and the inbox and asks for a refund above their ₹1,000 (a 202 and a change request, which the maker cannot approve:
@@ -242,7 +271,11 @@ nothing animates with reduced motion.
   minutes, after which the API answers 401. Then the Orders module,
   on three books and an order of one of each paid online and sent: SALES makes a staff order (the rule's answer shown
   before saving; made at once within 20%), FINANCE finds it by the customer's email, and SUPPORT asks for a refund of
-  two of its books, ₹1,900: the 202 and its change request.
+  two of its books, ₹1,900: the 202 and its change request. Then Home and reports, on a title at ₹1,234 and, of it, an
+  order paid online with live keys and another made with test keys (₹999): the OWNER's Home counts the live order once
+  (₹1,234, one order) and says test orders were left out, its card opens the sales report of the same days where the title
+  is ₹1,234.00 and the whole period too, and the report's file holds the live order and who made it, no ₹999 and no
+  email address.
 
 ## Deploy
 
@@ -377,3 +410,13 @@ reason}`), `…/refund/` and `…/cancel/` (with an `Idempotency-Key`; 202 a cha
   `GET support/agents/`; `GET POST support/saved-replies/` (`?bin=true`), `PATCH DELETE …/{id}/`, `POST …/{id}/restore/`;
   the grievance register as `POST jobs/` `{kind: "grievance_export", params: {from, until}}` and `GET
 jobs/?kind=grievance_export&mine=true`.
+- **Home and reports** (API.md "Home and reports (staff)"): `GET home/` (`?period=today|week|month`: the cards of the
+  person's roles, each `{key, label, group, unit, value, definition, as_of, period, href, test_mode, comparison,
+error}`), `GET reports/` (the index: `available`, `configured`), `GET reports/sales/` (`from`, `to`, `by`, `grain`),
+  `reports/sales-by-place/` (`level`, `state`), `reports/codes/` (`batch`), `reports/course-health/` (`subject`,
+  `chapter`, `grain`), `reports/cod/`, `reports/settlements/` (`configured`, `note`), `POST reports/print-run/`
+  (`{product, net_price, unit_cost, salvage}`); a report as a file is `POST jobs/` `{kind: "report_export", params:
+{report, filters}}` (`staff.export_report`). The insights' own lists, which the reports draw and do not rebuild, are
+  numbered pages (`count`, `?page=`) under `/api/v1/insights/` (`print-runs/`, `forecasts/?product=`, `cohorts/`) with
+  `method`, `data_as_of`, `backtest` and `shown` beside the rows (the schema does not type those four: `InsightsAbout`
+  in staff.ts); server components read them, the browser never does.

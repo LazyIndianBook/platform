@@ -240,6 +240,14 @@ tickets' cards; CONTENT_EDITOR and REVIEWER the content queues; PACKER the order
 report, read-only, and the exports; MARKETING the forecasts, cohorts and signals it had (no new report: it lacks the
 orders' and the learners' data permissions).
 
+The console draws all of it (examleaf-admin/README.md "Routes"): Home (`/`) starts with the person's numbers, streamed on
+their own and each a link to what it counts, then the inbox, approvals, clocks and health as before; Reports (`/reports/`)
+has a tab for each report the role may open (the insights' permission and the data's, as the API asks for both), the
+filters in the address, tables with a bar beside the figure, "How this is counted" on every page, "Export as a file"
+for whoever holds `staff.export_report`, and, on Forecasts and print runs, the print run of a title worked out again with
+the inputs typed. A PACKER's Home is the orders to pack and the inbox; a SUPPORT member's the tickets due and breached; a
+FINANCE member's the money and the queues of refunds, bank transfers, settlements and cash on delivery.
+
 ## The monthly review, in season
 
 1. `dj insights_review`: each title's last four complete weeks, the forecast made before each week began, the copies
