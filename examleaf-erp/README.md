@@ -79,6 +79,7 @@ Docker Desktop), about 1.5 GB of memory.
 ```sh
 cd examleaf-erp/compose
 ./dev.sh up --minimal     # waits until 3 GB are free; builds the dev image once; without scheduler and workers
+./dev.sh build            # the dev image again, after a change of dev.Containerfile (asks the registry for the base)
 ./dev.sh new-site         # erp.localhost: ERPNext, India Compliance, examleaf_erp, the bootstrap (some minutes)
 ./dev.sh test             # the app's 56 tests
 ./dev.sh login            # a Desk sign-in link for Administrator, http://127.0.0.1:8300/app?sid=…
