@@ -367,6 +367,8 @@ class Job(models.Model):
         CONTENT_IMPORT = "content_import", "import from the books repository"  # content/imports.py
         # Phase B: support
         GRIEVANCE_EXPORT = "grievance_export", "grievance register export"  # support.register
+        # Phase B: reports
+        REPORT_EXPORT = "report_export", "report export"  # insights.exports
 
     class State(models.TextChoices):
         QUEUED = "queued", "queued"

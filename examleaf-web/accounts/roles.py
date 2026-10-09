@@ -119,6 +119,7 @@ ROLES = {
         *["staff.refund_order", "staff.record_offline_payment", "staff.add_changerequest"],
         # shipping: the parcels, failed deliveries and exceptions (the customer's call), cash on delivery to see
         *["staff.view_parcels", "staff.act_on_exception", "staff.view_cod"],
+        "staff.view_insights",  # the reports (plan 5.16 lists SALES among their readers; Phase B: Home and Reports)
         # returns: asked for, decided, received and inspected (plan 5.3; SALES does both halves)
         *["shop.view_returnrequest", "staff.handle_return", "staff.receive_return"],
         # support: the order, payment and school-order tickets (ROLE_SCOPES)
@@ -167,6 +168,7 @@ ROLES = {
         # the ERPNext sync: watch it and resolve the nightly reconciliation's differences (replaying is ADMIN's)
         *["erp.view_sync", "erp.resolve_difference"],
         *["staff.view_cod", "staff.reconcile_cod", "staff.view_insights"],  # COD remittances; the reports
+        "staff.export_report",  # ... as files (Phase B: Home and Reports)
         # tax (shop/staff_tax.py): the HSN and SAC master, the series register, the thresholds and the calendar,
         # cancelling a document, the GSTR-1 export
         *["shop.view_hsncode", "shop.change_hsncode", "shop.view_documentseries", "shop.view_taxthreshold"],
@@ -201,7 +203,13 @@ ROLES = {
         *PANEL,
     ],
     # read-only; no reveals, no writes; the exports a review needs (the audit log, the grievance register)
-    AUDITOR: [VIEW_ALL, "staff.view_auditlog", "staff.export_auditlog", "staff.export_grievances"],
+    AUDITOR: [
+        VIEW_ALL,
+        "staff.view_auditlog",
+        "staff.export_auditlog",
+        "staff.export_grievances",
+        "staff.export_report",
+    ],
     SALES_REP: [  # school and phone orders, quotations, payment links; no refunds or shipping (SALES has them)
         "content.view_book",
         *crud("shop", ["order"]),

@@ -136,6 +136,8 @@ STAFF_ACTIONS = [
     # support (support/README.md): tickets and the grievance register
     ("handle_ticket", "Handle support tickets: reply, assign, change, move on, close, acknowledge", SUPPORT, MEDIUM),
     ("export_grievances", "Export the grievance register (a dated CSV, no personal data)", SUPPORT, HIGH, True),
+    # Home and Reports (Phase B, insights/exports.py): any report as a file, with the filters it was read with
+    ("export_report", "Export a report as a file (above your limit a second person approves)", REPORTS, HIGH, True),
 ]
 STAFF_MODELS = [
     ("view_changerequest", "See the approvals you take part in", STAFF, LOW),
