@@ -107,6 +107,22 @@ print(User.objects.filter(email=${py(email)}).delete(), BookCode.objects.filter(
   );
 }
 
+/** The support tickets a test student asked for (My requests), with their inbox items: a ticket keeps its number
+ *  when its account goes, so it is deleted first. */
+export function deleteTickets(email: string) {
+  manage(
+    "shell",
+    "-c",
+    `
+from staff.models import InboxItem
+from support.models import Ticket
+tickets = Ticket.objects.filter(user__email=${py(email)})
+InboxItem.objects.filter(target_type="support.ticket", target_id__in=[str(pk) for pk in tickets.values_list("pk", flat=True)]).delete()
+print(tickets.delete())
+`,
+  );
+}
+
 /** The staff console's step of an impersonation (staff.services.impersonation_token, as POST staff/users/{id}/
  *  impersonate/ does it): a 15-minute token for the student, issued by a member of staff made for it (`staff`, no
  *  role, no password: they never log in here). Printed last, as the console's link carries it. */

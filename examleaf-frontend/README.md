@@ -180,7 +180,9 @@ goes to an image service; `qrcode` would be about ten times the size with `pngjs
   `/account/impersonate/` (the staff console's link: "Impersonation" above).
 - `(account)`: `/account/`, `/account/record/` (`<id>/edit/`), `/account/learning/` (8E: `GET me/learning/`: the
   clip to continue with, the next three days and the exam date, the revise-again counts, progress per subject and
-  chapter, what is open, the streak), `/account/orders/` (`<number>/`), `/account/details/`, `/account/addresses/`,
+  chapter, what is open, the streak), `/account/orders/` (`<number>/`), `/account/requests/` (My requests:
+  `GET me/tickets/`, the customer's support tickets with their number and status, and `POST` a new one; guests use the
+  contact form and get the number by email), `/account/details/`, `/account/addresses/`,
   `/account/security/`, `/account/2fa/`, `/account/privacy/`, `/account/teacher/`; and `/revision/` (public, with
   the signed-in student's parts; `#chapters`, `#plan` and `#app` are its sections). Behind `config.web_course`
   (`WEB_COURSE` in Django, off by default; every one of these answers 404 while it is off): the revision course on the

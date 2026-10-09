@@ -603,10 +603,12 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description The contact form, as on the website's /contact/: the message is emailed to the support address (SUPPORT_EMAIL,
-         *     else SELLER_EMAIL) with Reply-To the sender, and nothing is stored. Turnstile's token while the bot check is on; 5
-         *     an hour per client address, the website's form included; a filled-in `website` (the honeypot) is thanked and
-         *     dropped. 503 while the support address is still a [placeholder].
+         * @description The contact form, as on the website's /contact/: the message becomes a support ticket (support.services
+         *     .from_contact_form: a number, the legal clocks, the acknowledgement with the number to the sender's address; with
+         *     SUPPORT_COPY_TO_EMAIL a copy to the support address, SUPPORT_EMAIL else SELLER_EMAIL). Turnstile's token while the
+         *     bot check is on; 5 an hour per client address, the website's form included; a filled-in `website` (the honeypot)
+         *     is thanked and dropped. 503 while the support address is still a [placeholder]: the acknowledgement's replies go
+         *     there.
          */
         post: operations["contact_create"];
         delete?: never;
@@ -1065,6 +1067,34 @@ export interface paths {
          *     in me/).
          */
         post: operations["me_teacher_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/tickets/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description My requests: the signed-in customer's tickets (their account's, and those sent from one of its confirmed email
+         *     addresses before it had them), newest first, 50 a page: the number, what it is about, its status and dates, never
+         *     staff's notes nor who works on it. POST makes one (a confirmed email address; 10 an hour): it is acknowledged by
+         *     email with its number at once.
+         */
+        get: operations["me_tickets_list"];
+        put?: never;
+        /**
+         * @description My requests: the signed-in customer's tickets (their account's, and those sent from one of its confirmed email
+         *     addresses before it had them), newest first, 50 a page: the number, what it is about, its status and dates, never
+         *     staff's notes nor who works on it. POST makes one (a confirmed email address; 10 an hour): it is acknowledged by
+         *     email with its number at once.
+         */
+        post: operations["me_tickets_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2355,6 +2385,53 @@ export interface components {
              */
             email: string;
         };
+        /**
+         * @description One of the customer's requests: its number, what it is about, where it stands and its dates; never staff's
+         *     notes, never who works on it.
+         */
+        MyTicket: {
+            readonly number: string;
+            readonly subject: string;
+            /**
+             * @description empty: unsorted
+             *
+             *     * `order` - order
+             *     * `payment` - payment or refund
+             *     * `book_code` - book code
+             *     * `qr_solutions` - QR solutions
+             *     * `content_error` - a mistake in the content
+             *     * `school_order` - school order
+             *     * `privacy_request` - privacy request
+             *     * `grievance` - grievance
+             */
+            readonly category: components["schemas"]["TicketCategoryEnum"] | components["schemas"]["BlankEnum"];
+            readonly category_label: string;
+            readonly status: components["schemas"]["TicketStatusEnum"];
+            readonly status_label: string;
+            readonly order: string | null;
+            /** Format: date-time */
+            readonly received_at: string;
+            /** Format: date-time */
+            readonly acknowledged_at: string | null;
+            /**
+             * Format: date-time
+             * @description the latest we answer it by
+             */
+            readonly answer_by: string;
+            /** Format: date-time */
+            readonly resolved_at: string | null;
+            /** Format: date-time */
+            readonly closed_at: string | null;
+            /** Format: date-time */
+            readonly modified: string;
+        };
+        MyTicketCreateRequest: {
+            category: components["schemas"]["TicketCategoryEnum"];
+            subject: string;
+            message: string;
+            /** @default  */
+            order: string;
+        };
         NextClip: {
             readonly id: number;
             readonly order: number;
@@ -2682,6 +2759,21 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["FlashCard"][];
+        };
+        PaginatedMyTicketList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["MyTicket"][];
         };
         PaginatedOrderBriefList: {
             /** @example 123 */
@@ -3591,6 +3683,29 @@ export interface components {
             /** Subject taught */
             subject: string;
         };
+        /**
+         * @description * `order` - order
+         *     * `payment` - payment or refund
+         *     * `book_code` - book code
+         *     * `qr_solutions` - QR solutions
+         *     * `content_error` - a mistake in the content
+         *     * `school_order` - school order
+         *     * `privacy_request` - privacy request
+         *     * `grievance` - grievance
+         * @enum {string}
+         */
+        TicketCategoryEnum: "order" | "payment" | "book_code" | "qr_solutions" | "content_error" | "school_order" | "privacy_request" | "grievance";
+        /**
+         * @description * `new` - new
+         *     * `open` - open
+         *     * `waiting_customer` - waiting on the customer
+         *     * `waiting_third_party` - waiting on a third party
+         *     * `resolved` - resolved
+         *     * `closed` - closed
+         *     * `spam` - spam (quarantined)
+         * @enum {string}
+         */
+        TicketStatusEnum: "new" | "open" | "waiting_customer" | "waiting_third_party" | "resolved" | "closed" | "spam";
         TierAverage: {
             tier: components["schemas"]["TierEnum"];
             label: string;
@@ -5324,6 +5439,53 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Teacher"];
+                };
+            };
+        };
+    };
+    me_tickets_list: {
+        parameters: {
+            query?: {
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedMyTicketList"];
+                };
+            };
+        };
+    };
+    me_tickets_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MyTicketCreateRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyTicket"];
                 };
             };
         };

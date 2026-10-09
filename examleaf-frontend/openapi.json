@@ -2003,7 +2003,7 @@
         "/api/v1/contact/": {
             "post": {
                 "operationId": "contact_create",
-                "description": "The contact form, as on the website's /contact/: the message is emailed to the support address (SUPPORT_EMAIL,\nelse SELLER_EMAIL) with Reply-To the sender, and nothing is stored. Turnstile's token while the bot check is on; 5\nan hour per client address, the website's form included; a filled-in `website` (the honeypot) is thanked and\ndropped. 503 while the support address is still a [placeholder].",
+                "description": "The contact form, as on the website's /contact/: the message becomes a support ticket (support.services\n.from_contact_form: a number, the legal clocks, the acknowledgement with the number to the sender's address; with\nSUPPORT_COPY_TO_EMAIL a copy to the support address, SUPPORT_EMAIL else SELLER_EMAIL). Turnstile's token while the\nbot check is on; 5 an hour per client address, the website's form included; a filled-in `website` (the honeypot)\nis thanked and dropped. 503 while the support address is still a [placeholder]: the acknowledgement's replies go\nthere.",
                 "tags": [
                     "contact"
                 ],
@@ -3231,6 +3231,92 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/Teacher"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/me/tickets/": {
+            "get": {
+                "operationId": "me_tickets_list",
+                "description": "My requests: the signed-in customer's tickets (their account's, and those sent from one of its confirmed email\naddresses before it had them), newest first, 50 a page: the number, what it is about, its status and dates, never\nstaff's notes nor who works on it. POST makes one (a confirmed email address; 10 an hour): it is acknowledged by\nemail with its number at once.",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "required": false,
+                        "in": "query",
+                        "description": "A page number within the paginated result set.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "page_size",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "tags": [
+                    "account"
+                ],
+                "security": [
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedMyTicketList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "post": {
+                "operationId": "me_tickets_create",
+                "description": "My requests: the signed-in customer's tickets (their account's, and those sent from one of its confirmed email\naddresses before it had them), newest first, 50 a page: the number, what it is about, its status and dates, never\nstaff's notes nor who works on it. POST makes one (a confirmed email address; 10 an hour): it is acknowledged by\nemail with its number at once.",
+                "tags": [
+                    "account"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/MyTicketCreateRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MyTicket"
                                 }
                             }
                         },
@@ -7178,6 +7264,130 @@
                     "number"
                 ]
             },
+            "MyTicket": {
+                "type": "object",
+                "description": "One of the customer's requests: its number, what it is about, where it stands and its dates; never staff's\nnotes, never who works on it.",
+                "properties": {
+                    "number": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "subject": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "category": {
+                        "readOnly": true,
+                        "description": "empty: unsorted\n\n* `order` - order\n* `payment` - payment or refund\n* `book_code` - book code\n* `qr_solutions` - QR solutions\n* `content_error` - a mistake in the content\n* `school_order` - school order\n* `privacy_request` - privacy request\n* `grievance` - grievance",
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/TicketCategoryEnum"
+                            },
+                            {
+                                "$ref": "#/components/schemas/BlankEnum"
+                            }
+                        ]
+                    },
+                    "category_label": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "status": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/TicketStatusEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "status_label": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "order": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "received_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "acknowledged_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "answer_by": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "description": "the latest we answer it by"
+                    },
+                    "resolved_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "closed_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "modified": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "acknowledged_at",
+                    "answer_by",
+                    "category",
+                    "category_label",
+                    "closed_at",
+                    "modified",
+                    "number",
+                    "order",
+                    "received_at",
+                    "resolved_at",
+                    "status",
+                    "status_label",
+                    "subject"
+                ]
+            },
+            "MyTicketCreateRequest": {
+                "type": "object",
+                "properties": {
+                    "category": {
+                        "$ref": "#/components/schemas/TicketCategoryEnum"
+                    },
+                    "subject": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                    },
+                    "message": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 5000
+                    },
+                    "order": {
+                        "type": "string",
+                        "default": "",
+                        "maxLength": 20
+                    }
+                },
+                "required": [
+                    "category",
+                    "message",
+                    "subject"
+                ]
+            },
             "NextClip": {
                 "type": "object",
                 "properties": {
@@ -8063,6 +8273,37 @@
                         "type": "array",
                         "items": {
                             "$ref": "#/components/schemas/FlashCard"
+                        }
+                    }
+                }
+            },
+            "PaginatedMyTicketList": {
+                "type": "object",
+                "required": [
+                    "count",
+                    "results"
+                ],
+                "properties": {
+                    "count": {
+                        "type": "integer",
+                        "example": 123
+                    },
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=4"
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=2"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/MyTicket"
                         }
                     }
                 }
@@ -10515,6 +10756,33 @@
                     "school_name",
                     "subject"
                 ]
+            },
+            "TicketCategoryEnum": {
+                "enum": [
+                    "order",
+                    "payment",
+                    "book_code",
+                    "qr_solutions",
+                    "content_error",
+                    "school_order",
+                    "privacy_request",
+                    "grievance"
+                ],
+                "type": "string",
+                "description": "* `order` - order\n* `payment` - payment or refund\n* `book_code` - book code\n* `qr_solutions` - QR solutions\n* `content_error` - a mistake in the content\n* `school_order` - school order\n* `privacy_request` - privacy request\n* `grievance` - grievance"
+            },
+            "TicketStatusEnum": {
+                "enum": [
+                    "new",
+                    "open",
+                    "waiting_customer",
+                    "waiting_third_party",
+                    "resolved",
+                    "closed",
+                    "spam"
+                ],
+                "type": "string",
+                "description": "* `new` - new\n* `open` - open\n* `waiting_customer` - waiting on the customer\n* `waiting_third_party` - waiting on a third party\n* `resolved` - resolved\n* `closed` - closed\n* `spam` - spam (quarantined)"
             },
             "TierAverage": {
                 "type": "object",
