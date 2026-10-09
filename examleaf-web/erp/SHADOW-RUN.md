@@ -257,9 +257,10 @@ items the worker's first start left (the macOS spawn above), not the sync's.
 **Resources.** The stack's containers used 677 MiB once warm (MariaDB 263, gunicorn 137, the scheduler 94, the three
 workers 45 to 48 each, Socket.IO 22, the two Valkeys 11 and 6, nginx 6), well under `dev.sh`'s 1.5 GB estimate; the
 platform's three processes about 50 MiB each resident; the Mac had 2.9 GB free during the run with the other agents'
-work. Docker's disk: images 13.18 GB to 13.4 GB (the dev image's own layer: India Compliance), volumes 767 MB to 803 MB,
-BuildKit's cache 34 MB from the stopped builds (pruned). Time: 43 minutes from the first command (01:45) to the clean
-day (02:28), 7 of them on the image and the memory wait; the app's 58 tests 31 seconds.
+work, 4.8 GB once everything was down. Docker's disk, before and after: images 13.18 GB to 13.24 GB (the dev image's
+own layer, India Compliance), volumes 767 MB to 790 MB (kept), the build cache 0 B to 0 B (the stopped BuildKit
+attempts' 78 MB pruned). Time: 43 minutes from the first command (01:45) to the clean day (02:28), 7 of them on the
+image and the memory wait; the app's 58 tests 31 seconds; the stack down at 02:41:57.
 
 ## 12. What the staging site needs beyond this
 
@@ -308,10 +309,11 @@ called. The stack was left as follows:
 ./dev.sh bench --site erp.localhost set-config examleaf_webhook_secret ""
 ./dev.sh bench --site erp.localhost execute examleaf_erp.setup.configure_webhooks
 ./dev.sh down                       # the volumes kept: the next run starts in seconds on the same site
-docker builder prune -f             # the stopped BuildKit attempts' cache
+docker builder prune -af            # the stopped BuildKit attempts' cache, 78 MB (it was empty before the run)
 ```
 
 The volumes keep the site with its documents (this run's on 10 October, earlier test runs' on 9 October and this
 run's two test runs on 10 October). Their MariaDB root password is the one of the run that made them on 9 October,
 whose `compose/.env` is gone: `new-site` needs it only to make a site, so a second site, or a clean one, needs
-`./dev.sh destroy` first. The platform's processes were stopped and its database deleted.
+`./dev.sh destroy` first. The platform's processes were stopped, its database deleted, its two Redis databases
+emptied and the sync user's key file (`compose/.sync-keys`) removed: `./dev.sh keys` makes a new one.
