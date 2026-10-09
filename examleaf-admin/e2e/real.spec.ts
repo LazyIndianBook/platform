@@ -261,11 +261,13 @@ test("OWNER: a legal hold on the customer, which the erasure's dry run names", a
     page.getByRole("region", { name: "Legal holds, a table" }).getByText(`Customer #${world.customer}`).first(),
   ).toBeVisible();
 
+  // the dry run's own lists (the answer's draft below quotes what is kept too)
   await page.goto(`/privacy/requests/${world.request}/`);
-  await page.getByRole("button", { name: "Run the dry run" }).click();
-  await expect(page.getByText("Kept: the account, under a legal hold (a dispute), until released")).toBeVisible();
+  const erasure = page.locator("#erasure");
+  await erasure.getByRole("button", { name: "Run the dry run" }).click();
+  await expect(erasure.getByText("Kept: the account, under a legal hold (a dispute), until released")).toBeVisible();
   await expect(
-    page.getByText(/^A legal hold \(a dispute, hold \d+\) keeps the account until it is released\.$/),
+    erasure.getByText(/^A legal hold \(a dispute, hold \d+\) keeps the account until it is released\.$/),
   ).toBeVisible();
 
   await page.goto(`/audit/?target_type=accounts.legalhold&action_prefix=legal_hold.`);

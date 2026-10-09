@@ -296,12 +296,13 @@ for (const width of [1280, 390]) {
         ).toBeVisible();
 
         await page.goto("/privacy/requests/801/");
-        await page.getByRole("button", { name: "Run the dry run" }).click();
+        const erasure = page.locator("#erasure");
+        await erasure.getByRole("button", { name: "Run the dry run" }).click();
         await expect(
-          page.getByText("Kept: the account, under a legal hold (a legal claim), until released"),
+          erasure.getByText("Kept: the account, under a legal hold (a legal claim), until released"),
         ).toBeVisible();
         await expect(
-          page.getByText(/^A legal hold \(a legal claim, hold \d+\) keeps the account until it is released\.$/),
+          erasure.getByText(/^A legal hold \(a legal claim, hold \d+\) keeps the account until it is released\.$/),
         ).toBeVisible();
 
         await page.goto("/privacy/disclosures/");
