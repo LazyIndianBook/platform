@@ -3,10 +3,12 @@ database's limits by role, Celery's acknowledgements and limits; and the health 
 
 import importlib
 import json
+import runpy
 import sys
 from importlib.util import find_spec
 
 import pytest
+import yaml
 from anymail.backends.amazon_ses import _get_anymail_boto3_params
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -171,3 +173,37 @@ def test_readiness_fails_while_a_migration_of_this_code_is_waiting():
     newest.delete()  # as a pod of a new release finds the database before its migrate has run
     with pytest.raises(ServiceUnavailable, match="migrations not applied"):
         Migrations().run()
+
+
+def gunicorn_config(path):
+    """gunicorn.conf.py as gunicorn reads it: each name of its settings set through gunicorn's own checks."""
+    from gunicorn.config import Config
+
+    config = Config()
+    for name, value in runpy.run_path(str(path)).items():
+        if name in config.settings:
+            config.set(name, value)
+    return config
+
+
+def test_gunicorn_runs_from_one_config_file_wherever_it_runs(settings, monkeypatch):
+    path = settings.BASE_DIR / "gunicorn.conf.py"
+    config = gunicorn_config(path)
+    assert (config.worker_class_str, config.threads, config.workers) == ("gthread", 8, 2)
+    assert (config.timeout, config.graceful_timeout, config.keepalive) == (60, 30, 5)
+    assert (config.max_requests, config.max_requests_jitter, config.control_socket_disable) == (1000, 100, True)
+    assert config.logconfig_dict["formatters"]["json"]["()"] == "pythonjsonlogger.json.JsonFormatter"
+    monkeypatch.setenv("WEB_CONCURRENCY", "3")
+    monkeypatch.setenv("GUNICORN_THREADS", "4")
+    assert (gunicorn_config(path).workers, gunicorn_config(path).threads) == (3, 4)
+    dockerfile = (settings.BASE_DIR / "Dockerfile").read_text()
+    assert 'CMD ["gunicorn", "--config", "gunicorn.conf.py", "examleaf.wsgi"]' in dockerfile
+    web = yaml.safe_load((settings.BASE_DIR / "docker-compose.yml").read_text())["services"]["web"]
+    assert web["command"].endswith('&& exec gunicorn --config gunicorn.conf.py examleaf.wsgi"')
+    assert "GUNICORN_CMD_ARGS" not in web["environment"] and "/health/live/" in web["healthcheck"]["test"][-1]
+    chart = settings.BASE_DIR.parent / "deploy/kubernetes/examleaf-platform/values.yaml"
+    if chart.exists():  # the chart's extra arguments repeat the file's values, never other ones
+        arguments = yaml.safe_load(chart.read_text())["web"]["gunicornArgs"].split()
+        given = {name: value for name, value in zip(arguments, [*arguments[1:], ""], strict=True)}
+        assert given.get("--worker-class", "gthread") == "gthread" and int(given.get("--threads", 8)) == 8
+        assert int(given.get("--timeout", 60)) == 60
