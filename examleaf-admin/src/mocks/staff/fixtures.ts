@@ -15,6 +15,7 @@ import { createTaxWorld, monthBefore, type TaxWorld } from "./tax";
 import { type OrdersWorld, ordersWorld } from "./orders";
 import { type ContentWorld, createContent } from "./content";
 import { createSupportWorld, type SupportWorld } from "./support-fixtures";
+import { type CatalogueWorld, catalogueWorld } from "./catalogue";
 
 export type Me = { id: number; email: string; name: string; roles: string[] };
 
@@ -82,6 +83,8 @@ export type World = {
   content: ContentWorld;
   /** The support module's tickets, saved replies and the requesters' sidebar (support-fixtures.ts). */
   support: SupportWorld;
+  /** The Catalogue module's products, coupons, offers, rates and shelves (catalogue.ts). */
+  catalogue: CatalogueWorld;
 };
 
 /** The payload's SHA-256 over its canonical JSON (keys sorted, no spaces), as staff/approvals.py `digest` makes it. */
@@ -1921,5 +1924,6 @@ export function createWorld(me: Me, now = Date.now()): World {
     orders: ordersWorld(at),
     content: content.world,
     support: createSupportWorld(me, now),
+    catalogue: catalogueWorld((hours) => at(-hours), me.id), // its times count back from now
   };
 }

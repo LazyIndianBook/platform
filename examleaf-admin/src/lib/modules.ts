@@ -139,6 +139,37 @@ export const P = {
   // what a ticket's actions also need beyond the Orders module's keys: the course's own permissions
   accessExtend: "learn.change_entitlement",
   bookCodesView: "learn.view_bookcode",
+  // the Catalogue module (shop/staff_catalogue.py): a product's parts each behind its own permission (the page's, the
+  // prices', the tax's, the stock's), pictures, coupons and their single-use codes, offers, rates, shelves, the import
+  // and export (productsView is the Orders module's key above)
+  productsAdd: "shop.add_product",
+  productsChange: "shop.change_product",
+  priceChange: "staff.change_price",
+  stockSet: "staff.set_stock",
+  productTaxChange: "staff.change_product_tax",
+  picturesAdd: "shop.add_productimage",
+  picturesChange: "shop.change_productimage",
+  picturesDelete: "shop.delete_productimage",
+  stockAlertsView: "shop.view_stockalert",
+  couponsView: "shop.view_coupon",
+  couponsAdd: "shop.add_coupon",
+  couponsChange: "shop.change_coupon",
+  codesView: "shop.view_couponcode",
+  codesAdd: "shop.add_couponcode",
+  offersView: "shop.view_offer",
+  offersAdd: "shop.add_offer",
+  offersChange: "shop.change_offer",
+  ratesView: "shop.view_shippingrate",
+  ratesAdd: "shop.add_shippingrate",
+  ratesChange: "shop.change_shippingrate",
+  categoriesView: "shop.view_category",
+  categoriesAdd: "shop.add_category",
+  categoriesChange: "shop.change_category",
+  collectionsView: "shop.view_collection",
+  collectionsAdd: "shop.add_collection",
+  collectionsChange: "shop.change_collection",
+  productsImport: "shop.import_product",
+  productsExport: "shop.export_product",
 } as const;
 
 /** Whether the manifest lists the permission (the shell's only use of permissions: what to draw). */
@@ -176,7 +207,7 @@ export const MODULES: readonly Module[] = [
   { key: "audit", href: "/audit/", group: "work", any: [P.auditView] },
   { key: "orders", href: "/orders/", group: "shop", any: [P.ordersView] },
   { key: "shipping", href: "/shipping/", group: "shop", any: SHIPPING, soon: true },
-  { key: "catalogue", href: "/catalogue/", group: "shop", any: ["shop.view_product"], soon: true },
+  { key: "catalogue", href: "/catalogue/", group: "shop", any: [P.productsView] },
   { key: "tax", href: "/tax/", group: "shop", any: [P.taxHsnView, P.taxDocumentsView] },
   { key: "marketing", href: "/marketing/", group: "shop", any: ["shop.view_coupon", "shop.view_offer"], soon: true },
   { key: "content", href: "/content/", group: "learning", any: [P.booksView, P.papersView, P.reportsView] },

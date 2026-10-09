@@ -1617,3 +1617,264 @@ export const exportGrievances = (params: { from?: string; until?: string }) =>
   send(undefined, (o) =>
     api.POST("/api/v1/staff/jobs/", { ...o, body: { kind: "grievance_export", params, dry_run: false } }),
   );
+
+// ---- Catalogue ----
+
+export type CatalogueProductRow = Schemas["CatalogueProductRow"];
+export type CatalogueProduct = Schemas["CatalogueProduct"];
+export type CatalogueProductChange = Schemas["PatchedCatalogueProductWriteRequest"];
+export type CatalogueNewProduct = Schemas["CatalogueProductWriteRequest"];
+export type CataloguePriorPrice = Schemas["CataloguePriorPrice"];
+export type CatalogueVersion = Schemas["CatalogueVersion"];
+export type CatalogueStockRow = Schemas["CatalogueStockRow"];
+export type CatalogueAlertRow = Schemas["CatalogueAlertRow"];
+export type CatalogueCoupon = Schemas["CatalogueCoupon"];
+export type CatalogueCouponInput = Schemas["CatalogueCouponWriteRequest"];
+export type CatalogueCode = Schemas["CatalogueCode"];
+export type CatalogueOffer = Schemas["CatalogueOffer"];
+export type CatalogueOfferInput = Schemas["CatalogueOfferWriteRequest"];
+export type CatalogueShippingRate = Schemas["CatalogueShippingRate"];
+export type CatalogueRateInput = Schemas["CatalogueShippingRateWriteRequest"];
+export type CatalogueCategory = Schemas["CatalogueCategory"];
+export type CatalogueCollection = Schemas["CatalogueCollection"];
+export type CatalogueSummary = Schemas["CatalogueSummary"];
+export type CatalogueOptions = Schemas["CatalogueOptions"];
+export type CatalogueJobKind = "coupon_codes" | "product_import" | "product_export";
+/** A price change answered 202: the rest saved, the price waiting for its approver. */
+export type CataloguePriceWaiting = Schemas["CatalogueProductPriceWaiting"];
+
+const CATALOGUE = "/api/v1/staff/catalogue/";
+
+/** The products with their chips (the GST against the master, the courier's data, the stock). */
+export const listCatalogueProducts = (filters: Filters<"/api/v1/staff/catalogue/products/">, transport?: Transport) =>
+  send(transport, (o) =>
+    api.GET("/api/v1/staff/catalogue/products/", { ...o, params: { query: query(filters) } }),
+  ).then(paged);
+/** A product by section, with the approvals waiting about it. */
+export const getCatalogueProduct = (slug: string, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/catalogue/products/{slug}/", { ...o, params: { path: { slug } } }));
+/** A new product, made at its MRP; a lower price follows through its approval (`price_change`). */
+export const createCatalogueProduct = (body: CatalogueNewProduct) => {
+  const headers = once();
+  return send(undefined, (o) =>
+    api.POST("/api/v1/staff/catalogue/products/", { ...o, headers: { ...o.headers, ...headers }, body }),
+  );
+};
+/** A change: the page's fields at once; a price within your limit too, beyond it the answer is the waiting change
+ *  request (`price_change`) with the rest saved. */
+export const updateCatalogueProduct = (slug: string, body: CatalogueProductChange) => {
+  const headers = once();
+  return send(undefined, (o) =>
+    api.PATCH("/api/v1/staff/catalogue/products/{slug}/", {
+      ...o,
+      headers: { ...o.headers, ...headers },
+      params: { path: { slug } },
+      body,
+    }),
+  ) as Promise<CatalogueProduct | CataloguePriceWaiting>;
+};
+/** What a selling price would show if set now (the lowest of the 30 days before it): nothing changes. */
+export const getPriorPrice = (slug: string, price: string, signal?: AbortSignal) =>
+  send(
+    undefined,
+    (o) =>
+      api.GET("/api/v1/staff/catalogue/products/{slug}/prior-price/", {
+        ...o,
+        params: { path: { slug }, query: { price } },
+      }),
+    signal,
+  );
+export const productHistory = (slug: string, cursor: string, transport?: Transport) =>
+  send(transport, (o) =>
+    api.GET("/api/v1/staff/catalogue/products/{slug}/history/", {
+      ...o,
+      params: { path: { slug }, query: query({ cursor }) },
+    }),
+  ).then(paged);
+/** A picture (multipart: the browser sets its boundary): the form's `image`, `alt`, `position`, `as_cover`. */
+export const addProductPicture = (slug: string, form: FormData) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/catalogue/products/{slug}/pictures/", {
+      ...o,
+      params: { path: { slug } },
+      body: form as unknown as Schemas["CataloguePictureUploadRequest"],
+      bodySerializer: (body) => body as unknown as FormData,
+    }),
+  );
+export const changeProductPicture = (
+  slug: string,
+  picture: number,
+  body: Schemas["PatchedCataloguePictureChangeRequest"],
+) =>
+  send(undefined, (o) =>
+    api.PATCH("/api/v1/staff/catalogue/products/{slug}/pictures/{picture}/", {
+      ...o,
+      params: { path: { slug, picture } },
+      body,
+    }),
+  );
+export const removeProductPicture = (slug: string, picture: number) =>
+  send(undefined, (o) =>
+    api.DELETE("/api/v1/staff/catalogue/products/{slug}/pictures/{picture}/", {
+      ...o,
+      params: { path: { slug, picture } },
+    }),
+  );
+/** A bundle's books and copies of each, all at once. */
+export const setBundleLines = (slug: string, lines: Schemas["CatalogueBundleLineRequest"][]) =>
+  send(undefined, (o) =>
+    api.PUT("/api/v1/staff/catalogue/products/{slug}/bundle/", { ...o, params: { path: { slug } }, body: { lines } }),
+  );
+/** A book's copies set by hand with the reason; `expected`, the count read: refused when orders changed it since. */
+export const setProductStock = (slug: string, body: Schemas["CatalogueStockSetRequest"]) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/catalogue/products/{slug}/stock/", { ...o, params: { path: { slug } }, body }),
+  );
+/** Its ISBN's EAN-13 barcode (SVG, sized for print), on this origin. */
+export const barcodeHref = (slug: string) => `${CATALOGUE}products/${encodeURIComponent(slug)}/barcode.svg/`;
+
+/** The books' copies, the fewest first, with what orders hold. */
+export const listCatalogueStock = (filters: Filters<"/api/v1/staff/catalogue/stock/">, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/catalogue/stock/", { ...o, params: { query: query(filters) } })).then(
+    paged,
+  );
+/** Back-in-stock requests by product (never who asked). */
+export const listStockAlerts = (transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/catalogue/stock-alerts/", o)).then(paged);
+
+export const listCoupons = (filters: Filters<"/api/v1/staff/catalogue/coupons/">, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/catalogue/coupons/", { ...o, params: { query: query(filters) } })).then(
+    paged,
+  );
+export const getCoupon = (code: string, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/catalogue/coupons/{code}/", { ...o, params: { path: { code } } }));
+/** A new coupon through coupon.create: its change request, executed within your limit; beyond it the error
+ *  approval_required (a 202: it waits for FINANCE). */
+export const createCoupon = (body: CatalogueCouponInput) => {
+  const headers = once();
+  return send(undefined, (o) =>
+    api.POST("/api/v1/staff/catalogue/coupons/", { ...o, headers: { ...o.headers, ...headers }, body }),
+  );
+};
+/** The fields that change, through coupon.change (a deeper discount beyond your limit: approval_required). */
+export const updateCoupon = (code: string, body: Schemas["PatchedCatalogueCouponWriteRequest"]) => {
+  const headers = once();
+  return send(undefined, (o) =>
+    api.PATCH("/api/v1/staff/catalogue/coupons/{code}/", {
+      ...o,
+      headers: { ...o.headers, ...headers },
+      params: { path: { code } },
+      body,
+    }),
+  );
+};
+export const listCouponCodes = (
+  code: string,
+  filters: { used?: string; job?: string; cursor?: string },
+  transport?: Transport,
+) =>
+  send(transport, (o) =>
+    api.GET("/api/v1/staff/catalogue/coupons/{code}/codes/", {
+      ...o,
+      params: { path: { code }, query: query(filters) },
+    }),
+  ).then(paged);
+export const couponHistory = (code: string, transport?: Transport) =>
+  send(transport, (o) =>
+    api.GET("/api/v1/staff/catalogue/coupons/{code}/history/", { ...o, params: { path: { code } } }),
+  ).then(paged);
+
+export const listOffers = (filters: Filters<"/api/v1/staff/catalogue/offers/">, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/catalogue/offers/", { ...o, params: { query: query(filters) } })).then(
+    paged,
+  );
+export const getOffer = (id: number, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/catalogue/offers/{id}/", { ...o, params: { path: { id } } }));
+/** A new offer through offer.create (beyond your limit: approval_required). */
+export const createOffer = (body: CatalogueOfferInput) => {
+  const headers = once();
+  return send(undefined, (o) =>
+    api.POST("/api/v1/staff/catalogue/offers/", { ...o, headers: { ...o.headers, ...headers }, body }),
+  );
+};
+export const updateOffer = (id: number, body: Schemas["PatchedCatalogueOfferWriteRequest"]) => {
+  const headers = once();
+  return send(undefined, (o) =>
+    api.PATCH("/api/v1/staff/catalogue/offers/{id}/", {
+      ...o,
+      headers: { ...o.headers, ...headers },
+      params: { path: { id } },
+      body,
+    }),
+  );
+};
+export const offerHistory = (id: number, transport?: Transport) =>
+  send(transport, (o) =>
+    api.GET("/api/v1/staff/catalogue/offers/{id}/history/", { ...o, params: { path: { id } } }),
+  ).then(paged);
+
+export const listShippingRates = (transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/catalogue/shipping-rates/", o)).then(paged);
+export const getShippingRate = (id: number, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/catalogue/shipping-rates/{id}/", { ...o, params: { path: { id } } }));
+export const createShippingRate = (body: CatalogueRateInput) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/catalogue/shipping-rates/", { ...o, body }));
+export const updateShippingRate = (id: number, body: Schemas["PatchedCatalogueShippingRateWriteRequest"]) =>
+  send(undefined, (o) =>
+    api.PATCH("/api/v1/staff/catalogue/shipping-rates/{id}/", { ...o, params: { path: { id } }, body }),
+  );
+export const rateHistory = (id: number, transport?: Transport) =>
+  send(transport, (o) =>
+    api.GET("/api/v1/staff/catalogue/shipping-rates/{id}/history/", { ...o, params: { path: { id } } }),
+  ).then(paged);
+
+/** The shelves in tree order (each followed by those under it). */
+export const listCategories = (transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/catalogue/categories/", o));
+export const createCategory = (body: Schemas["CatalogueCategoryWriteRequest"]) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/catalogue/categories/", { ...o, body }));
+export const updateCategory = (slug: string, body: Schemas["PatchedCatalogueCategoryWriteRequest"]) =>
+  send(undefined, (o) =>
+    api.PATCH("/api/v1/staff/catalogue/categories/{slug}/", { ...o, params: { path: { slug } }, body }),
+  );
+/** It moves with what is under it: under `target` (first or last), beside it, or to the top (no target). */
+export const moveCategory = (slug: string, body: Schemas["CatalogueCategoryMoveRequest"]) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/catalogue/categories/{slug}/move/", { ...o, params: { path: { slug } }, body }),
+  );
+
+export const listCollections = (transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/catalogue/collections/", o)).then(paged);
+export const createCollection = (body: Schemas["CatalogueCollectionWriteRequest"]) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/catalogue/collections/", { ...o, body }));
+export const updateCollection = (slug: string, body: Schemas["PatchedCatalogueCollectionWriteRequest"]) =>
+  send(undefined, (o) =>
+    api.PATCH("/api/v1/staff/catalogue/collections/{slug}/", { ...o, params: { path: { slug } }, body }),
+  );
+
+/** The module's home: what waits. */
+export const getCatalogueSummary = (transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/catalogue/summary/", o));
+/** The forms' choices in one answer. */
+export const getCatalogueOptions = (transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/catalogue/options/", o));
+
+/** A product CSV uploaded and its dry run started (202 with the job). */
+export const uploadProductImport = (file: File) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/catalogue/import/", {
+      ...o,
+      body: { file: file as unknown as string },
+      bodySerializer: (body) => {
+        const form = new FormData();
+        form.append("file", body.file as unknown as File);
+        return form;
+      },
+    }),
+  ) as Promise<Job>;
+/** The catalogue's jobs (202 with the job): a school's codes, an import's apply (naming its dry run), the export of the
+ *  list's filters. Above your limit the job waits for an approver first. */
+export const startCatalogueJob = (kind: CatalogueJobKind, params: Record<string, unknown>) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/jobs/", { ...o, body: { kind, params, dry_run: false } }),
+  ) as Promise<Job>;
