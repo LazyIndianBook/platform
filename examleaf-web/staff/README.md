@@ -10,19 +10,20 @@ what this API answers and decides nothing itself. The endpoints are in [API.md](
 | `../accounts/roles.py` | the roles (Django groups) and their permissions, `ROLE_LIMITS`, `ROLE_SCOPES`, `SOD_CONFLICTS`, `PRIVILEGED_ROLES`, `OWNER_ONLY`, `MONEY_APPROVALS`, `ADMIN_SITE_ROLES` |
 | `apps.py` | the roles synced after every `migrate` (a post_migrate receiver) |
 | `catalogue.py` | every permission's label, area, risk and what the risk triggers |
-| `models.py` | `StaffPermissions` (the action permissions), `StaffScope`, `RoleGrant`, `AuditEvent` and `AuditHead`, `ChangeRequest` and `Approval`, `Job`, `InboxItem`, `SavedView`, `SiteSetting`, `FeatureFlag`, `ApiKey`, `Note`, `PolicyAcknowledgement`, `Impersonation`, `StaffInvite`, `DataRequest`, `Incident`, `ProcessorRecord` |
+| `models.py` | `StaffPermissions` (the action permissions), `StaffScope`, `RoleGrant`, `AuditEvent` and `AuditHead`, `ChangeRequest` and `Approval`, `Job`, `InboxItem`, `SavedView`, `SiteSetting`, `FeatureFlag`, `ApiKey`, `Note`, `PolicyAcknowledgement`, `Impersonation`, `StaffInvite`, `DataRequest`, `Incident`, `ProcessorRecord`; Phase B's `StaffOffboarding` and `OffboardingStep`, `RestoreDrill`, `ScriptInventory` |
 | `jobs.py` | background jobs from the panel: `start()`, `cancel()`, `run()` with its Progress, the runners (`audit_export`, `bulk_action`), the result file's signed link |
 | `backends.py` | `scoped(queryset, user, perm)` and `ScopeBackend` (`user.has_perm(perm, obj)`) |
 | `audit.py` | `record()`, the hash chains, `verify()`, `export_day()`, retention (`purge()`), `alert()` |
 | `approvals.py` | maker-checker: `ask()`, `approve()`, `reject()`, `execute()`, the actions and their rules |
-| `services.py` | roles, scopes, invitations, sessions, offboarding; the customers' account actions; impersonation |
+| `services.py` | roles, scopes, invitations, sessions, offboarding; the customers' account actions; impersonation; the role catalogue, a person's access, a role change's preview, the ERPNext mirror, one's own sessions, the offboarding checklist |
 | `privacy.py` | the data requests' clocks, the erasure's dry run, the answer's text, the masks |
 | `config.py` | `site_setting()` and `feature_flag()`: the panel's switches over the environment's |
 | `permissions.py` | `IsStaff`, `StaffPermission`, API keys (`ApiKeyAuthentication`), the per-staff throttle |
 | `api.py`, `serializers.py`, `urls.py` | `/api/v1/staff/` |
+| `system_api.py` | the system pages under `system/`: the status lines, the sync monitor, backups and drills, logs and time, dependencies, hardening, scripts |
 | `middleware.py` | the staff's endpoints and the Django admin on the admin host only (404 elsewhere), `authz_fail` for every refusal of the staff's endpoints, refused webhooks to the inbox, a website session as a customer: its end, its limits, its requests audited |
 | `signals.py` | the audit log and the inbox fed from the rest of the site |
-| `tasks.py`, `management/commands/` | the beat tasks and `run_job`; `verify_audit_chain`, `purge_audit`, `staff_api_reference` (API.md's generated reference) |
+| `tasks.py`, `management/commands/` | the beat tasks and `run_job`; `verify_audit_chain`, `purge_audit`, `staff_api_reference` (API.md's generated reference), `load_dependency_report` (CI's report into the private storage) |
 | `tests/` | the authorization matrix and the rest (`pytest staff`) |
 
 ## The model
@@ -290,6 +291,71 @@ by `result_url` (signed for 5 minutes; a bucket's own signed link behind it) and
   member of staff for the actor and the customer for `on_behalf_of`, with one `impersonation.request` event per
   request.
 
+## Phase B: people, sessions and the system
+
+The People, Settings and System modules' backend (plan 5.16, 5.17 and 5.19; research-rbac-security 1.8, 2.9, 3.5,
+4.8 and 7). The endpoints are in API.md "Staff API"; the connections and the templates have their own READMEs
+(`../integrations/README.md` "The connections page", `../ops/README.md`).
+
+**The role catalogue** (`services.role_catalogue`, `people/roles/`): each role's two lines (`accounts/roles.py`
+`ROLE_CARDS`, English now; Assamese and Bengali join under the same keys), its capabilities grouped by the catalogue's
+areas with their risk, its limits, scopes, conflicts (`SOD_CONFLICTS`), the ERPNext role profiles it maps to
+(`services.ERP_ROLE_PROFILES`), whether it needs a passkey, its idle limit and its active members.
+
+**A person's access** (`services.access`, `people/<id>/access/`): their roles with who gave them, when, why and until
+when (a role given in the Django admin has no `RoleGrant`: `source` admin), scopes, limits, idle limit, every
+permission by area with the last use of each high or critical one (`AuditEvent.permission`, a year back at most:
+`LAST_USE_DAYS`), the open change requests about or by them, their second factors and whether they owe a passkey.
+**A role change previewed** (`services.preview_role_change`, `roles/preview/`) changes nothing: what the person would
+gain and lose by area, the limits, scopes and idle limit before and after, the conflicts (`blocked`: the grant would be
+refused), the approval it needs and its checker, the passkey to come and the ERPNext profiles. **The ERPNext tab**
+(`services.erp_mirror`, `people/<id>/erp/`) says which role profiles their ERPNext user should have; ERPNext's role
+sync is not built, so they are applied by hand there (`erp_in_use`: the sync is on).
+
+**Offboarding as a checklist** (`StaffOffboarding`, `OffboardingStep`; `services.OFFBOARDING_STEPS`). `offboard()`
+records what the panel did at once (deactivated, sessions ended, refresh tokens blacklisted, roles and scopes removed,
+temporary grants cancelled, pending requests withdrawn, tickets unassigned, API keys revoked: each with its count) and
+what an owner ticks by hand (`people/<id>/offboarding/tick/`, `staff.assign_role`, re-authenticated: the ERPNext user
+disabled, the external accounts closed, the security keys collected, their last 90 days of the audit log reviewed),
+done or not needed with a note (`offboarding.ticked`, audited with the steps left). An `offboarding` inbox item
+counts the steps left and closes with the last one; a step put back to do opens it again.
+
+**Passkeys** (`STAFF_PASSKEY_ROLES`: OWNER, ADMIN, FINANCE; `examleaf/middleware.needs_passkey`): a member of those roles without a
+passkey or security key gets `403 passkey_required` from every staff call but the manifest, `catalogue/` and their own
+sessions (`permissions.PasskeyRequired`; the manifest's `steps`), and the Django admin sends them to the website's
+`/account/security/` (`examleaf/middleware.py`). A break-glass account is exempt (its keys are its own). **One's own
+sessions** (`people/me/sessions/`, any member of staff): each with its browser and system read from the user agent,
+the address cut short, when it started and was last seen; one ended, or every other one with the app's refresh tokens.
+Adding, removing or resetting a second factor (allauth's signals, `signals.py`) offers that once, for 7 days
+(`offer_end_sessions`).
+
+**Settings**: each `config.Spec` has a `group` (the page's sections); `settings/<key>/history/` and
+`flags/<KEY>/history/` list every value; a known switch (the ERPNext ones, `config.KNOWN_FLAGS`) takes true or false
+only, and null puts it back to the environment's.
+
+**The system pages** (`system_api.py`, mounted under `system/`): `system/`'s `status` lines (health, queues, webhooks,
+email, SMS, backups, the audit chain, the sync, dependencies, hardening, scripts, logs), each with when it came to its
+state; the sync monitor (`erp.view_sync`) and a link search; the backups (`BACKUP_SOURCES`: each prefix's newest object
+in the backups bucket with its size and the SHA-256 of its `.sha256` sidecar, which `upload_backup` now writes;
+`BACKUP_STALE_HOURS`) and the restore drills (`RestoreDrill`, recorded with `staff.manage_system`); the log inventory
+(`../examleaf/logs.py`, a table in code: a new log is a new row there) against CERT-In's 180 days and the DPDP Rules'
+year, the clock compared with the database's and `LOG_TIME_SOURCE`; CI's dependency report
+(`../scripts/dependency_report.py` in the `dependency-audit` job, loaded by `manage.py load_dependency_report`:
+advisories by severity, a critical one due in 7 days, stale after 8); the admin host's hardening (each check `ok`, or
+null where it cannot be tested from here, with its fix); the checkout's and the console's sign-in's scripts
+(`ScriptInventory`, PCI DSS 6.4.3 and 11.6.1).
+
+**New inbox kinds and their targets** (the console opens each where it is dealt with): `role_expired` (`staff.person`,
+the person's Access tab), `offboarding` (`staff.offboarding`, their Offboarding tab), `webhook_silent`
+(`integrations.connection`, the connection's page), `template_idle` and `template_certify` (`ops.messagetemplate`),
+`backup_stale` and `dependencies_stale` (`system`, the backups and dependencies pages), `scripts_changed`
+(`staff.scriptinventory`, the scripts page).
+
+**What each role sees.** OWNER: everything here, the passkey first, the offboarding ticks. ADMIN: the catalogue, a
+person's access and previews, the connections and templates (changing them), the system pages and the drills; the
+passkey first. FINANCE: the connections' cards read-only (the payment settings), the sync monitor; the passkey first.
+AUDITOR: every page read-only. MARKETING: the templates read-only. Everyone: their own sessions.
+
 ## The jobs
 
 | When (India time) | Task |
@@ -299,13 +365,18 @@ by `result_url` (signed for 5 minutes; a bucket's own signed link behind it) and
 | 06:00 | `staff.tasks.export_audit_log`: the last 7 UTC days not yet in the bucket |
 | every hour (:05) | `staff.tasks.expire_change_requests` |
 | every hour (:35) | `staff.tasks.watch`: refunds Razorpay refused, filed in the inbox (and done once refunded) |
+| every hour (:50) | `staff.tasks.check_backups`: the backups bucket read again; `backup_stale` while a source has nothing newer than `BACKUP_STALE_HOURS` |
+| 07:10 | `staff.tasks.check_scripts`: the checkout's and the console's sign-in's scripts compared with the day before (`scripts_changed`, the owners alerted) |
+| Mondays 08:30 | `staff.tasks.weekly_audit_skim`: the owners' email of the week's high-risk events, counted by action |
+| Mondays 09:00 | `staff.tasks.check_dependency_report`: `dependencies_stale` while CI's report is older than 8 days |
 
 ## Not built yet
 
 The panel itself (Next.js); the orders, catalogue, content and course modules' own endpoints (their permissions are
 in the catalogue: `staff.publish_paper` waits for the content module); bulk actions beyond the change requests' (a
 bulk job runs those: refunds, offline payments, prices, coupons); replaying a Razorpay webhook from its body (the
-site keeps only the event's id and hash: `system/reconcile/` asks Razorpay again instead); ERPNext's role sync; the
+site keeps only the event's id and hash: `system/reconcile/` asks Razorpay again instead); ERPNext's role sync (the
+person's ERPNext tab says what to apply by hand); the
 Django admin's own step for a break-glass session's reason; the website's page that posts an impersonation token, and
 its banner (examleaf-frontend); notes in a data request's access export, and their edits; holding the panel shut
 until the policies due are acknowledged (the manifest says which; the console decides).

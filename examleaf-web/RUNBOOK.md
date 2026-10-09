@@ -53,6 +53,15 @@ Commands run in `/srv/examleaf/examleaf-web` on the server. `dj` below stands fo
    (`curl -H "X-Health-Token: $(sed -n 's/^HEALTH_CHECK_TOKEN=//p' .env)" https://examleaf.in/health/`), log in to the
    admin, open a paper.
 
+**A restore drill** (each quarter, and after a change to the backups): restore the newest dump into a scratch
+database (`docker compose exec db createdb --username examleaf examleaf_drill`, then `docker compose exec -T db
+pg_restore --no-owner --username examleaf --dbname examleaf_drill < backups/examleaf-….dump`), check that its newest
+order and audit event are there, drop it (`dropdb`), and record it in the panel: System → Backups → Record a drill
+(the backup's name, the engine, the result, the minutes it took). The page then says when the backups were last
+proven to work; it also says each source's newest backup, its SHA-256 (compare it with `sha256sum` of the file you
+restored) and whether it is older than `BACKUP_STALE_HOURS` (an inbox item `backup_stale` opens then: look at the
+backup job's logs, `docker compose logs backup` or the CronJob's last run).
+
 On a new server: follow DEPLOYMENT.md up to `docker compose up -d`, then restore as above (the empty database's tables
 are replaced). The files are not in the dump: the `media` volume (DEPLOYMENT.md section 9) or the buckets (section 17)
 must come across too.
@@ -67,6 +76,11 @@ Change the value in `.env`, then `docker compose up -d` (it recreates the contai
   address or found by number (the SMS log's rows go after 90 days); the records themselves stay valid.
 - **POSTGRES_PASSWORD:** `docker compose exec db psql -U examleaf -c "ALTER USER examleaf PASSWORD 'new'"`, then change
   `.env` and `docker compose up -d`.
+- **Razorpay's and MSG91's keys** from the panel (Settings → Connections → the provider → Replace the keys, OWNER or
+  ADMIN): create the new key with the provider, paste it there (it is tested before it is kept, and the old one stays
+  in force if the test fails), check the card says Connected, then revoke the old key with the provider. Once the
+  panel holds keys, the `.env` ones are no longer read (`integrations/README.md` "Precedence"); with the panel down,
+  the shell below still works only while no account holds keys, so keep a break-glass session for that case.
 - **Provider keys** (email: `SES_*` or the `ANYMAIL_…` key; `MSG91_AUTHKEY`; `RAZORPAY_KEY_*`; `S3_*` and `PUBLIC_S3_*`;
   `AWS_*` of the backups; `GOOGLE_CLIENT_SECRET`; `TURNSTILE_SECRET_KEY`; `FCM_SERVICE_ACCOUNT_JSON`; `SENTRY_DSN`):
   create the new key with the provider, change `.env`, `docker compose up -d`, then revoke the old key. MSG91's new
@@ -89,12 +103,15 @@ Change the value in `.env`, then `docker compose up -d` (it recreates the contai
   key before the rotation has run: secrets encrypted with it can no longer be read (the admin shows "Cannot be read
   with INTEGRATION_KEYS", calls fail). Lost for good: paste the credentials of each account again (below) and make a
   new webhook token. Without any key a server with accounts does not start: `integrations.E001` at `migrate`.
-- **Shiprocket's API user** (rotate by the account's `rotate_by`, 90 days; or at once if it leaked): in Shiprocket,
-  Settings → API → Add New API User (a new email address); in the admin, the account → "Replace the credentials" with
-  the new email and password → Save → "Test the connection"; then delete the old API user in Shiprocket. The cached
-  token goes with the old credentials.
-- **The couriers' webhook token:** the account → the action "New webhook token" shows it once; paste it in Shiprocket
-  (Settings → API → Webhooks, the security token) within 24 hours, while the previous one still works.
+- **Shiprocket's API user** (rotate by the account's `rotate_by`, 90 days, which its card counts down; or at once if
+  it leaked): in Shiprocket, Settings → API → Add New API User (a new email address); in the panel, Settings →
+  Connections → Shiprocket → Replace the keys with the new email and password (tested before they are kept); then
+  delete the old API user in Shiprocket. The cached token goes with the old credentials. Break-glass fallback: the
+  admin's account → "Replace the credentials" → Save → "Test the connection".
+- **A webhook token** (the couriers', MSG91's delivery reports'): the connection's page → Webhooks → New token shows it
+  once; paste it at the provider (Shiprocket: Settings → API → Webhooks, the security token; MSG91: the delivery
+  report URL's `X-Webhook-Token` header) within 24 hours, while the previous one still works. Fallback: the admin's
+  action "New webhook token".
 - **Suspected breach:** rotate everything above, SECRET_KEY **without** a fallback (a leaked key would otherwise keep
   sessions valid for two weeks) and JWT_SIGNING_KEY (or SECRET_KEY, if it is unset) too, end all sessions
   (`dj shell -c "from django.contrib.sessions.models import Session; Session.objects.all().delete()"`; everyone logs in
@@ -124,9 +141,17 @@ Every member of staff logs in with a password and a second factor: a code from a
    person's authenticator (admin → MFA → Authenticators); the next log-in asks for a new one. A superuser locked out
    alike:
    `dj shell -c "from allauth.mfa.models import Authenticator as A; A.objects.filter(user__email='x@example.com').delete()"`.
-6. **Leaving:** an owner offboards them in one step (`people/<id>/offboard/`: deactivated, roles and scopes gone,
-   sessions and API keys ended); in the admin, untick Active (the sessions stop working at once) and take the roles
-   away.
+6. **Leaving:** an owner offboards them in one step (People → the person → Offboard: deactivated, roles and scopes
+   gone, sessions, tokens and API keys ended, their requests withdrawn and tickets unassigned), then works through the
+   person's Offboarding tab: the ERPNext user disabled, their external accounts closed, the security keys collected,
+   their last 90 days in the audit log read, each ticked (or "not needed") with a note; the inbox item stays until
+   the last one. Without the panel: in the admin, untick Active (the sessions stop working at once) and take the
+   roles away.
+7. **Passkeys:** OWNER, ADMIN and FINANCE (`STAFF_PASSKEY_ROLES`) add a passkey or a security key on the website's
+   Security page before the panel opens for them (`passkey_required`). A lost one: they add another there with their
+   authenticator app's code; none left at all: lost phone, above.
+8. **A session they do not recognise:** the person ends it on the panel's Account page (or every other session at
+   once); an owner ends all of someone's from People → the person → End sessions.
 
 To make everyone log in again, with the second factor:
 `dj shell -c "from django.contrib.sessions.models import Session; Session.objects.all().delete()"`.
@@ -233,8 +258,10 @@ site sends it nothing more (allauth's codes included). Soft bounces (a full mail
   corrects the address on My account, or confirms that the mailbox works again; then delete the row (SUPPORT may).
   Reason "complaint": the student marked an email as spam; delete the row only when they ask for emails again, in
   writing.
-- SES keeps an account-level suppression list too (hard bounces and complaints): remove the address there as well
-  (SES → Account dashboard → Suppression list), or SES drops the email anyway.
+- SES keeps an account-level suppression list too (hard bounces and complaints), copied here every night at 05:50
+  (`ops.tasks.sync_ses_suppressions`): remove the address there as well (SES → Account dashboard → Suppression
+  list), or SES drops the email anyway. The connections page's SES card shows the week's bounce and complaint rates
+  against SES's limits (5 % and 0.1 %): above them, look for a bad list before SES pauses the account.
 - Many suppressions at once (a typo in a bulk import, a provider outage reported as bounces): check a few with the
   provider, then delete the rows in the admin.
 
@@ -281,6 +308,16 @@ reads "queued" is waiting for the worker. Last come the `SMS_DAILY_CAP` (default
 limit that reaches Sentry). Then: look at the SMS log for one number or kind repeating (a bot pumping SMS: put Turnstile
 on, DEPLOYMENT.md section 15; block its addresses at Caddy); if it is real growth, raise `SMS_DAILY_CAP` in `.env` and
 `docker compose up -d`. Students can still log in with the password or an emailed code.
+
+**Templates in the panel.** Settings → Templates holds each DLT template as registered (its text, ids, header,
+typed variables, approval state); an approved SMS template's MSG91 id is used before `MSG91_TEMPLATE_<KIND>`, so a
+new template id is set there (ADMIN) without a deploy. Send a test to your own confirmed number first. The inbox
+warns 15 days before DLT would deactivate a template unused for 90 days (`template_idle`) and when its yearly
+self-certification is due (`template_certify`).
+
+**Delivery reports.** With MSG91's delivery report URL set to `https://examleaf.in/api/hooks/sms-events/` and the
+token from the connections page (MSG91 → Webhooks), each SMS log row gets delivered, pending, failed or rejected
+with MSG91's words ("Template Id not found on DLT", DND).
 
 **"My code never came".** SMS log: no row (the number is not confirmed on any account, or the student typed another one;
 log-in codes go only to a confirmed number), "refused by the provider" (Sentry has MSG91's reason: template, IP

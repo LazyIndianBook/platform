@@ -10,7 +10,8 @@ India, as the Privacy Policy draft says ("servers in [India]": fill in what you 
 Sections 1 to 12 are the first deployment, in order. After them: 13 every setting, 14 security, 15 the accounts to open
 (with the steps for each), 16 what the sign-in, SMS and email settings switch on, 17 storage, pictures and the web app,
 18 the revision course, 19 the store, 20 the frontends' sign-in (allauth.headless) and API contract, 21 the insights
-(the predictive jobs), 22 shipping and the integration keys, 23 the staff and the audit log.
+(the predictive jobs), 22 shipping and the integration keys, 23 the staff and the audit log, 24 ERPNext, 25 the
+staff, settings and integrations, and system pages (Phase B).
 
 ## 1. Accounts you need
 
@@ -475,7 +476,8 @@ Read by `scripts/backup.sh` (which takes `BACKUP_KEEP_DAYS` and `BACKUP_AGE_RECI
 | `BACKUP_BUCKET` | none | recommended | the private bucket that receives the database dumps; without it they stay on the server's disk (section 9) |
 | `BACKUP_ENDPOINT_URL` | none (AWS) | with R2 or B2 | the bucket's S3 endpoint, e.g. `https://<ACCOUNT_ID>.r2.cloudflarestorage.com` |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | none | with `BACKUP_BUCKET` | the backup bucket's keys (the media buckets have `S3_*`, SES has `SES_*`) |
-| `BACKUP_KEEP_DAYS` | `30` | no | days of local dumps kept (match the Privacy Policy) |
+| `BACKUP_KEEP_DAYS` | `30` | no | days of local dumps kept (match the Privacy Policy); the panel's backups page shows it |
+| `BACKUP_STALE_HOURS` | `26` | no | a source whose newest backup in the bucket is older opens an inbox item (`backup_stale`; section 25) |
 | `BACKUP_AGE_RECIPIENT` | none | recommended with a bucket | an age public key (`age1…`, from `age-keygen`; keep the private key off the server): the uploaded dumps are encrypted to it (section 9) |
 
 ### Staff (the Admin Control Panel's backend)
@@ -500,6 +502,13 @@ Read by `scripts/backup.sh` (which takes `BACKUP_KEEP_DAYS` and `BACKUP_AGE_RECI
 | `STAFF_GOOGLE_DOMAIN` | none: off | with Google for staff | the Workspace's domain (`examleaf.in`): a staff Google sign-in (on the admin host, into a staff account, or by an account of the domain) needs the ID token's `hd` to be it and a confirmed address (section 15, "Google sign-in for staff") |
 | `STAFF_GOOGLE_CLIENT_ID`, `STAFF_GOOGLE_CLIENT_SECRET` | none | recommended with the domain | the Workspace's own OAuth client (an Internal consent screen) for the admin host; without them the website's `GOOGLE_*` client serves the admin host too |
 | `STAFF_GOOGLE_AUTO_STAFF` | `0` | no | `1`: a Workspace account of the domain with no ExamLeaf account signs up through Google as a member of staff with no role (an owner gives one); off, the account must exist already and be staff |
+| `STAFF_PASSKEY_ROLES` | `OWNER,ADMIN,FINANCE` | no | the roles that add a passkey or security key before the staff API opens for them (`403 passkey_required`; section 25) |
+| `STAFF_THROTTLE_BULK`, `STAFF_THROTTLE_TEST_SEND` | `20/hour`, `10/hour` | no | bulk actions started per member of staff; templates sent to oneself (an SMS costs money) |
+| `INTEGRATION_WEBHOOK_SILENCE_HOURS` | `24` | no | a provider's webhook silent this long while its account is in use is flagged (Razorpay: an inbox item) |
+| `SES_SNS_TOPIC_ARN` | none | recommended with SES | the SNS topic SES's notifications must come from; each message's signature is verified either way |
+| `LOG_TIME_SOURCE` | none | before going live | where the server's clock is synchronised from (CERT-In: NTP to NIC or NPL, or the cloud's time service), shown on the logs page |
+| `DEPENDENCY_REPORT_PATH` | `ops/dependency-report.json` | no | where `manage.py load_dependency_report` keeps CI's dependency report in the private storage |
+| `API_THROTTLE_SMS_EVENTS` | `300/minute` | no | MSG91's delivery reports, per client address |
 
 ### ERPNext
 
@@ -1153,3 +1162,38 @@ The cut-over (plan 9.3; `erp/README.md` "Shadow mode and the cut-over"): on the 
 account enabled in place of the staging one, `ERP_STOCK_PROJECTION=1` after the stock has been checked, and a
 reconciliation the next morning. Rollback: a flow's switch off (its rows wait; the initial load fills the gap once it
 is on again); `ERP_STOCK_PROJECTION` off hands the copies for sale back to the platform's own number.
+
+## 25. Staff, settings and integrations, system (Phase B)
+
+Nothing new to start: `migrate` adds the tables (`staff.0007_phase_b_staff`, `ops.0006_phase_b_settings`,
+`integrations.0002_phase_b_settings`) and beat the tasks below. Before staff use these pages:
+
+1. **Passkeys.** OWNER, ADMIN and FINANCE (`STAFF_PASSKEY_ROLES`) add a passkey or security key on the website's
+   Security page before the panel opens for them; tell them before the deploy.
+2. **MSG91's delivery reports.** On the connections page, MSG91 → Webhooks → New token (shown once); in MSG91, the
+   delivery report webhook to `https://examleaf.in/api/hooks/sms-events/` with the header `X-Webhook-Token: <it>`.
+3. **SES's notifications.** Set `SES_SNS_TOPIC_ARN` to the SNS topic SES publishes to (section 15), so the tracking
+   webhook takes only that topic's signed messages; keep `ANYMAIL_WEBHOOK_SECRET`'s user and password in the
+   subscription's URL. The nightly suppression sync needs the SES user's `ses:ListSuppressedDestinations`.
+4. **The backups page.** `BACKUP_STALE_HOURS` (26) and the bucket the backup job writes to (section 13, "Backups"):
+   the page reads each source's newest object and its `.sha256` sidecar, which `upload_backup` now writes.
+5. **The time source.** `LOG_TIME_SOURCE` says where the server's clock is synchronised from (CERT-In asks for NTP to
+   NIC's or NPL's servers, or the cloud's time service): `chronyc tracking` on the host, or the cloud's documentation.
+6. **The dependency report.** CI's `dependency-audit` job uploads `dependency-report.json` (pip-audit and npm audit);
+   the deploy loads the latest one: `docker compose exec web python manage.py load_dependency_report
+   dependency-report.json` (into `DEPENDENCY_REPORT_PATH` in the private storage). The page says when it is older
+   than 8 days.
+7. **Razorpay's and MSG91's keys** may move from `.env` to the panel (`integrations/README.md` "Precedence"): the first
+   keys pasted there must be of the mode `.env` runs, and take over at once.
+
+**The beat entries** (India's time):
+
+| When | Task | Does |
+|---|---|---|
+| every hour (:25) | `integrations.tasks.watch_webhooks` | Razorpay's webhook silent for `INTEGRATION_WEBHOOK_SILENCE_HOURS` while in use: an inbox item and the owners told, once |
+| every hour (:50) | `staff.tasks.check_backups` | a source's newest backup older than `BACKUP_STALE_HOURS`: an inbox item |
+| 03:50 | `ops.tasks.check_templates` | templates idle 75 days, or due for their yearly self-certification |
+| 05:50 | `ops.tasks.sync_ses_suppressions` | SES's account suppression list copied into the site's (with the SES backend only) |
+| 07:10 | `staff.tasks.check_scripts` | the checkout's and the console's sign-in's scripts compared with the day before |
+| Mondays 08:30 | `staff.tasks.weekly_audit_skim` | the owners' email of the week's high-risk events |
+| Mondays 09:00 | `staff.tasks.check_dependency_report` | an inbox item while CI's report is older than 8 days |

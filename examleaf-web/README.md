@@ -45,7 +45,12 @@ and the security reviews, [SECURITY_REVIEW.md](SECURITY_REVIEW.md) (phases 1 to 
   factor for every member of staff: an authenticator app with recovery codes, or a passkey. The Admin Control Panel's
   backend (`staff/`, API.md "Staff API"): scopes, limits and separation of duties, an append-only hash-chained audit
   log, approvals by a second person, an inbox, the site's switches and feature flags, API keys, staff invitations and
-  offboarding, the data requests queue, the breach register and the processor register.
+  offboarding, the data requests queue, the breach register and the processor register. Phase B adds the role
+  catalogue, a person's access with its last use and a role change previewed, offboarding as a checklist, passkeys
+  for the privileged roles and one's own sessions; the integrations' connections (keys tested before they are kept,
+  modes, circuits, webhook tokens, events, calls and dead letters), the message templates DLT registers with MSG91's
+  delivery reports, and the system's backups, logs, dependencies, hardening and checkout scripts
+  (`integrations/README.md`, `ops/README.md`, `staff/README.md` "Phase B").
 - **The shop.** The printed books sold across India: cart, coupons, checkout with Razorpay (UPI, cards, net banking) or,
   when `SHOP_COD_ENABLED` is on (it is off by default), cash on delivery, stock under row locks, shipping rates by
   state, PIN code autofill from India Post's directory, order emails (and SMS), courier tracking links, GST invoices and

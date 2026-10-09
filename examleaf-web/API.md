@@ -15,7 +15,8 @@ print runs, item analysis, cohorts, fraud signals). Code: `api/` (`auth.py`, `vi
 [Frontend integration guide](#frontend-integration-guide) · [Profile and data rights](#profile-and-data-rights) ·
 [Catalogue and solutions](#catalogue-and-solutions) · [Attempts](#attempts) · [Store catalogue](#store-catalogue) ·
 [Shop](#shop) · [Revision course](#revision-course) · [Site](#site-configuration-and-legal-pages) ·
-[Insights (staff)](#insights-staff) · [ERPNext sync (staff)](#erpnext-sync-staff) · [Lists](#lists) ·
+[Insights (staff)](#insights-staff) · [ERPNext sync (staff)](#erpnext-sync-staff) ·
+[Connections (staff)](#connections-staff) · [Templates (staff)](#templates-staff) · [Lists](#lists) ·
 [Staff API](#staff-api) · [Errors](#errors) ·
 [Rate limits](#rate-limits) · [CORS](#cors) ·
 [Versioning](#versioning) · [Operations](#operations)
@@ -1082,6 +1083,73 @@ after a rotation the previous one), checked in constant time. A missing or wrong
 `200 {"detail": "Received."}` at once; the body (`{doctype, name, modified, examleaf_ref, event}`) is kept once per
 SHA-256 and read again by a task. 600 a minute per client address (`API_THROTTLE_ERP_EVENTS`).
 
+## Connections (staff)
+
+`/api/v1/staff/connections/…` (code: `integrations/api.py` and `integrations/connections.py`; the model and the
+precedence of the keys: [integrations/README.md](integrations/README.md)) is the connections page: one card per
+integration, its connection test, its credentials, mode, circuit and webhooks, its events, calls and dead letters. The
+[Staff API](#staff-api)'s rules apply. `<provider>` is one of `razorpay`, `shiprocket`, `manual`, `msg91`, `whatsapp`,
+`ses`, `storage`, `error_tracker`, `google`, `erpnext`; another: 404. Every change is an audit event
+(`connection.tested`, `.credentials_replaced`, `.credentials_refused`, `.mode_changed`, `.circuit_opened`,
+`.circuit_reset`, `.webhook_rotated`, `.event_replayed`, `.events_replayed`, `.dead_letter_replayed`,
+`.dead_letter_discarded`) and every change of a connection emails the owners.
+
+| Method | Path (under `/api/v1/staff/connections/`) | Permission | What |
+|---|---|---|---|
+| GET | `` (the list), `<provider>/` | `integrations.view_integrationaccount` (OWNER, ADMIN, FINANCE, AUDITOR) | the cards: `status` (connected, degraded, expired, disabled, not_configured), `mode` in force (off, test, live), `source` of the keys (panel, environment, none) and the environment's keys' last four characters (`held`), the `accounts` (mode, in use, each credential's last four characters, who set them and when, `rotate_in_days`, the access token's `token_in_hours`, the webhook token's last four), `last_success_at`, `last_error`, `last_test`, `circuit`, `calls` (24 hours and 7 days, errors, `p90_ms`), the `fields` Replace asks for, `modes`, the `overlap_warning`, the `actions` that apply, and the provider's `extra` (Razorpay's webhook health and silence, MSG91's SMS sent and held and delivery reports, SES's bounce and complaint rates against 5 % and 0.1 % and the suppressions, the buckets, Google's staff domain, the error tracker's host, ERPNext's sync) |
+| POST | `<provider>/test/` | `staff.manage_connections` (OWNER, ADMIN; high) | one harmless authenticated read with the keys in force (Razorpay one payment, Shiprocket the wallet, MSG91 the balance, SES the sending quota, the buckets' heads, ERPNext the ping; Google and the error tracker: their settings), logged and kept on its account: `{"ok", "message", "card"}`; `ok` false is a test that ran and failed |
+| POST | `<provider>/credentials/` (`mode`, `credentials` {the card's `fields`}, `reason`) | `staff.manage_connections` (high) | the new keys tested first, in the same call, and kept only if the test passes (400 `{"credentials": ["The new credentials did not pass the test: …"]}` otherwise, the old ones kept); never answered: `{"ok", "message", "card"}`. Razorpay and MSG91 while the environment's keys are in force: the first keys must be of the mode in force and take over at once (Razorpay's webhook secret carried over) |
+| POST | `<provider>/mode/` (`mode` off, test or live, `reason`) | `staff.manage_connections` (high) | the account of that mode used (its keys needed), the others switched off; off switches them all off |
+| POST | `<provider>/circuit/` (`action` open or reset, `reason`) | `staff.manage_connections` (high) | Shiprocket's and ERPNext's: held open (calls wait until reset), or reset (calls go through, its inbox item done) |
+| GET | `<provider>/webhooks/` | `integrations.view_integrationaccount` | our address to paste (`url`), `auth` (token, signature, basic_and_sns), `header`, the token's last four characters, `rotated_at`, `previous_valid_until` (24 hours after a rotation), the week's events by state, `last_event_at`, `silent` (nothing for `INTEGRATION_WEBHOOK_SILENCE_HOURS` while in use) |
+| POST | `<provider>/webhooks/rotate/` (`reason`) | `staff.manage_connections` (high) | a new token (32 random bytes), answered once: `{"token", "webhooks"}`; the previous one still accepted for 24 hours. SES's is the environment's (400); Razorpay's while its keys are the environment's (400) |
+| GET | `<provider>/events/` (`?state=accepted|duplicate|rejected|failed`) | `integrations.view_inboundevent` | the webhooks received, newest first, the body as a redacted `body_excerpt` |
+| POST | `<provider>/events/<id>/replay/`, `<provider>/events/replay-failed/` (`since`) | `staff.replay_webhook` (MEDIUM) | processed again (a rejected one: 400); every failed one since then, 500 at a time (`{"replayed", "more"}`) |
+| GET | `<provider>/calls/` (`?operation=&failed=true`) | `integrations.view_integrationcall` | the calls made to it, newest first: `operation`, `status_code` (null: no answer), `duration_ms`, `error`, the redacted `excerpt` |
+| GET | `<provider>/failures/` (`?state=open|replayed|discarded&operation=`) | `integrations.view_integrationfailure` | its dead letters (and its app's tasks' that failed before knowing the account); ERPNext's name their outbox row (`erp_outbox`) |
+| POST | `<provider>/failures/<id>/replay/`, `…/discard/` (`reason`) | `staff.replay_webhook`; ERPNext's `erp.replay_sync` (high) | run again once, or given up with the reason; ERPNext's through the sync's own replay and discard (`erp.replay`, `erp.discard`); dealt with already: 400 |
+
+```sh
+curl -X POST https://admin.examleaf.in/api/v1/staff/connections/razorpay/credentials/ -b "sessionid=..." \
+  -H "X-CSRFToken: ..." -d '{"mode": "live", "credentials": {"key_id": "rzp_live_...", "key_secret": "..."},
+  "reason": "Rotated after the quarterly review"}'
+# 200 {"ok": true, "message": "Connected with the live keys: Razorpay answered (1 payment read).", "card": {...,
+#      "source": "panel", "accounts": [{"mode": "live", "enabled": true, "held": {"key_id": "…AbCd",
+#      "key_secret": "…9f2c"}, "rotate_in_days": 90, ...}]}}
+# 400 {"credentials": ["The new credentials did not pass the test: Razorpay (live) payments: HTTP 401: ..."]}
+```
+
+**MSG91's delivery reports** `POST /api/hooks/sms-events/` are MSG91's, not the API's: the token generated on the
+connections page (`msg91/webhooks/rotate/`) in the `X-Webhook-Token` header, compared in constant time with the current
+one and, for 24 hours after a rotation, the previous one. A missing or wrong token: `403`, kept without its body. A body
+without a report: `400`. Otherwise `200 {"detail": "Received."}` at once; the reports (JSON, or a form's `data` field:
+`[{"requestId", "report": [{"number", "status", "desc", "date"}]}]`) are kept once per body and once per report (their
+request ids, numbers' last digits and statuses, hashed) and written on their SMS by a task: `delivered`, `pending`,
+`failed` or `rejected`, with MSG91's words when it failed ("Template Id not found on DLT"). 300 a minute per client
+address (`API_THROTTLE_SMS_EVENTS`).
+
+**SES's tracking webhook** `POST /anymail/amazon_ses/tracking/` is anymail's, each SNS message's signature verified
+first (its `SigningCertURL` on `sns.<region>.amazonaws.com` only, fetched once a day; SignatureVersion 1 or 2) and its
+topic `SES_SNS_TOPIC_ARN` when set; a message that fails: 400. It exists with `ANYMAIL_WEBHOOK_SECRET`'s basic auth,
+`SES_SNS_TOPIC_ARN`, or both.
+
+## Templates (staff)
+
+`/api/v1/staff/templates/…` (code: `ops/staff_api.py`; [ops/README.md](ops/README.md)) is the message templates'
+registry: what the site sends by SMS, email and (Phase D) WhatsApp, as registered with DLT and MSG91. The
+[Staff API](#staff-api)'s rules apply; never deleted (deactivate one). Not paginated.
+
+| Method | Path (under `/api/v1/staff/templates/`) | Permission | What |
+|---|---|---|---|
+| GET | `` (`?channel=&language=&approval_state=&event=&category=`), `<id>/` | `ops.view_messagetemplate` (ADMIN, MARKETING, AUDITOR, OWNER) | `event`, `channel`, `language`, `text` with DLT's `{#var#}`, `subject`, `variables` (`name`, `type` numeric, alphanumeric, url, urlott, cbn or email, `max_length` up to 30, `about`), `dlt_template_id`, `pe_id`, `header` and `header_suffix`, `msg91_id`, `whatsapp_name`, `category`, `approval_state`, `last_used_at`, `days_unused`, `self_certified_on`, `warnings` |
+| POST | `` | `ops.add_messagetemplate` | one added (`template.created`); an SMS for one of the kinds the site sends; one per event, channel and language |
+| PATCH | `<id>/` | `ops.change_messagetemplate` | changed (`template.changed`, its `changes`); what it is for stays (`event`, `channel`, `language`: 400); approved: an SMS needs its `msg91_id`, WhatsApp its name |
+| POST | `<id>/test/` (`variables` {name: value}) | `ops.change_messagetemplate` (10 an hour) | sent to your own confirmed mobile number or email address only (a value not given: a sample of its type): `{"sent", "to" (masked), "detail"}`; WhatsApp: 400 |
+
+`ops.sms` sends a kind with the approved SMS template's `msg91_id` when there is one, the environment's
+`MSG91_TEMPLATE_<KIND>` otherwise, and writes its `last_used_at`. Each night an approved SMS template unused for 75
+days (DLT deactivates one at 90) and an approved template whose yearly self-certification is due open inbox items.
+
 ## Lists
 
 Lists are paginated: `{"count": 120, "next": "<url>", "previous": null, "results": [...]}`, 50 a page, `?page=2`,
@@ -1122,8 +1190,8 @@ minutes.
 - **Errors** carry `detail` and `code`, but 400's: `{"field": ["…"]}` (`non_field_errors` for the request as a whole,
   `params` for a job's); 401 `not_authenticated`, `authentication_failed` (an API key refused), `session_idle`,
   `session_expired`;
-  403 `permission_denied`, `reauthentication_required`, `break_glass_reason_required`, `mfa_setup_required`,
-  `impersonating`, `link_expired` (a job's file); 404 `not_found` (also every path on a host other than the admin
+  403 `permission_denied`, `reauthentication_required`, `break_glass_reason_required`, `passkey_required`,
+  `mfa_setup_required`, `impersonating`, `link_expired` (a job's file); 404 `not_found` (also every path on a host other than the admin
   host); 405 `method_not_allowed`; 429 `throttled`.
 - **The session's limits.** After the person's idle limit without a request (`idle_timeout_s` in `session/`: 15 minutes
   for OWNER, ADMIN, FINANCE and PACKER, 30 for the others, the shortest of their roles') or 8 hours after the log-in
@@ -1161,7 +1229,8 @@ minutes.
 | GET | `settings/`, `settings/<key>/` | `staff.view_sitesetting` | the site's switches: in effect, the environment's, where from, changes to come; one switch's history |
 | PUT | `settings/<key>/` (`value`, `reason`, `effective_from`) | `staff.manage_settings`; `MAINTENANCE_*`: `staff.toggle_maintenance` | `SHOP_OPEN`, `SHOP_COD_ENABLED`, `PARENTAL_CONSENT_MODE`, `WEB_COURSE`, `MAINTENANCE_MODE`, `MAINTENANCE_BANNER`; null: back to the environment's |
 | GET | `flags/`, `flags/<KEY>/` | `staff.view_featureflag` | the feature flags; one flag's history |
-| PUT | `flags/<KEY>/` (`value`, `reason`, `effective_from`) | `staff.manage_flags` | switch one (null: off) |
+| PUT | `flags/<KEY>/` (`value`, `reason`, `effective_from`) | `staff.manage_flags` | switch one (null: off; a known switch, the ERP ones: back to the environment's, and true or false only) |
+| GET | `settings/<key>/history/`, `flags/<KEY>/history/` | `staff.view_sitesetting`, `staff.view_featureflag` | every value it was given, newest first: who, when, why, from when |
 | GET | `api-keys/`, `api-keys/<id>/` | `staff.view_apikey` | integrations' keys: prefix, permissions, sponsor, expiry, last use; never the secret |
 | POST | `api-keys/` (`name`, `scopes`, `expires_at`, `allowed_ips`, `sponsor`), `api-keys/<id>/revoke/` | `staff.manage_api_keys` (OWNER) | make one (the whole key in this answer only), revoke one |
 | GET | `people/`, `people/<id>/`, `people/invites/` | `staff.view_staff` | the staff: roles with who gave them, why, until when; scopes; second factor; invitations |
@@ -1174,6 +1243,14 @@ minutes.
 | POST | `people/<id>/reset-mfa/` (`reason`) | `staff.reset_user_mfa` | a staff member's second factor reset: 202, ADMIN or an owner approves |
 | POST | `people/<id>/offboard/` (`reason`) | `staff.assign_role` | in one step: deactivated, roles, grants and scopes gone, sessions ended, API keys revoked, requests expired, work unassigned |
 | GET | `access-review/` | `staff.view_staff` | each member: roles, scopes, last log-in, dormant, second factor, action permissions unused in 90 days |
+| GET | `people/roles/` (`?language=en`) | `staff.view_staff` | the role catalogue: each role's card (`for`, `cannot`), capabilities by area with their risk, limits, scopes, conflicts, ERPNext role profiles, passkey, idle limit, active members |
+| GET | `people/<id>/access/` | `staff.view_staff` | the Access tab: roles with who gave them, when, why, until when (`source` admin: given in the Django admin), scopes, limits, idle limit, every permission by area with `last_used` for the high and critical ones (a year of the audit log), open change requests about or by them, second factors, `passkey_required`, ERPNext profiles |
+| POST | `people/<id>/roles/preview/` (`role`, `action` grant or revoke) | `staff.view_staff` | what it would change, nothing changed: `gains`, `losses` (by area), `limits`, `scopes`, `idle_timeout_s`, `conflicts` and `blocked` (SSD), `needs_approval`, `rule`, `checker`, `passkey_needed`, `erp_profiles` before and after |
+| GET | `people/<id>/offboarding/` | `staff.view_staffoffboarding` | their latest offboarding's checklist: each step's `kind` (auto: done by the panel; manual: ticked by hand), `state` (done, todo, not_needed), `detail`, `done_at`, `done_by`; 404 never offboarded |
+| POST | `people/<id>/offboarding/tick/` (`step`, `state`, `note`) | `staff.assign_role` (OWNER, re-authenticated) | a manual step ticked (a panel's step: 400); the last one finishes it and its inbox item |
+| GET | `people/<id>/erp/` | `staff.view_staff` | the ERPNext user they should have from their roles: `role_profiles`, `by_role`, `enabled`, `erp_in_use` (applied by hand in ERPNext) |
+| GET | `people/me/sessions/` | any member of staff | your own sessions (the website's too): `browser`, `system`, `place` (the address cut short), `created_at`, `last_seen_at`, `current` |
+| POST | `people/me/sessions/<id>/end/`, `people/me/sessions/end-others/` | any member of staff | 204: one other session ended (this one: 400, sign out instead); every other one and the app's refresh tokens: `{"sessions", "tokens"}` |
 | POST | `invites/accept/` (`token`; signed out also `full_name`, `password`) | the invitation's token | the one endpoint for people not yet staff |
 | GET | `users/` (`?q=&class_level=&board=&is_active=`), `users/<id>/` | `accounts.view_user` | customers, contacts masked; opening one is logged |
 | POST | `users/<id>/reveal/` (`show`, `reason`) | `staff.reveal_contact` (re-authenticated; 30 an hour) | `email`, `phone`, `login_phone`, `parent_contact`, `parent_name`, `date_of_birth` |
@@ -1197,6 +1274,13 @@ minutes.
 | GET POST | `policies/ack/` (`?user=`: someone else's, with `staff.view_staff`; POST `policy`, `version`) | any member of staff | your acknowledgements of the policies (`STAFF_POLICIES`), each version once (201, again 200; not the version in force: 400) |
 | GET | `system/` | `staff.view_system` | health checks, Celery's queues and failed tasks, webhooks, email suppressions, the SMS log, the last backup, maintenance, the audit chain's last check |
 | POST | `system/reconcile/` (`order`) | `staff.replay_webhook` | ask Razorpay what became of an online order's payment |
+| GET | `system/sync/`, `system/sync/links/?q=` | `erp.view_sync` | the sync monitor: the outbox per flow and state with each switch, the newest dead letters, ERPNext's calls back of 7 days, the last week's reconciliations; a link found by reference, ERPNext name or id (3 characters at least) |
+| GET | `system/backups/` | `staff.view_system` | each source's newest backup in the bucket (`name`, `at`, `size`, `sha256`, `encrypted`), `stale` past `BACKUP_STALE_HOURS`, the retention, `last_proven`, the drills |
+| GET POST | `system/backups/drills/` (`performed_on`, `engine`, `backup`, `result`, `duration_minutes`, `notes`) | `staff.view_restoredrill`; POST `staff.manage_system` (high) | the restore drills; one recorded |
+| GET | `system/logs/` | `staff.view_system` | the log inventory with `meets_retention`, the retention in force, the clock against the database's (`LOG_TIME_SOURCE`), the CERT-In contact |
+| GET | `system/dependencies/` | `staff.view_system` | CI's last pip-audit and npm audit report: open `advisories` by severity, a critical one's 7-day `due`, `stale` past 8 days, the versions |
+| GET | `system/hardening/` | `staff.view_system` | the admin host's checks, each `ok` (null: not testable here), `detail` and `fix` |
+| GET | `system/scripts/` | `staff.view_scriptinventory` | the checkout's and the console's sign-in's scripts: each page's last check and the scripts seen (src or inline, SHA-256, first and last seen, `current`) |
 
 **The manifest** (`session/`, `Cache-Control: no-store`). Keep it in memory, never in `localStorage`; fetch it again after
 any 403 and whenever `manifest_version` changes. `user.is_superuser` true is a break-glass account (no roles, every
@@ -1207,7 +1291,11 @@ answer is the same object), before which every other staff call answers `403 {"c
 (the manifest and `catalogue/` excepted); `ends_at` is its log-in plus 2 hours (`STAFF_BREAK_GLASS_HOURS`), the end
 however busy. `policies_due` lists the policies' versions (`STAFF_POLICIES`) the person has not acknowledged,
 `[{"policy": "acceptable_use", "version": "2026-10"}]`: show them, and `POST policies/ack/` `{"policy", "version"}`
-each once read (research 6: before the rest of the panel).
+each once read (research 6: before the rest of the panel). `steps` lists what the session must do first:
+`["passkey_required"]` for a member of `STAFF_PASSKEY_ROLES` (OWNER, ADMIN, FINANCE) without a passkey or security
+key, who adds one on the website's `/account/security/`; meanwhile every staff call but the manifest, `catalogue/` and
+their own sessions answers `403 {"code": "passkey_required"}` (the Django admin sends them there too). `offer_end_sessions`
+is true once after a second factor was added, removed or reset (on the website): offer `POST people/me/sessions/end-others/`.
 
 ```sh
 curl https://examleaf.in/api/v1/staff/session/ -b "sessionid=…"
@@ -1345,6 +1433,21 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 | POST | `staff/change-requests/{id}/approve/` | `staff.view_changerequest` |  | `ApproveRequest` | 200 `ChangeRequest` |
 | POST | `staff/change-requests/{id}/execute/` | `staff.view_changerequest` |  |  | 200 `ChangeRequest`; 400 `ChangeRequest` |
 | POST | `staff/change-requests/{id}/reject/` | `staff.view_changerequest` |  | `CommentRequest` | 200 `ChangeRequest` |
+| GET | `staff/connections/` | `integrations.view_integrationaccount` |  |  | 200 `[ConnectionCard]` |
+| GET | `staff/connections/{provider}/` | `integrations.view_integrationaccount` |  |  | 200 `ConnectionCard` |
+| GET | `staff/connections/{provider}/calls/` | `integrations.view_integrationcall` | `cursor`, `failed`, `operation`, `page_size` |  | 200 `PaginatedCallList` |
+| POST | `staff/connections/{provider}/circuit/` | `staff.manage_connections` |  | `CircuitActionRequest` | 200 `ConnectionCard` |
+| POST | `staff/connections/{provider}/credentials/` | `staff.manage_connections` |  | `CredentialsRequest` | 200 `TestResult` |
+| GET | `staff/connections/{provider}/events/` | `integrations.view_inboundevent` | `cursor`, `page_size`, `state` |  | 200 `PaginatedInboundEventList` |
+| POST | `staff/connections/{provider}/events/replay-failed/` | `staff.replay_webhook` |  | `ReplayFailedRequest` | 200 `Replayed` |
+| POST | `staff/connections/{provider}/events/{id}/replay/` | `staff.replay_webhook` |  |  | 200 `InboundEvent` |
+| GET | `staff/connections/{provider}/failures/` | `integrations.view_integrationfailure` | `cursor`, `operation`, `page_size`, `state` |  | 200 `PaginatedFailureList` |
+| POST | `staff/connections/{provider}/failures/{id}/discard/` | `staff.replay_webhook` (by the key or the body: see the table above) |  | `DiscardRequest` | 200 `Failure` |
+| POST | `staff/connections/{provider}/failures/{id}/replay/` | `staff.replay_webhook` (by the key or the body: see the table above) |  |  | 200 `Failure` |
+| POST | `staff/connections/{provider}/mode/` | `staff.manage_connections` |  | `ModeRequest` | 200 `ConnectionCard` |
+| POST | `staff/connections/{provider}/test/` | `staff.manage_connections` |  |  | 200 `TestResult` |
+| GET | `staff/connections/{provider}/webhooks/` | `integrations.view_integrationaccount` |  |  | 200 `WebhookInfo` |
+| POST | `staff/connections/{provider}/webhooks/rotate/` | `staff.manage_connections` |  | `ConnectionReasonRequest` | 200 `Rotated` |
 | GET | `staff/data-requests/` | `staff.view_datarequest` | `assignee`, `cursor`, `kind`, `overdue`, `page_size`, `status`, `user` |  | 200 `PaginatedDataRequestListList` |
 | POST | `staff/data-requests/` | `staff.handle_data_request` |  | `DataRequestRequest` | 201 `DataRequest` |
 | GET | `staff/data-requests/{id}/` | `staff.view_datarequest` |  |  | 200 `DataRequest` |
@@ -1372,6 +1475,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 | GET | `staff/flags/` | `staff.view_featureflag` |  |  | 200 `[Flag]` |
 | GET | `staff/flags/{key}/` | `staff.view_featureflag` |  |  | 200 `[SwitchRow]` |
 | PUT | `staff/flags/{key}/` | `staff.manage_flags` |  | `SwitchChangeRequest` | 200 `SwitchRow` |
+| GET | `staff/flags/{key}/history/` | `staff.view_featureflag` |  |  | 200 `[SwitchRow]` |
 | GET | `staff/inbox/` | `staff.view_inbox` | `cursor`, `done`, `kind`, `mine`, `page_size`, `snoozed` |  | 200 `PaginatedInboxItemList` |
 | GET | `staff/inbox/count/` | `staff.view_inbox` |  |  | 200 `InboxCount` |
 | POST | `staff/inbox/{id}/assign/` | `staff.view_inbox` |  | `AssignRequest` | 200 `InboxItem` |
@@ -1394,11 +1498,20 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 | POST | `staff/people/invite/` | `staff.assign_role` |  | `InviteRequest` | 201 `StaffInvite`; 202 `ChangeRequest` |
 | GET | `staff/people/invites/` | `staff.view_staff` | `cursor`, `page_size` |  | 200 `PaginatedStaffInviteList` |
 | DELETE | `staff/people/invites/{invite}/` | `staff.assign_role` |  |  | 204 |
+| GET | `staff/people/me/sessions/` | any member of staff |  |  | 200 `[OwnSession]` |
+| POST | `staff/people/me/sessions/end-others/` | any member of staff |  |  | 200 `OwnSessionsEnded` |
+| POST | `staff/people/me/sessions/{session}/end/` | any member of staff |  |  | 204 |
+| GET | `staff/people/roles/` | `staff.view_staff` | `language` |  | 200 `[RoleCatalogue]` |
 | GET | `staff/people/{id}/` | `staff.view_staff` |  |  | 200 `Person` |
+| GET | `staff/people/{id}/access/` | `staff.view_staff` |  |  | 200 `Access` |
 | POST | `staff/people/{id}/end-sessions/` | `staff.assign_role` |  |  | 200 `Ended` |
+| GET | `staff/people/{id}/erp/` | `staff.view_staff` |  |  | 200 `ErpMirror` |
 | POST | `staff/people/{id}/offboard/` | `staff.assign_role` |  | `ReasonRequest` | 200 `Offboarded` |
+| GET | `staff/people/{id}/offboarding/` | `staff.view_staffoffboarding` |  |  | 200 `Offboarding` |
+| POST | `staff/people/{id}/offboarding/tick/` | `staff.assign_role` |  | `OffboardingTickRequest` | 200 `Offboarding` |
 | POST | `staff/people/{id}/reset-mfa/` | `staff.reset_user_mfa` |  | `ReasonRequest` | 202 `ChangeRequest` |
 | POST | `staff/people/{id}/roles/` | `staff.assign_role` |  | `GrantRequest` | 200 `Person`; 202 `ChangeRequest` |
+| POST | `staff/people/{id}/roles/preview/` | `staff.view_staff` |  | `RolePreviewRequestRequest` | 200 `RolePreview` |
 | DELETE | `staff/people/{id}/roles/{role}/` | `staff.assign_role` |  |  | 200 `Person` |
 | POST | `staff/people/{id}/scopes/` | `staff.assign_role` |  | `ScopeAddRequest` | 201 `Scope` |
 | DELETE | `staff/people/{id}/scopes/{scope}/` | `staff.assign_role` |  |  | 204 |
@@ -1421,8 +1534,23 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 | GET | `staff/settings/` | `staff.view_sitesetting` |  |  | 200 `[Setting]` |
 | GET | `staff/settings/{key}/` | `staff.view_sitesetting` (by the key or the body: see the table above) |  |  | 200 `[SwitchRow]` |
 | PUT | `staff/settings/{key}/` | `staff.manage_settings` (by the key or the body: see the table above) |  | `SwitchChangeRequest` | 200 `Setting` |
+| GET | `staff/settings/{key}/history/` | `staff.view_sitesetting` |  |  | 200 `[SwitchRow]` |
 | GET | `staff/system/` | `staff.view_system` |  |  | 200 `StaffSystem` |
+| GET | `staff/system/backups/` | `staff.view_system` |  |  | 200 `Backups` |
+| GET | `staff/system/backups/drills/` | `staff.view_restoredrill` |  |  | 200 `RestoreDrill` |
+| POST | `staff/system/backups/drills/` | `staff.manage_system` |  | `RestoreDrillRequest` | 201 `RestoreDrill` |
+| GET | `staff/system/dependencies/` | `staff.view_system` |  |  | 200 `Dependencies` |
+| GET | `staff/system/hardening/` | `staff.view_system` |  |  | 200 `[HardeningRow]` |
+| GET | `staff/system/logs/` | `staff.view_system` |  |  | 200 `Logs` |
 | POST | `staff/system/reconcile/` | `staff.replay_webhook` |  | `ReconcileRequest` | 200 `Reconciled` |
+| GET | `staff/system/scripts/` | `staff.view_scriptinventory` |  |  | 200 `Scripts` |
+| GET | `staff/system/sync/` | `erp.view_sync` |  |  | 200 `Sync` |
+| GET | `staff/system/sync/links/` | `erp.view_sync` | `q` |  | 200 `[ErpLink]` |
+| GET | `staff/templates/` | `ops.view_messagetemplate` | `approval_state`, `category`, `channel`, `event`, `language` |  | 200 `[Template]` |
+| POST | `staff/templates/` | `ops.add_messagetemplate` |  | `TemplateRequest` | 201 `Template` |
+| GET | `staff/templates/{id}/` | `ops.view_messagetemplate` |  |  | 200 `Template` |
+| PATCH | `staff/templates/{id}/` | `ops.change_messagetemplate` |  | `PatchedTemplateRequest` | 200 `Template` |
+| POST | `staff/templates/{id}/test/` | `ops.change_messagetemplate` |  | `TestSendRequest` | 200 `TestSent` |
 | GET | `staff/users/` | `accounts.view_user` | `board`, `class_level`, `cursor`, `is_active`, `page_size`, `q` |  | 200 `PaginatedCustomerList` |
 | GET | `staff/users/{id}/` | `accounts.view_user` |  |  | 200 `CustomerDetail` |
 | POST | `staff/users/{id}/end-sessions/` | `staff.end_user_sessions` |  |  | 200 `SessionsEnded` |
@@ -1437,8 +1565,16 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 | POST | `staff/users/{id}/unsuspend/` | `staff.suspend_user` |  | `ReasonRequest` | 200 `Customer` |
 
 - **AcceptRequest**: `token` string (required); `full_name` string; `password` string
+- **Access**: `id` integer (required); `email` email (required); `full_name` string (required); `is_active` boolean (required); `is_superuser` boolean (required); `last_login` date-time (required, null); `roles` [AccessRole] (required); `scopes` [AccessScope] (required); `role_scopes` object (required); `limits` object (required); `idle_timeout_s` integer (required); `permissions` integer (required); `capabilities` [CapabilityArea] (required); `pending` [AccessPending] (required); `second_factors` SecondFactors (required); `passkey_required` boolean (required); `erp_profiles` [string] (required)
+- **AccessPending**: `id` integer (required); `action` string (required); `status` ChangeRequestStatusEnum (required); `target_label` string (required); `about_them` boolean (required); `by_them` boolean (required); `created` date-time (required); `expires_at` date-time (required)
+- **AccessRole**: `name` RoleEnum (required); `source` AccessRoleSourceEnum (required); `granted_by` integer (required, null); `granted_at` date-time (required, null); `expires_at` date-time (required, null); `reason` string (required)
+- **AccessRoleSourceEnum**: one of `panel`, `admin`
 - **AccessRow**: `id` integer (required); `email` email (required); `roles` [string] (required); `grants` [object] (required); `scopes` object (required); `last_login` date-time (required, null); `dormant` boolean (required); `mfa` boolean (required); `permissions` integer (required); `unused` [string] (required); `last_used` object (required)
+- **AccessScope**: `id` integer (required); `kind` ScopeKindEnum (required); `value` string (required); `granted_by` integer (required, null); `created` date-time (required); `expires_at` date-time (required, null)
+- **AccountRow**: `id` integer (required); `mode` IntegrationModeEnum (required); `enabled` boolean (required); `label` string (required); `held` object (required); `unreadable` boolean (required); `credentials_updated_at` date-time (required, null); `credentials_updated_by` integer (required, null); `rotate_by` date (required, null); `rotate_in_days` integer (required, null); `token_expires_at` date-time (required, null); `token_in_hours` double (required, null); `webhook_token` string (required); `webhook_rotated_at` date-time (required, null)
+- **Actions**: `test` boolean (required); `credentials` boolean (required); `mode` boolean (required); `circuit` boolean (required); `webhooks` boolean (required)
 - **ActorTypeEnum**: one of `staff`, `user`, `service`, `system`, `anonymous`
+- **Advisory**: `id` string (required); `ecosystem` string (required); `project` string (required); `package` string (required); `version` string (required); `severity` SeverityEnum (required); `title` string (required); `url` string (required); `fixed_in` string (required); `first_seen` date (required); `due` date (required, null); `overdue` boolean (required)
 - **ApiKey**: `id` integer (required, read-only); `name` string (required); `prefix` string (required, read-only); `key` string (required, null, read-only); `scopes` any; `sponsor` integer; `created_by` integer (required, null, read-only); `created` date-time (required, read-only); `expires_at` date-time; `allowed_ips` any; `last_used_at` date-time (required, null, read-only); `last_used_ip` string (required, null, read-only); `revoked_at` date-time (required, null, read-only); `revoked_by` integer (required, null, read-only)
 - **ApiKeyRequest**: `name` string (required); `scopes` any; `sponsor` integer; `expires_at` date-time; `allowed_ips` any
 - **Approval**: `user` integer (required); `decision` DecisionEnum (required); `comment` string; `created` date-time
@@ -1449,16 +1585,31 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **AuditEvent**: `id` integer (required, read-only); `chain` ChainEnum; `ts` date-time (required); `actor_id` integer (null); `actor_type` ActorTypeEnum (required); `actor_roles` any; `on_behalf_of` integer (null); `break_glass` boolean; `action` string (required); `permission` string; `target_type` string; `target_id` string; `target_label` string; `outcome` AuditOutcomeEnum; `reason` string; `change_request_id` integer (null); `request_id` string; `ip` string (null); `user_agent` string; `session_hash` string; `changes` any; `details` any; `prev_hash` string (required); `hash` string (required)
 - **AuditOutcomeEnum**: one of `success`, `denied`, `failed`
 - **Backtest**: `product` string (required, read-only); `horizon_weeks` integer (required); `wape` double (null); `mase_vs_seasonal_naive` double (null); `shown` boolean; `n` integer (required, read-only)
+- **BackupFile**: `name` string (required); `at` date-time (required); `size` integer (required); `sha256` string (required); `encrypted` boolean (required)
+- **BackupSource**: `key` string (required); `label` string (required); `prefix` string (required); `latest` BackupFile (required, null); `age_hours` double (required, null); `stale` boolean (required); `error` string (required)
+- **Backups**: `configured` boolean (required); `bucket` string (required); `sources` [BackupSource] (required); `stale` boolean (required); `unreadable` boolean (required); `stale_hours` integer (required); `retention_days` integer (required); `checked_at` date-time (required); `last_proven` Proven (required, null); `drills` [RestoreDrill] (required)
+- **BeforeAfterProfiles**: `before` [string] (required); `after` [string] (required)
+- **BeforeAfterSeconds**: `before` integer (required); `after` integer (required)
 - **BlankEnum**: null
 - **BookRequest**: `order` string (required, null); `courier_company_id` integer; `courier_name` string; `quoted_rate` decimal (null); `weight_g` integer; `length_cm` integer; `breadth_cm` integer; `height_cm` integer; `pickup_location` integer (null); `courier` CourierEnum; `tracking_number` string; `tracking_url` any
 - **BreakGlassReasonRequest**: `reason` string (required)
+- **Bucket**: `alias` string (required); `bucket` string (required)
+- **Call**: `id` integer (required, read-only); `mode` string (required, read-only); `operation` string (required, read-only); `method` string (required, read-only); `path` string (required, read-only); `status_code` integer (required, null, read-only); `duration_ms` integer (required, read-only); `provider_request_id` string (required, read-only); `error` string (required, read-only); `excerpt` string (required, read-only); `created` date-time (required, read-only)
+- **Calls**: `day` integer (required); `day_errors` integer (required); `week` integer (required); `week_errors` integer (required); `p90_ms` integer (required, null)
+- **Capability**: `perm` string (required); `label` string (required); `area` string (required); `risk` RiskEnum (required); `reauth` boolean (required); `approval` boolean (required); `alert` boolean (required); `last_used` date-time (null)
+- **CapabilityArea**: `area` string (required); `permissions` [Capability] (required)
 - **CarrierEnum**: one of `manual`, `shiprocket`
 - **ChainEnum**: one of `general`, `money`
 - **ChangeRequest**: `id` integer (required, read-only); `action` string (required); `label` string (required, read-only); `target_type` string; `target_id` string; `target_label` string; `payload` any; `payload_sha256` string (required); `amount` decimal (null); `maker` integer (required); `reason` string (required); `rule` string; `status` ChangeRequestStatusEnum; `expires_at` date-time (required); `overridden` boolean; `checker` string (required, read-only); `approvals` [Approval] (required, read-only); `result` any (null); `executed_by` integer (null); `executed_at` date-time (null); `created` date-time (required, read-only); `modified` date-time (required, read-only)
 - **ChangeRequestStatusEnum**: one of `pending`, `approved`, `rejected`, `expired`, `executed`, `failed`
 - **ChannelEnum**: one of `email`, `letter`, `phone`, `form`, `in_person`, `board`
 - **ChapterStat**: `chapter` integer (required); `subject` integer (required, read-only); `number` integer (required, read-only); `title` string (required, read-only); `mean_accuracy` double (null); `trend` double (null); `n` integer (required, read-only)
+- **Circuit**: `state` CircuitStateEnum (required); `held_open` boolean (required); `opened_at` date-time (required, null); `failures` integer (required)
+- **CircuitActionEnum**: one of `open`, `reset`
+- **CircuitActionRequest**: `reason` string (required); `action` CircuitActionEnum (required)
+- **CircuitStateEnum**: one of `closed`, `open`, `half_open`
 - **ClassLevelEnum**: one of `10`, `12`
+- **Clock**: `source` string (required); `documented` boolean (required); `app_now` date-time (required); `database_now` date-time (required, null); `offset_ms` integer (required, null); `ok` boolean (required)
 - **CloseRequest**: `outcome` DataRequestOutcomeEnum (required); `response` string (required)
 - **CodReconcileRequest**: `utr` string (required); `amount` decimal (required); `on` date
 - **CodRemittance**: `id` integer (required, read-only); `shipment` integer (required, read-only); `order` string (required, read-only); `expected_amount` decimal (required, read-only); `expected_on` date (required, read-only); `remitted_amount` decimal (required, null, read-only); `utr` string (required, read-only); `remitted_at` date (required, null, read-only); `state` CodRemittanceStateEnum (required, read-only); `checked_at` date-time (required, null, read-only)
@@ -1466,7 +1617,18 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **CodeActivation**: `batch` string (required); `district` string (null); `printed` integer (null); `redeemed` integer (required); `redeemed_7d` integer (required); `n` integer (required, read-only)
 - **CohortStat**: `cohort_month` date (required); `source` EntitlementSourceEnum (required); `week_index` integer (required); `active_share` double (null); `churned_share` double (null); `n` integer (required)
 - **CommentRequest**: `comment` string
+- **Conflict**: `roles` [string] (required); `text` string (required)
+- **ConnectionCard**: `provider` ConnectionProviderEnum (required); `name` string (required); `kind` ConnectionKindEnum (required); `status` ConnectionStatusEnum (required); `mode` ConnectionModeEnum (required); `source` ConnectionSourceEnum (required); `held` object (required); `accounts` [AccountRow] (required); `last_success_at` date-time (required, null); `last_error_at` date-time (required, null); `last_error` string (required); `last_test` LastTest (required); `circuit` Circuit (required); `calls` Calls (required); `fields` [string] (required); `optional` [string] (required); `modes` [IntegrationModeEnum] (required); `overlap_warning` string (required); `actions` Actions (required); `extra` Extra (required)
+- **ConnectionKindEnum**: one of `email`, `erp`, `errors`, `payments`, `shipping`, `sign_in`, `sms`, `storage`, `whatsapp`
+- **ConnectionModeEnum**: one of `off`, `test`, `live`
+- **ConnectionProviderEnum**: one of `razorpay`, `shiprocket`, `manual`, `msg91`, `whatsapp`, `ses`, `storage`, `error_tracker`, `google`, `erpnext`
+- **ConnectionReasonRequest**: `reason` string (required)
+- **ConnectionSourceEnum**: one of `panel`, `environment`, `none`
+- **ConnectionStatusEnum**: one of `connected`, `degraded`, `expired`, `disabled`, `not_configured`
+- **Contact**: `contact` string (required); `source` ContactSourceEnum (required); `placeholder` boolean (required)
+- **ContactSourceEnum**: one of `panel`, `environment`
 - **CourierEnum**: one of `India Post`, `Delhivery`, `Blue Dart`, `Ekart`, `DTDC`, `Xpressbees`, `Other`
+- **CredentialsRequest**: `reason` string (required); `mode` IntegrationModeEnum (required); `credentials` object (required)
 - **Customer**: `id` integer (required, read-only); `email` string (required, read-only); `phone` string (required, read-only); `full_name` string (required); `class_level` any (null); `board` string (required, read-only); `district` string; `under_18` boolean (required, read-only); `status` string (required, read-only); `consent` string (required, read-only); `email_verified` boolean (required, read-only); `login_phone_verified` boolean; `created` date-time (required, read-only); `last_login` date-time (null)
 - **CustomerDetail**: `id` integer (required, read-only); `email` string (required, read-only); `phone` string (required, read-only); `full_name` string (required); `class_level` any (null); `board` string (required, read-only); `district` string; `under_18` boolean (required, read-only); `status` string (required, read-only); `consent` string (required, read-only); `email_verified` boolean (required, read-only); `login_phone_verified` boolean; `created` date-time (required, read-only); `last_login` date-time (null); `roles` [string] (required, read-only); `locked` boolean (required, read-only); `mfa` [string] (required, read-only); `teacher` string (required, read-only); `parent_contact` string (required, read-only); `orders` [object] (required, read-only); `consents` [object] (required, read-only); `sessions` [object] (required, read-only); `deletion_due_at` string (required, null, read-only)
 - **DataRequest**: `id` integer (required, read-only); `kind` DataRequestKindEnum (required); `channel` ChannelEnum (required); `user` integer (null); `requester` string (required); `summary` string (required); `identity_verified` boolean (required, read-only); `identity_note` string (required, read-only); `verified_by` integer (required, null, read-only); `verified_at` date-time (required, null, read-only); `received_at` date-time; `ack_due_at` date-time (required, read-only); `acknowledged_at` date-time (required, null, read-only); `ack_overdue` boolean (required, read-only); `due_at` date-time (required, read-only); `overdue` boolean (required, read-only); `status` DataRequestStatusEnum (required, read-only); `assignee` integer (null); `notes` string; `details` any; `outcome` DataRequestOutcomeEnum (required, read-only); `response` string (required, read-only); `closed_at` date-time (required, null, read-only); `closed_by` integer (required, null, read-only); `created_by` integer (required, null, read-only)
@@ -1475,9 +1637,14 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **DataRequestOutcomeEnum**: one of `done`, `refused`, `withdrawn`
 - **DataRequestRequest**: `kind` DataRequestKindEnum (required); `channel` ChannelEnum (required); `user` integer (null); `requester` string (required); `summary` string (required); `received_at` date-time; `assignee` integer (null); `notes` string; `details` any
 - **DataRequestStatusEnum**: one of `new`, `acknowledged`, `closed`
+- **DeadLetterStateEnum**: one of `open`, `replayed`, `discarded`
 - **DecisionEnum**: one of `approve`, `reject`
 - **DeliveryStat**: `courier` string (required); `district` string (null); `median_days` double (required); `p90_days` double (required); `n` integer (required)
+- **Dependencies**: `available` boolean (required); `path` string (required); `generated_at` date-time (required, null); `age_days` integer (required, null); `stale` boolean (required); `commit` string (required); `counts` object (required); `advisories` [Advisory] (required); `versions` object (required); `error` string (required)
 - **Detail**: `detail` string (required)
+- **DiscardRequest**: `reason` string (required)
+- **EmailFigures**: `rates` EmailRates (required); `suppressed` integer (required); `suppressions_synced` date-time (required, null); `topic_restricted` boolean (required); `webhook_secret_set` boolean (required)
+- **EmailRates**: `sent` integer (required); `delivered` integer (required); `bounced` integer (required); `complained` integer (required); `bounce_rate` double (required, null); `complaint_rate` double (required, null); `bounce_limit` double (required); `complaint_limit` double (required)
 - **Ended**: `sessions` integer (required); `tokens` integer (required)
 - **EntitlementSourceEnum**: one of `book_code`, `purchase`, `grant`
 - **ErasureReport**: `erase` [object] (required); `keep` [object] (required); `blocks` [string] (required); `can_erase` boolean (required); `notes` [string] (required)
@@ -1487,28 +1654,41 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ErpDifference**: `id` integer (required, read-only); `run` integer (required, read-only); `kind` ErpDifferenceKindEnum (required, read-only); `key` string (required, read-only); `platform_value` string (required, read-only); `erp_value` string (required, read-only); `note` string (required, read-only); `resolved_at` date-time (required, null, read-only); `resolved_by` integer (required, null, read-only)
 - **ErpDifferenceKindEnum**: one of `invoices`, `credit_notes`, `payments`, `settlements`, `deliveries`, `stock`, `missing`
 - **ErpDiscardRequest**: `reason` string (required)
+- **ErpHealth**: `enabled` boolean (required); `waiting` integer (required); `dead` integer (required); `oldest_waiting_seconds` integer (required, null); `last_reconciliation` ReconciliationLine (required, null); `key_present` boolean (required); `webhook_secret_set` boolean (required)
+- **ErpLink**: `examleaf_ref` string (required); `model` string (required); `object_id` string (required); `doctype` string (required); `name` string (required); `synced_at` date-time (required)
+- **ErpMirror**: `email` email (required); `enabled` boolean (required); `role_profiles` [string] (required); `by_role` [ErpRole] (required); `erp_in_use` boolean (required)
 - **ErpOutbox**: `id` integer (required, read-only); `aggregate_type` string (required, read-only); `aggregate_id` string (required, read-only); `sequence` integer (required, read-only); `event` string (required, read-only); `examleaf_ref` string (required, read-only); `model` string (required, read-only); `object_id` string (required, read-only); `idempotency_key` string (required, read-only); `payload` any (required, null, read-only); `state` ErpOutboxStateEnum (required, read-only); `attempts` integer (required, read-only); `next_at` date-time (required, read-only); `last_error` string (required, read-only); `created` date-time (required, read-only); `sent_at` date-time (required, null, read-only); `response` any (required, null, read-only); `dead_letter` integer (required, null, read-only)
 - **ErpOutboxStateEnum**: one of `pending`, `sending`, `sent`, `failed`, `dead`, `discarded`
 - **ErpReconciliationStateEnum**: one of `running`, `done`, `failed`
 - **ErpResolveRequest**: `note` string (required)
+- **ErpRole**: `role` RoleEnum (required); `profiles` [string] (required)
 - **ErpRun**: `id` integer (required, read-only); `date` date (required, read-only); `state` ErpReconciliationStateEnum (required, read-only); `platform_totals` any (required, read-only); `erp_totals` any (required, read-only); `differences_count` integer (required, read-only); `started_at` date-time (required, read-only); `finished_at` date-time (required, null, read-only); `error` string (required, read-only)
 - **ErpRunDetail**: `id` integer (required, read-only); `date` date (required, read-only); `state` ErpReconciliationStateEnum (required, read-only); `platform_totals` any (required, read-only); `erp_totals` any (required, read-only); `differences_count` integer (required, read-only); `started_at` date-time (required, read-only); `finished_at` date-time (required, null, read-only); `error` string (required, read-only); `differences` [ErpDifference] (required, read-only)
 - **ErpRunStatus**: `id` integer (required); `date` date (required); `state` string (required); `differences` integer (required); `open_differences` integer (required); `finished_at` date-time (required, null)
 - **ErpStatus**: `enabled` boolean (required); `mode` string (required); `flows` object (required); `pull_stock` boolean (required); `pull_b2b` boolean (required); `stock_projection` boolean (required); `account` ErpAccountStatus (required, null); `outbox` object (required); `oldest_waiting_at` date-time (required, null); `oldest_waiting_seconds` integer (required, null); `held_aggregates` integer (required); `cursors` [ErpCursorStatus] (required); `last_reconciliation` ErpRunStatus (required, null)
+- **ErrorsFigures**: `host` string (required)
 - **ExportRequest**: `filters` object
-- **Flag**: `key` string (required); `value` any (required); `effective_from` date-time (required); `changed_by` integer (required, null); `reason` string (required)
+- **Extra**: `webhook` RazorpayHealth; `sms` SmsFigures; `email` EmailFigures; `storage` StorageFigures; `google` GoogleFigures; `errors` ErrorsFigures; `erp` ErpHealth; `phase` string
+- **Failure**: `id` integer (required, read-only); `account` integer (required, null, read-only); `operation` string (required, read-only); `task_name` string (required, read-only); `args` any (required, read-only); `attempts` integer (required, read-only); `last_error` string (required, read-only); `state` DeadLetterStateEnum (required, read-only); `discard_reason` string (required, read-only); `resolved_at` date-time (required, null, read-only); `resolved_by` integer (required, null, read-only); `created` date-time (required, read-only); `erp_outbox` integer (required, null, read-only)
+- **Flag**: `key` string (required); `value` any (required); `effective_from` date-time (required, null); `changed_by` integer (required, null); `reason` string (required); `label` string (required); `group` string (required); `environment` any (required, null); `source` SettingSourceEnum (required)
 - **Forecast**: `product` string (required, read-only); `title` string (required, read-only); `district` string (null); `week_start` date (required); `p10` double (required); `p50` double (required); `p90` double (required); `n` integer (required, read-only)
 - **FraudSignal**: `id` integer (required, read-only); `kind` FraudSignalKindEnum (required); `label` string (required, read-only); `subject` string (required); `window_start` date-time (required); `window_end` date-time (required); `details` any; `created` date-time (required, read-only); `acknowledged_at` date-time (null); `n` integer (required, read-only)
 - **FraudSignalKindEnum**: one of `codes_failed_account`, `codes_failed_ip`, `codes_failed_spike`, `codes_per_account`, `accounts_per_code`, `shared_phone`, `shared_address`
+- **GoogleFigures**: `domain` string (required); `auto_staff` boolean (required)
 - **GrantRequest**: `role` RoleEnum (required); `expires_at` date-time (null); `reason` string (required)
+- **HardeningRow**: `key` string (required); `label` string (required); `ok` boolean (required, null); `detail` string (required); `fix` string (required)
+- **HeaderSuffixEnum**: one of `P`, `S`, `T`, `G`
 - **ImpersonateRequest**: `reason` string (required); `ticket` string (required)
 - **Impersonation**: `token` string (required); `expires_at` date-time (required)
+- **InboundEvent**: `id` integer (required, read-only); `account` integer (required, null, read-only); `state` InboundEventStateEnum (required, read-only); `event_id` string (required, read-only); `sha256` string (required, read-only); `headers` any (required, read-only); `received_at` date-time (required, read-only); `processed_at` date-time (required, null, read-only); `error` string (required, read-only); `body_excerpt` string (required, read-only)
+- **InboundEventStateEnum**: one of `accepted`, `duplicate`, `rejected`, `failed`
 - **InboxCount**: `open` integer (required); `overdue` integer (required)
 - **InboxItem**: `id` integer (required, read-only); `kind` InboxKindEnum (required); `title` string (required); `target_type` string; `target_id` string; `permission` string (required); `assignee` integer (null); `due_at` date-time (null); `overdue` boolean (required, read-only); `snoozed_until` date-time (null); `done_at` date-time (null); `done_by` integer (null); `data` any; `created` date-time
-- **InboxKindEnum**: one of `approval`, `teacher_request`, `deletion_request`, `data_request`, `incident`, `failed_job`, `failed_webhook`, `sync_failed`, `reconciliation`, `shipping_exception`, `dead_letter`, `failed_event`, `integration_down`
+- **InboxKindEnum**: one of `approval`, `teacher_request`, `deletion_request`, `data_request`, `incident`, `failed_job`, `failed_webhook`, `sync_failed`, `reconciliation`, `shipping_exception`, `dead_letter`, `failed_event`, `integration_down`, `role_expired`, `offboarding`, `webhook_silent`, `template_idle`, `template_certify`, `backup_stale`, `dependencies_stale`, `scripts_changed`
 - **Incident**: `id` integer (required, read-only); `title` string (required); `kind` IncidentKindEnum (required); `detected_at` date-time; `noticed_by` integer (required, null, read-only); `description` string; `systems` string; `data_categories` string; `people_affected` integer (null); `children_affected` boolean; `cert_in_due` date-time (required, read-only); `cert_in_overdue` boolean (required, read-only); `cert_in_reported_at` date-time (null); `cert_in_reference` string; `board_due` date-time (required, read-only); `board_overdue` boolean (required, read-only); `board_notified_at` date-time (null); `board_report_at` date-time (null); `board_reference` string; `notice_text` string; `notices_sent` integer; `notices_sent_at` date-time (null); `actions` string; `root_cause` string; `closed_at` date-time (required, null, read-only); `closed_by` integer (required, null, read-only); `created` date-time (required, read-only)
 - **IncidentKindEnum**: one of `data_breach`, `data_leak`, `unauthorised_access`, `malicious_code`, `application_attack`, `denial_of_service`, `loss_of_access`, `other`
 - **IncidentRequest**: `title` string (required); `kind` IncidentKindEnum (required); `detected_at` date-time; `description` string; `systems` string; `data_categories` string; `people_affected` integer (null); `children_affected` boolean; `cert_in_reported_at` date-time (null); `cert_in_reference` string; `board_notified_at` date-time (null); `board_report_at` date-time (null); `board_reference` string; `notice_text` string; `notices_sent` integer; `notices_sent_at` date-time (null); `actions` string; `root_cause` string
+- **IntegrationModeEnum**: one of `test`, `live`
 - **InviteRequest**: `email` email (required); `role` RoleEnum (required); `reason` string (required)
 - **ItemStat**: `item` integer (required); `chapter` integer (required, read-only); `kind` string (required, read-only); `text` string (required, read-only); `n` integer (required); `p` double (null); `discrimination` double (null); `flags` any
 - **Job**: `id` integer (required, read-only); `kind` JobKindEnum (required, read-only); `state` JobStateEnum (required, read-only); `dry_run` boolean (required, read-only); `params` any (required, read-only); `done` integer (required, read-only); `total` integer (required, read-only); `errors` [JobError] (required, read-only); `result` any (required, read-only); `result_url` string (required, null, read-only); `change_request_id` integer (required, null, read-only); `cancel_requested` boolean (required, read-only); `started_by` integer (required, null, read-only); `created` date-time (required, read-only); `started_at` date-time (required, null, read-only); `finished_at` date-time (required, null, read-only)
@@ -1516,19 +1696,32 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **JobKindEnum**: one of `audit_export`, `bulk_action`, `erp_initial_load`
 - **JobStartRequest**: `kind` JobKindEnum (required); `params` object; `dry_run` boolean
 - **JobStateEnum**: one of `queued`, `running`, `done`, `failed`, `cancelled`
+- **LastTest**: `at` date-time (required, null); `ok` boolean (required, null); `message` string (required)
 - **LevelEnum**: one of `ok`, `watch`, `act`
+- **LimitChange**: `name` string (required); `before` integer (required, null); `after` integer (required, null)
+- **LogRow**: `key` string (required); `what` string (required); `where` string (required); `kept` string (required); `readers` string (required); `days` integer (required, null); `meets_retention` boolean (required, null)
+- **Logs**: `retention_days` integer (required); `rule` string (required); `dpdp_from` date (required); `inventory` [LogRow] (required); `time` Clock (required); `cert_in` Contact (required)
 - **Manifest**: `url` uri (required)
 - **ManifestRequestRequest**: `shipments` [integer] (required)
+- **ModeRequest**: `reason` string (required); `mode` ConnectionModeEnum (required)
 - **NdrActionActionEnum**: one of `re-attempt`, `return`, `fake-attempt`
 - **NdrActionRequest**: `action` NdrActionActionEnum (required); `comments` string (required); `deferred_date` date; `phone` string; `address1` string; `address2` string
 - **Note**: `id` integer (required, read-only); `target_type` string (required); `target_id` string (required); `author` integer (required, read-only); `body` string (required); `pinned` boolean; `created` date-time (required, read-only)
 - **NoteRequest**: `target_type` string (required); `target_id` string (required); `body` string (required); `pinned` boolean
 - **NullEnum**: null
-- **Offboarded**: `roles` [string] (required); `scopes` integer (required); `api_keys` integer (required); `change_requests` integer (required); `sessions` integer (required); `tokens` integer (required)
+- **Offboarded**: `roles` [string] (required); `scopes` integer (required); `api_keys` integer (required); `change_requests` integer (required); `sessions` integer (required); `tokens` integer (required); `offboarding` integer (required)
+- **Offboarding**: `id` integer (required, read-only); `user` integer (required); `started_by` integer (null); `reason` string (required); `started_at` date-time; `finished_at` date-time (null); `steps` [OffboardingStep] (required, read-only)
+- **OffboardingStep**: `key` string (required); `label` string (required, read-only); `kind` OffboardingStepKindEnum (required); `state` OffboardingStepStateEnum; `detail` string; `done_at` date-time (null); `done_by` integer (null)
+- **OffboardingStepKindEnum**: one of `auto`, `manual`
+- **OffboardingStepStateEnum**: one of `done`, `todo`, `not_needed`
+- **OffboardingTickRequest**: `step` string (required); `state` OffboardingStepStateEnum (required); `note` string
 - **OfferStat**: `coupon` string (required, read-only); `offer` string (required, read-only); `period_start` date (required); `period_end` date (required); `orders` integer (required); `revenue` decimal (required); `discount_cost` decimal (required); `period_orders` integer (required); `baseline_orders` integer (required); `baseline_revenue` decimal (required); `interval_low` double (null); `interval_high` double (null); `note` string (required); `n` integer (required, read-only)
+- **OwnSession**: `id` integer (required); `browser` string (required); `system` string (required); `place` string (required); `created_at` date-time (required); `last_seen_at` date-time (required); `current` boolean (required)
+- **OwnSessionsEnded**: `sessions` integer (required); `tokens` integer (required)
 - **PaginatedApiKeyList**: `next` uri (null); `previous` uri (null); `results` [ApiKey] (required)
 - **PaginatedAuditEventList**: `next` uri (null); `previous` uri (null); `results` [AuditEvent] (required)
 - **PaginatedBacktestList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [Backtest] (required)
+- **PaginatedCallList**: `next` uri (null); `previous` uri (null); `results` [Call] (required)
 - **PaginatedChangeRequestList**: `next` uri (null); `previous` uri (null); `results` [ChangeRequest] (required)
 - **PaginatedChapterStatList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [ChapterStat] (required)
 - **PaginatedCodRemittanceList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [CodRemittance] (required)
@@ -1541,8 +1734,10 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **PaginatedErpDifferenceList**: `next` uri (null); `previous` uri (null); `results` [ErpDifference] (required)
 - **PaginatedErpOutboxList**: `next` uri (null); `previous` uri (null); `results` [ErpOutbox] (required)
 - **PaginatedErpRunList**: `next` uri (null); `previous` uri (null); `results` [ErpRun] (required)
+- **PaginatedFailureList**: `next` uri (null); `previous` uri (null); `results` [Failure] (required)
 - **PaginatedForecastList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [Forecast] (required)
 - **PaginatedFraudSignalList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [FraudSignal] (required)
+- **PaginatedInboundEventList**: `next` uri (null); `previous` uri (null); `results` [InboundEvent] (required)
 - **PaginatedInboxItemList**: `next` uri (null); `previous` uri (null); `results` [InboxItem] (required)
 - **PaginatedIncidentList**: `next` uri (null); `previous` uri (null); `results` [Incident] (required)
 - **PaginatedItemStatList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [ItemStat] (required)
@@ -1566,6 +1761,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **PatchedPickupLocationRequest**: `nickname` string; `address` string; `city` string; `state` string; `pin_code` string; `phone` string; `is_default` boolean; `active` boolean
 - **PatchedProcessorRequest**: `name` string; `purpose` string; `data_categories` string; `country` string; `contract_signed_on` date (null); `contract_ends_on` date (null); `active` boolean; `notes` string
 - **PatchedSavedViewRequest**: `role` string; `list_key` string; `name` string; `filters` any; `columns` any; `sort` any
+- **PatchedTemplateRequest**: `event` string; `channel` TemplateChannelEnum; `language` TemplateLanguageEnum; `text` string; `subject` string; `variables` [VariableRequest]; `dlt_template_id` string; `pe_id` string; `header` string; `header_suffix` any; `msg91_id` string; `whatsapp_name` string; `category` TemplateCategoryEnum; `approval_state` TemplateApprovalEnum; `self_certified_on` date (null); `notes` string
 - **Person**: `id` integer (required, read-only); `email` email (required); `full_name` string (required); `is_active` boolean; `is_superuser` boolean; `roles` [string] (required, read-only); `grants` [object] (required, read-only); `scopes` [Scope] (required, read-only); `mfa` boolean (required, read-only); `last_login` date-time (null); `created` date-time (required, read-only)
 - **PhotoRequest**: `photo` binary (required)
 - **PickupLocation**: `id` integer (required, read-only); `nickname` string (required); `address` string; `city` string; `state` string; `pin_code` string (required); `phone` string; `is_default` boolean; `active` boolean; `external_id` string (required, read-only)
@@ -1578,24 +1774,47 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **PrintRunAdvice**: `product` string (required, read-only); `title` string (required, read-only); `net_price` decimal (required); `unit_cost` decimal (required); `salvage` decimal (required); `critical_ratio` double (required); `target_quantity` integer (required); `supply` integer (required); `recommended_quantity` integer (required); `reprint_trigger_units` integer (required); `weeks_of_cover` double (null); `projected_leftover` integer (required); `level` LevelEnum; `alert` string; `n` integer (required, read-only)
 - **Processor**: `id` integer (required, read-only); `name` string (required); `purpose` string (required); `data_categories` string (required); `country` string (required); `contract_signed_on` date (null); `contract_ends_on` date (null); `active` boolean; `notes` string
 - **ProcessorRequest**: `name` string (required); `purpose` string (required); `data_categories` string (required); `country` string (required); `contract_signed_on` date (null); `contract_ends_on` date (null); `active` boolean; `notes` string
+- **Proven**: `on` date (required); `engine` RestoreDrillEngineEnum (required)
 - **Quote**: `courier_company_id` integer (required); `courier_name` string (required); `rate` decimal (required); `etd_days` integer (required, null); `rating` double (required, null); `cod` boolean (required); `cod_charges` decimal (required); `rto_charges` decimal (required); `recommended` boolean (required)
 - **QuoteResult**: `couriers` [Quote] (required); `india_post` [PostalPrice] (required); `weight_g` integer (required); `stale` boolean (required); `error` string (required)
+- **RazorpayHealth**: `last_event_at` date-time (required, null); `age_hours` double (required, null); `paid_in_window` integer (required); `window_hours` integer (required); `silent` boolean (required)
 - **ReasonRequest**: `reason` string (required)
 - **ReconcileRequest**: `order` string (required)
 - **Reconciled**: `order` string (required); `paid` boolean (required, null)
+- **ReconciliationLine**: `date` date (required); `state` string (required); `differences` integer (required)
+- **ReplayFailedRequest**: `since` date-time (required)
+- **Replayed**: `replayed` integer (required); `more` boolean (required)
 - **ResolveRequest**: `resolution` string (required); `dismiss` boolean
 - **ResponseText**: `subject` string (required); `body` string (required)
+- **RestoreDrill**: `id` integer (required, read-only); `performed_on` date (required); `engine` RestoreDrillEngineEnum (required); `backup` string (required); `result` RestoreDrillResultEnum (required); `duration_minutes` integer (required); `notes` string; `recorded_by` integer (required, null, read-only); `created` date-time (required, read-only)
+- **RestoreDrillEngineEnum**: one of `platform`, `erpnext`, `both`
+- **RestoreDrillRequest**: `performed_on` date (required); `engine` RestoreDrillEngineEnum (required); `backup` string (required); `result` RestoreDrillResultEnum (required); `duration_minutes` integer (required); `notes` string
+- **RestoreDrillResultEnum**: one of `passed`, `partial`, `failed`
 - **RevealRequest**: `show` [ShowEnum] (required); `reason` string (required)
 - **Revealed**: `email` string (null); `phone` string (null); `login_phone` string (null); `parent_contact` string (null); `parent_name` string (null); `date_of_birth` string (null)
+- **RiskEnum**: one of `low`, `medium`, `high`, `critical`
+- **RoleCard**: `for` string (required); `cannot` string (required)
+- **RoleCatalogue**: `name` RoleEnum (required); `card` RoleCard (required); `privileged` boolean (required); `admin_site` boolean (required); `passkey` boolean (required); `idle_timeout_s` integer (required); `limits` object (required); `scopes` object (required); `conflicts` [string] (required); `erp_profiles` [string] (required); `members` integer (required); `permissions` integer (required); `capabilities` [CapabilityArea] (required)
+- **RoleChangeActionEnum**: one of `grant`, `revoke`
 - **RoleEnum**: one of `ADMIN`, `AUDITOR`, `CONTENT_EDITOR`, `FINANCE`, `MARKETING`, `OWNER`, `PACKER`, `REVIEWER`, `SALES`, `SALES_REP`, `SUPPORT`
+- **RolePreview**: `role` RoleEnum (required); `action` RoleChangeActionEnum (required); `holds_already` boolean (required); `gains` [CapabilityArea] (required); `losses` [CapabilityArea] (required); `limits` [LimitChange] (required); `scopes` [RoleScopeChange] (required); `idle_timeout_s` BeforeAfterSeconds (required); `conflicts` [Conflict] (required); `blocked` boolean (required); `needs_approval` boolean (required); `rule` string (required); `checker` string (required); `passkey_needed` boolean (required); `erp_profiles` BeforeAfterProfiles (required)
+- **RolePreviewRequestRequest**: `role` RoleEnum (required); `action` RoleChangeActionEnum
+- **RoleScopeChange**: `role` RoleEnum (required); `scopes` object (required); `added` boolean (required)
+- **Rotated**: `token` string (required); `webhooks` WebhookInfo (required)
 - **SavedView**: `id` integer (required, read-only); `owner` integer (required, read-only); `role` string; `list_key` string (required); `name` string (required); `filters` any; `columns` any; `sort` any; `created` date-time (required, read-only); `modified` date-time (required, read-only)
 - **SavedViewRequest**: `role` string; `list_key` string (required); `name` string (required); `filters` any; `columns` any; `sort` any
 - **Scope**: `id` integer (required, read-only); `kind` ScopeKindEnum (required); `value` string (required); `granted_by` integer (required, null, read-only); `created` date-time (required, read-only); `expires_at` date-time (null)
 - **ScopeAddRequest**: `kind` ScopeKindEnum (required); `value` string (required); `expires_at` date-time (null)
 - **ScopeKindEnum**: one of `subject`, `board_class`, `order_status`, `warehouse`, `school`, `ticket_queue`
+- **ScriptPageEnum**: one of `checkout`, `console`
+- **ScriptRow**: `id` integer (required, read-only); `page` ScriptPageEnum (required); `src` any; `sha256` string (required); `first_seen` date-time; `last_seen` date-time; `current` boolean (required, read-only)
+- **ScriptRun**: `page` ScriptPageEnum (required); `url` string (required); `at` date-time (required, null); `ok` boolean (required, null); `error` string (required); `added` integer (required); `removed` integer (required)
+- **Scripts**: `runs` [ScriptRun] (required); `scripts` [ScriptRow] (required)
+- **SecondFactors**: `authenticator_app` boolean (required); `passkey` boolean (required); `recovery_codes` boolean (required)
 - **SessionsEnded**: `sessions` integer (required); `tokens` integer (required)
-- **Setting**: `key` string (required); `label` string (required); `kind` any (required); `permission` string (required); `value` any (required); `environment` any (required); `source` SettingSourceEnum (required); `effective_from` date-time (required, null); `changed_by` integer (required, null); `reason` string (required); `scheduled` [object] (required)
+- **Setting**: `key` string (required); `label` string (required); `kind` any (required); `permission` string (required); `value` any (required); `environment` any (required); `source` SettingSourceEnum (required); `effective_from` date-time (required, null); `changed_by` integer (required, null); `reason` string (required); `scheduled` [object] (required); `group` string (required)
 - **SettingSourceEnum**: one of `environment`, `database`
+- **SeverityEnum**: one of `critical`, `high`, `moderate`, `low`, `unknown`
 - **ShipmentCharge**: `id` integer (required, read-only); `shipment` integer (required, null, read-only); `kind` ShipmentChargeKindEnum (required, read-only); `amount` decimal (required, read-only); `charged_weight_g` integer (required, null, read-only); `awb` string (required, read-only); `description` string (required, read-only); `statement_line_id` string (required, read-only); `charged_at` date-time (required, read-only)
 - **ShipmentChargeKindEnum**: one of `freight`, `freight_reversal`, `cod`, `cod_reversal`, `rto_freight`, `rto_freight_reversal`, `excess_weight`, `excess_weight_reversal`, `other`
 - **ShipmentEvent**: `source` ShipmentEventSourceEnum (required); `carrier_code` string; `carrier_label` string; `status` any (null); `occurred_at` date-time (required); `location` string; `activity` string
@@ -1604,19 +1823,43 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ShippingExceptionKindEnum**: one of `pickup_problem`, `ndr`, `rto`, `lost`, `partial`, `weight_dispute`, `cod_overdue`, `no_movement`
 - **ShippingExceptionStateEnum**: one of `open`, `resolved`, `dismissed`
 - **ShowEnum**: one of `email`, `phone`, `login_phone`, `parent_contact`, `parent_name`, `date_of_birth`
+- **SmsFigures**: `sent_today` integer (required); `capped_today` integer (required); `capped_7_days` integer (required); `delivery_7_days` object (required); `daily_cap` integer (required); `templates` integer (required)
 - **SnoozeRequest**: `until` date-time (required)
 - **StaffBreakGlass**: `reason_required` boolean (required); `reason` string (required, null); `ends_at` date-time (required)
 - **StaffCatalogue**: `permissions` [object] (required); `roles` [object] (required)
 - **StaffImpersonating**: `user_id` integer (required); `email` string (required); `until` date-time (required)
 - **StaffInvite**: `id` integer (required, read-only); `email` string (required, read-only); `role` string (required); `invited_by` integer (null); `created` date-time; `expires_at` date-time (required); `accepted_at` date-time (null); `accepted_by` integer (null); `revoked_at` date-time (null)
-- **StaffManifest**: `break_glass` StaffBreakGlass (required, null); `user` StaffUser (required); `roles` [object] (required); `permissions` [string] (required); `scopes` object (required); `role_scopes` object (required); `limits` object (required); `flags` object (required); `policies_due` [object] (required); `reauth_valid_until` date-time (required, null); `idle_timeout_s` integer (required); `absolute_expires_at` date-time (required); `impersonating` StaffImpersonating (required, null); `manifest_version` string (required)
-- **StaffSystem**: `health` any (required); `celery` any (required); `webhooks` any (required); `email` any (required); `sms` any (required); `backups` any (required); `maintenance` any (required); `audit` any (required)
+- **StaffManifest**: `break_glass` StaffBreakGlass (required, null); `user` StaffUser (required); `roles` [object] (required); `permissions` [string] (required); `scopes` object (required); `role_scopes` object (required); `limits` object (required); `flags` object (required); `policies_due` [object] (required); `reauth_valid_until` date-time (required, null); `idle_timeout_s` integer (required); `absolute_expires_at` date-time (required); `impersonating` StaffImpersonating (required, null); `manifest_version` string (required); `steps` [StepsEnum] (required); `offer_end_sessions` boolean (required)
+- **StaffSystem**: `health` any (required); `celery` any (required); `webhooks` any (required); `email` any (required); `sms` any (required); `backups` any (required); `maintenance` any (required); `audit` any (required); `status` [SystemStatus] (required)
 - **StaffUser**: `id` integer (required); `email` email (required); `full_name` string (required); `is_superuser` boolean (required)
+- **StepsEnum**: one of `passkey_required`
+- **StorageFigures**: `buckets` [Bucket] (required); `public_domain` string (required)
 - **SwitchChangeRequest**: `value` any (required, null); `reason` string (required); `effective_from` date-time
 - **SwitchRow**: `key` string (required); `value` any (required); `effective_from` date-time (required); `changed_by` integer (required, null); `reason` string (required); `created` date-time (required)
+- **Sync**: `status` any (required); `flows` [SyncFlow] (required); `dead_letters` [SyncDead] (required); `dead_count` integer (required); `inbound` SyncInbound (required); `reconciliations` [SyncRun] (required)
+- **SyncDead**: `id` integer (required); `event` string (required); `examleaf_ref` string (required); `aggregate_type` string (required); `aggregate_id` string (required); `attempts` integer (required); `last_error` string (required); `created` date-time (required)
+- **SyncFlow**: `flow` string (required); `switch` boolean (required); `states` object (required)
+- **SyncInbound**: `states` object (required); `last_received_at` date-time (required, null)
+- **SyncRun**: `id` integer (required); `date` date (required); `state` string (required); `differences_count` integer (required); `open_differences` integer (required); `finished_at` date-time (required, null); `error` string (required)
+- **SystemStatus**: `key` string (required); `state` SystemStatusStateEnum (required); `summary` string (required); `since` date-time (required, null)
+- **SystemStatusStateEnum**: one of `ok`, `warn`, `bad`, `off`
+- **Template**: `id` integer (required, read-only); `event` string (required); `channel` TemplateChannelEnum (required); `language` TemplateLanguageEnum; `text` string; `subject` string; `variables` [Variable]; `dlt_template_id` string; `pe_id` string; `header` string; `header_suffix` any; `msg91_id` string; `whatsapp_name` string; `category` TemplateCategoryEnum (required); `approval_state` TemplateApprovalEnum; `last_used_at` date-time (required, null, read-only); `self_certified_on` date (null); `notes` string; `created` date-time (required, read-only); `modified` date-time (required, read-only); `days_unused` integer (required, read-only); `warnings` [string] (required, read-only)
+- **TemplateApprovalEnum**: one of `draft`, `submitted`, `approved`, `rejected`, `paused`, `deactivated`
+- **TemplateCategoryEnum**: one of `transactional`, `service`, `promotional`, `utility`, `authentication`
+- **TemplateChannelEnum**: one of `email`, `sms`, `whatsapp`
+- **TemplateLanguageEnum**: one of `en`, `as`, `bn`
+- **TemplateRequest**: `event` string (required); `channel` TemplateChannelEnum (required); `language` TemplateLanguageEnum; `text` string; `subject` string; `variables` [VariableRequest]; `dlt_template_id` string; `pe_id` string; `header` string; `header_suffix` any; `msg91_id` string; `whatsapp_name` string; `category` TemplateCategoryEnum (required); `approval_state` TemplateApprovalEnum; `self_certified_on` date (null); `notes` string
+- **TestResult**: `ok` boolean (required, null); `message` string (required); `card` ConnectionCard (required)
+- **TestSendRequest**: `variables` object
+- **TestSent**: `sent` boolean (required); `to` string (required); `detail` string (required)
 - **TokenRequest**: `token` string (required)
+- **TypeEnum**: one of `numeric`, `alphanumeric`, `url`, `urlott`, `cbn`, `email`
 - **Unlocked**: `attempts_cleared` integer (required)
+- **Variable**: `name` string (required); `type` TypeEnum (required); `max_length` integer (required); `about` string
+- **VariableRequest**: `name` string (required); `type` TypeEnum (required); `max_length` integer (required); `about` string
 - **VerifyIdentityRequest**: `note` string (required)
+- **WebhookAuthEnum**: one of `token`, `signature`, `basic_and_sns`
+- **WebhookInfo**: `provider` ConnectionProviderEnum (required); `url` string (required); `auth` WebhookAuthEnum (required); `header` string (required); `token` string (required); `rotated_at` date-time (required, null); `previous_valid_until` date-time (required, null); `rotatable` boolean (required); `events_kept` boolean (required); `states` object (required); `last_event_at` date-time (required, null); `silence_hours` integer (required); `silent` boolean (required)
 <!-- /staff-api-reference -->
 
 ## Errors
@@ -1627,7 +1870,7 @@ DRF's standard format, always JSON:
 |---|---|
 | 400 | the fields' errors: `{"marks_obtained": ["Enter marks from 0 to 70."]}`; others (and the shop's rules) under `non_field_errors`; `{"detail": "Bad request."}` for a request Django refuses before the API sees it (a host name that is not served) |
 | 401 | `{"detail": "Authentication credentials were not provided."}`; a bad or expired token: `{"detail": "Given token not valid for any token type", "code": "token_not_valid", "messages": [...]}` (refresh it); `"code": "password_changed"` or `"user_inactive"` (the password was changed, the account closed: log in again); a staff session ended: `"code": "session_idle"` or `"session_expired"` (log in again) |
-| 403 | `{"detail": "Confirm your email address first."}` (or another reason; `"The shop opens soon."` while the shop is closed; `"Unlock this subject with the code printed in your book."` for a locked course; `"A parent or guardian has not confirmed this account yet."` for what the course saves while `consent_pending`); `"code": "reauthentication_required"` (re-authenticate, then send it again), `"mfa_setup_required"` (staff: set up a second factor), `"impersonating"` (a payment, password or account change while staff are logged in as the customer) |
+| 403 | `{"detail": "Confirm your email address first."}` (or another reason; `"The shop opens soon."` while the shop is closed; `"Unlock this subject with the code printed in your book."` for a locked course; `"A parent or guardian has not confirmed this account yet."` for what the course saves while `consent_pending`); `"code": "reauthentication_required"` (re-authenticate, then send it again), `"mfa_setup_required"` (staff: set up a second factor), `"passkey_required"` (staff of OWNER, ADMIN or FINANCE: add a passkey on the website's `/account/security/` first), `"impersonating"` (a payment, password or account change while staff are logged in as the customer) |
 | 404 | `{"detail": "No Paper matches the given query."}`, `{"detail": "Not found."}` (also anything under `staff/` on a host other than the admin host) |
 | 405, 406, 415 | `{"detail": "..."}` |
 | 413 | `{"detail": "The request body is too large."}` (over 1 MB, `DATA_UPLOAD_MAX_MEMORY_SIZE`) |
@@ -1656,10 +1899,13 @@ Counted in the cache (Redis in production), per client address for anonymous req
 | back-in-stock alerts (`POST products/<slug>/stock-alert/`), per client address, the website's included | 10 an hour | fixed |
 | quotation requests (`POST quotes/`), per client address, the website's included | 5 an hour | fixed |
 | the couriers' webhook (`POST /api/hooks/parcel-events/`), per client address | 300 a minute | `API_THROTTLE_PARCEL_EVENTS` |
+| MSG91's delivery reports (`POST /api/hooks/sms-events/`), per client address | 300 a minute | `API_THROTTLE_SMS_EVENTS` |
 | the staff API (`staff/…`), per member of staff or API key | 600 a minute | `STAFF_THROTTLE` |
 | customer searches (`GET staff/users/`) | 60 a minute | `STAFF_THROTTLE_SEARCH` |
 | reveals of a customer's details, and impersonation tokens (`staff/users/<id>/reveal/`, `…/impersonate/`) | 30 an hour | `STAFF_THROTTLE_REVEAL` |
-| audit-log exports (`staff/audit/export/`) | 10 an hour | `STAFF_THROTTLE_EXPORT` |
+| audit-log exports (`staff/audit/export/`, and `staff/jobs/` of an export) | 10 an hour | `STAFF_THROTTLE_EXPORT` |
+| bulk actions started (`staff/jobs/` of kind `bulk_action`) | 20 an hour | `STAFF_THROTTLE_BULK` |
+| a template sent to oneself (`staff/templates/<id>/test/`) | 10 an hour | `STAFF_THROTTLE_TEST_SEND` |
 | money actions and approvals (`staff/change-requests/` asked, approved, run; role grants, invitations, offboarding) | 120 an hour | `STAFF_THROTTLE_MONEY` |
 | staff invitations accepted (`staff/invites/accept/`), per client address | 10 an hour | `STAFF_THROTTLE_INVITE` |
 | a member of staff logged in as a customer, opened or ended (`account/impersonate/`), per client address | 20 an hour | `API_THROTTLE_IMPERSONATE` |
