@@ -6,6 +6,8 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
+from examleaf.celery import LONG_TASK, single_run
+
 from . import media
 from .models import Clip, Device
 
@@ -69,7 +71,8 @@ def reminder(learner, today):
     return "Today's revision is ready: a few minutes, a few more marks."
 
 
-@shared_task
+@shared_task(acks_late=False, **LONG_TASK)  # run again after a lost worker, it would remind everybody twice
+@single_run(LONG_TASK["time_limit"])
 def send_reminders():
     """Daily (celery beat): the revision reminder, through Firebase Cloud Messaging (HTTP v1, firebase-admin), to the
     devices of students who turned it on in the app, 500 at a time by id (never all of them in memory: L8). Nothing

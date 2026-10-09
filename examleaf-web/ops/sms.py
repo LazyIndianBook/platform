@@ -100,11 +100,15 @@ BACKENDS = {"console": console, "msg91": msg91}
 def send_sms(kind, phone, variables, log_id=None):
     """Send one SMS (its SmsLog row made by queue_sms), unless SMS_DAILY_CAP were sent since midnight (India) already:
     the last line, whatever the other limits let through (SMS cost money). A network failure is tried again 3 times; a
-    refusal is logged as an error (Sentry), not retried. Returns nothing: Celery logs return values."""
+    refusal is logged as an error (Sentry), not retried. Its row says whether it went: run again (the task given to
+    another worker after one died), an SMS sent or refused already is not sent again. Returns nothing: Celery logs
+    return values."""
     now = timezone.now()
     log = SmsLog.objects.filter(pk=log_id).first() or SmsLog(
         kind=kind, phone_hash=phone_hash(phone), phone_last4=phone[-4:]
     )
+    if log.status in (SmsLog.Status.SENT, SmsLog.Status.FAILED):
+        return
     if SmsLog.objects.filter(created__gte=midnight(now), status=SmsLog.Status.SENT).count() >= settings.SMS_DAILY_CAP:
         log.status = SmsLog.Status.CAPPED
         logger.error("SMS_DAILY_CAP reached: an SMS (%s) was not sent", kind)

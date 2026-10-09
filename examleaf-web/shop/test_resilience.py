@@ -1,16 +1,23 @@
 """When Razorpay hangs (RESILIENCE.md): the real SDK and requests against a local server that takes the connection and
-never answers, so that only the client's own timeout ends the wait. And a refund another worker is making."""
+never answers, so that only the client's own timeout ends the wait. A refund another worker is making. Periodic jobs
+that overlap, and the quotation PDF made by the worker."""
 
 import threading
 
 import pytest
 import razorpay
 import requests
+from django.core import mail
+from django.core.cache import cache
 from django.db import connection, connections, transaction
+from django.urls import reverse
+from kombu.exceptions import OperationalError
 
+from accounts.factories import UserFactory
 from shop import payments, tasks
 from shop.factories import KEY, SECRET, ProductFactory, make_order
-from shop.models import Order, Payment, Refund
+from shop.models import Order, Payment, QuoteRequest, Refund, StockAlert
+from shop.test_commerce import QUOTE
 
 REAL_REQUEST = requests.Session.request  # before shop/conftest.py's no_network fixture refuses every call
 postgres_only = pytest.mark.skipif(connection.vendor != "postgresql", reason="needs row locks (select_for_update)")
@@ -78,3 +85,54 @@ def test_a_refund_another_worker_is_making_is_left_to_it_at_once(rzp, within):
     assert not rzp.payment.refund.called  # nothing sent twice; the first worker finishes it
     tasks.refund_payment.run(refund.pk)  # once free, the row is the task's again
     assert Refund.objects.get(pk=refund.pk).status == Refund.Status.PROCESSED
+
+
+def test_two_overlapping_stock_alert_runs_email_each_address_once(monkeypatch, db):
+    product = ProductFactory(stock=3)
+    for email in ("ann@example.com", "bob@example.com"):
+        StockAlert.objects.create(product=product, email=email)
+    unlocked = tasks.send_stock_alerts.run.__wrapped__  # the job without its lock, as while Redis is down
+    sent = []
+
+    def queue(to, subject, body):
+        sent.append(to)
+        if len(sent) == 1:
+            unlocked()  # a second run starts while the first sends
+
+    monkeypatch.setattr(tasks, "queue_text_email", queue)
+    unlocked()
+    assert sorted(sent) == ["ann@example.com", "bob@example.com"] and not StockAlert.objects.exists()
+
+
+def test_a_periodic_job_that_finds_itself_running_does_nothing(commit, db):
+    UserFactory(is_superuser=True, email="sales@example.com")  # the SALES role's stand-in while it has no members
+    ProductFactory(stock=1)
+    lock = "single-run:shop.tasks.low_stock_report"
+    cache.add(lock, "running", 300)  # another run holds it
+    with commit():
+        tasks.low_stock_report()
+    assert not mail.outbox
+    cache.delete(lock)
+    with commit():
+        tasks.low_stock_report()
+    assert [m.subject for m in mail.outbox] == ["[ExamLeaf] Books running out"] and cache.get(lock) is None
+
+
+def test_the_quotation_pdf_is_made_by_the_worker_or_here_while_the_queue_is_down(client, monkeypatch, db):
+    ProductFactory(slug="physics")
+    quote = QuoteRequest.objects.create(**QUOTE, items=[{"product": "physics", "title": "Physics", "quantity": 40}])
+    client.force_login(UserFactory(is_staff=True, is_superuser=True))
+    queued = []
+    monkeypatch.setattr(tasks.make_quotation, "delay", queued.append)  # a broker: the worker makes it
+    action = {"action": "make_quotation", "_selected_action": [quote.pk]}
+    client.post(reverse("admin:shop_quoterequest_changelist"), action)
+    quote.refresh_from_db()
+    assert queued == [quote.pk] and not quote.quotation  # nothing rendered in the request
+
+    def broker_down(pk):
+        raise OperationalError("Connection refused")
+
+    monkeypatch.setattr(tasks.make_quotation, "delay", broker_down)
+    client.post(reverse("admin:shop_quoterequest_changelist"), action)
+    quote.refresh_from_db()
+    assert quote.quotation.name.startswith("quotations/QT-")

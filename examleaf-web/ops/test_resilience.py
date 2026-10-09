@@ -46,6 +46,13 @@ def test_a_silent_msg91_costs_its_timeout_and_the_sms_is_tried_again(settings, m
     assert not SmsLog.objects.filter(status=SmsLog.Status.SENT).exists()
 
 
+def test_an_sms_task_run_again_does_not_send_again(capsys):
+    log = SmsLog.objects.create(kind="otp", phone_hash=sms.phone_hash("+919864012345"), phone_last4="2345")
+    for _ in range(2):  # acks_late: the task given to a second worker after the first died with it
+        sms.send_sms.run("otp", "+919864012345", {"otp": "483920"}, log.pk)
+    assert capsys.readouterr().out.count("SMS otp to") == 1
+
+
 def test_the_provider_failing_too_does_not_fail_the_page(half_open_broker, monkeypatch, caplog):
     def provider_down(self, *args, **kwargs):
         raise ConnectionError("the email provider is down")

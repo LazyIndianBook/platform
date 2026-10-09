@@ -841,3 +841,20 @@ if DATABASES["default"]["ENGINE"] == "django.db.backends.postgresql":
     ]
     if _limits:
         _db_options["options"] = " ".join([_db_options.get("options", ""), *_limits]).strip()
+# Celery. A task is acknowledged once it has run, not when it starts (acks_late): a worker that dies with it (a pod
+# killed after its grace period, a lost node) leaves it to another, so every task must be safe to run twice
+# (RESILIENCE.md says why each one is). Redis gives an unacknowledged task to another worker after visibility_timeout:
+# two hours, longer than the longest task (a clip: an hour) and the longest retry countdown (an hour). A task whose
+# process dies under it (killed, out of memory) is not put back (reject_on_worker_lost off, Celery's default): it
+# would kill the next process too, and the next. Each process takes one task at a time (prefetch 1: a clip or an
+# invoice keeps no other task waiting behind it) and is replaced after CELERY_WORKER_MAX_TASKS_PER_CHILD tasks, or
+# once it holds CELERY_WORKER_MAX_MEMORY_PER_CHILD KiB (WeasyPrint grows by about 1 MB an invoice). A task has 270 s,
+# then 30 s more before its process is killed (CELERY_TASK_TIME_LIMIT); longer ones say so (RESILIENCE.md).
+CELERY_TASK_ACKS_LATE = True
+CELERY_TASK_REJECT_ON_WORKER_LOST = False
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_TASK_SOFT_TIME_LIMIT = 270
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_BROKER_TRANSPORT_OPTIONS["visibility_timeout"] = 7200
+CELERY_WORKER_MAX_TASKS_PER_CHILD = env.int("CELERY_WORKER_MAX_TASKS_PER_CHILD", default=200)
+CELERY_WORKER_MAX_MEMORY_PER_CHILD = env.int("CELERY_WORKER_MAX_MEMORY_PER_CHILD", default=300 * 1024)

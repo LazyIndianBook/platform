@@ -56,14 +56,17 @@ def tell(shipment, kind, now=None):
 
 
 def send_held(detail):
-    """In the morning: the SMS held through the night, if what it says is still true (out for delivery never is)."""
+    """In the morning: the SMS held through the night, if what it says is still true (out for delivery never is).
+    Taken off the parcel before it goes, by this run alone: a second run finds nothing to send."""
     kind = detail.sms_held
     still = {
         "shipped": detail.has_left,
         "delivered": detail.status == "delivered",
         "delivery_failed": detail.status == "delivery_failed",
     }
-    detail.change(sms_held="")
+    if not ShipmentDetail.objects.filter(pk=detail.pk, sms_held=kind).update(sms_held="", modified=timezone.now()):
+        return False  # another run took it
+    detail.sms_held = ""
     if still.get(kind) and sms_wanted(detail.shipment.order, kind):
         send_order_sms(detail.shipment.order, kind)
         return True

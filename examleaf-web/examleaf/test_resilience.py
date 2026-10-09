@@ -4,6 +4,7 @@ database's limits by role."""
 import importlib
 import json
 import sys
+from importlib.util import find_spec
 
 import pytest
 from anymail.backends.amazon_ses import _get_anymail_boto3_params
@@ -118,3 +119,29 @@ def test_firebase_calls_wait_twenty_seconds_not_two_minutes(settings):
         assert app.options.get("httpTimeout") == tasks.FCM_TIMEOUT == 20
     finally:
         firebase_admin.delete_app(app)
+
+
+def test_tasks_are_acknowledged_once_run_and_none_outlives_the_brokers_visibility_timeout():
+    from django.apps import apps
+
+    from examleaf.celery import app
+    from integrations.models import COOL_OFF
+
+    for config in apps.get_app_configs():  # every app's tasks.py, as the worker's autodiscovery imports them
+        if find_spec(f"{config.name}.tasks"):
+            importlib.import_module(f"{config.name}.tasks")
+    conf = app.conf
+    assert conf.task_acks_late and not conf.task_reject_on_worker_lost and conf.worker_prefetch_multiplier == 1
+    assert conf.broker_connection_retry_on_startup and conf.result_expires
+    assert conf.worker_max_tasks_per_child == 200 and conf.worker_max_memory_per_child == 300 * 1024
+    visibility = conf.broker_transport_options["visibility_timeout"]
+    ours = [task for name, task in app.tasks.items() if not name.startswith("celery.")]
+    assert len(ours) > 30
+    for task in ours:  # a task still running (or waiting for its retry) past it would be given to a second worker
+        soft, hard = task.soft_time_limit or conf.task_soft_time_limit, task.time_limit or conf.task_time_limit
+        assert soft < hard < visibility, task.name
+        backoff = getattr(task, "retry_backoff", False)
+        countdown = getattr(task, "retry_backoff_max", 600) if backoff else task.default_retry_delay
+        assert countdown < visibility, task.name
+    assert COOL_OFF.total_seconds() + 60 < visibility  # IntegrationTask's wait while a circuit is open
+    assert app.tasks["learn.tasks.send_reminders"].acks_late is False  # run twice, it would remind everybody twice

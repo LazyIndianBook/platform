@@ -4,9 +4,11 @@ with the error (RUNBOOK.md, "An insights job failed")."""
 
 from celery import shared_task
 
+from examleaf.celery import LONG_TASK, single_run
+
 from .jobs import codes, delivery, demand, fraud, learning, offers
 
-ONCE_MORE = {"autoretry_for": (Exception,), "max_retries": 1, "default_retry_delay": 600}
+ONCE_MORE = {"autoretry_for": (Exception,), "max_retries": 1, "default_retry_delay": 600, **LONG_TASK}
 
 
 @shared_task(**ONCE_MORE)
@@ -50,6 +52,7 @@ def offer_effectiveness():
 
 
 @shared_task(**ONCE_MORE)
+@single_run(LONG_TASK["time_limit"])
 def fraud_rules():
     """The fraud rules, then the night's email (fraud signals and print runs to act on)."""
     return fraud.fraud_rules()
