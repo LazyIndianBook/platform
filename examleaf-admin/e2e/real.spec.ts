@@ -6,7 +6,8 @@
 // the payload's hash), the audit trail shows both steps; invites a colleague (a privileged role waits for another
 // person: the owner may not approve their own); searches for the customer and reveals their address (audited);
 // acknowledges the data request; changes a setting with a reason; signs in to the website as the customer and ends
-// it. Every page passes axe at 1280 and 390 px and fits 320 px; the idle sign-out comes at the manifest's limit;
+// it; puts a legal hold on the customer, which the erasure's dry run then names. Every page passes axe at 1280 and
+// 390 px and fits 320 px; the idle sign-out comes at the manifest's limit;
 // nothing animates with reduced motion.
 import { type Browser, expect, type Page, test } from "@playwright/test";
 
@@ -248,6 +249,32 @@ test("OWNER: signs in to the website as the customer with the real token, and en
   await page.context().close();
 });
 
+test("OWNER: a legal hold on the customer, which the erasure's dry run names", async ({ browser }) => {
+  const page = await open(browser);
+  await signIn(page, owner, "/privacy/holds/", ownerCodes);
+  await page.getByLabel("The customer's number").fill(String(world.customer));
+  await page.getByLabel("Why").selectOption("dispute");
+  await page.getByLabel(/^Note/).fill(`A dispute over the refund (the console's tests, ${stamp}).`);
+  await page.getByRole("button", { name: "Add the hold" }).click();
+  await settle(page, toast(page, "Hold added"), owner, ownerCodes);
+  await expect(
+    page.getByRole("region", { name: "Legal holds, a table" }).getByText(`Customer #${world.customer}`).first(),
+  ).toBeVisible();
+
+  await page.goto(`/privacy/requests/${world.request}/`);
+  await page.getByRole("button", { name: "Run the dry run" }).click();
+  await expect(page.getByText("Kept: the account, under a legal hold (a dispute), until released")).toBeVisible();
+  await expect(
+    page.getByText(/^A legal hold \(a dispute, hold \d+\) keeps the account until it is released\.$/),
+  ).toBeVisible();
+
+  await page.goto(`/audit/?target_type=accounts.legalhold&action_prefix=legal_hold.`);
+  await expect(
+    page.getByRole("region", { name: "Audit trail, a table" }).getByText("legal_hold.created").first(),
+  ).toBeVisible();
+  await page.context().close();
+});
+
 for (const width of [1280, 390]) {
   test(`every page passes axe and fits the window at ${width} px (320 px too)`, async ({ browser }) => {
     const page = await open(browser, width);
@@ -270,6 +297,13 @@ for (const width of [1280, 390]) {
         "/privacy/incidents/",
         `/privacy/incidents/${world.incident}/`,
         "/privacy/processors/",
+        "/privacy/",
+        "/privacy/holds/",
+        "/privacy/retention/",
+        "/privacy/policies/",
+        "/privacy/policies/privacy/",
+        "/privacy/disclosures/",
+        "/privacy/dark-pattern-audit/",
         "/settings/",
         "/settings/api-keys/",
         "/system/",
