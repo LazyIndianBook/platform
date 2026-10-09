@@ -196,10 +196,13 @@ class FraudSignalAdmin(ReadOnlyAdmin):
 
     @admin.action(description="Acknowledge: looked at and handled", permissions=["acknowledge"])
     def acknowledge(self, request, queryset):
+        from .jobs.fraud import acknowledged
+
         signals, now = list(queryset.filter(acknowledged_at=None)), timezone.now()
         for signal in signals:
             signal.acknowledged_at, signal.acknowledged_by = now, request.user.pk
             signal.save(update_fields=["acknowledged_at", "acknowledged_by"])
+            acknowledged(signal)  # its inbox item done
             self.log_change(request, signal, "Acknowledged.")
         self.message_user(request, f"{len(signals)} signals acknowledged.")
 
