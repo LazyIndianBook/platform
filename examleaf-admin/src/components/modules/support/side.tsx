@@ -55,6 +55,14 @@ function CustomerSide({ ticket, manifest }: { ticket: TicketRecord; manifest: Ma
               <Link href={`/users/${account.id}/`}>{copy.support.openCustomer}</Link>
             </p>
           ) : null}
+          {has(manifest, P.accessView) ? (
+            <p className="m-0 text-sm">
+              {/* never prefetched: every opening of a learner's page is logged */}
+              <Link href={`/course/learners/${account.id}/`} prefetch={false}>
+                {copy.course.access.openLearner}
+              </Link>
+            </p>
+          ) : null}
         </div>
       ) : (
         <p className="m-0 text-[15px] text-muted-foreground">{copy.support.noAccount}</p>

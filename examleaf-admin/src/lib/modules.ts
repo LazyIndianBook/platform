@@ -139,6 +139,28 @@ export const P = {
   // what a ticket's actions also need beyond the Orders module's keys: the course's own permissions
   accessExtend: "learn.change_entitlement",
   bookCodesView: "learn.view_bookcode",
+  // the course (the backend's learn/staff_api.py): the outline, a revision's review and publish, the bin, the quiz
+  // bank, access, the print runs' book codes, a learner's page
+  chaptersView: "learn.view_chapter",
+  chaptersChange: "learn.change_chapter",
+  revisionsView: "learn.view_revision",
+  revisionsChange: "learn.change_revision",
+  coursePublish: "staff.publish_course",
+  clipsView: "learn.view_clip",
+  clipsChange: "learn.change_clip",
+  clipsDelete: "learn.delete_clip",
+  cardsView: "learn.view_flashcard",
+  cardsChange: "learn.change_flashcard",
+  cardsDelete: "learn.delete_flashcard",
+  itemsView: "learn.view_quizitem",
+  itemsChange: "learn.change_quizitem",
+  itemsDelete: "learn.delete_quizitem",
+  accessView: "learn.view_entitlement",
+  accessGrant: "learn.add_entitlement",
+  batchesView: "learn.view_codebatch",
+  batchesChange: "learn.change_codebatch",
+  codesMake: "staff.make_book_codes",
+  codesVoid: "staff.void_book_codes",
 } as const;
 
 /** Whether the manifest lists the permission (the shell's only use of permissions: what to draw). */
@@ -180,7 +202,12 @@ export const MODULES: readonly Module[] = [
   { key: "tax", href: "/tax/", group: "shop", any: [P.taxHsnView, P.taxDocumentsView] },
   { key: "marketing", href: "/marketing/", group: "shop", any: ["shop.view_coupon", "shop.view_offer"], soon: true },
   { key: "content", href: "/content/", group: "learning", any: [P.booksView, P.papersView, P.reportsView] },
-  { key: "course", href: "/course/", group: "learning", any: ["learn.view_chapter"], soon: true },
+  {
+    key: "course",
+    href: "/course/",
+    group: "learning",
+    any: [P.chaptersView, P.accessView, P.bookCodesView, P.batchesView],
+  },
   { key: "users", href: "/users/", group: "customers", any: [P.usersView] },
   { key: "partners", href: "/partners/", group: "customers", any: ["accounts.view_teacherprofile"], soon: true },
   { key: "cockpit", href: "/privacy/", group: "privacy", any: [P.requestsView] },
