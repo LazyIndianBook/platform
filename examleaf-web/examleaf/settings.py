@@ -616,3 +616,48 @@ CELERY_BEAT_SCHEDULE["integrations-retention"] = {
     "task": "integrations.tasks.purge_old_records",
     "schedule": crontab(hour=4, minute=45),
 }
+
+# Shipping (shipping/README.md; DEPLOYMENT.md "Shipping"): parcels booked with a courier through Shiprocket (an
+# integration account) or sent by hand. A parcel weighs its books plus SHIPPING_PACKING_GRAMS and is a flyer of
+# SHIPPING_PARCEL_CM (length, breadth, height) unless staff say otherwise. The quote waits SHIPPING_QUOTE_TIMEOUT
+# seconds and is kept 10 minutes; it ranks first the cheapest couriers rated SHIPPING_MIN_RATING or more that deliver
+# within SHIPPING_MAX_DAYS. India Post's Gyan Post is offered only with SHIPPING_GYAN_POST, once the postal division has
+# confirmed in writing that the books qualify. Parcels silent for 6 hours are read again every two hours; exceptions
+# open for staff after 5 days without a scan, at a failed delivery (24 hours to act), for a COD remittance 2 working
+# days late (expected 10 working days after delivery) and for a weight dispute (7 working days to contest). The
+# webhook takes API_THROTTLE_PARCEL_EVENTS per client address; the PIN survey reads SHIPPING_SURVEY_BATCH PINs a week.
+INSTALLED_APPS += ["shipping"]
+SHIPPING_PACKING_GRAMS = env.int("SHIPPING_PACKING_GRAMS", default=50)
+SHIPPING_PARCEL_CM = env.list("SHIPPING_PARCEL_CM", default=["25", "20", "3"])
+SHIPPING_QUOTE_TIMEOUT = env.float("SHIPPING_QUOTE_TIMEOUT", default=3)
+SHIPPING_QUOTE_CACHE_SECONDS = 600
+SHIPPING_MIN_RATING = env.float("SHIPPING_MIN_RATING", default=4)
+SHIPPING_MAX_DAYS = env.int("SHIPPING_MAX_DAYS", default=7)
+SHIPPING_GYAN_POST = env.bool("SHIPPING_GYAN_POST", default=False)
+SHIPPING_POLL_AFTER_HOURS = 6
+SHIPPING_NO_MOVEMENT_DAYS = 5
+SHIPPING_NDR_HOURS = 24
+SHIPPING_COD_REMITTANCE_DAYS = 10
+SHIPPING_COD_GRACE_DAYS = 2
+SHIPPING_DISPUTE_DAYS = 7
+SHIPPING_SURVEY_BATCH = env.int("SHIPPING_SURVEY_BATCH", default=500)
+REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["parcel_events"] = env(  # noqa: F405  the couriers' webhook, per address
+    "API_THROTTLE_PARCEL_EVENTS", default="300/minute"
+)
+CELERY_BEAT_SCHEDULE.update(
+    {
+        "shipping-poll-tracking": {"task": "shipping.tasks.poll_tracking", "schedule": crontab(minute=10, hour="*/2")},
+        "shipping-sync-statement": {"task": "shipping.tasks.sync_statement", "schedule": crontab(hour=5, minute=0)},
+        "shipping-check-cod": {"task": "shipping.tasks.check_cod_remittances", "schedule": crontab(hour=5, minute=15)},
+        "shipping-check-discrepancies": {
+            "task": "shipping.tasks.check_weight_discrepancies",
+            "schedule": crontab(hour=5, minute=30),
+        },
+        "shipping-renew-token": {"task": "shipping.tasks.renew_token", "schedule": crontab(hour=5, minute=45)},
+        "shipping-survey-pins": {
+            "task": "shipping.tasks.survey_pins",
+            "schedule": crontab(hour=6, minute=0, day_of_week="sun"),
+        },
+        "shipping-held-messages": {"task": "shipping.tasks.send_held_messages", "schedule": crontab(hour=8, minute=0)},
+    }
+)

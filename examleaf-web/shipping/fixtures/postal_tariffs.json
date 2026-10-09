@@ -1,0 +1,1179 @@
+[
+ {
+  "model": "shipping.postaltariff",
+  "pk": 1,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 50,
+   "price": "4.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 2,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 100,
+   "price": "7.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 3,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 150,
+   "price": "10.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 4,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 200,
+   "price": "13.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 5,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 250,
+   "price": "16.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 6,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 300,
+   "price": "19.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 7,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 350,
+   "price": "22.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 8,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 400,
+   "price": "25.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 9,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 450,
+   "price": "28.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 10,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 500,
+   "price": "31.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 11,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 550,
+   "price": "34.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 12,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 600,
+   "price": "37.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 13,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 650,
+   "price": "40.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 14,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 700,
+   "price": "43.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 15,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 750,
+   "price": "46.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 16,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 800,
+   "price": "49.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 17,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 850,
+   "price": "52.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 18,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 900,
+   "price": "55.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 19,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 950,
+   "price": "58.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 20,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 1000,
+   "price": "61.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 21,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 1050,
+   "price": "64.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 22,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 1100,
+   "price": "67.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 23,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 1150,
+   "price": "70.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 24,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 1200,
+   "price": "73.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 25,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 1250,
+   "price": "76.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 26,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 1300,
+   "price": "79.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 27,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 1350,
+   "price": "82.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 28,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 1400,
+   "price": "85.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 29,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 1450,
+   "price": "88.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 30,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 1500,
+   "price": "91.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 31,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 1550,
+   "price": "94.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 32,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 1600,
+   "price": "97.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 33,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 1650,
+   "price": "100.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 34,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 1700,
+   "price": "103.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 35,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 1750,
+   "price": "106.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 36,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 1800,
+   "price": "109.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 37,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 1850,
+   "price": "112.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 38,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 1900,
+   "price": "115.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 39,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 1950,
+   "price": "118.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 40,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 2000,
+   "price": "121.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 41,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 2050,
+   "price": "124.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 42,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 2100,
+   "price": "127.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 43,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 2150,
+   "price": "130.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 44,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 2200,
+   "price": "133.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 45,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 2250,
+   "price": "136.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 46,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 2300,
+   "price": "139.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 47,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 2350,
+   "price": "142.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 48,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 2400,
+   "price": "145.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 49,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 2450,
+   "price": "148.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 50,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 2500,
+   "price": "151.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 51,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 2550,
+   "price": "154.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 52,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 2600,
+   "price": "157.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 53,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 2650,
+   "price": "160.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 54,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 2700,
+   "price": "163.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 55,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 2750,
+   "price": "166.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 56,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 2800,
+   "price": "169.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 57,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 2850,
+   "price": "172.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 58,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 2900,
+   "price": "175.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 59,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 2950,
+   "price": "178.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 60,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 3000,
+   "price": "181.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 61,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 3050,
+   "price": "184.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 62,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 3100,
+   "price": "187.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 63,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 3150,
+   "price": "190.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 64,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 3200,
+   "price": "193.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 65,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 3250,
+   "price": "196.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 66,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 3300,
+   "price": "199.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 67,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 3350,
+   "price": "202.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 68,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 3400,
+   "price": "205.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 69,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 3450,
+   "price": "208.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 70,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 3500,
+   "price": "211.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 71,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 3550,
+   "price": "214.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 72,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 3600,
+   "price": "217.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 73,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 3650,
+   "price": "220.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 74,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 3700,
+   "price": "223.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 75,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 3750,
+   "price": "226.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 76,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 3800,
+   "price": "229.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 77,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 3850,
+   "price": "232.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 78,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 3900,
+   "price": "235.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 79,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 3950,
+   "price": "238.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 80,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 4000,
+   "price": "241.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 81,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 4050,
+   "price": "244.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 82,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 4100,
+   "price": "247.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 83,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 4150,
+   "price": "250.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 84,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 4200,
+   "price": "253.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 85,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 4250,
+   "price": "256.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 86,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 4300,
+   "price": "259.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 87,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 4350,
+   "price": "262.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 88,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 4400,
+   "price": "265.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 89,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 4450,
+   "price": "268.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 90,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 4500,
+   "price": "271.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 91,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 4550,
+   "price": "274.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 92,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 4600,
+   "price": "277.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 93,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 4650,
+   "price": "280.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 94,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 4700,
+   "price": "283.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 95,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 4750,
+   "price": "286.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 96,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 4800,
+   "price": "289.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 97,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 4850,
+   "price": "292.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 98,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 4900,
+   "price": "295.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 99,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 4950,
+   "price": "298.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 100,
+  "fields": {
+   "service": "book_post",
+   "weight_to_g": 5000,
+   "price": "301.00",
+   "effective_from": "2026-10-09",
+   "note": "Published tariff (Post Office Regulations, 2024), as read on 9 Oct 2026: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 101,
+  "fields": {
+   "service": "gyan_post",
+   "weight_to_g": 300,
+   "price": "20.00",
+   "effective_from": "2025-05-01",
+   "note": "Published tariff (G.S.R. 263(E), from 1 May 2025), before taxes: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 102,
+  "fields": {
+   "service": "gyan_post",
+   "weight_to_g": 500,
+   "price": "25.00",
+   "effective_from": "2025-05-01",
+   "note": "Published tariff (G.S.R. 263(E), from 1 May 2025), before taxes: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 103,
+  "fields": {
+   "service": "gyan_post",
+   "weight_to_g": 1000,
+   "price": "35.00",
+   "effective_from": "2025-05-01",
+   "note": "Published tariff (G.S.R. 263(E), from 1 May 2025), before taxes: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 104,
+  "fields": {
+   "service": "gyan_post",
+   "weight_to_g": 2000,
+   "price": "50.00",
+   "effective_from": "2025-05-01",
+   "note": "Published tariff (G.S.R. 263(E), from 1 May 2025), before taxes: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 105,
+  "fields": {
+   "service": "gyan_post",
+   "weight_to_g": 3000,
+   "price": "65.00",
+   "effective_from": "2025-05-01",
+   "note": "Published tariff (G.S.R. 263(E), from 1 May 2025), before taxes: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 106,
+  "fields": {
+   "service": "gyan_post",
+   "weight_to_g": 4000,
+   "price": "80.00",
+   "effective_from": "2025-05-01",
+   "note": "Published tariff (G.S.R. 263(E), from 1 May 2025), before taxes: verify at the counter."
+  }
+ },
+ {
+  "model": "shipping.postaltariff",
+  "pk": 107,
+  "fields": {
+   "service": "gyan_post",
+   "weight_to_g": 5000,
+   "price": "100.00",
+   "effective_from": "2025-05-01",
+   "note": "Published tariff (G.S.R. 263(E), from 1 May 2025), before taxes: verify at the counter."
+  }
+ }
+]

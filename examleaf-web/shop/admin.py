@@ -414,14 +414,38 @@ class PaymentInline(ReadOnlyInline):
     fields = readonly_fields = ["method", "amount", "status", "razorpay_order_id", "razorpay_payment_id", "error"]
 
 
+class ShipmentForm(forms.ModelForm):
+    """A parcel booked with a courier through the shipping app is the courier's (its AWB, its status): shown here,
+    never changed (nor checked: it has no tracking number while it is being booked)."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        detail = getattr(self.instance, "detail", None)
+        if detail is not None and detail.carrier != "manual":
+            for field in self.fields.values():
+                field.disabled, field.required = True, False
+
+
 class ShipmentInline(admin.TabularInline):  # created by "mark shipped"; editable to correct a tracking number
     model = Shipment
+    form = ShipmentForm
     extra = 0
     can_delete = False
-    fields = ["courier", "tracking_number", "tracking_url", "shipped_at", "delivered_at"]
+    fields = ["courier", "tracking_number", "tracking_url", "shipped_at", "delivered_at", "parcel_status"]
+    readonly_fields = ["parcel_status"]
 
     def has_add_permission(self, request, obj=None):
         return False
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("detail")
+
+    @admin.display(description="courier's status")
+    def parcel_status(self, shipment):
+        detail = getattr(shipment, "detail", None)
+        if detail is None or detail.carrier == "manual":
+            return "sent by hand"
+        return detail.get_status_display() or "being booked"
 
 
 class RefundInline(ReadOnlyInline):

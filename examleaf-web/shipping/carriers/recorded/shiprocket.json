@@ -1,0 +1,130 @@
+{
+  "_about": "Shiprocket API v1 answers as documented in its Postman collection (research-integrations.md source [1], read 9 Oct 2026) and the field lists of research section 1; the fake (fake.py) answers from these, putting in the ids, AWBs and statuses of what it was asked. Shapes marked _inferred are not in the research: verify them against a live answer (the smoke test prints them).",
+  "login": {
+    "id": 4567890,
+    "first_name": "API",
+    "last_name": "User",
+    "email": "api-user@example.com",
+    "company_id": 1234567,
+    "created_at": "2026-10-09 09:00:00",
+    "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.test-mode-token"
+  },
+  "serviceability": {
+    "company_auto_shipment_insurance_setting": false,
+    "currency": "INR",
+    "data": {
+      "available_courier_companies": [
+        {"courier_company_id": 43, "courier_name": "Delhivery Surface", "rate": 70.16, "freight_charge": 70.16, "cod_charges": 33.92, "rto_charges": 70.16, "coverage_charges": 0, "other_charges": 0, "etd": "Oct 15, 2026", "estimated_delivery_days": "6", "rating": 4.3, "delivery_performance": 4.2, "pickup_performance": 4.5, "rto_performance": 4.1, "tracking_performance": 4.4, "cod": 1, "is_surface": true, "min_weight": 0.5, "charge_weight": 0.5, "zone": "z_e", "cutoff_time": "14:00", "pickup_availability": "1", "call_before_delivery": "Available", "pod_available": "Instant", "odablock": false, "blocked": 0},
+        {"courier_company_id": 51, "courier_name": "Xpressbees Surface", "rate": 63.25, "freight_charge": 63.25, "cod_charges": 25.96, "rto_charges": 63.25, "coverage_charges": 0, "other_charges": 0, "etd": "Oct 16, 2026", "estimated_delivery_days": "7", "rating": 4.1, "delivery_performance": 4.0, "pickup_performance": 4.3, "rto_performance": 3.9, "tracking_performance": 4.2, "cod": 1, "is_surface": true, "min_weight": 0.5, "charge_weight": 0.5, "zone": "z_e", "cutoff_time": "13:00", "pickup_availability": "1", "call_before_delivery": "Not Available", "pod_available": "On Request", "odablock": false, "blocked": 0},
+        {"courier_company_id": 48, "courier_name": "Ekart Logistics Surface", "rate": 54.14, "freight_charge": 54.14, "cod_charges": 33.92, "rto_charges": 54.14, "coverage_charges": 0, "other_charges": 0, "etd": "Oct 17, 2026", "estimated_delivery_days": "8", "rating": 3.9, "delivery_performance": 3.8, "pickup_performance": 4.0, "rto_performance": 3.7, "tracking_performance": 4.0, "cod": 1, "is_surface": true, "min_weight": 0.5, "charge_weight": 0.5, "zone": "z_e", "cutoff_time": "12:00", "pickup_availability": "1", "call_before_delivery": "Not Available", "pod_available": "On Request", "odablock": false, "blocked": 0},
+        {"courier_company_id": 29, "courier_name": "Amazon Shipping 1kg", "rate": 56.99, "freight_charge": 56.99, "cod_charges": 27.14, "rto_charges": 56.99, "coverage_charges": 0, "other_charges": 0, "etd": "Oct 16, 2026", "estimated_delivery_days": "7", "rating": 4.4, "delivery_performance": 4.4, "pickup_performance": 4.2, "rto_performance": 4.3, "tracking_performance": 4.5, "cod": 0, "is_surface": true, "min_weight": 0.5, "charge_weight": 0.5, "zone": "z_e", "cutoff_time": "11:00", "pickup_availability": "1", "call_before_delivery": "Not Available", "pod_available": "Instant", "odablock": false, "blocked": 0},
+        {"courier_company_id": 1, "courier_name": "Blue Dart", "rate": 118.0, "freight_charge": 118.0, "cod_charges": 40.0, "rto_charges": 118.0, "coverage_charges": 0, "other_charges": 0, "etd": "Oct 12, 2026", "estimated_delivery_days": "3", "rating": 4.6, "delivery_performance": 4.7, "pickup_performance": 4.5, "rto_performance": 4.6, "tracking_performance": 4.8, "cod": 1, "is_surface": false, "min_weight": 0.5, "charge_weight": 0.5, "zone": "z_e", "cutoff_time": "15:00", "pickup_availability": "1", "call_before_delivery": "Available", "pod_available": "Instant", "odablock": false, "blocked": 0}
+      ],
+      "child_courier_id": null,
+      "is_recommendation_enabled": 1,
+      "recommended_by": {"id": 6, "title": "Recommendation By Shiprocket"},
+      "recommended_courier_company_id": 51,
+      "shiprocket_recommended_courier_id": 51
+    },
+    "dg_courier": 0,
+    "eligible_for_insurance": 0,
+    "is_allow_templatized_pricing": true,
+    "seller_address": [],
+    "status": 200
+  },
+  "not_serviceable": {"message": "Delivery postcode not serviceable", "status": 404},
+  "create_order": {
+    "order_id": 16161616,
+    "shipment_id": 15151515,
+    "status": "NEW",
+    "status_code": 1,
+    "onboarding_completed_now": 0,
+    "awb_code": null,
+    "courier_company_id": null,
+    "courier_name": null
+  },
+  "order_exists": {"message": "Order Id already exists", "status_code": 422},
+  "assign_awb": {
+    "awb_assign_status": 1,
+    "response": {
+      "data": {
+        "courier_company_id": 51,
+        "awb_code": "141123221084922",
+        "cod": 0,
+        "order_id": 16161616,
+        "shipment_id": 15151515,
+        "awb_code_status": 1,
+        "assigned_date_time": {"date": "2026-10-09 11:20:37.000000", "timezone_type": 3, "timezone": "Asia/Kolkata"},
+        "applied_weight": 0.5,
+        "company_id": 1234567,
+        "courier_name": "Xpressbees Surface",
+        "child_courier_name": null,
+        "pickup_scheduled_date": null,
+        "routing_code": "GAU/HUB",
+        "rto_routing_code": "GAU/RTO",
+        "invoice_no": "Retail00001"
+      }
+    }
+  },
+  "assign_awb_refused": {"awb_assign_status": 0, "response": {"data": {"awb_assign_error": "Selected courier is not serviceable for this shipment"}}},
+  "generate_label": {"label_created": 1, "label_url": "https://fake-shiprocket.test/labels/15151515.pdf", "response": "Label has been created and uploaded successfully!", "not_created": []},
+  "generate_pickup": {
+    "pickup_status": 1,
+    "response": {
+      "pickup_scheduled_date": "2026-10-10 09:43:26",
+      "pickup_token_number": "Reference No: 194_BIGFOOT 1966840_11122021",
+      "status": 3,
+      "others": "",
+      "pickup_generated_date": {"date": "2026-10-09 09:43:26.000000", "timezone_type": 3, "timezone": "Asia/Kolkata"},
+      "data": "Pickup is confirmed by Xpressbees Surface For AWB :- 141123221084922"
+    }
+  },
+  "generate_manifest": {"status": 1, "manifest_url": "https://fake-shiprocket.test/manifests/manifest.pdf"},
+  "cancel_awbs": {"message": "Bulk Shipment cancellation is in progress. Please wait for 24 hours."},
+  "track": {
+    "tracking_data": {
+      "track_status": 1,
+      "shipment_status": 7,
+      "shipment_track": [
+        {"id": 236612717, "awb_code": "141123221084922", "courier_company_id": 51, "shipment_id": 15151515, "order_id": 16161616, "pickup_date": "2026-10-10 12:23:01", "delivered_date": "2026-10-16 14:44:50", "weight": "0.50", "packages": 1, "current_status": "Delivered", "delivered_to": "Guwahati", "destination": "Guwahati", "consignee_name": "Rahul Das", "origin": "Guwahati", "courier_agent_details": null, "edd": null}
+      ],
+      "shipment_track_activities": [
+        {"date": "2026-10-16 14:44:50", "status": "DLVD", "activity": "Delivered", "location": "GUWAHATI_DLV (Assam)", "sr-status": "7", "sr-status-label": "DELIVERED"},
+        {"date": "2026-10-16 09:10:02", "status": "OFD", "activity": "Out for delivery", "location": "GUWAHATI_DLV (Assam)", "sr-status": "17", "sr-status-label": "OUT FOR DELIVERY"},
+        {"date": "2026-10-10 12:23:01", "status": "X-PPOM", "activity": "In Transit - Shipment picked up", "location": "GUWAHATI_HUB (Assam)", "sr-status": "42", "sr-status-label": "PICKED UP"}
+      ],
+      "track_url": "https://shiprocket.co//tracking/141123221084922",
+      "etd": "2026-10-16 23:59:59",
+      "qc_response": {"qc_image": "", "qc_failed_reason": ""}
+    }
+  },
+  "webhook": {
+    "awb": "19041424751540",
+    "courier_name": "Delhivery Surface",
+    "current_status": "IN TRANSIT",
+    "current_status_id": 20,
+    "shipment_status": "IN TRANSIT",
+    "shipment_status_id": 18,
+    "current_timestamp": "23 05 2023 11:43:52",
+    "order_id": "1373900_150876814",
+    "sr_order_id": 348456385,
+    "awb_assigned_date": "2023-05-19 11:59:16",
+    "pickup_scheduled_date": "2023-05-19 11:59:17",
+    "etd": "2023-05-23 15:40:19",
+    "scans": [
+      {"date": "2023-05-19 11:59:16", "status": "X-UCI", "activity": "Manifested - Manifest uploaded", "location": "Chomu_SamodRd_D (Rajasthan)", "sr-status": "5", "sr-status-label": "MANIFEST GENERATED"},
+      {"date": "2023-05-19 15:32:17", "status": "FMPUR-101", "activity": "Manifested - Pickup scheduled", "location": "Chomu_SamodRd_D (Rajasthan)", "sr-status": "NA", "sr-status-label": "NA"},
+      {"date": "2023-05-23 09:12:08", "status": "X-PPOM", "activity": "In Transit - Shipment picked up", "location": "Chomu_SamodRd_D (Rajasthan)", "sr-status": "42", "sr-status-label": "PICKED UP"}
+    ],
+    "is_return": 0,
+    "channel_id": 3422553,
+    "pod_status": "OTP Based Delivery",
+    "pod": "Not Available"
+  },
+  "ndr_action": {"status_code": 202, "message": "Action taken successfully"},
+  "wallet_balance": {"data": {"balance_amount": "1250.00", "blocked_amount": "0.00"}},
+  "statement_row": {"order_id": 16161616, "channel_order_id": "EL-2026-000123", "awb_code": "141123221084922", "applied_weight": "0.50", "charged_weight": "0.50", "billed_weight": "0.50", "charge": "63.25", "description": "Freight Charge", "debit_amount": "63.25", "credit_amount": "0.00", "balance_amount": "1186.75", "created_at": "2026-10-09 11:20:40"},
+  "discrepancy_row": {"_inferred": true, "id": 991, "order_id": 16161616, "channel_order_id": "EL-2026-000123", "awb_code": "141123221084922", "courier_name": "Xpressbees Surface", "entered_weight": "0.50", "charged_weight": "1.00", "discrepancy_amount": "48.88", "status": "Discrepancy Raised", "created_at": "2026-10-12 10:00:00"},
+  "order_show": {"data": {"id": 16161616, "channel_order_id": "EL-2026-000123", "status": "DELIVERED", "payment_method": "cod", "total": "638.00", "remittance_status": "", "remittance_date": "", "remittance_utr": "", "_inferred_remittance_amount": "remittance_amount"}},
+  "pickup_locations": {"data": {"shipping_address": [{"id": 3456789, "pickup_location": "Primary", "address": "House 1, Zoo Road", "address_2": "", "city": "Guwahati", "state": "Assam", "country": "India", "pin_code": "781024", "email": "orders@example.com", "phone": "9864000000", "name": "ExamLeaf", "status": 2}], "allow_more": "1"}}
+}
