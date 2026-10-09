@@ -65,27 +65,25 @@ operations; `DEPLOYMENT.md` the settings table (sections 21 to 24 are the new ap
 - **Backend fixes found on the way**: `/health/` no longer flaps (`examleaf/health.py`); the frontend's health probe
   sends the forwarded host (a 503 bug with DEBUG=0).
 
-## 4. In flight when the session ended (check these first)
+## 4. In flight when the session ended
 
-One agent worktree branch was still working when the session ended (the backend resilience branch landed too: `examleaf-web/RESILIENCE.md`, 36 new tests, late acknowledgement with a three-strikes rule, preload, timeouts, the hooks exempt from the https redirect; and the frontend resilience branch: `examleaf-frontend/RESILIENCE.md`, `examleaf-admin/RESILIENCE.md`, 199 and 76 unit tests; its one open console bug, prerendered pages without a CSP nonce, is fixed by `await connection()` in the console's root layout). Merge each with `git merge <branch>` (or
-`--ff-only` when it is rebased on the head), resolve any conflict by keeping both sides' additions (that was always the
-right answer in this session: settings blocks, changelog sections, README rows, `.env.example` blocks), run the suites,
-then delete the worktree (`git worktree remove .claude/worktrees/<name>`).
+Nothing: every agent branch was merged before the session ended. The last one, the console reconciliation
+(`worktree-agent-a7c56ccbd5413ea94`), landed with the frontend resilience behaviour carried into its rewritten files:
+generated types from the OpenAPI schema, every call mapped to the staff API as built, the mock regenerated, 87 console
+unit tests, 207 website unit tests, Playwright 6/6 in mock mode and 9/9 against a real seeded Django (a refund above the
+limit becoming a change request refused to its maker and approved by the owner, the audit trail, invites, a logged
+reveal, a data request, a setting, a website sign-in as the customer with a real token and its end, axe at two widths,
+the idle sign-out). Not verified end to end: the website's impersonation Playwright spec (the token is now bound to the
+panel session that asked for it, so a token made from `manage.py shell` may be refused) and the website band beyond its
+unit tests.
 
-| Branch (worktree under `.claude/worktrees/`) | Work | What to check |
-|---|---|---|
-| `worktree-agent-a7c56ccbd5413ea94` | console reconciliation, finished on bc88395: generated types from the OpenAPI schema, every call, field, filter and error code mapped to the staff API as built, the mock regenerated, 9 Playwright tests against a real seeded Django passed, the website's `/account/impersonate/` route and band; two console bugs fixed on the way. Its branch conflicts with the frontend resilience commits in six files (`staff.ts`, `job-progress`, `data-table`, `command-palette`, `impersonation-banner`, `person-menu`); the agent was merging the tip into it when the session ended | if the branch is already merged with the tip, fast-forward; otherwise `git merge design/answer-script` in that worktree and resolve by keeping the rewritten contract and carrying the resilience behaviour (10 s server deadline, 30 s browser timeout, `type="button"` defaults, busy state until a job ends, the log-out catch); then both apps' checks and the console's Playwright (mock and real) |
-
-If a branch has no new commits beyond the head, nothing is lost: redo the item from the plan's section 9.1 exit criteria.
-
-Merged branches whose worktrees can simply be removed: `agent-a009a5704becda5fc` (shipping), `agent-a16ce5a2c3a326b06`
-(backend reconciliation), `agent-a390e0b7103133571` (console shell), `agent-a7f1f0910b79f7cb6` (frontend resilience), `agent-a0f7774fe32d7eeb9` (backend resilience), `agent-a40021327d34afa3c` (erp),
-`agent-a4096b6004b90366f` (ERPNext app), `agent-a4fd8184097a1d590` (plan), `agent-aa3c9f6cbf68be366` (staff),
-`agent-aa730d1f1c1db6cea` (insights), `agent-ad642f6030a48fd85` (Kubernetes).
+All agent worktrees under `.claude/worktrees/` can be removed (`git worktree remove <path>`; their branches are merged):
+agent-a009a5704becda5fc, a0f7774fe32d7eeb9, a16ce5a2c3a326b06, a390e0b7103133571, a40021327d34afa3c, a4096b6004b90366f,
+a4fd8184097a1d590, a7c56ccbd5413ea94, a7f1f0910b79f7cb6, aa3c9f6cbf68be366, aa730d1f1c1db6cea, ad642f6030a48fd85.
 
 ## 5. What to do next, in order (the plan's section 9 has the detail)
 
-1. **Close Phase A**: merge section 4's branches; run every suite; fix the three staff tests' dependence on `DEBUG` if it
+1. **Close Phase A**: run every suite once more on the tip; fix the three staff tests' dependence on `DEBUG` if it
    reappears (`STAFF_TEST_MODE` defaults to off under tests); regenerate `openapi.json` and the console's types
    (`manage.py spectacular --file openapi.json`, then `npm run api:types` in `examleaf-admin`); run the console's
    Playwright against a seeded Django; push the branch and open a pull request against `main`.
