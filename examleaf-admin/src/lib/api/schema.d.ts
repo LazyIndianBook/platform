@@ -2832,7 +2832,7 @@ export interface paths {
          * @description The choices the module's forms offer, in one answer: kinds, packaging, tax treatments, subjects, books,
          *     product types, shelves, collections, the master's codes (for whoever reads it) and the states.
          */
-        get: operations["staff_catalogue_options_list"];
+        get: operations["staff_catalogue_options_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3235,7 +3235,7 @@ export interface paths {
          * @description The module's home: what waits (products the courier cannot be quoted for, GST disagreeing with the master, low
          *     and empty stock, back-in-stock requests, approvals waiting) and whether the prior-price rule is in force.
          */
-        get: operations["staff_catalogue_summary_list"];
+        get: operations["staff_catalogue_summary_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -9495,13 +9495,13 @@ export interface components {
             readonly kind: components["schemas"]["ProductKindEnum"];
             /** On sale */
             readonly is_active: boolean;
-            readonly subject: components["schemas"]["CatalogueSubject"];
+            readonly subject: components["schemas"]["CatalogueSubject"] | null;
             readonly book: components["schemas"]["CatalogueNamed"] | null;
             readonly isbn: string;
             readonly pages: number | null;
             /** @description Markdown. */
             readonly description: string;
-            readonly product_type: components["schemas"]["CatalogueTypeRef"];
+            readonly product_type: components["schemas"]["CatalogueTypeRef"] | null;
             readonly attributes: components["schemas"]["CatalogueAttribute"][];
             readonly categories: components["schemas"]["CatalogueNamed"][];
             readonly collections: components["schemas"]["CatalogueNamed"][];
@@ -9545,13 +9545,7 @@ export interface components {
             readonly width_cm: number | null;
             /** Height (cm) */
             readonly height_cm: number | null;
-            /**
-             * @description A flyer has the standard size (SHIPPING_PARCEL_CM); a box needs its dimensions. Empty: not said.
-             *
-             *     * `flyer` - a flyer (the courier's bag, of the standard size)
-             *     * `box` - a box (its length, width and height)
-             */
-            readonly packaging: components["schemas"]["PackagingEnum"];
+            readonly packaging: components["schemas"]["PackagingEnum"] | components["schemas"]["BlankEnum"];
             readonly courier_problem: string;
             readonly stock_info: components["schemas"]["CatalogueStock"];
             readonly cover: components["schemas"]["CataloguePicture"] | null;
@@ -23634,7 +23628,7 @@ export interface operations {
             };
         };
     };
-    staff_catalogue_options_list: {
+    staff_catalogue_options_retrieve: {
         parameters: {
             query?: never;
             header?: never;
@@ -23648,7 +23642,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CatalogueOptions"][];
+                    "application/json": components["schemas"]["CatalogueOptions"];
                 };
             };
         };
@@ -24312,7 +24306,7 @@ export interface operations {
             };
         };
     };
-    staff_catalogue_summary_list: {
+    staff_catalogue_summary_retrieve: {
         parameters: {
             query?: never;
             header?: never;
@@ -24326,7 +24320,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CatalogueSummary"][];
+                    "application/json": components["schemas"]["CatalogueSummary"];
                 };
             };
         };

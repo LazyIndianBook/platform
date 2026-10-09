@@ -8974,7 +8974,7 @@
         },
         "/api/v1/staff/catalogue/options/": {
             "get": {
-                "operationId": "staff_catalogue_options_list",
+                "operationId": "staff_catalogue_options_retrieve",
                 "description": "The choices the module's forms offer, in one answer: kinds, packaging, tax treatments, subjects, books,\nproduct types, shelves, collections, the master's codes (for whoever reads it) and the states.",
                 "tags": [
                     "catalogue (staff)"
@@ -8992,10 +8992,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "$ref": "#/components/schemas/CatalogueOptions"
-                                    }
+                                    "$ref": "#/components/schemas/CatalogueOptions"
                                 }
                             }
                         },
@@ -10302,7 +10299,7 @@
         },
         "/api/v1/staff/catalogue/summary/": {
             "get": {
-                "operationId": "staff_catalogue_summary_list",
+                "operationId": "staff_catalogue_summary_retrieve",
                 "description": "The module's home: what waits (products the courier cannot be quoted for, GST disagreeing with the master, low\nand empty stock, back-in-stock requests, approvals waiting) and whether the prior-price rule is in force.",
                 "tags": [
                     "catalogue (staff)"
@@ -10320,10 +10317,7 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "$ref": "#/components/schemas/CatalogueSummary"
-                                    }
+                                    "$ref": "#/components/schemas/CatalogueSummary"
                                 }
                             }
                         },
@@ -28680,6 +28674,7 @@
                                 "$ref": "#/components/schemas/CatalogueSubject"
                             }
                         ],
+                        "nullable": true,
                         "readOnly": true
                     },
                     "book": {
@@ -28711,6 +28706,7 @@
                                 "$ref": "#/components/schemas/CatalogueTypeRef"
                             }
                         ],
+                        "nullable": true,
                         "readOnly": true
                     },
                     "attributes": {
@@ -28832,13 +28828,15 @@
                         "title": "Height (cm)"
                     },
                     "packaging": {
-                        "allOf": [
+                        "readOnly": true,
+                        "oneOf": [
                             {
                                 "$ref": "#/components/schemas/PackagingEnum"
+                            },
+                            {
+                                "$ref": "#/components/schemas/BlankEnum"
                             }
-                        ],
-                        "readOnly": true,
-                        "description": "A flyer has the standard size (SHIPPING_PARCEL_CM); a box needs its dimensions. Empty: not said.\n\n* `flyer` - a flyer (the courier's bag, of the standard size)\n* `box` - a box (its length, width and height)"
+                        ]
                     },
                     "courier_problem": {
                         "type": "string",

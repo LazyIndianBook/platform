@@ -29,10 +29,11 @@ from django.core.files.storage import default_storage
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Max, Prefetch, Q
 from django.http import HttpResponse
+from django.urls import path
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema, extend_schema_field, inline_serializer
-from rest_framework import exceptions, mixins, pagination, serializers, status, viewsets
+from rest_framework import exceptions, generics, mixins, pagination, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
@@ -91,6 +92,16 @@ class CatalogueView(StaffView):
     def by(self):
         """Who acts: the member of staff (an API key's principal has no row)."""
         return self.request.user if getattr(self.request.user, "pk", None) else None
+
+
+def by_key(queryset, field, key):
+    """The record whose `field` is `key`, else (a number) whose id is: 404 otherwise."""
+    found = queryset.filter(**{field: key}).first()
+    if found is None and key.isdigit():
+        found = queryset.filter(pk=int(key)).first()
+    if found is None:
+        raise exceptions.NotFound()
+    return found
 
 
 def refused(message):
@@ -339,6 +350,9 @@ class CatalogueProductSerializer(serializers.ModelSerializer):
     images = serializers.SerializerMethodField()
     bundle_items = serializers.SerializerMethodField()
     barcode = serializers.SerializerMethodField(help_text="its ISBN is a valid EAN-13: barcode.svg draws it")
+    packaging = serializers.ChoiceField(  # "" for a course, or until staff choose (read-only fields lose allow_blank)
+        choices=Product.Packaging.choices, allow_blank=True, read_only=True
+    )
     waiting = serializers.SerializerMethodField(help_text="price changes waiting for approval")
     web_url = serializers.SerializerMethodField()
 
@@ -358,7 +372,9 @@ class CatalogueProductSerializer(serializers.ModelSerializer):
         return list(product.bundle_items.all())
 
     @extend_schema_field(
-        inline_serializer("CatalogueSubject", {"id": serializers.IntegerField(), "label": serializers.CharField()})
+        inline_serializer(
+            "CatalogueSubject", {"id": serializers.IntegerField(), "label": serializers.CharField()}, allow_null=True
+        )
     )
     def get_subject(self, product):
         subject = product.subject
@@ -369,7 +385,9 @@ class CatalogueProductSerializer(serializers.ModelSerializer):
         return {"slug": product.book.slug, "name": product.book.title} if product.book_id else None
 
     @extend_schema_field(
-        inline_serializer("CatalogueTypeRef", {"id": serializers.IntegerField(), "name": serializers.CharField()})
+        inline_serializer(
+            "CatalogueTypeRef", {"id": serializers.IntegerField(), "name": serializers.CharField()}, allow_null=True
+        )
     )
     def get_product_type(self, product):
         kind = product.product_type
@@ -807,6 +825,12 @@ class ProductViewSet(CatalogueView, viewsets.GenericViewSet):
             Prefetch("attribute_values", queryset=AttributeValue.objects.select_related("attribute")),
             "product_type__attributes",
         )
+
+    def get_object(self):
+        """By its slug; its id too (the audit trail and the approvals name a product by its id)."""
+        found = by_key(self.get_queryset(), "slug", str(self.kwargs["slug"]))
+        self.check_object_permissions(self.request, found)
+        return found
 
     def answer(self, product, code=status.HTTP_200_OK, **extra):
         product = self.get_queryset().get(pk=product.pk)
@@ -1451,10 +1475,7 @@ class CouponViewSet(CatalogueView, viewsets.GenericViewSet):
         )
 
     def get_object(self):
-        found = self.get_queryset().filter(code=str(self.kwargs["code"]).upper()).first()
-        if found is None:
-            raise exceptions.NotFound()
-        return found
+        return by_key(self.get_queryset(), "code", str(self.kwargs["code"]).upper())
 
     def answer(self, coupons, detail=False):
         uses = coupon_uses(coupons)
@@ -2252,18 +2273,15 @@ class CatalogueSummarySerializer(serializers.Serializer):
 TERMS_ACTIONS = ["product.price", "coupon.create", "coupon.change", "offer.create", "offer.change"]
 
 
-class SummaryView(CatalogueView, viewsets.GenericViewSet):
+class SummaryView(CatalogueView, generics.GenericAPIView):
     """The module's home: what waits (products the courier cannot be quoted for, GST disagreeing with the master, low
     and empty stock, back-in-stock requests, approvals waiting) and whether the prior-price rule is in force."""
 
-    queryset = Product.objects.none()  # (the schema's: it counts the catalogue)
     serializer_class = CatalogueSummarySerializer
     pagination_class = None
-    filter_backends = []
-    permissions = {"list": VIEW}
+    permissions = {"GET": VIEW}
 
-    @extend_schema(responses=CatalogueSummarySerializer)
-    def list(self, request, *args, **kwargs):
+    def get(self, request, *args, **kwargs):
         products = scoped(Product.objects.all(), request.user, VIEW)
         on_sale = products.filter(is_active=True)
         books = on_sale.filter(kind__in=catalogue.GOODS)
@@ -2307,18 +2325,15 @@ class CatalogueOptionsSerializer(serializers.Serializer):
     states = CatalogueOptionSerializer(many=True)
 
 
-class OptionsView(CatalogueView, viewsets.GenericViewSet):
+class OptionsView(CatalogueView, generics.GenericAPIView):
     """The choices the module's forms offer, in one answer: kinds, packaging, tax treatments, subjects, books,
     product types, shelves, collections, the master's codes (for whoever reads it) and the states."""
 
-    queryset = Product.objects.none()  # (the schema's)
     serializer_class = CatalogueOptionsSerializer
     pagination_class = None
-    filter_backends = []
-    permissions = {"list": VIEW}
+    permissions = {"GET": VIEW}
 
-    @extend_schema(responses=CatalogueOptionsSerializer)
-    def list(self, request, *args, **kwargs):
+    def get(self, request, *args, **kwargs):
         from content.models import Book, Subject
 
         option = lambda value, label: {"value": str(value), "label": str(label)}  # noqa: E731
@@ -2400,8 +2415,10 @@ router.register("shipping-rates", ShippingRateViewSet, basename="catalogue-shipp
 router.register("categories", CategoryViewSet, basename="catalogue-category")
 router.register("collections", CollectionViewSet, basename="catalogue-collection")
 router.register("product-types", ProductTypeViewSet, basename="catalogue-product-type")
-router.register("summary", SummaryView, basename="catalogue-summary")
-router.register("options", OptionsView, basename="catalogue-options")
 router.register("import", ImportView, basename="catalogue-import")
 
-urlpatterns = router.urls
+urlpatterns = [
+    path("summary/", SummaryView.as_view(), name="catalogue-summary"),  # one answer each, not lists
+    path("options/", OptionsView.as_view(), name="catalogue-options"),
+    *router.urls,
+]

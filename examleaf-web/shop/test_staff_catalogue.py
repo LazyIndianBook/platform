@@ -227,6 +227,15 @@ def test_stock_is_set_by_hand_with_a_reason_and_never_over_a_sale(sales, editor)
     assert product.stock == 40
 
 
+def test_a_product_and_a_coupon_open_by_their_id_too(sales, marketing):
+    from shop.factories import CouponFactory
+
+    physics, coupon = book(slug="physics"), CouponFactory(code="SAVE10")
+    assert sales.get(URL + f"products/{physics.pk}/").json()["slug"] == "physics"  # the audit trail's links
+    assert marketing.get(URL + f"coupons/{coupon.pk}/").json()["code"] == "SAVE10"
+    assert sales.get(URL + "products/999999/").status_code == 404
+
+
 def test_a_bundle_holds_books_and_takes_its_copies_from_them(sales, rzp):
     from shop import services
     from shop.factories import captured, make_order
