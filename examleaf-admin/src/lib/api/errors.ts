@@ -44,6 +44,17 @@ const CODES: Record<number, string> = {
   429: "throttled",
 };
 
+/** The ApiError of a call that got no answer (status 0). A change the browser stopped waiting for (client.ts's answer
+ *  timeout) may still have reached Django: it says so, and nothing sends it again by itself. */
+export function noAnswer(method: string, error: unknown): ApiError {
+  const timedOut = error instanceof DOMException && error.name === "TimeoutError";
+  return new ApiError(
+    0,
+    "unavailable",
+    timedOut && method !== "GET" ? copy.errors.unconfirmed : copy.errors.unavailable,
+  );
+}
+
 /** The digest of the error a page throws when Django cannot answer: error.tsx says "can't be reached" for it. */
 export const UNAVAILABLE_DIGEST = "examleaf-admin-unavailable";
 

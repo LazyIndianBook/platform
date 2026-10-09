@@ -3,6 +3,9 @@
 // then send once more, read the manifest again, a change request instead of the action).
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { copy } from "@/lib/copy";
+
+import { ANSWER_TIMEOUT_MS } from "./client";
 import { ApiError } from "./errors";
 import {
   cursorOf,
@@ -183,6 +186,53 @@ describe("in the browser, the answers that act", () => {
     fetchMock.mockRejectedValueOnce(new TypeError("Failed to fetch"));
     await expect(userAction("7101", "unlock")).rejects.toMatchObject({ status: 0, code: "unavailable" });
     expect(client.sessionEnded).not.toHaveBeenCalled();
+  });
+
+  it("no answer in 30 s gives up: a read can't be reached, a change may have gone through, neither is sent again", async () => {
+    const timeout = new AbortController(); // the call's AbortSignal.timeout(30 s), fired by hand
+    vi.spyOn(AbortSignal, "timeout").mockReturnValue(timeout.signal);
+    fetchMock.mockImplementation(
+      (request: Request) =>
+        new Promise((_, reject) => {
+          if (request.signal.aborted) reject(request.signal.reason);
+          request.signal.addEventListener("abort", () => reject(request.signal.reason));
+        }),
+    );
+    try {
+      const read = listInbox({ state: "open" });
+      const change = userAction("7101", "unlock");
+      timeout.abort(new DOMException("signal timed out", "TimeoutError"));
+      await expect(read).rejects.toMatchObject({ status: 0, message: copy.errors.unavailable });
+      await expect(change).rejects.toMatchObject({ status: 0, message: copy.errors.unconfirmed });
+      expect(AbortSignal.timeout).toHaveBeenCalledWith(ANSWER_TIMEOUT_MS);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(client.sessionEnded).not.toHaveBeenCalled();
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
+  it("an answer the timeout cut off is no answer, not a bad one: the change may have gone through", async () => {
+    const timeout = new AbortController();
+    vi.spyOn(AbortSignal, "timeout").mockReturnValue(timeout.signal);
+    // the headers came, the body stops halfway until the call's signal gives up
+    fetchMock.mockImplementation(async (request: Request) => {
+      const body = new ReadableStream({
+        start(stream) {
+          stream.enqueue(new TextEncoder().encode('{"id": '));
+          request.signal.addEventListener("abort", () => stream.error(request.signal.reason));
+        },
+      });
+      return new Response(body, { status: 201, headers: { "Content-Type": "application/json" } });
+    });
+    try {
+      const change = userAction("7101", "unlock");
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+      timeout.abort(new DOMException("signal timed out", "TimeoutError"));
+      await expect(change).rejects.toMatchObject({ status: 0, message: copy.errors.unconfirmed });
+    } finally {
+      vi.restoreAllMocks();
+    }
   });
 });
 

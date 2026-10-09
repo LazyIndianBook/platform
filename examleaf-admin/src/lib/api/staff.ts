@@ -13,8 +13,8 @@
 import type { Flow } from "@/lib/auth/headless";
 import { copy } from "@/lib/copy";
 
-import { endedBy, ensureCsrfCookie, manifestStale, reauth, readCookie, sessionEnded } from "./client";
-import { ApiError, changeRequestOf, toApiError } from "./errors";
+import { endedBy, ensureCsrfCookie, manifestStale, reauth, readCookie, sessionEnded, withTimeout } from "./client";
+import { ApiError, changeRequestOf, noAnswer, toApiError } from "./errors";
 
 /** Compiled in by next.config.ts: "1" only in `next dev` with STAFF_API_MOCK=1, "" in every build. */
 export const MOCK = process.env.STAFF_API_MOCK === "1";
@@ -68,17 +68,24 @@ async function call<T>(
     credentials: "same-origin",
     // the server's transport sends its own cache rule (no-store) to Next's fetch
     ...(transport ? {} : { cache: "no-store" as const }),
-    signal: options.signal,
+    // the browser gives up after 30 s (client.ts), the server at its request's deadline (server.ts)
+    signal: browser ? withTimeout(options.signal) : options.signal,
   });
 
   let response: Response;
   try {
     response = await (transport?.fetch ?? fetch)(request);
   } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") throw error;
-    throw new ApiError(0, "unavailable", copy.errors.unavailable);
+    throw unanswered(method, error);
   }
-  const json: unknown = response.status === 204 ? null : await response.json().catch(() => null);
+  // a body the timeout cut off is no answer either (a change may have gone through); one that is not JSON reads as none
+  const json: unknown =
+    response.status === 204
+      ? null
+      : await response.json().catch(() => {
+          if (request.signal.aborted) throw unanswered(method, request.signal.reason);
+          return null;
+        });
 
   // 202 with a change request: the action did not run, a second person is asked; for the console that is the same
   // outcome as a 403 approval_required, so both reach the caller as that error (and its changeRequestId)
@@ -105,6 +112,11 @@ async function call<T>(
     if (typeof console !== "undefined") console.error(`staff API ${method} ${path}: unexpected ${error.message}`);
     throw new ApiError(response.status, "bad_response", copy.errors.badResponse, {}, json);
   }
+}
+
+/** A call that ended without an answer: the page's own cancel stays an AbortError, anything else is status 0. */
+function unanswered(method: Method, error: unknown): Error {
+  return error instanceof DOMException && error.name === "AbortError" ? error : noAnswer(method, error);
 }
 
 /** A change request's own body ({"id", "payload_sha256", …}) names itself. */
