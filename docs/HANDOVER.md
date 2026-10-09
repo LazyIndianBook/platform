@@ -19,7 +19,7 @@ ended, what to do next and in which order, and which decisions only the business
 
 | Directory | What | How to verify |
 |---|---|---|
-| `examleaf-web/` | Django 6.1 backend: the platform (accounts, content, learn, practice, shop) plus the Phase A apps `staff/`, `shipping/`, `integrations/`, `insights/`, `erp/` | `cd examleaf-web && .venv/bin/python -m pytest -q -p no:cacheprovider` (last run on the merged head: 994 passed, 8 skipped on SQLite; 1,001 on PostgreSQL); `ruff check . && ruff format --check .`; `manage.py makemigrations --check` |
+| `examleaf-web/` | Django 6.1 backend: the platform (accounts, content, learn, practice, shop) plus the Phase A apps `staff/`, `shipping/`, `integrations/`, `insights/`, `erp/` | `cd examleaf-web && .venv/bin/python -m pytest -q -p no:cacheprovider` (last run on the merged head 7072547: 1,030 passed, 11 skipped on SQLite; the backend reconciliation's PostgreSQL run gave 1,001 before the resilience commits); `ruff check . && ruff format --check .`; `manage.py makemigrations --check` |
 | `examleaf-frontend/` | Next.js 16 public site | `npm run lint && npm run format:check && npm run typecheck && npm test` (180 unit tests); Playwright needs the seeded backend (`scripts/e2e-backend.sh`, README "Tests") |
 | `examleaf-admin/` | Next.js 16 staff console at `admin.<domain>` | same four commands (62 unit tests); `npx playwright test --project=chromium` in mock mode (`STAFF_API_MOCK=1`) or against a seeded Django (its README) |
 | `examleaf-erp/` | ERPNext v16: the private Frappe app `examleaf_erp`, the image build, the dev stack | `cd examleaf-erp/compose && ./dev.sh up && ./dev.sh new-site && ./dev.sh test` (56 tests; needs Docker and about 3 GB RAM); contract in `examleaf-erp/API.md` |
@@ -74,7 +74,7 @@ then delete the worktree (`git worktree remove .claude/worktrees/<name>`).
 
 | Branch (worktree under `.claude/worktrees/`) | Work | What to check |
 |---|---|---|
-| `worktree-agent-a7c56ccbd5413ea94` | console reconciliation: generated types from the OpenAPI schema, remap of permissions, paths, fields and error codes to the staff API as built, mock regenerated, Playwright against a real seeded Django; plus the public site's `/account/impersonate/` route and banner | both apps' checks; whether the real-backend e2e ran |
+| `worktree-agent-a7c56ccbd5413ea94` | console reconciliation, finished on bc88395: generated types from the OpenAPI schema, every call, field, filter and error code mapped to the staff API as built, the mock regenerated, 9 Playwright tests against a real seeded Django passed, the website's `/account/impersonate/` route and band; two console bugs fixed on the way. Its branch conflicts with the frontend resilience commits in six files (`staff.ts`, `job-progress`, `data-table`, `command-palette`, `impersonation-banner`, `person-menu`); the agent was merging the tip into it when the session ended | if the branch is already merged with the tip, fast-forward; otherwise `git merge design/answer-script` in that worktree and resolve by keeping the rewritten contract and carrying the resilience behaviour (10 s server deadline, 30 s browser timeout, `type="button"` defaults, busy state until a job ends, the log-out catch); then both apps' checks and the console's Playwright (mock and real) |
 
 If a branch has no new commits beyond the head, nothing is lost: redo the item from the plan's section 9.1 exit criteria.
 
