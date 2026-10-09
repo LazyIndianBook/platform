@@ -21,6 +21,15 @@ export type Revealed = { email: string; phone: string; login_phone: string; pare
 
 export type MockJob = S["Job"] & { _ticks: number; _rows: string[] };
 
+/** A legal page as the mock keeps it: its versions with their text (the API's answers are made from them). */
+export type MockPolicy = {
+  id: number;
+  slug: "privacy" | "terms" | "refunds" | "shipping" | "contact";
+  placeholders: number;
+  updated: string;
+  versions: (Omit<S["PolicyVersion"], "in_force" | "upcoming"> & { markdown: string })[];
+};
+
 export type World = {
   me: Me;
   seq: number;
@@ -47,6 +56,18 @@ export type World = {
   impersonation: { token: string; user: number; until: string } | null;
   breakGlassReason: string | null;
   policiesAcknowledged: string[];
+  // Legal and privacy
+  holds: S["LegalHold"][];
+  policies: MockPolicy[];
+  disclosures: S["DisclosureSetting"][];
+  disclosureHistory: S["DisclosureHistory"][];
+  darkPatternAudits: S["DarkPatternAudit"][];
+  /** A customer's nominee, its contact masked, and the contact itself (what reveal/ answers). */
+  nominees: Record<string, { nominee: S["PrivacyNominee"]; contact: string }>;
+  /** Account deletions waiting (accounts.DeletionRequest): a child's waits for the parent's confirmation. */
+  deletions: { id: number; user: number; requested_at: string; due_at: string; parent_confirmed_at: string | null }[];
+  retention: S["RetentionRule"][];
+  consentsByVersion: S["PrivacyConsentVersion"][];
 };
 
 /** The payload's SHA-256 over its canonical JSON (keys sorted, no spaces), as staff/approvals.py `digest` makes it. */
@@ -374,6 +395,32 @@ export function createWorld(me: Me, now = Date.now()): World {
       done_at: at(-30),
       done_by: me.id,
       created: at(-31),
+    }),
+    item({
+      id: 310,
+      kind: "processor_task",
+      title: "Erasure of account #7108 (DR-801): ask SES to purge the address from its suppression list (Amazon SES)",
+      target_type: "staff.processorrecord",
+      target_id: "42:erasure:15",
+      permission: "staff.manage_compliance",
+      assignee: null,
+      due_at: null,
+      snoozed_until: null,
+      done_at: null,
+      created: at(-6),
+    }),
+    item({
+      id: 311,
+      kind: "compliance",
+      title: "The dark-pattern self-audit and certificate for 2027: due by 1 January",
+      target_type: "staff.darkpatternaudit",
+      target_id: "year:2027",
+      permission: "staff.manage_compliance",
+      assignee: null,
+      due_at: null,
+      snoozed_until: null,
+      done_at: null,
+      created: at(-24),
     }),
   ];
 
@@ -1081,7 +1128,12 @@ export function createWorld(me: Me, now = Date.now()): World {
       board: "SEBA",
     }),
     customer(7106, "Sneha Borah", ["sn•••@example.com", ""], { status: "suspended", sessions: [] }),
-    customer(7107, "Pallavi Nath", ["pa•••@example.com", "••••••0640"], { under_18: true, consent: "verified" }),
+    customer(7107, "Pallavi Nath", ["pa•••@example.com", "••••••0640"], {
+      under_18: true,
+      consent: "verified",
+      status: "pending_deletion",
+      deletion_due_at: at(24 * 5),
+    }),
     customer(7108, "Hemanta Talukdar", ["he•••@example.com", "••••••4302"], {
       status: "pending_deletion",
       deletion_due_at: at(48),
@@ -1295,6 +1347,9 @@ export function createWorld(me: Me, now = Date.now()): World {
       contract_ends_on: null,
       active: true,
       notes: "",
+      holds_personal_data: true,
+      holds_marketing_data: true,
+      erasure_action: "ask SES to purge the address from its suppression list",
     },
     {
       id: 43,
@@ -1306,6 +1361,8 @@ export function createWorld(me: Me, now = Date.now()): World {
       contract_ends_on: "2027-01-31",
       active: true,
       notes: "",
+      holds_personal_data: true,
+      erasure_action: "ask MSG91 to delete the number's delivery reports",
     },
     {
       id: 44,
@@ -1317,7 +1374,389 @@ export function createWorld(me: Me, now = Date.now()): World {
       contract_ends_on: null,
       active: false,
       notes: "Until the move",
+      holds_personal_data: true,
+      erasure_action: "delete the answer-sheet photos kept in R2",
     },
+  ];
+
+  // Legal and privacy: holds in force (on an order, a data request), released, ended; the legal pages' versions (one
+  // waiting for its day); the disclosures from the environment and set here; a completed self-audit and next year's
+  // in progress; a nominee; a child's deletion waiting for the parent; the retention schedule; consents by version.
+  const holds: S["LegalHold"][] = [
+    {
+      id: 61,
+      user: null,
+      target_type: "shop.order",
+      target_id: "40",
+      target_label: "Order EL-2026-000098",
+      reason: "chargeback",
+      note: "Razorpay chargeback case 7781: the bank asked for the delivery proof.",
+      until: null,
+      active: true,
+      created: at(-24 * 6),
+      created_by: finance,
+      released_at: null,
+      released_by: null,
+      release_reason: "",
+    },
+    {
+      id: 62,
+      user: null,
+      target_type: "staff.datarequest",
+      target_id: "803",
+      target_label: "Data request DR-803",
+      reason: "claim",
+      note: "Counsel's notice of 2 October: keep the request and its answers.",
+      until: new Date(now + 90 * 86_400_000).toISOString().slice(0, 10),
+      active: true,
+      created: at(-24 * 5),
+      created_by: me.id,
+      released_at: null,
+      released_by: null,
+      release_reason: "",
+    },
+    {
+      id: 63,
+      user: 7105,
+      target_type: "",
+      target_id: "",
+      target_label: "Account #7105",
+      reason: "dispute",
+      note: "A dispute over a lost parcel.",
+      until: null,
+      active: false,
+      created: at(-24 * 40),
+      created_by: support,
+      released_at: at(-24 * 12),
+      released_by: me.id,
+      release_reason: "The courier paid the claim; the dispute is settled.",
+    },
+    {
+      id: 64,
+      user: null,
+      target_type: "shop.refund",
+      target_id: "31",
+      target_label: "Refund #31",
+      reason: "investigation",
+      note: "The bank's query about the refund; answered.",
+      until: new Date(now - 3 * 86_400_000).toISOString().slice(0, 10),
+      active: false,
+      created: at(-24 * 30),
+      created_by: finance,
+      released_at: null,
+      released_by: null,
+      release_reason: "",
+    },
+  ];
+
+  const day = (offsetDays: number) => new Date(now + offsetDays * 86_400_000).toISOString().slice(0, 10);
+  const PRIVACY_TEXT = [
+    "# Privacy policy",
+    "",
+    "ExamLeaf keeps the personal data you give us to run your account and to send your books.",
+    "",
+    "## What we keep",
+    "",
+    "Your name, your email address and your mobile number.",
+    "Your marks, so that you can see your progress.",
+    "",
+    "## Your rights",
+    "",
+    "You may ask for a copy of your data, its correction or its erasure.",
+  ];
+  const privacyText = (lines: string[]) => lines.join("\n");
+  const policies: MockPolicy[] = [
+    {
+      id: 1,
+      slug: "privacy",
+      placeholders: 0,
+      updated: at(-24 * 8),
+      versions: [
+        {
+          number: 1,
+          version: "2026-06-01",
+          title: "Privacy policy",
+          summary: "",
+          effective_from: day(-130),
+          published_at: null,
+          published_by: null,
+          markdown: privacyText(PRIVACY_TEXT.slice(0, 8)),
+        },
+        {
+          number: 2,
+          version: "2026-10-01",
+          title: "Privacy policy",
+          summary: "Adds the rights to correction and erasure, and how to ask for them.",
+          effective_from: day(-8),
+          published_at: at(-24 * 8),
+          published_by: me.id,
+          markdown: privacyText(PRIVACY_TEXT),
+        },
+        {
+          number: 3,
+          version: "3",
+          title: "Privacy policy",
+          summary: "Names the Grievance Officer and the processors who handle the data.",
+          effective_from: day(23),
+          published_at: at(-20),
+          published_by: me.id,
+          markdown: privacyText([
+            ...PRIVACY_TEXT,
+            "",
+            "## Who handles it for us",
+            "",
+            "Razorpay for payments, Amazon SES for email, MSG91 for SMS.",
+          ]),
+        },
+      ],
+    },
+    ...(
+      [
+        ["terms", "Terms and conditions", 2],
+        ["refunds", "Refunds and cancellations", 0],
+        ["shipping", "Shipping and delivery", 0],
+        ["contact", "Contact us", 1],
+      ] as const
+    ).map(([slug, title, placeholders], index) => ({
+      id: index + 2,
+      slug,
+      placeholders,
+      updated: at(-24 * 30),
+      versions: [
+        {
+          number: 1,
+          version: "2026-06-01",
+          title,
+          summary: "",
+          effective_from: day(-130),
+          published_at: null,
+          published_by: null,
+          markdown: `# ${title}\n\nThe text of the page.${placeholders ? "\n\n[the registered address]" : ""}`,
+        },
+      ],
+    })),
+  ];
+
+  const disclosure = (
+    key: string,
+    label: string,
+    value: unknown,
+    row: Partial<S["DisclosureSetting"]> = {},
+  ): S["DisclosureSetting"] => ({
+    key,
+    label,
+    kind: "str",
+    max_length: 300,
+    public: true,
+    value,
+    environment: value,
+    source: "environment",
+    effective_from: null,
+    changed_by: null,
+    reason: "",
+    ...row,
+  });
+  const disclosures: S["DisclosureSetting"][] = [
+    disclosure("DISCLOSURE_LEGAL_NAME", "The legal name", "ExamLeaf Test Publishers"),
+    disclosure(
+      "DISCLOSURE_REGISTERED_ADDRESS",
+      "The registered office's address",
+      "1 Test Lane, Guwahati, Assam 781001",
+    ),
+    disclosure("DISCLOSURE_OPERATING_ADDRESS", "The address it works from, when not the registered one", ""),
+    disclosure("DISCLOSURE_CARE_PHONE", "Customer care's phone number", "+91 361 400 0000", {
+      environment: "",
+      source: "database",
+      effective_from: at(-24 * 3),
+      changed_by: me.id,
+      reason: "The new care line from October.",
+    }),
+    disclosure("DISCLOSURE_CARE_EMAIL", "Customer care's email address", "care@examleaf.example"),
+    disclosure("DISCLOSURE_CARE_HOURS", "Customer care's hours", "Monday to Saturday, 10:00 to 18:00", {
+      environment: "",
+      source: "database",
+      effective_from: at(-24 * 3),
+      changed_by: me.id,
+      reason: "The new care line from October.",
+    }),
+    disclosure("DISCLOSURE_GRIEVANCE_OFFICER", "The Grievance Officer's name", ""),
+    disclosure("DISCLOSURE_GRIEVANCE_DESIGNATION", "The Grievance Officer's designation", ""),
+    disclosure("DISCLOSURE_GRIEVANCE_CONTACT", "The Grievance Officer's email address and phone number", ""),
+    disclosure("DISCLOSURE_NODAL_CONTACT", "The nodal contact person resident in India: name and contact", ""),
+    disclosure("DISCLOSURE_RETURNS_PAGE", "The page of the return and refund terms", "refunds", {
+      kind: ["refunds", "shipping", "terms"],
+    }),
+    disclosure(
+      "DISCLOSURE_RIGHTS_TEXT",
+      "How to make a request about one's personal data, and what to give with it (published)",
+      "",
+      { max_length: 2000 },
+    ),
+    disclosure(
+      "DATA_PROTECTION_OFFICER",
+      "The contact person for personal data, quoted in every answer to a data request",
+      "privacy@examleaf.example",
+    ),
+    disclosure(
+      "CERT_IN_POINT_OF_CONTACT",
+      "CERT-In's point of contact (in the incident alerts; never on the website)",
+      "security@examleaf.example",
+      { public: false },
+    ),
+    disclosure("NCH_STATUS", "The National Consumer Helpline's convergence programme", "applied", {
+      kind: ["not_joined", "applied", "member"],
+      environment: "not_joined",
+      source: "database",
+      effective_from: at(-24 * 20),
+      changed_by: me.id,
+      reason: "Applied on the NCH portal (reference NCH-CP-2026-118).",
+    }),
+    disclosure("NCH_SINCE", "Applied or joined on (YYYY-MM-DD)", day(-20), {
+      environment: "",
+      source: "database",
+      effective_from: at(-24 * 20),
+      changed_by: me.id,
+      reason: "Applied on the NCH portal (reference NCH-CP-2026-118).",
+    }),
+  ];
+  const disclosureHistory: S["DisclosureHistory"][] = disclosures
+    .filter((row) => row.source === "database")
+    .map((row) => ({
+      key: row.key,
+      value: row.value,
+      effective_from: row.effective_from ?? at(0),
+      changed_by: row.changed_by,
+      reason: row.reason,
+      created: row.effective_from ?? at(0),
+    }))
+    .sort((a, b) => Date.parse(b.created) - Date.parse(a.created));
+
+  const PATTERNS: [S["AuditRow"]["pattern"], string][] = [
+    ["false_urgency", "False urgency"],
+    ["basket_sneaking", "Basket sneaking"],
+    ["confirm_shaming", "Confirm shaming"],
+    ["forced_action", "Forced action"],
+    ["subscription_trap", "Subscription trap"],
+    ["interface_interference", "Interface interference"],
+    ["bait_and_switch", "Bait and switch"],
+    ["drip_pricing", "Drip pricing"],
+    ["disguised_advertisement", "Disguised advertisement"],
+    ["nagging", "Nagging"],
+    ["trick_question", "Trick question"],
+    ["saas_billing", "SaaS billing"],
+    ["rogue_malware", "Rogue malware"],
+  ];
+  const auditRows = (answered: number): S["AuditRow"][] =>
+    PATTERNS.map(([pattern, label], index) => ({
+      pattern,
+      label,
+      finding: index < answered ? "Checked on the shop, the cart and the checkout: none found." : "",
+      fix: index < answered ? "Nothing to fix." : "",
+    }));
+  const darkPatternAudits: S["DarkPatternAudit"][] = [
+    {
+      id: 71,
+      year: 2027,
+      rows: auditRows(5),
+      certificate_text: "",
+      effective_from: null,
+      completed_at: null,
+      completed_by: null,
+      created: at(-24 * 2),
+      created_by: me.id,
+      has_file: false,
+    },
+    {
+      id: 70,
+      year: 2026,
+      rows: auditRows(13),
+      certificate_text:
+        "We have audited the platform for the 13 dark patterns the guidelines of 2023 name and found none in use.",
+      effective_from: day(-30),
+      completed_at: at(-24 * 31),
+      completed_by: me.id,
+      created: at(-24 * 45),
+      created_by: me.id,
+      has_file: true,
+    },
+  ];
+
+  const nominees: World["nominees"] = {
+    "7102": {
+      nominee: {
+        name: "Ranjita Deka",
+        contact: "ra•••@example.com",
+        relation: "Spouse",
+        verified_at: null,
+        created: at(-24 * 60),
+        updated: at(-24 * 60),
+      },
+      contact: "ranjita.deka@example.com",
+    },
+  };
+  const deletions: World["deletions"] = [
+    { id: 16, user: 7107, requested_at: at(-24 * 2), due_at: at(24 * 5), parent_confirmed_at: null },
+  ];
+
+  const retention: S["RetentionRule"][] = [
+    {
+      key: "books",
+      records: "Books of account: invoices, credit notes, and the orders and payments behind them",
+      minimum:
+        "8 financial years after the year's, or 72 months after the due date of the year's annual return, whichever is later",
+      minimum_days: null,
+      source: "Companies Act 2013 s.128(5); CGST Act 2017 s.36",
+      changes_on: null,
+      next_minimum: null,
+      keep: "Until then; then the customer's details leave the order (its number and totals stay) and the documents' PDFs are deleted. A legal hold keeps an order as it is.",
+      keep_days: null,
+      trim_days: null,
+      enforced_by: "ops.tasks.purge_expired, from the books' date (books_until)",
+    },
+    {
+      key: "security_logs",
+      records:
+        "Security logs: every request's line (route, status, time, account number), staff sign-ins, the web server's access log",
+      minimum: "180 days",
+      minimum_days: 180,
+      source: "CERT-In Directions of 28 April 2022, (iv); DPDP Rules r.6(1)(e) from 13 May 2027",
+      changes_on: "2027-05-13",
+      next_minimum: "one year",
+      keep: "Docker's logs on the server (50 MB × 10 files a service) and their copy off the server",
+      keep_days: null,
+      trim_days: null,
+      enforced_by: "the server's log rotation and the copy off the server (DEPLOYMENT.md section 10)",
+    },
+    {
+      key: "sms_log",
+      records: "The SMS log: kind, status, time, the number's keyed hash and last four digits, MSG91's request id",
+      minimum: "180 days",
+      minimum_days: 180,
+      source: "CERT-In Directions of 28 April 2022, (iv); DPDP Rules r.8(3) from 13 May 2027",
+      changes_on: "2027-05-13",
+      next_minimum: "one year",
+      keep: "A year; the last four digits blanked after 90 days (the log keeps no message text). An erasure keeps the rows without the account.",
+      keep_days: 365,
+      trim_days: 90,
+      enforced_by: "ops.tasks: the nightly trim and purge",
+    },
+    {
+      key: "webhook_events",
+      records: "Razorpay's webhook records: their id and digest, against a replay",
+      minimum: "none: the payment's own record is a book of account",
+      minimum_days: null,
+      source: "The replay window (shop.payments.WEBHOOK_MAX_AGE)",
+      changes_on: null,
+      next_minimum: null,
+      keep: "7 days",
+      keep_days: 7,
+      trim_days: null,
+      enforced_by: "ops.tasks: the nightly trim and purge",
+    },
+  ];
+  const consentsByVersion: S["PrivacyConsentVersion"][] = [
+    { version: "2026-10-01", number: 2, in_force: true, given: 412, withdrawn: 3 },
+    { version: "2026-06-01", number: 1, in_force: false, given: 1874, withdrawn: 21 },
   ];
 
   const system = {
@@ -1368,5 +1807,14 @@ export function createWorld(me: Me, now = Date.now()): World {
     impersonation: null,
     breakGlassReason: null,
     policiesAcknowledged: [],
+    holds,
+    policies,
+    disclosures,
+    disclosureHistory,
+    darkPatternAudits,
+    nominees,
+    deletions,
+    retention,
+    consentsByVersion,
   };
 }

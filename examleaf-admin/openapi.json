@@ -2048,7 +2048,25 @@
                                             "maintenance": {
                                                 "on": false,
                                                 "banner": null
-                                            }
+                                            },
+                                            "disclosures": {
+                                                "legal_name": null,
+                                                "registered_address": null,
+                                                "operating_address": null,
+                                                "care_phone": null,
+                                                "care_email": null,
+                                                "care_hours": null,
+                                                "grievance_officer": null,
+                                                "grievance_designation": null,
+                                                "grievance_contact": null,
+                                                "nodal_contact": null,
+                                                "returns_page": null,
+                                                "dpdp_contact": null,
+                                                "rights_text": null,
+                                                "nch_status": null,
+                                                "nch_since": null
+                                            },
+                                            "dark_pattern_certificate": null
                                         }
                                     }
                                 }
@@ -3486,6 +3504,55 @@
                 }
             }
         },
+        "/api/v1/me/consent/withdraw/": {
+            "post": {
+                "operationId": "me_consent_withdraw_create",
+                "description": "Withdraw a marketing consent (one channel, or every one): recorded in the consent ledger (once: a second\nwithdrawal answers the first), and each processor that holds marketing data is told to stop (an inbox task).",
+                "tags": [
+                    "account"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/WithdrawRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConsentWithdrawn"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ConsentWithdrawn"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
         "/api/v1/me/deletion/": {
             "post": {
                 "operationId": "me_deletion_create",
@@ -3650,6 +3717,102 @@
                             }
                         },
                         "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/me/nominee/": {
+            "get": {
+                "operationId": "me_nominee_retrieve",
+                "description": "My nominee: GET it (404 while none), PUT it (made or changed; a nomination proved at a claim is not changed\nhere), DELETE it (withdrawn).",
+                "tags": [
+                    "account"
+                ],
+                "security": [
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Nominee"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "put": {
+                "operationId": "me_nominee_update",
+                "description": "My nominee: GET it (404 while none), PUT it (made or changed; a nomination proved at a claim is not changed\nhere), DELETE it (withdrawn).",
+                "tags": [
+                    "account"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/NomineeRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Nominee"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Nominee"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "me_nominee_destroy",
+                "description": "My nominee: GET it (404 while none), PUT it (made or changed; a nomination proved at a claim is not changed\nhere), DELETE it (withdrawn).",
+                "tags": [
+                    "account"
+                ],
+                "security": [
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No response body"
                     }
                 }
             }
@@ -4624,6 +4787,61 @@
                 }
             }
         },
+        "/api/v1/pages/{slug}/versions/": {
+            "get": {
+                "operationId": "pages_versions_list",
+                "description": "A legal page's versions, newest first (the one waiting for its day first of all): its number, the day it is\nin force from and what it changed. Public, cacheable for 15 minutes.",
+                "parameters": [
+                    {
+                        "name": "ordering",
+                        "required": false,
+                        "in": "query",
+                        "description": "Which field to use when ordering the results.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "search",
+                        "required": false,
+                        "in": "query",
+                        "description": "A search term.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "path",
+                        "name": "slug",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "site"
+                ],
+                "security": [
+                    {}
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/PageVersion"
+                                    }
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
         "/api/v1/papers/": {
             "get": {
                 "operationId": "papers_list",
@@ -4881,6 +5099,15 @@
                 "tags": [
                     "parent-consent"
                 ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ParentLinkConfirmRequest"
+                            }
+                        }
+                    }
+                },
                 "security": [
                     {}
                 ],
@@ -9147,6 +9374,7 @@
                             "type": "string",
                             "enum": [
                                 "approval",
+                                "compliance",
                                 "data_request",
                                 "dead_letter",
                                 "deletion_request",
@@ -9155,13 +9383,14 @@
                                 "failed_webhook",
                                 "incident",
                                 "integration_down",
+                                "processor_task",
                                 "reconciliation",
                                 "shipping_exception",
                                 "sync_failed",
                                 "teacher_request"
                             ]
                         },
-                        "description": "* `approval` - approval\n* `teacher_request` - teacher access request\n* `deletion_request` - account deletion\n* `data_request` - data request\n* `incident` - incident\n* `failed_job` - failed job\n* `failed_webhook` - failed webhook\n* `sync_failed` - ERPNext refused a document (a dead letter)\n* `reconciliation` - ERPNext reconciliation differences\n* `shipping_exception` - parcel exception\n* `dead_letter` - integration task given up\n* `failed_event` - provider event not processed\n* `integration_down` - integration unavailable"
+                        "description": "* `approval` - approval\n* `teacher_request` - teacher access request\n* `deletion_request` - account deletion\n* `data_request` - data request\n* `incident` - incident\n* `failed_job` - failed job\n* `failed_webhook` - failed webhook\n* `sync_failed` - ERPNext refused a document (a dead letter)\n* `reconciliation` - ERPNext reconciliation differences\n* `shipping_exception` - parcel exception\n* `dead_letter` - integration task given up\n* `failed_event` - provider event not processed\n* `integration_down` - integration unavailable\n* `processor_task` - a processor to tell: erase, or stop\n* `compliance` - a compliance duty: a self-audit, a held erasure"
                     },
                     {
                         "in": "query",
@@ -10680,6 +10909,1052 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/PolicyAcknowledgement"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/privacy/cockpit/": {
+            "get": {
+                "operationId": "staff_privacy_cockpit_retrieve",
+                "description": "The compliance cockpit: every clock the rules start, the consents by the notice's version, the dark-pattern\nself-audit, the legal calendar.",
+                "tags": [
+                    "privacy (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Cockpit"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/privacy/dark-pattern-audits/": {
+            "get": {
+                "operationId": "staff_privacy_dark_pattern_audits_list",
+                "description": "The yearly dark-pattern self-audit (the CCPA's 13 named patterns): a finding and a fix for each, the\ncertificate's text and its signed copy; completed once (then unchanged), its certificate shown on the website\nfrom its day (config/).",
+                "parameters": [
+                    {
+                        "name": "cursor",
+                        "required": false,
+                        "in": "query",
+                        "description": "The pagination cursor value.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "page_size",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "tags": [
+                    "privacy (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedDarkPatternAuditList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "post": {
+                "operationId": "staff_privacy_dark_pattern_audits_create",
+                "description": "The yearly dark-pattern self-audit (the CCPA's 13 named patterns): a finding and a fix for each, the\ncertificate's text and its signed copy; completed once (then unchanged), its certificate shown on the website\nfrom its day (config/).",
+                "tags": [
+                    "privacy (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/DarkPatternAuditRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DarkPatternAudit"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/privacy/dark-pattern-audits/{id}/": {
+            "get": {
+                "operationId": "staff_privacy_dark_pattern_audits_retrieve",
+                "description": "The yearly dark-pattern self-audit (the CCPA's 13 named patterns): a finding and a fix for each, the\ncertificate's text and its signed copy; completed once (then unchanged), its certificate shown on the website\nfrom its day (config/).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this dark pattern audit.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "privacy (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DarkPatternAudit"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "patch": {
+                "operationId": "staff_privacy_dark_pattern_audits_partial_update",
+                "description": "The yearly dark-pattern self-audit (the CCPA's 13 named patterns): a finding and a fix for each, the\ncertificate's text and its signed copy; completed once (then unchanged), its certificate shown on the website\nfrom its day (config/).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this dark pattern audit.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "privacy (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedDarkPatternAuditRequest"
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DarkPatternAudit"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/privacy/dark-pattern-audits/{id}/complete/": {
+            "post": {
+                "operationId": "staff_privacy_dark_pattern_audits_complete_create",
+                "description": "The yearly dark-pattern self-audit (the CCPA's 13 named patterns): a finding and a fix for each, the\ncertificate's text and its signed copy; completed once (then unchanged), its certificate shown on the website\nfrom its day (config/).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this dark pattern audit.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "privacy (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CompleteRequest"
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DarkPatternAudit"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/privacy/dark-pattern-audits/{id}/file/": {
+            "get": {
+                "operationId": "staff_privacy_dark_pattern_audits_file_retrieve",
+                "description": "The yearly dark-pattern self-audit (the CCPA's 13 named patterns): a finding and a fix for each, the\ncertificate's text and its signed copy; completed once (then unchanged), its certificate shown on the website\nfrom its day (config/).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this dark pattern audit.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "privacy (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "post": {
+                "operationId": "staff_privacy_dark_pattern_audits_file_create",
+                "description": "The yearly dark-pattern self-audit (the CCPA's 13 named patterns): a finding and a fix for each, the\ncertificate's text and its signed copy; completed once (then unchanged), its certificate shown on the website\nfrom its day (config/).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this dark pattern audit.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "privacy (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CertificateFileRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DarkPatternAudit"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/privacy/deletions/{id}/parent-confirmation/": {
+            "post": {
+                "operationId": "staff_privacy_deletions_parent_confirmation_create",
+                "description": "A child's deletion confirmed by their parent or guardian by phone or letter (when their link cannot reach\nthem): staff record it, with where the evidence is; the nightly purge erases it once due.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "privacy (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ParentConfirmationRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PrivacyDeletionConfirmed"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/privacy/disclosures/": {
+            "get": {
+                "operationId": "staff_privacy_disclosures_retrieve",
+                "description": "The e-commerce disclosures and the privacy contacts (site settings of the group \"disclosures\"): GET each in\neffect with where it comes from, and the group's history; PUT the changed ones together, with one reason (each a\n`setting.changed` event).",
+                "tags": [
+                    "privacy (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Disclosures"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "put": {
+                "operationId": "staff_privacy_disclosures_update",
+                "description": "The e-commerce disclosures and the privacy contacts (site settings of the group \"disclosures\"): GET each in\neffect with where it comes from, and the group's history; PUT the changed ones together, with one reason (each a\n`setting.changed` event).",
+                "tags": [
+                    "privacy (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/DisclosuresChangeRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Disclosures"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/privacy/holds/": {
+            "get": {
+                "operationId": "staff_privacy_holds_list",
+                "description": "Legal holds on an account or one record (an order, an invoice, a credit note, a payment, a refund, a data\nrequest): they keep it from the erasure and the retention clean-up until their day, or their release.",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "active",
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "description": "true: in force now"
+                    },
+                    {
+                        "name": "cursor",
+                        "required": false,
+                        "in": "query",
+                        "description": "The pagination cursor value.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "page_size",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "reason",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "chargeback",
+                                "claim",
+                                "dispute",
+                                "investigation",
+                                "other"
+                            ]
+                        },
+                        "description": "* `dispute` - a dispute\n* `chargeback` - a chargeback\n* `claim` - a legal claim\n* `investigation` - an investigation\n* `other` - another reason (in the note)"
+                    },
+                    {
+                        "in": "query",
+                        "name": "target_type",
+                        "schema": {
+                            "type": "integer",
+                            "enum": [
+                                "shop.creditnote",
+                                "shop.invoice",
+                                "shop.order",
+                                "shop.payment",
+                                "shop.refund",
+                                "staff.datarequest"
+                            ]
+                        },
+                        "description": "* `shop.creditnote` - shop.creditnote\n* `shop.invoice` - shop.invoice\n* `shop.order` - shop.order\n* `shop.payment` - shop.payment\n* `shop.refund` - shop.refund\n* `staff.datarequest` - staff.datarequest"
+                    },
+                    {
+                        "in": "query",
+                        "name": "user",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "tags": [
+                    "privacy (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedLegalHoldList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "post": {
+                "operationId": "staff_privacy_holds_create",
+                "description": "Legal holds on an account or one record (an order, an invoice, a credit note, a payment, a refund, a data\nrequest): they keep it from the erasure and the retention clean-up until their day, or their release.",
+                "tags": [
+                    "privacy (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/HoldCreateRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LegalHold"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/privacy/holds/{id}/": {
+            "get": {
+                "operationId": "staff_privacy_holds_retrieve",
+                "description": "Legal holds on an account or one record (an order, an invoice, a credit note, a payment, a refund, a data\nrequest): they keep it from the erasure and the retention clean-up until their day, or their release.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this legal hold.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "privacy (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LegalHold"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/privacy/holds/{id}/release/": {
+            "post": {
+                "operationId": "staff_privacy_holds_release_create",
+                "description": "Legal holds on an account or one record (an order, an invoice, a credit note, a payment, a refund, a data\nrequest): they keep it from the erasure and the retention clean-up until their day, or their release.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this legal hold.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "privacy (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ReleaseRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/LegalHold"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/privacy/nominees/{user}/": {
+            "get": {
+                "operationId": "staff_privacy_nominees_retrieve",
+                "description": "The nominee a customer recorded on My account (DPDP s.14), its contact masked; each look at one is a\n`sensitive_read`, a child's marked as such.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "user",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "privacy (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AccountNominee"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/privacy/nominees/{user}/reveal/": {
+            "post": {
+                "operationId": "staff_privacy_nominees_reveal_create",
+                "description": "The nominee's contact, shown with a reason (re-authenticated, 30 an hour, a `sensitive_read` event).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "user",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "privacy (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RevealReasonRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PrivacyNomineeContact"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/privacy/policies/": {
+            "get": {
+                "operationId": "staff_privacy_policies_list",
+                "description": "The legal pages (privacy, terms, refunds, shipping, contact) and their versions: each publish a numbered version\nwith the day it is in force from and a line on what changed; a diff of each against the one before.",
+                "tags": [
+                    "privacy (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Policy"
+                                    }
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/privacy/policies/{slug}/": {
+            "get": {
+                "operationId": "staff_privacy_policies_retrieve",
+                "description": "The legal pages (privacy, terms, refunds, shipping, contact) and their versions: each publish a numbered version\nwith the day it is in force from and a line on what changed; a diff of each against the one before.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "slug",
+                        "schema": {
+                            "enum": [
+                                "privacy",
+                                "terms",
+                                "refunds",
+                                "shipping",
+                                "contact"
+                            ],
+                            "type": "string",
+                            "description": "* `privacy` - privacy\n* `terms` - terms\n* `refunds` - refunds\n* `shipping` - shipping\n* `contact` - contact"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "privacy (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PolicyDetail"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/privacy/policies/{slug}/cancel-scheduled/": {
+            "post": {
+                "operationId": "staff_privacy_policies_cancel_scheduled_create",
+                "description": "The legal pages (privacy, terms, refunds, shipping, contact) and their versions: each publish a numbered version\nwith the day it is in force from and a line on what changed; a diff of each against the one before.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "slug",
+                        "schema": {
+                            "enum": [
+                                "privacy",
+                                "terms",
+                                "refunds",
+                                "shipping",
+                                "contact"
+                            ],
+                            "type": "string",
+                            "description": "* `privacy` - privacy\n* `terms` - terms\n* `refunds` - refunds\n* `shipping` - shipping\n* `contact` - contact"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "privacy (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ReleaseRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PolicyDetail"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/privacy/policies/{slug}/publish/": {
+            "post": {
+                "operationId": "staff_privacy_policies_publish_create",
+                "description": "The legal pages (privacy, terms, refunds, shipping, contact) and their versions: each publish a numbered version\nwith the day it is in force from and a line on what changed; a diff of each against the one before.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "slug",
+                        "schema": {
+                            "enum": [
+                                "privacy",
+                                "terms",
+                                "refunds",
+                                "shipping",
+                                "contact"
+                            ],
+                            "type": "string",
+                            "description": "* `privacy` - privacy\n* `terms` - terms\n* `refunds` - refunds\n* `shipping` - shipping\n* `contact` - contact"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "privacy (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PublishRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PolicyDetail"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/privacy/policies/{slug}/versions/{number}/diff/": {
+            "get": {
+                "operationId": "staff_privacy_policies_versions_diff_retrieve",
+                "description": "The legal pages (privacy, terms, refunds, shipping, contact) and their versions: each publish a numbered version\nwith the day it is in force from and a line on what changed; a diff of each against the one before.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "number",
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^\\d+$"
+                        },
+                        "required": true
+                    },
+                    {
+                        "in": "path",
+                        "name": "slug",
+                        "schema": {
+                            "enum": [
+                                "privacy",
+                                "terms",
+                                "refunds",
+                                "shipping",
+                                "contact"
+                            ],
+                            "type": "string",
+                            "description": "* `privacy` - privacy\n* `terms` - terms\n* `refunds` - refunds\n* `shipping` - shipping\n* `contact` - contact"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "privacy (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PolicyDiff"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/privacy/retention/": {
+            "get": {
+                "operationId": "staff_privacy_retention_list",
+                "description": "The retention schedule in code (examleaf/retention.py): each kind of record's minimum today, the day it\nchanges, what is kept and who deletes it.",
+                "tags": [
+                    "privacy (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/RetentionRule"
+                                    }
                                 }
                             }
                         },
@@ -12259,6 +13534,26 @@
                     "unused"
                 ]
             },
+            "AccountNominee": {
+                "type": "object",
+                "properties": {
+                    "user": {
+                        "type": "integer"
+                    },
+                    "nominee": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/PrivacyNominee"
+                            }
+                        ],
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "nominee",
+                    "user"
+                ]
+            },
             "ActorTypeEnum": {
                 "enum": [
                     "staff",
@@ -12900,6 +14195,53 @@
                 "type": "string",
                 "description": "* `success` - success\n* `denied` - denied\n* `failed` - failed"
             },
+            "AuditRow": {
+                "type": "object",
+                "properties": {
+                    "pattern": {
+                        "$ref": "#/components/schemas/PatternEnum"
+                    },
+                    "label": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "finding": {
+                        "type": "string",
+                        "maxLength": 2000
+                    },
+                    "fix": {
+                        "type": "string",
+                        "maxLength": 2000
+                    }
+                },
+                "required": [
+                    "finding",
+                    "fix",
+                    "label",
+                    "pattern"
+                ]
+            },
+            "AuditRowRequest": {
+                "type": "object",
+                "properties": {
+                    "pattern": {
+                        "$ref": "#/components/schemas/PatternEnum"
+                    },
+                    "finding": {
+                        "type": "string",
+                        "maxLength": 2000
+                    },
+                    "fix": {
+                        "type": "string",
+                        "maxLength": 2000
+                    }
+                },
+                "required": [
+                    "finding",
+                    "fix",
+                    "pattern"
+                ]
+            },
             "AuthConfig": {
                 "type": "object",
                 "properties": {
@@ -13443,6 +14785,19 @@
                     "parent",
                     "slug",
                     "web_url"
+                ]
+            },
+            "CertificateFileRequest": {
+                "type": "object",
+                "properties": {
+                    "file": {
+                        "type": "string",
+                        "format": "binary",
+                        "description": "the signed certificate: PDF, PNG or JPEG, 5 MB at most"
+                    }
+                },
+                "required": [
+                    "file"
                 ]
             },
             "ChainEnum": {
@@ -14108,6 +15463,93 @@
                     "title"
                 ]
             },
+            "Clock": {
+                "type": "object",
+                "properties": {
+                    "kind": {
+                        "$ref": "#/components/schemas/ClockKindEnum"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "rule": {
+                        "type": "string",
+                        "description": "the law's clock, in words"
+                    },
+                    "started_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "due_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true,
+                        "description": "null: awaited, no legal end"
+                    },
+                    "overdue": {
+                        "type": "boolean"
+                    },
+                    "target_type": {
+                        "type": "string",
+                        "description": "the record behind it: app_label.model"
+                    },
+                    "target_id": {
+                        "type": "string"
+                    },
+                    "target_label": {
+                        "type": "string"
+                    },
+                    "account": {
+                        "type": "integer",
+                        "nullable": true,
+                        "description": "the account it is about (its number), if any"
+                    }
+                },
+                "required": [
+                    "account",
+                    "due_at",
+                    "kind",
+                    "label",
+                    "overdue",
+                    "rule",
+                    "started_at",
+                    "target_id",
+                    "target_label",
+                    "target_type"
+                ]
+            },
+            "ClockCount": {
+                "type": "object",
+                "properties": {
+                    "open": {
+                        "type": "integer"
+                    },
+                    "overdue": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "open",
+                    "overdue"
+                ]
+            },
+            "ClockKindEnum": {
+                "enum": [
+                    "data_request_ack",
+                    "data_request_answer",
+                    "incident_cert_in",
+                    "incident_board",
+                    "complaint_ack",
+                    "complaint_redress",
+                    "complaint_nch",
+                    "parent_consent",
+                    "deletion_parent",
+                    "dark_pattern_audit"
+                ],
+                "type": "string",
+                "description": "* `data_request_ack` - data_request_ack\n* `data_request_answer` - data_request_answer\n* `incident_cert_in` - incident_cert_in\n* `incident_board` - incident_board\n* `complaint_ack` - complaint_ack\n* `complaint_redress` - complaint_redress\n* `complaint_nch` - complaint_nch\n* `parent_consent` - parent_consent\n* `deletion_parent` - deletion_parent\n* `dark_pattern_audit` - dark_pattern_audit"
+            },
             "CloseRequest": {
                 "type": "object",
                 "properties": {
@@ -14123,6 +15565,61 @@
                 "required": [
                     "outcome",
                     "response"
+                ]
+            },
+            "Cockpit": {
+                "type": "object",
+                "properties": {
+                    "now": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "clocks": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Clock"
+                        },
+                        "description": "the overdue first, then by due time; 20 of each kind at most"
+                    },
+                    "counts": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "$ref": "#/components/schemas/ClockCount"
+                        },
+                        "description": "every one of each kind"
+                    },
+                    "support": {
+                        "$ref": "#/components/schemas/PrivacyCockpitSupport"
+                    },
+                    "consents": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PrivacyConsentVersion"
+                        }
+                    },
+                    "dark_pattern": {
+                        "$ref": "#/components/schemas/PrivacyDarkPatternState"
+                    },
+                    "calendar": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PrivacyCalendarItem"
+                        }
+                    },
+                    "inbox": {
+                        "type": "integer",
+                        "description": "the processors' tasks and compliance items open in the inbox"
+                    }
+                },
+                "required": [
+                    "calendar",
+                    "clocks",
+                    "consents",
+                    "counts",
+                    "dark_pattern",
+                    "inbox",
+                    "now",
+                    "support"
                 ]
             },
             "CodReconcileRequest": {
@@ -14386,6 +15883,16 @@
                     }
                 }
             },
+            "CompleteRequest": {
+                "type": "object",
+                "properties": {
+                    "effective_from": {
+                        "type": "string",
+                        "format": "date",
+                        "description": "shown on the website from (today if empty)"
+                    }
+                }
+            },
             "Config": {
                 "type": "object",
                 "properties": {
@@ -14416,11 +15923,30 @@
                     },
                     "maintenance": {
                         "$ref": "#/components/schemas/MaintenanceConfig"
+                    },
+                    "disclosures": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/DisclosuresConfig"
+                            }
+                        ],
+                        "description": "the e-commerce disclosures (E-Commerce Rules r.4): each null while not set yet"
+                    },
+                    "dark_pattern_certificate": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/DarkPatternCertificate"
+                            }
+                        ],
+                        "nullable": true,
+                        "description": "the dark-pattern self-audit's certificate in force, to show prominently; null: none yet"
                     }
                 },
                 "required": [
                     "app_links",
                     "auth",
+                    "dark_pattern_certificate",
+                    "disclosures",
                     "maintenance",
                     "parental_consent",
                     "shipping",
@@ -14428,6 +15954,47 @@
                     "solutions_require_login",
                     "support",
                     "web_course"
+                ]
+            },
+            "ConfirmEnum": {
+                "enum": [
+                    "consent",
+                    "deletion"
+                ],
+                "type": "string",
+                "description": "* `consent` - consent\n* `deletion` - deletion"
+            },
+            "ConsentChannelEnum": {
+                "enum": [
+                    "email",
+                    "sms",
+                    "whatsapp"
+                ],
+                "type": "string",
+                "description": "* `email` - email\n* `sms` - SMS\n* `whatsapp` - WhatsApp"
+            },
+            "ConsentWithdrawn": {
+                "type": "object",
+                "properties": {
+                    "purpose": {
+                        "type": "string"
+                    },
+                    "channel": {
+                        "type": "string"
+                    },
+                    "withdrawn_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "detail": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "channel",
+                    "detail",
+                    "purpose",
+                    "withdrawn_at"
                 ]
             },
             "ContactEnum": {
@@ -14790,6 +16357,124 @@
                     "status",
                     "teacher",
                     "under_18"
+                ]
+            },
+            "DarkPatternAudit": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "year": {
+                        "type": "integer",
+                        "maximum": 9223372036854775807,
+                        "minimum": 0,
+                        "format": "int64",
+                        "description": "The calendar year its certificate covers."
+                    },
+                    "rows": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AuditRow"
+                        },
+                        "description": "the 13 patterns, each once (new: all blank)"
+                    },
+                    "certificate_text": {
+                        "type": "string"
+                    },
+                    "effective_from": {
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true,
+                        "description": "Shown on the website from this day."
+                    },
+                    "completed_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "completed_by": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "created": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "created_by": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "has_file": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "its signed copy is kept: file/"
+                    }
+                },
+                "required": [
+                    "completed_at",
+                    "completed_by",
+                    "created",
+                    "created_by",
+                    "has_file",
+                    "id",
+                    "year"
+                ]
+            },
+            "DarkPatternAuditRequest": {
+                "type": "object",
+                "properties": {
+                    "year": {
+                        "type": "integer",
+                        "maximum": 9223372036854775807,
+                        "minimum": 0,
+                        "format": "int64",
+                        "description": "The calendar year its certificate covers."
+                    },
+                    "rows": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AuditRowRequest"
+                        },
+                        "description": "the 13 patterns, each once (new: all blank)"
+                    },
+                    "certificate_text": {
+                        "type": "string"
+                    },
+                    "effective_from": {
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true,
+                        "description": "Shown on the website from this day."
+                    }
+                },
+                "required": [
+                    "year"
+                ]
+            },
+            "DarkPatternCertificate": {
+                "type": "object",
+                "properties": {
+                    "year": {
+                        "type": "integer"
+                    },
+                    "text": {
+                        "type": "string"
+                    },
+                    "effective_from": {
+                        "type": "string",
+                        "format": "date"
+                    }
+                },
+                "required": [
+                    "effective_from",
+                    "text",
+                    "year"
                 ]
             },
             "DataRequest": {
@@ -15310,6 +16995,233 @@
                     "token"
                 ]
             },
+            "DisclosureHistory": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string"
+                    },
+                    "value": {},
+                    "effective_from": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "changed_by": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "reason": {
+                        "type": "string"
+                    },
+                    "created": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "changed_by",
+                    "created",
+                    "effective_from",
+                    "key",
+                    "reason",
+                    "value"
+                ]
+            },
+            "DisclosureSetting": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "kind": {
+                        "description": "\"str\", or the allowed values"
+                    },
+                    "max_length": {
+                        "type": "integer"
+                    },
+                    "public": {
+                        "type": "boolean",
+                        "description": "shown on the website (config/'s disclosures)"
+                    },
+                    "value": {
+                        "description": "in effect now"
+                    },
+                    "environment": {
+                        "description": "settings.py's value, which stands until the panel sets one"
+                    },
+                    "source": {
+                        "$ref": "#/components/schemas/SettingSourceEnum"
+                    },
+                    "effective_from": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "changed_by": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "reason": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "changed_by",
+                    "effective_from",
+                    "environment",
+                    "key",
+                    "kind",
+                    "label",
+                    "max_length",
+                    "public",
+                    "reason",
+                    "source",
+                    "value"
+                ]
+            },
+            "Disclosures": {
+                "type": "object",
+                "properties": {
+                    "settings": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/DisclosureSetting"
+                        }
+                    },
+                    "history": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/DisclosureHistory"
+                        },
+                        "description": "the group's changes, newest first (the last 100)"
+                    }
+                },
+                "required": [
+                    "history",
+                    "settings"
+                ]
+            },
+            "DisclosuresChangeRequest": {
+                "type": "object",
+                "properties": {
+                    "values": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "nullable": true
+                        },
+                        "description": "{KEY: the new value}; null: back to settings.py's"
+                    },
+                    "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 300
+                    }
+                },
+                "required": [
+                    "reason",
+                    "values"
+                ]
+            },
+            "DisclosuresConfig": {
+                "type": "object",
+                "properties": {
+                    "legal_name": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "the legal name"
+                    },
+                    "registered_address": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "the registered office's address"
+                    },
+                    "operating_address": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "where it works from, when not the registered office"
+                    },
+                    "care_phone": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "customer care's phone"
+                    },
+                    "care_email": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "customer care's email address"
+                    },
+                    "care_hours": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "customer care's hours"
+                    },
+                    "grievance_officer": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "the Grievance Officer's name"
+                    },
+                    "grievance_designation": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "their designation"
+                    },
+                    "grievance_contact": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "their email address and phone"
+                    },
+                    "nodal_contact": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "the nodal contact resident in India"
+                    },
+                    "returns_page": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "the page of the return and refund terms (its slug)"
+                    },
+                    "dpdp_contact": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "who answers questions about personal data"
+                    },
+                    "rights_text": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "how to make a request about one's personal data"
+                    },
+                    "nch_status": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "the National Consumer Helpline: not_joined, applied or member"
+                    },
+                    "nch_since": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "applied or joined on (YYYY-MM-DD)"
+                    }
+                },
+                "required": [
+                    "care_email",
+                    "care_hours",
+                    "care_phone",
+                    "dpdp_contact",
+                    "grievance_contact",
+                    "grievance_designation",
+                    "grievance_officer",
+                    "legal_name",
+                    "nch_since",
+                    "nch_status",
+                    "nodal_contact",
+                    "operating_address",
+                    "registered_address",
+                    "returns_page",
+                    "rights_text"
+                ]
+            },
             "Document": {
                 "type": "object",
                 "properties": {
@@ -15398,21 +17310,96 @@
                 "type": "string",
                 "description": "* `book_code` - book code\n* `purchase` - purchase\n* `grant` - staff grant"
             },
+            "ErasureErase": {
+                "type": "object",
+                "properties": {
+                    "part": {
+                        "type": "string"
+                    },
+                    "what": {
+                        "type": "string"
+                    },
+                    "count": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "count",
+                    "part",
+                    "what"
+                ]
+            },
+            "ErasureKeep": {
+                "type": "object",
+                "properties": {
+                    "kind": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ErasureKeepKindEnum"
+                            }
+                        ],
+                        "description": "the hold: the books, the year of logs …\n\n* `books` - books\n* `processing_logs` - processing_logs\n* `legal_hold` - legal_hold\n* `intermediary` - intermediary\n* `consent` - consent\n* `statistics` - statistics\n* `by_hand` - by_hand\n* `test` - test"
+                    },
+                    "part": {
+                        "type": "string"
+                    },
+                    "what": {
+                        "type": "string"
+                    },
+                    "count": {
+                        "type": "integer"
+                    },
+                    "why": {
+                        "type": "string"
+                    },
+                    "until": {
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true,
+                        "description": "the last day it is kept; null: no end set"
+                    },
+                    "line": {
+                        "type": "string",
+                        "description": "in words: \"kept until 31 March 2035: 3 invoices …, for GST …\""
+                    }
+                },
+                "required": [
+                    "count",
+                    "kind",
+                    "line",
+                    "part",
+                    "until",
+                    "what",
+                    "why"
+                ]
+            },
+            "ErasureKeepKindEnum": {
+                "enum": [
+                    "books",
+                    "processing_logs",
+                    "legal_hold",
+                    "intermediary",
+                    "consent",
+                    "statistics",
+                    "by_hand",
+                    "test"
+                ],
+                "type": "string",
+                "description": "* `books` - books\n* `processing_logs` - processing_logs\n* `legal_hold` - legal_hold\n* `intermediary` - intermediary\n* `consent` - consent\n* `statistics` - statistics\n* `by_hand` - by_hand\n* `test` - test"
+            },
             "ErasureReport": {
                 "type": "object",
                 "properties": {
                     "erase": {
                         "type": "array",
                         "items": {
-                            "type": "object",
-                            "additionalProperties": {}
+                            "$ref": "#/components/schemas/ErasureErase"
                         }
                     },
                     "keep": {
                         "type": "array",
                         "items": {
-                            "type": "object",
-                            "additionalProperties": {}
+                            "$ref": "#/components/schemas/ErasureKeep"
                         }
                     },
                     "blocks": {
@@ -16468,6 +18455,48 @@
                     "web_url"
                 ]
             },
+            "HoldCreateRequest": {
+                "type": "object",
+                "properties": {
+                    "user": {
+                        "type": "integer",
+                        "nullable": true,
+                        "description": "the account held (its number)"
+                    },
+                    "target_type": {
+                        "description": "a record instead\n\n* `shop.creditnote` - shop.creditnote\n* `shop.invoice` - shop.invoice\n* `shop.order` - shop.order\n* `shop.payment` - shop.payment\n* `shop.refund` - shop.refund\n* `staff.datarequest` - staff.datarequest",
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/TargetTypeEnum"
+                            },
+                            {
+                                "$ref": "#/components/schemas/BlankEnum"
+                            }
+                        ]
+                    },
+                    "target_id": {
+                        "type": "string",
+                        "description": "its number or id",
+                        "maxLength": 64
+                    },
+                    "reason": {
+                        "$ref": "#/components/schemas/LegalHoldReasonEnum"
+                    },
+                    "note": {
+                        "type": "string",
+                        "maxLength": 2000
+                    },
+                    "until": {
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true,
+                        "description": "the last day it holds; none: released"
+                    }
+                },
+                "required": [
+                    "reason"
+                ]
+            },
             "ImpersonateRequest": {
                 "type": "object",
                 "properties": {
@@ -16638,10 +18667,12 @@
                     "shipping_exception",
                     "dead_letter",
                     "failed_event",
-                    "integration_down"
+                    "integration_down",
+                    "processor_task",
+                    "compliance"
                 ],
                 "type": "string",
-                "description": "* `approval` - approval\n* `teacher_request` - teacher access request\n* `deletion_request` - account deletion\n* `data_request` - data request\n* `incident` - incident\n* `failed_job` - failed job\n* `failed_webhook` - failed webhook\n* `sync_failed` - ERPNext refused a document (a dead letter)\n* `reconciliation` - ERPNext reconciliation differences\n* `shipping_exception` - parcel exception\n* `dead_letter` - integration task given up\n* `failed_event` - provider event not processed\n* `integration_down` - integration unavailable"
+                "description": "* `approval` - approval\n* `teacher_request` - teacher access request\n* `deletion_request` - account deletion\n* `data_request` - data request\n* `incident` - incident\n* `failed_job` - failed job\n* `failed_webhook` - failed webhook\n* `sync_failed` - ERPNext refused a document (a dead letter)\n* `reconciliation` - ERPNext reconciliation differences\n* `shipping_exception` - parcel exception\n* `dead_letter` - integration task given up\n* `failed_event` - provider event not processed\n* `integration_down` - integration unavailable\n* `processor_task` - a processor to tell: erase, or stop\n* `compliance` - a compliance duty: a self-audit, a held erasure"
             },
             "Incident": {
                 "type": "object",
@@ -17362,6 +19393,110 @@
                     "quiz_answers"
                 ]
             },
+            "LegalHold": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "user": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "target_type": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "app_label.model; empty for a person"
+                    },
+                    "target_id": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "target_label": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "what it keeps, by number or code"
+                    },
+                    "reason": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/LegalHoldReasonEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "note": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "The case: its reference and what it is about, briefly."
+                    },
+                    "until": {
+                        "type": "string",
+                        "format": "date",
+                        "readOnly": true,
+                        "nullable": true,
+                        "description": "The last day it holds; empty: until released."
+                    },
+                    "active": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "created": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "created_by": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "released_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "released_by": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "release_reason": {
+                        "type": "string",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "active",
+                    "created",
+                    "created_by",
+                    "id",
+                    "note",
+                    "reason",
+                    "release_reason",
+                    "released_at",
+                    "released_by",
+                    "target_id",
+                    "target_label",
+                    "target_type",
+                    "until",
+                    "user"
+                ]
+            },
+            "LegalHoldReasonEnum": {
+                "enum": [
+                    "dispute",
+                    "chargeback",
+                    "claim",
+                    "investigation",
+                    "other"
+                ],
+                "type": "string",
+                "description": "* `dispute` - a dispute\n* `chargeback` - a chargeback\n* `claim` - a legal claim\n* `investigation` - an investigation\n* `other` - another reason (in the note)"
+            },
             "LevelEnum": {
                 "enum": [
                     "ok",
@@ -17620,6 +19755,77 @@
                     "exam_date",
                     "hint",
                     "minutes_per_day"
+                ]
+            },
+            "Nominee": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "maxLength": 120
+                    },
+                    "contact": {
+                        "type": "string",
+                        "description": "An email address or an Indian mobile number.",
+                        "maxLength": 120
+                    },
+                    "relation": {
+                        "type": "string",
+                        "description": "Mother, brother, friend …",
+                        "maxLength": 60
+                    },
+                    "verified_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true,
+                        "description": "When a claim proved the nomination."
+                    },
+                    "created": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "updated": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "contact",
+                    "created",
+                    "name",
+                    "relation",
+                    "updated",
+                    "verified_at"
+                ]
+            },
+            "NomineeRequest": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 120
+                    },
+                    "contact": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "An email address or an Indian mobile number.",
+                        "maxLength": 120
+                    },
+                    "relation": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Mother, brother, friend …",
+                        "maxLength": 60
+                    }
+                },
+                "required": [
+                    "contact",
+                    "name",
+                    "relation"
                 ]
             },
             "Note": {
@@ -18331,16 +20537,72 @@
                     "web_url": {
                         "type": "string",
                         "readOnly": true
+                    },
+                    "number": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "description": "the version in force, numbered: \"Version 2\""
+                    },
+                    "effective_from": {
+                        "type": "string",
+                        "format": "date",
+                        "readOnly": true,
+                        "description": "in force from that day"
+                    },
+                    "summary": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "what this version changed, in a line"
                     }
                 },
                 "required": [
+                    "effective_from",
                     "html",
                     "markdown",
+                    "number",
                     "slug",
+                    "summary",
                     "title",
                     "updated",
                     "version",
                     "web_url"
+                ]
+            },
+            "PageVersion": {
+                "type": "object",
+                "properties": {
+                    "number": {
+                        "type": "integer",
+                        "description": "\"Version 2\""
+                    },
+                    "version": {
+                        "type": "string",
+                        "description": "the label consent records keep (consents/notice_version)"
+                    },
+                    "effective_from": {
+                        "type": "string",
+                        "format": "date",
+                        "description": "in force from that day"
+                    },
+                    "summary": {
+                        "type": "string",
+                        "description": "what it changed, in a line"
+                    },
+                    "in_force": {
+                        "type": "boolean"
+                    },
+                    "upcoming": {
+                        "type": "boolean",
+                        "description": "published for a later day: not in force yet"
+                    }
+                },
+                "required": [
+                    "effective_from",
+                    "in_force",
+                    "number",
+                    "summary",
+                    "upcoming",
+                    "version"
                 ]
             },
             "PaginatedAddressList": {
@@ -18819,6 +21081,32 @@
                     }
                 }
             },
+            "PaginatedDarkPatternAuditList": {
+                "type": "object",
+                "required": [
+                    "results"
+                ],
+                "properties": {
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cD00ODY%3D\""
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cj0xJnA9NDg3"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/DarkPatternAudit"
+                        }
+                    }
+                }
+            },
             "PaginatedDataRequestListList": {
                 "type": "object",
                 "required": [
@@ -19209,6 +21497,32 @@
                         "type": "array",
                         "items": {
                             "$ref": "#/components/schemas/Job"
+                        }
+                    }
+                }
+            },
+            "PaginatedLegalHoldList": {
+                "type": "object",
+                "required": [
+                    "results"
+                ],
+                "properties": {
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cD00ODY%3D\""
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cj0xJnA9NDg3"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/LegalHold"
                         }
                     }
                 }
@@ -20193,6 +22507,20 @@
                 "type": "string",
                 "description": "* `booked` - booked\n* `pickup_problem` - pickup problem\n* `in_transit` - in transit\n* `out_for_delivery` - out for delivery\n* `delivered` - delivered\n* `delivery_failed` - delivery failed\n* `returning` - returning to us\n* `returned` - returned to us\n* `lost_or_damaged` - lost or damaged\n* `cancelled` - cancelled\n* `partial` - partly delivered"
             },
+            "ParentConfirmationRequest": {
+                "type": "object",
+                "properties": {
+                    "evidence_ref": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "where the evidence is: a ticket's number, a letter's date; never the document",
+                        "maxLength": 200
+                    }
+                },
+                "required": [
+                    "evidence_ref"
+                ]
+            },
             "ParentContactRequest": {
                 "type": "object",
                 "properties": {
@@ -20243,6 +22571,15 @@
                     "days": {
                         "type": "integer",
                         "description": "how long a link works"
+                    },
+                    "deletion": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ParentLinkDeletion"
+                            }
+                        ],
+                        "nullable": true,
+                        "description": "the student (under 18) asked to delete their account: null otherwise"
                     }
                 },
                 "required": [
@@ -20252,6 +22589,42 @@
                     "status",
                     "student_email",
                     "student_name"
+                ]
+            },
+            "ParentLinkConfirmRequest": {
+                "type": "object",
+                "properties": {
+                    "confirm": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ConfirmEnum"
+                            }
+                        ],
+                        "description": "consent (\"I agree\", the default) or deletion\n\n* `consent` - consent\n* `deletion` - deletion"
+                    }
+                }
+            },
+            "ParentLinkDeletion": {
+                "type": "object",
+                "properties": {
+                    "requested_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "due_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "erased then, once the parent has confirmed"
+                    },
+                    "confirmed": {
+                        "type": "boolean",
+                        "description": "the parent or guardian confirmed it"
+                    }
+                },
+                "required": [
+                    "confirmed",
+                    "due_at",
+                    "requested_at"
                 ]
             },
             "ParentLinkStatusEnum": {
@@ -20507,6 +22880,34 @@
                     }
                 }
             },
+            "PatchedDarkPatternAuditRequest": {
+                "type": "object",
+                "properties": {
+                    "year": {
+                        "type": "integer",
+                        "maximum": 9223372036854775807,
+                        "minimum": 0,
+                        "format": "int64",
+                        "description": "The calendar year its certificate covers."
+                    },
+                    "rows": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AuditRowRequest"
+                        },
+                        "description": "the 13 patterns, each once (new: all blank)"
+                    },
+                    "certificate_text": {
+                        "type": "string"
+                    },
+                    "effective_from": {
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true,
+                        "description": "Shown on the website from this day."
+                    }
+                }
+            },
             "PatchedDataRequestRequest": {
                 "type": "object",
                 "properties": {
@@ -20734,6 +23135,19 @@
                     },
                     "notes": {
                         "type": "string"
+                    },
+                    "holds_personal_data": {
+                        "type": "boolean",
+                        "description": "Keeps personal data after the processing: each erasure asks them to erase it."
+                    },
+                    "holds_marketing_data": {
+                        "type": "boolean",
+                        "description": "Holds marketing lists: told to stop when someone withdraws marketing consent."
+                    },
+                    "erasure_action": {
+                        "type": "string",
+                        "description": "What to ask them: 'ask SES to purge the address', 'delete the media in R2'.",
+                        "maxLength": 150
                     }
                 }
             },
@@ -20812,6 +23226,25 @@
                     "columns": {},
                     "sort": {}
                 }
+            },
+            "PatternEnum": {
+                "enum": [
+                    "false_urgency",
+                    "basket_sneaking",
+                    "confirm_shaming",
+                    "forced_action",
+                    "subscription_trap",
+                    "interface_interference",
+                    "bait_and_switch",
+                    "drip_pricing",
+                    "disguised_advertisement",
+                    "nagging",
+                    "trick_question",
+                    "saas_billing",
+                    "rogue_malware"
+                ],
+                "type": "string",
+                "description": "* `false_urgency` - False urgency\n* `basket_sneaking` - Basket sneaking\n* `confirm_shaming` - Confirm shaming\n* `forced_action` - Forced action\n* `subscription_trap` - Subscription trap\n* `interface_interference` - Interface interference\n* `bait_and_switch` - Bait and switch\n* `drip_pricing` - Drip pricing\n* `disguised_advertisement` - Disguised advertisement\n* `nagging` - Nagging\n* `trick_question` - Trick question\n* `saas_billing` - SaaS billing\n* `rogue_malware` - Rogue malware"
             },
             "PaymentConfirmRequest": {
                 "type": "object",
@@ -21282,6 +23715,69 @@
                 "type": "string",
                 "description": "* `android` - Android\n* `ios` - iOS"
             },
+            "Policy": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "description": "the page's: its audit events and notes name it (pages.page)"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "version": {
+                        "type": "string"
+                    },
+                    "number": {
+                        "type": "integer",
+                        "description": "the version in force"
+                    },
+                    "effective_from": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "summary": {
+                        "type": "string"
+                    },
+                    "updated": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "placeholders": {
+                        "type": "integer",
+                        "description": "[placeholders] still to fill in"
+                    },
+                    "scheduled": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/PolicyVersion"
+                            }
+                        ],
+                        "nullable": true,
+                        "description": "a version waiting for its day"
+                    },
+                    "versions": {
+                        "type": "integer",
+                        "description": "how many versions it has had"
+                    }
+                },
+                "required": [
+                    "effective_from",
+                    "id",
+                    "number",
+                    "placeholders",
+                    "scheduled",
+                    "slug",
+                    "summary",
+                    "title",
+                    "updated",
+                    "version",
+                    "versions"
+                ]
+            },
             "PolicyAcknowledgement": {
                 "type": "object",
                 "properties": {
@@ -21331,6 +23827,203 @@
                 },
                 "required": [
                     "policy",
+                    "version"
+                ]
+            },
+            "PolicyDetail": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "description": "the page's: its audit events and notes name it (pages.page)"
+                    },
+                    "slug": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "version": {
+                        "type": "string"
+                    },
+                    "number": {
+                        "type": "integer",
+                        "description": "the version in force"
+                    },
+                    "effective_from": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "summary": {
+                        "type": "string"
+                    },
+                    "updated": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "placeholders": {
+                        "type": "integer",
+                        "description": "[placeholders] still to fill in"
+                    },
+                    "scheduled": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/PolicyVersion"
+                            }
+                        ],
+                        "nullable": true,
+                        "description": "a version waiting for its day"
+                    },
+                    "versions": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PolicyVersion"
+                        },
+                        "description": "every version, newest first"
+                    },
+                    "markdown": {
+                        "type": "string",
+                        "description": "the text in force"
+                    }
+                },
+                "required": [
+                    "effective_from",
+                    "id",
+                    "markdown",
+                    "number",
+                    "placeholders",
+                    "scheduled",
+                    "slug",
+                    "summary",
+                    "title",
+                    "updated",
+                    "version",
+                    "versions"
+                ]
+            },
+            "PolicyDiff": {
+                "type": "object",
+                "properties": {
+                    "number": {
+                        "type": "integer"
+                    },
+                    "version": {
+                        "type": "string"
+                    },
+                    "previous": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "effective_from": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "summary": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "title_changed": {
+                        "type": "boolean"
+                    },
+                    "added": {
+                        "type": "integer"
+                    },
+                    "removed": {
+                        "type": "integer"
+                    },
+                    "lines": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PolicyDiffLine"
+                        }
+                    }
+                },
+                "required": [
+                    "added",
+                    "effective_from",
+                    "lines",
+                    "number",
+                    "previous",
+                    "removed",
+                    "summary",
+                    "title",
+                    "title_changed",
+                    "version"
+                ]
+            },
+            "PolicyDiffLine": {
+                "type": "object",
+                "properties": {
+                    "kind": {
+                        "$ref": "#/components/schemas/PolicyDiffLineKindEnum"
+                    },
+                    "text": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "kind",
+                    "text"
+                ]
+            },
+            "PolicyDiffLineKindEnum": {
+                "enum": [
+                    "hunk",
+                    "added",
+                    "removed",
+                    "context"
+                ],
+                "type": "string",
+                "description": "* `hunk` - hunk\n* `added` - added\n* `removed` - removed\n* `context` - context"
+            },
+            "PolicyVersion": {
+                "type": "object",
+                "properties": {
+                    "number": {
+                        "type": "integer"
+                    },
+                    "version": {
+                        "type": "string",
+                        "description": "the label consent records keep"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "summary": {
+                        "type": "string"
+                    },
+                    "effective_from": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "published_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "published_by": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "in_force": {
+                        "type": "boolean"
+                    },
+                    "upcoming": {
+                        "type": "boolean",
+                        "description": "published for a later day: not in force yet"
+                    }
+                },
+                "required": [
+                    "effective_from",
+                    "in_force",
+                    "number",
+                    "published_at",
+                    "published_by",
+                    "summary",
+                    "title",
+                    "upcoming",
                     "version"
                 ]
             },
@@ -21457,6 +24150,200 @@
                     "unit_cost"
                 ]
             },
+            "PrivacyCalendarItem": {
+                "type": "object",
+                "properties": {
+                    "date": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "detail": {
+                        "type": "string"
+                    },
+                    "state": {
+                        "$ref": "#/components/schemas/PrivacyCalendarItemStateEnum"
+                    }
+                },
+                "required": [
+                    "date",
+                    "detail",
+                    "state",
+                    "title"
+                ]
+            },
+            "PrivacyCalendarItemStateEnum": {
+                "enum": [
+                    "upcoming",
+                    "in_force",
+                    "done",
+                    "overdue"
+                ],
+                "type": "string",
+                "description": "* `upcoming` - upcoming\n* `in_force` - in_force\n* `done` - done\n* `overdue` - overdue"
+            },
+            "PrivacyCockpitSupport": {
+                "type": "object",
+                "properties": {
+                    "installed": {
+                        "type": "boolean"
+                    },
+                    "error": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "error",
+                    "installed"
+                ]
+            },
+            "PrivacyConsentVersion": {
+                "type": "object",
+                "properties": {
+                    "version": {
+                        "type": "string",
+                        "description": "the privacy notice's version the consents were given under"
+                    },
+                    "number": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "in_force": {
+                        "type": "boolean"
+                    },
+                    "given": {
+                        "type": "integer"
+                    },
+                    "withdrawn": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "given",
+                    "in_force",
+                    "number",
+                    "version",
+                    "withdrawn"
+                ]
+            },
+            "PrivacyDarkPatternState": {
+                "type": "object",
+                "properties": {
+                    "year": {
+                        "type": "integer"
+                    },
+                    "due": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "audit": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "state": {
+                        "$ref": "#/components/schemas/PrivacyDarkPatternStateStateEnum"
+                    },
+                    "completed_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "effective_from": {
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true
+                    },
+                    "certificate_year": {
+                        "type": "integer",
+                        "nullable": true,
+                        "description": "the certificate shown now"
+                    }
+                },
+                "required": [
+                    "audit",
+                    "certificate_year",
+                    "completed_at",
+                    "due",
+                    "effective_from",
+                    "state",
+                    "year"
+                ]
+            },
+            "PrivacyDarkPatternStateStateEnum": {
+                "enum": [
+                    "missing",
+                    "draft",
+                    "completed"
+                ],
+                "type": "string",
+                "description": "* `missing` - missing\n* `draft` - draft\n* `completed` - completed"
+            },
+            "PrivacyDeletionConfirmed": {
+                "type": "object",
+                "properties": {
+                    "deletion": {
+                        "type": "integer"
+                    },
+                    "parent_confirmed_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "deletion",
+                    "parent_confirmed_at"
+                ]
+            },
+            "PrivacyNominee": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "contact": {
+                        "type": "string",
+                        "description": "masked: reveal/ shows it, with a reason (logged)"
+                    },
+                    "relation": {
+                        "type": "string"
+                    },
+                    "verified_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true,
+                        "description": "when a claim proved it (Phase C)"
+                    },
+                    "created": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "contact",
+                    "created",
+                    "name",
+                    "relation",
+                    "updated",
+                    "verified_at"
+                ]
+            },
+            "PrivacyNomineeContact": {
+                "type": "object",
+                "properties": {
+                    "contact": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "contact"
+                ]
+            },
             "Processor": {
                 "type": "object",
                 "properties": {
@@ -21496,6 +24383,19 @@
                     },
                     "notes": {
                         "type": "string"
+                    },
+                    "holds_personal_data": {
+                        "type": "boolean",
+                        "description": "Keeps personal data after the processing: each erasure asks them to erase it."
+                    },
+                    "holds_marketing_data": {
+                        "type": "boolean",
+                        "description": "Holds marketing lists: told to stop when someone withdraws marketing consent."
+                    },
+                    "erasure_action": {
+                        "type": "string",
+                        "description": "What to ask them: 'ask SES to purge the address', 'delete the media in R2'.",
+                        "maxLength": 150
                     }
                 },
                 "required": [
@@ -21545,6 +24445,19 @@
                     },
                     "notes": {
                         "type": "string"
+                    },
+                    "holds_personal_data": {
+                        "type": "boolean",
+                        "description": "Keeps personal data after the processing: each erasure asks them to erase it."
+                    },
+                    "holds_marketing_data": {
+                        "type": "boolean",
+                        "description": "Holds marketing lists: told to stop when someone withdraws marketing consent."
+                    },
+                    "erasure_action": {
+                        "type": "string",
+                        "description": "What to ask them: 'ask SES to purge the address', 'delete the media in R2'.",
+                        "maxLength": 150
                     }
                 },
                 "required": [
@@ -22018,6 +24931,44 @@
                         "type": "boolean"
                     }
                 }
+            },
+            "PublishRequest": {
+                "type": "object",
+                "properties": {
+                    "markdown": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "the new text, in Markdown",
+                        "maxLength": 100000
+                    },
+                    "title": {
+                        "type": "string",
+                        "description": "the same if empty",
+                        "maxLength": 120
+                    },
+                    "summary": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "what this version changes, in a line",
+                        "maxLength": 200
+                    },
+                    "effective_from": {
+                        "type": "string",
+                        "format": "date",
+                        "description": "in force from (today if empty, never before)"
+                    }
+                },
+                "required": [
+                    "markdown",
+                    "summary"
+                ]
+            },
+            "PurposeEnum": {
+                "enum": [
+                    "marketing"
+                ],
+                "type": "string",
+                "description": "* `marketing` - marketing"
             },
             "QuantityRequest": {
                 "type": "object",
@@ -22506,6 +25457,20 @@
                     "password2"
                 ]
             },
+            "ReleaseRequest": {
+                "type": "object",
+                "properties": {
+                    "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "why it ends: kept with it and in the audit log",
+                        "maxLength": 300
+                    }
+                },
+                "required": [
+                    "reason"
+                ]
+            },
             "ResolveRequest": {
                 "type": "object",
                 "properties": {
@@ -22549,6 +25514,80 @@
                 },
                 "required": [
                     "detail"
+                ]
+            },
+            "RetentionRule": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string"
+                    },
+                    "records": {
+                        "type": "string"
+                    },
+                    "minimum": {
+                        "type": "string",
+                        "description": "the law's least time today"
+                    },
+                    "minimum_days": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "source": {
+                        "type": "string"
+                    },
+                    "changes_on": {
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true,
+                        "description": "when the minimum changes next"
+                    },
+                    "next_minimum": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "keep": {
+                        "type": "string",
+                        "description": "what this site keeps"
+                    },
+                    "keep_days": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "trim_days": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "enforced_by": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "changes_on",
+                    "enforced_by",
+                    "keep",
+                    "keep_days",
+                    "key",
+                    "minimum",
+                    "minimum_days",
+                    "next_minimum",
+                    "records",
+                    "source",
+                    "trim_days"
+                ]
+            },
+            "RevealReasonRequest": {
+                "type": "object",
+                "properties": {
+                    "reason": {
+                        "type": "string",
+                        "minLength": 5,
+                        "description": "why: kept in the audit log",
+                        "maxLength": 300
+                    }
+                },
+                "required": [
+                    "reason"
                 ]
             },
             "RevealRequest": {
@@ -23982,6 +27021,18 @@
                     "value"
                 ]
             },
+            "TargetTypeEnum": {
+                "enum": [
+                    "shop.creditnote",
+                    "shop.invoice",
+                    "shop.order",
+                    "shop.payment",
+                    "shop.refund",
+                    "staff.datarequest"
+                ],
+                "type": "string",
+                "description": "* `shop.creditnote` - shop.creditnote\n* `shop.invoice` - shop.invoice\n* `shop.order` - shop.order\n* `shop.payment` - shop.payment\n* `shop.refund` - shop.refund\n* `staff.datarequest` - staff.datarequest"
+            },
             "Teacher": {
                 "type": "object",
                 "properties": {
@@ -24209,6 +27260,33 @@
                 "required": [
                     "note"
                 ]
+            },
+            "WithdrawRequest": {
+                "type": "object",
+                "properties": {
+                    "purpose": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/PurposeEnum"
+                            }
+                        ],
+                        "description": "marketing\n\n* `marketing` - marketing"
+                    },
+                    "channel": {
+                        "description": "one channel; empty: all\n\n* `email` - email\n* `sms` - SMS\n* `whatsapp` - WhatsApp",
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/ConsentChannelEnum"
+                            },
+                            {
+                                "$ref": "#/components/schemas/BlankEnum"
+                            }
+                        ]
+                    }
+                },
+                "required": [
+                    "purpose"
+                ]
             }
         },
         "securitySchemes": {
@@ -24279,6 +27357,10 @@
         {
             "name": "erp (staff)",
             "description": "The ERPNext sync: outbox, dead letters, reconciliation (API.md)."
+        },
+        {
+            "name": "privacy (staff)",
+            "description": "Legal and privacy: the cockpit, holds, retention (API.md)."
         }
     ]
 }
