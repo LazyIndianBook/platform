@@ -130,7 +130,7 @@ def export_learning(user):
         ),
         "book_codes_redeemed": list(BookCode.objects.filter(redeemed_by=user).values("batch", "redeemed_at")),
         "progress": list(user.clip_progress.values("clip__title", "seconds_watched", "completed", "updated")),
-        "quiz_answers": list(user.quiz_attempts.values("item__text", "correct", "created")),
+        "quiz_answers": list(user.quiz_attempts.values("item__text", "correct", "chosen", "created")),
         "flash_card_reviews": list(user.card_reviews.values("card__front", "known", "created")),
         "devices": list(user.devices.values("platform", "created", "last_seen")),  # not the ID itself: a credential
     }

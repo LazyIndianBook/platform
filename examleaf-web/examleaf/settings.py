@@ -590,3 +590,23 @@ APP_LINK_IOS = env("APP_LINK_IOS", default="")
 # The revision course's pages on the website (config/ web_course): off until the product decision is made; the
 # course stays in the app. The frontend draws /revision/<subject>/<chapter>/, its flash cards and quiz only when on.
 WEB_COURSE = env.bool("WEB_COURSE", default=False)
+
+# Insights (insights/README.md): the predictive jobs, at night between 01:00 and 03:00, one task each. Their alerts
+# (fraud signals, print runs to act on) are emailed after the last one to INSIGHTS_ALERT_EMAILS (none: no email). The
+# accounts, IP addresses, phone numbers and addresses they count are kept as keyed hashes (INSIGHTS_HASH_SALT, else
+# SECRET_KEY; a new key starts the counts afresh).
+INSTALLED_APPS += ["insights"]
+INSIGHTS_ALERT_EMAILS = env.list("INSIGHTS_ALERT_EMAILS", default=[])
+INSIGHTS_HASH_SALT = env("INSIGHTS_HASH_SALT", default="")
+RELEASE = env("RELEASE", default="")  # the version label Sentry gets, and each forecast run's code_version
+CELERY_BEAT_SCHEDULE |= {
+    "insights-backtest": {"task": "insights.tasks.backtest", "schedule": crontab(hour=1, minute=0)},
+    "insights-forecast-demand": {"task": "insights.tasks.forecast_demand", "schedule": crontab(hour=1, minute=15)},
+    "insights-print-run": {"task": "insights.tasks.advise_print_run", "schedule": crontab(hour=1, minute=30)},
+    "insights-item-analysis": {"task": "insights.tasks.item_analysis", "schedule": crontab(hour=1, minute=45)},
+    "insights-cohorts": {"task": "insights.tasks.cohorts", "schedule": crontab(hour=2, minute=0)},
+    "insights-code-activation": {"task": "insights.tasks.code_activation", "schedule": crontab(hour=2, minute=15)},
+    "insights-delivery": {"task": "insights.tasks.delivery_stats", "schedule": crontab(hour=2, minute=30)},
+    "insights-offers": {"task": "insights.tasks.offer_effectiveness", "schedule": crontab(hour=2, minute=45)},
+    "insights-fraud": {"task": "insights.tasks.fraud_rules", "schedule": crontab(hour=3, minute=0)},  # and the email
+}

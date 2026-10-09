@@ -9,7 +9,8 @@ India, as the Privacy Policy draft says ("servers in [India]": fill in what you 
 
 Sections 1 to 12 are the first deployment, in order. After them: 13 every setting, 14 security, 15 the accounts to open
 (with the steps for each), 16 what the sign-in, SMS and email settings switch on, 17 storage, pictures and the web app,
-18 the revision course, 19 the store, 20 the frontends' sign-in (allauth.headless) and API contract.
+18 the revision course, 19 the store, 20 the frontends' sign-in (allauth.headless) and API contract, 21 the insights
+(the predictive jobs).
 
 ## 1. Accounts you need
 
@@ -420,7 +421,14 @@ and section 17).
 | `SENTRY_DSN` | empty (off) | no | error reports, scrubbed of personal data (`examleaf/sentry.py`); the project's DSN from Sentry (section 15) |
 | `SENTRY_ENVIRONMENT` | `production` | no | Sentry's environment name |
 | `SENTRY_TRACES_SAMPLE_RATE` | `0` | no | share of requests traced (0 to 1) |
-| `RELEASE` | none | no | a version label (e.g. the git commit) for Sentry; also names the service worker's cache, which otherwise follows the static files' hashed names |
+| `RELEASE` | none | no | a version label (e.g. the git commit) for Sentry; also names the service worker's cache, which otherwise follows the static files' hashed names, and is kept as each insights forecast run's code version |
+
+### Insights
+
+| Variable | Default | Required | What it does; where to get the value |
+|---|---|---|---|
+| `INSIGHTS_ALERT_EMAILS` | none | recommended | comma-separated addresses for the nightly email of new fraud signals and print runs to reprint now (section 21); empty: no email |
+| `INSIGHTS_HASH_SALT` | `SECRET_KEY` | recommended | the key of the hashes the fraud rules count by (accounts, IP addresses, phone numbers, addresses, book codes): random, 50 characters or more, like `SECRET_KEY`; a new value (or a new `SECRET_KEY` while this is empty) starts the counts afresh |
 
 ### Backups
 
@@ -832,3 +840,38 @@ Before the app uses passkeys, the domain must vouch for it: `https://examleaf.in
 the package name and the signing certificate's SHA-256, relation `delegate_permission/common.get_login_creds`) and
 `https://examleaf.in/.well-known/apple-app-site-association` (iOS: `webcredentials` with the app ID). Neither is served
 yet: add them with the app's first release.
+
+## 21. Insights (the predictive jobs)
+
+The `insights` app (`insights/README.md`: every job, its method and how to read it) works out forecasts, print runs,
+item analysis, cohorts, code activation, delivery times, fraud signals and offer effects at night, one Celery task
+each. Nothing to install: no library beyond the standard one, and its migrations run with the others (the second one
+gives ADMIN the new permissions, as `bootstrap_roles` does at every start).
+
+1. **The beat entries** are in `settings.py` and written into the beat tables when beat starts, as the others are
+   (README.md, "Background tasks"); times are India's:
+
+   | When | Task | Writes |
+   |---|---|---|
+   | 01:00 | `insights.tasks.backtest` | how the forecast method did last season against the seasonal naive |
+   | 01:15 | `insights.tasks.forecast_demand` | weekly copies per title and district to the exam |
+   | 01:30 | `insights.tasks.advise_print_run` | copies to print, reprint triggers, leftovers |
+   | 01:45 | `insights.tasks.item_analysis` | the quiz's item statistics and chapter accuracy |
+   | 02:00 | `insights.tasks.cohorts` | weekly retention per cohort |
+   | 02:15 | `insights.tasks.code_activation` | book codes redeemed per batch and district |
+   | 02:30 | `insights.tasks.delivery_stats` | transit days per courier and district |
+   | 02:45 | `insights.tasks.offer_effectiveness` | what coupons and offers did |
+   | 03:00 | `insights.tasks.fraud_rules` | fraud signals, then the email to `INSIGHTS_ALERT_EMAILS` |
+
+   A failed task is tried once more ten minutes later, then reported to Sentry (RUNBOOK.md, "An insights job failed").
+   Each keeps 90 days of its rows (book codes tried: 180).
+2. **Settings** (section 13, "Insights"): `INSIGHTS_ALERT_EMAILS` (the founder, operations) and `INSIGHTS_HASH_SALT`
+   (random, like `SECRET_KEY`; set it before launch so that rotating `SECRET_KEY` leaves the fraud counts alone).
+3. **What staff enter** in the admin (Insights): the **exam seasons** (board, class, academic year, first and last
+   paper, from the board's notice: forecasts count a season's weeks back from the first paper, and nothing is forecast
+   without the coming season and the last one), and a **print cost** per title (cost and salvage per copy, copies on
+   order, reprint lead time: no print-run advice without one). Forecasts start once a season of sales exists; the
+   backtest, once two do.
+4. **Check** after a deploy: `dj insights_run all` prints one line per job ("nothing to work on" is right on a new
+   site), and `curl -H "Authorization: Bearer $STAFF_ACCESS" https://examleaf.in/api/v1/insights/forecasts/` answers
+   200 for staff (403 for anyone else).

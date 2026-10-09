@@ -285,6 +285,8 @@ class QuizAttempt(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="quiz_attempts")
     item = models.ForeignKey(QuizItem, on_delete=models.CASCADE, related_name="+")
     correct = models.BooleanField()
+    # multiple choice: the option's number as sent (insights' distractor analysis); None for other kinds and before it
+    chosen = models.CharField(max_length=200, null=True, blank=True, editable=False)  # noqa: DJ001
     created = models.DateTimeField(default=timezone.now, db_index=True)
 
     class Meta:

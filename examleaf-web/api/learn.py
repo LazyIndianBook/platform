@@ -14,6 +14,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from content.templatetags.markdown import render
+from insights.jobs.fraud import record_redemption
 from learn import dashboard, plan, services
 from learn.models import (
     CardReview,
@@ -332,7 +333,8 @@ class QuizViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         given.is_valid(raise_exception=True)
         correct = item.is_right(given.validated_data["answer"])
         within_a_day(request.user.quiz_attempts)
-        QuizAttempt.objects.create(user=request.user, item=item, correct=correct)
+        chosen = given.validated_data["answer"] if item.kind == QuizItem.Kind.MCQ else None  # insights: distractors
+        QuizAttempt.objects.create(user=request.user, item=item, correct=correct, chosen=chosen)
         if item.kind == QuizItem.Kind.MCQ:
             right = item.options[int(item.answer) - 1]
         else:
@@ -521,7 +523,9 @@ class RedeemView(generics.GenericAPIView):
         try:
             entitlement = services.redeem(request.user, given.validated_data["code"])
         except services.CodeError as error:
+            record_redemption(request, given.validated_data["code"], ok=False)  # insights' fraud rules: hashes only
             raise exceptions.ValidationError({"code": [str(error)]}) from None
+        record_redemption(request, given.validated_data["code"], ok=True)
         return Response(EntitlementSerializer(entitlement).data)
 
 

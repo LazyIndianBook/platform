@@ -1,0 +1,14 @@
+{% autoescape off %}{% if signals %}Fraud and abuse signals, new or grown last night:
+
+{% for signal in signals %}{{ signal.get_kind_display|capfirst }}: {{ signal.count }}, {{ signal.window_start|date:"j M H:i" }} to {{ signal.window_end|date:"j M H:i" }}{% if signal.subject != "all" %} (subject {{ signal.subject|slice:":8" }}…){% endif %}{% if signal.details.batch %}, batch {{ signal.details.batch }}{% endif %}
+{% endfor %}
+Look at them and acknowledge them in the admin: {{ site_url }}{% url 'admin:insights_fraudsignal_changelist' %}?acknowledged_at__isempty=1
+RUNBOOK.md, "A fraud spike", says what to do.
+
+{% endif %}{% if advice %}Print runs to act on:
+
+{% for one in advice %}{{ one.product.title }}: {{ one.alert }}
+{% endfor %}
+The advice in the admin: {{ site_url }}{% url 'admin:insights_printrunadvice_changelist' %}
+
+{% endif %}ExamLeaf insights{% endautoescape %}

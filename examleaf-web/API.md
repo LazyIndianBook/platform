@@ -4,8 +4,9 @@ The REST API behind the ExamLeaf app: the public catalogue (boards, subjects, bo
 signed-in student with a confirmed email address, as on the website, or for everyone while the site's solutions are
 open), the student's record of attempts, the account with its data rights (Download my data, Delete my account), the
 shop (books, categories, collections, cart, addresses, orders, payment with Razorpay's mobile SDK, invoices) and the
-revision course (chapters, clips, quiz, flash cards, a pass plan, book codes). Code: `api/` (`auth.py`, `views.py`,
-`serializers.py`, `shop.py`, `learn.py`), settings: `examleaf/api_settings.py`, URLs: `api/urls.py` under
+revision course (chapters, clips, quiz, flash cards, a pass plan, book codes), and for staff the insights (forecasts,
+print runs, item analysis, cohorts, fraud signals). Code: `api/` (`auth.py`, `views.py`, `serializers.py`, `shop.py`,
+`learn.py`) and `insights/api.py`, settings: `examleaf/api_settings.py`, URLs: `api/urls.py` under
 `examleaf/api_urls.py`.
 
 ## Contents
@@ -13,8 +14,9 @@ revision course (chapters, clips, quiz, flash cards, a pass plan, book codes). C
 [Conventions](#conventions) · [Endpoints](#endpoints) · [Authentication](#authentication-from-the-app) ·
 [Frontend integration guide](#frontend-integration-guide) · [Profile and data rights](#profile-and-data-rights) ·
 [Catalogue and solutions](#catalogue-and-solutions) · [Attempts](#attempts) · [Store catalogue](#store-catalogue) ·
-[Shop](#shop) · [Revision course](#revision-course) · [Site](#site-configuration-and-legal-pages) · [Lists](#lists) ·
-[Errors](#errors) · [Rate limits](#rate-limits) · [CORS](#cors) · [Versioning](#versioning) · [Operations](#operations)
+[Shop](#shop) · [Revision course](#revision-course) · [Site](#site-configuration-and-legal-pages) ·
+[Insights (staff)](#insights-staff) · [Lists](#lists) · [Errors](#errors) · [Rate limits](#rate-limits) · [CORS](#cors) ·
+[Versioning](#versioning) · [Operations](#operations)
 
 ## Conventions
 
@@ -109,6 +111,9 @@ valid access token (or the website's session); **confirmed** also needs a confir
 | GET | `config/` | anyone | what the server has switched on: log-in methods, Turnstile, the shop, consent mode |
 | GET | `pages/`, `pages/<slug>/` | anyone | the legal pages: Markdown, the website's HTML, version, last change |
 | POST | `contact/` | anyone | the contact form: a message emailed to the support address |
+| GET | `insights/forecasts/`, `insights/print-runs/`, `insights/backtests/` | staff | the newest demand forecast (`?product=<slug>`, `?district=all` or a district), print-run advice, backtest |
+| GET | `insights/item-stats/` (`?chapter=`), `insights/chapter-stats/`, `insights/cohorts/`, `insights/code-activation/` | staff | the quiz's item analysis, chapter accuracy, cohorts, book codes per batch and district: aggregates only |
+| GET | `insights/delivery/`, `insights/fraud-signals/` (`?open=1`), `insights/offers/` | staff | days in transit per courier and district, fraud signals, what coupons and offers did |
 | GET | `/api/schema/`, `/api/docs/`, `/api/redoc/` | anyone | the OpenAPI schema, Swagger UI, Redoc |
 | any | `/_allauth/app/v1/…`, `/_allauth/browser/v1/…` | anyone; the account and authenticator endpoints need the signed-in session | allauth.headless: log-in, sign-up, codes, passkeys, Google, second step, email, phone, password, re-authentication, signed-in devices (`auth/sessions`); its OpenAPI file `/_allauth/openapi.json` (and `.yaml`) |
 
@@ -859,6 +864,48 @@ curl https://examleaf.in/api/v1/config/
 curl https://examleaf.in/api/v1/pages/privacy/
 # 200 {"slug": "privacy", "title": "Privacy Policy", "version": "2026-10-08", "updated": "...", "markdown": "...",
 #      "html": "<h2>...", "web_url": "https://examleaf.in/privacy/"}
+```
+
+## Insights (staff)
+
+`insights/…` (code: `insights/api.py`; the jobs behind them: `insights/README.md`) gives the Admin Control Panel what
+the nightly jobs worked out, read-only, for an **active member of staff** (`is_staff`); anyone else gets 401 (no
+token) or `403 {"detail": "For staff only."}`. That check (`insights.permissions.StaffOnly`) is a placeholder: the
+staff app is to replace it with its catalogued permissions. Each answer is the rows of the job's newest run (or
+newest day), paginated as every list, with four fields more about how they were made:
+
+| Field | What it is |
+|---|---|
+| `method` | the method, in words ("seasonal naive by week of season × damped growth …") |
+| `data_as_of` | when the job read its data (Indian offset); null before any run |
+| `backtest` | for `forecasts/`, `print-runs/` and `backtests/`: the newest backtest of every title together, 4 weeks ahead (`horizon_weeks`, `wape`, `mase_vs_seasonal_naive`, `shown`, `n_weeks`, `data_as_of`); null otherwise or before two seasons of sales |
+| `shown` | false while a prediction has not beaten the seasonal naive in the backtest: the panel hides it or labels it untested; true for counts |
+
+and every row has `n`, the sample behind it (copies of history, weeks tested, learners, parcels, orders, a signal's
+count). Learner data are aggregates only: groups under 5 give `n` with null shares, and no row names, counts or ranks
+a student.
+
+| Path | Rows |
+|---|---|
+| `forecasts/` | per title and week from this week to the exam: `product` (slug), `title`, `district` (null: every district together; `?district=all` gives each district, `?district=<name>` one), `week_start`, `p10`, `p50`, `p90`, `n`; `?product=<slug>` for one title |
+| `print-runs/` | per title with a print cost: `net_price`, `unit_cost`, `salvage` (rupees, strings), `critical_ratio`, `target_quantity`, `supply`, `recommended_quantity` (to print now), `reprint_trigger_units`, `weeks_of_cover` (null: it outlasts the season), `projected_leftover`, `level` (`ok`, `watch`, `act`), `alert`, `n` |
+| `backtests/` | per title (`product` null: every title together) and horizon: `horizon_weeks`, `wape`, `mase_vs_seasonal_naive`, `shown`, `n` |
+| `item-stats/` | per quiz item (`?chapter=<id>`): `item`, `chapter`, `kind`, `text`, `n`, `p` and `discrimination` (null below 30 learners), `flags` (`low_discrimination`, `too_easy`, `too_hard`, `distractor_<option>`) |
+| `chapter-stats/` | per chapter: `chapter`, `subject`, `number`, `title`, `mean_accuracy`, `trend`, `n` |
+| `cohorts/` | per cohort and week: `cohort_month`, `source` (`book_code`, `purchase`, `grant`), `week_index`, `active_share`, `churned_share`, `n` |
+| `code-activation/` | per batch (`district` null) and district: `batch`, `district`, `printed` (on the batch's row), `redeemed`, `redeemed_7d`, `n` |
+| `delivery/` | per courier and district (null: everywhere): `courier`, `district`, `median_days`, `p90_days`, `n` |
+| `fraud-signals/` | every signal, newest first (`?open=1`: not acknowledged): `id`, `kind`, `label`, `subject` (a keyed hash, or `all`), `window_start`, `window_end`, `details`, `created`, `acknowledged_at`, `n` |
+| `offers/` | per coupon (`coupon`: its code) or offer (`offer`: its name): `period_start`, `period_end`, `orders`, `revenue`, `discount_cost`, `period_orders`, `baseline_orders`, `baseline_revenue`, `interval_low`, `interval_high` (95 % interval of orders while it ran ÷ the same weeks last season), `note`, `n` |
+
+```sh
+curl -H "Authorization: Bearer $ACCESS" https://examleaf.in/api/v1/insights/forecasts/?product=physics-sample-papers-2027
+# 200 {"method": "seasonal naive by week of season × damped growth (season to date ÷ the same weeks last season)",
+#      "data_as_of": "2026-11-03T01:15:02+05:30", "backtest": {"horizon_weeks": 4, "wape": 0.31,
+#      "mase_vs_seasonal_naive": 0.82, "shown": true, "n_weeks": 48, "data_as_of": "2026-11-03T01:00:01+05:30"},
+#      "shown": true, "count": 15, "next": null, "previous": null,
+#      "results": [{"product": "physics-sample-papers-2027", "title": "ExamLeaf Physics Sample Papers 2027",
+#                   "district": null, "week_start": "2026-11-05", "p10": 24.0, "p50": 40.0, "p90": 60.0, "n": 1210}, ...]}
 ```
 
 ## Lists

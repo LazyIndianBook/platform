@@ -14,6 +14,35 @@ The plan is `docs/examleaf-admin-control-panel-plan.md`; the research behind it 
   and the media queue each have one (`examleaf.health.WorkerPing`, `CELERY_HEALTH_QUEUES`). Before, `limit=1` took the
   first worker's answer, and when that was the media worker the check reported the default queue as unserved. Found by
   the Kubernetes packaging's smoke test (`deploy/kubernetes/TESTING.md`).
+## Insights: the Admin Control Panel's predictive jobs (9 October 2026)
+
+A new app, `insights/` (its README: every job's inputs, method, output and how to read it), built from
+`docs/research/2026-10-09-admin-control-panel/research-b2b-predictive.md` section 4. No new dependency: the methods
+are a few lines of standard Python each, checked against numbers worked out by hand. 476 backend tests pass (7
+skipped), 54 of them new; before: 422.
+
+- **Demand and print runs.** `forecast_demand`: weekly copies per printed title and district to the exam, seasonal
+  naive by week of the season × a damped growth factor, P10 to P90 from last season's errors, a new edition taking its
+  line's curve, "email me when it is back" requests counted as demand. `backtest`: rolling origin across last season,
+  WAPE and seasonal MASE against the seasonal naive, and `shown` only when it beats it (a losing growth factor is
+  dropped). `advise_print_run`: the newsvendor's quantile at Cu ÷ (Cu + Co), the reprint trigger, weeks of cover and
+  leftovers, with "act" and "watch" alerts. Staff enter exam seasons and print costs in the admin.
+- **Learners, aggregate only.** The quiz's item analysis (p, corrected point-biserial, TIMSS's flags, once 30 learners
+  answered), chapter accuracy and its trend, cohort retention and churn; groups under 5 show their size only, and no
+  insights model has a key to an account or a learner (a test asserts it), for the DPDP Act's rule on children.
+- **Codes, parcels, offers, fraud.** Book codes per batch and district; transit days per courier and district with
+  `is_late`; what each coupon and offer did beside the same weeks last season, with an interval and "not conclusive"
+  below 30 orders, never a winner; fraud rules (failed book codes per account, address and hour, spikes, resale,
+  shared codes, shared phones and addresses on COD or coupon orders) as signals to acknowledge, and a nightly email to
+  `INSIGHTS_ALERT_EMAILS`. Rules waiting for data: COD return risk (`rto_risk`, for the shipping app's parcel
+  outcomes) and the school and distributor score (for ERPNext's accounts).
+- **Running it.** One Celery task per job between 01:00 and 03:00, retried once and then raised; `insights_run` and
+  `insights_review` (the monthly review); read-only admin pages with a summary per run; `/api/v1/insights/` for staff,
+  every answer with its method, data time, last backtest and `shown` (API.md, "Insights (staff)"); the permission is
+  a placeholder for the staff app's.
+- **Outside the app** (two hooks): `learn.QuizAttempt.chosen` keeps the multiple-choice option a student chose (the quiz
+  endpoint records it; Download my data lists it), and the redeem endpoint records each book code tried as hashes.
+  New settings: `INSIGHTS_ALERT_EMAILS`, `INSIGHTS_HASH_SALT` (DEPLOYMENT.md sections 13 and 21; RUNBOOK.md "Insights").
 
 ## The Answer Script redesign (9 October 2026)
 
