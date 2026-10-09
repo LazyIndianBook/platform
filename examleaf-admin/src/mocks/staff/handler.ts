@@ -18,6 +18,7 @@
 import type { Note } from "@/lib/api/staff";
 
 import { COLLEAGUES, createWorld, type MockJob, type MockSchemas, payloadHash, type World } from "./fixtures";
+import { ordersJob, ordersJobPermission, ordersPermission, ordersRoute, type OrdersKit } from "./orders";
 
 type S = MockSchemas;
 
@@ -53,6 +54,8 @@ const SUPPORT = [
   ...["staff.initiate_password_reset", "staff.reset_user_mfa", "staff.impersonate_user"],
   ...["staff.view_datarequest", "staff.handle_data_request", "staff.view_processorrecord"],
   ...["staff.refund_order", "staff.add_changerequest"],
+  ...["shop.view_product", "shop.view_invoice", "shop.view_creditnote", "shop.view_quoterequest"],
+  ...["shop.view_returnrequest", "staff.handle_return"],
 ];
 const FINANCE = [
   ...PANEL,
@@ -60,6 +63,23 @@ const FINANCE = [
   "shop.view_order",
   ...["staff.refund_order", "staff.approve_refund", "staff.record_offline_payment", "staff.approve_payment"],
   ...["staff.approve_discount", "staff.add_changerequest"],
+  ...["shop.view_product", "shop.view_invoice", "shop.view_creditnote", "shop.view_returnrequest"],
+  ...["shop.view_quoterequest", "shop.export_order"],
+];
+// the Orders module's roles (accounts/roles.py): SALES runs the orders, SALES_REP makes staff orders and quotes, PACKER
+// packs and receives returns
+const SALES = [
+  ...PANEL,
+  "accounts.view_user",
+  ...["shop.view_order", "shop.add_order", "shop.change_order", "shop.view_product", "shop.view_invoice"],
+  ...["shop.view_creditnote", "shop.view_quoterequest", "shop.change_quoterequest", "shop.view_returnrequest"],
+  ...["staff.refund_order", "staff.record_offline_payment", "staff.add_changerequest"],
+  ...["staff.handle_return", "staff.receive_return", "staff.view_parcels"],
+];
+const SALES_REP = [
+  ...PANEL,
+  ...["shop.view_order", "shop.add_order", "shop.change_order", "shop.view_product"],
+  ...["shop.view_quoterequest", "shop.change_quoterequest", "staff.add_changerequest"],
 ];
 const OWNER_ONLY = ["staff.assign_role", "staff.manage_api_keys", "staff.break_glass"].concat([
   "staff.view_auditlog",
@@ -78,6 +98,8 @@ const EVERYTHING = [
     ...["staff.suspend_user", "shop.view_product", "shop.change_product", "shop.view_coupon", "shop.add_coupon"],
     ...["content.view_book", "content.view_paper", "learn.view_chapter"],
     ...["staff.view_parcels", "staff.book_parcel", "staff.view_insights", "erp.view_sync"],
+    ...SALES,
+    ...["staff.pack_order", "staff.receive_return"],
   ]),
 ].sort();
 const ROLE_PERMISSIONS: Record<string, string[]> = {
@@ -87,7 +109,17 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
   SUPPORT,
   AUDITOR: [...EVERYTHING.filter((perm) => perm.split(".")[1].startsWith("view_")), "staff.export_auditlog"],
   CONTENT_EDITOR: [...PANEL, "content.view_book", "content.view_paper", "learn.view_chapter", "shop.view_product"],
-  PACKER: ["staff.view_inbox", "staff.view_savedview", "shop.view_order", "staff.view_parcels"],
+  PACKER: ["staff.view_inbox", "staff.view_savedview", "shop.view_order", "staff.view_parcels"].concat([
+    "staff.pack_order",
+    "staff.book_parcel",
+    "shop.view_product",
+    "shop.view_returnrequest",
+    "staff.receive_return",
+    "staff.view_job",
+    "staff.add_job",
+  ]),
+  SALES,
+  SALES_REP,
 };
 // accounts/roles.py ROLE_LIMITS (null: none)
 const LIMITS: Record<string, Record<string, number | null>> = {
@@ -96,6 +128,9 @@ const LIMITS: Record<string, Record<string, number | null>> = {
   FINANCE: { refund_inr: 10000, offline_inr: 50000, discount_percent: 50, export_rows: 10000, bulk_rows: 500 },
   SUPPORT: { refund_inr: 1000, offline_inr: 0, discount_percent: 0, export_rows: 100, bulk_rows: 50 },
   AUDITOR: { refund_inr: 0, offline_inr: 0, discount_percent: 0, export_rows: 5000, bulk_rows: 0 },
+  SALES: { refund_inr: 2000, offline_inr: 5000, discount_percent: 20, export_rows: 500, bulk_rows: 100 },
+  SALES_REP: { refund_inr: 0, offline_inr: 0, discount_percent: 10, export_rows: 200, bulk_rows: 50 },
+  PACKER: { refund_inr: 0, offline_inr: 0, discount_percent: 0, export_rows: 0, bulk_rows: 100 },
 };
 // staff/catalogue.py: the high and critical permissions, which need a recent authentication
 const RISKY = new Set([
@@ -104,6 +139,7 @@ const RISKY = new Set([
   ...["staff.export_personal_data", "staff.approve_erasure", "staff.manage_incident", "staff.assign_role"],
   ...["staff.approve_role_change", "staff.manage_api_keys", "staff.export_auditlog", "staff.approve_export"],
   ...["staff.manage_settings", "staff.manage_flags", "staff.toggle_maintenance"],
+  ...["staff.record_offline_payment", "shop.export_order"],
 ]);
 // the online-paid orders a refund may name (shop.Order with a captured Razorpay payment), rupees paid
 const PAID_ORDERS: Record<string, { id: number; paid: number; shipped: boolean }> = {
@@ -328,7 +364,7 @@ function manifest(context: Context, { first, last }: { first: number; last: numb
     roles: who.breakGlass ? [] : [{ name: who.role, expires_at: null, granted_by: 1 }],
     permissions,
     scopes: {},
-    role_scopes: who.role === "PACKER" ? { PACKER: { order_status: ["paid", "packed", "shipped"] } } : {},
+    role_scopes: who.role === "PACKER" ? { PACKER: { order_status: ["paid", "packed", "shipped", "placed"] } } : {},
     limits: Object.fromEntries(
       ["refund_inr", "offline_inr", "discount_percent", "export_rows", "bulk_rows"].map((name) => [
         name,
@@ -386,7 +422,10 @@ function permissionFor(context: Context): string | null {
     case "change-requests":
       return !a && method === "POST" ? "staff.add_changerequest" : "staff.view_changerequest";
     case "jobs":
-      return "staff.view_job";
+      // POST jobs/: the kind's own permission (staff.jobs.permission); the others: staff.view_job
+      return method === "POST" && !a ? (ordersJobPermission(context.body.kind) ?? "staff.add_job") : "staff.view_job";
+    case "orders":
+      return ordersPermission(method, parts);
     case "saved-views":
       return get
         ? "staff.view_savedview"
@@ -750,7 +789,15 @@ async function route(context: Context): Promise<Response> {
       return notFound();
     }
 
+    case "orders":
+      return ordersRoute(ordersKit(context));
+
     case "jobs": {
+      if (method === "POST" && !a) {
+        const kind = text(body.kind);
+        if (!ordersJobPermission(kind)) return invalid({ kind: ["The mock starts the orders' jobs only."] });
+        return ordersJob(ordersKit(context), kind, (body.params ?? {}) as Body);
+      }
       const mine = world.jobs.filter((job) => job.started_by === me || can("staff.view_system"));
       if (method === "GET" && !a) {
         const rows = mine.filter(
@@ -789,6 +836,16 @@ async function route(context: Context): Promise<Response> {
             code: "link_expired",
           });
         record(context, "job.result_downloaded", target("staff.job", job.id, `Job #${job.id}`));
+        if (job.kind === "orders_print" || job.kind === "orders_export") {
+          const csv = job.kind === "orders_export";
+          return new Response(csv ? "number,created,status,total\n" : "%PDF-1.4\n%%EOF\n", {
+            headers: {
+              "Content-Type": csv ? "text/csv" : "application/pdf",
+              "Content-Disposition": `attachment; filename="orders-${job.id}.${csv ? "csv" : "pdf"}"`,
+              "Cache-Control": "no-store",
+            },
+          });
+        }
         const rows = world.audit
           .slice(0, job.total || 20)
           .map((row) => JSON.stringify(row))
@@ -1657,9 +1714,60 @@ function visibleJob(context: Context, job: MockJob): S["Job"] {
   const { _ticks, _rows, ...visible } = job;
   void _ticks;
   void _rows;
-  const file = job.state === "done" && job.kind === "audit_export" && job.started_by === context.who.id;
+  const file =
+    job.state === "done" &&
+    ["audit_export", "orders_print", "orders_export"].includes(job.kind) &&
+    job.started_by === context.who.id;
   const token = `t-${job.id}-${Date.now() + 5 * 60_000}`;
   return { ...visible, result_url: file ? `${context.url.origin}${ROOT}jobs/${job.id}/result/?token=${token}` : null };
+}
+
+/** What the orders area (orders.ts) is lent: the request, the person and the mock's ways of answering. */
+function ordersKit(context: Context): OrdersKit {
+  const { world, who } = context;
+  return {
+    url: context.url,
+    method: context.method,
+    parts: context.parts,
+    body: context.body,
+    request: context.request,
+    orders: world.orders,
+    me: who.id,
+    can: (permission) => who.breakGlass || context.permissions.includes(permission),
+    limit: (name) => limitOf(context, name),
+    nextId: () => nextId(world),
+    json,
+    notFound,
+    invalid,
+    record: (action, extra) => record(context, action, extra as Partial<S["AuditEvent"]>),
+    waiting: (row) => waiting(context, row as Parameters<typeof waiting>[1]),
+    executed: (row, result) => {
+      const created = now();
+      const done = {
+        id: nextId(world),
+        ...(row as Omit<S["ChangeRequest"], "id">),
+        payload_sha256: payloadHash((row as Body).payload),
+        maker: who.id,
+        rule: "Within the maker's limits: no approval needed.",
+        status: "executed",
+        expires_at: new Date(Date.now() + 24 * 3_600_000).toISOString(),
+        approvals: [],
+        result,
+        executed_by: who.id,
+        executed_at: created,
+        created,
+        modified: created,
+      } as S["ChangeRequest"];
+      world.changeRequests.unshift(done);
+      record(context, `${done.action}.executed`, {
+        ...target(done.target_type ?? "", done.target_id ?? "", done.target_label ?? ""),
+        change_request_id: done.id,
+      });
+      return done;
+    },
+    paginate: (rows, size) => paginate(context, rows, size),
+    startJob: (kind, params, rows) => visibleJob(context, startJob(context, kind, params, rows)),
+  };
 }
 
 /** The mock's one entry: refuses outside `next dev` with STAFF_API_MOCK=1. */

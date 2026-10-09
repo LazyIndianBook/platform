@@ -114,6 +114,49 @@ print(User.objects.filter(pk=${world.customer}).delete())
 `);
 }
 
+export type OrdersWorld = { title: string; order: string; school: string };
+
+/** For the Orders journey: three books on sale (₹800, ₹900, ₹1,000, 50 copies each), and an order of one copy of
+ *  each, paid online and sent, for a partial refund (two books: ₹1,900, above SUPPORT's ₹1,000). `school` is the
+ *  address the staff order of the journey goes to. */
+export function seedOrdersWorld(stamp: number): OrdersWorld {
+  return lastJson<OrdersWorld>(
+    shell(`
+import json
+from decimal import Decimal
+from django.utils import timezone
+from shop.models import Order, OrderItem, Payment, Product, Shipment
+title = ${py(`E2E Physics ${stamp}`)}
+books = [
+    Product.objects.create(title=f"{title} {n}", slug=f"e2e-physics-${stamp}-{n}", kind="sample-papers", mrp=Decimal(price) + 100, price=Decimal(price), stock=50, weight_grams=300)
+    for n, price in enumerate(["800", "900", "1000"], start=1)
+]
+address = {"name": "Real E2E Buyer", "phone": "+919864012345", "line1": "1 Test Lane", "line2": "", "city": "Guwahati", "district": "Kamrup Metro", "state": "AS", "pin": "781001"}
+order = Order.objects.create(email=${py(`admin-ui-buyer-${stamp}@example.com`)}, shipping_address=address, subtotal=2700, total=2700, payment_method="razorpay", placed_at=timezone.now())
+for book in books:
+    OrderItem.objects.create(order=order, product=book, title=book.title, hsn_code="4901", gst_rate=Decimal("0"), mrp=book.mrp.amount, unit_price=book.price.amount, quantity=1, discount=Decimal("0"))
+Order.objects.filter(pk=order.pk).update(status="shipped")
+payment = Payment.objects.create(order=order, method="razorpay", amount=2700, razorpay_order_id=${py(`order_e2eo${stamp}`)}, razorpay_payment_id=${py(`pay_e2eo${stamp}`)})
+Payment.objects.filter(pk=payment.pk).update(status="captured")
+Shipment.objects.create(order=order, courier="India Post", tracking_number=${py(`EA${String(stamp).slice(-9)}IN`)})
+order.refresh_from_db()
+print(json.dumps({"title": title, "order": order.number, "school": ${py(`admin-ui-school-${stamp}@example.com`)}}))
+`),
+  );
+}
+
+/** Deletes what seedOrdersWorld made, and the staff order the journey made for `school` (change requests: deleteStaff;
+ *  audit events stay: the log is append-only). */
+export function deleteOrdersWorld(world: OrdersWorld) {
+  shell(`
+from shop.models import Order, Payment, Product
+orders = Order.objects.filter(email__in=[${py(world.school)}]) | Order.objects.filter(number=${py(world.order)})
+Payment.objects.filter(order__in=orders).delete()
+orders.delete()
+print(Product.objects.filter(title__startswith=${py(world.title)}).delete())
+`);
+}
+
 /** The authenticator app's code for a moment (RFC 6238: HMAC-SHA1, 30 s, 6 digits). */
 export function totp(secret: string, at = Date.now()): string {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";

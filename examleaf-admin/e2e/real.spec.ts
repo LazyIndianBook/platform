@@ -7,16 +7,21 @@
 // person: the owner may not approve their own); searches for the customer and reveals their address (audited);
 // acknowledges the data request; changes a setting with a reason; signs in to the website as the customer and ends
 // it. Every page passes axe at 1280 and 390 px and fits 320 px; the idle sign-out comes at the manifest's limit;
-// nothing animates with reduced motion.
+// nothing animates with reduced motion. The Orders module: SALES makes a staff order (the discount's rule shown before
+// saving, made at once within their limit), FINANCE finds it by the customer's email (a lookup the API records by its
+// hash), and SUPPORT asks for a refund of two books of three, above their ₹1,000: the 202 and its change request.
 import { type Browser, expect, type Page, test } from "@playwright/test";
 
 import { checkPages, type Codes, csrf, settle, signIn, toast } from "./console";
 import {
   createStaff,
+  deleteOrdersWorld,
   deleteRealWorld,
   deleteStaff,
   newSecret,
+  type OrdersWorld,
   type RealWorld,
+  seedOrdersWorld,
   seedRealWorld,
   type Staff,
 } from "./django";
@@ -30,9 +35,14 @@ const staffFor = (role: string): Staff => ({
 });
 const owner = staffFor("OWNER");
 const support = staffFor("SUPPORT");
+const sales = staffFor("SALES");
+const finance = staffFor("FINANCE");
 const ownerCodes: Codes = { last: null };
 const supportCodes: Codes = { last: null };
+const salesCodes: Codes = { last: null };
+const financeCodes: Codes = { last: null };
 let world: RealWorld;
+let shop: OrdersWorld;
 let supportId: number;
 let changeRequest = "";
 
@@ -41,12 +51,16 @@ test.describe.configure({ mode: "serial" });
 test.beforeAll(() => {
   createStaff(owner, "OWNER");
   supportId = createStaff(support, "SUPPORT");
+  createStaff(sales, "SALES");
+  createStaff(finance, "FINANCE");
   world = seedRealWorld(stamp);
+  shop = seedOrdersWorld(stamp);
 });
 
 test.afterAll(() => {
   if (world) deleteRealWorld(world);
-  deleteStaff([owner.email, support.email]);
+  if (shop) deleteOrdersWorld(shop);
+  deleteStaff([owner.email, support.email, sales.email, finance.email]);
 });
 
 async function open(browser: Browser, width = 1280): Promise<Page> {
@@ -309,4 +323,62 @@ test("with reduced motion nothing animates", async ({ browser }) => {
   );
   expect(running).toBe(0);
   await context.close();
+});
+
+test("Orders: SALES makes a staff order, FINANCE finds it, SUPPORT's refund of two books above the cap waits", async ({
+  browser,
+}) => {
+  let number = "";
+  await test.step("SALES: the rule's answer before saving, then the order made at once within their limit", async () => {
+    const page = await open(browser);
+    await signIn(page, sales, "/orders/new/", salesCodes);
+    await page.getByLabel("Find a book").fill(shop.title.slice(0, 14));
+    await page.getByRole("button", { name: `Add ${shop.title} 1` }).click();
+    await page.getByLabel(`Copies of ${shop.title} 1`).fill("3");
+    await page.getByLabel("State").selectOption("AS");
+    await page.getByLabel("Discount, in rupees").fill("100");
+    await expect(page.getByText("Within your limit of 20%: the order is made at once.")).toBeVisible();
+    await page.getByLabel("Email address").fill(shop.school);
+    await page.getByLabel("Name", { exact: true }).fill("Cotton Collegiate");
+    await page.getByLabel("Mobile number").fill("+919864012345");
+    await page.getByLabel("Address", { exact: true }).fill("Panbazar");
+    await page.getByLabel("Town or city").fill("Guwahati");
+    await page.getByLabel("District").fill("Kamrup Metro");
+    await page.getByLabel("PIN code").fill("781001");
+    await page.getByRole("checkbox", { name: "Email a payment link now" }).uncheck();
+    await page.getByLabel("Reason", { exact: true }).fill("A school's order by phone (the console's tests).");
+    await page.getByRole("button", { name: "Make the order" }).click();
+    await expect(page).toHaveURL(/\/orders\/EL-\d{4}-\d{6}\/$/);
+    number = page.url().match(/(EL-\d{4}-\d{6})/)![1];
+    await expect(page.getByRole("heading", { level: 1, name: number })).toBeVisible();
+    await page.context().close();
+  });
+
+  await test.step("FINANCE finds it by the customer's email (masked in the list)", async () => {
+    const page = await open(browser);
+    await signIn(page, finance, "/orders/", financeCodes);
+    await page.getByRole("searchbox", { name: "Search orders" }).fill(shop.school);
+    await page.getByRole("button", { name: "Apply" }).click();
+    const table = page.getByRole("region", { name: "Orders, a table" });
+    await expect(table.getByRole("link", { name: number })).toBeVisible();
+    await expect(table.getByText(shop.school)).toHaveCount(0);
+    await table.getByRole("link", { name: number }).click();
+    await expect(page.getByRole("heading", { level: 1, name: number })).toBeVisible();
+    await page.context().close();
+  });
+
+  await test.step("SUPPORT: a refund of two books of three, ₹1,900, waits for FINANCE", async () => {
+    const page = await open(browser);
+    await signIn(page, support, `/orders/${shop.order}/`, supportCodes);
+    await page.getByRole("button", { name: "Refund", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "Refund" });
+    await dialog.getByLabel(`Copies of ${shop.title} 2 to refund`).fill("1");
+    await dialog.getByLabel(`Copies of ${shop.title} 3 to refund`).fill("1");
+    await expect(dialog.getByText(/About ₹1,900/)).toBeVisible();
+    await dialog.getByLabel("Reason", { exact: true }).fill("Two books arrived torn (the console's tests).");
+    await dialog.getByRole("button", { name: "Ask for the refund" }).click();
+    await settle(page, dialog.getByText("A second person needs to approve this"), support, supportCodes);
+    await expect(dialog.getByText("staff.approve_refund", { exact: true })).toBeVisible();
+    await page.context().close();
+  });
 });

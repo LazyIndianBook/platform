@@ -11,6 +11,8 @@ import { createHash } from "node:crypto";
 
 import type { Note, Schemas } from "@/lib/api/staff";
 
+import { type OrdersWorld, ordersWorld } from "./orders";
+
 export type Me = { id: number; email: string; name: string; roles: string[] };
 
 /** The schema's records with their read-only fields writable: the mock is the server, it changes them. */
@@ -47,6 +49,8 @@ export type World = {
   impersonation: { token: string; user: number; until: string } | null;
   breakGlassReason: string | null;
   policiesAcknowledged: string[];
+  /** The Orders module's records (orders.ts). */
+  orders: OrdersWorld;
 };
 
 /** The payload's SHA-256 over its canonical JSON (keys sorted, no spaces), as staff/approvals.py `digest` makes it. */
@@ -1368,5 +1372,6 @@ export function createWorld(me: Me, now = Date.now()): World {
     impersonation: null,
     breakGlassReason: null,
     policiesAcknowledged: [],
+    orders: ordersWorld(at),
   };
 }
