@@ -142,7 +142,7 @@ export function Invites({ invites, now }: { invites: StaffInvite[]; now: number 
   if (!invites.length) return <p className="m-0 text-[15px] text-muted-foreground">{copy.people.noInvites}</p>;
   const revoking = can(P.peopleAssign);
   return (
-    <Table caption={copy.people.invites}>
+    <Table caption={copy.table.region(copy.people.invites)}>
       <thead>
         <tr>
           <TableHead>{copy.people.inviteColumns.email}</TableHead>

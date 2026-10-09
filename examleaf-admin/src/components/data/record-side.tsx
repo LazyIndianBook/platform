@@ -32,8 +32,8 @@ async function RecordSide({ manifest, transport, path, audit, note }: RecordSide
   return (
     <div className="flex flex-col gap-8">
       {notes ? (
-        <section aria-labelledby="notes-title" className="flex flex-col gap-3">
-          <h2 id="notes-title" className="m-0 font-head text-xl leading-tight">
+        <section aria-labelledby="side-notes-title" className="flex flex-col gap-3">
+          <h2 id="side-notes-title" className="m-0 font-head text-xl leading-tight">
             {copy.notes.title}
           </h2>
           <p className="m-0 text-sm text-muted-foreground">{copy.notes.lead}</p>
@@ -41,8 +41,8 @@ async function RecordSide({ manifest, transport, path, audit, note }: RecordSide
         </section>
       ) : null}
       {events ? (
-        <section aria-labelledby="trail-title" className="flex flex-col gap-3">
-          <h2 id="trail-title" className="m-0 font-head text-xl leading-tight">
+        <section aria-labelledby="side-trail-title" className="flex flex-col gap-3">
+          <h2 id="side-trail-title" className="m-0 font-head text-xl leading-tight">
             {copy.audit.title}
           </h2>
           {events instanceof ApiError ? (

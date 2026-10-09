@@ -89,7 +89,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
       </Section>
       <Section id="orders" title={copy.users.orders}>
         {user.orders.length ? (
-          <Table caption={copy.users.orders}>
+          <Table caption={copy.table.region(copy.users.orders)}>
             <thead>
               <tr>
                 <TableHead>{copy.users.orderColumns.number}</TableHead>

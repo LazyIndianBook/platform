@@ -815,7 +815,7 @@ export const en = {
     acknowledge: "Acknowledge",
     acknowledgedToast: "Acknowledged",
     assignee: "Handled by",
-    notes: "Notes",
+    notes: "The request's working notes",
     notesHelp: "Notes are personal data too: they go into the requester's own access export.",
     saveNotes: "Save the notes",
     notesSaved: "Notes saved",
