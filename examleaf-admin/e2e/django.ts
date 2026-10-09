@@ -220,7 +220,9 @@ from decimal import Decimal
 from django.utils import timezone
 from shop.models import Order, OrderItem, Payment, Product
 title = ${py(`E2E Reports ${stamp}`)}
-Order.objects.filter(email__startswith="admin-ui-reports-").delete()
+left = Order.objects.filter(email__startswith="admin-ui-reports-")  # a run that was cut off leaves its orders (their payments protect them)
+Payment.objects.filter(order__in=left).delete()
+left.delete()
 Product.objects.filter(title__startswith="E2E Reports ").delete()
 book = Product.objects.create(title=title, slug=${py(`e2e-reports-${stamp}`)}, kind="sample-papers", mrp=Decimal("1334"), price=Decimal("1234"), stock=50, weight_grams=300)
 address = {"name": "Real E2E Buyer", "phone": "+919864012345", "line1": "1 Test Lane", "line2": "", "city": "Guwahati", "district": "Kamrup Metro", "state": "AS", "pin": "781001"}
