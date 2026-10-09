@@ -49,9 +49,9 @@
   .totals th { font-weight: 400; text-align: left; }
   .grand th, .grand td { padding-top: 2.4mm; border-top: 1.5px solid var(--ink); border-bottom: 0; font-size: 10pt; font-weight: 700; }
   .note { margin-top: 5mm; font-size: 8pt; color: var(--muted); }
-</style>
-</head>
-<body>
+  .copy { break-a<body>
+{% for copy_mark in copies %}
+<section class="copy">
 <div class="head">
   <div>
     <p class="brand">Exam<span>Leaf</span></p>
@@ -63,7 +63,9 @@
     </div>
   </div>
   <div class="doc">
+    {% if copy_mark %}<p class="mark">{{ copy_mark }}</p>{% endif %}
     <h1>{{ title }}{% if document.is_test %} (test: not a tax document){% endif %}</h1>
+    {% if document.cancelled_at %}<p class="cancelled">Cancelled on {{ document.cancelled_at|date:"j F Y" }}</p>{% endif %}
     <p><strong>{{ document.number }}</strong> · {{ document.created|date:"j F Y" }}</p>
     {% block reference %}<p>Order {{ order.number }}{% if order.placed_at %} of {{ order.placed_at|date:"j F Y" }}{% endif %} · {{ order.get_payment_method_display }}{% if order.payment_reference %}, reference {{ order.payment_reference }}{% endif %}</p>{% endblock %}
   </div>
@@ -71,14 +73,15 @@
 
 <div class="parties">
   <div>
-    <p class="label">Billed and shipped to</p>
+    <p class="label">{% if goods %}Billed and shipped to{% else %}Billed to{% endif %}</p>
     {% for line in buyer_lines %}<p>{{ line }}</p>{% endfor %}
     <p>{{ order.email }}</p>
   </div>
   <div>
     <p class="label">Place of supply</p>
     <p>{{ place_of_supply }} ({{ intra_state|yesno:"same state as the seller: CGST and SGST,another state: IGST" }})</p>
-    <p class="label" style="margin-top: 2mm">Tax payable on reverse charge</p>
+    {% if billed_elsewhere %}<p>The billing state given at checkout.</p>{% endif %}
+    <p class="label" style="margin-top: 2mm">Reverse charge</p>
     <p>No</p>
   </div>
 </div>
@@ -87,7 +90,7 @@
 <table>
   <thead>
     <tr>
-      <th>#</th><th class="item">Item</th><th>HSN</th><th class="num">Qty</th><th class="num">Rate (₹)</th><th class="num">Discount (₹)</th>
+      <th>#</th><th class="item">Item</th><th>HSN/SAC</th><th class="num">Qty</th><th class="num">Rate (₹)</th><th class="num">Discount (₹)</th>
       <th class="num">Taxable value (₹)</th>
       {% if intra_state %}<th class="num">CGST</th><th class="num">SGST</th>{% else %}<th class="num">IGST</th>{% endif %}
       <th class="num">Amount (₹)</th>
@@ -97,8 +100,8 @@
   {% for line in lines %}
     <tr>
       <td>{{ forloop.counter }}</td>
-      <td>{{ line.item.title }}</td>
-      <td class="code">{{ line.item.hsn_code }}</td>
+      <td>{{ line.item.title }}{% if line.bundle %}<br><span class="sub">part of {{ line.bundle }}</span>{% endif %}</td>
+      <td class="code">{{ line.hsn }}</td>
       <td class="num">{{ line.item.quantity }}</td>
       <td class="num">{{ line.item.unit_price.amount }}</td>
       <td class="num">{{ line.discount }}</td>
@@ -116,16 +119,25 @@
 </table>
 
 <table class="totals">
-  <tr><th>Books (prices include tax)</th><td class="num">₹{{ order.subtotal.amount }}</td></tr>
+  <tr><th>Items (prices include tax)</th><td class="num">₹{{ order.subtotal.amount }}</td></tr>
   {% with savings=order.discount_lines.all %}{% for saving in savings %}<tr><th>{{ saving.label }}</th><td class="num">−₹{{ saving.amount.amount }}</td></tr>
   {% empty %}{% if order.discount.amount %}<tr><th>Discount{% if order.coupon_code %} ({{ order.coupon_code }}){% endif %}</th><td class="num">−₹{{ order.discount.amount }}</td></tr>{% endif %}{% endfor %}{% endwith %}
-  <tr><th>Taxable value</th><td class="num">₹{{ taxable_total }}</td></tr>
-  <tr><th>GST</th><td class="num">₹{{ tax_total }}</td></tr>
-  <tr><th>Shipping (part of the supply)</th><td class="num">₹{{ order.shipping_fee.amount }}</td></tr>
+  {% for charge in charges %}<tr><th>{{ charge.label }} (with the goods{% if charge.rate %}, GST {{ charge.rate|floatformat:2 }} %{% else %}: not taxed{% endif %})</th><td class="num">₹{{ charge.amount }}</td></tr>
+  {% empty %}{% if goods %}<tr><th>Shipping</th><td class="num">₹0.00</td></tr>{% endif %}{% endfor %}
+  {% if round_off %}<tr><th>Round off</th><td class="num">₹{{ round_off }}</td></tr>{% endif %}
   <tr class="grand"><th>Total</th><td class="num">₹{{ order.total.amount }}</td></tr>
 </table>
 
-<p class="note">{% if title == "Bill of supply" %}Printed books (HSN 4901) are exempt from GST: no tax is charged. {% endif %}Prices include any tax. This document is computer generated and needs no signature.</p>
+<table class="summary">
+  <tr><th>Taxable value</th><td class="num">₹{{ taxable_total }}</td></tr>
+  <tr><th>GST</th><td class="num">₹{{ tax_total }}</td></tr>
+  <tr><th>Exempt, nil-rated and non-GST value</th><td class="num">₹{{ exempt_total }}</td></tr>
+</table>
+
+{% if exemptions %}<div class="note"><p>Not taxed:</p><ul class="reasons">{% for reason in exemptions %}<li>{{ reason }}</li>{% endfor %}</ul></div>{% endif %}
+<p class="note">Prices include any tax. HSN and SAC codes to {{ hsn_digits }} digits. This document is computer generated and needs no signature.</p>
 {% endblock %}
+</section>
+{% endfor %}
 </body>
 </html>

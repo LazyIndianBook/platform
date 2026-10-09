@@ -1,11 +1,11 @@
 {% extends "shop/invoice.html" %}
-{% block reference %}<p>Against {{ invoice.number }} of {{ invoice.created|date:"j F Y" }} · order {{ order.number }}</p>
+{% block reference %}<p>Against {{ invoice.number }} of {{ invoice.created|date:"j F Y" }} ({{ invoice.get_document_type_display|default:"invoice"|lower }}) · order {{ order.number }}</p>
 <p>Reason: {{ note.refund.reason }}</p>{% endblock %}
 {% block body %}
 <table>
   <thead>
     <tr>
-      <th>#</th><th class="item">Item</th><th>HSN</th><th class="num">Qty</th><th class="num">Credited (₹)</th><th class="num">Taxable value (₹)</th>
+      <th>#</th><th class="item">Item</th><th>HSN/SAC</th><th class="num">Qty</th><th class="num">Credited (₹)</th><th class="num">Taxable value (₹)</th>
       {% if intra_state %}<th class="num">CGST</th><th class="num">SGST</th>{% else %}<th class="num">IGST</th>{% endif %}
     </tr>
   </thead>
@@ -13,8 +13,8 @@
   {% for line in lines %}
     <tr>
       <td>{{ forloop.counter }}</td>
-      <td>{{ line.item.title }}</td>
-      <td class="code">{{ line.item.hsn_code }}</td>
+      <td>{{ line.item.title }}{% if line.bundle %}<br><span class="sub">part of {{ line.bundle }}</span>{% endif %}</td>
+      <td class="code">{{ line.hsn }}</td>
       <td class="num">{{ line.item.quantity }}</td>
       <td class="num">{{ line.value }}</td>
       <td class="num">{{ line.taxable }}</td>
@@ -30,12 +30,16 @@
 </table>
 
 <table class="totals">
-  <tr><th>Books</th><td class="num">₹{{ books_credit }}</td></tr>
-  <tr><th>Taxable value</th><td class="num">₹{{ taxable_total }}</td></tr>
-  <tr><th>GST</th><td class="num">₹{{ tax_total }}</td></tr>
-  {% if shipping_credit %}<tr><th>Shipping</th><td class="num">₹{{ shipping_credit }}</td></tr>{% endif %}
+  <tr><th>Items</th><td class="num">₹{{ books_credit }}</td></tr>
+  {% for charge in charges %}{% if charge.amount %}<tr><th>{{ charge.label }} (with the goods{% if charge.rate %}, GST {{ charge.rate|floatformat:2 }} %{% else %}: not taxed{% endif %})</th><td class="num">₹{{ charge.amount }}</td></tr>{% endif %}{% endfor %}
   <tr class="grand"><th>Total credited</th><td class="num">₹{{ total_credit }}</td></tr>
 </table>
 
-<p class="note">Refunded to the way the order was paid. Prices include any tax. This document is computer generated and needs no signature.</p>
+<table class="summary">
+  <tr><th>Taxable value</th><td class="num">₹{{ taxable_total }}</td></tr>
+  <tr><th>GST</th><td class="num">₹{{ tax_total }}</td></tr>
+  <tr><th>Exempt, nil-rated and non-GST value</th><td class="num">₹{{ exempt_total }}</td></tr>
+</table>
+
+<p class="note">At the invoice's rates and place of supply. Refunded to the way the order was paid. Prices include any tax. This document is computer generated and needs no signature.</p>
 {% endblock %}

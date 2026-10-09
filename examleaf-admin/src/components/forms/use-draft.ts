@@ -31,8 +31,13 @@ export function readDraft(key: string): Values | null {
   }
 }
 
-export function useDraftForm(key: string) {
+/** `onRestore`: told when a draft was put back into the form (it is unsaved work). */
+export function useDraftForm(key: string, onRestore?: () => void) {
   const ref = useRef<HTMLFormElement>(null);
+  const restored = useRef(onRestore);
+  useEffect(() => {
+    restored.current = onRestore;
+  });
 
   useEffect(() => {
     const form = ref.current;
@@ -48,6 +53,7 @@ export function useDraftForm(key: string) {
         field.value = value;
       }
     }
+    restored.current?.();
   }, [key]);
 
   const save = useCallback(() => {

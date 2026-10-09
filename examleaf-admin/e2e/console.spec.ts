@@ -5,7 +5,9 @@
 // inviting a colleague (and a privileged one, which waits for another person), a customer's email address revealed
 // with a reason (hidden again after 60 s), "confirm it's you" before a sensitive action, a note, signing in to the
 // website as a customer and ending it, a setting changed with a reason and found in the audit trail, the person's jobs
-// (cancel one, download a file), the ⌘K palette, and the idle sign-out at the limit the manifest gives the role. Then a
+// (cancel one, download a file), tax (the month's dates, a new dated rate on the HSN master behind the save bar, a
+// document cancelled with its number typed and its audit trail), the ⌘K palette, and the idle sign-out at the limit
+// the manifest gives the role. Then a
 // break-glass session's reason and a policy acknowledged before anything else, and reduced motion. The TEST band
 // shows throughout (the fixtures are test data).
 import { expect, type Page, test } from "@playwright/test";
@@ -35,6 +37,13 @@ const PAGES = [
   "/account/",
   "/orders/",
   "/shipping/",
+  "/tax/",
+  "/tax/hsn/",
+  "/tax/hsn/4901/",
+  "/tax/documents/",
+  "/tax/documents/?kind=credit_note",
+  "/tax/series/",
+  "/tax/gstr1/",
   "/users/99999/",
 ];
 
@@ -268,6 +277,60 @@ for (const width of [1280, 390]) {
         const download = page.waitForEvent("download");
         await jobs.getByRole("button", { name: "Download the file" }).first().click();
         expect((await download).suggestedFilename()).toMatch(/^audit-export-\d+\.jsonl$/);
+      });
+
+      await test.step("tax: the month's dates, then a new dated rate on the HSN master behind the save bar", async () => {
+        await page.goto("/tax/");
+        await expect(page.getByRole("heading", { level: 2, name: "Due this month" })).toBeVisible();
+        await expect(
+          page.getByRole("region", { name: "Thresholds, a table" }).getByText("Crossed", { exact: true }),
+        ).toBeVisible();
+        await page.getByRole("link", { name: /^Next month/ }).click();
+        await expect(page).toHaveURL(/\/tax\/\?month=\d{4}-\d{2}$/);
+        await page.getByRole("navigation", { name: "Tax" }).getByRole("link", { name: "HSN and SAC codes" }).click();
+        await expect(page.getByText("Not on the HSN and SAC master: choose its code.")).toBeVisible();
+        await page
+          .getByRole("region", { name: "HSN and SAC codes, a table" })
+          .getByRole("link", { name: "4901", exact: true })
+          .click();
+        await expect(page.getByRole("heading", { level: 1, name: "4901" })).toBeVisible();
+        const form = page.locator("#new-rate");
+        await expect(form.getByRole("button", { name: "Add the rate" })).toHaveCount(0);
+        await form.getByLabel("Rate (%)").fill("0");
+        await form.getByLabel("Taxability").selectOption("exempt");
+        await form.getByLabel("From", { exact: true }).fill("2027-04-01");
+        await form.getByLabel("Notification").fill("1/2027-Central Tax (Rate)");
+        await form
+          .getByRole("region", { name: "Unsaved changes" })
+          .getByRole("button", { name: "Add the rate" })
+          .click();
+        await expect(toast(page, "Rate added")).toBeVisible();
+        await expect(
+          page.getByRole("region", { name: "Rates, a table" }).getByText("1/2027-Central Tax (Rate)"),
+        ).toBeVisible();
+        await expect(form.getByRole("region", { name: "Unsaved changes" })).toHaveCount(0);
+      });
+
+      await test.step("tax: a document cancelled with its number typed, and the audit trail beside it", async () => {
+        await page.goto("/tax/documents/");
+        await page.getByRole("searchbox", { name: "Search by number or order" }).fill("EL-2026-000133");
+        await page.keyboard.press("Enter");
+        await expect(page).toHaveURL(/search=EL-2026-000133/);
+        await page.getByRole("region", { name: "Documents, a table" }).getByRole("link").first().click();
+        const heading = page.getByRole("heading", { level: 1 });
+        await expect(heading).toHaveText(/^EL\/\d{4}-\d{2}\/\d{5}$/);
+        const number = (await heading.innerText()).trim();
+        expect.soft((await axe(page)).violations, "axe on a document").toEqual([]);
+        await page.getByRole("button", { name: "Cancel the document" }).click();
+        const dialog = page.getByRole("dialog", { name: "Cancel this document?" });
+        await dialog.getByLabel("Reason").fill("Made twice for one order.");
+        await dialog.getByLabel(`To confirm, type ${number} below.`).fill(number);
+        await dialog.getByRole("button", { name: "Cancel it" }).click();
+        await settle(page, toast(page, "Document cancelled"), staff, codes);
+        await expect(page.getByRole("button", { name: "Cancel the document" })).toHaveCount(0);
+        await expect(
+          page.getByRole("complementary", { name: "Notes and audit trail" }).getByText("tax.document_cancelled"),
+        ).toBeVisible();
       });
 
       await test.step("⌘K jumps to a customer", async () => {

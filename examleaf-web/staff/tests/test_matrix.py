@@ -18,7 +18,7 @@ from integrations.models import IntegrationAccount
 from shipping.api import OrderQuoteView, ShipmentViewSet
 from shipping.models import CodRemittance, PickupLocation, ShipmentCharge, ShippingException
 from shop.factories import ProductFactory, make_order
-from shop.models import Shipment
+from shop.models import Invoice, Shipment
 from staff import approvals, catalogue
 from staff import urls as staff_urls
 from staff.api import StaffView
@@ -126,6 +126,20 @@ ENDPOINTS = [
     ("post", "system/reconcile/", "staff.replay_webhook"),
     ("get", "notes/?target_type=accounts.user&target_id={customer}", "staff.view_note"),  # (and the record's own)
     ("post", "notes/", "staff.add_note"),
+    # Tax (shop/staff_tax.py)
+    ("get", "tax/hsn/", "shop.view_hsncode"),
+    ("get", "tax/hsn/4901/", "shop.view_hsncode"),
+    ("post", "tax/hsn/", "shop.change_hsncode"),
+    ("post", "tax/hsn/4901/rates/", "shop.change_hsncode"),
+    ("get", "tax/problems/", "shop.view_hsncode"),
+    ("get", "tax/documents/", "shop.view_documentseries"),
+    ("get", "tax/documents/{document}/", "shop.view_documentseries"),
+    ("get", "tax/documents/{document}/pdf/", "shop.view_documentseries"),  # not made yet: 404
+    ("post", "tax/documents/{document}/cancel/", "staff.cancel_document"),
+    ("get", "tax/series/", "shop.view_documentseries"),
+    ("get", "tax/thresholds/", "shop.view_taxthreshold"),
+    ("get", "tax/calendar/", "shop.view_taxthreshold"),
+    ("post", "tax/gstr1/", "staff.run_gstr1"),
     ("post", "people/{person}/offboard/", "staff.assign_role"),  # last: the person goes
 ]
 WHO = sorted(roles.STAFF_ROLES)  # one member of staff per role (OWNER: the founder), and a break-glass account
@@ -148,7 +162,12 @@ def objects():
     erasure = DataRequest.objects.create(
         kind="erasure", channel="email", user=customer, requester="a@example.com", summary="Erase it"
     )
+    document = Invoice.objects.create(
+        order=make_order((ProductFactory(stock=5), 1)), number="EL/2026-27/00001", financial_year="2026-27", serial=1,
+        series="EL", document_type="bill_of_supply",
+    )  # fmt: skip
     return {
+        "document": document.number.replace("/", "-"),
         "item": InboxItem.objects.create(
             kind="failed_job", title="A task failed", permission="staff.view_inbox", target_type="t", target_id="1"
         ).pk,

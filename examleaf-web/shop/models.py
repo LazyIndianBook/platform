@@ -93,6 +93,11 @@ class Product(TimeStampedModel):
         BUNDLE = "bundle", "Bundle"
         DIGITAL = "digital", "Digital (in the app)"  # no shipping, stock or cash on delivery; opens a `learn` course
 
+    class TaxTreatment(models.TextChoices):  # Phase B: tax (a bundle's GST: shop/tax.py, plan 10.1)
+        SPLIT = "split", "split: each component a line of its own, the price shared by their MRPs"
+        COMPOSITE = "composite", "composite: one line at the principal supply's rate"
+        MIXED = "mixed", "mixed: one line at the highest rate"
+
     # /shop/<slug>/review/ and /stock-alert/ would meet the category and collection pages, /shop/school-orders/ the form
     RESERVED_SLUGS = {"category", "collection", "school-orders"}
 
@@ -157,6 +162,25 @@ class Product(TimeStampedModel):
     )
     categories = models.ManyToManyField("Category", blank=True, related_name="products")
     related = models.ManyToManyField("self", blank=True, help_text="Shown on its page (and it on theirs).")
+    # Phase B: tax
+    hsn = models.ForeignKey(
+        "HsnCode",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="products",
+        verbose_name="HSN or SAC code",
+        help_text="From the master: the GST rate is its rate on the day (shop/tax.py); hsn_code and gst_rate "
+        "follow it.",
+    )
+    tax_treatment = models.CharField(
+        max_length=10,
+        choices=TaxTreatment.choices,
+        default=TaxTreatment.SPLIT,
+        help_text="A bundle's GST, as the CA decides: split (recommended), composite or mixed.",
+    )
+    tax_note = models.TextField("the CA's decision", blank=True, help_text="As written, with whose it is.")
+    tax_note_date = models.DateField("date of the CA's decision", null=True, blank=True)
 
     class Meta:
         ordering = ["subject", "kind", "title"]
@@ -175,9 +199,19 @@ class Product(TimeStampedModel):
             raise ValidationError({"slug": "This address belongs to a page of the shop: choose another."})
         if self.is_digital and self.hsn_code == "4901":
             raise ValidationError({"hsn_code": "4901 is for printed books: enter the course's SAC code and GST rate."})
+        if self.hsn_id and self.kind != self.Kind.BUNDLE and (self.hsn.kind == HsnCode.Kind.SAC) != self.is_digital:
+            what = "a SAC code (99…): it is a service" if self.is_digital else "an HSN code: it is goods"
+            raise ValidationError({"hsn": f"Choose {what}."})
 
     def save(self, *args, **kwargs):
-        """A changed slug leaves its old one in SlugHistory: the old address redirects to the new one (301)."""
+        """A changed slug leaves its old one in SlugHistory: the old address redirects to the new one (301). A product
+        on the HSN and SAC master takes its code's text and today's rate from it (Phase B: tax)."""
+        if self.hsn_id:
+            from .tax import rate_on  # (it imports this module)
+
+            self.hsn_code = self.hsn_id
+            if (today := rate_on(self.hsn_id, timezone.localdate())) is not None:
+                self.gst_rate = today.rate
         old = Product.objects.filter(pk=self.pk).values_list("slug", flat=True).first() if self.pk else None
         super().save(*args, **kwargs)
         if old and old != self.slug:
@@ -221,6 +255,13 @@ class Product(TimeStampedModel):
             items = [item for item in self.bundle_items.select_related("product") if not item.product.is_digital]
             return min((item.product.stock // item.quantity for item in items), default=0)
         return self.stock
+
+    @property
+    def tax_problem(self):
+        """Why its GST disagrees with the master today ("" when it agrees): the catalogue's red chip (shop/tax.py)."""
+        from .tax import problems  # (it imports this module)
+
+        return problems([self]).get(self.pk, "")
 
     @property
     def saving(self):  # the .price "Save ₹49 (9%)" line
@@ -776,6 +817,13 @@ class Order(ConcurrentTransitionMixin, TimeStampedModel):
     created_by = models.ForeignKey(  # a phone or school order made in the admin (services.create_staff_order)
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", editable=False
     )
+    # Phase B: tax
+    billing_state = INStateField(
+        "billing state",
+        blank=True,
+        help_text="The place of supply: the delivery address's state for goods; for courses alone the state the "
+        "buyer gave, else the address's, else Assam (shop/tax.py).",
+    )
     history = HistoricalRecords(excluded_fields=["shipping_address", "token"])
 
     objects = OrderQuerySet.as_manager()
@@ -908,6 +956,13 @@ class OrderItem(models.Model):
     # the line's share of the order's discounts, as cart.totals split them (invoices print it); empty on orders made
     # before it was kept, whose documents share the discount out as they always did (invoices.context)
     discount = money_field("discount", null=True, blank=True)
+    # Phase B: tax
+    parts = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="A bundle invoiced split: its components as they were sold (shop/tax.py `split_bundle`), each a "
+        "line of the invoice.",
+    )
 
     class Meta:
         ordering = ["pk"]
@@ -1124,35 +1179,45 @@ def financial_year(day):
     return f"{start}-{(start + 1) % 100:02d}"
 
 
-def next_number(model, prefix, test_prefix, live):
-    """The next number of an invoice or credit note: per financial year, at most 16 characters as GST requires
-    (EL/2026-27/00001). An order made with Razorpay test keys (`live` False: the mode of its payment, whatever keys the
-    site runs on now) has a separate series (T before the year, `test_prefix` in the number), so the real numbering
-    starts at 00001 when the shop goes live. The unique constraint stops two taking one number."""
-    year = financial_year(timezone.localdate())
-    series = year if live else f"T{year}"
-    last = model.objects.filter(financial_year=series).order_by("-serial").values_list("serial", flat=True).first()
-    serial = (last or 0) + 1
-    return {
-        "financial_year": series,
-        "serial": serial,
-        "number": f"{prefix if live else test_prefix}/{year}/{serial:05d}",
-    }
+class DocumentType(models.TextChoices):  # Phase B: tax
+    """What a storefront document is, by its lines (shop/tax.py `document_type`; GST Rules 46, 46A and 49): a tax
+    invoice when every line is taxed, a bill of supply when none is, and one invoice-cum-bill of supply for both, the
+    storefront's buyers having no GSTIN (plan 10.1: a registered buyer orders through Sales in ERPNext)."""
+
+    TAX_INVOICE = "tax_invoice", "Tax invoice"
+    BILL_OF_SUPPLY = "bill_of_supply", "Bill of supply"
+    INVOICE_CUM_BILL = "invoice_cum_bill_of_supply", "Invoice-cum-bill of supply"
 
 
 class Invoice(TimeStampedModel):
-    """The GST invoice (a bill of supply while every book is exempt): EL/2026-27/00001, T/2026-27/00001 in the test
-    series (next_number)."""
+    """The GST document of a paid order (shop/invoices.py), a tax invoice, a bill of supply or an invoice-cum-bill of
+    supply as its lines make it, numbered in its series (DocumentSeries: EL/2026-27/00001, T/2026-27/00001 in the test
+    series). Its totals are kept as issued; a cancelled one keeps its number, and Table 13 counts it."""
 
     order = models.OneToOneField(Order, on_delete=models.PROTECT, related_name="invoice")
     number = models.CharField(max_length=16, unique=True)
     financial_year = models.CharField(max_length=8, help_text="T before it: the test series.")
     serial = models.PositiveIntegerField()
     pdf = models.FileField(upload_to="invoices/", blank=True)
+    # Phase B: tax
+    series = models.CharField(max_length=2, blank=True, help_text="Its prefix: EL or T; from FY 2027-28 one a type.")
+    document_type = models.CharField(max_length=26, choices=DocumentType.choices, blank=True)
+    taxable_value = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    exempt_value = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True, help_text="Its exempt, nil-rated and non-GST lines."
+    )
+    tax_amount = models.DecimalField("GST", max_digits=12, decimal_places=2, null=True, blank=True)
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+    cancel_reason = models.CharField(max_length=300, blank=True)
+    cancelled_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", editable=False
+    )
 
     class Meta:
         ordering = ["-created"]
-        constraints = [models.UniqueConstraint(fields=["financial_year", "serial"], name="unique_invoice_serial")]
+        constraints = [
+            models.UniqueConstraint(fields=["series", "financial_year", "serial"], name="unique_invoice_series_serial")
+        ]
 
     def __str__(self):
         return self.number
@@ -1163,17 +1228,22 @@ class Invoice(TimeStampedModel):
 
     @classmethod
     def for_order(cls, order):
-        """The order's invoice, numbered now if it has none (in one transaction with what its post_save receivers
-        write: the erp app's outbox row)."""
+        """The order's invoice, numbered now if it has none, its type and totals worked out from its lines (in one
+        transaction with the series' number and what its post_save receivers write: the erp app's outbox row)."""
         if invoice := cls.objects.filter(order=order).first():
             return invoice
+        from . import invoices, tax  # (they import this module)
+
+        supply = invoices.supply(order)
         with transaction.atomic():
-            return cls.objects.create(order=order, **next_number(cls, "EL", "T", live=order.livemode))
+            numbered = tax.number(cls, supply["document_type"], live=order.livemode)
+            return cls.objects.create(order=order, document_type=supply["document_type"], **numbered, **supply["kept"])
 
 
 class CreditNote(TimeStampedModel):
-    """The credit note for a refund of an invoiced order (in full or in part): it reduces the invoice for GST. Its own
-    series: CN/2026-27/00001, TC/2026-27/00001 with test keys (next_number)."""
+    """The credit note for a refund of an invoiced order (in full or in part): it reduces the invoice for GST, at the
+    invoice's rates and place of supply. Its own series: CN/2026-27/00001, TC/2026-27/00001 with test keys. None after
+    30 November following the invoice's financial year, nor against a cancelled invoice (shop/tax.py)."""
 
     refund = models.OneToOneField(Refund, on_delete=models.PROTECT, related_name="credit_note")
     invoice = models.ForeignKey(Invoice, on_delete=models.PROTECT, related_name="credit_notes")
@@ -1181,10 +1251,27 @@ class CreditNote(TimeStampedModel):
     financial_year = models.CharField(max_length=8, help_text="T before it: the test series.")
     serial = models.PositiveIntegerField()
     pdf = models.FileField(upload_to="credit-notes/", blank=True)
+    # Phase B: tax
+    series = models.CharField(max_length=2, blank=True, help_text="Its prefix: CN, or TC in the test series.")
+    document_type = models.CharField(
+        max_length=26, choices=DocumentType.choices, blank=True, help_text="Its invoice's: the document it reduces."
+    )
+    taxable_value = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    exempt_value = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    tax_amount = models.DecimalField("GST", max_digits=12, decimal_places=2, null=True, blank=True)
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+    cancel_reason = models.CharField(max_length=300, blank=True)
+    cancelled_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", editable=False
+    )
 
     class Meta:
         ordering = ["created"]
-        constraints = [models.UniqueConstraint(fields=["financial_year", "serial"], name="unique_credit_note_serial")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["series", "financial_year", "serial"], name="unique_credit_note_series_serial"
+            )
+        ]
 
     def __str__(self):
         return self.number
@@ -1195,13 +1282,22 @@ class CreditNote(TimeStampedModel):
 
     @classmethod
     def for_refund(cls, refund, invoice):
-        """The refund's credit note, numbered now if it has none (in one transaction with what its post_save receivers
-        write: the erp app's outbox row)."""
+        """The refund's credit note, numbered now if it has none (in one transaction with the series' number and what
+        its post_save receivers write: the erp app's outbox row). Raises tax.CreditNoteRefused (past the cut-off, or
+        the invoice cancelled): the refund itself goes out regardless."""
         if note := cls.objects.filter(refund=refund).first():
             return note
-        live = not invoice.is_test  # the note follows its invoice's series
-        with transaction.atomic():
-            return cls.objects.create(refund=refund, invoice=invoice, **next_number(cls, "CN", "TC", live=live))
+        from . import invoices, tax  # (they import this module)
+
+        tax.check_credit_note(invoice)
+        note = cls(refund=refund, invoice=invoice, document_type=invoice.document_type)
+        kept = invoices.credit_supply(note)["kept"]
+        with transaction.atomic():  # the note follows its invoice's series, live or test
+            numbered = tax.number(cls, DocumentSeries.Type.CREDIT_NOTE, live=not invoice.is_test)
+            for name, value in {**numbered, **kept}.items():
+                setattr(note, name, value)
+            note.save()
+            return note
 
 
 class StockAlert(models.Model):
@@ -1330,3 +1426,196 @@ def claim_orders_of_a_confirmed_address(sender, request, email_address, **kwargs
 @receiver(user_logged_in)  # every log-in (website, admin, API), for an account made before this existed
 def claim_orders_at_log_in(sender, request, user, **kwargs):
     claim_guest_orders(user, EmailAddress.objects.filter(user=user, verified=True).values_list("email", flat=True))
+
+
+# Phase B: tax
+
+
+class Taxability(models.TextChoices):
+    """How GST treats a supply on a day (an HsnRate's): taxed at its rate, or not taxed and why, which GSTR-1 table 8
+    keeps apart."""
+
+    TAXABLE = "taxable", "taxable"
+    NIL = "nil", "nil-rated"
+    EXEMPT = "exempt", "exempt"
+    NON_GST = "non_gst", "non-GST"
+
+
+validate_hsn = RegexValidator(r"^\d{4}(\d{2}){0,2}$", "An HSN or SAC code has 4, 6 or 8 digits.")
+validate_uqc = RegexValidator(r"^([A-Z]{3}|NA)$", "A unit quantity code: three capitals (NOS, KGS), or NA.")
+
+
+class HsnCode(models.Model):
+    """A code of the HSN (goods) and SAC (services) master (plan 5.9, research 5.15): a product points to one, and the
+    GST on it is the code's rate on the day (HsnRate, shop/tax.py `rate_on`), never typed. A code stays while a
+    product names it; its rates are its history."""
+
+    class Kind(models.TextChoices):
+        HSN = "hsn", "HSN (goods)"
+        SAC = "sac", "SAC (services)"
+
+    code = models.CharField(max_length=8, primary_key=True, validators=[validate_hsn])
+    kind = models.CharField(max_length=3, choices=Kind.choices)
+    description = models.CharField(max_length=200)
+    uqc = models.CharField(
+        "unit (UQC)",
+        max_length=3,
+        default="NOS",
+        validators=[validate_uqc],
+        help_text="GSTR-1's unit in the HSN summary: NOS for books, NA for services (the CA confirms).",
+    )
+    created = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["code"]
+        verbose_name = "HSN or SAC code"
+        constraints = [  # services' codes are chapter 99's, goods' never
+            models.CheckConstraint(
+                condition=models.Q(kind="sac", code__startswith="99")
+                | (models.Q(kind="hsn") & ~models.Q(code__startswith="99")),
+                name="sac_codes_are_chapter_99",
+            )
+        ]
+
+    def __str__(self):
+        return self.code
+
+
+class HsnRate(models.Model):
+    """A code's GST rate from a day, citing the notification and serial number that set it. The rows are its history:
+    never edited or deleted, a new rate is a new row starting after the latest one (staff_tax), and a row runs until
+    its `effective_to`, or else until the next row starts."""
+
+    hsn = models.ForeignKey(HsnCode, on_delete=models.PROTECT, related_name="rates")
+    rate = models.DecimalField(
+        "GST rate (%)", max_digits=4, decimal_places=2, validators=[MinValueValidator(0), MaxValueValidator(40)]
+    )
+    taxability = models.CharField(max_length=8, choices=Taxability.choices)
+    effective_from = models.DateField()
+    effective_to = models.DateField(null=True, blank=True, help_text="Empty: until the next row starts.")
+    notification = models.CharField(max_length=100, help_text="e.g. 10/2025-Central Tax (Rate)")
+    serial = models.CharField("serial number", max_length=20, blank=True)
+    note = models.CharField(max_length=300, blank=True, help_text="Where it was read; what the CA should confirm.")
+    created = models.DateTimeField(default=timezone.now)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", editable=False
+    )
+
+    class Meta:
+        ordering = ["hsn", "effective_from"]
+        constraints = [
+            models.UniqueConstraint(fields=["hsn", "effective_from"], name="one_rate_per_code_and_day"),
+            models.CheckConstraint(  # taxed: a rate above 0; nil-rated, exempt or non-GST: 0
+                condition=models.Q(taxability="taxable", rate__gt=0)
+                | (~models.Q(taxability="taxable") & models.Q(rate=0)),
+                name="a_rate_matches_its_taxability",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(effective_to__isnull=True) | models.Q(effective_to__gte=models.F("effective_from")),
+                name="a_rate_ends_after_it_starts",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.hsn_id} at {self.rate}% from {self.effective_from}"
+
+
+class SeriesFull(Exception):
+    """A series has given its last five-digit number of the year: the next would be longer than GST's 16 characters."""
+
+
+class DocumentSeries(models.Model):
+    """A number series of the storefront's tax documents for a financial year (plan 5.9, research 5.4). `take()` gives
+    its next number under a lock on this row: numbers run one after the other with no gap even when two documents are
+    made at once (the document is made in the same transaction, so one rolled back leaves no gap), start at 1 on
+    1 April, and are never given twice. Until FY 2026-27 the EL series holds every kind of invoice and CN the credit
+    notes; from SHOP_SERIES_FROM_FY each type has its own prefix (SHOP_SERIES_PREFIXES, as the CA confirms). The test
+    series (T and TC, `live` off) count apart and never reach a return."""
+
+    class Type(models.TextChoices):
+        INVOICE = "invoice", "invoices of every kind"
+        TAX_INVOICE = "tax_invoice", "tax invoices"
+        BILL_OF_SUPPLY = "bill_of_supply", "bills of supply"
+        INVOICE_CUM_BILL = "invoice_cum_bill_of_supply", "invoices-cum-bills of supply"
+        CREDIT_NOTE = "credit_note", "credit notes"
+        DEBIT_NOTE = "debit_note", "debit notes"
+        RECEIPT_VOUCHER = "receipt_voucher", "receipt vouchers"
+        REFUND_VOUCHER = "refund_voucher", "refund vouchers"
+
+    MAX_SERIAL = 99_999  # PP/2027-28/NNNNN is 16 characters, the most GST allows (Rule 46(b))
+
+    prefix = models.CharField(max_length=2)
+    financial_year = models.CharField(max_length=7, help_text="2026-27")
+    document_type = models.CharField(max_length=26, choices=Type.choices)
+    live = models.BooleanField(default=True, help_text="Off: a test series (Razorpay's test keys).")
+    next_number = models.PositiveIntegerField(default=1)
+    created = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-financial_year", "prefix"]
+        verbose_name_plural = "document series"
+        constraints = [
+            models.UniqueConstraint(fields=["prefix", "financial_year"], name="one_series_per_prefix_and_year")
+        ]
+
+    def __str__(self):
+        return f"{self.prefix}/{self.financial_year}"
+
+    @classmethod
+    def take(cls, model, *, prefix, financial_year, document_type, live):
+        """The next number of the series, under its row's lock: {series, financial_year, serial, number} for a
+        document of `model` (Invoice, CreditNote). The series is made with its year's first document, after any
+        number the documents already hold (the EL series of 2026-27 was numbered before it existed). Raises
+        SeriesFull past MAX_SERIAL. Call it in the transaction that creates the document."""
+        year = financial_year if live else f"T{financial_year}"
+        with transaction.atomic():
+            series, made = cls.objects.select_for_update().get_or_create(
+                prefix=prefix, financial_year=financial_year, defaults={"document_type": document_type, "live": live}
+            )
+            if made:
+                held = model.objects.filter(series=prefix, financial_year=year).aggregate(models.Max("serial"))
+                series.next_number = (held["serial__max"] or 0) + 1
+            serial = series.next_number
+            if serial > cls.MAX_SERIAL:
+                raise SeriesFull(f"The series {prefix}/{financial_year} has given its {cls.MAX_SERIAL:,} numbers.")
+            series.next_number = serial + 1
+            series.save(update_fields=["next_number"])
+        return {
+            "series": prefix,
+            "financial_year": year,
+            "serial": serial,
+            "number": f"{prefix}/{financial_year}/{serial:05d}",
+        }
+
+
+class TaxThreshold(models.Model):
+    """One line of the threshold monitor on a day (shop/tax.py `watch_thresholds`, nightly at 01:45): the financial
+    year's figure so far against the line, and whether it is crossed. Turnover is aggregate turnover as GST counts it
+    (s.2(6)): the storefront's taxable and exempt values, without the tax, less its credit notes; ERPNext's B2B sales
+    join it at the cut-over. The first night a line is crossed in a year opens an inbox item for FINANCE."""
+
+    class Line(models.TextChoices):
+        GSTR9 = "gstr9", "₹2 crore: the annual return (GSTR-9) is due"
+        WARNING = "warning", "₹4 crore: e-invoicing and monthly returns come at ₹5 crore"
+        E_INVOICE = "e_invoice", "₹5 crore: e-invoicing, QRMP ends, 6-digit HSN codes"
+        IRP_30_DAYS = "irp_30_days", "₹10 crore: e-invoices reported to the IRP within 30 days"
+        B2C_LARGE = "b2c_large", "invoices above ₹1 lakh to another state (GSTR-1 table 5)"
+        EWAY_BILL = "eway_bill", "taxable goods above ₹50,000 in one parcel: an e-way bill"
+
+    COUNTS = (Line.B2C_LARGE, Line.EWAY_BILL)  # their value is a number of documents; the others' rupees
+
+    date = models.DateField()
+    line = models.CharField(max_length=12, choices=Line.choices)
+    financial_year = models.CharField(max_length=7)
+    value = models.DecimalField(max_digits=14, decimal_places=2, help_text="Rupees, or documents for the counts.")
+    limit = models.DecimalField(max_digits=14, decimal_places=2)
+    crossed = models.BooleanField(default=False)
+    detail = models.JSONField(default=dict, blank=True, help_text="The documents' numbers, for the counts.")
+    created = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-date", "line"]
+        constraints = [models.UniqueConstraint(fields=["date", "line"], name="one_threshold_line_a_day")]
+
+    def __str__(self):
+        return f"{self.get_line_display()} on {self.date}"

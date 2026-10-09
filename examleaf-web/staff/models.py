@@ -272,6 +272,9 @@ class InboxItem(models.Model):
         DEAD_LETTER = "dead_letter", "integration task given up"
         FAILED_EVENT = "failed_event", "provider event not processed"
         INTEGRATION_DOWN = "integration_down", "integration unavailable"
+        # Phase B: tax (shop/tax.py)
+        TAX_THRESHOLD = "tax_threshold", "a tax threshold crossed"
+        CREDIT_NOTE_MISSING = "credit_note_missing", "a refund without its credit note"
 
     kind = models.CharField(max_length=20, choices=Kind.choices, db_index=True)
     title = models.CharField(max_length=200, help_text="Names no one: a number, a kind.")
@@ -331,6 +334,7 @@ class Job(models.Model):
         AUDIT_EXPORT = "audit_export", "audit log export"
         BULK_ACTION = "bulk_action", "bulk action"
         ERP_INITIAL_LOAD = "erp_initial_load", "ERPNext initial load"  # erp.producers.initial_load
+        GSTR1_EXPORT = "gstr1_export", "GSTR-1 export"  # Phase B: tax (export_gstr1)
 
     class State(models.TextChoices):
         QUEUED = "queued", "queued"

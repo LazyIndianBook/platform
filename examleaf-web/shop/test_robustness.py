@@ -369,6 +369,7 @@ def product_form_data(product, **changes):
         "initial-stock": str(product.stock),
         "gst_rate": "0",
         "hsn_code": "4901",
+        "tax_treatment": "split",  # the page's choice as it opens (Phase B: tax)
         "weight_grams": "0",
     }
     return {**data, **changes}

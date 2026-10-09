@@ -175,7 +175,8 @@ class JobStartSerializer(serializers.Serializer):
         default=dict,
         help_text='audit_export: {"filters": {…}} (the audit list\'s); bulk_action: {"action": "order.refund", '
         '"targets": [order numbers, slugs or ids], "payload": {…} (each target\'s, as for change-requests/), '
-        '"reason"}; erp_initial_load: {"invoices_from": "YYYY-MM-DD"} (optional: without it, the catalogue only)',
+        '"reason"}; erp_initial_load: {"invoices_from": "YYYY-MM-DD"} (optional: without it, the catalogue only); '
+        'gstr1_export: {"month": "YYYY-MM", "months": 1 or 3} (a month, or the quarter ending with it)',
     )
     dry_run = serializers.BooleanField(required=False, default=False, help_text="check every row, change nothing")
 
@@ -188,6 +189,11 @@ class JobStartSerializer(serializers.Serializer):
             if not isinstance(filters, dict):
                 raise serializers.ValidationError({"params": {"filters": ["The audit list's filters, as an object."]}})
             data["params"] = {"filters": filters}
+            return data
+        if data["kind"] == Job.Kind.GSTR1_EXPORT:
+            from shop.staff_tax import gstr1_period
+
+            data["params"] = gstr1_period(params)
             return data
         if data["kind"] == Job.Kind.ERP_INITIAL_LOAD:
             since = params.get("invoices_from")

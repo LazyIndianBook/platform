@@ -48,7 +48,8 @@ MODEL_SCOPES = {
     "shop.product": _content("subject__"),
     "shop.order": _order(""),
     **{f"shop.{model}": _order("order__") for model in ["orderitem", "orderdiscount", "ordernote", "shipment"]},
-    **{f"shop.{model}": _order("order__") for model in ["payment", "refund"]},
+    **{f"shop.{model}": _order("order__") for model in ["payment", "refund", "invoice"]},
+    "shop.creditnote": _order("invoice__order__"),
     # a parcel's exceptions, COD and charges by its order's status (a charge of no parcel: out of a narrowed scope)
     **{
         f"shipping.{model}": _order("shipment__order__")

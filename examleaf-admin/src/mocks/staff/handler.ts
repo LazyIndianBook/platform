@@ -18,6 +18,7 @@
 import type { Note } from "@/lib/api/staff";
 
 import { COLLEAGUES, createWorld, type MockJob, type MockSchemas, payloadHash, type World } from "./fixtures";
+import * as taxRules from "./tax";
 
 type S = MockSchemas;
 
@@ -60,6 +61,9 @@ const FINANCE = [
   "shop.view_order",
   ...["staff.refund_order", "staff.approve_refund", "staff.record_offline_payment", "staff.approve_payment"],
   ...["staff.approve_discount", "staff.add_changerequest"],
+  // tax: the HSN and SAC master, the series register, the thresholds and the calendar, cancelling, GSTR-1
+  ...["shop.view_hsncode", "shop.change_hsncode", "shop.view_documentseries", "shop.view_taxthreshold"],
+  ...["staff.cancel_document", "staff.run_gstr1"],
 ];
 const OWNER_ONLY = ["staff.assign_role", "staff.manage_api_keys", "staff.break_glass"].concat([
   "staff.view_auditlog",
@@ -103,7 +107,7 @@ const RISKY = new Set([
   ...["staff.reveal_contact", "staff.suspend_user", "staff.reset_user_mfa", "staff.impersonate_user"],
   ...["staff.export_personal_data", "staff.approve_erasure", "staff.manage_incident", "staff.assign_role"],
   ...["staff.approve_role_change", "staff.manage_api_keys", "staff.export_auditlog", "staff.approve_export"],
-  ...["staff.manage_settings", "staff.manage_flags", "staff.toggle_maintenance"],
+  ...["staff.manage_settings", "staff.manage_flags", "staff.toggle_maintenance", "staff.cancel_document"],
 ]);
 // the online-paid orders a refund may name (shop.Order with a captured Razorpay payment), rupees paid
 const PAID_ORDERS: Record<string, { id: number; paid: number; shipped: boolean }> = {
@@ -436,6 +440,13 @@ function permissionFor(context: Context): string | null {
       return get ? "staff.view_processorrecord" : "staff.add_processorrecord";
     case "system":
       return a === "reconcile" ? "staff.replay_webhook" : "staff.view_system";
+    case "tax": // shop/staff_tax.py
+      if (a === "hsn") return get ? "shop.view_hsncode" : "shop.change_hsncode";
+      if (a === "problems") return "shop.view_hsncode";
+      if (a === "documents") return get ? "shop.view_documentseries" : "staff.cancel_document";
+      if (a === "series") return "shop.view_documentseries";
+      if (a === "gstr1") return "staff.run_gstr1";
+      return "shop.view_taxthreshold"; // the thresholds and the calendar
   }
   void c;
   return "staff.view_system";
@@ -789,6 +800,15 @@ async function route(context: Context): Promise<Response> {
             code: "link_expired",
           });
         record(context, "job.result_downloaded", target("staff.job", job.id, `Job #${job.id}`));
+        if (job.kind === "gstr1_export")
+          // the mock's file: the period's document numbers (the backend zips the Offline Tool's seven CSV files)
+          return new Response(["Document number", ...job._rows].join("\n") + "\n", {
+            headers: {
+              "Content-Type": "text/csv",
+              "Content-Disposition": `attachment; filename="gstr1-docs-${job.id}.csv"`,
+              "Cache-Control": "no-store",
+            },
+          });
         const rows = world.audit
           .slice(0, job.total || 20)
           .map((row) => JSON.stringify(row))
@@ -1568,6 +1588,193 @@ async function route(context: Context): Promise<Response> {
       return notFound();
     }
 
+    case "tax": {
+      // shop/staff_tax.py: the master, the products that disagree, the documents, table 13, the card, the calendar
+      const tax = world.tax;
+      const today = taxRules.dayOf(Date.now());
+      const month = query("month");
+      if (month && !taxRules.MONTH.test(month)) return invalid({ month: ["A month: YYYY-MM."] });
+      if (a === "hsn") {
+        if (method === "GET" && !b) {
+          const q = query("q").trim().toLowerCase();
+          const rows = tax.codes
+            .filter(
+              (code) =>
+                (!q || code.code.startsWith(q) || code.description.toLowerCase().includes(q)) &&
+                (!query("kind") || code.kind === query("kind")) &&
+                (!query("taxability") || code.today?.taxability === query("taxability")),
+            )
+            .sort((x, y) => x.code.localeCompare(y.code));
+          return paginate(context, rows.map(taxRules.codeRow), Number(query("page_size")) || 50);
+        }
+        if (method === "POST" && !b) {
+          const code = text(body.code);
+          const kind = text(body.kind);
+          const first = (body.first_rate ?? {}) as Body;
+          const fields: Record<string, unknown> = {};
+          if (!/^\d{4}(\d{2}){0,2}$/.test(code)) fields.code = ["An HSN or SAC code has 4, 6 or 8 digits."];
+          if (!["hsn", "sac"].includes(kind)) fields.kind = [`"${kind}" is not a valid choice.`];
+          if (!text(body.description)) fields.description = ["This field may not be blank."];
+          if (text(body.uqc) && !/^[A-Z]{2,3}$/.test(text(body.uqc))) fields.uqc = ["A unit code of GSTR-1: NOS, NA …"];
+          const rateFields = taxRules.rateProblems(first);
+          if (rateFields) fields.first_rate = rateFields;
+          if (Object.keys(fields).length) return invalid(fields);
+          if ((kind === "sac") !== code.startsWith("99"))
+            return invalid({ code: ["A SAC code begins with 99, an HSN code never does."] });
+          if (tax.codes.some((row) => row.code === code))
+            return invalid({ code: [`${code} is on the master already.`] });
+          const created: S["HsnCodeDetail"] = {
+            code,
+            kind: kind as S["HsnCodeDetail"]["kind"],
+            description: text(body.description),
+            uqc: text(body.uqc) || "NOS",
+            today: null,
+            next_change: null,
+            products: 0,
+            created: now(),
+            rates: [taxRules.newRate(first, nextId(world), me)],
+            linked: [],
+          };
+          taxRules.refreshCode(created, today);
+          tax.codes.push(created);
+          record(context, "tax.code_added", {
+            ...target("shop.hsncode", code, code),
+            permission: "shop.change_hsncode",
+            details: { rate: created.rates[0].rate, effective_from: created.rates[0].effective_from },
+          });
+          return json(201, created);
+        }
+        const code = tax.codes.find((row) => row.code === b);
+        if (!code) return notFound();
+        if (method === "GET" && !c) return json(200, code);
+        if (method === "POST" && c === "rates") {
+          const latest = [...code.rates].sort((x, y) => y.effective_from.localeCompare(x.effective_from))[0];
+          const problems = taxRules.rateProblems(body, latest);
+          if (problems) return invalid(problems);
+          const added = taxRules.newRate(body, nextId(world), me);
+          code.rates.push(added);
+          taxRules.refreshCode(code, today);
+          record(context, "tax.rate_added", {
+            ...target("shop.hsncode", code.code, code.code),
+            permission: "shop.change_hsncode",
+            details: { rate: added.id, effective_from: added.effective_from, notification: added.notification },
+          });
+          return json(201, code);
+        }
+        return notFound();
+      }
+      if (a === "problems" && method === "GET") return json(200, tax.problems);
+      if (a === "documents") {
+        if (method === "GET" && !b) {
+          const kind = query("kind") || "invoice";
+          if (!["invoice", "credit_note"].includes(kind)) return invalid({ kind: ["invoice or credit_note."] });
+          const type = query("document_type");
+          if (type && !["tax_invoice", "bill_of_supply", "invoice_cum_bill_of_supply"].includes(type))
+            return invalid({ document_type: ["One of: tax_invoice, bill_of_supply, invoice_cum_bill_of_supply."] });
+          const cancelled = query("cancelled");
+          const search = query("search").trim().slice(0, 20).toUpperCase();
+          // tax.parse_key: a whole key (EL-2026-27-00041) is its number; anything else, a number's beginning
+          const key = /^([A-Z0-9]{1,2})-(\d{4}-\d{2})-(\d{5})$/.exec(search);
+          const number = key ? `${key[1]}/${key[2]}/${key[3]}` : search;
+          const rows = tax.documents.filter(
+            (row) =>
+              row.kind === kind &&
+              row.test === bool(url.searchParams.get("test")) &&
+              (!query("series") || row.series === query("series").toUpperCase().slice(0, 2)) &&
+              (!type || row.document_type === type) &&
+              (!month || row.date.startsWith(month)) &&
+              (!query("financial_year") || row.financial_year === query("financial_year")) &&
+              (!["true", "1", "false", "0"].includes(cancelled) ||
+                Boolean(row.cancelled_at) === ["true", "1"].includes(cancelled)) &&
+              (!search || row.number.startsWith(number) || row.order === search),
+          );
+          return paginate(context, rows.map(taxRules.documentRow));
+        }
+        const document = tax.documents.find((row) => row.key === b);
+        if (!document) return notFound();
+        const documentTarget = target(
+          document.kind === "credit_note" ? "shop.creditnote" : "shop.invoice",
+          document.id,
+          document.number,
+        );
+        if (method === "GET" && !c) return json(200, document);
+        if (method === "GET" && c === "pdf") {
+          record(context, "sensitive_read", { ...documentTarget, details: { what: "pdf" } });
+          const pdf =
+            "%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n";
+          return new Response(pdf, {
+            headers: {
+              "Content-Type": "application/pdf",
+              "Content-Disposition": `attachment; filename="ExamLeaf-${document.key}.pdf"`,
+              "Cache-Control": "no-store",
+            },
+          });
+        }
+        if (method === "POST" && c === "cancel") {
+          const reason = text(body.reason);
+          if (reason.length < 5) return invalid({ reason: ["Ensure this field has at least 5 characters."] });
+          if (document.cancelled_at)
+            return invalid({ non_field_errors: [`${document.number} was cancelled already.`] });
+          const live = tax.documents.filter(
+            (row) => row.kind === "credit_note" && row.against === document.number && !row.cancelled_at,
+          );
+          if (document.kind === "invoice" && live.length)
+            return invalid({
+              non_field_errors: [`Cancel its credit notes first: ${live.map((row) => row.number).join(", ")}.`],
+            });
+          Object.assign(document, { cancelled_at: now(), cancel_reason: reason, cancelled_by: me });
+          record(context, "tax.document_cancelled", {
+            ...documentTarget,
+            permission: "staff.cancel_document",
+            reason,
+            details: { document_type: document.document_type, series: document.series },
+          });
+          return json(200, taxRules.documentRow(document));
+        }
+        return notFound();
+      }
+      if (a === "series" && method === "GET") {
+        const year = query("financial_year");
+        if (year && !/^\d{4}-\d{2}$/.test(year)) return invalid({ financial_year: ["A financial year: 2026-27."] });
+        const shown = year || taxRules.yearOf(month ? `${month}-01` : today);
+        return json(200, {
+          financial_year: shown,
+          month: month || null,
+          series_from: taxRules.SERIES_FROM,
+          prefixes: taxRules.PREFIXES,
+          rows: taxRules.seriesOf(tax, shown, month || null),
+        });
+      }
+      if (a === "thresholds" && method === "GET") return json(200, tax.card);
+      if (a === "calendar" && method === "GET") {
+        const shown = month || today.slice(0, 7);
+        return json(200, {
+          month: shown,
+          qrmp: tax.qrmp,
+          items: taxRules.calendarOf(shown, tax.qrmp, today),
+          crossed: tax.card.rows.filter((row) => row.crossed),
+        });
+      }
+      if (a === "gstr1" && method === "POST") {
+        const asked = text(body.month);
+        const months = Number(body.months ?? 1);
+        if (!taxRules.MONTH.test(asked)) return invalid({ month: ["A month: YYYY-MM."] });
+        if (`${asked}-01` > today) return invalid({ month: ["A month that has begun."] });
+        if (months !== 1 && months !== 3)
+          return invalid({ months: [`"${String(body.months)}" is not a valid choice.`] });
+        if (months === 3 && !taxRules.endsQuarter(asked))
+          return invalid({ months: ["A quarter ends with June, September, December or March."] });
+        const covered = taxRules.monthsCovered(asked, months);
+        const rows = tax.documents
+          .filter((row) => !row.test && covered.includes(row.date.slice(0, 7)))
+          .map((row) => row.number);
+        const job = startJob(context, "gstr1_export", { month: asked, months }, rows);
+        job.dry_run = body.dry_run === true;
+        return json(202, visibleJob(context, job));
+      }
+      return notFound();
+    }
+
     case "system": {
       if (method === "GET" && !a) return json(200, world.system);
       if (method === "POST" && a === "reconcile") {
@@ -1657,7 +1864,8 @@ function visibleJob(context: Context, job: MockJob): S["Job"] {
   const { _ticks, _rows, ...visible } = job;
   void _ticks;
   void _rows;
-  const file = job.state === "done" && job.kind === "audit_export" && job.started_by === context.who.id;
+  const exported = job.kind === "audit_export" || (job.kind === "gstr1_export" && !job.dry_run);
+  const file = job.state === "done" && exported && job.started_by === context.who.id;
   const token = `t-${job.id}-${Date.now() + 5 * 60_000}`;
   return { ...visible, result_url: file ? `${context.url.origin}${ROOT}jobs/${job.id}/result/?token=${token}` : null };
 }

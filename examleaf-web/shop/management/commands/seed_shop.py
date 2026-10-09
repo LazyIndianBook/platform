@@ -7,7 +7,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from content.models import Book
-from shop.models import BundleItem, Coupon, Product, ShippingRate, public_storage
+from shop.models import BundleItem, Coupon, HsnCode, Product, ShippingRate, public_storage
 
 SUBJECTS = [("PHY", "Physics"), ("CHE", "Chemistry"), ("MAT", "Mathematics"), ("BIO", "Biology")]
 SAMPLE_PAPERS = (
@@ -50,6 +50,7 @@ class Command(BaseCommand):
         for code, name in SUBJECTS:
             book = Book.objects.filter(subject__code=code, subject__class_level__number=12).order_by("id").first()
             common = {"subject": book.subject if book else None, "book": book, "stock": stock}
+            common["hsn"] = HsnCode.objects.filter(code="4901").first()  # printed books, on the master: exempt
             papers = product(
                 f"{name.lower()}-sample-papers-2027",
                 title=f"ExamLeaf {name} Sample Papers 2027",
@@ -93,6 +94,7 @@ class Command(BaseCommand):
                     description="Both Physics books together: the 30 Sample Papers and their worked Solutions.",
                     subject=common["subject"],
                     book=book,
+                    hsn=common["hsn"],
                     cover=papers.cover.name,
                 )
                 for item in (papers, solutions):

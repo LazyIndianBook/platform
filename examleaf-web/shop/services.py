@@ -22,7 +22,7 @@ from accounts.roles import SALES
 from ops.tasks import queue_email, queue_text_email
 from staff.config import site_setting
 
-from . import invoices, signals, tasks
+from . import invoices, signals, tasks, tax
 from .cart import price
 from .cart import totals as cart_totals
 from .models import (
@@ -193,8 +193,9 @@ def cod_problem(user):
     return None
 
 
-def create_order(cart, *, user, email, address, method):
-    """A pending order made from the cart at today's prices, with its payment. `address` is an Address snapshot.
+def create_order(cart, *, user, email, address, method, billing_state=""):
+    """A pending order made from the cart at today's prices, with its payment. `address` is an Address snapshot;
+    `billing_state` (a state code) is the place of supply of a cart of courses alone (shop/tax.py `billing_state`).
     Raises ShopError with what the customer must change first."""
     if method not in CUSTOMER_METHODS:  # "offline" is recorded by staff (record_offline_payment), never chosen
         raise ShopError("Choose online payment or cash on delivery.")
@@ -217,7 +218,12 @@ def create_order(cart, *, user, email, address, method):
     if method == Order.Method.COD and result.total > settings.SHOP_COD_MAX_VALUE:
         limit = f"₹{settings.SHOP_COD_MAX_VALUE:,}"
         raise ShopError(f"Cash on delivery is for orders up to {limit}: please pay this one online.")
-    return save_order(result, user=user, email=email, shipping_address=address, payment_method=method)
+    goods = any(not line.product.digital_only for line in result.lines)
+    if billing_state and goods and billing_state != address.get("state"):
+        raise ShopError("Books are taxed in the state they are delivered to: the billing state is for courses alone.")
+    return save_order(
+        result, user=user, email=email, shipping_address=address, payment_method=method, billing_state=billing_state
+    )
 
 
 def create_staff_order(lines, *, by, email, address, user=None, discount=0, shipping=None):
@@ -236,8 +242,12 @@ def create_staff_order(lines, *, by, email, address, user=None, discount=0, ship
     return save_order(result, user=user, email=email, shipping_address=address, created_by=by)
 
 
-def save_order(result, **fields):
-    """The order, its lines, its discounts and its payment, from cart.Totals."""
+def save_order(result, billing_state="", **fields):
+    """The order, its lines, its discounts and its payment, from cart.Totals. Each line keeps its tax as the HSN and
+    SAC master gives it today (a bundle by its treatment), and the order its place of supply (shop/tax.py)."""
+    today = timezone.localdate()
+    taxes = [tax.order_line(line.product, today) for line in result.lines]
+    state = tax.billing_state(result.lines, fields.get("shipping_address"), billing_state)
     with transaction.atomic():
         order = Order.objects.create(
             subtotal=result.subtotal,
@@ -247,6 +257,7 @@ def save_order(result, **fields):
             coupon=result.coupon,
             coupon_code=result.coupon.code if result.coupon else "",
             livemode=live_mode(),  # online: set again from the keys that make its Razorpay order (payments)
+            billing_state=state,
             **fields,
         )
         OrderItem.objects.bulk_create(
@@ -254,14 +265,13 @@ def save_order(result, **fields):
                 order=order,
                 product=line.product,
                 title=line.product.title,
-                hsn_code=line.product.hsn_code,
-                gst_rate=line.product.gst_rate,
                 mrp=line.product.mrp,
                 unit_price=line.product.price,
                 quantity=line.quantity,
                 discount=line.discount,
+                **taxed,
             )
-            for line in result.lines
+            for line, taxed in zip(result.lines, taxes, strict=True)
         )
         OrderDiscount.objects.bulk_create(
             OrderDiscount(order=order, offer=saving.offer, label=saving.label, amount=saving.amount)
@@ -593,8 +603,11 @@ def forget_orders(orders):
     address, become "deleted" (town, district, state and PIN code stay, for the books), and staff's notes on them go.
     The orders themselves stay.
     Used by the daily clean-up for orders never paid or placed, and once a year by hand for invoiced orders past their
-    eight years (RUNBOOK.md). Returns how many."""
+    eight years (RUNBOOK.md). An order whose tax documents must still be kept (72 months after its year's annual
+    return: shop/tax.py `held_orders`) is left as it is, whoever asks. Returns how many."""
     pks = list(orders.exclude(email=DELETED).values_list("pk", flat=True))
+    held = tax.held_orders(pks)
+    pks = [pk for pk in pks if pk not in held]
     for order in Order.objects.filter(pk__in=pks).only("shipping_address"):
         address = {**order.shipping_address, **dict.fromkeys(["name", "phone", "line1", "line2"], DELETED)}
         Order.objects.filter(pk=order.pk).update(email=DELETED, shipping_address=address)

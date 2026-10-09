@@ -45,12 +45,16 @@ and the security reviews, [SECURITY_REVIEW.md](SECURITY_REVIEW.md) (phases 1 to 
   factor for every member of staff: an authenticator app with recovery codes, or a passkey. The Admin Control Panel's
   backend (`staff/`, API.md "Staff API"): scopes, limits and separation of duties, an append-only hash-chained audit
   log, approvals by a second person, an inbox, the site's switches and feature flags, API keys, staff invitations and
-  offboarding, the data requests queue, the breach register and the processor register.
+  offboarding, the data requests queue, the breach register and the processor register; the tax desk (`shop/README.md`
+  "Tax"): the HSN and SAC master with dated rates, the documents and their series, the threshold monitor, the
+  calendar and the GSTR-1 job.
 - **The shop.** The printed books sold across India: cart, coupons, checkout with Razorpay (UPI, cards, net banking) or,
   when `SHOP_COD_ENABLED` is on (it is off by default), cash on delivery, stock under row locks, shipping rates by
   state, PIN code autofill from India Post's directory, order emails (and SMS), courier tracking links, GST invoices and
-  credit notes as PDFs, refunds, a test mode and a live mode, order links for guests, reviews from buyers, "email me
-  when it is back", school quotations, the GSTR-1 export for the accountant.
+  credit notes as PDFs (a tax invoice, a bill of supply or an invoice-cum-bill of supply by their lines, the GST rate
+  read by date from the HSN and SAC master, the shipping taxed with the goods it carries), refunds, a test mode and a
+  live mode, order links for guests, reviews from buyers, "email me when it is back", school quotations, the GSTR-1
+  files for the accountant in the GST Offline Tool's templates.
 - **Store features.** A category tree and collections, product types with attributes, digital products (the course),
   automatic offers, staff orders for phone and school buyers with Razorpay payment links or offline payments, order
   notes, a customer page, import and export of products and categories, and the roles that run it.
@@ -128,6 +132,7 @@ can be edited in the admin:
 
 | When | Task |
 |---|---|
+| 01:45 | `shop.tasks.watch_tax_thresholds`: the tax threshold monitor (the year's turnover against ₹2, 4, 5 and 10 crore, large invoices to another state, parcels needing an e-way bill; an inbox item when a line is crossed: `shop/README.md` "Tax") |
 | 01:00 to 03:00, every 15 minutes | the insights jobs, one task each: backtest, demand forecast, print-run advice, item analysis, cohorts, code activation, delivery times, offer effects, fraud rules and their email (`insights/README.md`; DEPLOYMENT.md section 21) |
 | 03:00 | purge the account deletions whose seven days are over |
 | 03:30 | forget failed log-ins (django-axes) |
@@ -185,7 +190,7 @@ docker-compose stack):
 | `seed_shop [--stock N]` | create the starting catalogue: the books, the Physics bundle, coupon WELCOME10, three shipping rates |
 | `reconcile_payments [--older-than MINUTES]` | ask Razorpay about online orders still awaiting payment and record payments the site never heard about |
 | `import_pincodes <csv>` | replace the PIN code table with India Post's directory from data.gov.in |
-| `export_gstr1 --from DATE --to DATE [--out DIR]` | the accountant's GSTR-1 working files: B2C, HSN summary, credit notes (CSV) |
+| `export_gstr1 --from DATE --to DATE [--out DIR]` | the accountant's GSTR-1 files in the GST Offline Tool's CSV templates: b2cl, b2cs, cdnur, exemp, hsn-b2b, hsn-b2c, docs, and the credit notes' register (the panel runs it as a job: Tax, GSTR-1) |
 | `build_covers` | draw the AVIF and WebP sizes of the four covers and the default link-preview picture into `static/img/` (the website shows them); run it after a cover changes and commit the files |
 | `import_chapter_insights [--root] [--fixtures] [--subject]` | fill the course's chapters with the Board's marks and the number of past-paper questions from the books repository's `production/<subject>/` |
 | `build_quiz_items` | make quiz items from the imported one-mark questions whose options and answer parse; keeps edited items |
@@ -573,18 +578,24 @@ emails (`templates/shop/email/`), the PDFs (`templates/shop/invoice.html` …) a
   downloads, Cancel while pending or paid (refund through Razorpay by a Celery task, retried for hours while Razorpay is
   down; a refusal shows as a failed refund in the admin). Guests find an order by number and email (10 tries an hour per
   address, per email address and per order number). The guest cart joins the account's cart at log-in.
-- **Invoices**: numbered per financial year (`EL/2026-27/00001`, 16 characters at most), made by a task when the
-  order is paid (cash on delivery: when shipped), retried on failure; the link appears once the PDF exists. A bill of
-  supply while every item is 0 % (books, HSN 4901), a tax invoice otherwise, with HSN, taxable value and CGST + SGST or
-  IGST columns; prices include tax; the coupon, the offers and a staff discount are shared out over the lines
-  (`OrderItem.discount`), and an invoice paid offline prints the bank or UPI reference.
+- **Invoices**: numbered in their series per financial year under the series' lock (`EL/2026-27/00001`, 16
+  characters at most; from FY 2027-28 one series a type, `TI`, `BS`, `IB`: `shop/README.md` "Tax"), made by a task
+  when the order is paid (cash on delivery: when shipped), retried on failure; the link appears once the PDF exists.
+  A bill of supply when no line is taxed (books, HSN 4901), a tax invoice when every line is, an invoice-cum-bill of
+  supply for both (Rule 46A), with each line's code and rate as the HSN and SAC master gave them on the day of the
+  order, taxable value and CGST + SGST or IGST by the order's billing state; prices include tax; the coupon, the offers
+  and a staff discount are shared out over the lines (`OrderItem.discount`); the shipping follows the goods it carries
+  (exempt with books); a bundle sold split shows its components; goods carry three copies; an invoice paid offline
+  prints the bank or UPI reference. A cancelled one keeps its number.
 - **Credit notes**: a refund of an invoiced order, in full or in part, gets a credit note (`CN/2026-27/00001`, its own
   series per financial year; `T/…` and `TC/…` with test keys), made by a task once Razorpay has refunded (or once the
   invoice is made, when the refund came first). No invoice or credit note of the real series is numbered while a
   `SELLER_*` setting still holds a [placeholder] (the task is retried; the numbers cannot be reissued). It credits the
   books first, over the invoice's lines in proportion, then the shipping with what is left (a refused parcel refunded
-  less the shipping credits the books only), reversing each line's GST. Linked next to the invoice in My orders, the
-  API and the admin (order page, Credit notes).
+  less the shipping credits the books only), reversing each part's GST at the invoice's rates and place of supply.
+  None after 30 November following the invoice's financial year, nor against a cancelled invoice: the refund goes out
+  regardless and FINANCE's inbox says which note is missing. Linked next to the invoice in My orders, the API and the
+  admin (order page, Credit notes).
 - **Coupons**: per cent or rupees off, minimum order, dates, a total and a per-customer limit (by account and by
   email), any case. A use is a paid (or placed cash-on-delivery) order not cancelled or refunded. The limits are checked
   when the order is made and again, under a lock on the coupon, when it is paid or placed (`services.claim_coupon`):
@@ -627,7 +638,8 @@ emails (`templates/shop/email/`), the PDFs (`templates/shop/invoice.html` …) a
   kept in the private storage) and enter the order as a staff order when it is accepted.
 - **Stock alerts and the low-stock email**: "email me when it is back" (for signed-in accounts, to their own address;
   one email, then the row goes) and a morning email to SALES of the books below `SHOP_LOW_STOCK`.
-- **GST returns**: `manage.py export_gstr1` writes the B2C, HSN summary and credit-note files for the accountant.
+- **GST returns**: the panel's Tax module (or `manage.py export_gstr1`) writes the month's or the quarter's GSTR-1
+  files in the Offline Tool's templates for the accountant; the tax calendar and the threshold monitor say what is due.
 - **Admin** (Shop): products, categories (a tree: drag a row to move it), collections, product types, coupons, offers,
   shipping rates; orders with filters and search (number, email, name, phone, tracking number) and the actions Mark
   packed, Mark shipped (courier and tracking number per order), Mark delivered, Cancel, Refund (in full, which cancels

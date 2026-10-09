@@ -192,11 +192,16 @@ The parental consent is self-declared while `PARENTAL_CONSENT_MODE=declared` (a 
   from django.utils import timezone
   from shop.models import CreditNote, Invoice, Order
   from shop.services import forget_orders
+  from shop.tax import held_orders
   old = Order.objects.filter(placed_at__lt=timezone.now() - timedelta(days=8 * 365 + 2))
+  old = old.exclude(pk__in=held_orders(list(old.values_list('pk', flat=True))))  # GST's 72 months: kept
   for document in [*Invoice.objects.filter(order__in=old), *CreditNote.objects.filter(invoice__order__in=old)]:
       document.pdf.delete()
   print(forget_orders(old), 'orders purged')"
   ```
+
+  `forget_orders` itself passes by any order whose tax documents are within 72 months of their year's annual return
+  (FY 2025-26: until 31 December 2032), whoever asks.
 
   Then purge the same years from the off-site backups (bucket lifecycle) and note the date in the support mailbox.
 
@@ -453,7 +458,8 @@ real payments before it, mark those live by hand, with the first live order's nu
    lost: resend it from the Dashboard); disputes and chargebacks (Dashboard → Disputes: answer with the invoice, the
    tracking number and the delivery date from the order page; the site does not record chargebacks).
 5. Invoices and credit notes are numbered one after the other in each financial year (`EL/2026-27/00001`,
-   `CN/2026-27/00001`) and a number is never reused. Test-mode documents are in their own `T/` and `TC/` series: not for
+   `CN/2026-27/00001`; from FY 2027-28 one series a type: "Tax: rates, documents, series") and a number is never
+   reused. Test-mode documents are in their own `T/` and `TC/` series: not for
    the tax return. Cash on delivery: the courier remits the cash it collected (less its fee) some days after delivery;
    match its report with the tracking numbers (the payment is recorded as captured when "Mark delivered" is pressed).
 
@@ -467,7 +473,10 @@ The usual cause is the seller's details: while `SELLER_ADDRESS`, `SELLER_EMAIL` 
 `dj shell -c "from shop.tasks import generate_invoice; generate_invoice(<order id>)"` (the id is the number in the
 order's address in the admin). WeasyPrint failing (fonts, Pango) is in the same log. A missing credit note is made the
 same way: `dj shell -c "from shop.tasks import generate_credit_note; generate_credit_note(<refund id>)"` (the id is the
-number in the refund's address in the admin); the 04:30 clean-up makes missing ones too.
+number in the refund's address in the admin); the 04:30 clean-up makes missing ones too. A credit note is never made
+after 30 November following its invoice's financial year, nor against a cancelled invoice: the refund still went out,
+and the inbox has a "No credit note for refund #…" item with the reason; record what the CA decides on the order as a
+note.
 
 ### Guests and their order links
 
@@ -497,22 +506,54 @@ only: see "Couriers and integrations". A consignment above ₹50,000 needs an e-
 
 ### GST returns (GSTR-1 export)
 
-Each month (or quarter), for the accountant:
+Each month (or quarter under QRMP), for the accountant: the panel's **Tax → GSTR-1**, choose the month (or the quarter
+ending with it) and Run (FINANCE, `staff.run_gstr1`); the job reads the period's documents and gives a zip of CSV
+files in the GST Offline Tool's templates, through its download link (kept a week; above FINANCE's export limit ADMIN
+approves first). **Tax** shows what is due this month (the calendar) and the threshold card; **Tax → Series** is table
+13. The files:
 
-    docker compose exec web python manage.py export_gstr1 --from 2026-10-01 --to 2026-10-31 --out /tmp
-    docker compose cp web:/tmp/gstr1-20261001-20261031-b2c.csv .   # and -hsn.csv, -credit-notes.csv
+- `…-b2cl.csv` (table 5): invoices above ₹1 lakh with taxed lines to another state, by rate.
+- `…-b2cs.csv` (table 7): the other taxed sales by place of supply ("18-Assam") and rate, net of their credit notes.
+- `…-cdnur.csv` (table 9B): credit notes against b2cl invoices.
+- `…-exemp.csv` (table 8): exempt, nil-rated and non-GST supplies (the books and the shipping that follows them), intra-
+  and inter-state, to unregistered buyers, net of their credit notes. Books go in "Exempted" until the CA says "nil
+  rated" (plan 10.2).
+- `…-hsn-b2c.csv` (table 12, B2C tab): quantity, value, taxable value and tax per HSN code (to `SHOP_HSN_DIGITS`
+  figures) and rate, with the code's unit, net of credit notes; `…-hsn-b2b.csv` stays empty (no registered buyers on
+  the storefront: they order through Sales in ERPNext).
+- `…-docs.csv` (table 13): each series' first and last number, how many, how many cancelled.
+- `…-credit-notes.csv`: every credit note of the period with its invoice, by rate, for the working.
 
-- `…-b2c.csv`: the invoices' supplies by place of supply ("18-Assam") and GST rate: taxable value, IGST, CGST, SGST,
-  the number of invoices and their shipping (in the row of each invoice's highest rate). Rows at 0 % are the exempt
-  books (GSTR-1 table 8); taxed rows go to B2CS (table 7).
-- `…-hsn.csv`: the HSN summary (table 12): quantity, total value, taxable value and tax per HSN code and rate.
-- `…-credit-notes.csv`: each credit note dated in the period, by rate, with its invoice; refunds of a shipping charge
-  in the last column.
+Only the real series is exported, never test-mode documents; a cancelled document counts in table 13 only. Amounts are
+those printed on the documents (prices include tax; the coupon, offers and a staff discount shared over the lines; the
+shipping taxed with the goods it carries). Orders the site does not invoice (a school order paid outside the site and
+never entered as a staff order) are not in the files; staff orders are.
 
-Only the real series is exported (`EL/…`, `CN/…`), never test-mode documents. Amounts are those printed on the
-invoices and credit notes (prices include tax; the coupon, offers and a staff discount are shared over the lines).
-Orders the site does not invoice (a school order paid outside the site and never entered as a staff order) are not in
-the files; staff orders are.
+Break-glass, without the panel:
+
+    docker compose exec web python manage.py export_gstr1 --from 2026-10-01 --to 2026-10-31 --out /tmp/gstr1
+    docker compose cp web:/tmp/gstr1 .
+
+### Tax: rates, documents, series
+
+All in the panel's **Tax** module (FINANCE; AUDITOR reads):
+
+- **A rate changes** (a CBIC notification): Tax → HSN and SAC codes → the code → "A new dated rate": the rate, its
+  taxability, the day it starts, the notification and its serial number. It starts after the code's latest rate (the
+  history is never rewritten); orders from that day are taxed at it, older documents keep theirs. Products on the code
+  take the new rate when next saved; until then their red chip says they disagree (Tax → HSN and SAC codes lists
+  them). A new code: "Add a code" with its first rate.
+- **A document issued in error**: Tax → Documents → the document → Cancel, with the reason, typing its number. It keeps
+  its number (table 13 counts it cancelled), leaves the returns and its PDF is marked cancelled; cancel an invoice's
+  credit notes first. The order and its refunds are not changed. A document already in a filed GSTR-1 is corrected by a
+  credit note instead (ask the CA).
+- **Before 1 April 2027**: the CA confirms the prefixes of the series each type gets from FY 2027-28
+  (`SHOP_SERIES_PREFIXES`, DEPLOYMENT.md "Tax"); set them before the year's first document, and check ERPNext's B2B
+  series use none of them. The `EL` series closes with FY 2026-27.
+- **The threshold monitor's inbox items** (`tax_threshold`): turnover past ₹2 crore means GSTR-9 is due for the year;
+  past ₹4 crore, plan e-invoicing and monthly returns with the CA; past ₹5 crore, set `SHOP_HSN_DIGITS=6` from the next
+  year, leave QRMP (Settings, `SHOP_GST_QRMP`) and switch India Compliance's e-invoicing on. A large invoice to another
+  state goes to table 5 (the export does it); a parcel of taxable goods above ₹50,000 may have needed an e-way bill.
 
 ### Coupons
 

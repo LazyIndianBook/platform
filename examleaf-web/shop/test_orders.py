@@ -283,7 +283,8 @@ def test_refunds_of_invoiced_orders_get_credit_notes(client, rzp, commit, settin
     context = invoices.credit_note_context(late_note)
     assert (context["books_credit"], context["shipping_credit"]) == (399, 40)  # in full: the shipping too
     assert [line["taxable"] for line in context["lines"]] == [Decimal("299.00"), Decimal("89.29")]
-    assert context["tax_total"] == Decimal("10.71")
+    # the shipping follows the goods: 40.00 shared 299 : 100, the 10.03 with the taxed line reverses its 1.07
+    assert context["tax_total"] == Decimal("11.78")
 
 
 def test_guest_gets_the_orders_link_by_email_never_in_the_browser(client, commit):

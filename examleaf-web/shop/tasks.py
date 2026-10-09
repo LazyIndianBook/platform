@@ -15,7 +15,7 @@ from examleaf.celery import LONG_TASK, PDF_TASK, single_run
 from examleaf.images import og_image
 from ops.tasks import queue_text_email
 
-from . import invoices, payments, services
+from . import invoices, payments, services, tax
 from .models import (
     Cart,
     CreditNote,
@@ -91,15 +91,42 @@ def generate_invoice(order_id):
 @shared_task(autoretry_for=(Exception,), retry_backoff=60, max_retries=6, **PDF_TASK)
 def generate_credit_note(refund_id):
     """The credit note of a processed refund of an invoiced order (none before the invoice exists: generate_invoice
-    comes back here once it does). Numbered on the first try, the PDF made with WeasyPrint; a failure is retried."""
-    refund = Refund.objects.get(pk=refund_id)
+    comes back here once it does). Numbered on the first try, the PDF made with WeasyPrint; a failure is retried. None
+    against a cancelled invoice or past 30 November after the invoice's year (tax.CreditNoteRefused): the refund has
+    gone out regardless, and FINANCE's inbox says which note is missing and why."""
+    refund = Refund.objects.select_related("order").get(pk=refund_id)
     invoice = Invoice.objects.filter(order=refund.order_id).first()
     if refund.status != Refund.Status.PROCESSED or invoice is None:
         return
     invoices.check_seller(not invoice.is_test)
-    note = CreditNote.for_refund(refund, invoice)
+    try:
+        note = CreditNote.for_refund(refund, invoice)
+    except tax.CreditNoteRefused as refused:
+        tax.report_missing_credit_note(refund, str(refused))
+        return
     if not note.pdf:
         note.pdf.save(f"{note.number.replace('/', '-')}.pdf", ContentFile(invoices.render_pdf(note)))
+
+
+@shared_task(autoretry_for=(Exception,), retry_backoff=60, max_retries=6, **PDF_TASK)
+def remake_pdf(model, pk):
+    """A document's PDF made again (a cancelled one, marked so: tax.cancel): saved under a new name, the old file
+    removed once the new one is in place."""
+    document = (Invoice if model == "shop.invoice" else CreditNote).objects.filter(pk=pk).first()
+    if document is None:
+        return
+    old = document.pdf.name
+    document.pdf.save(f"{document.number.replace('/', '-')}.pdf", ContentFile(invoices.render_pdf(document)))
+    if old and old != document.pdf.name:
+        document.pdf.storage.delete(old)
+
+
+@shared_task(**LONG_TASK)
+@single_run(LONG_TASK["time_limit"])
+def watch_tax_thresholds():
+    """Nightly (01:45): the threshold monitor's rows for today, and an inbox item for FINANCE when a line is crossed
+    (tax.watch_thresholds; a second run the same day changes nothing)."""
+    return len(tax.watch_thresholds())
 
 
 @shared_task(autoretry_for=(Exception,), retry_backoff=60, max_retries=3, **PDF_TASK)
