@@ -5,6 +5,56 @@ commits are in `git log` (phase 4: abffe6f and e5abda5; phase 5 A and B with the
 and E: 4e30e59; the redesign's stage 2 so far: ba0b9dd). Details of each feature are in README.md; the numbers of the
 tests are those of `pytest` at the end of the phase.
 
+## The ERPNext sync: the erp app (9 October 2026)
+
+ERPNext keeps the books and the warehouse behind the platform; a new app, `erp/` (`erp/README.md`), keeps the two in
+step: the platform's documents mirrored in ERPNext, ERPNext's stock and B2B documents read back, a nightly
+reconciliation of the two (the plan's sections 3.1, 3.2, 7.5 and 9.3; the ERPNext side is `../examleaf-erp`, whose
+`API.md` is the contract). No business rule of the shop, the course or the shipping changed: the app listens to their
+saves and to two new signals. Every flow is behind a switch, off by default. 933 backend tests pass on SQLite
+(8 skipped, 1,181 subtests; 831, 8 skipped and 1,025 before), 940 on PostgreSQL (1 skipped; 838 before).
+
+- **The outbox.** A document's row (`ErpOutbox`) is written in the transaction that makes the document, so neither
+  goes without the other, its payload built then (one that cannot be built is built again at the send). Rows are
+  numbered per order, product or settlement and sent in that order; a document is written once, an item again only
+  when it changed. What hangs on an invoice (its payments, delivery notes, credit notes, refunds, COD settlement) is
+  written after it, also when it came first, as a COD parcel that leaves before its bill.
+- **The relay** (every minute, and nudged after each commit that wrote rows): the first open row of each order, under
+  a lease; ERPNext's answer kept on the row and an `ErpLink` written; the ERPNext account's circuit breaker; a delay
+  that doubles from a minute to six hours, jittered, or what `Retry-After` says on a 429. A refusal that cannot
+  succeed unchanged, or the tenth failure, makes a dead letter (`IntegrationFailure`) that holds its order's later
+  rows until staff replay or discard it. A row's idempotency key is its id (after `ERP_INSTANCE_PREFIX`), so an answer
+  lost on the way is asked again safely.
+- **The contract in one module**, `erp/contract.py`: each examleaf_erp method's fields as API.md has them (the
+  shipping address as city, district, state and PIN only; the walk-in B2C customer; the payment modes; references as
+  `kind:id`), its answers and refusals. `erp/fake.py` is an in-memory ERPNext that keeps the same rules (unknown
+  fields refused, duplicates answered, Frappe's own 401 and 403, GST rounded as ERPNext rounds it) for the tests and
+  `ERP_MODE=fake`.
+- **From ERPNext**: its webhook `POST /api/hooks/erp-events/` (the HMAC-SHA256 of the body with the account's secret,
+  or the previous one for 24 hours, in constant time; kept once per SHA-256; answered at once; the document read again
+  over REST); a pull every 15 minutes of what changed (`ErpCursor`); stock snapshots per item (`ErpStockSnapshot`) and,
+  with `ERP_STOCK_PROJECTION`, the copies for sale set from ERPNext's stock less what is sold here and not yet
+  shipped; B2B quotations, customers and invoices kept read-only (`ErpMirror`).
+- **The nightly reconciliation** at 03:30 IST (`erp_reconcile --date`): the day's invoices, credit notes, payments and
+  refunds by mode, settlements and delivery notes against ERPNext's `daily_totals` (counts and totals exactly, taxes
+  within 0.01 an invoice: ERPNext rounds once an invoice), every document ERPNext has not answered for, and the stock
+  per item. Each difference is a row (`ErpReconciliationDifference`) and a signal; the morning's email goes to
+  `ERP_ALERT_EMAILS`, and an inbox item waits until the last one is resolved.
+- **Commands**: `erp_status`, `erp_replay <id> | --dead | --sent-since` (the last for an ERPNext restored from a
+  backup), `erp_initial_load` (a dry run unless `--apply`; `--invoices-from`), `erp_reconcile`, `erp_pull`.
+- **In the staff app**: `/api/v1/staff/erp/` (the status, the outbox, dead letters with replay and discard, the
+  reconciliation runs, differences with resolve, the cursors: API.md "ERPNext sync (staff)") on the staff API's rules;
+  four catalogued permissions in the area "ERP sync" (`erp.view_sync`, `erp.replay_sync`, `erp.resolve_difference`,
+  `erp.run_initial_load`: FINANCE views and resolves, AUDITOR views, OWNER and ADMIN everything); two inbox kinds
+  (`sync_failed`, `reconciliation`); the initial load as a staff job; each switch a feature flag; audit events for a
+  replay, a discard, a resolve, a resend and the initial load. The admin's pages are under "ERPNext sync".
+- **Seams elsewhere**, no rule changed: `shop.signals.order_shipped` and `shipping.signals.parcel_left`; invoices,
+  credit notes and COD remittances saved in a transaction (their receivers' rows with them); in integrations,
+  `Retry-After` read on a 429 or 503, `webhook_secrets()` for a provider that signs its webhooks, `InboundEventTask`
+  and `dead_letter()` shared.
+- **Personal data**: none of a B2C customer's goes to ERPNext, the outbox, the call log or the mirrors (a test checks
+  every payload); the mirrors keep no contact's email address or phone number.
+
 ## Admin Control Panel, Phase A (9 October 2026, in progress)
 
 The plan is `docs/examleaf-admin-control-panel-plan.md`; the research behind it is in

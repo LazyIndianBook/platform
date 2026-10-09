@@ -17,6 +17,8 @@ Commands run in `/srv/examleaf/examleaf-web` on the server. `dj` below stands fo
 - [Reviews, school orders and stock](#reviews-school-orders-and-stock)
 - [The revision course](#the-revision-course): uploading, failed clips, book codes, access
 - [Insights](#insights): a job failed, a fraud spike, the monthly review, a new season
+- [ERPNext](#erpnext): ERPNext down, a refused document, the morning's differences, no doorbells, a flow
+  switched off and on, ERPNext restored from a backup
 - [Incidents](#incidents)
 
 ## Backups and restore
@@ -832,6 +834,108 @@ summary, the print runs to act on, the fraud signals still open, and a note in t
 Enter its exam dates as soon as the board publishes them (Insights → Exam seasons: board, class, academic year, first
 and last written paper; practicals do not count) and the print costs of the new titles (Insights → Print costs). The
 forecasts move to the new season on the day of the old one's first paper.
+
+## ERPNext
+
+The platform's documents mirrored in ERPNext, its stock and B2B documents read back (`erp/README.md`). At a glance:
+`dj erp_status`, or the panel's `/api/v1/staff/erp/status/`; Admin → ERPNext sync has the outbox, the links, the
+cursors, the stock snapshots, the B2B mirrors and the reconciliation runs; Admin → Integrations the ERPNext account,
+its call log, the dead letters and the webhooks received. What waits for a person is in the staff inbox: a document
+ERPNext refused for good (`sync_failed`, for those with `erp.replay_sync`: ADMIN, the owners) and a night's
+differences (`reconciliation`, for those with `erp.resolve_difference`: FINANCE too).
+
+### ERPNext is unreachable
+
+After 5 failures in 5 minutes the account's circuit opens: the relay waits (no try counted), one trial goes every 5
+minutes, and the outbox keeps growing; `/health/integrations/` fails after 30 minutes, and `erp_status` shows the
+oldest row waiting. Nothing is lost: when ERPNext answers again the circuit closes and the relay sends the backlog in
+order. Check the call log (Admin → Integrations → Integration calls, the ERPNext account): `HTTP 503` or `no answer`
+is ERPNext's side (its pods, `bench doctor`); `HTTP 429` its rate limit (the relay waits as `Retry-After` says);
+`HTTP 401` or `403` the token (below). The pull and the reconciliation try again at their next run
+(`dj erp_reconcile --date <day>` for a night missed).
+
+**401 or 403 from Frappe** (`AuthenticationError`, `PermissionError`): the sync user's key was regenerated (which
+revokes the old secret), the user disabled, or the platform's address is not in `examleaf_sync_user_restrict_ip`.
+Each try counts while the token is refused. Generate the key again in ERPNext (DEPLOYMENT.md section 24), replace the
+credentials on the account, test the connection; `dj erp_replay --dead` for what died meanwhile. A `permission_denied`
+refusal with examleaf_erp's own body is one step the EL Sync role may not do (report it to whoever keeps
+`examleaf_erp`'s `SYNC_PERMISSIONS`); only that row waits.
+
+### A document ERPNext refused (a dead letter)
+
+The inbox item, `dj erp_status` ("dead 1"), or Admin → ERPNext sync → Outbox rows (state dead). The row's last error
+is ERPNext's own code and words (its Sync Log row is in `response.log` of the attempt that answered):
+
+- `conflict` on `upsert_item`: an Item with that code exists in ERPNext without the platform's reference (made by
+  Data Import): set its `examleaf_ref` to the row's in ERPNext, then replay; a later save of the product replaces the
+  dead row by itself.
+- `invalid_request` with a `field`: the payload is wrong for examleaf_erp (a contract change on one side): fix the
+  code (`erp/contract.py`), deploy, replay.
+- `tax_template_mismatch` (retried, then dead): the item's GST rate in ERPNext on the invoice's day is not the line's.
+  ERPNext dates a new rate from the day the product's upsert reached it, so invoices at the new rate issued before
+  that day refuse: on the Item in ERPNext (its Taxes table), set the new row's Valid From to the day the rate changed
+  on the platform, then replay.
+- `no_tax_template`, `not_configured` (retried, then dead): the bootstrap has not made a template, a bank account or a
+  mode of payment's account: run `bench --site <site> execute examleaf_erp.setup.bootstrap`, then replay what died.
+- `total_mismatch`, `doc_kind_mismatch`: ERPNext computed another grand total or document kind than the platform's
+  invoice: a bug in the mapping (`erp/contract.py`) or a changed template in ERPNext; report it with the row and its
+  Sync Log row, and replay once fixed.
+- `cancelled`, `amendment_refused`: staff cancelled the document in ERPNext: ask them; a number is never issued again,
+  so discard the row with what was done (a credit note, a document made by hand).
+- `overpayment`: a second payment of a paid order ("A customer paid twice" above): discard it with that reason; the
+  refund that follows goes against its credit note.
+- `nothing_to_deliver` for a re-shipment: the first parcel's delivery note took the copies; book the return of the
+  first one in ERPNext (a return of its Delivery Note, the copies back in stock), then replay.
+- `insufficient_stock` (retried for some hours, a minute doubling to six hours, then dead): ERPNext's print runs hold
+  fewer copies than the parcel took: record the printer's receipt in ERPNext (a Stock Entry into Main), then replay.
+
+Then replay it (the panel's `dead-letters/<id>/replay/`, Admin → ERPNext sync → Outbox rows → "Replay", or
+`dj erp_replay <id>`; `--dead` replays them all) or discard it with the reason (made by hand in ERPNext, not
+ERPNext's business): a discarded row frees its order's later rows. Both are audit events and close the inbox item.
+
+### The morning's reconciliation differences
+
+The email to `ERP_ALERT_EMAILS` and the inbox item list them (Admin → ERPNext sync → Reconciliation runs → the run):
+
+- `document not in ERPNext invoice:EL/…: outbox: dead here` (or `pending`): the dead letter above, or the relay
+  behind (ERPNext down overnight); `outbox: no row`: the flow was off when it was issued:
+  `dj erp_initial_load --apply --invoices-from <that day>`.
+- totals (`invoices total`, `payments and refunds receive razorpay amount` …) with nothing missing: a document changed
+  or deleted in ERPNext by hand: find it (its number, the payment's reference), put it back as the platform has it.
+- `invoices tax_total` or `taxable_value` beyond 0.01 a taxed invoice: a GST rate differs between the two.
+- `stock invariant EL-00042: 16 here, 13 in ERPNext`: copies counted, written off or moved in ERPNext and not here (or
+  the reverse): count the shelf, correct the side that is wrong (with `ERP_STOCK_PROJECTION` on, ERPNext's is the
+  truth).
+
+Resolve each with a note of what was done (`differences/<id>/resolve/`, or Admin → Reconciliation differences →
+"Resolve"); the inbox item closes with the last. A run that failed (ERPNext unreachable) is retried by its task, then
+a dead letter; `dj erp_reconcile --date <day>` runs one by hand.
+
+### No doorbell from ERPNext for a while
+
+Stock and B2B documents still arrive through the pull every 15 minutes (Admin → ERPNext sync → Pull cursors: last
+run and error). If doorbells are refused (Admin → Integrations → Inbound events, state rejected), the webhook secret
+in ERPNext's site config is not the account's: make a new one ("New webhook token" on the account) and set it there
+(`examleaf_webhook_secret`) within 24 hours. `dj erp_pull --restart` reads every doctype from the start (the B2B
+mirrors rebuilt).
+
+### Switching a flow off (rollback) and on
+
+Panel: `PUT /api/v1/staff/flags/ERP_SYNC_INVOICES/` `{"value": false, "reason": "…"}` (or the environment's
+`ERP_SYNC_INVOICES=0` and a restart). Its new events are not written and its waiting rows hold their orders; on again
+(`{"value": null}` returns to the environment's), they go, and `dj erp_initial_load --apply --invoices-from <the day it
+went off>` writes what was missed (what the outbox has is never written twice). `ERP_ENABLED` off stops only the
+talking: rows keep being written and wait. `ERP_STOCK_PROJECTION` off gives the copies for sale back to the
+platform's own number (as the last projection left it): count the shelf.
+
+### ERPNext restored from a backup
+
+What the platform sent since the backup is sent again: `dj erp_replay --sent-since <the backup's time, e.g.
+2026-10-09T06:00>` puts every row ERPNext answered since then back in the outbox, in order and with its keys (ERPNext
+answers duplicates for what the backup kept; an audit event, `erp.resend`). The initial load would not do it: it
+writes only what the outbox lacks. Then `dj erp_pull --restart` (the B2B mirrors and stock read again) and
+`dj erp_reconcile --date <each day since>`. What only ERPNext held since the backup (purchases, journals, receipts and
+counts, B2B documents) is entered again by hand from its paper trail.
 
 ## Incidents
 

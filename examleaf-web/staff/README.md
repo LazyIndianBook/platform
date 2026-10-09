@@ -217,7 +217,9 @@ by `result_url` (signed for 5 minutes; a bucket's own signed link behind it) and
 `expire_access`. Every step is an audit event (`job.requested`, `job.started`, `job.done`, `job.failed`,
 `job.cancelled`, `job.stopped`, `job.result_downloaded`). To add a kind: a `Job.Kind`, its permission in
 `jobs.permission`, its limit in `jobs.LIMITS`, its runner in `jobs.RUNNERS` and its params in
-`serializers.JobStartSerializer`.
+`serializers.JobStartSerializer`. The ERPNext sync (`erp/README.md`) adds the kind `erp_initial_load`
+(`erp.run_initial_load`, the `bulk_rows` limit) and two kinds of inbox item: `sync_failed` (a dead letter) and
+`reconciliation` (a night's differences).
 
 ## Data protection
 

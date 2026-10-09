@@ -34,8 +34,9 @@ opens, `integration_recovered` when it closes.
 **The client** (`client.py`): httpx, 5 seconds to connect and 20 to read (`INTEGRATIONS_CONNECT_TIMEOUT`,
 `INTEGRATIONS_READ_TIMEOUT`; a call may give its own, e.g. the 3-second quote). It makes no call while the circuit says
 wait (`CircuitOpen`), logs each request, counts it for the circuit, and turns a failure into
-`IntegrationUnavailable` (try again later), `IntegrationRejected` (the provider answered and refused, also inside a 2xx
-for providers that do that: `body_error()`) or `IntegrationAuthFailed` (401, 403). **Never call a provider inside
+`IntegrationUnavailable` (try again later; on a 429 or 503 its `retry_after`, the seconds the provider's
+`Retry-After` asks for), `IntegrationRejected` (the provider answered and refused, also inside a 2xx for providers that
+do that: `body_error()`) or `IntegrationAuthFailed` (401, 403). **Never call a provider inside
 `transaction.atomic()`**: a failure would roll back its own log line and the breaker's count with the caller's
 changes. Claim the row instead (`shipping.models.ShipmentDetail.claim`), and save each step's result as it comes.
 
@@ -43,10 +44,13 @@ changes. Claim the row instead (`shipping.models.ShipmentDetail.claim`), and sav
 task is retried on `IntegrationUnavailable` after 60 seconds doubling to an hour, jittered, 8 times (about four hours:
 the refund task's settings), put back in the queue without counting a try while the circuit is open, and written to
 the dead-letter list (`dead_letter_created`) when it gives up. Run inline (tests, development without a broker), a
-retry or an open circuit is raised to the caller instead.
+retry or an open circuit is raised to the caller instead. `InboundEventTask` is the base of a webhook's processing
+task (a failure marks its `InboundEvent` failed); `services.dead_letter()` writes a dead letter for work that retries
+by itself rather than through Celery (the ERPNext outbox).
 
 **Signals** for the staff inbox (`signals.py`, sent after the commit): `integration_failed`, `integration_recovered`,
-`dead_letter_created`, `inbound_event_failed`. Nothing listens yet.
+`dead_letter_created`, `inbound_event_failed`. The ERPNext sync files its own dead letters in the staff inbox
+(`erp/inbox.py`); nothing else listens yet.
 
 ## Adding a provider
 
@@ -56,7 +60,9 @@ retry or an open circuit is raised to the caller instead.
    answers errors with a 2xx, `body_error()`.
 3. Its connection test, a harmless authenticated read: `integrations.services.CONNECTION_TESTS["delhivery"] = test`
    (a function of the account that returns what it read in a few words; build the client with `force=True`).
-4. Its webhooks, if any: a view that checks the token (`account.webhook_token_matches(header)`), keeps the body
+4. Its webhooks, if any: a view that checks the token (`account.webhook_token_matches(header)`, or for a provider
+   that signs the body, an HMAC with each of `account.webhook_secrets()`: the current one and, 24 hours after a
+   rotation, the previous), keeps the body
    (`integrations.services.receive_event`) and answers at once; the processing task in
    `integrations.models.INBOUND_PROCESSORS["delhivery"]` (a dotted path).
 5. Its tasks on `IntegrationTask`, idempotent (look before you create).

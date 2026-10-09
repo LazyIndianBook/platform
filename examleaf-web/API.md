@@ -15,7 +15,8 @@ print runs, item analysis, cohorts, fraud signals). Code: `api/` (`auth.py`, `vi
 [Frontend integration guide](#frontend-integration-guide) · [Profile and data rights](#profile-and-data-rights) ·
 [Catalogue and solutions](#catalogue-and-solutions) · [Attempts](#attempts) · [Store catalogue](#store-catalogue) ·
 [Shop](#shop) · [Revision course](#revision-course) · [Site](#site-configuration-and-legal-pages) ·
-[Insights (staff)](#insights-staff) · [Lists](#lists) · [Staff API](#staff-api) · [Errors](#errors) ·
+[Insights (staff)](#insights-staff) · [ERPNext sync (staff)](#erpnext-sync-staff) · [Lists](#lists) ·
+[Staff API](#staff-api) · [Errors](#errors) ·
 [Rate limits](#rate-limits) · [CORS](#cors) ·
 [Versioning](#versioning) · [Operations](#operations)
 
@@ -996,6 +997,50 @@ curl -H "Authorization: Bearer $ACCESS" https://examleaf.in/api/v1/insights/fore
 #      "results": [{"product": "physics-sample-papers-2027", "title": "ExamLeaf Physics Sample Papers 2027",
 #                   "district": null, "week_start": "2026-11-05", "p10": 24.0, "p50": 40.0, "p90": 60.0, "n": 1210}, ...]}
 ```
+
+## ERPNext sync (staff)
+
+`/api/v1/staff/erp/…` (code: `erp/api.py`; the sync itself: [erp/README.md](erp/README.md)) is the panel's view of
+the ERPNext sync: the outbox, its dead letters, the nightly reconciliation, the pull's cursors and the status. It is
+part of the [Staff API](#staff-api) and keeps all its rules: the admin host only, a member of staff with a second
+factor (or an API key with `erp.view_sync`), each action's catalogued permission (area "ERP sync"), every refusal an
+`authz_fail` event, cursor pages newest first, `Cache-Control: no-store`. Read-only but for three actions, each an
+audit event:
+
+| Method | Path (under `/api/v1/staff/erp/`) | Permission | What |
+|---|---|---|---|
+| GET | `status/` | `erp.view_sync` | the switches (`enabled`, `flows`, `pull_stock`, `pull_b2b`, `stock_projection`, each the panel's flag if set, else the environment's), the ERPNext `account` and its `circuit`, the `outbox` by state, `oldest_waiting_at` and `_seconds`, `held_aggregates` (held by a dead row), the `cursors`, the `last_reconciliation` |
+| GET | `outbox/`, `outbox/<id>/` | `erp.view_sync` | every row (`?state=pending|sending|sent|failed|dead|discarded&event=&aggregate_type=order|product|settlement&aggregate_id=<order number or product id>&examleaf_ref=`): `event`, `examleaf_ref`, `sequence` in its aggregate, `idempotency_key`, `payload` (what goes: no personal data), `state`, `attempts`, `next_at`, `last_error`, `sent_at`, `response` (ERPNext's answer), `dead_letter` (its IntegrationFailure's id) |
+| GET | `dead-letters/`, `dead-letters/<id>/` | `erp.view_sync` | the dead rows (`?event=&aggregate_type=&aggregate_id=`): each holds its aggregate's later rows |
+| POST | `dead-letters/<id>/replay/` | `erp.replay_sync` (high: a re-authentication within 5 minutes) | sent again now, from its first try (`erp.replay`); 404 once it is not dead |
+| POST | `dead-letters/<id>/discard/` `{"reason": "Made by hand in ERPNext."}` | `erp.replay_sync` (high) | given up, with the reason (`erp.discard`): its aggregate goes on |
+| GET | `reconciliations/`, `reconciliations/<id>/` | `erp.view_sync` | the nightly runs (`?date=&state=running|done|failed`): `date`, `state`, `platform_totals`, `erp_totals`, `differences_count`, `error`; one with its `differences` |
+| GET | `differences/`, `differences/<id>/` | `erp.view_sync` | what did not match (`?run=&kind=invoices|credit_notes|payments|settlements|deliveries|stock|missing&open=true`): `key` (what it is about: a total, a payment mode, an item code, a document's reference), `platform_value`, `erp_value`, `note`, `resolved_at`, `resolved_by` |
+| POST | `differences/<id>/resolve/` `{"note": "…"}` | `erp.resolve_difference` | resolved with what was done (`erp.resolve`); `400 {"non_field_errors": ["Resolved already."]}` the second time |
+| GET | `cursors/` | `erp.view_sync` | how far the 15-minute pull has read each doctype (`modified_after`, `last_name`, `rows_read`, `last_run_at`, `last_error`) |
+
+The initial load is a staff job: `POST /api/v1/staff/jobs/` `{"kind": "erp_initial_load", "params":
+{"invoices_from": "2026-04-01"}, "dry_run": true}` (`erp.run_initial_load`, high; the owners are told when one writes
+rows): its `result` is `{"written": {event: rows}, "flows_off": [...]}`. The switches are feature flags:
+`PUT /api/v1/staff/flags/ERP_SYNC_INVOICES/` `{"value": false, "reason": "…"}` (`staff.manage_flags`), `null` back to
+the environment's.
+
+```sh
+curl https://admin.examleaf.in/api/v1/staff/erp/status/ -b "sessionid=..."
+# 200 {"enabled": true, "mode": "erpnext", "flows": {"catalogue": true, "invoices": true, "payments": true,
+#      "deliveries": true, "settlements": true}, "pull_stock": true, "pull_b2b": true, "stock_projection": false,
+#      "account": {"id": 3, "label": "ERPNext (live), erp-sync@", "mode": "live", "circuit": "closed", ...},
+#      "outbox": {"pending": 2, "sending": 0, "sent": 1840, "failed": 0, "dead": 1, "discarded": 0},
+#      "oldest_waiting_at": "2026-10-09T10:15:03+05:30", "oldest_waiting_seconds": 42, "held_aggregates": 1,
+#      "cursors": [...], "last_reconciliation": {"id": 9, "date": "2026-10-08", "state": "done", "differences": 0, ...}}
+```
+
+**ERPNext's webhook** `POST /api/hooks/erp-events/` is ERPNext's, not the API's: it carries `X-Frappe-Webhook-Signature`,
+the base64 HMAC-SHA256 of the raw body with the ERPNext account's webhook secret (the current one, or for 24 hours
+after a rotation the previous one), checked in constant time. A missing or wrong signature, no enabled account, or
+`ERP_ENABLED` off: `403 {"detail": "Unknown or missing signature."}`, kept without its body. Otherwise
+`200 {"detail": "Received."}` at once; the body (`{doctype, name, modified, examleaf_ref, event}`) is kept once per
+SHA-256 and read again by a task. 600 a minute per client address (`API_THROTTLE_ERP_EVENTS`).
 
 ## Lists
 

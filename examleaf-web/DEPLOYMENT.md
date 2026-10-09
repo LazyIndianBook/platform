@@ -476,6 +476,24 @@ Read by `scripts/backup.sh` (which takes `BACKUP_KEEP_DAYS` and `BACKUP_AGE_RECI
 | `CERT_IN_POINT_OF_CONTACT` | a `[placeholder]` | before going live | the point of contact registered with CERT-In (Annexure II of its Directions), quoted in every incident alert |
 | `STAFF_THROTTLE`, `STAFF_THROTTLE_SEARCH`, `STAFF_THROTTLE_REVEAL`, `STAFF_THROTTLE_EXPORT`, `STAFF_THROTTLE_MONEY`, `STAFF_THROTTLE_INVITE` | `600/minute`, `60/minute`, `30/hour`, `10/hour`, `120/hour`, `10/hour` | no | the staff API's limits per member of staff or API key (API.md "Rate limits") |
 
+### ERPNext
+
+`erp/README.md`; section 24 for the account, the webhook and the order of the switches. Each switch is also a feature
+flag of the same name the panel can set (`staff/README.md`), which wins over the environment until set back to null.
+
+| Variable | Default | Required | What it does; where to get the value |
+|---|---|---|---|
+| `ERP_ENABLED` | `0` | to sync | the platform talks to ERPNext: the relay, the pull, the reconciliation and ERPNext's webhooks (off: the flows' rows wait, the webhooks are refused) |
+| `ERP_SYNC_CATALOGUE`, `ERP_SYNC_INVOICES`, `ERP_SYNC_PAYMENTS`, `ERP_SYNC_DELIVERIES`, `ERP_SYNC_SETTLEMENTS` | `0` | per flow | each flow writes its events to the outbox (items and bundles; invoices and credit notes; payments and refunds; delivery notes; COD settlements) |
+| `ERP_PULL_STOCK`, `ERP_PULL_B2B` | `0` | per read | ERPNext's stock (snapshots, the nightly stock check) and its B2B documents (read-only copies) read back, by doorbell and every 15 minutes |
+| `ERP_STOCK_PROJECTION` | `0` | at the cut-over | ERPNext's stock sets the copies for sale (less what its orders hold and what is reserved here); off: shadow mode, only compared |
+| `ERP_WAREHOUSE` | `Main` | no | the storefront's warehouse in ERPNext (examleaf_erp's `Main`, `Damaged`, `At Printer`, without the company suffix) |
+| `ERP_MAX_ATTEMPTS` | `10` | no | tries before an outbox row is dead (the delay doubles from a minute, jittered: 10 tries take some 4 to 8 hours) |
+| `ERP_ALERT_EMAILS` | none | recommended | comma-separated addresses for the morning's reconciliation differences (FINANCE) |
+| `ERP_MODE` | `erpnext` | no | `fake`: an in-memory ERPNext (development only) |
+| `ERP_INSTANCE_PREFIX` | empty | when two platforms send to one ERPNext site | goes before every idempotency key (`staging-`), so that a staging copy and production never answer each other's |
+| `API_THROTTLE_ERP_EVENTS` | `600/minute` | no | ERPNext's webhook, per client address |
+
 ## 14. Security settings
 
 **Health checks.** From the internet Caddy answers `/health/`, `/health/web/` and `/health/integrations/` (section
@@ -1029,3 +1047,49 @@ SALES_REP), with every app's permissions (`bootstrap_roles` does the same by han
    `ADMIN_HOSTS=admin.examleaf.in` (the staff API then answers 404 on every other host), `STAFF_PANEL_URL` to
    `https://admin.examleaf.in`, and add the host to `ALLOWED_HOSTS` and `https://admin.examleaf.in` to
    `CSRF_TRUSTED_ORIGINS`, or Django refuses its requests (400) and the panel's changes (403, CSRF).
+
+## 24. ERPNext
+
+The platform's side of the ERPNext sync (`erp/README.md`; ERPNext's side: `../examleaf-erp/README.md` and its
+`API.md`). Nothing to install: its migrations run with the others, the staff app gives the roles its permissions after
+`migrate`, and beat runs its tasks. Everything is off until switched on, in this order:
+
+1. **The sync user in ERPNext.** On the ERPNext site (`examleaf-erp/README.md` "The sync user"): the bootstrap makes
+   `erp-sync@examleaf.in` with the EL Sync role only; `bench --site <site> execute
+   frappe.core.doctype.user.user.generate_keys --args "['erp-sync@examleaf.in']"` prints its `api_key` and
+   `api_secret` once. Set `examleaf_sync_user_restrict_ip` there to the platform's egress addresses.
+2. **The integration account.** Admin → Integrations → Integration accounts → Add: provider ERPNext, mode **test**
+   for the staging site (shadow mode, Phase B) or **live** for production's, enabled (one enabled per provider);
+   "Replace the credentials" with `{"api_key": "…", "api_secret": "…", "base_url": "http://<erpnext service>:8080",
+   "site_name": "erp.examleaf.in"}`: the in-cluster address of ERPNext's gunicorn service (the platform reaches it
+   inside the cluster, never over the internet), and the site's name, sent as `X-Frappe-Site-Name` because the
+   service's host name is not the site's. Then the action "Test the connection" ("Connected: ERPNext answered the
+   ping (erp.examleaf.in, examleaf_erp …)").
+3. **The webhook secret.** The same account → the action "New webhook token": shown once. In ERPNext's site config:
+   `bench --site <site> set-config examleaf_webhook_secret '<it>'` and `examleaf_webhook_base
+   'http://<platform web service>:8000/api/hooks/erp-events/'` (inside the cluster: Caddy is not on that path, so add
+   the service's host name to `ALLOWED_HOSTS`; the six webhooks stay off until both are set). A new token later: the
+   previous one is accepted for 24 hours, so set the new one in ERPNext within that time (RUNBOOK.md, "ERPNext").
+4. **The switches** (section 13, "ERPNext"; each also a feature flag the panel can set without a deploy, with its
+   history: `PUT /api/v1/staff/flags/<name>/`): `ERP_ENABLED=1`, then the flows `ERP_SYNC_CATALOGUE`,
+   `ERP_SYNC_INVOICES`, `ERP_SYNC_PAYMENTS`, `ERP_SYNC_DELIVERIES`, `ERP_SYNC_SETTLEMENTS`, and the reads
+   `ERP_PULL_STOCK`, `ERP_PULL_B2B`. `ERP_STOCK_PROJECTION` stays off until the cut-over (shadow mode: ERPNext's
+   stock is compared, never used). `ERP_ALERT_EMAILS` to FINANCE's addresses.
+5. **The initial load.** `docker compose exec web python manage.py erp_initial_load` (a dry run: what it would write),
+   then with `--apply` (and `--invoices-from YYYY-MM-DD` for the invoices since a day); or the panel's job
+   `erp_initial_load`. Opening stock, suppliers and open B2B receivables go into ERPNext by its Data Import.
+6. **Check**: `docker compose exec web python manage.py erp_status` (the outbox draining, no dead letter), the next
+   morning's reconciliation (`erp_reconcile` by hand: "0 difference(s)"), and `/health/integrations/` green.
+
+**The beat entries** (settings.py `CELERY_BEAT_SCHEDULE`, written into the beat tables at start-up; India's time):
+
+| When | Task | Does |
+|---|---|---|
+| every minute (and after each change that wrote rows) | `erp.tasks.relay` | sends the outbox |
+| every 15 minutes | `erp.tasks.pull` | reads what changed in ERPNext since each cursor (stock, B2B documents) |
+| 03:30 | `erp.tasks.reconcile_day` | yesterday compared with ERPNext; differences to the inbox and `ERP_ALERT_EMAILS` |
+
+The cut-over (plan 9.3; `erp/README.md` "Shadow mode and the cut-over"): on the night of 31 March 2027, the live
+account enabled in place of the staging one, `ERP_STOCK_PROJECTION=1` after the stock has been checked, and a
+reconciliation the next morning. Rollback: a flow's switch off (its rows wait; the initial load fills the gap once it
+is on again); `ERP_STOCK_PROJECTION` off hands the copies for sale back to the platform's own number.

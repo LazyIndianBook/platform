@@ -60,6 +60,10 @@ and the security reviews, [SECURITY_REVIEW.md](SECURITY_REVIEW.md) (phases 1 to 
   Messaging.
 - **Web platform.** Product pictures in AVIF and WebP, a public and a private storage bucket, a link-preview picture
   per product (the website's SEO tags, JSON-LD and installable web app are the frontend's).
+- **ERPNext** (`erp/`, `erp/README.md`): the platform's items, invoices, credit notes, payments, delivery notes and
+  COD settlements mirrored in ERPNext through an outbox written with each document, in order and once (keys,
+  retries, dead letters); ERPNext's stock and B2B documents read back by webhook and a 15-minute pull; a nightly
+  reconciliation of the day's totals. Every flow behind a switch, off by default; no customer's personal data goes.
 - **Insights for staff** (`insights/`): nightly demand forecasts per title and district with their backtest against
   the seasonal naive, print-run advice (the newsvendor's quantity, reprint triggers), the quiz's item analysis,
   cohorts, code activation, delivery times, fraud signals and what offers did; learner data only as aggregates.
@@ -259,6 +263,7 @@ worker, and the error pages) are the Next.js frontend's, at the addresses Django
 | `/learn/preview/<clip>/`, `/learn/hls/<token>/<file>` | the staff player for a clip (on the admin's layout); the HLS playlists, segments and poster behind signed links |
 | `/health/`, `/health/web/`, `/health/integrations/` | health checks (JSON with `Accept: application/json`); through Caddy only with the `X-Health-Token` header; see Production; the last one for a second monitor: the integrations (`integrations/README.md`) |
 | `/api/hooks/parcel-events/` | Shiprocket's tracking webhook (its token in `x-api-key`; `shipping/README.md`), under Caddy's `/api/` |
+| `/api/hooks/erp-events/` | ERPNext's webhook (signed: `X-Frappe-Webhook-Signature`; `erp/README.md`), under Caddy's `/api/` |
 | `/anymail/<provider>/tracking/` | the email provider's bounce and complaint webhooks; exist only while `ANYMAIL_WEBHOOK_SECRET` is set |
 | `/admin/` | the admin; signed out it sends to the website's log-in (`LOGIN_URL`, then back with `?next=`) |
 | `/static/…` | the admin's and the staff player's files, the fonts of the invoices and the book covers the website shows |
@@ -913,6 +918,9 @@ Running without surprises:
   `StaffInvite`, `DataRequest`, `Incident`, `ProcessorRecord`; `StaffPermissions` holds the action permissions
   (`staff/README.md`).
 
+- `erp` — `ErpOutbox` (what goes to ERPNext, in order per order, product or settlement), `ErpLink` (the platform's
+  reference and ERPNext's document), `ErpCursor` (the pull's place per doctype), `ErpStockSnapshot`, `ErpMirror` (B2B
+  documents read back), `ErpReconciliationRun` and `ErpReconciliationDifference` (`erp/README.md`).
 - `integrations` — `IntegrationAccount` (a provider in a mode: encrypted credentials and tokens, the circuit breaker),
   `IntegrationCall` (the redacted call log), `IntegrationFailure` (the dead-letter list), `InboundEvent` (webhooks as
   they came) (`integrations/README.md`).
