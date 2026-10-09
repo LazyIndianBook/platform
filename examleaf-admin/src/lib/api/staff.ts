@@ -699,3 +699,127 @@ export const getTaxCalendar = (month: string, transport?: Transport) =>
 /** The GSTR-1 export as a job (202 with the job; above the export limit it waits for an approver first). */
 export const startGstr1 = (body: Schemas["Gstr1Request"]) =>
   send(undefined, (o) => api.POST("/api/v1/staff/tax/gstr1/", { ...o, body })) as Promise<Job>;
+// ---- Legal and privacy ----
+
+export type Cockpit = Schemas["Cockpit"];
+export type CockpitClock = Schemas["Clock"];
+export type RetentionRule = Schemas["RetentionRule"];
+export type LegalHold = Schemas["LegalHold"];
+export type HoldReason = Schemas["LegalHoldReasonEnum"];
+export type HoldTarget = Schemas["TargetTypeEnum"];
+export type Policy = Schemas["Policy"];
+export type PolicyDetail = Schemas["PolicyDetail"];
+export type PolicyVersion = Schemas["PolicyVersion"];
+export type PolicyDiff = Schemas["PolicyDiff"];
+export type PolicySlug = paths["/api/v1/staff/privacy/policies/{slug}/"]["get"]["parameters"]["path"]["slug"];
+export type Disclosures = Schemas["Disclosures"];
+export type DisclosureSetting = Schemas["DisclosureSetting"];
+export type DarkPatternAudit = Schemas["DarkPatternAudit"];
+export type DarkPatternRow = Schemas["AuditRowRequest"];
+export type AccountNominee = Schemas["AccountNominee"];
+
+/** Every clock the rules start, the consents by the notice's version, the self-audit, the legal calendar. */
+export const getCockpit = (transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/privacy/cockpit/", o));
+export const getRetention = (transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/privacy/retention/", o));
+
+export const listHolds = (filters: Filters<"/api/v1/staff/privacy/holds/">, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/privacy/holds/", { ...o, params: { query: query(filters) } })).then(
+    paged,
+  );
+export const getHold = (id: number, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/privacy/holds/{id}/", { ...o, params: { path: { id } } }));
+/** On an account (`user`) or one record (`target_type` with its number or id). */
+export const createHold = (body: Schemas["HoldCreateRequest"]) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/privacy/holds/", { ...o, body }));
+export const releaseHold = (id: number, reason: string) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/privacy/holds/{id}/release/", { ...o, params: { path: { id } }, body: { reason } }),
+  );
+
+/** A customer's nominee, its contact masked (the read is recorded). */
+export const getNominee = (user: number, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/privacy/nominees/{user}/", { ...o, params: { path: { user } } }));
+/** The nominee's contact, with a reason (logged, re-authenticated, throttled). */
+export const revealNominee = async (user: number, reason: string) =>
+  (
+    await send(undefined, (o) =>
+      api.POST("/api/v1/staff/privacy/nominees/{user}/reveal/", { ...o, params: { path: { user } }, body: { reason } }),
+    )
+  ).contact;
+/** A child's deletion confirmed by the parent by phone or letter: where the evidence is, never the document. */
+export const confirmDeletionByParent = (id: number, evidence_ref: string) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/privacy/deletions/{id}/parent-confirmation/", {
+      ...o,
+      params: { path: { id } },
+      body: { evidence_ref },
+    }),
+  );
+
+export const listPolicies = (transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/privacy/policies/", o));
+export const getPolicy = (slug: PolicySlug, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/privacy/policies/{slug}/", { ...o, params: { path: { slug } } }));
+/** A version against the one before it. */
+export const policyDiff = (slug: PolicySlug, number: number, transport?: Transport) =>
+  send(transport, (o) =>
+    api.GET("/api/v1/staff/privacy/policies/{slug}/versions/{number}/diff/", {
+      ...o,
+      params: { path: { slug, number: String(number) } },
+    }),
+  );
+/** A new version, in force today or from a later day. */
+export const publishPolicy = (slug: PolicySlug, body: Schemas["PublishRequest"]) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/privacy/policies/{slug}/publish/", { ...o, params: { path: { slug } }, body }),
+  );
+export const cancelScheduledPolicy = (slug: PolicySlug, reason: string) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/privacy/policies/{slug}/cancel-scheduled/", {
+      ...o,
+      params: { path: { slug } },
+      body: { reason },
+    }),
+  );
+
+export const getDisclosures = (transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/privacy/disclosures/", o));
+/** The changed ones together, with one reason. */
+export const saveDisclosures = (values: Record<string, string>, reason: string) =>
+  send(undefined, (o) => api.PUT("/api/v1/staff/privacy/disclosures/", { ...o, body: { values, reason } }));
+
+export const listDarkPatternAudits = (transport?: Transport) =>
+  send(transport, (o) =>
+    api.GET("/api/v1/staff/privacy/dark-pattern-audits/", { ...o, params: { query: { page_size: 50 } } }),
+  ).then(paged);
+export const createDarkPatternAudit = (year: number) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/privacy/dark-pattern-audits/", { ...o, body: { year } }));
+export const updateDarkPatternAudit = (id: number, body: Schemas["PatchedDarkPatternAuditRequest"]) =>
+  send(undefined, (o) =>
+    api.PATCH("/api/v1/staff/privacy/dark-pattern-audits/{id}/", { ...o, params: { path: { id } }, body }),
+  );
+/** Completed once, then as it was signed: its certificate shown on the website from `effective_from`. */
+export const completeDarkPatternAudit = (id: number, effective_from: string) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/privacy/dark-pattern-audits/{id}/complete/", {
+      ...o,
+      params: { path: { id } },
+      body: effective_from ? { effective_from } : {},
+    }),
+  );
+/** The signed certificate (PDF, PNG or JPEG), kept in the private storage. */
+export const uploadCertificate = (id: number, file: File) => {
+  const form = new FormData();
+  form.append("file", file);
+  return send(undefined, (o) =>
+    api.POST("/api/v1/staff/privacy/dark-pattern-audits/{id}/file/", {
+      ...o,
+      params: { path: { id } },
+      body: form as never,
+    }),
+  );
+};
+/** Where the browser downloads the signed certificate (same origin; the read is recorded). */
+export const certificateHref = (id: number) => `/api/v1/staff/privacy/dark-pattern-audits/${id}/file/`;

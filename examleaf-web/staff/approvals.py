@@ -445,20 +445,26 @@ class Erase(Action):
         from ops.tasks import queue_text_email
 
         from .models import DataRequest
-        from .privacy import erasure_report
+        from .privacy import erasure_confirmation, erasure_report, parent_confirmed
 
         user = _user(change_request.payload["user"])
         data_request = DataRequest.objects.filter(pk=change_request.payload["data_request"]).first()
         if blocks := erasure_report(user, data_request)["blocks"]:
             raise Refused(" ".join(blocks))
+        subject, body = erasure_confirmation(user, data_request)  # what stays: read before the erasure
         deletion = user.pending_deletion or DeletionRequest.objects.create(user=user, due_at=timezone.now())
-        email = deletion.complete()
-        queue_text_email(
-            email,
-            "Your account has been deleted",
-            "Your ExamLeaf account and the personal details in it have been deleted, as you asked.\n\n"
-            f"Questions about it: {settings.DATA_PROTECTION_OFFICER}",
-        )
+        if user.is_minor and not deletion.parent_confirmed_at and parent_confirmed(user, deletion, data_request):
+            details = data_request.details  # the parent's confirmation, as staff recorded it on the request
+            deletion.parent_confirmed_at, deletion.parent_confirmed_by = timezone.now(), change_request.maker
+            deletion.parent_evidence_ref = str(details.get("parent_evidence") or details.get("parent_confirmed"))[:200]
+            deletion.save(update_fields=["parent_confirmed_at", "parent_confirmed_by", "parent_evidence_ref"])
+        try:
+            email = deletion.complete(data_request=data_request)
+        except DeletionRequest.Held as held:
+            raise Refused(" ".join(held.reasons)) from held
+        if email is None:
+            raise Refused("The account was erased meanwhile.")
+        queue_text_email(email, subject, body)
         if data_request is not None:
             data_request.details = {**data_request.details, "erased_at": plain(timezone.now())}
             data_request.save(update_fields=["details"])

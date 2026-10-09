@@ -45,9 +45,11 @@ and the security reviews, [SECURITY_REVIEW.md](SECURITY_REVIEW.md) (phases 1 to 
   factor for every member of staff: an authenticator app with recovery codes, or a passkey. The Admin Control Panel's
   backend (`staff/`, API.md "Staff API"): scopes, limits and separation of duties, an append-only hash-chained audit
   log, approvals by a second person, an inbox, the site's switches and feature flags, API keys, staff invitations and
-  offboarding, the data requests queue, the breach register and the processor register; the tax desk (`shop/README.md`
-  "Tax"): the HSN and SAC master with dated rates, the documents and their series, the threshold monitor, the
-  calendar and the GSTR-1 job.
+  offboarding, the data requests queue, the breach register and the processor register; Legal and privacy: the
+  compliance cockpit with every legal clock, legal holds and the erasure that obeys them, the retention schedule in code,
+  the legal pages' versions, the e-commerce disclosures and the yearly dark-pattern self-audit (staff/README.md); the
+  tax desk (`shop/README.md` "Tax"): the HSN and SAC master with dated rates, the documents and their series, the
+  threshold monitor, the calendar and the GSTR-1 job.
 - **The shop.** The printed books sold across India: cart, coupons, checkout with Razorpay (UPI, cards, net banking) or,
   when `SHOP_COD_ENABLED` is on (it is off by default), cash on delivery, stock under row locks, shipping rates by
   state, PIN code autofill from India Post's directory, order emails (and SMS), courier tracking links, GST invoices and
@@ -132,12 +134,15 @@ can be edited in the admin:
 
 | When | Task |
 |---|---|
+| 00:01 | a legal page's version published for that day put in force (`pages.tasks.publish_due`) |
 | 01:45 | `shop.tasks.watch_tax_thresholds`: the tax threshold monitor (the year's turnover against ₹2, 4, 5 and 10 crore, large invoices to another state, parcels needing an e-way bill; an inbox item when a line is crossed: `shop/README.md` "Tax") |
 | 01:00 to 03:00, every 15 minutes | the insights jobs, one task each: backtest, demand forecast, print-run advice, item analysis, cohorts, code activation, delivery times, offer effects, fraud rules and their email (`insights/README.md`; DEPLOYMENT.md section 21) |
-| 03:00 | purge the account deletions whose seven days are over |
+| 03:00 | purge the account deletions whose seven days are over (but those a legal hold or a child's parent keeps waiting), and the registration details the intermediary rule kept 180 days |
+| 03:05 | copy the erasure ledger's lines not yet there to the backups' bucket |
 | 03:30 | forget failed log-ins (django-axes) |
 | 03:45 | delete expired sessions |
 | 04:00 | delete task results older than a week |
+| 04:10, 04:20 | the retention schedule's clean-up (`ops.tasks.trim_expired`, `purge_expired`): the SMS log's last digits after 90 days and its rows after a year, webhook records and task results after 7 days, the app's phones silent for 90 days, the orders past their books' period |
 | 04:30 | `shop.tasks.clean_up`: cancel orders never paid or placed (after asking Razorpay), queue again lost refund, invoice and credit note tasks, delete guest carts idle for 30 days, old webhook records and payloads, old stock alerts and the customer details of cancelled unsold orders |
 | 04:30 | forget expired refresh tokens of the API |
 | every hour (at :15) | send the "back in stock" emails |
@@ -406,19 +411,30 @@ alerts the owners and each of its audit events is marked (`staff/README.md`, RUN
   used by the website and the API alike); the student gets an email, can log in and cancel until then; the daily purge
   (`accounts.tasks.purge_due_deletions`) anonymises the user row (name, email, phones, date of birth, district and
   parent data cleared; the notes on attempts cleared; roles and permissions removed; the account made inactive;
-  answer-sheet photos, email addresses, passkeys and authenticators, Google accounts, teacher profile, failed log-ins
-  and the SMS log's rows and the signed-in devices deleted; consent records kept as proof without the address hash;
-  admin log entries of the user,
+  answer-sheet photos, email addresses, passkeys and authenticators, Google accounts, teacher profile, the nominee,
+  failed log-ins and the signed-in devices deleted; the SMS log's rows kept their year as processing logs without the
+  account or the last digits; consent records kept as proof without the address hash; admin log entries of the user,
   teacher profile, attempts, answer sheets and addresses renamed; password unusable, so every session ends), deletes the
   saved addresses, the cart, the reviews, the course data (progress, quiz answers, card reviews, settings, devices,
   entitlements) and the "email me when it is back" requests for the old address, and emails a confirmation to the old
   address. The marks stay as anonymous statistics; orders and invoices stay (tax records) with their copy of the
   address, on the anonymised user. Quotation requests made with the address are not erased: staff delete them on request
-  (RUNBOOK.md "A data request under the DPDP Act").
+  (RUNBOOK.md "A data request under the DPDP Act"). The erasure obeys its holds (staff/README.md "Legal and privacy"):
+  a legal hold on the account, or a student under 18 whose parent has not confirmed through their link, keeps it
+  waiting; with `SUPPORT_INTERMEDIARY_RULES` on, the registration details stay 180 days more. The deletion request stays
+  as the erasure ledger, copied to the backups' bucket, which `manage.py reapply_erasures` applies again after a
+  restore.
+- **Legal and privacy** (the panel's module, staff/README.md): the compliance cockpit with every legal clock, legal
+  holds, the retention schedule in code (`examleaf/retention.py`, its clean-up nightly), the legal pages' numbered
+  versions with their days in force and diffs, the e-commerce disclosures (shown by the website's footer and contact
+  page), the yearly dark-pattern self-audit and its certificate, nominees (`me/nominee/`), marketing consent withdrawn
+  as easily as given (`me/consent/withdraw/`), and the one audience function for marketing
+  (`accounts.audiences.marketable`: never anyone under 18).
 - **Changing the email address:** allauth's `ACCOUNT_CHANGE_EMAIL` keeps one address; a new one replaces it only after
   the emailed code is confirmed, after re-authentication, and the old address is notified.
-- **Mobile numbers and SMS:** the SMS log holds a keyed hash and the last four digits, never the number, is trimmed
-  after 90 days, and loses an account's rows when the account is deleted.
+- **Mobile numbers and SMS:** the SMS log holds a keyed hash and the last four digits, never the number; the last
+  digits are blanked after 90 days and the rows deleted after a year (processing logs, `examleaf/retention.py`); an
+  erased account's rows stay their year without the account.
 - **Insights:** aggregates only (DPDP Act s. 9(3) forbids tracking or behavioural monitoring of children): no insights
   row points to an account or a learner (a test checks it), groups of learners under 5 show their size only, and
   nothing there feeds marketing, prices or offers. The fraud rules count accounts, IP addresses, phone numbers,
@@ -437,9 +453,10 @@ alerts the owners and each of its audit events is marked (`staff/README.md`, RUN
 - **Retention:** orders never paid or placed lose the customer's details 30 days after they were cancelled; invoiced
   orders keep them eight years (RUNBOOK.md "Purging old orders"); a Razorpay payment keeps only the fields it needs for
   180 days. Also: "email me when it is back" requests go after 365 days, guest carts after 30 days idle, Razorpay's
-  webhook records and the Celery task results after 7 days, the SMS log after 90 days, a signed-in device's address and
-  browser the night after its session ended, local database dumps after
-  `BACKUP_KEEP_DAYS` (30), and Docker keeps 10 MB in 5 files of logs per service.
+  webhook records and the Celery task results after 7 days, the SMS log's last digits after 90 days and its rows after a
+  year, the app's phones silent for 90 days, a signed-in device's address and browser the night after its session
+  ended, local database dumps after `BACKUP_KEEP_DAYS` (30), and Docker keeps 50 MB in 10 files of logs per service.
+  The whole schedule, with each minimum in law: `examleaf/retention.py` (the panel's Legal and privacy, Retention).
 
 ## Admin
 

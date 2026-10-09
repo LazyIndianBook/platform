@@ -43,5 +43,6 @@ def test_the_parent_sees_who_registered_then_agrees_once(settings, monkeypatch):
         "contact": None,
         "first_name": "Rahul",
         "days": 7,
+        "deletion": None,  # no deletion waits (one does: staff/tests/test_legal.py)
     }
     assert api.post("/api/v1/parent-consent/zz.bad/").json()["first_name"] is None

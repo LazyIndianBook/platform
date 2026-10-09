@@ -613,8 +613,77 @@ CONFIG = inline_serializer(
                 "banner": serializers.CharField(allow_null=True, help_text="its text; null: none"),
             },
         ),
+        "disclosures": inline_serializer(
+            "DisclosuresConfig",
+            {
+                name: serializers.CharField(allow_null=True, help_text=text)
+                for name, text in [
+                    ("legal_name", "the legal name"),
+                    ("registered_address", "the registered office's address"),
+                    ("operating_address", "where it works from, when not the registered office"),
+                    ("care_phone", "customer care's phone"),
+                    ("care_email", "customer care's email address"),
+                    ("care_hours", "customer care's hours"),
+                    ("grievance_officer", "the Grievance Officer's name"),
+                    ("grievance_designation", "their designation"),
+                    ("grievance_contact", "their email address and phone"),
+                    ("nodal_contact", "the nodal contact resident in India"),
+                    ("returns_page", "the page of the return and refund terms (its slug)"),
+                    ("dpdp_contact", "who answers questions about personal data"),
+                    ("rights_text", "how to make a request about one's personal data"),
+                    ("nch_status", "the National Consumer Helpline: not_joined, applied or member"),
+                    ("nch_since", "applied or joined on (YYYY-MM-DD)"),
+                ]
+            },
+            help_text="the e-commerce disclosures (E-Commerce Rules r.4): each null while not set yet",
+        ),
+        "dark_pattern_certificate": inline_serializer(
+            "DarkPatternCertificate",
+            {
+                "year": serializers.IntegerField(),
+                "text": serializers.CharField(),
+                "effective_from": serializers.DateField(),
+            },
+            allow_null=True,
+            help_text="the dark-pattern self-audit's certificate in force, to show prominently; null: none yet",
+        ),
     },
 )
+
+PUBLIC_DISCLOSURES = {  # config/'s disclosures: the site settings shown on the website (never CERT-In's contact)
+    "legal_name": "DISCLOSURE_LEGAL_NAME",
+    "registered_address": "DISCLOSURE_REGISTERED_ADDRESS",
+    "operating_address": "DISCLOSURE_OPERATING_ADDRESS",
+    "care_phone": "DISCLOSURE_CARE_PHONE",
+    "care_email": "DISCLOSURE_CARE_EMAIL",
+    "care_hours": "DISCLOSURE_CARE_HOURS",
+    "grievance_officer": "DISCLOSURE_GRIEVANCE_OFFICER",
+    "grievance_designation": "DISCLOSURE_GRIEVANCE_DESIGNATION",
+    "grievance_contact": "DISCLOSURE_GRIEVANCE_CONTACT",
+    "nodal_contact": "DISCLOSURE_NODAL_CONTACT",
+    "returns_page": "DISCLOSURE_RETURNS_PAGE",
+    "dpdp_contact": "DATA_PROTECTION_OFFICER",
+    "rights_text": "DISCLOSURE_RIGHTS_TEXT",
+    "nch_status": "NCH_STATUS",
+    "nch_since": "NCH_SINCE",
+}
+
+
+def public_disclosures():
+    """The disclosures as the website shows them: each in effect (the panel's, else settings.py's), null while empty
+    or still a [placeholder]."""
+    from staff.privacy import disclosure
+
+    return {name: disclosure(key) or None for name, key in PUBLIC_DISCLOSURES.items()}
+
+
+def dark_pattern_certificate():
+    from staff.compliance import certificate
+
+    shown = certificate()
+    return (
+        {"year": shown.year, "text": shown.certificate_text, "effective_from": shown.effective_from} if shown else None
+    )
 
 
 class ConfigView(generics.GenericAPIView):
@@ -652,6 +721,8 @@ class ConfigView(generics.GenericAPIView):
                     "app_links": {"android": "https://play.google.com/store/apps/details?id=…", "ios": None},
                     "web_course": False,
                     "maintenance": {"on": False, "banner": None},
+                    "disclosures": dict.fromkeys(PUBLIC_DISCLOSURES),
+                    "dark_pattern_certificate": None,
                 },
             )
         ],
@@ -687,6 +758,8 @@ class ConfigView(generics.GenericAPIView):
                     "on": site_setting("MAINTENANCE_MODE"),
                     "banner": site_setting("MAINTENANCE_BANNER") or None,
                 },
+                "disclosures": public_disclosures(),
+                "dark_pattern_certificate": dark_pattern_certificate(),
             }
         )
         patch_cache_control(response, public=True, max_age=300)
@@ -698,10 +771,19 @@ class PageSerializer(serializers.ModelSerializer):
     html = serializers.SerializerMethodField(help_text='as the website shows it; a [placeholder] is <mark class="…">')
     updated = serializers.DateTimeField(read_only=True, help_text="when the text last changed (its latest history)")
     web_url = serializers.SerializerMethodField()
+    number = serializers.SerializerMethodField(help_text='the version in force, numbered: "Version 2"')
+    effective_from = serializers.DateField(read_only=True, help_text="in force from that day")
+    summary = serializers.CharField(read_only=True, help_text="what this version changed, in a line")
 
     class Meta:
         model = Page
-        fields = ["slug", "title", "version", "updated", "markdown", "html", "web_url"]
+        fields = ["slug", "title", "version", "updated", "markdown", "html", "web_url", "number", "effective_from"]
+        fields += ["summary"]
+
+    def get_number(self, page) -> int:
+        from pages.versions import in_force_number
+
+        return in_force_number(page)
 
     def get_html(self, page) -> str:
         return page_html(page.body_md)

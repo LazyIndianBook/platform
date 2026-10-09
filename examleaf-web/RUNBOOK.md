@@ -8,7 +8,8 @@ Commands run in `/srv/examleaf/examleaf-web` on the server. `dj` below stands fo
 - [Backups and restore](#backups-and-restore)
 - [Secrets and key rotation](#secrets-and-key-rotation)
 - [Staff accounts](#staff-accounts): break-glass accounts
-- [Data requests and privacy](#data-requests-and-privacy): a data request under the DPDP Act, purging old orders
+- [Data requests and privacy](#data-requests-and-privacy): a data request under the DPDP Act, purging old orders,
+  legal holds, policy versions, the disclosures and the dark-pattern self-audit
 - [Email](#email): when email fails, bounces and complaints
 - [SMS, phone numbers, passkeys and parental consent](#sms-phone-numbers-passkeys-and-parental-consent)
 - [The shop](#the-shop): payments, refunds, invoices, shipping, GST returns, coupons, offers, staff orders, the catalogue
@@ -29,12 +30,10 @@ Commands run in `/srv/examleaf/examleaf-web` on the server. `dj` below stands fo
 1. Pick the dump: `ls -lt backups/`, or download it from the backup bucket (`database/examleaf-….dump`, or
    `….dump.age` when `BACKUP_AGE_RECIPIENT` is set: decrypt it on the computer that holds the key,
    `age --decrypt -i examleaf-backup.key -o examleaf-….dump examleaf-….dump.age`, then copy the dump to `backups/`).
-2. Note the account deletions completed since that dump was taken (use the dump's own date and time), because restoring
-   brings those people's data back:
-
-   ```sh
-   dj shell -c "from accounts.models import DeletionRequest as D; print(list(D.objects.filter(status='done', closed_at__gte='2026-10-08 02:15+05:30').values_list('user_id', flat=True)))"
-   ```
+2. Keep the erasure ledger: restoring brings back the data of everyone erased since that dump. Every erasure is
+   copied to the backups' bucket as it is made (`erasures/<id>.json`), which step 4 reads. If the database you are
+   replacing can still be read, also write its ledger to a file first:
+   `dj reapply_erasures --export /app/media/erasures.jsonl` (the `media` volume outlives the restore).
 
 3. Stop everything that writes, restore, start again:
 
@@ -44,11 +43,13 @@ Commands run in `/srv/examleaf/examleaf-web` on the server. `dj` below stands fo
    docker compose up -d
    ```
 
-4. Erase the noted accounts again:
-   `dj shell -c "from accounts.models import DeletionRequest as D, User; [(u.pending_deletion or D.objects.create(user=u)).complete() for u in User.objects.filter(pk__in=[…])]"`.
-   Deletions that were still waiting are completed by the next daily purge (or run
+4. Erase them again, before anyone uses the site: `dj reapply_erasures --dry-run` says how many (counts only), then
+   `dj reapply_erasures` (with `--ledger /app/media/erasures.jsonl` if you wrote one). An account is erased again only
+   while its address still matches the ledger's hash, so nobody else is ever touched; each is an `account.erased` event
+   with `reapplied`. Deletions that were still waiting are completed by the next daily purge (or run
    `dj shell -c "from accounts.tasks import purge_due_deletions; print(purge_due_deletions())"`).
-   Students who asked for deletion after the dump was taken must ask again: tell them.
+   Students who asked for deletion after the dump was taken must ask again: tell them. Without a backups' bucket the
+   ledger is only in the database: then step 2's file is the only record, so never skip it.
 5. Check `/health/`
    (`curl -H "X-Health-Token: $(sed -n 's/^HEALTH_CHECK_TOKEN=//p' .env)" https://examleaf.in/health/`), log in to the
    admin, open a paper.
@@ -155,25 +156,38 @@ only when nothing else works (Google sign-in down, every owner locked out of the
 
 ### A data request under the DPDP Act
 
-Most requests are self-service on My account: Download my data, change the email address, Delete my account. For a
-request by email or letter:
+Most requests are self-service on My account: Download my data, change the email address, Delete my account. A request
+by email, letter or phone goes through the panel, Legal and privacy (staff/README.md "Data protection" and "Legal and
+privacy"); the shell recipes below each step are the break-glass way, when the panel cannot be reached.
 
-1. **Check who is asking.** Answer only to the account's email address, or, for a student under 18, to the parent's
-   contact recorded at sign-up. Note the request (date, person, what was asked) in your support mailbox.
-2. **See the data:** `dj shell -c "import json; from django.core.serializers.json import DjangoJSONEncoder; from accounts.models import User; from accounts.views import export_user_data; print(json.dumps(export_user_data(User.objects.get(email='x@example.com')), cls=DjangoJSONEncoder, indent=2))" > export.json`
+1. **Log it and check who is asking:** Data requests, Log a request (the clocks start from when it was received:
+   acknowledge within 48 hours, answer within a month, 90 days for the DPDP rights from 13 May 2027; the cockpit shows
+   them). Answer only to the account's email address, or, for a student under 18, to the parent's contact recorded at
+   sign-up; record how the identity was checked (Record the identity check: the method, never the document).
+2. **Access:** the request's "Email their data" sends Download my data's file to the account's own address, with who
+   processes it for us (the processor register). Break-glass:
+   `dj shell -c "import json; from django.core.serializers.json import DjangoJSONEncoder; from accounts.models import User; from accounts.views import export_user_data; print(json.dumps(export_user_data(User.objects.get(email='x@example.com')), cls=DjangoJSONEncoder, indent=2))" > export.json`
    and send the file to that address; delete your copy afterwards.
 3. **Correct:** edit the user in the admin (ADMIN role; the admin's history records the change).
-4. **Delete or withdraw consent:** with the seven-day waiting period,
+4. **Erase or withdraw consent:** the request's erasure: its dry run first (what goes, and what stays and until when:
+   the books by financial year, a year of processing logs, legal holds, a child's parent), then "Erase the account",
+   which a second person approves (ADMIN). A legal hold on the account or a child whose parent has not confirmed keeps
+   it waiting: release the hold when the case is over (Legal holds), or record the parent's confirmation (the
+   parent's own link from their email, or, when they are reached by phone or letter, the cockpit's row "A child's
+   deletion waits for the parent" with where the evidence is). Each processor that keeps personal data gets a task in
+   the inbox once it is done ("ask SES to purge the address" …): do each, then mark it done. Quotation requests made
+   with the address (admin → Shop → Quote requests) are not erased by the purge: delete them too (ADMIN).
+   Break-glass, with the seven-day wait:
    `dj shell -c "from accounts.models import DeletionRequest, User; DeletionRequest.objects.create(user=User.objects.get(email='x@example.com'))"`;
-   at once (when the person asks for that in writing), add `.complete()` to the created request. Order and invoice
-   records stay as tax law requires ("Purging old orders" below). The "email me when it is back" requests under the
-   address go with the account. Quotation requests made with the address (admin → Shop
-   → Quote requests) are not erased by the purge: delete them too (ADMIN).
-5. **Nominee:** record the nominee with the request in your support mailbox; act on their request on proof of death or
-   incapacity.
-6. **Answer** within the time the Privacy Policy states (the DPDP Rules allow at most 90 days for grievances). Consent
-   records (admin → Consent records, CSV export) show what was agreed to, when, under which policy version, how (ticked,
-   or confirmed through the link emailed or texted to the parent) and whether a parent gave it.
+   at once, add `.complete()` (it raises `DeletionRequest.Held` with the reasons while something holds it).
+5. **Nominee:** the person records it themselves (`me/nominee/`; staff see it on the customer's record, the contact
+   masked and revealed with a reason). A nomination by letter: log it as a data request of the kind nomination, with
+   what it says in the notes. Act on the nominee's request only on proof of death or incapacity (the claim's flow in
+   the panel comes in Phase C).
+6. **Answer** with the request's text (its contact block is filled in from Legal and privacy, Disclosures), then close
+   it with the outcome and the answer as sent. Consent records (admin → Consent records, CSV export) show what was
+   agreed to, when, under which policy version, how and whether a parent gave it; the cockpit counts the consents by
+   the privacy notice's version.
 
 The parental consent is self-declared while `PARENTAL_CONSENT_MODE=declared` (a parent ticks the box). The DPDP Rules,
 2025 ask for verifiable consent of a parent from May 2027: switch to `verified` before then ("Parental consent" below).
@@ -183,27 +197,47 @@ The parental consent is self-declared while `PARENTAL_CONSENT_MODE=declared` (a 
 - **Every day (automatic):** the 04:30 clean-up strips the name, phone, address lines and email address ("deleted",
   in the order's history too, and staff's notes on the order go) from orders never paid or placed, 30 days after they
   were cancelled; it also clears the stored Razorpay webhook fields of payments older than 180 days.
-- **Every April (by hand), invoiced orders past eight years:** the tax records are kept for eight years. Then the same
-  details leave those orders and their PDFs are deleted (the order rows and their numbers stay, for the totals):
+- **Every night (automatic), orders past their books' period:** the retention schedule's clean-up (04:20,
+  `ops.tasks.purge_expired`) forgets the customer's details of every order whose documents are all older than the
+  oldest financial year still kept (8 financial years after the year, or 72 months after its annual return's due date,
+  whichever is later: `examleaf/retention.py`) and deletes their invoices' and credit notes' PDFs; the order rows and
+  their numbers stay, for the totals. A legal hold on the order, one of its documents or its customer keeps it as it
+  is. The panel's Legal and privacy, Retention shows the schedule; each night's work is an audit event
+  (`retention.purged`). The backups age out on their own (30 days). Break-glass, by hand:
 
   ```sh
-  dj shell -c "
-  from datetime import timedelta
-  from django.utils import timezone
-  from shop.models import CreditNote, Invoice, Order
-  from shop.services import forget_orders
-  from shop.tax import held_orders
-  old = Order.objects.filter(placed_at__lt=timezone.now() - timedelta(days=8 * 365 + 2))
-  old = old.exclude(pk__in=held_orders(list(old.values_list('pk', flat=True))))  # GST's 72 months: kept
-  for document in [*Invoice.objects.filter(order__in=old), *CreditNote.objects.filter(invoice__order__in=old)]:
-      document.pdf.delete()
-  print(forget_orders(old), 'orders purged')"
+  dj shell -c "from ops.tasks import purge_books; print(purge_books(), 'orders purged')"
   ```
 
-  `forget_orders` itself passes by any order whose tax documents are within 72 months of their year's annual return
-  (FY 2025-26: until 31 December 2032), whoever asks.
+  `purge_books` calls `forget_orders`, which itself passes by any order whose tax documents are within 72 months of
+  their year's annual return (FY 2025-26: until 31 December 2032), whoever asks; then purge the same years from the
+  off-site backups (bucket lifecycle) and note the date in the support mailbox.
 
-  Then purge the same years from the off-site backups (bucket lifecycle) and note the date in the support mailbox.
+### Legal holds, policy versions, the disclosures and the self-audit
+
+All in the panel's Legal and privacy (staff/README.md "Legal and privacy"), each step an audit event:
+
+- **A chargeback, a dispute or a legal claim:** put a legal hold on the order (or the invoice, the payment …) or on the
+  customer (Legal holds, Add a hold: FINANCE, ADMIN, OWNER), with the case's reference and, when known, its last day.
+  While it holds, the account is not erased and the records are left out of the retention clean-up. Release it with
+  the reason once the case is over (or it lapses after its day).
+- **A new privacy policy, terms or refund policy:** Policy versions, the page, Publish a new version: the text, a line
+  on what changed, the day it is in force from (today, or a later day: then it waits and comes into force that night,
+  and the website lists it as upcoming; withdraw it before then if needed). Consents given from then on keep its
+  number. Change the Privacy Policy when the retention changes (the SMS log is now kept a year, the server logs about
+  180 days: DEPLOYMENT.md section 10).
+- **The e-commerce disclosures** (before 1 January 2027, and whenever one changes): Disclosures: the legal name and
+  addresses, customer care, the Grievance Officer with designation and contact, the nodal contact resident in India,
+  the DPDP contact person, CERT-In's point of contact, the published text on rights requests, the National Consumer
+  Helpline membership (how to join is a question for counsel: record "applied" and "member" with their dates). Saved
+  together with one reason; the website's footer and contact page show them within five minutes.
+- **The dark-pattern self-audit** (every December, the inbox reminds from 1 December): Dark-pattern audit: a finding
+  and a fix for each of the 13 patterns, the certificate's text, the day it is shown from (1 January), then Complete
+  (typed confirmation; it cannot be changed afterwards); attach the signed copy. The website shows the certificate from
+  its day; the cockpit turns red on 1 January without one.
+- **The processors' tasks** (the inbox, kind "a processor to tell"): after each erasure, ask each processor that keeps
+  personal data to erase it (the processor register's "what to ask them"); after a marketing consent is withdrawn, tell
+  each that holds marketing lists to stop. Keep the processor register's two ticks and that line right.
 
 ## Email
 
@@ -335,8 +369,10 @@ the student has confirmed their own address), and the account can read but not s
 parent presses "I agree". Admin → Consent records then shows the confirmation ("confirmed through the link emailed to
 the parent", with the time).
 
-- **Who is waiting:** `dj shell -c "from accounts.models import User; print([u.email for u in User.objects.filter(is_active=True, date_of_birth__isnull=False) if u.consent_pending])"`.
-  After the switch this includes students under 18 who registered before it; email them that a parent must confirm.
+- **Who is waiting:** the panel's Legal and privacy cockpit lists the accounts whose parent's consent is awaited (by
+  number; the customer's record opens from each). After the switch this includes students under 18 who registered
+  before it; email them that a parent must confirm. Break-glass:
+  `dj shell -c "from accounts.models import User; print([u.email for u in User.objects.filter(is_active=True, date_of_birth__isnull=False) if u.consent_pending])"`.
 - **"My parent never got the link":** the student checks the address and sends it again from My account (also to a
   corrected address; one link every 10 minutes; a link sent to an old address stops working). One parent address or
   number gets at most 3 links a day, whichever students ask: then the page says "The link was not sent: that address or

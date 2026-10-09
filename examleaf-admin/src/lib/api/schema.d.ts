@@ -1137,6 +1137,26 @@ export interface paths {
         patch: operations["me_partial_update"];
         trace?: never;
     };
+    "/api/v1/me/consent/withdraw/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Withdraw a marketing consent (one channel, or every one): recorded in the consent ledger (once: a second
+         *     withdrawal answers the first), and each processor that holds marketing data is told to stop (an inbox task).
+         */
+        post: operations["me_consent_withdraw_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/deletion/": {
         parameters: {
             query?: never;
@@ -1219,6 +1239,34 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/nominee/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description My nominee: GET it (404 while none), PUT it (made or changed; a nomination proved at a claim is not changed
+         *     here), DELETE it (withdrawn).
+         */
+        get: operations["me_nominee_retrieve"];
+        /**
+         * @description My nominee: GET it (404 while none), PUT it (made or changed; a nomination proved at a claim is not changed
+         *     here), DELETE it (withdrawn).
+         */
+        put: operations["me_nominee_update"];
+        post?: never;
+        /**
+         * @description My nominee: GET it (404 while none), PUT it (made or changed; a nomination proved at a claim is not changed
+         *     here), DELETE it (withdrawn).
+         */
+        delete: operations["me_nominee_destroy"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1598,6 +1646,26 @@ export interface paths {
          *     HTML, the version (consent records keep the privacy notice's) and when the text last changed. Cached 15 minutes.
          */
         get: operations["pages_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/pages/{slug}/versions/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A legal page's versions, newest first (the one waiting for its day first of all): its number, the day it is
+         *     in force from and what it changed. Public, cacheable for 15 minutes.
+         */
+        get: operations["pages_versions_list"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3550,6 +3618,392 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/staff/privacy/cockpit/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The compliance cockpit: every clock the rules start, the consents by the notice's version, the dark-pattern
+         *     self-audit, the legal calendar.
+         */
+        get: operations["staff_privacy_cockpit_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/dark-pattern-audits/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The yearly dark-pattern self-audit (the CCPA's 13 named patterns): a finding and a fix for each, the
+         *     certificate's text and its signed copy; completed once (then unchanged), its certificate shown on the website
+         *     from its day (config/).
+         */
+        get: operations["staff_privacy_dark_pattern_audits_list"];
+        put?: never;
+        /**
+         * @description The yearly dark-pattern self-audit (the CCPA's 13 named patterns): a finding and a fix for each, the
+         *     certificate's text and its signed copy; completed once (then unchanged), its certificate shown on the website
+         *     from its day (config/).
+         */
+        post: operations["staff_privacy_dark_pattern_audits_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/dark-pattern-audits/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The yearly dark-pattern self-audit (the CCPA's 13 named patterns): a finding and a fix for each, the
+         *     certificate's text and its signed copy; completed once (then unchanged), its certificate shown on the website
+         *     from its day (config/).
+         */
+        get: operations["staff_privacy_dark_pattern_audits_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description The yearly dark-pattern self-audit (the CCPA's 13 named patterns): a finding and a fix for each, the
+         *     certificate's text and its signed copy; completed once (then unchanged), its certificate shown on the website
+         *     from its day (config/).
+         */
+        patch: operations["staff_privacy_dark_pattern_audits_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/dark-pattern-audits/{id}/complete/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The yearly dark-pattern self-audit (the CCPA's 13 named patterns): a finding and a fix for each, the
+         *     certificate's text and its signed copy; completed once (then unchanged), its certificate shown on the website
+         *     from its day (config/).
+         */
+        post: operations["staff_privacy_dark_pattern_audits_complete_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/dark-pattern-audits/{id}/file/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The yearly dark-pattern self-audit (the CCPA's 13 named patterns): a finding and a fix for each, the
+         *     certificate's text and its signed copy; completed once (then unchanged), its certificate shown on the website
+         *     from its day (config/).
+         */
+        get: operations["staff_privacy_dark_pattern_audits_file_retrieve"];
+        put?: never;
+        /**
+         * @description The yearly dark-pattern self-audit (the CCPA's 13 named patterns): a finding and a fix for each, the
+         *     certificate's text and its signed copy; completed once (then unchanged), its certificate shown on the website
+         *     from its day (config/).
+         */
+        post: operations["staff_privacy_dark_pattern_audits_file_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/deletions/{id}/parent-confirmation/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A child's deletion confirmed by their parent or guardian by phone or letter (when their link cannot reach
+         *     them): staff record it, with where the evidence is; the nightly purge erases it once due.
+         */
+        post: operations["staff_privacy_deletions_parent_confirmation_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/disclosures/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The e-commerce disclosures and the privacy contacts (site settings of the group "disclosures"): GET each in
+         *     effect with where it comes from, and the group's history; PUT the changed ones together, with one reason (each a
+         *     `setting.changed` event).
+         */
+        get: operations["staff_privacy_disclosures_retrieve"];
+        /**
+         * @description The e-commerce disclosures and the privacy contacts (site settings of the group "disclosures"): GET each in
+         *     effect with where it comes from, and the group's history; PUT the changed ones together, with one reason (each a
+         *     `setting.changed` event).
+         */
+        put: operations["staff_privacy_disclosures_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/holds/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Legal holds on an account or one record (an order, an invoice, a credit note, a payment, a refund, a data
+         *     request): they keep it from the erasure and the retention clean-up until their day, or their release.
+         */
+        get: operations["staff_privacy_holds_list"];
+        put?: never;
+        /**
+         * @description Legal holds on an account or one record (an order, an invoice, a credit note, a payment, a refund, a data
+         *     request): they keep it from the erasure and the retention clean-up until their day, or their release.
+         */
+        post: operations["staff_privacy_holds_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/holds/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Legal holds on an account or one record (an order, an invoice, a credit note, a payment, a refund, a data
+         *     request): they keep it from the erasure and the retention clean-up until their day, or their release.
+         */
+        get: operations["staff_privacy_holds_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/holds/{id}/release/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Legal holds on an account or one record (an order, an invoice, a credit note, a payment, a refund, a data
+         *     request): they keep it from the erasure and the retention clean-up until their day, or their release.
+         */
+        post: operations["staff_privacy_holds_release_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/nominees/{user}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The nominee a customer recorded on My account (DPDP s.14), its contact masked; each look at one is a
+         *     `sensitive_read`, a child's marked as such.
+         */
+        get: operations["staff_privacy_nominees_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/nominees/{user}/reveal/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The nominee's contact, shown with a reason (re-authenticated, 30 an hour, a `sensitive_read` event). */
+        post: operations["staff_privacy_nominees_reveal_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/policies/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The legal pages (privacy, terms, refunds, shipping, contact) and their versions: each publish a numbered version
+         *     with the day it is in force from and a line on what changed; a diff of each against the one before.
+         */
+        get: operations["staff_privacy_policies_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/policies/{slug}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The legal pages (privacy, terms, refunds, shipping, contact) and their versions: each publish a numbered version
+         *     with the day it is in force from and a line on what changed; a diff of each against the one before.
+         */
+        get: operations["staff_privacy_policies_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/policies/{slug}/cancel-scheduled/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The legal pages (privacy, terms, refunds, shipping, contact) and their versions: each publish a numbered version
+         *     with the day it is in force from and a line on what changed; a diff of each against the one before.
+         */
+        post: operations["staff_privacy_policies_cancel_scheduled_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/policies/{slug}/publish/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The legal pages (privacy, terms, refunds, shipping, contact) and their versions: each publish a numbered version
+         *     with the day it is in force from and a line on what changed; a diff of each against the one before.
+         */
+        post: operations["staff_privacy_policies_publish_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/policies/{slug}/versions/{number}/diff/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The legal pages (privacy, terms, refunds, shipping, contact) and their versions: each publish a numbered version
+         *     with the day it is in force from and a line on what changed; a diff of each against the one before.
+         */
+        get: operations["staff_privacy_policies_versions_diff_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/retention/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The retention schedule in code (examleaf/retention.py): each kind of record's minimum today, the day it
+         *     changes, what is kept and who deletes it.
+         */
+        get: operations["staff_privacy_retention_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/staff/processors/": {
         parameters: {
             query?: never;
@@ -4329,6 +4783,10 @@ export interface components {
                 [key: string]: string;
             };
         };
+        AccountNominee: {
+            user: number;
+            nominee: components["schemas"]["PrivacyNominee"] | null;
+        };
         /**
          * @description * `staff` - staff
          *     * `user` - user
@@ -4569,6 +5027,17 @@ export interface components {
          * @enum {string}
          */
         AuditOutcomeEnum: "success" | "denied" | "failed";
+        AuditRow: {
+            pattern: components["schemas"]["PatternEnum"];
+            readonly label: string;
+            finding: string;
+            fix: string;
+        };
+        AuditRowRequest: {
+            pattern: components["schemas"]["PatternEnum"];
+            finding: string;
+            fix: string;
+        };
         AuthConfig: {
             /** @description "email", "phone" */
             login_methods: string[];
@@ -4750,6 +5219,13 @@ export interface components {
             depth: number;
             readonly parent: string | null;
             readonly web_url: string;
+        };
+        CertificateFileRequest: {
+            /**
+             * Format: binary
+             * @description the signed certificate: PDF, PNG or JPEG, 5 MB at most
+             */
+            file: string;
         };
         /**
          * @description * `general` - general
@@ -5037,10 +5513,64 @@ export interface components {
             readonly locked: boolean;
             readonly completed: boolean;
         };
+        Clock: {
+            kind: components["schemas"]["ClockKindEnum"];
+            label: string;
+            /** @description the law's clock, in words */
+            rule: string;
+            /** Format: date-time */
+            started_at: string | null;
+            /**
+             * Format: date-time
+             * @description null: awaited, no legal end
+             */
+            due_at: string | null;
+            overdue: boolean;
+            /** @description the record behind it: app_label.model */
+            target_type: string;
+            target_id: string;
+            target_label: string;
+            /** @description the account it is about (its number), if any */
+            account: number | null;
+        };
+        ClockCount: {
+            open: number;
+            overdue: number;
+        };
+        /**
+         * @description * `data_request_ack` - data_request_ack
+         *     * `data_request_answer` - data_request_answer
+         *     * `incident_cert_in` - incident_cert_in
+         *     * `incident_board` - incident_board
+         *     * `complaint_ack` - complaint_ack
+         *     * `complaint_redress` - complaint_redress
+         *     * `complaint_nch` - complaint_nch
+         *     * `parent_consent` - parent_consent
+         *     * `deletion_parent` - deletion_parent
+         *     * `dark_pattern_audit` - dark_pattern_audit
+         * @enum {string}
+         */
+        ClockKindEnum: "data_request_ack" | "data_request_answer" | "incident_cert_in" | "incident_board" | "complaint_ack" | "complaint_redress" | "complaint_nch" | "parent_consent" | "deletion_parent" | "dark_pattern_audit";
         CloseRequest: {
             outcome: components["schemas"]["DataRequestOutcomeEnum"];
             /** @description the answer sent, as sent */
             response: string;
+        };
+        Cockpit: {
+            /** Format: date-time */
+            now: string;
+            /** @description the overdue first, then by due time; 20 of each kind at most */
+            clocks: components["schemas"]["Clock"][];
+            /** @description every one of each kind */
+            counts: {
+                [key: string]: components["schemas"]["ClockCount"];
+            };
+            support: components["schemas"]["PrivacyCockpitSupport"];
+            consents: components["schemas"]["PrivacyConsentVersion"][];
+            dark_pattern: components["schemas"]["PrivacyDarkPatternState"];
+            calendar: components["schemas"]["PrivacyCalendarItem"][];
+            /** @description the processors' tasks and compliance items open in the inbox */
+            inbox: number;
         };
         CodReconcileRequest: {
             /** @description the bank credit's UTR */
@@ -5149,6 +5679,13 @@ export interface components {
             /** @default  */
             comment: string;
         };
+        CompleteRequest: {
+            /**
+             * Format: date
+             * @description shown on the website from (today if empty)
+             */
+            effective_from?: string;
+        };
         Config: {
             auth: components["schemas"]["AuthConfig"];
             shop: components["schemas"]["ShopConfig"];
@@ -5160,6 +5697,30 @@ export interface components {
             /** @description the revision course's chapter, flash-card and quiz pages on the website; off: the app only */
             web_course: boolean;
             maintenance: components["schemas"]["MaintenanceConfig"];
+            /** @description the e-commerce disclosures (E-Commerce Rules r.4): each null while not set yet */
+            disclosures: components["schemas"]["DisclosuresConfig"];
+            /** @description the dark-pattern self-audit's certificate in force, to show prominently; null: none yet */
+            dark_pattern_certificate: components["schemas"]["DarkPatternCertificate"] | null;
+        };
+        /**
+         * @description * `consent` - consent
+         *     * `deletion` - deletion
+         * @enum {string}
+         */
+        ConfirmEnum: "consent" | "deletion";
+        /**
+         * @description * `email` - email
+         *     * `sms` - SMS
+         *     * `whatsapp` - WhatsApp
+         * @enum {string}
+         */
+        ConsentChannelEnum: "email" | "sms" | "whatsapp";
+        ConsentWithdrawn: {
+            purpose: string;
+            channel: string;
+            /** Format: date-time */
+            withdrawn_at: string;
+            detail: string;
         };
         /**
          * @description * `email` - email
@@ -5274,6 +5835,51 @@ export interface components {
                 [key: string]: unknown;
             }[];
             readonly deletion_due_at: string | null;
+        };
+        DarkPatternAudit: {
+            readonly id: number;
+            /**
+             * Format: int64
+             * @description The calendar year its certificate covers.
+             */
+            year: number;
+            /** @description the 13 patterns, each once (new: all blank) */
+            rows?: components["schemas"]["AuditRow"][];
+            certificate_text?: string;
+            /**
+             * Format: date
+             * @description Shown on the website from this day.
+             */
+            effective_from?: string | null;
+            /** Format: date-time */
+            readonly completed_at: string | null;
+            readonly completed_by: number | null;
+            /** Format: date-time */
+            readonly created: string;
+            readonly created_by: number | null;
+            /** @description its signed copy is kept: file/ */
+            readonly has_file: boolean;
+        };
+        DarkPatternAuditRequest: {
+            /**
+             * Format: int64
+             * @description The calendar year its certificate covers.
+             */
+            year: number;
+            /** @description the 13 patterns, each once (new: all blank) */
+            rows?: components["schemas"]["AuditRowRequest"][];
+            certificate_text?: string;
+            /**
+             * Format: date
+             * @description Shown on the website from this day.
+             */
+            effective_from?: string | null;
+        };
+        DarkPatternCertificate: {
+            year: number;
+            text: string;
+            /** Format: date */
+            effective_from: string;
         };
         DataRequest: {
             readonly id: number;
@@ -5454,6 +6060,78 @@ export interface components {
             token: string;
             platform?: components["schemas"]["PlatformEnum"] | components["schemas"]["BlankEnum"];
         };
+        DisclosureHistory: {
+            key: string;
+            value: unknown;
+            /** Format: date-time */
+            effective_from: string;
+            changed_by: number | null;
+            reason: string;
+            /** Format: date-time */
+            created: string;
+        };
+        DisclosureSetting: {
+            key: string;
+            label: string;
+            /** @description "str", or the allowed values */
+            kind: unknown;
+            max_length: number;
+            /** @description shown on the website (config/'s disclosures) */
+            public: boolean;
+            /** @description in effect now */
+            value: unknown;
+            /** @description settings.py's value, which stands until the panel sets one */
+            environment: unknown;
+            source: components["schemas"]["SettingSourceEnum"];
+            /** Format: date-time */
+            effective_from: string | null;
+            changed_by: number | null;
+            reason: string;
+        };
+        Disclosures: {
+            settings: components["schemas"]["DisclosureSetting"][];
+            /** @description the group's changes, newest first (the last 100) */
+            history: components["schemas"]["DisclosureHistory"][];
+        };
+        DisclosuresChangeRequest: {
+            /** @description {KEY: the new value}; null: back to settings.py's */
+            values: {
+                [key: string]: unknown;
+            };
+            reason: string;
+        };
+        DisclosuresConfig: {
+            /** @description the legal name */
+            legal_name: string | null;
+            /** @description the registered office's address */
+            registered_address: string | null;
+            /** @description where it works from, when not the registered office */
+            operating_address: string | null;
+            /** @description customer care's phone */
+            care_phone: string | null;
+            /** @description customer care's email address */
+            care_email: string | null;
+            /** @description customer care's hours */
+            care_hours: string | null;
+            /** @description the Grievance Officer's name */
+            grievance_officer: string | null;
+            /** @description their designation */
+            grievance_designation: string | null;
+            /** @description their email address and phone */
+            grievance_contact: string | null;
+            /** @description the nodal contact resident in India */
+            nodal_contact: string | null;
+            /** @description the page of the return and refund terms (its slug) */
+            returns_page: string | null;
+            /** @description who answers questions about personal data */
+            dpdp_contact: string | null;
+            /** @description how to make a request about one's personal data */
+            rights_text: string | null;
+            /** @description the National Consumer Helpline: not_joined, applied or member */
+            nch_status: string | null;
+            /** @description applied or joined on (YYYY-MM-DD) */
+            nch_since: string | null;
+        };
         Document: {
             number: string;
             /** Format: date-time */
@@ -5490,13 +6168,52 @@ export interface components {
          * @enum {string}
          */
         EntitlementSourceEnum: "book_code" | "purchase" | "grant";
+        ErasureErase: {
+            part: string;
+            what: string;
+            count: number;
+        };
+        ErasureKeep: {
+            /**
+             * @description the hold: the books, the year of logs …
+             *
+             *     * `books` - books
+             *     * `processing_logs` - processing_logs
+             *     * `legal_hold` - legal_hold
+             *     * `intermediary` - intermediary
+             *     * `consent` - consent
+             *     * `statistics` - statistics
+             *     * `by_hand` - by_hand
+             *     * `test` - test
+             */
+            kind: components["schemas"]["ErasureKeepKindEnum"];
+            part: string;
+            what: string;
+            count: number;
+            why: string;
+            /**
+             * Format: date
+             * @description the last day it is kept; null: no end set
+             */
+            until: string | null;
+            /** @description in words: "kept until 31 March 2035: 3 invoices …, for GST …" */
+            line: string;
+        };
+        /**
+         * @description * `books` - books
+         *     * `processing_logs` - processing_logs
+         *     * `legal_hold` - legal_hold
+         *     * `intermediary` - intermediary
+         *     * `consent` - consent
+         *     * `statistics` - statistics
+         *     * `by_hand` - by_hand
+         *     * `test` - test
+         * @enum {string}
+         */
+        ErasureKeepKindEnum: "books" | "processing_logs" | "legal_hold" | "intermediary" | "consent" | "statistics" | "by_hand" | "test";
         ErasureReport: {
-            erase: {
-                [key: string]: unknown;
-            }[];
-            keep: {
-                [key: string]: unknown;
-            }[];
+            erase: components["schemas"]["ErasureErase"][];
+            keep: components["schemas"]["ErasureKeep"][];
             blocks: string[];
             can_erase: boolean;
             notes: string[];
@@ -5846,6 +6563,30 @@ export interface components {
             /** @description for orders/t/<token>/ and its payment; also in the emails */
             readonly token: string;
         };
+        HoldCreateRequest: {
+            /** @description the account held (its number) */
+            user?: number | null;
+            /**
+             * @description a record instead
+             *
+             *     * `shop.creditnote` - shop.creditnote
+             *     * `shop.invoice` - shop.invoice
+             *     * `shop.order` - shop.order
+             *     * `shop.payment` - shop.payment
+             *     * `shop.refund` - shop.refund
+             *     * `staff.datarequest` - staff.datarequest
+             */
+            target_type?: components["schemas"]["TargetTypeEnum"] | components["schemas"]["BlankEnum"];
+            /** @description its number or id */
+            target_id?: string;
+            reason: components["schemas"]["LegalHoldReasonEnum"];
+            note?: string;
+            /**
+             * Format: date
+             * @description the last day it holds; none: released
+             */
+            until?: string | null;
+        };
         HsnCode: {
             readonly code: string;
             readonly kind: components["schemas"]["HsnKindEnum"];
@@ -6013,9 +6754,11 @@ export interface components {
          *     * `integration_down` - integration unavailable
          *     * `tax_threshold` - a tax threshold crossed
          *     * `credit_note_missing` - a refund without its credit note
+         *     * `processor_task` - a processor to tell: erase, or stop
+         *     * `compliance` - a compliance duty: a self-audit, a held erasure
          * @enum {string}
          */
-        InboxKindEnum: "approval" | "teacher_request" | "deletion_request" | "data_request" | "incident" | "failed_job" | "failed_webhook" | "sync_failed" | "reconciliation" | "shipping_exception" | "dead_letter" | "failed_event" | "integration_down" | "tax_threshold" | "credit_note_missing";
+        InboxKindEnum: "approval" | "teacher_request" | "deletion_request" | "data_request" | "incident" | "failed_job" | "failed_webhook" | "sync_failed" | "reconciliation" | "shipping_exception" | "dead_letter" | "failed_event" | "integration_down" | "tax_threshold" | "credit_note_missing" | "processor_task" | "compliance";
         Incident: {
             readonly id: number;
             title: string;
@@ -6284,6 +7027,40 @@ export interface components {
             /** @description its chapters with a published revision, by number */
             chapters: components["schemas"]["LearningChapter"][];
         };
+        LegalHold: {
+            readonly id: number;
+            readonly user: number | null;
+            /** @description app_label.model; empty for a person */
+            readonly target_type: string;
+            readonly target_id: string;
+            /** @description what it keeps, by number or code */
+            readonly target_label: string;
+            readonly reason: components["schemas"]["LegalHoldReasonEnum"];
+            /** @description The case: its reference and what it is about, briefly. */
+            readonly note: string;
+            /**
+             * Format: date
+             * @description The last day it holds; empty: until released.
+             */
+            readonly until: string | null;
+            readonly active: boolean;
+            /** Format: date-time */
+            readonly created: string;
+            readonly created_by: number | null;
+            /** Format: date-time */
+            readonly released_at: string | null;
+            readonly released_by: number | null;
+            readonly release_reason: string;
+        };
+        /**
+         * @description * `dispute` - a dispute
+         *     * `chargeback` - a chargeback
+         *     * `claim` - a legal claim
+         *     * `investigation` - an investigation
+         *     * `other` - another reason (in the note)
+         * @enum {string}
+         */
+        LegalHoldReasonEnum: "dispute" | "chargeback" | "claim" | "investigation" | "other";
         /**
          * @description * `ok` - nothing to do
          *     * `watch` - watch
@@ -6416,6 +7193,29 @@ export interface components {
             days: components["schemas"]["PlanDay"][];
             /** @description why there are no days; empty when there are */
             hint: string;
+        };
+        Nominee: {
+            name: string;
+            /** @description An email address or an Indian mobile number. */
+            contact: string;
+            /** @description Mother, brother, friend … */
+            relation: string;
+            /**
+             * Format: date-time
+             * @description When a claim proved the nomination.
+             */
+            readonly verified_at: string | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly updated: string;
+        };
+        NomineeRequest: {
+            name: string;
+            /** @description An email address or an Indian mobile number. */
+            contact: string;
+            /** @description Mother, brother, friend … */
+            relation: string;
         };
         Note: {
             readonly id: number;
@@ -6654,6 +7454,31 @@ export interface components {
             /** @description as the website shows it; a [placeholder] is <mark class="…"> */
             readonly html: string;
             readonly web_url: string;
+            /** @description the version in force, numbered: "Version 2" */
+            readonly number: number;
+            /**
+             * Format: date
+             * @description in force from that day
+             */
+            readonly effective_from: string;
+            /** @description what this version changed, in a line */
+            readonly summary: string;
+        };
+        PageVersion: {
+            /** @description "Version 2" */
+            number: number;
+            /** @description the label consent records keep (consents/notice_version) */
+            version: string;
+            /**
+             * Format: date
+             * @description in force from that day
+             */
+            effective_from: string;
+            /** @description what it changed, in a line */
+            summary: string;
+            in_force: boolean;
+            /** @description published for a later day: not in force yet */
+            upcoming: boolean;
         };
         PaginatedAddressList: {
             /** @example 123 */
@@ -6887,6 +7712,19 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["Customer"][];
         };
+        PaginatedDarkPatternAuditList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["DarkPatternAudit"][];
+        };
         PaginatedDataRequestListList: {
             /**
              * Format: uri
@@ -7093,6 +7931,19 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["Job"][];
+        };
+        PaginatedLegalHoldList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["LegalHold"][];
         };
         PaginatedOfferStatList: {
             /** @example 123 */
@@ -7502,6 +8353,10 @@ export interface components {
          * @enum {string}
          */
         ParcelStatusEnum: "booked" | "pickup_problem" | "in_transit" | "out_for_delivery" | "delivered" | "delivery_failed" | "returning" | "returned" | "lost_or_damaged" | "cancelled" | "partial";
+        ParentConfirmationRequest: {
+            /** @description where the evidence is: a ticket's number, a letter's date; never the document */
+            evidence_ref: string;
+        };
         ParentContactRequest: {
             /** @description the parent's or guardian's email address or mobile number: the one on record, or new */
             parent_contact: string;
@@ -7523,6 +8378,28 @@ export interface components {
             first_name: string | null;
             /** @description how long a link works */
             days: number;
+            /** @description the student (under 18) asked to delete their account: null otherwise */
+            deletion?: components["schemas"]["ParentLinkDeletion"] | null;
+        };
+        ParentLinkConfirmRequest: {
+            /**
+             * @description consent ("I agree", the default) or deletion
+             *
+             *     * `consent` - consent
+             *     * `deletion` - deletion
+             */
+            confirm?: components["schemas"]["ConfirmEnum"];
+        };
+        ParentLinkDeletion: {
+            /** Format: date-time */
+            requested_at: string;
+            /**
+             * Format: date-time
+             * @description erased then, once the parent has confirmed
+             */
+            due_at: string;
+            /** @description the parent or guardian confirmed it */
+            confirmed: boolean;
         };
         /**
          * @description * `pending` - pending
@@ -7617,6 +8494,21 @@ export interface components {
             /** What to revise */
             notes?: string;
         };
+        PatchedDarkPatternAuditRequest: {
+            /**
+             * Format: int64
+             * @description The calendar year its certificate covers.
+             */
+            year?: number;
+            /** @description the 13 patterns, each once (new: all blank) */
+            rows?: components["schemas"]["AuditRowRequest"][];
+            certificate_text?: string;
+            /**
+             * Format: date
+             * @description Shown on the website from this day.
+             */
+            effective_from?: string | null;
+        };
         PatchedDataRequestRequest: {
             /** Type */
             kind?: components["schemas"]["DataRequestKindEnum"];
@@ -7700,6 +8592,12 @@ export interface components {
             contract_ends_on?: string | null;
             active?: boolean;
             notes?: string;
+            /** @description Keeps personal data after the processing: each erasure asks them to erase it. */
+            holds_personal_data?: boolean;
+            /** @description Holds marketing lists: told to stop when someone withdraws marketing consent. */
+            holds_marketing_data?: boolean;
+            /** @description What to ask them: 'ask SES to purge the address', 'delete the media in R2'. */
+            erasure_action?: string;
         };
         /**
          * @description The signed-in user. The email address, date of birth and parent details change only on the website (the email
@@ -7734,6 +8632,23 @@ export interface components {
             columns?: unknown;
             sort?: unknown;
         };
+        /**
+         * @description * `false_urgency` - False urgency
+         *     * `basket_sneaking` - Basket sneaking
+         *     * `confirm_shaming` - Confirm shaming
+         *     * `forced_action` - Forced action
+         *     * `subscription_trap` - Subscription trap
+         *     * `interface_interference` - Interface interference
+         *     * `bait_and_switch` - Bait and switch
+         *     * `drip_pricing` - Drip pricing
+         *     * `disguised_advertisement` - Disguised advertisement
+         *     * `nagging` - Nagging
+         *     * `trick_question` - Trick question
+         *     * `saas_billing` - SaaS billing
+         *     * `rogue_malware` - Rogue malware
+         * @enum {string}
+         */
+        PatternEnum: "false_urgency" | "basket_sneaking" | "confirm_shaming" | "forced_action" | "subscription_trap" | "interface_interference" | "bait_and_switch" | "drip_pricing" | "disguised_advertisement" | "nagging" | "trick_question" | "saas_billing" | "rogue_malware";
         /** @description What the SDK's success callback returns. */
         PaymentConfirmRequest: {
             razorpay_order_id: string;
@@ -7895,6 +8810,26 @@ export interface components {
          * @enum {string}
          */
         PlatformEnum: "android" | "ios";
+        Policy: {
+            /** @description the page's: its audit events and notes name it (pages.page) */
+            id: number;
+            slug: string;
+            title: string;
+            version: string;
+            /** @description the version in force */
+            number: number;
+            /** Format: date */
+            effective_from: string;
+            summary: string;
+            /** Format: date-time */
+            updated: string;
+            /** @description [placeholders] still to fill in */
+            placeholders: number;
+            /** @description a version waiting for its day */
+            scheduled: components["schemas"]["PolicyVersion"] | null;
+            /** @description how many versions it has had */
+            versions: number;
+        };
         PolicyAcknowledgement: {
             readonly id: number;
             readonly user: number;
@@ -7906,6 +8841,68 @@ export interface components {
         PolicyAcknowledgementRequest: {
             policy: string;
             version: string;
+        };
+        PolicyDetail: {
+            /** @description the page's: its audit events and notes name it (pages.page) */
+            id: number;
+            slug: string;
+            title: string;
+            version: string;
+            /** @description the version in force */
+            number: number;
+            /** Format: date */
+            effective_from: string;
+            summary: string;
+            /** Format: date-time */
+            updated: string;
+            /** @description [placeholders] still to fill in */
+            placeholders: number;
+            /** @description a version waiting for its day */
+            scheduled: components["schemas"]["PolicyVersion"] | null;
+            /** @description every version, newest first */
+            versions: components["schemas"]["PolicyVersion"][];
+            /** @description the text in force */
+            markdown: string;
+        };
+        PolicyDiff: {
+            number: number;
+            version: string;
+            previous: number | null;
+            /** Format: date */
+            effective_from: string;
+            summary: string;
+            title: string;
+            title_changed: boolean;
+            added: number;
+            removed: number;
+            lines: components["schemas"]["PolicyDiffLine"][];
+        };
+        PolicyDiffLine: {
+            kind: components["schemas"]["PolicyDiffLineKindEnum"];
+            text: string;
+        };
+        /**
+         * @description * `hunk` - hunk
+         *     * `added` - added
+         *     * `removed` - removed
+         *     * `context` - context
+         * @enum {string}
+         */
+        PolicyDiffLineKindEnum: "hunk" | "added" | "removed" | "context";
+        PolicyVersion: {
+            number: number;
+            /** @description the label consent records keep */
+            version: string;
+            title: string;
+            summary: string;
+            /** Format: date */
+            effective_from: string;
+            /** Format: date-time */
+            published_at: string | null;
+            published_by: number | null;
+            in_force: boolean;
+            /** @description published for a later day: not in force yet */
+            upcoming: boolean;
         };
         PostalPrice: {
             service: string;
@@ -7970,6 +8967,76 @@ export interface components {
             alert?: string;
             readonly n: number;
         };
+        PrivacyCalendarItem: {
+            /** Format: date */
+            date: string;
+            title: string;
+            detail: string;
+            state: components["schemas"]["PrivacyCalendarItemStateEnum"];
+        };
+        /**
+         * @description * `upcoming` - upcoming
+         *     * `in_force` - in_force
+         *     * `done` - done
+         *     * `overdue` - overdue
+         * @enum {string}
+         */
+        PrivacyCalendarItemStateEnum: "upcoming" | "in_force" | "done" | "overdue";
+        PrivacyCockpitSupport: {
+            installed: boolean;
+            error: string;
+        };
+        PrivacyConsentVersion: {
+            /** @description the privacy notice's version the consents were given under */
+            version: string;
+            number: number | null;
+            in_force: boolean;
+            given: number;
+            withdrawn: number;
+        };
+        PrivacyDarkPatternState: {
+            year: number;
+            /** Format: date */
+            due: string;
+            audit: number | null;
+            state: components["schemas"]["PrivacyDarkPatternStateStateEnum"];
+            /** Format: date-time */
+            completed_at: string | null;
+            /** Format: date */
+            effective_from: string | null;
+            /** @description the certificate shown now */
+            certificate_year: number | null;
+        };
+        /**
+         * @description * `missing` - missing
+         *     * `draft` - draft
+         *     * `completed` - completed
+         * @enum {string}
+         */
+        PrivacyDarkPatternStateStateEnum: "missing" | "draft" | "completed";
+        PrivacyDeletionConfirmed: {
+            deletion: number;
+            /** Format: date-time */
+            parent_confirmed_at: string;
+        };
+        PrivacyNominee: {
+            name: string;
+            /** @description masked: reveal/ shows it, with a reason (logged) */
+            contact: string;
+            relation: string;
+            /**
+             * Format: date-time
+             * @description when a claim proved it (Phase C)
+             */
+            verified_at: string | null;
+            /** Format: date-time */
+            created: string;
+            /** Format: date-time */
+            updated: string;
+        };
+        PrivacyNomineeContact: {
+            contact: string;
+        };
         Processor: {
             readonly id: number;
             name: string;
@@ -7983,6 +9050,12 @@ export interface components {
             contract_ends_on?: string | null;
             active?: boolean;
             notes?: string;
+            /** @description Keeps personal data after the processing: each erasure asks them to erase it. */
+            holds_personal_data?: boolean;
+            /** @description Holds marketing lists: told to stop when someone withdraws marketing consent. */
+            holds_marketing_data?: boolean;
+            /** @description What to ask them: 'ask SES to purge the address', 'delete the media in R2'. */
+            erasure_action?: string;
         };
         ProcessorRequest: {
             name: string;
@@ -7996,6 +9069,12 @@ export interface components {
             contract_ends_on?: string | null;
             active?: boolean;
             notes?: string;
+            /** @description Keeps personal data after the processing: each erasure asks them to erase it. */
+            holds_personal_data?: boolean;
+            /** @description Holds marketing lists: told to stop when someone withdraws marketing consent. */
+            holds_marketing_data?: boolean;
+            /** @description What to ask them: 'ask SES to purge the address', 'delete the media in R2'. */
+            erasure_action?: string;
         };
         /**
          * @description A book on sale. `in_stock` says whether copies can be ordered (a bundle: of each of its books; a digital
@@ -8164,6 +9243,24 @@ export interface components {
             seconds_watched?: number;
             completed?: boolean;
         };
+        PublishRequest: {
+            /** @description the new text, in Markdown */
+            markdown: string;
+            /** @description the same if empty */
+            title?: string;
+            /** @description what this version changes, in a line */
+            summary: string;
+            /**
+             * Format: date
+             * @description in force from (today if empty, never before)
+             */
+            effective_from?: string;
+        };
+        /**
+         * @description * `marketing` - marketing
+         * @enum {string}
+         */
+        PurposeEnum: "marketing";
         QuantityRequest: {
             /** @description 0 removes the book */
             quantity: number;
@@ -8315,6 +9412,10 @@ export interface components {
             /** @description agrees to the privacy notice (the parent, under 18) */
             consent: boolean;
         };
+        ReleaseRequest: {
+            /** @description why it ends: kept with it and in the audit log */
+            reason: string;
+        };
         ResolveRequest: {
             /** @description what was done, or why it is dismissed */
             resolution: string;
@@ -8327,6 +9428,29 @@ export interface components {
         };
         RestAuthDetail: {
             readonly detail: string;
+        };
+        RetentionRule: {
+            key: string;
+            records: string;
+            /** @description the law's least time today */
+            minimum: string;
+            minimum_days: number | null;
+            source: string;
+            /**
+             * Format: date
+             * @description when the minimum changes next
+             */
+            changes_on: string | null;
+            next_minimum: string | null;
+            /** @description what this site keeps */
+            keep: string;
+            keep_days: number | null;
+            trim_days: number | null;
+            enforced_by: string;
+        };
+        RevealReasonRequest: {
+            /** @description why: kept in the audit log */
+            reason: string;
         };
         RevealRequest: {
             /** @description the details to show */
@@ -8926,6 +10050,16 @@ export interface components {
             /** Format: date-time */
             created: string;
         };
+        /**
+         * @description * `shop.creditnote` - shop.creditnote
+         *     * `shop.invoice` - shop.invoice
+         *     * `shop.order` - shop.order
+         *     * `shop.payment` - shop.payment
+         *     * `shop.refund` - shop.refund
+         *     * `staff.datarequest` - staff.datarequest
+         * @enum {string}
+         */
+        TargetTypeEnum: "shop.creditnote" | "shop.invoice" | "shop.order" | "shop.payment" | "shop.refund" | "staff.datarequest";
         TaxCalendar: {
             month: string;
             qrmp: boolean;
@@ -9219,6 +10353,22 @@ export interface components {
         VerifyIdentityRequest: {
             /** @description how it was checked: the method, not the document */
             note: string;
+        };
+        WithdrawRequest: {
+            /**
+             * @description marketing
+             *
+             *     * `marketing` - marketing
+             */
+            purpose: components["schemas"]["PurposeEnum"];
+            /**
+             * @description one channel; empty: all
+             *
+             *     * `email` - email
+             *     * `sms` - SMS
+             *     * `whatsapp` - WhatsApp
+             */
+            channel?: components["schemas"]["ConsentChannelEnum"] | components["schemas"]["BlankEnum"];
         };
     };
     responses: never;
@@ -11020,6 +12170,37 @@ export interface operations {
             };
         };
     };
+    me_consent_withdraw_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WithdrawRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsentWithdrawn"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsentWithdrawn"];
+                };
+            };
+        };
+    };
     me_deletion_create: {
         parameters: {
             query?: never;
@@ -11129,6 +12310,74 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Learning"];
                 };
+            };
+        };
+    };
+    me_nominee_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Nominee"];
+                };
+            };
+        };
+    };
+    me_nominee_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NomineeRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Nominee"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Nominee"];
+                };
+            };
+        };
+    };
+    me_nominee_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -11623,6 +12872,32 @@ export interface operations {
             };
         };
     };
+    pages_versions_list: {
+        parameters: {
+            query?: {
+                /** @description Which field to use when ordering the results. */
+                ordering?: string;
+                /** @description A search term. */
+                search?: string;
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageVersion"][];
+                };
+            };
+        };
+    };
     papers_list: {
         parameters: {
             query?: {
@@ -11741,7 +13016,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ParentLinkConfirmRequest"];
+            };
+        };
         responses: {
             200: {
                 headers: {
@@ -13865,8 +15144,10 @@ export interface operations {
                  *     * `integration_down` - integration unavailable
                  *     * `tax_threshold` - a tax threshold crossed
                  *     * `credit_note_missing` - a refund without its credit note
+                 *     * `processor_task` - a processor to tell: erase, or stop
+                 *     * `compliance` - a compliance duty: a self-audit, a held erasure
                  */
-                kind?: "approval" | "credit_note_missing" | "data_request" | "dead_letter" | "deletion_request" | "failed_event" | "failed_job" | "failed_webhook" | "incident" | "integration_down" | "reconciliation" | "shipping_exception" | "sync_failed" | "tax_threshold" | "teacher_request";
+                kind?: "approval" | "compliance" | "credit_note_missing" | "data_request" | "dead_letter" | "deletion_request" | "failed_event" | "failed_job" | "failed_webhook" | "incident" | "integration_down" | "processor_task" | "reconciliation" | "shipping_exception" | "sync_failed" | "tax_threshold" | "teacher_request";
                 /** @description true: assigned to me */
                 mine?: boolean;
                 /** @description Number of results to return per page. */
@@ -14681,6 +15962,553 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PolicyAcknowledgement"];
+                };
+            };
+        };
+    };
+    staff_privacy_cockpit_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Cockpit"];
+                };
+            };
+        };
+    };
+    staff_privacy_dark_pattern_audits_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedDarkPatternAuditList"];
+                };
+            };
+        };
+    };
+    staff_privacy_dark_pattern_audits_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DarkPatternAuditRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DarkPatternAudit"];
+                };
+            };
+        };
+    };
+    staff_privacy_dark_pattern_audits_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this dark pattern audit. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DarkPatternAudit"];
+                };
+            };
+        };
+    };
+    staff_privacy_dark_pattern_audits_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this dark pattern audit. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedDarkPatternAuditRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DarkPatternAudit"];
+                };
+            };
+        };
+    };
+    staff_privacy_dark_pattern_audits_complete_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this dark pattern audit. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CompleteRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DarkPatternAudit"];
+                };
+            };
+        };
+    };
+    staff_privacy_dark_pattern_audits_file_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this dark pattern audit. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+        };
+    };
+    staff_privacy_dark_pattern_audits_file_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this dark pattern audit. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["CertificateFileRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DarkPatternAudit"];
+                };
+            };
+        };
+    };
+    staff_privacy_deletions_parent_confirmation_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ParentConfirmationRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrivacyDeletionConfirmed"];
+                };
+            };
+        };
+    };
+    staff_privacy_disclosures_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Disclosures"];
+                };
+            };
+        };
+    };
+    staff_privacy_disclosures_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DisclosuresChangeRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Disclosures"];
+                };
+            };
+        };
+    };
+    staff_privacy_holds_list: {
+        parameters: {
+            query?: {
+                /** @description true: in force now */
+                active?: boolean;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /**
+                 * @description * `dispute` - a dispute
+                 *     * `chargeback` - a chargeback
+                 *     * `claim` - a legal claim
+                 *     * `investigation` - an investigation
+                 *     * `other` - another reason (in the note)
+                 */
+                reason?: "chargeback" | "claim" | "dispute" | "investigation" | "other";
+                /**
+                 * @description * `shop.creditnote` - shop.creditnote
+                 *     * `shop.invoice` - shop.invoice
+                 *     * `shop.order` - shop.order
+                 *     * `shop.payment` - shop.payment
+                 *     * `shop.refund` - shop.refund
+                 *     * `staff.datarequest` - staff.datarequest
+                 */
+                target_type?: "shop.creditnote" | "shop.invoice" | "shop.order" | "shop.payment" | "shop.refund" | "staff.datarequest";
+                user?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedLegalHoldList"];
+                };
+            };
+        };
+    };
+    staff_privacy_holds_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HoldCreateRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalHold"];
+                };
+            };
+        };
+    };
+    staff_privacy_holds_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this legal hold. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalHold"];
+                };
+            };
+        };
+    };
+    staff_privacy_holds_release_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this legal hold. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReleaseRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalHold"];
+                };
+            };
+        };
+    };
+    staff_privacy_nominees_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountNominee"];
+                };
+            };
+        };
+    };
+    staff_privacy_nominees_reveal_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevealReasonRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrivacyNomineeContact"];
+                };
+            };
+        };
+    };
+    staff_privacy_policies_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Policy"][];
+                };
+            };
+        };
+    };
+    staff_privacy_policies_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: "privacy" | "terms" | "refunds" | "shipping" | "contact";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyDetail"];
+                };
+            };
+        };
+    };
+    staff_privacy_policies_cancel_scheduled_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: "privacy" | "terms" | "refunds" | "shipping" | "contact";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReleaseRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyDetail"];
+                };
+            };
+        };
+    };
+    staff_privacy_policies_publish_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: "privacy" | "terms" | "refunds" | "shipping" | "contact";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyDetail"];
+                };
+            };
+        };
+    };
+    staff_privacy_policies_versions_diff_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+                slug: "privacy" | "terms" | "refunds" | "shipping" | "contact";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyDiff"];
+                };
+            };
+        };
+    };
+    staff_privacy_retention_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetentionRule"][];
                 };
             };
         };

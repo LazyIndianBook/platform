@@ -8,6 +8,7 @@ from accounts.admin import ReadOnlyAdmin
 from .models import (
     ApiKey,
     ChangeRequest,
+    DarkPatternAudit,
     DataRequest,
     FeatureFlag,
     Incident,
@@ -38,6 +39,11 @@ class IncidentAdmin(ReadOnlyAdmin):
     list_display = ["id", "title", "kind", "detected_at", "cert_in_reported_at", "board_report_at", "closed_at"]
     list_filter = ["kind", "children_affected"]
     search_fields = ["title"]
+
+
+@admin.register(DarkPatternAudit)
+class DarkPatternAuditAdmin(ReadOnlyAdmin):  # kept in the panel (staff/privacy_api.py), completed once
+    list_display = ["year", "completed_at", "completed_by", "effective_from"]
 
 
 @admin.register(ProcessorRecord)

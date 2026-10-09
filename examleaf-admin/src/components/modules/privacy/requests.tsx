@@ -42,7 +42,7 @@ import {
   verifyIdentity,
 } from "@/lib/api/staff";
 import { copy, labelOf } from "@/lib/copy";
-import { formatDate, formatDateTime, fromLocalInput, toLocalInput } from "@/lib/format";
+import { formatDateTime, fromLocalInput, toLocalInput } from "@/lib/format";
 import { P } from "@/lib/modules";
 
 export const KINDS = Object.keys(copy.privacy.kinds) as Schemas["DataRequestKindEnum"][];
@@ -340,9 +340,8 @@ export function RequestNotes({ request }: { request: DataRequest }) {
   );
 }
 
-/** The dry run's rows ({what, count …}, as privacy.erasure_report builds them; the schema types them as maps). */
-const rowText = (row: Record<string, unknown>) =>
-  [row.what, row.label, row.name].find((value) => typeof value === "string") as string | undefined;
+/** A line the API wrote in lower case ("kept until 31 March 2035: …"), as the first of a list item. */
+const sentence = (line: string) => line.charAt(0).toUpperCase() + line.slice(1);
 
 function ReportView({ report }: { report: ErasureReport }) {
   return (
@@ -364,10 +363,9 @@ function ReportView({ report }: { report: ErasureReport }) {
           <h3 className="m-0 font-head text-lg">{copy.privacy.erase}</h3>
           {report.erase.length ? (
             <ul className="m-0 pl-5 text-[15px]">
-              {report.erase.map((row, index) => (
-                <li key={index}>
-                  {rowText(row) ?? JSON.stringify(row)}
-                  {typeof row.count === "number" ? ` (${copy.privacy.count(row.count)})` : ""}
+              {report.erase.map((row) => (
+                <li key={row.part}>
+                  {sentence(row.what)} ({copy.privacy.count(row.count)})
                 </li>
               ))}
             </ul>
@@ -379,13 +377,9 @@ function ReportView({ report }: { report: ErasureReport }) {
           <h3 className="m-0 font-head text-lg">{copy.privacy.keep}</h3>
           {report.keep.length ? (
             <ul className="m-0 flex list-none flex-col gap-2 p-0 text-[15px]">
-              {report.keep.map((row, index) => (
-                <li key={index} className="border-l-2 border-warning-line pl-3">
-                  <strong>{rowText(row) ?? JSON.stringify(row)}</strong>
-                  {typeof row.why === "string" ? `: ${row.why}` : ""}
-                  {typeof row.until === "string" ? (
-                    <span className="text-muted-foreground"> ({copy.privacy.keepUntil(formatDate(row.until))})</span>
-                  ) : null}
+              {report.keep.map((row) => (
+                <li key={row.part} className="border-l-2 border-warning-line pl-3">
+                  {sentence(row.line)}
                 </li>
               ))}
             </ul>

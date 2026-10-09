@@ -20,6 +20,7 @@ router.register("processors", api.ProcessorViewSet, basename="processor")
 router.register("notes", api.NoteViewSet, basename="note")
 
 urlpatterns = [
+    path("", include("staff.privacy_api")),  # privacy/…: legal and privacy (staff/privacy_api.py)
     path("session/", api.SessionView.as_view(), name="session"),
     path("session/reason/", api.BreakGlassReasonView.as_view(), name="session-reason"),
     path("catalogue/", api.CatalogueView.as_view(), name="catalogue"),

@@ -275,6 +275,8 @@ class InboxItem(models.Model):
         # Phase B: tax (shop/tax.py)
         TAX_THRESHOLD = "tax_threshold", "a tax threshold crossed"
         CREDIT_NOTE_MISSING = "credit_note_missing", "a refund without its credit note"
+        PROCESSOR_TASK = "processor_task", "a processor to tell: erase, or stop"  # staff.privacy
+        COMPLIANCE = "compliance", "a compliance duty: a self-audit, a held erasure"
 
     kind = models.CharField(max_length=20, choices=Kind.choices, db_index=True)
     title = models.CharField(max_length=200, help_text="Names no one: a number, a kind.")
@@ -696,9 +698,76 @@ class ProcessorRecord(models.Model):
     contract_ends_on = models.DateField(null=True, blank=True)
     active = models.BooleanField(default=True)
     notes = models.TextField(blank=True)
+    # Phase B: legal
+    holds_personal_data = models.BooleanField(
+        default=False, help_text="Keeps personal data after the processing: each erasure asks them to erase it."
+    )
+    holds_marketing_data = models.BooleanField(
+        default=False, help_text="Holds marketing lists: told to stop when someone withdraws marketing consent."
+    )
+    erasure_action = models.CharField(
+        max_length=150,
+        blank=True,
+        help_text="What to ask them: 'ask SES to purge the address', 'delete the media in R2'.",
+    )
 
     class Meta:
         ordering = ["name"]
 
     def __str__(self):
         return self.name
+
+
+# Phase B: legal
+
+# The 13 dark patterns the CCPA's Guidelines for Prevention and Regulation of Dark Patterns, 2023 name (Annexure 1):
+# a self-audit answers each once a year (research-lms-crm-cms.md 0; the E-Commerce Rules as amended, from 1 January
+# 2027: a yearly self-audit and its certificate displayed prominently).
+DARK_PATTERNS = [
+    ("false_urgency", "False urgency"),
+    ("basket_sneaking", "Basket sneaking"),
+    ("confirm_shaming", "Confirm shaming"),
+    ("forced_action", "Forced action"),
+    ("subscription_trap", "Subscription trap"),
+    ("interface_interference", "Interface interference"),
+    ("bait_and_switch", "Bait and switch"),
+    ("drip_pricing", "Drip pricing"),
+    ("disguised_advertisement", "Disguised advertisement"),
+    ("nagging", "Nagging"),
+    ("trick_question", "Trick question"),
+    ("saas_billing", "SaaS billing"),
+    ("rogue_malware", "Rogue malware"),
+]
+
+
+def blank_audit_rows():
+    return [{"pattern": key, "finding": "", "fix": ""} for key, _ in DARK_PATTERNS]
+
+
+class DarkPatternAudit(models.Model):
+    """One year's dark-pattern self-audit: a finding and a fix for each of the 13 named patterns, completed by a
+    person (OWNER or ADMIN: staff.manage_compliance), with the certificate's text (and its signed copy, optional, in
+    the private storage). Once completed it is not changed; its certificate shows on the website (config/'s
+    `dark_pattern_certificate`) from `effective_from`. A reminder opens in the inbox each 1 December for the coming
+    year (staff.tasks.remind_dark_pattern_audit)."""
+
+    year = models.PositiveSmallIntegerField(unique=True, help_text="The calendar year its certificate covers.")
+    rows = models.JSONField(default=blank_audit_rows, help_text="[{pattern, finding, fix}], one per named pattern.")
+    certificate_text = models.TextField(blank=True)
+    certificate_file = models.CharField(max_length=200, blank=True, help_text="Its name in the private storage.")
+    effective_from = models.DateField(null=True, blank=True, help_text="Shown on the website from this day.")
+    completed_at = models.DateTimeField(null=True, blank=True)
+    completed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    created = models.DateTimeField(default=timezone.now)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+
+    class Meta:
+        default_permissions = ("view",)  # kept through staff.manage_compliance
+        ordering = ["-year"]
+
+    def __str__(self):
+        return f"Dark-pattern self-audit {self.year}"

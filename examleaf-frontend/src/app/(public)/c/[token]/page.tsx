@@ -3,7 +3,9 @@
 // on the parent's phone; the page names the student only to whoever holds the link, and is never indexed or cached.
 // Direction A (ExamLeaf A - Public.dc.html, "Parent link"; Gaps, "Expired links" (G5); Phone parent link): the facts
 // as a ruled list beside the answer card. The API has no "I don't consent": that answer is to do nothing, as the
-// link's email says, so the card says so instead of offering a button that would do nothing.
+// link's email says, so the card says so instead of offering a button that would do nothing. While the student asks
+// for their account's deletion (`deletion`), the link asks the parent to confirm that instead: a student under 18 is
+// erased only once their parent or guardian confirms (POST {"confirm": "deletion"}), at the next nightly run once due.
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -17,6 +19,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { ApiError, unwrap } from "@/lib/api/errors";
 import type { components } from "@/lib/api/schema";
 import { personalFetch, serverApi } from "@/lib/api/server";
+import { formatDate } from "@/lib/dates";
 
 import { retryAt, secondsIn } from "../../retry-at";
 
@@ -42,6 +45,11 @@ async function load(token: string): Promise<Answer | null> {
   return response.data ?? (response.response.status === 400 ? (response.error as ParentLink) : null) ?? null;
 }
 
+/** When a confirmed deletion is erased: at the nightly run once its day has come. */
+function erasedOn(due: string): string {
+  return Date.parse(due) <= Date.now() ? "tonight" : `on the night of ${formatDate(due, "long")}`;
+}
+
 const FACT = "grid grid-cols-[200px_minmax(0,1fr)] gap-x-4 border-b border-border py-3.5 max-nav:grid-cols-1";
 
 export default async function ParentConsentPage({ params, searchParams }: Props) {
@@ -58,6 +66,23 @@ export default async function ParentConsentPage({ params, searchParams }: Props)
       );
     } catch (error) {
       // too many tries from this connection: say when to try again, never retry by itself
+      if (error instanceof ApiError && error.status === 429) redirect(`/c/${token}/?wait=${secondsIn(error.message)}`);
+      throw error;
+    }
+    redirect(`/c/${token}/`);
+  }
+
+  async function confirmDeletion() {
+    "use server";
+    try {
+      await unwrap(
+        serverApi.POST("/api/v1/parent-consent/{token}/", {
+          params: { path: { token } },
+          body: { confirm: "deletion" },
+          ...(await personalFetch()),
+        }),
+      );
+    } catch (error) {
       if (error instanceof ApiError && error.status === 429) redirect(`/c/${token}/?wait=${secondsIn(error.message)}`);
       throw error;
     }
@@ -103,6 +128,77 @@ export default async function ParentConsentPage({ params, searchParams }: Props)
             Are you the student? <Link href="/account/login/?next=/account/">Log in</Link> and send the link again from
             My account.
           </p>
+        </div>
+      ) : link.deletion?.confirmed ? (
+        <div role="status" className="flex max-w-[44rem] flex-col gap-4 [&>*]:m-0">
+          {eyebrow}
+          <h1 className="text-[clamp(32px,4vw,52px)] leading-[1.05]">You confirmed the deletion</h1>
+          <p className="text-lg leading-relaxed text-ink/85">
+            {first ? `${first}'s` : "The"} account is erased {erasedOn(link.deletion.due_at)}, and we email them when it
+            is done.
+          </p>
+          <p className="text-muted-foreground">
+            Nothing more to do: you can close this page. What the law makes us keep, such as invoices for tax, is said
+            in the <Link href="/privacy/">privacy notice</Link>.
+          </p>
+        </div>
+      ) : link.deletion ? (
+        <div className="grid grid-cols-[minmax(0,1fr)_380px] items-start gap-14 max-[1100px]:grid-cols-1 max-[1100px]:gap-6">
+          <div className="flex min-w-0 flex-col gap-[18px] max-nav:gap-3.5 [&>*]:m-0">
+            {eyebrow}
+            <h1 className="text-[clamp(32px,4vw,52px)] leading-[1.05]">
+              {first || "A student"} asked to delete their account
+            </h1>
+            <p className="max-w-[32em] text-lg leading-relaxed text-ink/85 max-nav:text-base">
+              {first || "They"} {first ? "is" : "are"} under 18, so we delete the account only once you confirm. Until
+              then it stays as it is.
+            </p>
+            <dl className="m-0 border-t-[1.5px] border-foreground">
+              <div className={FACT}>
+                <dt className="text-muted-foreground">Student</dt>
+                <dd className="m-0">
+                  {link.student_name}
+                  {link.student_email ? ` · ${link.student_email}` : ""}
+                </dd>
+              </div>
+              <div className={FACT}>
+                <dt className="text-muted-foreground">Asked on</dt>
+                <dd className="m-0">{formatDate(link.deletion.requested_at, "long")}</dd>
+              </div>
+              <div className={FACT}>
+                <dt className="text-muted-foreground">What is deleted</dt>
+                <dd className="m-0">
+                  Their name, email address, class, board, district and date of birth, their notes and answer sheets,
+                  and their saved addresses; their marks stay only as anonymous statistics. What the law makes us keep,
+                  such as invoices for tax, stays.
+                </dd>
+              </div>
+            </dl>
+          </div>
+          <form
+            action={confirmDeletion}
+            aria-labelledby="deletion-title"
+            className="flex flex-col gap-4 border-[1.5px] border-foreground bg-card p-7 max-nav:p-5"
+          >
+            <h2 id="deletion-title" className="m-0 font-head text-2xl leading-tight tracking-normal">
+              Your answer
+            </h2>
+            {wait ? (
+              <Alert variant="warning" title="Too many tries. Please wait a minute">
+                <p>You can try again at {retryAt(Number(wait) || 60)}.</p>
+              </Alert>
+            ) : null}
+            <Checkbox name="parent" required labelClassName="items-start leading-normal">
+              I am {first ? `${first}'s` : "their"} parent or guardian and I want the account deleted.
+            </Checkbox>
+            <SubmitButton size="lg" block>
+              Confirm the deletion
+            </SubmitButton>
+            <p className="m-0 text-sm leading-normal text-muted-foreground">
+              If you don&apos;t confirm, the account is not deleted: you need not do anything. {first || "The student"}{" "}
+              can also cancel the request from their account.
+            </p>
+          </form>
         </div>
       ) : link.status === "confirmed" ? (
         <div role="status" className="flex max-w-[44rem] flex-col gap-4 [&>*]:m-0">

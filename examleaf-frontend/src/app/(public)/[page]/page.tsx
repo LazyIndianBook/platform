@@ -1,12 +1,14 @@
 // The legal and policy pages (/privacy/ /terms/ /refunds/ /shipping/ /contact/) from GET /api/v1/pages/<slug>/: the
 // website's HTML of the Markdown (raw HTML is off on the server; a [placeholder] still to fill in comes marked
-// <mark class="placeholder">), the version and the date of the last change.
+// <mark class="placeholder">), the version in force with the day it is in force from, and a link to every version
+// (/<slug>/versions/).
 // Direction A (ExamLeaf A - Public.dc.html, "Legal" and "Contact"; Phone legal, Phone contact; Gaps, "Shipping
 // rates"): a Sheet, the copy in the reading serif with "§" in the margin at each section; "On this page" lists the
 // page's sections (a rail from 1100 px, a disclosure below), built from the HTML's h2s, which get ids for it.
 // /shipping/ adds the rates of GET shipping/ above the policy. /contact/ gives the support contacts of the config as
 // a ruled list and the message form (POST contact/) once config gives the address; until then the API refuses
-// messages, so no form is offered.
+// messages, so no form is offered. Below them the disclosures the E-Commerce Rules ask for (config's disclosures and
+// the dark-pattern certificate in force: components/site/disclosures.tsx).
 import "./legal.css";
 
 import type { Metadata } from "next";
@@ -15,11 +17,13 @@ import { notFound } from "next/navigation";
 
 import { stateName } from "@/components/shop/shop";
 import { ContactForm } from "@/components/site/contact-form";
+import { DisclosuresBlock } from "@/components/site/disclosures";
 import { Unavailable } from "@/components/site/unavailable";
 import { Sheet } from "@/components/ui/band";
 import { getLegalPage, type LegalPage } from "@/lib/api/catalogue";
 import { getConfig } from "@/lib/api/config";
 import { ApiError, unwrap } from "@/lib/api/errors";
+import { formatDate } from "@/lib/dates";
 import { publicFetch, serverApi } from "@/lib/api/server";
 import { inrShort } from "@/lib/format";
 import { breadcrumbJsonLd, JsonLd } from "@/lib/seo/json-ld";
@@ -90,6 +94,7 @@ export default async function LegalPageView({ params }: Props) {
   ]);
   const { html, sections } = sectioned(page.html);
   const updated = date.format(new Date(page.updated));
+  const inForce = formatDate(page.effective_from, "long");
   const crumbs = (
     <JsonLd
       data={breadcrumbJsonLd([
@@ -102,31 +107,46 @@ export default async function LegalPageView({ params }: Props) {
     <>
       <div className="prose legal-prose" dangerouslySetInnerHTML={{ __html: html }} />
       <p className="mt-8 mb-0 text-sm text-muted-foreground">
-        Version {page.version} · last changed {updated}
+        Version {page.number}, in force from {inForce} · last changed {updated} ·{" "}
+        <Link href={`/${slug}/versions/`}>All versions</Link>
       </p>
     </>
   );
 
   if (slug === "contact") {
     const support = config?.support;
+    const disclosures = config?.disclosures;
+    // customer care as the disclosures give it, else the support contacts
+    const email = disclosures?.care_email || support?.email;
+    const phone = disclosures?.care_phone || support?.phone;
     const facts = [
-      ...(support?.email
+      ...(email
         ? [
             [
               "Email",
-              <a key="email" href={`mailto:${support.email}`}>
-                {support.email}
+              <a key="email" href={`mailto:${email}`}>
+                {email}
               </a>,
             ] as const,
           ]
         : []),
-      ...(support?.phone
+      ...(phone
         ? [
             [
               "Phone",
-              <a key="phone" href={`tel:${support.phone.replace(/[^\d+]/g, "")}`}>
-                {support.phone}
+              <a key="phone" href={`tel:${phone.replace(/[^\d+]/g, "")}`}>
+                {phone}
               </a>,
+            ] as const,
+          ]
+        : []),
+      ...(disclosures?.care_hours
+        ? [
+            [
+              "Hours",
+              <span key="hours" className="font-body">
+                {disclosures.care_hours}
+              </span>,
             ] as const,
           ]
         : []),
@@ -160,6 +180,7 @@ export default async function LegalPageView({ params }: Props) {
               </dd>
             </div>
           </dl>
+          <DisclosuresBlock disclosures={disclosures} certificate={config?.dark_pattern_certificate} />
         </div>
         {support?.email ? (
           <section aria-labelledby="message-title" className="contact-form-card">
@@ -180,7 +201,7 @@ export default async function LegalPageView({ params }: Props) {
       <div className="legal-grid">
         <div className="legal-main">
           <p className="label-mono uppercase max-[1100px]:hidden">
-            Last updated {updated} · version {page.version}
+            Version {page.number} · in force from {inForce}
           </p>
           <nav aria-label="Pages to read" className="legal-pages">
             {PAGES.map(([href, name]) =>

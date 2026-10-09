@@ -17,8 +17,16 @@
 // break-glass account, which must give its reason first), staff_mock_policies=1 (a policy to acknowledge first).
 import type { Note } from "@/lib/api/staff";
 
-import { COLLEAGUES, createWorld, type MockJob, type MockSchemas, payloadHash, type World } from "./fixtures";
 import * as taxRules from "./tax";
+import {
+  COLLEAGUES,
+  createWorld,
+  type MockJob,
+  type MockPolicy,
+  type MockSchemas,
+  payloadHash,
+  type World,
+} from "./fixtures";
 
 type S = MockSchemas;
 
@@ -54,6 +62,7 @@ const SUPPORT = [
   ...["staff.initiate_password_reset", "staff.reset_user_mfa", "staff.impersonate_user"],
   ...["staff.view_datarequest", "staff.handle_data_request", "staff.view_processorrecord"],
   ...["staff.refund_order", "staff.add_changerequest"],
+  ...["accounts.view_legalhold", "accounts.view_nominee"], // legal and privacy: what holds an erasure
 ];
 const FINANCE = [
   ...PANEL,
@@ -64,6 +73,7 @@ const FINANCE = [
   // tax: the HSN and SAC master, the series register, the thresholds and the calendar, cancelling, GSTR-1
   ...["shop.view_hsncode", "shop.change_hsncode", "shop.view_documentseries", "shop.view_taxthreshold"],
   ...["staff.cancel_document", "staff.run_gstr1"],
+  ...["accounts.view_legalhold", "staff.manage_holds"], // legal holds: a chargeback, a dispute over money
 ];
 const OWNER_ONLY = ["staff.assign_role", "staff.manage_api_keys", "staff.break_glass"].concat([
   "staff.view_auditlog",
@@ -82,6 +92,7 @@ const EVERYTHING = [
     ...["staff.suspend_user", "shop.view_product", "shop.change_product", "shop.view_coupon", "shop.add_coupon"],
     ...["content.view_book", "content.view_paper", "learn.view_chapter"],
     ...["staff.view_parcels", "staff.book_parcel", "staff.view_insights", "erp.view_sync"],
+    ...["pages.view_page", "pages.change_page", "staff.view_darkpatternaudit", "staff.manage_compliance"],
   ]),
 ].sort();
 const ROLE_PERMISSIONS: Record<string, string[]> = {
@@ -108,6 +119,7 @@ const RISKY = new Set([
   ...["staff.export_personal_data", "staff.approve_erasure", "staff.manage_incident", "staff.assign_role"],
   ...["staff.approve_role_change", "staff.manage_api_keys", "staff.export_auditlog", "staff.approve_export"],
   ...["staff.manage_settings", "staff.manage_flags", "staff.toggle_maintenance", "staff.cancel_document"],
+  ...["staff.manage_holds", "staff.manage_compliance"],
 ]);
 // the online-paid orders a refund may name (shop.Order with a captured Razorpay payment), rupees paid
 const PAID_ORDERS: Record<string, { id: number; paid: number; shipped: boolean }> = {
@@ -447,6 +459,21 @@ function permissionFor(context: Context): string | null {
       if (a === "series") return "shop.view_documentseries";
       if (a === "gstr1") return "staff.run_gstr1";
       return "shop.view_taxthreshold"; // the thresholds and the calendar
+    case "privacy": {
+      // staff/privacy_api.py's permissions maps
+      const verbs: Record<string, [string, string]> = {
+        cockpit: ["staff.view_datarequest", "staff.view_datarequest"],
+        retention: ["staff.view_datarequest", "staff.view_datarequest"],
+        holds: ["accounts.view_legalhold", "staff.manage_holds"],
+        nominees: ["accounts.view_user", "staff.reveal_contact"],
+        deletions: ["staff.handle_data_request", "staff.handle_data_request"],
+        policies: ["pages.view_page", "pages.change_page"],
+        disclosures: ["staff.view_sitesetting", "staff.manage_settings"],
+        "dark-pattern-audits": ["staff.view_darkpatternaudit", "staff.manage_compliance"],
+      };
+      const [reads, changes] = verbs[a ?? ""] ?? ["staff.view_system", "staff.view_system"];
+      return get ? reads : changes;
+    }
   }
   void c;
   return "staff.view_system";
@@ -1421,7 +1448,7 @@ async function route(context: Context): Promise<Response> {
       if (method === "GET" && b === "erasure-report") {
         if (row.kind !== "erasure" || !row.user)
           return invalid({ non_field_errors: ["Only for an erasure request about an account."] });
-        return json(200, erasureReportOf(row));
+        return json(200, erasureReportOf(world, row));
       }
       if (method === "PATCH" && !b) {
         for (const key of ["notes", "assignee", "summary", "details"] as const)
@@ -1465,7 +1492,7 @@ async function route(context: Context): Promise<Response> {
       if (b === "erase") {
         if (row.kind !== "erasure" || !row.user)
           return invalid({ non_field_errors: ["Only for an erasure request about an account."] });
-        const report = erasureReportOf(row);
+        const report = erasureReportOf(world, row);
         if (!report.can_erase) return json(400, report);
         if (!text(body.reason)) return invalid({ reason: ["This field may not be blank."] });
         return waiting(context, {
@@ -1774,6 +1801,8 @@ async function route(context: Context): Promise<Response> {
       }
       return notFound();
     }
+    case "privacy":
+      return privacyRoute(context);
 
     case "system": {
       if (method === "GET" && !a) return json(200, world.system);
@@ -1793,31 +1822,739 @@ async function route(context: Context): Promise<Response> {
   return notFound();
 }
 
-/** The dry run of an erasure (privacy.erasure_report): an order on its way stops it. */
-function erasureReportOf(row: S["DataRequest"]): S["ErasureReport"] {
-  const blocks = row.user === 7101 ? ["Order EL-2026-000123 is on its way: erase once it is delivered."] : [];
+// ---- Legal and privacy (staff/privacy_api.py) ----
+
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September"].concat([
+  "October",
+  "November",
+  "December",
+]);
+/** India's date today, "2026-10-09". */
+const todayInIndia = () => new Date(Date.now() + 5.5 * 3_600_000).toISOString().slice(0, 10);
+/** privacy.day: "31 March 2035". */
+const longDay = (iso: string) => {
+  const [year, month, day] = iso.slice(0, 10).split("-").map(Number);
+  return `${day} ${MONTH_NAMES[month - 1]} ${year}`;
+};
+const addDays = (iso: string, days: number) =>
+  new Date(Date.parse(`${iso.slice(0, 10)}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+/** LegalHold.Reason's display words, as the dry run's lines use them. */
+const HOLD_REASONS: Record<string, string> = {
+  dispute: "a dispute",
+  chargeback: "a chargeback",
+  claim: "a legal claim",
+  investigation: "an investigation",
+  other: "another reason (in the note)",
+};
+const HOLD_TARGET_TYPES = ["shop.creditnote", "shop.invoice", "shop.order", "shop.payment", "shop.refund"].concat([
+  "staff.datarequest",
+]);
+const ORDER_IDS: Record<string, number> = {
+  ...Object.fromEntries(Object.entries(PAID_ORDERS).map(([number, order]) => [number, order.id])),
+  "EL-2026-000098": 40,
+};
+const DARK_PATTERN_LABELS: Record<string, string> = {
+  false_urgency: "False urgency",
+  basket_sneaking: "Basket sneaking",
+  confirm_shaming: "Confirm shaming",
+  forced_action: "Forced action",
+  subscription_trap: "Subscription trap",
+  interface_interference: "Interface interference",
+  bait_and_switch: "Bait and switch",
+  drip_pricing: "Drip pricing",
+  disguised_advertisement: "Disguised advertisement",
+  nagging: "Nagging",
+  trick_question: "Trick question",
+  saas_billing: "SaaS billing",
+  rogue_malware: "Rogue malware",
+};
+const FIRST_CERTIFICATE_YEAR = 2027;
+const capitalised = (words: string) => words.charAt(0).toUpperCase() + words.slice(1);
+
+/** privacy._keep: one line of what an erasure keeps. */
+function keepLine(
+  kind: S["ErasureKeep"]["kind"],
+  part: string,
+  what: string,
+  count: number,
+  why: string,
+  until: string | null,
+): S["ErasureKeep"] {
+  return {
+    kind,
+    part,
+    what,
+    count,
+    why,
+    until,
+    line: `${until ? `kept until ${longDay(until)}` : "kept"}: ${what}, ${why}`,
+  };
+}
+
+/** The active holds on an account, and on the data requests about it (privacy.user_holds). */
+function holdsOn(world: World, user: number) {
+  const requests = new Set(world.dataRequests.filter((row) => row.user === user).map((row) => String(row.id)));
+  return world.holds.filter(
+    (hold) =>
+      hold.active && (hold.user === user || (hold.target_type === "staff.datarequest" && requests.has(hold.target_id))),
+  );
+}
+
+/** The dry run of an erasure (privacy.erasure_report): what goes, what the law keeps and until when, what stops it. */
+function erasureReportOf(world: World, row: S["DataRequest"]): S["ErasureReport"] {
+  const user = row.user ?? 0;
+  const today = todayInIndia();
+  const keep = [
+    keepLine(
+      "books",
+      "books:2026-27",
+      "1 invoice of 2026-27 with the order behind it",
+      1,
+      "for GST and the Companies Act (8 financial years, or 72 months after the year's annual return)",
+      "2035-03-31",
+    ),
+    keepLine(
+      "processing_logs",
+      "audit:general",
+      "4 events in the staff audit log",
+      4,
+      "naming the account by its number only (the audit log: two years)",
+      addDays(today, 730),
+    ),
+    ...holdsOn(world, user).map((hold) =>
+      keepLine(
+        "legal_hold",
+        `hold:${hold.id}`,
+        hold.user ? "the account" : hold.target_label,
+        1,
+        `under a legal hold (${HOLD_REASONS[hold.reason]})${hold.until ? "" : ", until released"}`,
+        hold.until,
+      ),
+    ),
+    keepLine(
+      "consent",
+      "consents",
+      "1 consent record, without the address hash",
+      1,
+      "proof of the notice and the consent (DPDP s.6(10); the limitation period of 3 years)",
+      addDays(today, 3 * 365),
+    ),
+  ];
+  const blocks: string[] = [];
+  if (user === 7101) blocks.push("An order is on its way: wait until it is delivered, cancelled or refunded.");
+  if (!row.identity_verified) blocks.push("The requester's identity is not verified yet.");
+  for (const hold of world.holds.filter((each) => each.active && each.user === user)) {
+    const until = hold.until ? `until ${longDay(hold.until)}` : "until it is released";
+    blocks.push(`A legal hold (${HOLD_REASONS[hold.reason]}, hold ${hold.id}) keeps the account ${until}.`);
+  }
+  const child = world.users.find((each) => each.id === user)?.under_18;
+  const deletion = world.deletions.find((each) => each.user === user);
+  const details = (row.details ?? {}) as Body;
+  if (child && !deletion?.parent_confirmed_at && !details.parent_confirmed)
+    blocks.push(
+      "A student under 18: the parent or guardian confirms the erasure first (through the link sent to them, or staff record their confirmation with the evidence).",
+    );
+  const told = world.processors.filter((each) => each.active && each.holds_personal_data).map((each) => each.name);
   return {
     erase: [
-      { what: "The account and its profile", count: 1 },
-      { what: "Saved addresses", count: 2 },
-      { what: "Attempts and marks", count: 12 },
+      { part: "profile", what: "name, email address, phones, date of birth, district, parent's details", count: 1 },
+      { part: "addresses", what: "saved addresses", count: 2 },
+      { part: "answer_sheets", what: "answer sheets and their photos", count: 3 },
     ],
-    keep: [
-      {
-        what: "Invoices and credit notes",
-        why: "Tax records: 8 financial years (Companies Act s.128).",
-        until: "2035-03-31",
-      },
-      {
-        what: "Sign-in and processing logs",
-        why: "A year (DPDP Rules 8(3)).",
-        until: new Date(Date.now() + 300 * 86_400_000).toISOString().slice(0, 10),
-      },
-    ],
+    keep,
     blocks,
-    can_erase: blocks.length === 0 && row.identity_verified !== false,
-    notes: row.identity_verified ? [] : ["The requester's identity is not checked yet."],
+    can_erase: blocks.length === 0,
+    notes: told.length ? [`Once it is done, the inbox asks to tell: ${told.join(", ")}.`] : [],
   };
+}
+
+/** The year whose dark-pattern certificate is due next (compliance.audit_year). */
+function auditYear() {
+  const [year, month] = todayInIndia().split("-").map(Number);
+  return Math.max(year + (month === 12 ? 1 : 0), FIRST_CERTIFICATE_YEAR);
+}
+
+function darkPatternState(world: World): S["PrivacyDarkPatternState"] {
+  const year = auditYear();
+  const audit = world.darkPatternAudits.find((row) => row.year === year);
+  const today = todayInIndia();
+  const shown = world.darkPatternAudits
+    .filter((row) => row.completed_at && row.effective_from && row.effective_from <= today)
+    .sort((a, b) => (b.effective_from ?? "").localeCompare(a.effective_from ?? ""))[0];
+  return {
+    year,
+    due: `${year}-01-01`,
+    audit: audit?.id ?? null,
+    state: audit ? (audit.completed_at ? "completed" : "draft") : "missing",
+    completed_at: audit?.completed_at ?? null,
+    effective_from: audit?.effective_from ?? null,
+    certificate_year: shown?.year ?? null,
+  };
+}
+
+/** GET privacy/cockpit/ (staff.compliance.cockpit) from the world. */
+function cockpitOf(world: World): S["Cockpit"] {
+  const now = Date.now();
+  const clocks: S["Clock"][] = [];
+  const counts: Record<string, { open: number; overdue: number }> = {};
+  const add = (row: Omit<S["Clock"], "overdue"> & { done?: boolean }) => {
+    const { done, ...clock } = row;
+    const overdue = Boolean(clock.due_at && !done && Date.parse(clock.due_at) < now);
+    clocks.push({ ...clock, overdue });
+    const count = (counts[clock.kind] ??= { open: 0, overdue: 0 });
+    count.open += 1;
+    count.overdue += overdue ? 1 : 0;
+  };
+  for (const request of world.dataRequests.filter((row) => row.status !== "closed")) {
+    const target = {
+      target_type: "staff.datarequest",
+      target_id: String(request.id),
+      target_label: `DR-${request.id}`,
+    };
+    const kind = capitalised(request.kind);
+    if (!request.acknowledged_at)
+      add({
+        kind: "data_request_ack",
+        label: `Acknowledge DR-${request.id} (${kind})`,
+        rule: "48 hours (the E-Commerce Rules)",
+        started_at: request.received_at ?? null,
+        due_at: request.ack_due_at,
+        account: request.user ?? null,
+        ...target,
+      });
+    add({
+      kind: "data_request_answer",
+      label: `Answer DR-${request.id} (${kind})`,
+      rule: "a month (the SPDI and E-Commerce Rules); 90 days for the DPDP rights from 13 May 2027",
+      started_at: request.received_at ?? null,
+      due_at: request.due_at,
+      account: request.user ?? null,
+      ...target,
+    });
+  }
+  for (const incident of world.incidents.filter((row) => !row.closed_at)) {
+    const target = {
+      target_type: "staff.incident",
+      target_id: String(incident.id),
+      target_label: `Incident ${incident.id}`,
+    };
+    if (!incident.cert_in_reported_at)
+      add({
+        kind: "incident_cert_in",
+        label: `Report incident ${incident.id} to CERT-In`,
+        rule: "6 hours (CERT-In)",
+        started_at: incident.detected_at ?? null,
+        due_at: incident.cert_in_due,
+        account: null,
+        ...target,
+      });
+    if (!incident.board_report_at)
+      add({
+        kind: "incident_board",
+        label: `The Board's report on incident ${incident.id}`,
+        rule: "72 hours (DPDP r.7(2))",
+        started_at: incident.detected_at ?? null,
+        due_at: incident.board_due,
+        account: null,
+        ...target,
+      });
+  }
+  const mode = world.settings.find((row) => row.key === "PARENTAL_CONSENT_MODE")?.value;
+  if (mode === "verified")
+    for (const user of world.users.filter((row) => row.under_18 && row.consent === "pending"))
+      add({
+        kind: "parent_consent",
+        label: `A parent's consent awaited: account #${user.id}`,
+        rule: "until then the account reads, and saves nothing",
+        started_at: user.created,
+        due_at: null,
+        account: user.id,
+        target_type: "accounts.user",
+        target_id: String(user.id),
+        target_label: `Account #${user.id}`,
+      });
+  for (const deletion of world.deletions.filter((row) => !row.parent_confirmed_at))
+    add({
+      kind: "deletion_parent",
+      label: `A child's deletion waits for the parent: account #${deletion.user}`,
+      rule: "erased once the parent or guardian confirms",
+      started_at: deletion.requested_at,
+      due_at: deletion.due_at,
+      account: deletion.user,
+      target_type: "accounts.deletionrequest",
+      target_id: String(deletion.id),
+      target_label: `Deletion ${deletion.id}`,
+    });
+  const dark = darkPatternState(world);
+  if (dark.state !== "completed")
+    add({
+      kind: "dark_pattern_audit",
+      label: `The dark-pattern self-audit and certificate for ${dark.year}`,
+      rule: "once a year, the certificate shown from 1 January (the E-Commerce Rules)",
+      started_at: null,
+      due_at: new Date(`${dark.due}T00:00:00+05:30`).toISOString(),
+      account: null,
+      target_type: "staff.darkpatternaudit",
+      target_id: String(dark.audit ?? dark.year),
+      target_label: `Self-audit ${dark.year}`,
+    });
+  else counts.dark_pattern_audit = { open: 0, overdue: 0 };
+  const far = now + 36_500 * 86_400_000;
+  clocks.sort(
+    (a, b) =>
+      Number(b.overdue) - Number(a.overdue) ||
+      (a.due_at ? Date.parse(a.due_at) : far) - (b.due_at ? Date.parse(b.due_at) : far),
+  );
+  const today = todayInIndia();
+  const year = auditYear();
+  const [thisYear, thisMonth] = today.split("-").map(Number);
+  const quarter = Math.floor((thisMonth - 1) / 3 + 1) % 4;
+  const calendar: S["PrivacyCalendarItem"][] = [
+    {
+      date: "2027-01-01",
+      title: "The E-Commerce Rules' amendments in force",
+      detail:
+        "A copy of the complaint as recorded, the 30-day prior price, the dark-pattern self-audit and its certificate, membership of the National Consumer Helpline.",
+      state: "2027-01-01" > today ? "upcoming" : "in_force",
+    },
+    {
+      date: "2027-05-13",
+      title: "The DPDP Rules in force",
+      detail:
+        "Rights answered within 90 days, a year of logs and processing records, a parent's verifiable consent with the age check, the breach notices.",
+      state: "2027-05-13" > today ? "upcoming" : "in_force",
+    },
+    {
+      date: `${year}-01-01`,
+      title: `The dark-pattern certificate for ${year} on the website`,
+      detail: "The 13 patterns answered, the certificate completed and in force.",
+      state: dark.state === "completed" ? "done" : `${year}-01-01` > today ? "upcoming" : "overdue",
+    },
+    {
+      date: `${thisYear + (quarter === 0 ? 1 : 0)}-${String(quarter * 3 + 1).padStart(2, "0")}-01`,
+      title: "The quarterly access review",
+      detail: "Who holds which role and scope: People, Access review.",
+      state: "upcoming",
+    },
+    { date: today, title: "The quarterly restore drill", detail: "None recorded in the panel yet.", state: "overdue" },
+  ];
+  if (`${year - 1}-12-01` > today)
+    calendar.push({
+      date: `${year - 1}-12-01`,
+      title: `Start the dark-pattern self-audit for ${year}`,
+      detail: "The inbox reminds those who keep the compliance duties.",
+      state: "upcoming",
+    });
+  return {
+    now: new Date(now).toISOString(),
+    clocks,
+    counts,
+    support: { installed: false, error: "" },
+    consents: world.consentsByVersion,
+    dark_pattern: dark,
+    calendar: calendar.sort((a, b) => a.date.localeCompare(b.date)),
+    inbox: world.inbox.filter((item) => !item.done_at && ["processor_task", "compliance"].includes(item.kind)).length,
+  };
+}
+
+/** A legal page's answer (staff/privacy_api.py policy_of). */
+function policyOf(policy: MockPolicy, detail: boolean) {
+  const today = todayInIndia();
+  const known = policy.versions.map((version) => ({ ...version, upcoming: version.effective_from > today }));
+  const current = known.filter((version) => !version.upcoming).at(-1)!;
+  const versions = known.map(({ markdown, ...version }) => {
+    void markdown;
+    return { ...version, in_force: version.number === current.number };
+  });
+  const body = {
+    id: policy.id,
+    slug: policy.slug,
+    title: current.title,
+    version: current.version,
+    number: current.number,
+    effective_from: current.effective_from,
+    summary: current.summary,
+    updated: policy.updated,
+    placeholders: policy.placeholders,
+    scheduled: versions.find((version) => version.upcoming) ?? null,
+  };
+  return detail
+    ? ({ ...body, versions: [...versions].reverse(), markdown: current.markdown } satisfies S["PolicyDetail"])
+    : ({ ...body, versions: versions.filter((version) => !version.upcoming).length } satisfies S["Policy"]);
+}
+
+/** A version against the one before it (pages.versions.diff), line by line: what left, then what came. */
+function policyDiffOf(policy: MockPolicy, number: number): S["PolicyDiff"] | null {
+  const current = policy.versions.find((version) => version.number === number);
+  if (!current) return null;
+  const previous = policy.versions.find((version) => version.number === number - 1) ?? null;
+  const before = previous ? previous.markdown.split("\n") : [];
+  const after = current.markdown.split("\n");
+  const removed = before.filter((line) => !after.includes(line));
+  const added = after.filter((line) => !before.includes(line));
+  const lines: S["PolicyDiffLine"][] = [
+    { kind: "hunk", text: `@@ -1,${before.length} +1,${after.length} @@` },
+    ...removed.map((text) => ({ kind: "removed" as const, text })),
+    ...added.map((text) => ({ kind: "added" as const, text })),
+  ];
+  return {
+    number,
+    version: current.version,
+    previous: previous?.number ?? null,
+    effective_from: current.effective_from,
+    summary: current.summary,
+    title: current.title,
+    title_changed: Boolean(previous && previous.title !== current.title),
+    added: added.length,
+    removed: removed.length,
+    lines: added.length || removed.length ? lines : [],
+  };
+}
+
+function privacyRoute(context: Context): Response | Promise<Response> {
+  const { method, parts, world, url, body, who } = context;
+  const [, a, b, c] = parts;
+  const query = (name: string) => url.searchParams.get(name) ?? "";
+  const me = who.id;
+  const today = todayInIndia();
+
+  switch (a) {
+    case "cockpit":
+      return method === "GET" ? json(200, cockpitOf(world)) : notFound();
+    case "retention":
+      return method === "GET" ? json(200, world.retention) : notFound();
+
+    case "holds": {
+      if (method === "GET" && !b) {
+        const rows = world.holds
+          .filter(
+            (hold) =>
+              (!query("active") || hold.active === bool(query("active"))) &&
+              (!query("reason") || hold.reason === query("reason")) &&
+              (!query("target_type") || hold.target_type === query("target_type")) &&
+              (!query("user") || String(hold.user) === query("user")),
+          )
+          .sort((x, y) => Date.parse(y.created) - Date.parse(x.created));
+        return paginate(context, rows);
+      }
+      if (method === "POST" && !b) {
+        const user = body.user === null || body.user === undefined || body.user === "" ? null : Number(body.user);
+        const targetType = text(body.target_type);
+        const reason = text(body.reason);
+        const until = text(body.until) || null;
+        const fields: Record<string, string[]> = {};
+        if (!HOLD_REASONS[reason]) fields.reason = [`"${reason}" is not a valid choice.`];
+        if (targetType && !HOLD_TARGET_TYPES.includes(targetType))
+          fields.target_type = [`"${targetType}" is not a valid choice.`];
+        if (until && until < today) fields.until = ["Today or a later day."];
+        if (Object.keys(fields).length) return invalid(fields);
+        if (Boolean(user) === Boolean(targetType))
+          return invalid({ non_field_errors: ["Hold an account, or one record: one of them."] });
+        let label = "";
+        let targetId = "";
+        if (user) {
+          if (!world.users.some((row) => row.id === user)) return invalid({ user: ["No such account."] });
+          label = `Account #${user}`;
+        } else {
+          const given = text(body.target_id);
+          const request = targetType === "staff.datarequest" ? byId(world.dataRequests, given) : undefined;
+          const order = targetType === "shop.order" ? ORDER_IDS[given] : undefined;
+          if (request) [targetId, label] = [String(request.id), `Data request DR-${request.id}`];
+          else if (order) [targetId, label] = [String(order), `Order ${given}`];
+          else return invalid({ target_id: ["No such record."] });
+        }
+        const hold: S["LegalHold"] = {
+          id: nextId(world),
+          user,
+          target_type: user ? "" : targetType,
+          target_id: targetId,
+          target_label: label,
+          reason: reason as S["LegalHold"]["reason"],
+          note: text(body.note),
+          until,
+          active: true,
+          created: now(),
+          created_by: me,
+          released_at: null,
+          released_by: null,
+          release_reason: "",
+        };
+        world.holds.unshift(hold);
+        record(context, "legal_hold.created", {
+          permission: "staff.manage_holds",
+          ...target("accounts.legalhold", hold.id, `Legal hold ${hold.id}`),
+          details: { reason: hold.reason, holds: label, until },
+        });
+        return json(201, hold);
+      }
+      const hold = byId(world.holds, b);
+      if (!hold) return notFound();
+      if (method === "GET" && !c) return json(200, hold);
+      if (method === "POST" && c === "release") {
+        const reason = text(body.reason);
+        if (!reason) return invalid({ reason: ["This field may not be blank."] });
+        if (hold.released_at) return invalid({ non_field_errors: ["Released already."] });
+        Object.assign(hold, { active: false, released_at: now(), released_by: me, release_reason: reason });
+        record(context, "legal_hold.released", {
+          permission: "staff.manage_holds",
+          ...target("accounts.legalhold", hold.id, `Legal hold ${hold.id}`),
+          reason,
+        });
+        return json(200, hold);
+      }
+      return notFound();
+    }
+
+    case "nominees": {
+      const user = byId(world.users, b);
+      if (!user) return notFound();
+      const kept = world.nominees[String(user.id)];
+      const label = target("accounts.user", user.id, `User #${user.id}`);
+      if (method === "GET" && !c) {
+        if (kept) record(context, "sensitive_read", { ...label, details: { what: "nominee", child: user.under_18 } });
+        return json(200, { user: user.id, nominee: kept?.nominee ?? null });
+      }
+      if (method === "POST" && c === "reveal") {
+        const reason = text(body.reason);
+        if (reason.length < 5) return invalid({ reason: ["Ensure this field has at least 5 characters."] });
+        if (!kept) return json(404, { detail: "No nominee recorded.", code: "not_found" });
+        record(context, "sensitive_read", {
+          ...label,
+          permission: "staff.reveal_contact",
+          reason,
+          details: { what: "reveal", fields: ["nominee_contact"], child: user.under_18 },
+        });
+        return json(200, { contact: kept.contact });
+      }
+      return notFound();
+    }
+
+    case "deletions": {
+      const deletion = byId(world.deletions, b);
+      if (!deletion || method !== "POST" || c !== "parent-confirmation") return notFound();
+      const evidence = text(body.evidence_ref);
+      if (!evidence) return invalid({ evidence_ref: ["This field may not be blank."] });
+      if (deletion.parent_confirmed_at)
+        return invalid({ non_field_errors: ["The parent's confirmation is recorded already."] });
+      if (!world.users.find((row) => row.id === deletion.user)?.under_18)
+        return invalid({ non_field_errors: ["Not a student under 18: no parent's confirmation is needed."] });
+      deletion.parent_confirmed_at = now();
+      record(context, "account.deletion_parent_confirmed", {
+        ...target("accounts.user", deletion.user, `Account #${deletion.user}`),
+        details: { deletion_request: deletion.id, through: "staff", evidence },
+      });
+      return json(200, { deletion: deletion.id, parent_confirmed_at: deletion.parent_confirmed_at });
+    }
+
+    case "policies": {
+      if (method === "GET" && !b)
+        return json(
+          200,
+          world.policies.map((policy) => policyOf(policy, false)),
+        );
+      const policy = world.policies.find((row) => row.slug === b);
+      if (!policy) return notFound();
+      if (method === "GET" && !c) return json(200, policyOf(policy, true));
+      if (method === "GET" && c === "versions" && parts[5] === "diff") {
+        const diff = policyDiffOf(policy, Number(parts[4]));
+        return diff ? json(200, diff) : json(404, { detail: "No such version.", code: "not_found" });
+      }
+      if (method !== "POST") return notFound();
+      const label = target("pages.page", policy.id, policy.slug);
+      const current = policyOf(policy, true) as S["PolicyDetail"];
+      const scheduled = policy.versions.find((version) => version.effective_from > today);
+      if (c === "cancel-scheduled") {
+        const reason = text(body.reason);
+        if (!reason) return invalid({ reason: ["This field may not be blank."] });
+        if (!scheduled) return invalid({ non_field_errors: ["No version waits for its day."] });
+        policy.versions = policy.versions.filter((version) => version !== scheduled);
+        record(context, "policy.schedule_cancelled", { ...label, reason, details: { version: scheduled.version } });
+        return json(200, policyOf(policy, true));
+      }
+      if (c !== "publish") return notFound();
+      const markdown = typeof body.markdown === "string" ? body.markdown : "";
+      const summary = text(body.summary);
+      const from = text(body.effective_from) || today;
+      const title = text(body.title) || current.title;
+      const fields: Record<string, string[]> = {};
+      if (!markdown.trim()) fields.markdown = ["This field may not be blank."];
+      if (!summary) fields.summary = ["This field may not be blank."];
+      if (from < today) fields.effective_from = ["Today or a later day: a version is never backdated."];
+      if (Object.keys(fields).length) return invalid(fields);
+      if (markdown.trim() === current.markdown.trim() && title === current.title)
+        return invalid({ markdown: ["This is the text in force: nothing to publish."] });
+      const versionLabel = scheduled?.version ?? String(policy.versions.length + 1);
+      policy.versions = policy.versions.filter((version) => version !== scheduled);
+      policy.versions.push({
+        number: policy.versions.length + 1,
+        version: versionLabel,
+        title,
+        summary,
+        effective_from: from,
+        published_at: now(),
+        published_by: me,
+        markdown,
+      });
+      if (from === today) policy.updated = now();
+      record(context, from === today ? "policy.published" : "policy.scheduled", {
+        ...label,
+        details: { version: versionLabel, effective_from: from, replaced: scheduled?.version ?? null },
+      });
+      return json(200, policyOf(policy, true));
+    }
+
+    case "disclosures": {
+      const answer = () => json(200, { settings: world.disclosures, history: world.disclosureHistory.slice(0, 100) });
+      if (method === "GET" && !b) return answer();
+      if (method !== "PUT" || b) return notFound();
+      const values = (body.values && typeof body.values === "object" ? body.values : {}) as Record<string, unknown>;
+      const reason = text(body.reason);
+      const fields: Record<string, string[]> = {};
+      if (!reason) fields.reason = ["This field may not be blank."];
+      for (const [key, value] of Object.entries(values)) {
+        const row = world.disclosures.find((each) => each.key === key);
+        const given = typeof value === "string" ? value.trim() : value;
+        if (!row) fields[key] = ["Not one of the disclosures."];
+        else if (Array.isArray(row.kind) && !row.kind.includes(given))
+          fields[key] = [`One of: ${(row.kind as string[]).join(", ")}.`];
+        else if (typeof given !== "string" || given.length > row.max_length)
+          fields[key] = [`A text of ${row.max_length.toLocaleString("en-IN")} characters at most.`];
+        else if (key === "NCH_SINCE" && given && !/^\d{4}-\d{2}-\d{2}$/.test(given))
+          fields[key] = ["A date as YYYY-MM-DD, or empty."];
+      }
+      if (Object.keys(fields).length) return invalid(fields);
+      const changes = Object.entries(values)
+        .map(([key, value]) => [key, typeof value === "string" ? value.trim() : value] as const)
+        .filter(([key, value]) => {
+          const row = world.disclosures.find((each) => each.key === key)!;
+          return value !== (row.source === "database" ? row.value : null);
+        });
+      if (!changes.length) return invalid({ non_field_errors: ["Nothing changed."] });
+      for (const [key, value] of changes) {
+        const row = world.disclosures.find((each) => each.key === key)!;
+        const before = row.value;
+        Object.assign(row, { value, source: "database", effective_from: now(), changed_by: me, reason });
+        world.disclosureHistory.unshift({ key, value, effective_from: now(), changed_by: me, reason, created: now() });
+        record(context, "setting.changed", {
+          permission: "staff.manage_settings",
+          ...target("staff.sitesetting", nextId(world), key),
+          reason,
+          changes: { [key]: [before, value] },
+          details: { setting: key, group: "disclosures" },
+        });
+      }
+      return answer();
+    }
+
+    case "dark-pattern-audits": {
+      const audits = world.darkPatternAudits;
+      if (method === "GET" && !b)
+        return paginate(
+          context,
+          [...audits].sort((x, y) => y.year - x.year),
+          50,
+        );
+      if (method === "POST" && !b) {
+        const year = Number(body.year);
+        const thisYear = Number(today.slice(0, 4));
+        if (!Number.isInteger(year) || year < FIRST_CERTIFICATE_YEAR - 1 || year > thisYear + 1)
+          return invalid({ year: ["From 2026 to next year."] });
+        if (audits.some((row) => row.year === year))
+          return invalid({ year: ["That year's self-audit exists: open it."] });
+        const audit: S["DarkPatternAudit"] = {
+          id: nextId(world),
+          year,
+          rows: Object.entries(DARK_PATTERN_LABELS).map(([pattern, label]) => ({
+            pattern: pattern as S["AuditRow"]["pattern"],
+            label,
+            finding: "",
+            fix: "",
+          })),
+          certificate_text: "",
+          effective_from: null,
+          completed_at: null,
+          completed_by: null,
+          created: now(),
+          created_by: me,
+          has_file: false,
+        };
+        audits.unshift(audit);
+        record(context, "dark_pattern_audit.created", {
+          ...target("staff.darkpatternaudit", audit.id, `Self-audit ${year}`),
+          details: { year },
+        });
+        return json(201, audit);
+      }
+      const audit = byId(audits, b);
+      if (!audit) return notFound();
+      const label = target("staff.darkpatternaudit", audit.id, `Self-audit ${audit.year}`);
+      if (method === "GET" && !c) return json(200, audit);
+      if (method === "PATCH" && !c) {
+        if (audit.completed_at)
+          return invalid({ non_field_errors: ["Completed: a self-audit stays as it was signed. Start next year's."] });
+        if ("rows" in body) {
+          const rows = Array.isArray(body.rows) ? (body.rows as Body[]) : [];
+          const patterns = rows.map((row) => text(row.pattern)).sort();
+          if (patterns.join() !== Object.keys(DARK_PATTERN_LABELS).sort().join())
+            return invalid({ rows: ["The 13 named patterns, each once."] });
+          audit.rows = Object.keys(DARK_PATTERN_LABELS).map((pattern) => {
+            const row = rows.find((each) => each.pattern === pattern)!;
+            return {
+              pattern: pattern as S["AuditRow"]["pattern"],
+              label: DARK_PATTERN_LABELS[pattern],
+              finding: text(row.finding),
+              fix: text(row.fix),
+            };
+          });
+        }
+        if ("certificate_text" in body) audit.certificate_text = text(body.certificate_text);
+        if ("effective_from" in body) audit.effective_from = text(body.effective_from) || null;
+        record(context, "dark_pattern_audit.updated", { ...label, details: { fields: Object.keys(body).sort() } });
+        return json(200, audit);
+      }
+      if (method === "POST" && c === "complete") {
+        if (audit.completed_at) return invalid({ non_field_errors: ["Completed already."] });
+        const missing = (audit.rows ?? []).filter((row) => !row.finding || !row.fix).map((row) => row.label);
+        if (missing.length)
+          return invalid({ rows: [`A finding and a fix for each pattern first: ${missing.join(", ")}.`] });
+        if (!audit.certificate_text?.trim()) return invalid({ certificate_text: ["The certificate's text first."] });
+        audit.completed_at = now();
+        audit.completed_by = me;
+        audit.effective_from = text(body.effective_from) || audit.effective_from || today;
+        for (const item of world.inbox)
+          if (item.kind === "compliance" && item.target_id === `year:${audit.year}` && !item.done_at)
+            Object.assign(item, { done_at: now(), done_by: me });
+        record(context, "dark_pattern_audit.completed", {
+          ...label,
+          details: { year: audit.year, effective_from: audit.effective_from },
+        });
+        return json(200, audit);
+      }
+      if (c === "file" && method === "GET") {
+        if (!audit.has_file) return json(404, { detail: "No signed copy is kept.", code: "not_found" });
+        record(context, "dark_pattern_audit.file_read", label);
+        return new Response("%PDF-1.4\n% the mock's signed certificate\n", {
+          status: 200,
+          headers: {
+            "Content-Type": "application/pdf",
+            "Content-Disposition": `attachment; filename="certificate-${audit.year}.pdf"`,
+            "Cache-Control": "no-store",
+          },
+        });
+      }
+      if (c === "file" && method === "POST") {
+        const file = body.file;
+        if (!(file instanceof File)) return invalid({ file: ["No file was submitted."] });
+        if (file.size > 5 * 1024 * 1024) return invalid({ file: ["5 MB at most."] });
+        if (!/\.(pdf|png|jpe?g)$/i.test(file.name)) return invalid({ file: ["A PDF, PNG or JPEG file."] });
+        audit.has_file = true;
+        record(context, "dark_pattern_audit.file_kept", label);
+        return json(200, audit);
+      }
+      return notFound();
+    }
+  }
+  return notFound();
 }
 
 function startJob(context: Context, kind: S["Job"]["kind"], params: unknown, rows: string[]): MockJob {
@@ -1889,7 +2626,11 @@ export async function handleMock(request: Request): Promise<Response> {
     roles: who.breakGlass ? [] : [who.role],
   }));
   let body: Body = {};
-  if (request.method !== "GET" && request.method !== "DELETE") {
+  if ((request.headers.get("Content-Type") ?? "").startsWith("multipart/form-data")) {
+    // a file sent with its form (the self-audit's signed certificate)
+    const form = await request.formData().catch(() => null);
+    if (form) body = Object.fromEntries(form.entries());
+  } else if (request.method !== "GET" && request.method !== "DELETE") {
     const parsed = (await request.json().catch(() => null)) as unknown;
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) body = parsed as Body;
   }

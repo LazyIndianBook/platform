@@ -100,9 +100,9 @@ def test_the_erasure_dry_run_says_what_goes_what_stays_and_what_stops_it(rzp):
     report = signed_in(make_staff(roles.SUPPORT)).get(f"{REQUESTS}{request.pk}/erasure-report/").json()
     parts = {row["part"]: row for row in report["erase"]}
     assert parts["email_addresses"]["count"] == 1 and parts["profile"]["count"] == 1
-    kept = {row["part"]: row for row in report["keep"]}
-    assert kept["orders"]["count"] == 1 and "8 financial years" in kept["orders"]["why"]
-    assert kept["orders"]["until"].startswith(str(timezone.localdate().year + 9 - (timezone.localdate().month < 4)))
+    kept = {row["part"]: row for row in report["keep"]}  # the books' lines: test_legal.py (this order: test mode)
+    assert kept["test_orders"]["count"] == 1 and kept["test_orders"]["kind"] == "test"
+    assert kept["test_orders"]["line"] == "kept: 1 order made in test mode, as they are: not books of account"
     assert not report["can_erase"]
     assert any("order is on its way" in block for block in report["blocks"])
     assert any("identity is not verified" in block for block in report["blocks"])

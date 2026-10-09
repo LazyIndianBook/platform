@@ -543,10 +543,11 @@ def turnover_of(amount, day):
 
 
 def test_crossing_4_crore_opens_one_inbox_item(monkeypatch):
-    night = date(2026, 10, 9)
+    night = timezone.localdate()  # the invoices are made now: tonight's look sees them
+    label = financial_year(night)
     turnover_of("30000000.00", night)  # ₹3 crore: past GSTR-9's ₹2 crore
     tax.watch_thresholds(night)
-    assert list(InboxItem.objects.values_list("title", flat=True)) == ["Turnover of FY 2026-27 passed ₹2 crore"]
+    assert list(InboxItem.objects.values_list("title", flat=True)) == [f"Turnover of FY {label} passed ₹2 crore"]
     turnover_of("11000000.00", night)  # ₹4.1 crore the next night
     tax.watch_thresholds(night + timedelta(days=1))
     tax.watch_thresholds(night + timedelta(days=1))  # run again: nothing new

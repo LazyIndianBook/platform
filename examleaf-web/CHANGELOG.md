@@ -49,6 +49,53 @@ authorization matrix covers every new endpoint.
   `saveBar`: Save and Discard once something is typed, a warning before leaving) is new and shared. Console: Vitest
   98 (11 new), Playwright 6 in mock mode, every tax page checked with axe at 1280, 390 and 320 px and the tax journey
   at both widths.
+## Phase B, Legal and privacy (9 October 2026)
+
+The Admin Control Panel's Legal and privacy module (plan 5.15): the compliance cockpit, legal holds that the erasure
+obeys, the retention schedule in code with its nightly clean-up, numbered policy versions, the e-commerce disclosures,
+the yearly dark-pattern self-audit, nominees, marketing consent withdrawn as easily as given, and the one audience
+function that keeps children out of marketing. Staff endpoints in `staff/privacy_api.py` (API.md "Legal and privacy
+(staff)"); the console's pages under `/privacy/`; the website's footer, contact page, versions and parent link.
+1,083 backend tests pass on SQLite (12 skipped, 1,913 subtests), 53 of them new. Console: Vitest 96, Playwright 6 in
+mock mode (the day's work gains legal and privacy) and 10 against this backend (`E2E_STAFF_API=real`: a legal hold the
+dry run names); website: Vitest 213.
+
+- **The erasure obeys its holds and leaves a ledger.** The dry run (`staff.privacy.erasure_report`) says what stays,
+  why and until when, a sentence each: the books by financial year (8 financial years, or 72 months after the year's
+  annual return, whichever is later: `examleaf.retention.books_until`), a year of processing logs by the account's
+  number only, each legal hold, the intermediary rule's 180 days when `SUPPORT_INTERMEDIARY_RULES` is on, the consents.
+  `DeletionRequest.complete()` waits for a legal hold on the account and for a child's parent's confirmation (their
+  own link, `POST parent-consent/<token>/ {"confirm": "deletion"}`, or staff with the evidence); the nightly purge files
+  the wait in the inbox. Each erasure stays as a ledger line (the address's keyed hash), copied to the backups' bucket;
+  `manage.py reapply_erasures` erases again what a restore brought back. Once done, one inbox task per processor that
+  keeps personal data (`ProcessorRecord.holds_personal_data`, `erasure_action`), and the confirmation email says what
+  stays and until when, with the contact block. Access requests list who else processes the data.
+- **Legal holds** (`accounts.LegalHold`: an account or one record, a reason, an end or a release) with
+  `staff.manage_holds` (new, high: FINANCE, ADMIN, OWNER); the retention clean-up leaves held orders as they are.
+- **The retention schedule in code** (`examleaf/retention.py`): each kind of record's minimum in law with its source
+  and the day it changes, what this site keeps, what deletes it; read by `ops.tasks.trim_expired` and `purge_expired`
+  (nightly, `single_run`, idempotent). Fixed: the SMS log keeps its rows a year and blanks the last digits at 90 days,
+  webhook records and task results go at 7 days, the app's phones silent for 90 days are deleted, the orders past their
+  books' period lose the customer's details, and Docker keeps 50 MB × 10 files of logs a service.
+- **The compliance cockpit** (`GET privacy/cockpit/`): every clock the rules start (data requests' 48 hours and month,
+  complaints' when the support app is there, breaches' 6 and 72 hours, parents' confirmations, the self-audit), the
+  consents by the privacy notice's version, the legal calendar.
+- **Policy versions**: a legal page's version is numbered with the day it is in force from and a line on what changed;
+  published now or for a later day (`pages.tasks.publish_due` at 00:01), diffed against the one before; public
+  `GET pages/<slug>/versions/`.
+- **The e-commerce disclosures** (16 site settings in the group `disclosures`, saved together with one reason) in
+  `config/`'s `disclosures` (never CERT-In's contact); **the dark-pattern self-audit** (`staff.DarkPatternAudit`, the 13
+  patterns, completed once; `staff.manage_compliance`, new, high), a reminder from 1 December, and its certificate in
+  `config/` from its day.
+- **Nominees** (`accounts.Nominee`, `me/nominee/`, the staff read masked), **marketing consent withdrawn**
+  (`me/consent/withdraw/`, the processors told to stop), the consent ledger's channel and parental methods, and
+  `accounts.audiences.marketable`: never anyone under 18, an unknown age only on a verified consent.
+- **The console** (`../examleaf-admin/`): `/privacy/` is the cockpit; legal holds, the retention schedule, the policy
+  versions with their diffs and publishing, the disclosures as one form with a save bar, the self-audit completed with
+  the year typed; the erasure's dry run lists what is kept as sentences; a customer's page shows their nominee.
+  **The website** (`../examleaf-frontend/`): © the legal name, the Grievance Officer and the certificate in the footer,
+  the whole block on the contact page, "Version N, in force from …" with `/<page>/versions/`, and a parent's
+  confirmation of their child's deletion on their own link.
 
 ## The staff console on the staff API as built, and the website's side of an impersonation (9 October 2026)
 

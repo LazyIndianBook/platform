@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from django.conf import settings
 from django.core.cache import cache
 from django.utils import timezone
+from django.utils.dateparse import parse_date
 
 FLAG_KEY = re.compile(r"[A-Z][A-Z0-9_]{1,63}")
 
@@ -19,6 +20,10 @@ class Spec:
     label: str
     permission: str = "staff.manage_settings"
     default: object = None  # when settings.py has no such name
+    # Phase B: legal
+    group: str = ""  # settings drawn together (the disclosures: staff/privacy_api.py)
+    max_length: int = 300  # a text's
+    validate: object = None  # a text's own check: raises ValueError with what is wrong
 
     def check(self, value):
         """The value, or ValueError with what is wrong; None is always allowed (the environment's value)."""
@@ -30,9 +35,20 @@ class Spec:
         elif self.kind is bool:
             if not isinstance(value, bool):
                 raise ValueError("true or false.")
-        elif not isinstance(value, str) or len(value) > 300:
-            raise ValueError("A text of 300 characters at most.")
+        elif not isinstance(value, str) or len(value) > self.max_length:
+            raise ValueError(f"A text of {self.max_length:,} characters at most.")
+        elif self.validate:
+            self.validate(value)
         return value
+
+
+def iso_date(value):
+    try:
+        valid = not value or parse_date(value) is not None
+    except ValueError:  # well formed, not a day (2027-02-30)
+        valid = False
+    if not valid:
+        raise ValueError("A date as YYYY-MM-DD, or empty.")
 
 
 SETTINGS = {
@@ -47,6 +63,56 @@ SETTINGS = {
     ),
     "MAINTENANCE_BANNER": Spec(str, "The maintenance banner's text", "staff.toggle_maintenance", ""),
     "SHOP_GST_QRMP": Spec(bool, "GST returns quarterly under QRMP (the tax calendar's dates)"),
+}
+
+# Legal and privacy (Phase B): the e-commerce disclosures and the privacy contacts (E-Commerce Rules r.4(1), (2), (4)
+# and (5); DPDP Rules r.9 and r.14(1); CERT-In's Directions, Annexure II), edited together on the panel's Disclosures
+# page (staff/privacy_api.py) and shown by the website from config/ (all but CERT-In's contact). Until the panel sets
+# one, settings.py's value stands: the seller's for the name, the address and customer care.
+DISCLOSURES = "disclosures"
+SETTINGS |= {
+    "DISCLOSURE_LEGAL_NAME": Spec(str, "The legal name", group=DISCLOSURES),
+    "DISCLOSURE_REGISTERED_ADDRESS": Spec(str, "The registered office's address", group=DISCLOSURES),
+    "DISCLOSURE_OPERATING_ADDRESS": Spec(
+        str, "The address it works from, when not the registered one", default="", group=DISCLOSURES
+    ),
+    "DISCLOSURE_CARE_PHONE": Spec(str, "Customer care's phone number", group=DISCLOSURES),
+    "DISCLOSURE_CARE_EMAIL": Spec(str, "Customer care's email address", group=DISCLOSURES),
+    "DISCLOSURE_CARE_HOURS": Spec(str, "Customer care's hours", default="", group=DISCLOSURES),
+    "DISCLOSURE_GRIEVANCE_OFFICER": Spec(str, "The Grievance Officer's name", default="", group=DISCLOSURES),
+    "DISCLOSURE_GRIEVANCE_DESIGNATION": Spec(str, "The Grievance Officer's designation", default="", group=DISCLOSURES),
+    "DISCLOSURE_GRIEVANCE_CONTACT": Spec(
+        str, "The Grievance Officer's email address and phone number", default="", group=DISCLOSURES
+    ),
+    "DISCLOSURE_NODAL_CONTACT": Spec(
+        str, "The nodal contact person resident in India: name and contact", default="", group=DISCLOSURES
+    ),
+    "DISCLOSURE_RETURNS_PAGE": Spec(
+        ["refunds", "shipping", "terms"],
+        "The page of the return and refund terms",
+        default="refunds",
+        group=DISCLOSURES,
+    ),
+    "DISCLOSURE_RIGHTS_TEXT": Spec(
+        str,
+        "How to make a request about one's personal data, and what to give with it (published)",
+        default="",
+        group=DISCLOSURES,
+        max_length=2000,
+    ),
+    "DATA_PROTECTION_OFFICER": Spec(
+        str, "The contact person for personal data, quoted in every answer to a data request", group=DISCLOSURES
+    ),
+    "CERT_IN_POINT_OF_CONTACT": Spec(
+        str, "CERT-In's point of contact (in the incident alerts; never on the website)", group=DISCLOSURES
+    ),
+    "NCH_STATUS": Spec(
+        ["not_joined", "applied", "member"],
+        "The National Consumer Helpline's convergence programme",
+        default="not_joined",
+        group=DISCLOSURES,
+    ),
+    "NCH_SINCE": Spec(str, "Applied or joined on (YYYY-MM-DD)", default="", group=DISCLOSURES, validate=iso_date),
 }
 
 

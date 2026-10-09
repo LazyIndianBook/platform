@@ -31,7 +31,8 @@ WEBHOOKS = {"/shop/webhooks/razorpay/": "Razorpay"}
 IMPERSONATING, IMPERSONATION_UNTIL = "impersonating_staff_id", "impersonation_until"
 IMPERSONATION_REASON, IMPERSONATION_ID = "impersonation_reason", "impersonation_id"
 WHILE_IMPERSONATING = re.compile(
-    r"^/(?:api/v1/(?:orders/|auth/password/|me/(?:export|deletion|parent-consent)/|addresses/|products/[^/]+/reviews/)"
+    r"^/(?:api/v1/(?:orders/|auth/password/|me/(?:export|deletion|parent-consent|nominee|consent)/|addresses/"
+    r"|products/[^/]+/reviews/)"
     r"|_allauth/[^/]+/v1/(?:account/|auth/(?:password|2fa|webauthn|reauthenticate)))"
 )
 SAFE = {"GET", "HEAD", "OPTIONS"}

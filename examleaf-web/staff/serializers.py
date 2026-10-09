@@ -628,9 +628,29 @@ class ResponseTextSerializer(serializers.Serializer):
     body = serializers.CharField()
 
 
+class ErasureEraseSerializer(serializers.Serializer):
+    part = serializers.CharField()
+    what = serializers.CharField()
+    count = serializers.IntegerField()
+
+
+ERASURE_KEEP_KINDS = ["books", "processing_logs", "legal_hold", "intermediary", "consent", "statistics", "by_hand"]
+ERASURE_KEEP_KINDS += ["test"]  # orders made in test mode: shown apart from the books
+
+
+class ErasureKeepSerializer(serializers.Serializer):
+    kind = serializers.ChoiceField(choices=ERASURE_KEEP_KINDS, help_text="the hold: the books, the year of logs …")
+    part = serializers.CharField()
+    what = serializers.CharField()
+    count = serializers.IntegerField()
+    why = serializers.CharField()
+    until = serializers.DateField(allow_null=True, help_text="the last day it is kept; null: no end set")
+    line = serializers.CharField(help_text='in words: "kept until 31 March 2035: 3 invoices …, for GST …"')
+
+
 class ErasureReportSerializer(serializers.Serializer):
-    erase = serializers.ListField(child=serializers.DictField())
-    keep = serializers.ListField(child=serializers.DictField())
+    erase = ErasureEraseSerializer(many=True)
+    keep = ErasureKeepSerializer(many=True)
     blocks = serializers.ListField(child=serializers.CharField())
     can_erase = serializers.BooleanField()
     notes = serializers.ListField(child=serializers.CharField())
@@ -664,7 +684,7 @@ class ProcessorSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProcessorRecord
         fields = ["id", "name", "purpose", "data_categories", "country", "contract_signed_on", "contract_ends_on"]
-        fields += ["active", "notes"]
+        fields += ["active", "notes", "holds_personal_data", "holds_marketing_data", "erasure_action"]
 
 
 class ReconcileSerializer(serializers.Serializer):

@@ -598,15 +598,15 @@ DELETED = "deleted"
 FORGET_UNSOLD_AFTER = timedelta(days=30)  # after the cancellation of an order that was never paid or placed
 
 
-def forget_orders(orders):
+def forget_orders(orders, today=None):
     """The customer's details leave these orders and their history: name, phone and address lines, and the email
     address, become "deleted" (town, district, state and PIN code stay, for the books), and staff's notes on them go.
     The orders themselves stay.
     Used by the daily clean-up for orders never paid or placed, and once a year by hand for invoiced orders past their
     eight years (RUNBOOK.md). An order whose tax documents must still be kept (72 months after its year's annual
-    return: shop/tax.py `held_orders`) is left as it is, whoever asks. Returns how many."""
+    return: shop/tax.py `held_orders`, judged on `today`) is left as it is, whoever asks. Returns how many."""
     pks = list(orders.exclude(email=DELETED).values_list("pk", flat=True))
-    held = tax.held_orders(pks)
+    held = tax.held_orders(pks, today)
     pks = [pk for pk in pks if pk not in held]
     for order in Order.objects.filter(pk__in=pks).only("shipping_address"):
         address = {**order.shipping_address, **dict.fromkeys(["name", "phone", "line1", "line2"], DELETED)}

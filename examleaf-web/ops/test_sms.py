@@ -25,13 +25,16 @@ def test_console_sends_and_the_log_keeps_a_hash_and_the_last_four_digits(capsys)
 
 
 def test_the_daily_cap_holds_back_sends_and_old_rows_go(settings, capsys):
+    from ops.tasks import purge_expired
+
     settings.SMS_DAILY_CAP = 1
     old = SmsLog.objects.create(kind="otp", phone_hash="x", phone_last4="0000", status=SmsLog.Status.SENT)
-    SmsLog.objects.filter(pk=old.pk).update(created=timezone.now() - timedelta(days=91))  # not counted, then deleted
+    SmsLog.objects.filter(pk=old.pk).update(created=timezone.now() - timedelta(days=367))  # not counted
     sms.queue_sms("otp", PHONE, {"otp": "111111"})
     sms.queue_sms("otp", PHONE, {"otp": "222222"})
     out = capsys.readouterr().out
     assert "111111" in out and "222222" not in out
+    purge_expired()  # nightly: the log's rows past their year (examleaf.retention)
     assert list(SmsLog.objects.values_list("status", flat=True)) == [SmsLog.Status.CAPPED, SmsLog.Status.SENT]
 
 

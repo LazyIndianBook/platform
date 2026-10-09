@@ -8,6 +8,11 @@ const PAGES: Record<string, (id: string) => string> = {
   "accounts.user": (id) => `/users/${id}/`,
   "shop.hsncode": (id) => `/tax/hsn/${id}/`,
   "shop.taxthreshold": () => "/tax/",
+  "accounts.legalhold": (id) => `/privacy/holds/${id}/`,
+  // a processor's task (its id and the erasure's or the consent's: "41:erasure:7"), on the register
+  "staff.processorrecord": () => "/privacy/processors/",
+  // the self-audit (its id), or the year it is due for ("year:2027"): the page opens the year due
+  "staff.darkpatternaudit": () => "/privacy/dark-pattern-audit/",
 };
 
 export function targetHref(type: string | null | undefined, id: string | null | undefined, action = ""): string | null {

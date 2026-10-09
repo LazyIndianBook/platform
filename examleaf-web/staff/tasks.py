@@ -146,22 +146,49 @@ def email_data_export(data_request_id):
 
     from accounts.views import export_user_data
 
-    from .models import DataRequest, ProcessorRecord
+    from .models import DataRequest
+    from .privacy import contact_block, recipients_text
 
     data_request = DataRequest.objects.select_related("user").get(pk=data_request_id)
     user = data_request.user
     data = json.dumps(export_user_data(user), cls=DjangoJSONEncoder, indent=2)
-    processors = "\n".join(
-        f"- {row.name}: {row.purpose} ({row.data_categories}; {row.country})"
-        for row in ProcessorRecord.objects.filter(active=True)
-    )
     message = EmailMessage(
         f"{settings.ACCOUNT_EMAIL_SUBJECT_PREFIX}Your data, as you asked (DR-{data_request.pk})",
         f"Attached is everything ExamLeaf keeps about your account, as you asked on "
         f"{timezone.localtime(data_request.received_at):%d %B %Y}.\n\n"
-        f"Who processes it for us:\n{processors or '- nobody else'}\n\nQuestions about it: "
-        f"{settings.DATA_PROTECTION_OFFICER}",
+        f"Who processes it for us:\n{recipients_text()}\n\n{contact_block()}",
         to=[user.email],
     )
     message.attach(f"examleaf-data-{timezone.localdate():%Y%m%d}.json", data, "application/json")
     message.send()
+
+
+@shared_task
+@single_run(300)
+def remind_dark_pattern_audit():
+    """Daily (celery beat): from 1 December, while next year's dark-pattern self-audit is not completed, one inbox item
+    for those who keep the compliance duties, due 1 January, once a year (an item made for that year, open or done,
+    is never made again). Returns whether it made one."""
+    from datetime import date
+
+    from examleaf.retention import midnight
+
+    from .compliance import audit_year
+    from .models import DarkPatternAudit
+
+    today = timezone.localdate()
+    year = audit_year(today)
+    if today < date(year - 1, 12, 1) or DarkPatternAudit.objects.filter(year=year).exclude(completed_at=None).exists():
+        return False
+    _, made = InboxItem.objects.get_or_create(
+        kind=InboxItem.Kind.COMPLIANCE,
+        target_type="staff.darkpatternaudit",
+        target_id=f"year:{year}",
+        defaults={
+            "title": f"The dark-pattern self-audit and its certificate for {year}: due 1 January {year}",
+            "permission": "staff.manage_compliance",
+            "due_at": midnight(date(year, 1, 1)),
+            "data": {"year": year},
+        },
+    )
+    return made

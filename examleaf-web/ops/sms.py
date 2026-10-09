@@ -22,6 +22,7 @@ from django.conf import settings
 from django.utils import timezone
 from django.utils.crypto import salted_hmac
 
+from examleaf import retention
 from examleaf.bulkhead import Bulkhead
 
 from .models import SmsLog
@@ -32,7 +33,7 @@ TIMEOUT = httpx.Timeout(10, connect=3)  # seconds: 3 to connect, 10 for each rea
 # MSG91's calls (made in a request only while the queue is down) share the providers' half of a process's threads
 # (examleaf/bulkhead.py): over it, a call fails at once, as MSG91 unreachable.
 CALLS = Bulkhead(httpx.ConnectError, "Half of this process's threads are waiting on providers already")
-KEEP = timedelta(days=90)  # SmsLog rows
+KEEP = timedelta(days=retention.rule("sms_log").keep_days)  # SmsLog rows (the nightly ops.tasks.purge_expired)
 # Limits before SMS_DAILY_CAP (M2), every kind together: per number over the last hour and day, per account over the
 # last day. Then each purpose's share of the day's cap (since midnight, India), so that consent links or order updates
 # cannot use up the log-in codes' share, nor the codes theirs. SMS_DAILY_CAP stays the last line (send_sms).
@@ -126,7 +127,6 @@ def send_sms(kind, phone, variables, log_id=None):
             log.status = SmsLog.Status.FAILED
             logger.error("SMS (%s) refused: %s", kind, error)
     log.save()
-    SmsLog.objects.filter(created__lt=now - KEEP).delete()  # ponytail: purged here; a beat task if SMS grow
 
 
 def queue_sms(kind, phone, variables, user=None):

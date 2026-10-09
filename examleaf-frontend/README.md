@@ -52,7 +52,12 @@ LTS; Node 20 is past its end of life).
 
 `NEXT_PUBLIC_*` values are compiled into the build. No feature flag is hard-coded: log-in methods, Google, passkeys,
 SMS, Turnstile, the shop, consent mode and support contacts come from `GET /api/v1/config/` (`getConfig()` on the
-server, `useConfig()` in client components).
+server, `useConfig()` in client components). So do the e-commerce disclosures (`disclosures`: the legal name, the
+addresses, customer care, the Grievance Officer, the nodal contact, the returns page, the data contact and the rights
+text, the National Consumer Helpline) and the dark-pattern certificate in force (`dark_pattern_certificate`), which
+the staff console's Legal and privacy sets: the footer shows © the legal name, the Grievance Officer and the
+certificate, the contact page the whole block (`src/components/site/disclosures.tsx`); a value not set yet shows
+nothing.
 
 ## The API boundary
 
@@ -169,8 +174,10 @@ goes to an image service; `qrcode` would be about ten times the size with `pngjs
 
 ## Routes
 
-- `(public)`: `/`, `/books/<slug>/`, `/s/<code>/`, `/c/<token>/` (a parent's link), `/about/`, the legal pages
-  (`/privacy/`, `/terms/`, `/refunds/`, `/shipping/`, `/contact/`), `/offline/`.
+- `(public)`: `/`, `/books/<slug>/`, `/s/<code>/`, `/c/<token>/` (a parent's link: the consent, or the
+  confirmation of their child's account deletion while one waits), `/about/`, the legal pages (`/privacy/`,
+  `/terms/`, `/refunds/`, `/shipping/`, `/contact/`, each with "Version N, in force from …") and their versions
+  (`/<page>/versions/`), `/offline/`.
 - `(shop)`: `/shop/`, `/shop/<slug>/`, `/shop/category/<slug>/`, `/shop/collection/<slug>/`, `/shop/school-orders/`,
   `/cart/`, `/checkout/` (`<number>/pay/`, `<number>/done/`, `t/<token>/pay/`, `t/<token>/done/`), `/orders/`
   (`<number>/`, `lookup/`, `t/<token>/`).

@@ -104,6 +104,9 @@ STAFF_ACTIONS = [
     # Tax (shop/staff_tax.py): cancelling an invoice or a credit note (it keeps its number), the GSTR-1 export job
     ("cancel_document", "Cancel an invoice or a credit note (it keeps its number)", TAX, HIGH),
     ("run_gstr1", "Run the month's GSTR-1 export (the accountant's files)", TAX, MEDIUM),
+    # Legal and privacy (Phase B, staff/privacy_api.py): legal holds, and the compliance duties
+    ("manage_holds", "Put legal holds on a person or a record, and release them", PRIVACY, HIGH),
+    ("manage_compliance", "Keep the compliance duties: the dark-pattern self-audit and its certificate", PRIVACY, HIGH),
 ]
 STAFF_MODELS = [
     ("view_changerequest", "See the approvals you take part in", STAFF, LOW),
@@ -128,6 +131,7 @@ STAFF_MODELS = [
     ("add_processorrecord", "Add processors", PRIVACY, MEDIUM),
     ("change_processorrecord", "Change processors", PRIVACY, MEDIUM),
     ("delete_processorrecord", "Delete processors", PRIVACY, HIGH),
+    ("view_darkpatternaudit", "See the dark-pattern self-audits and their certificates", PRIVACY, LOW),
 ]
 # Custom permissions of the other apps (Django's verbs are catalogued by rule, below).
 OTHERS = {

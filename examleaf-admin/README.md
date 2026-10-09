@@ -141,8 +141,11 @@ shape), and `<html lang>` with the `:lang` rule and Hind Siliguri in every font 
 - Sign-in: `/sign-in/` (email and password, then the authenticator's code, a recovery code or a passkey; Google when
   on), `/set-up-two-step/` (staff without it: set it up on the website), `/no-access/`, `/inactive/`.
 - The panel (`src/app/(panel)/`): `/` Home, `/inbox/`, `/audit/`, `/approvals/` and `/approvals/<id>/`, `/people/`,
-  `/people/<id>/`, `/people/access-review/`, `/users/` and `/users/<id>/`, `/privacy/requests/` and `<id>/`,
-  `/privacy/incidents/` and `<id>/`, `/privacy/processors/`, `/settings/`, `/settings/api-keys/`, `/system/`,
+  `/people/<id>/`, `/people/access-review/`, `/users/` and `/users/<id>/` (with the customer's nominee),
+  `/privacy/` (Legal and privacy's compliance cockpit), `/privacy/requests/` and `<id>/` (the erasure's dry run with
+  what the law keeps, each a sentence), `/privacy/policies/` and `<slug>/` (versions, diffs, publishing),
+  `/privacy/incidents/` and `<id>/`, `/privacy/processors/`, `/privacy/retention/`, `/privacy/holds/` and `<id>/`,
+  `/privacy/disclosures/`, `/privacy/dark-pattern-audit/`, `/settings/`, `/settings/api-keys/`, `/system/`,
   `/account/` (the session's limits and the person's jobs). Tax (`src/components/modules/tax/`, its own tabs): `/tax/`
   (the month's due dates with Previous and Next month, the threshold card, this year's table 13), `/tax/hsn/` (the HSN
   and SAC master, the products that disagree with it, a new code at `#new`) and `/tax/hsn/<code>/` (its rate history,
@@ -192,15 +195,17 @@ nothing animates with reduced motion.
 - **Mock mode** walks every state at 1280 and 390: Home, the inbox (done, snooze, take one), approvals (approve with
   the payload's hash, reject, withdraw one's own, carry one out), invitations, a revealed email address, "confirm it's
   you", a note, impersonation and End, a setting with a reason found in the audit trail, jobs (cancel one, download a
-  file), ⌘K, the idle sign-out; and a break-glass session's reason and a policy acknowledged before anything else.
+  file), ⌘K; legal and privacy (the cockpit, a child's deletion confirmed for the parent with the evidence, a legal
+  hold that the erasure's dry run then names, the disclosures saved with a reason, both found in the audit trail); the
+  idle sign-out; and a break-glass session's reason and a policy acknowledged before anything else.
 - **Against the real backend** an OWNER and a SUPPORT member are made for the run, with an adult customer, an order
   of ₹1,500 paid online, the customer's erasure request and an incident: SUPPORT reads the manifest and the inbox and
   asks for a refund above their ₹1,000 (a 202 and a change request, which the maker cannot approve: 403); the OWNER
   approves it from the inbox and finds both steps in the audit trail; invites a colleague (a privileged role waits for
   another person, never the maker); searches for the customer and reveals their address with a reason (audited);
   acknowledges the data request; changes a setting with a reason; signs in to the website as the customer with the
-  real token and ends it (both audited); and the idle sign-out comes at SUPPORT's 30 minutes, after which the API
-  answers 401.
+  real token and ends it (both audited); puts a legal hold on the customer, which the erasure's dry run then names;
+  and the idle sign-out comes at SUPPORT's 30 minutes, after which the API answers 401.
 
 ## Deploy
 
@@ -255,6 +260,16 @@ cursor pagination `{next, previous, results}` (the `cursor` of the links, `page_
 - **Data protection**: `GET`/`POST data-requests/`, `GET`/`PATCH data-requests/{id}/`, `POST …/acknowledge/`,
   `verify-identity/`, `close/`, `GET …/response/`, `GET …/erasure-report/`, `POST …/erase/`, `POST …/export/`;
   `GET`/`POST incidents/`, `GET`/`PATCH incidents/{id}/`, `POST …/close/`; `GET`/`POST processors/`.
+- **Legal and privacy** (`privacy/…`): `GET privacy/cockpit/` (every clock with the record behind it, the counts, the
+  consents by the notice's version, the self-audit's state, the legal calendar), `GET privacy/retention/`;
+  `GET`/`POST privacy/holds/` (`active`, `reason`, `target_type`, `user`; a hold on `user` or on `target_type` with
+  `target_id`), `GET privacy/holds/{id}/`, `POST …/release/` with a reason; `GET privacy/nominees/{user}/` (the contact
+  masked) and `POST …/reveal/` with a reason; `POST privacy/deletions/{id}/parent-confirmation/` with `evidence_ref`;
+  `GET privacy/policies/`, `GET privacy/policies/{slug}/`, `GET …/versions/{number}/diff/`, `POST …/publish/`
+  (`markdown`, `title`, `summary`, `effective_from`) and `POST …/cancel-scheduled/` with a reason;
+  `GET`/`PUT privacy/disclosures/` (`{values: {KEY: value}, reason}`: the changed ones only);
+  `GET`/`POST privacy/dark-pattern-audits/`, `PATCH …/{id}/` (the 13 `rows`, `certificate_text`, `effective_from`),
+  `POST …/{id}/complete/`, `GET`/`POST …/{id}/file/` (the signed copy, multipart).
 - **Notes**: `GET`/`POST notes/?target_type=&target_id=` (a record's notes, not paged; only on records the reader may
   see).
 - **The system**: `GET system/`, `POST system/reconcile/` (an order's payment checked with Razorpay again).

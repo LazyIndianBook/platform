@@ -4,10 +4,11 @@
 // (done, snooze, take one), approvals (approve with the payload's hash, reject, withdraw one's own, carry one out),
 // inviting a colleague (and a privileged one, which waits for another person), a customer's email address revealed
 // with a reason (hidden again after 60 s), "confirm it's you" before a sensitive action, a note, signing in to the
-// website as a customer and ending it, a setting changed with a reason and found in the audit trail, the person's jobs
-// (cancel one, download a file), tax (the month's dates, a new dated rate on the HSN master behind the save bar, a
-// document cancelled with its number typed and its audit trail), the ⌘K palette, and the idle sign-out at the limit
-// the manifest gives the role. Then a
+// website as a customer and ending it, a setting changed with a reason and found in the audit trail, tax (the month's
+// dates, a new dated rate on the HSN master behind the save bar, a document cancelled with its number typed and its
+// audit trail), legal and privacy (the cockpit and a child's deletion confirmed for the parent, a legal hold the
+// erasure's dry run then names, the disclosures saved with a reason, both in the audit trail), the person's jobs
+// (cancel one, download a file), the ⌘K palette, and the idle sign-out at the limit the manifest gives the role. Then a
 // break-glass session's reason and a policy acknowledged before anything else, and reduced motion. The TEST band
 // shows throughout (the fixtures are test data).
 import { expect, type Page, test } from "@playwright/test";
@@ -31,6 +32,16 @@ const PAGES = [
   "/privacy/incidents/",
   "/privacy/incidents/901/",
   "/privacy/processors/",
+  "/privacy/",
+  "/privacy/holds/",
+  "/privacy/holds/61/",
+  "/privacy/retention/",
+  "/privacy/policies/",
+  "/privacy/policies/privacy/",
+  "/privacy/policies/privacy/?diff=2",
+  "/privacy/disclosures/",
+  "/privacy/dark-pattern-audit/",
+  "/privacy/dark-pattern-audit/?year=2026",
   "/settings/",
   "/settings/api-keys/",
   "/system/",
@@ -267,6 +278,57 @@ for (const width of [1280, 390]) {
         await expect(sheet.getByRole("heading", { name: "What changed" })).toBeVisible();
         await expect(sheet.getByRole("cell", { name: "declared" })).toBeVisible();
         await page.keyboard.press("Escape");
+      });
+
+      await test.step("legal and privacy: the cockpit, a hold the erasure's dry run names, the disclosures saved", async () => {
+        await page.goto("/privacy/");
+        await expect(page.getByRole("heading", { level: 1, name: "Legal and privacy" })).toBeVisible();
+        const clocks = page.getByRole("table", { name: "Clocks running, a table" });
+        await expect(clocks.getByRole("link", { name: "Acknowledge DR-801 (Erasure)" })).toBeVisible();
+        const child = "A child's deletion waits for the parent: account #7107";
+        await clocks.getByRole("button", { name: /^Record the parent's confirmation/ }).click();
+        const confirm = page.getByRole("dialog", { name: "Record the parent's confirmation?" });
+        await confirm.getByLabel("Where the evidence is").fill("Ticket 4415: the mother's letter of 8 October");
+        await confirm.getByRole("button", { name: "Record the parent's confirmation" }).click();
+        await expect(toast(page, "Confirmation recorded")).toBeVisible();
+        await expect(clocks.getByText(child)).toHaveCount(0);
+
+        await page.goto("/privacy/holds/");
+        await page.getByLabel("The customer's number").fill("7108");
+        await page.getByLabel("Why").selectOption("claim");
+        await page.getByLabel(/^Note/).fill("Counsel's notice of 9 October.");
+        await page.getByRole("button", { name: "Add the hold" }).click();
+        await settle(page, toast(page, "Hold added"), staff, codes);
+        await expect(
+          page.getByRole("region", { name: "Legal holds, a table" }).getByText(/Customer #7108/),
+        ).toBeVisible();
+
+        await page.goto("/privacy/requests/801/");
+        const erasure = page.locator("#erasure");
+        await erasure.getByRole("button", { name: "Run the dry run" }).click();
+        await expect(
+          erasure.getByText("Kept: the account, under a legal hold (a legal claim), until released"),
+        ).toBeVisible();
+        await expect(
+          erasure.getByText(/^A legal hold \(a legal claim, hold \d+\) keeps the account until it is released\.$/),
+        ).toBeVisible();
+
+        await page.goto("/privacy/disclosures/");
+        await page.getByLabel("The Grievance Officer's name").fill("Anita Baruah");
+        await page.getByLabel("The Grievance Officer's designation").fill("Grievance Officer");
+        const bar = page.getByRole("region", { name: "Save the changes" });
+        await expect(bar).toContainText("2 changes not saved");
+        await bar.getByLabel("Reason").fill("The Grievance Officer appointed on 9 October.");
+        await bar.getByRole("button", { name: "Save the changes" }).click();
+        await settle(page, toast(page, "Saved"), staff, codes);
+        await expect(bar).toHaveCount(0);
+        await expect(page.getByText(/“The Grievance Officer appointed on 9 October\.”/).first()).toBeVisible();
+
+        await page.goto("/audit/?action_prefix=setting.");
+        const trail = page.getByRole("region", { name: "Audit trail, a table" });
+        await expect(trail.getByText("setting.changed").first()).toBeVisible();
+        await page.goto("/audit/?action_prefix=legal_hold.");
+        await expect(trail.getByText("legal_hold.created")).toBeVisible();
       });
 
       await test.step("my jobs: cancel one that waits, download a file", async () => {

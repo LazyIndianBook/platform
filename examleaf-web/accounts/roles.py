@@ -133,6 +133,7 @@ ROLES = {
         *["staff.initiate_password_reset", "staff.reset_user_mfa", "staff.impersonate_user"],
         *["staff.view_datarequest", "staff.handle_data_request", "staff.view_processorrecord"],
         *["staff.refund_order", "staff.add_changerequest"],
+        *crud("accounts", ["legalhold", "nominee"], ["view"]),  # legal and privacy: what holds an erasure
         *PANEL,
     ],
     ADMIN: ALL,  # but SUPERUSER_ONLY's changes, OWNER_ONLY and MONEY_APPROVALS
@@ -151,6 +152,7 @@ ROLES = {
         # cancelling a document, the GSTR-1 export
         *["shop.view_hsncode", "shop.change_hsncode", "shop.view_documentseries", "shop.view_taxthreshold"],
         *["staff.cancel_document", "staff.run_gstr1"],
+        *["accounts.view_legalhold", "staff.manage_holds"],  # legal holds: a chargeback, a dispute over money
         *PANEL,
     ],
     PACKER: [  # the packing queue only: the orders to pack and ship (ROLE_SCOPES) and their books; pick, pack, hand

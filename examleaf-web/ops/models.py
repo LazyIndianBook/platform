@@ -62,7 +62,8 @@ class SmsLog(models.Model):
     """One SMS asked for (ops.sms): queued, sent, refused by the provider, or held back by a limit (per number, per
     account, per purpose, the daily cap). The number is kept as a keyed hash (to count, and to find a number's messages
     when asked) and its last four digits (for support), never whole; the account it was for, to count and for Download
-    my data (deleted with the account). Rows older than 90 days are deleted as new SMS go out."""
+    my data. A processing log (examleaf.retention "sms_log"): the last four digits are blanked after 90 days and the
+    row deleted after a year by the nightly clean-up (ops.tasks); an erasure keeps the rows without the account."""
 
     class Status(models.TextChoices):
         QUEUED = "queued", "queued"
