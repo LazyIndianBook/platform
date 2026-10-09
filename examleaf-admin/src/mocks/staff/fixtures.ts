@@ -11,6 +11,8 @@ import { createHash } from "node:crypto";
 
 import type { Note, Schemas } from "@/lib/api/staff";
 
+import { createTaxWorld, monthBefore, type TaxWorld } from "./tax";
+
 export type Me = { id: number; email: string; name: string; roles: string[] };
 
 /** The schema's records with their read-only fields writable: the mock is the server, it changes them. */
@@ -47,6 +49,8 @@ export type World = {
   impersonation: { token: string; user: number; until: string } | null;
   breakGlassReason: string | null;
   policiesAcknowledged: string[];
+  /** The tax module's master, documents and threshold card (tax.ts). */
+  tax: TaxWorld;
 };
 
 /** The payload's SHA-256 over its canonical JSON (keys sorted, no spaces), as staff/approvals.py `digest` makes it. */
@@ -637,6 +641,21 @@ export function createWorld(me: Me, now = Date.now()): World {
       cancel_requested: true,
       created: at(-50),
     }),
+    {
+      ...job({
+        id: 707,
+        kind: "gstr1_export",
+        state: "done",
+        params: { month: monthBefore(now), months: 1 },
+        done: 2,
+        total: 2,
+        result: { invoices: 2, credit_notes: 0 },
+        created: at(-26),
+        started_at: at(-26),
+        finished_at: at(-25.9),
+      }),
+      _rows: ["EL/2026-27/00038", "EL/2026-27/00039"],
+    },
   ];
 
   const savedViews: S["SavedView"][] = [
@@ -1368,5 +1387,6 @@ export function createWorld(me: Me, now = Date.now()): World {
     impersonation: null,
     breakGlassReason: null,
     policiesAcknowledged: [],
+    tax: createTaxWorld(now),
   };
 }
