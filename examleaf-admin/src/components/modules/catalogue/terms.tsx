@@ -96,9 +96,10 @@ function changeOf<T extends Record<string, unknown>>(before: Record<string, unkn
 
 const local = (value: string | null | undefined) => (value ? toLocalInput(value) : "");
 
-function Kinds({ defaultValue }: { defaultValue: string }) {
+/** Per cent or rupees off; the field's id and descriptions (Field gives them) reach the select itself. */
+function Kinds(props: React.ComponentProps<typeof Select>) {
   return (
-    <Select name="kind" defaultValue={defaultValue}>
+    <Select name="kind" {...props}>
       {Object.entries(copy.catalogue.discountKinds).map(([value, label]) => (
         <option key={value} value={value}>
           {label}

@@ -84,7 +84,7 @@ export default async function ProductPage({
     <RecordPage
       eyebrow={labelOf(copy.catalogue.kinds, found.kind)}
       title={found.title}
-      lead={<span className="font-mono">{found.slug}</span>}
+      lead={<span className="font-mono break-all">{found.slug}</span>}
       back={back}
       status={
         <span className="inline-flex flex-wrap gap-1.5">

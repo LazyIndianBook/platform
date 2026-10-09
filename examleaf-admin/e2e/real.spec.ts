@@ -13,6 +13,7 @@
 // books of three, above their ₹1,000: the 202 and its change request. Content: a CONTENT_EDITOR drafts a solution and
 // submits it, a REVIEWER publishes it from the inbox, and the OWNER's audit trail shows both. Support: SUPPORT answers
 // the customer's ticket, its first reply is recorded, and the OWNER finds the reply in the ticket's audit trail.
+// Catalogue: SALES weighs a product the courier could not be quoted for, and it leaves the incomplete list.
 import { type Browser, expect, type Page, test } from "@playwright/test";
 
 import { checkPages, type Codes, csrf, settle, signIn, toast } from "./console";
@@ -27,6 +28,9 @@ import {
   type OrdersWorld,
   type RealTicket,
   type RealWorld,
+  type CatalogueWorld,
+  deleteCatalogue,
+  seedCatalogue,
   seedOrdersWorld,
   seedContent,
   seedRealWorld,
@@ -61,6 +65,7 @@ let supportId: number;
 let editorId: number;
 let reviewerId: number;
 let changeRequest = "";
+let catalogue: CatalogueWorld;
 
 test.describe.configure({ mode: "serial" });
 
@@ -75,12 +80,14 @@ test.beforeAll(() => {
   reviewerId = createStaff(reviewer, "REVIEWER");
   content = seedContent(stamp);
   ticket = seedTicket(world);
+  catalogue = seedCatalogue(stamp);
 });
 
 test.afterAll(() => {
   if (world) deleteRealWorld(world);
   if (shop) deleteOrdersWorld(shop);
   if (content) deleteContent(content);
+  if (catalogue) deleteCatalogue(catalogue);
   deleteStaff([owner.email, support.email, sales.email, finance.email, editor.email, reviewer.email]);
 });
 
@@ -571,4 +578,29 @@ test("Orders: SALES makes a staff order, FINANCE finds it, SUPPORT's refund of t
     await expect(dialog.getByText("staff.approve_refund", { exact: true })).toBeVisible();
     await page.context().close();
   });
+});
+
+test("Catalogue: SALES weighs a product the courier could not be quoted for, and it leaves the incomplete list", async ({
+  browser,
+}) => {
+  const page = await open(browser);
+  await signIn(page, sales, "/catalogue/products/?incomplete=true", salesCodes);
+  const row = () =>
+    page.getByRole("region", { name: "Products, a table" }).getByRole("link", { name: new RegExp(catalogue.title) });
+  await expect(row()).toBeVisible();
+  await row().click();
+  await expect(page.getByRole("heading", { level: 1, name: catalogue.title })).toBeVisible();
+  const courier = page.locator("#courier");
+  await expect(courier.getByText("No weight: weigh one copy, in grams.")).toBeVisible();
+  await courier.getByLabel("Weight (g)").fill("320");
+  await courier
+    .getByRole("region", { name: "Unsaved changes" })
+    .getByRole("button", { name: "Save the courier's data" })
+    .click();
+  await settle(page, toast(page, "Saved"), sales, salesCodes);
+  await expect(courier.getByText("No weight: weigh one copy, in grams.")).toHaveCount(0);
+  await page.goto("/catalogue/products/?incomplete=true");
+  await expect(page.getByRole("heading", { level: 1, name: "Products" })).toBeVisible();
+  await expect(row()).toHaveCount(0);
+  await page.context().close();
 });

@@ -19,6 +19,10 @@ export function rupees(value: string | number | null | undefined): string {
   return formatInr(Number.isFinite(amount) ? amount : null);
 }
 
+/** A rate's states as the API keeps them (a list of codes). */
+export const statesOf = (rate: { states: unknown }): string[] =>
+  Array.isArray(rate.states) ? rate.states.map(String) : [];
+
 /** A coupon's or an offer's state now. */
 export const TERM_TONES: Record<string, Tone> = {
   live: "good",

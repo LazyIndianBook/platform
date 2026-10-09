@@ -23,11 +23,7 @@ import {
 } from "@/lib/api/staff";
 import { copy } from "@/lib/copy";
 
-import { changedOnly, rupees } from "./shared";
-
-/** A rate's states as the API keeps them (a list of codes). */
-export const statesOf = (rate: Pick<CatalogueShippingRate, "states">): string[] =>
-  Array.isArray(rate.states) ? rate.states.map(String) : [];
+import { changedOnly, rupees, statesOf } from "./shared";
 
 export function RatesTable({ rows, states }: { rows: CatalogueShippingRate[]; states: CatalogueOptions["states"] }) {
   const name = (code: string) => states.find((state) => state.value === code)?.label ?? code;
