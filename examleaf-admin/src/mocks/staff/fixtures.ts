@@ -14,6 +14,7 @@ import type { Note, Schemas } from "@/lib/api/staff";
 import { createTaxWorld, monthBefore, type TaxWorld } from "./tax";
 import { type OrdersWorld, ordersWorld } from "./orders";
 import { type ContentWorld, createContent } from "./content";
+import { type CourseWorld, createCourse } from "./course";
 import { createSupportWorld, type SupportWorld } from "./support-fixtures";
 
 export type Me = { id: number; email: string; name: string; roles: string[] };
@@ -82,6 +83,8 @@ export type World = {
   content: ContentWorld;
   /** The support module's tickets, saved replies and the requesters' sidebar (support-fixtures.ts). */
   support: SupportWorld;
+  /** The course module's outline, bank, access, print runs, codes and learners (course.ts). */
+  course: CourseWorld;
 };
 
 /** The payload's SHA-256 over its canonical JSON (keys sorted, no spaces), as staff/approvals.py `digest` makes it. */
@@ -1882,6 +1885,7 @@ export function createWorld(me: Me, now = Date.now()): World {
   };
 
   const content = createContent(at, me.id, editor, REVIEWER);
+  const course = createCourse(at, me.id, editor, REVIEWER);
 
   return {
     me,
@@ -1889,7 +1893,7 @@ export function createWorld(me: Me, now = Date.now()): World {
     inbox,
     changeRequests,
     audit,
-    jobs: [...jobs, ...content.jobs],
+    jobs: [...jobs, ...content.jobs, ...course.jobs],
     savedViews,
     settings,
     settingHistory,
@@ -1921,5 +1925,6 @@ export function createWorld(me: Me, now = Date.now()): World {
     orders: ordersWorld(at),
     content: content.world,
     support: createSupportWorld(me, now),
+    course: course.world,
   };
 }

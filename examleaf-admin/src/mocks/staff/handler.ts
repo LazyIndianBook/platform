@@ -30,6 +30,14 @@ import {
 import { ordersJob, ordersJobPermission, ordersPermission, ordersRoute, type OrdersKit } from "./orders";
 import { MANAGEMENT_PERMISSIONS, offerEndSessions, passkeyDue, routeManagement } from "./management";
 import { contentPermission, contentRoute, startContentImport, type Tools } from "./content";
+import {
+  codeBatchFile,
+  courseBulkPermission,
+  coursePermission,
+  courseRoute,
+  remakeBatchJob,
+  startCourseBulk,
+} from "./course";
 import { grievanceFile, type Kit, startGrievanceExport, supportPermission, supportRoute } from "./support-handler";
 
 type S = MockSchemas;
@@ -73,6 +81,7 @@ const SUPPORT = [
   // support (roles.py SUPPORT): every ticket, the saved replies read; the course's entitlements and book codes
   ...["support.view_ticket", "support.note_ticket", "staff.handle_ticket", "support.view_savedreply"],
   ...["learn.view_entitlement", "learn.change_entitlement", "learn.view_bookcode"],
+  ...["learn.add_entitlement", "learn.view_codebatch"], // the course (learn/staff_api.py): access given, print runs
 ];
 const FINANCE = [
   ...PANEL,
@@ -97,6 +106,7 @@ const SALES = [
   ...["shop.view_creditnote", "shop.view_quoterequest", "shop.change_quoterequest", "shop.view_returnrequest"],
   ...["staff.refund_order", "staff.record_offline_payment", "staff.add_changerequest"],
   ...["staff.handle_return", "staff.receive_return", "staff.view_parcels"],
+  ...["staff.make_book_codes", "learn.view_codebatch", "learn.change_codebatch"], // a school order's print run
 ];
 const SALES_REP = [
   ...PANEL,
@@ -110,6 +120,10 @@ const CONTENT = ["book", "paper", "question", "solution"].flatMap((model) =>
 const CONTENT_PANEL = ["content.view_reviewtask", "content.view_errorreport", "staff.triage_report"].concat([
   "content.view_legaldeposit",
 ]);
+// roles.py COURSE: the revision course's content, every verb (CONTENT_EDITOR's; REVIEWER reads it)
+const COURSE = ["chapter", "revision", "clip", "flashcard", "quizitem"].flatMap((model) =>
+  ["view", "add", "change", "delete"].map((verb) => `learn.${verb}_${model}`),
+);
 const OWNER_ONLY = ["staff.assign_role", "staff.manage_api_keys", "staff.break_glass"].concat([
   "staff.view_auditlog",
   "staff.export_auditlog",
@@ -135,6 +149,8 @@ const EVERYTHING = [
     ...MANAGEMENT_PERMISSIONS, // the connections, the templates, the system's pages (management.ts)
     ...["support.add_savedreply", "support.change_savedreply", "support.delete_savedreply"],
     ...["staff.export_grievances", "shop.change_order"],
+    ...COURSE,
+    ...["staff.publish_course", "staff.void_book_codes"],
   ]),
 ].sort();
 const ROLE_PERMISSIONS: Record<string, string[]> = {
@@ -159,12 +175,15 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     ...CONTENT_PANEL,
     ...["content.add_legaldeposit", "learn.view_chapter", "shop.view_product"],
     ...["support.view_ticket", "support.note_ticket"], // the content errors' tickets (ROLE_SCOPES), noted on
+    ...COURSE,
   ],
   REVIEWER: [
     ...PANEL,
     ...CONTENT.filter((perm) => perm.includes(".view_")),
     ...CONTENT_PANEL,
     ...["staff.publish_paper", "staff.import_content"],
+    ...COURSE.filter((perm) => perm.includes(".view_")),
+    "staff.publish_course",
   ],
   AUDITOR: [
     ...EVERYTHING.filter((perm) => perm.split(".")[1].startsWith("view_")),
@@ -181,6 +200,7 @@ const LIMITS: Record<string, Record<string, number | null>> = {
   SALES: { refund_inr: 2000, offline_inr: 5000, discount_percent: 20, export_rows: 500, bulk_rows: 100 },
   SALES_REP: { refund_inr: 0, offline_inr: 0, discount_percent: 10, export_rows: 200, bulk_rows: 50 },
   PACKER: { refund_inr: 0, offline_inr: 0, discount_percent: 0, export_rows: 0, bulk_rows: 100 },
+  CONTENT_EDITOR: { refund_inr: 0, offline_inr: 0, discount_percent: 0, export_rows: 0, bulk_rows: 200 },
 };
 // staff/catalogue.py: the high and critical permissions, which need a recent authentication
 const RISKY = new Set([
@@ -192,6 +212,8 @@ const RISKY = new Set([
   ...["staff.manage_holds", "staff.manage_compliance"],
   ...["staff.record_offline_payment", "shop.export_order"],
   ...["staff.import_content", "staff.export_grievances"],
+  ...["staff.make_book_codes", "staff.void_book_codes"], // the course: book codes made (high) and voided (critical)
+  ...["learn.delete_clip", "learn.delete_flashcard", "learn.delete_quizitem"], // Django's delete verb: high
 ]);
 // the online-paid orders a refund may name (shop.Order with a captured Razorpay payment), rupees paid
 const PAID_ORDERS: Record<string, { id: number; paid: number; shipped: boolean }> = {
@@ -483,12 +505,16 @@ function permissionFor(context: Context): string | null {
       const kind = context.body.kind;
       if (kind === "content_import") return "staff.import_content";
       if (kind === "grievance_export") return "staff.export_grievances";
+      if (kind === "code_batch") return "staff.make_book_codes";
+      if (kind === "bulk_action") return courseBulkPermission(context.body.params) ?? "staff.add_job";
       return ordersJobPermission(kind) ?? "staff.add_job";
     }
     case "orders":
       return ordersPermission(method, parts);
     case "content":
       return contentPermission(method, parts);
+    case "course":
+      return coursePermission(context);
     case "saved-views":
       return get
         ? "staff.view_savedview"
@@ -638,6 +664,9 @@ async function route(context: Context): Promise<Response> {
   switch (area) {
     case "content":
       return contentRoute(toolsOf(context));
+
+    case "course":
+      return courseRoute(context, KIT);
 
     case "inbox": {
       const visible = world.inbox.filter(
@@ -911,8 +940,10 @@ async function route(context: Context): Promise<Response> {
           const started = startContentImport(toolsOf(context));
           return started instanceof Response ? started : json(202, visibleJob(context, started));
         }
+        if (kind === "bulk_action" && courseBulkPermission(body.params)) return startCourseBulk(context, KIT);
+        if (kind === "code_batch") return remakeBatchJob(context, KIT);
         if (!ordersJobPermission(kind))
-          return invalid({ kind: ["The mock starts the orders' jobs and content imports only."] });
+          return invalid({ kind: ["The mock starts the orders' and the course's jobs and content imports only."] });
         return ordersJob(ordersKit(context), kind, (body.params ?? {}) as Body);
       }
       const mine = world.jobs.filter((job) => job.started_by === me || can("staff.view_system"));
@@ -973,6 +1004,14 @@ async function route(context: Context): Promise<Response> {
           });
         }
         if (job.kind === "grievance_export") return grievanceFile(context, job);
+        if (job.kind === "code_batch") {
+          if (Date.parse(job.finished_at ?? "") + 24 * 3_600_000 < Date.now())
+            return json(403, {
+              detail: "This link has expired: read the job again for a new one.",
+              code: "link_expired",
+            });
+          return codeBatchFile(job);
+        }
         const rows = world.audit
           .slice(0, job.total || 20)
           .map((row) => JSON.stringify(row))
@@ -2755,7 +2794,9 @@ function visibleJob(context: Context, job: MockJob): S["Job"] {
   void _rows;
   const exported =
     ["audit_export", "orders_print", "orders_export", "grievance_export"].includes(job.kind) ||
-    (job.kind === "gstr1_export" && !job.dry_run);
+    (job.kind === "gstr1_export" && !job.dry_run) ||
+    // the printer's file: 24 hours from the codes' making (learn.codes), then deleted
+    (job.kind === "code_batch" && Date.parse(job.finished_at ?? "") + 24 * 3_600_000 > Date.now());
   const file = job.state === "done" && exported && job.started_by === context.who.id;
   void _result;
   const token = `t-${job.id}-${Date.now() + 5 * 60_000}`;
