@@ -475,6 +475,9 @@ Read by `scripts/backup.sh` (which takes `BACKUP_KEEP_DAYS` and `BACKUP_AGE_RECI
 | `DATA_PROTECTION_OFFICER` | a `[placeholder]` | before going live | the Grievance Officer's name, email and phone, quoted in every answer to a data request (DPDP Rules r.9) |
 | `CERT_IN_POINT_OF_CONTACT` | a `[placeholder]` | before going live | the point of contact registered with CERT-In (Annexure II of its Directions), quoted in every incident alert |
 | `STAFF_THROTTLE`, `STAFF_THROTTLE_SEARCH`, `STAFF_THROTTLE_REVEAL`, `STAFF_THROTTLE_EXPORT`, `STAFF_THROTTLE_MONEY`, `STAFF_THROTTLE_INVITE` | `600/minute`, `60/minute`, `30/hour`, `10/hour`, `120/hour`, `10/hour` | no | the staff API's limits per member of staff or API key (API.md "Rate limits") |
+| `STAFF_GOOGLE_DOMAIN` | none: off | with Google for staff | the Workspace's domain (`examleaf.in`): a staff Google sign-in (on the admin host, into a staff account, or by an account of the domain) needs the ID token's `hd` to be it and a confirmed address (section 15, "Google sign-in for staff") |
+| `STAFF_GOOGLE_CLIENT_ID`, `STAFF_GOOGLE_CLIENT_SECRET` | none | recommended with the domain | the Workspace's own OAuth client (an Internal consent screen) for the admin host; without them the website's `GOOGLE_*` client serves the admin host too |
+| `STAFF_GOOGLE_AUTO_STAFF` | `0` | no | `1`: a Workspace account of the domain with no ExamLeaf account signs up through Google as a member of staff with no role (an owner gives one); off, the account must exist already and be staff |
 
 ### ERPNext
 
@@ -570,6 +573,7 @@ start them now. Each ends with values for `.env` (section 13 lists them). The co
 | **Cloudflare Turnstile** | a bot check on sign-up, code requests, coupon and quotation forms | 10 minutes | free | "Cloudflare Turnstile" below | `TURNSTILE_*` | optional |
 | **MSG91 with TRAI DLT registration** (entity, header, templates) | SMS: phone log-in, order updates, parents' consent links | 1 to 2 weeks | DLT about Rs 5,900 with GST, once; MSG91 about Rs 0.25 down to 0.16 per SMS | "SMS: TRAI DLT and MSG91" below | `SMS_BACKEND`, `MSG91_*`, `SMS_DAILY_CAP` | optional: without it no phone log-in, order SMS or SMS consent links |
 | **Google Cloud (OAuth client)** | "Log in with Google" | an hour | not stated | "Google sign-in" below | `GOOGLE_*` | optional |
+| **Google Workspace (an Internal OAuth client)** | staff sign in with their Workspace account | an hour | the Workspace's | "Google sign-in for staff" below | `STAFF_GOOGLE_*` | optional |
 | **Firebase (FCM service account)** | the revision course's daily push reminder | minutes | not stated | "Firebase" below | `FCM_SERVICE_ACCOUNT_JSON` | optional |
 | **AWS S3 Mumbai** | the private bucket, only if the Privacy Policy promises that students' files stay in India | an hour | not stated | step 6 of "Cloudflare R2" below | `S3_REGION=ap-south-1`, `S3_*`, `PUBLIC_S3_*` | optional |
 | **Backup bucket** (R2, Backblaze B2 or AWS S3) and an age key | off-site, encrypted database dumps | an hour | not stated | section 9 | `BACKUP_*`, `AWS_*` | recommended: without it the dumps stay on the server's disk |
@@ -626,6 +630,37 @@ In the Google Cloud console (console.cloud.google.com), with the company's Googl
    client (bundle ID) in the same project. The app asks Google for an ID token issued for the web client
    (`GOOGLE_CLIENT_ID`, its "server client ID") and posts it to `/_allauth/app/v1/auth/provider/token`; the server
    accepts only tokens for that client.
+
+### Google sign-in for staff (an hour, with the Workspace)
+
+The staff sign in on the admin host with their Google Workspace account, and their second factor after it. In the
+Google Cloud console, with an administrator account of the company's Workspace (the organisation of `examleaf.in`):
+
+1. A project under the Workspace's organisation (an Internal audience needs one): "ExamLeaf staff".
+2. Google Auth Platform → Branding: app name "ExamLeaf staff", a support email. Audience: **Internal**: only accounts
+   of the organisation can sign in (no Google review, no user cap, no "Publish").
+3. Data access: `openid`, `email`, `profile` only.
+4. Clients → Create client → Web application. Authorised JavaScript origin `https://admin.examleaf.in`; authorised
+   redirect URI `https://admin.examleaf.in/account/google/login/callback/` (the admin host's: its Caddy site sends
+   `/account/google/*` to Django).
+5. `.env`: `STAFF_GOOGLE_CLIENT_ID`, `STAFF_GOOGLE_CLIENT_SECRET`, `STAFF_GOOGLE_DOMAIN=examleaf.in`, with
+   `ADMIN_HOSTS=admin.examleaf.in` (section 23); `docker compose up -d`. The admin host's `config/` then says
+   `google: true` and its Google button uses this client; the website keeps its own (above). Without the two client
+   values the website's client serves the admin host too: add the admin host's redirect URI to it, and the domain check
+   below is the only gate.
+6. Each member of staff connects Google once: signed in with the password and the second factor, on the website's
+   Security page (`/account/security/`), with their `@examleaf.in` account. Accounts are linked by Google's `sub`, never
+   by the address. From then on Google signs them in on the admin host, and the authenticator app or the passkey is
+   still asked after it. (`STAFF_GOOGLE_AUTO_STAFF=1` instead lets a Workspace account with no ExamLeaf account sign up
+   there, as a member of staff with no role until an owner gives one; it then sets up its second factor first.)
+7. Refused, each an `authz_fail` in the audit log and `?error=` at the console's callback: on the admin host, into a
+   staff account or by an account of the domain, a Google account whose ID token's `hd` is not the domain or whose
+   address Google has not confirmed (`staff_google_domain`: the request's `hd` parameter is only a hint, the server
+   checks the claim); a break-glass account (`staff_google_break_glass`: they stay outside Google sign-in); a Workspace
+   account with no staff account (`staff_google_no_account`), or one linked to an account that is not staff
+   (`staff_google_not_staff`). A student's Google sign-in on the website is as before.
+8. Leaving: suspend the person's Workspace account (no new sign-ins) and offboard them in the panel
+   (`people/<id>/offboard/`): a suspended Google account does not end the sessions already open.
 
 ### Email: Amazon SES in Mumbai (1 to 3 days)
 

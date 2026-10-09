@@ -303,7 +303,8 @@ GOOGLE_CLIENT_ID = env("GOOGLE_CLIENT_ID", default="")
 GOOGLE_CLIENT_SECRET = env("GOOGLE_CLIENT_SECRET", default="")
 SOCIALACCOUNT_AUTO_SIGNUP = False
 SOCIALACCOUNT_ADAPTER = "accounts.adapter.SocialAccountAdapter"  # Google's URLs are 404 without its keys
-SOCIALACCOUNT_PROVIDERS = {"google": {"SCOPE": ["profile", "email"], "OAUTH_PKCE_ENABLED": True}}
+# openid: Google's answer carries its ID token, whose issuer, audience and expiry allauth checks (and its `hd`)
+SOCIALACCOUNT_PROVIDERS = {"google": {"SCOPE": ["openid", "profile", "email"], "OAUTH_PKCE_ENABLED": True}}
 if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
     SOCIALACCOUNT_PROVIDERS["google"]["APPS"] = [{"client_id": GOOGLE_CLIENT_ID, "secret": GOOGLE_CLIENT_SECRET}]
 # Cloudflare Turnstile (a check for bots, mostly without a puzzle) on sign-up, code requests and the public forms
@@ -728,6 +729,19 @@ STAFF_DPDP_RESPONSE_DAYS = env.int("STAFF_DPDP_RESPONSE_DAYS", default=90)
 # Quoted in every answer to a data request (DPDP r.9) and in the incident alerts (CERT-In Annexure II).
 DATA_PROTECTION_OFFICER = env("DATA_PROTECTION_OFFICER", default="[the Grievance Officer's name, email and phone]")
 CERT_IN_POINT_OF_CONTACT = env("CERT_IN_POINT_OF_CONTACT", default="[name, email and phone registered with CERT-In]")
+# Google Workspace sign-in for staff (accounts.adapter.SocialAccountAdapter; DEPLOYMENT.md "Google sign-in for staff").
+# With the domain set, a staff Google sign-in (on the admin host, into a staff account, or by a Workspace account of
+# the domain) needs the ID token's `hd` to be the domain and a confirmed address; a new account only with
+# STAFF_GOOGLE_AUTO_STAFF (a member of staff with no role), else the account exists and is staff. The Workspace's own
+# OAuth client (an Internal consent screen) serves the admin host; without it, the website's client serves it too.
+STAFF_GOOGLE_DOMAIN = env("STAFF_GOOGLE_DOMAIN", default="").strip().lower()
+STAFF_GOOGLE_AUTO_STAFF = env.bool("STAFF_GOOGLE_AUTO_STAFF", default=False)
+STAFF_GOOGLE_CLIENT_ID = env("STAFF_GOOGLE_CLIENT_ID", default="")
+STAFF_GOOGLE_CLIENT_SECRET = env("STAFF_GOOGLE_CLIENT_SECRET", default="")
+if STAFF_GOOGLE_CLIENT_ID and STAFF_GOOGLE_CLIENT_SECRET:
+    SOCIALACCOUNT_PROVIDERS["google"].setdefault("APPS", []).append(
+        {"client_id": STAFF_GOOGLE_CLIENT_ID, "secret": STAFF_GOOGLE_CLIENT_SECRET, "settings": {"staff": True}}
+    )
 CELERY_BEAT_SCHEDULE.update(
     {
         "staff-verify-audit-chain": {"task": "staff.tasks.verify_audit_chain", "schedule": crontab(hour=2, minute=0)},

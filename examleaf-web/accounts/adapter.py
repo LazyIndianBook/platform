@@ -10,9 +10,11 @@ from allauth.mfa.adapter import DefaultMFAAdapter
 from allauth.mfa.webauthn.internal.flows import did_use_passwordless_login
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from allauth.socialaccount.models import SocialApp
+from allauth.socialaccount.providers.base import AuthProcess
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.sites.shortcuts import get_current_site
+from django.core.exceptions import ValidationError
 from django.http import Http404
 
 from ops.sms import queue_sms
@@ -131,3 +133,92 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
             return super().get_app(request, provider, client_id=client_id)
         except SocialApp.DoesNotExist:
             raise Http404("This way of logging in is not set up.") from None
+
+    def list_apps(self, request, provider=None, client_id=None):
+        """One Google client per host: the staff's own (STAFF_GOOGLE_CLIENT_ID, the Workspace's Internal consent
+        screen) on the admin host when there is one, the website's everywhere else."""
+        apps = super().list_apps(request, provider=provider, client_id=client_id)
+        staffs = {app.provider for app in apps if app.settings.get("staff")}
+        admin_host = request is not None and explicit_admin_host(request)
+        return [app for app in apps if app.provider not in staffs or bool(app.settings.get("staff")) == admin_host]
+
+    def pre_social_login(self, request, sociallogin):
+        """Google Workspace for staff (plan 3.5; research-integrations.md 4.4). With STAFF_GOOGLE_DOMAIN set, a staff
+        Google sign-in (on the admin host, into or onto a staff account, or by an account of the domain) needs the ID
+        token's `hd` claim to be the domain and its address confirmed (the `hd` request parameter is only a hint),
+        never reaches a break-glass account (outside Google sign-in), and makes a new account only with
+        STAFF_GOOGLE_AUTO_STAFF; otherwise the account exists already and is staff, linked by Google's `sub` (never by
+        the email). Refused: a ValidationError (headless: `?error=<code>`) and `authz_fail`. A student's Google sign-in
+        on the website is as before. allauth's second-factor stage still runs after the sign-in."""
+        domain = settings.STAFF_GOOGLE_DOMAIN
+        if not domain or sociallogin.account.provider != "google":
+            return
+        claims = sociallogin.account.extra_data
+        matches = str(claims.get("hd") or "").lower() == domain
+        verified = claims.get("email_verified") is True or claims.get("verified_email") is True  # id token, userinfo
+        connect = sociallogin.state.get("process") == AuthProcess.CONNECT
+        signed_in = request.user if request.user.is_authenticated else None
+        user = sociallogin.user if sociallogin.is_existing else (signed_in if connect else None)
+        staff = user is not None and (user.is_staff or user.is_superuser)
+        if not (staff or matches or explicit_admin_host(request)):
+            return
+        if not (matches and verified):
+            refuse_google(request, user, "staff_google_domain", f"Staff sign in with their @{domain} Google account.")
+        if user is not None and user.is_superuser:
+            refuse_google(request, user, "staff_google_break_glass", BREAK_GLASS_NOT_GOOGLE)
+        if connect:
+            return  # onto the signed-in account: its own second factor was asked at its log-in
+        if user is not None:
+            if not staff:
+                refuse_google(request, user, "staff_google_not_staff", "This account is not a member of staff.")
+            return
+        email = (sociallogin.user.email or "").lower()
+        if not (settings.STAFF_GOOGLE_AUTO_STAFF and email.endswith(f"@{domain}")):
+            refuse_google(request, None, "staff_google_no_account", NO_STAFF_ACCOUNT)
+        if User.objects.filter(email__iexact=email).exists():  # (linked by `sub` only: never joined by the address)
+            refuse_google(request, None, "staff_google_no_account", NO_STAFF_ACCOUNT)
+        sociallogin.staff_signup = True
+
+    def is_auto_signup_allowed(self, request, sociallogin):
+        """A Workspace account of the domain with STAFF_GOOGLE_AUTO_STAFF (pre_social_login allowed it): signed up at
+        once, without the student details."""
+        return getattr(sociallogin, "staff_signup", False) or super().is_auto_signup_allowed(request, sociallogin)
+
+    def save_user(self, request, sociallogin, form=None):
+        """A staff sign-up through Google: a member of staff with no role (nothing opens until an owner gives one) who
+        sets up a second factor before anything (StaffMFAMiddleware)."""
+        if getattr(sociallogin, "staff_signup", False):
+            user = sociallogin.user
+            user.full_name = sociallogin.account.extra_data.get("name") or user.email.split("@")[0]
+            user.is_staff = True
+        return super().save_user(request, sociallogin, form=form)
+
+
+BREAK_GLASS_NOT_GOOGLE = "A break-glass account signs in with its password and security key, never with Google."
+NO_STAFF_ACCOUNT = (
+    "No staff account is linked to this Google account: sign in with your password and connect Google on your "
+    "account's page, or ask an owner for an invitation."
+)
+
+
+def explicit_admin_host(request):
+    """On a host of ADMIN_HOSTS when it is set (empty, every host is one for the staff API: not for Google)."""
+    from staff.middleware import on_admin_host
+
+    return bool(settings.ADMIN_HOSTS) and on_admin_host(request)
+
+
+def refuse_google(request, user, code, message):
+    """Refuse the staff Google sign-in: recorded as `authz_fail` (committed whatever follows), then a ValidationError
+    (allauth.headless: the frontend's callback with `?error=<code>`; the app's token flow: 400 with the message)."""
+    from staff.audit import ActorType, Outcome, record
+
+    record(
+        "authz_fail",
+        request=request,
+        actor=user,
+        actor_type=None if user else ActorType.ANONYMOUS,
+        outcome=Outcome.DENIED,
+        details={"provider": "google", "error": code},
+    )
+    raise ValidationError(message, code=code)
