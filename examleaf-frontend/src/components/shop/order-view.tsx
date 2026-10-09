@@ -11,6 +11,7 @@
 import { Download, Lock } from "lucide-react";
 import Link from "next/link";
 
+import { WhileImpersonated } from "@/components/site/impersonation";
 import { Badge, STATUS_VARIANT } from "@/components/ui/badge";
 import { Sheet } from "@/components/ui/band";
 import { buttonVariants } from "@/components/ui/button";
@@ -315,13 +316,15 @@ export function OrderView({
         </a>
       ))}
       {order.can_cancel ? (
-        <CancelOrder
-          number={number}
-          paid={order.status === "paid"}
-          digital={digital}
-          token={token}
-          total={order.total}
-        />
+        <WhileImpersonated what="Cancelling the order">
+          <CancelOrder
+            number={number}
+            paid={order.status === "paid"}
+            digital={digital}
+            token={token}
+            total={order.total}
+          />
+        </WhileImpersonated>
       ) : null}
       <p className="text-sm text-muted-foreground">
         Questions? <Link href="/contact/">Contact us with the order number.</Link>

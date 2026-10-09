@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { goLink, PageHead, Problem } from "@/components/account/parts";
 import { AuthenticatorApp, RecoveryCodes } from "@/components/account/two-factor";
+import { WhileImpersonated } from "@/components/site/impersonation";
 import { allauthGet, settle } from "@/lib/api/account";
 import { ApiError } from "@/lib/api/errors";
 import type { Authenticator } from "@/lib/auth/account";
@@ -32,8 +33,10 @@ export default async function TwoFactorPage() {
   return (
     <>
       {head}
-      <AuthenticatorApp active={authenticators.some((a) => a.type === "totp")} />
-      <RecoveryCodes summary={authenticators.find((a) => a.type === "recovery_codes") ?? null} />
+      <WhileImpersonated what="Two-step log-in">
+        <AuthenticatorApp active={authenticators.some((a) => a.type === "totp")} />
+        <RecoveryCodes summary={authenticators.find((a) => a.type === "recovery_codes") ?? null} />
+      </WhileImpersonated>
       <Link href="/account/security/" className={goLink}>
         ← Log-in and security
       </Link>

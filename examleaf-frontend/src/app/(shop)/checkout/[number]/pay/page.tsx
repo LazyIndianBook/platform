@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 
 import { ShopProblem } from "@/components/shop/notices";
 import { PayView } from "@/components/shop/pay-view";
+import { WhileImpersonated } from "@/components/site/impersonation";
 import { ApiError } from "@/lib/api/errors";
 import { getOrder, orProblem } from "@/lib/api/shop";
 import { requireUser } from "@/lib/auth/session";
@@ -24,5 +25,9 @@ export default async function PayPage({ params }: { params: Promise<{ number: st
   const order = await orProblem(getOrder(number), path);
   if (order instanceof ApiError) return <ShopProblem error={order} retry={path} what="This payment" />;
   if (!order.can_pay) redirect(`/account/orders/${number}/`);
-  return <PayView number={number} order={order} />;
+  return (
+    <WhileImpersonated what="Paying">
+      <PayView number={number} order={order} />
+    </WhileImpersonated>
+  );
 }

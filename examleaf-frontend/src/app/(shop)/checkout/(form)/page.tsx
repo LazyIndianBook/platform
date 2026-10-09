@@ -12,6 +12,7 @@ import { redirect } from "next/navigation";
 import { CheckoutForm, type LineProduct } from "@/components/shop/checkout-form";
 import { ShopClosed } from "@/components/shop/listing";
 import { ShopProblem, SignInToBuy } from "@/components/shop/notices";
+import { WhileImpersonated } from "@/components/site/impersonation";
 import { isDigital } from "@/components/shop/shop";
 import { getMe } from "@/lib/api/account";
 import { getProducts } from "@/lib/api/catalogue";
@@ -53,17 +54,19 @@ export default async function CheckoutPage({ searchParams }: Props) {
   }
 
   return (
-    <CheckoutForm
-      cart={cart}
-      addresses={addresses}
-      email={user?.email ?? ""}
-      cod={{ offered: config?.shop.cod ?? false, max: config?.shop.cod_max_value ?? "0" }}
-      digital={digital}
-      guest={!user}
-      info={info}
-      consentPending={me?.consent_pending ?? false}
-      payOnDelivery={params.pay === "cod"}
-      notice={<ShopClosed open={config?.shop.open} />}
-    />
+    <WhileImpersonated what="Placing an order">
+      <CheckoutForm
+        cart={cart}
+        addresses={addresses}
+        email={user?.email ?? ""}
+        cod={{ offered: config?.shop.cod ?? false, max: config?.shop.cod_max_value ?? "0" }}
+        digital={digital}
+        guest={!user}
+        info={info}
+        consentPending={me?.consent_pending ?? false}
+        payOnDelivery={params.pay === "cod"}
+        notice={<ShopClosed open={config?.shop.open} />}
+      />
+    </WhileImpersonated>
   );
 }

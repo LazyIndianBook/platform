@@ -13,6 +13,7 @@ import { toast } from "@/components/ui/toaster";
 import { ErrorSummary } from "@/components/auth/error-summary";
 import { fieldError } from "@/components/auth/use-auth-action";
 import { addressLines, type StateCode, stateName, STATES } from "@/components/shop/shop";
+import { useImpersonation, WhileImpersonated } from "@/components/site/impersonation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/choice";
@@ -98,13 +99,15 @@ export function AddressBook({ addresses, children }: { addresses: Address[]; chi
     writeDraft(target, null);
     setChosen(null);
   };
+  // a support colleague signed in as this account may not change addresses: the cards stay, their actions do not
+  const closed = Boolean(useImpersonation());
   return (
     <div className="flex max-w-[34rem] flex-col gap-8 max-nav:gap-6">
       <PageHead
         title="Addresses"
         lead="Where your books go. Checkout lists them, the default one first."
         aside={
-          open === "new" ? null : (
+          open === "new" || closed ? null : (
             <button
               type="button"
               className={`${textAction} text-[15px] font-bold text-primary`}
@@ -116,45 +119,49 @@ export function AddressBook({ addresses, children }: { addresses: Address[]; chi
         }
       />
       {children}
-      <div className="flex flex-col gap-4">
-        {open === "new" ? <AddressForm target="new" close={() => close("new")} first={!addresses.length} /> : null}
-        {addresses.map((address) =>
-          open === address.id ? (
-            <AddressForm key={address.id} target={address.id} address={address} close={() => close(address.id)} />
-          ) : (
-            <article
-              key={address.id}
-              aria-label={`Address of ${address.name}${address.is_default ? ", the default one" : ""}`}
-              className={`flex flex-col gap-2 bg-card p-5 max-nav:p-3.5 [&_p]:m-0 ${address.is_default ? "border-[1.5px] border-foreground" : "border border-border"}`}
-            >
-              <p className="flex flex-wrap items-start justify-between gap-2">
-                <strong>{address.name}</strong>
-                {address.is_default ? (
-                  <Badge variant="code" className="text-[11px] font-semibold text-muted-foreground uppercase">
-                    Default
-                  </Badge>
-                ) : null}
-              </p>
-              <p className="text-[15px] leading-relaxed max-nav:text-sm">
-                {addressLines(address)
-                  .slice(1)
-                  .map((line) => (
-                    <span key={line} className="block">
-                      {line}
-                    </span>
-                  ))}
-              </p>
-              <div className="flex flex-wrap gap-x-4">
-                <button type="button" className={`${textAction} text-primary`} onClick={() => setChosen(address.id)}>
-                  Edit<span className="sr-only"> the address of {address.name}</span>
-                </button>
-                {address.is_default ? null : <MakeDefault address={address} />}
-                <DeleteAddress address={address} />
-              </div>
-            </article>
-          ),
-        )}
-      </div>
+      <WhileImpersonated what="Changing addresses">
+        <div className="flex flex-col gap-4">
+          {open === "new" && !closed ? (
+            <AddressForm target="new" close={() => close("new")} first={!addresses.length} />
+          ) : null}
+          {addresses.map((address) =>
+            open === address.id ? (
+              <AddressForm key={address.id} target={address.id} address={address} close={() => close(address.id)} />
+            ) : (
+              <article
+                key={address.id}
+                aria-label={`Address of ${address.name}${address.is_default ? ", the default one" : ""}`}
+                className={`flex flex-col gap-2 bg-card p-5 max-nav:p-3.5 [&_p]:m-0 ${address.is_default ? "border-[1.5px] border-foreground" : "border border-border"}`}
+              >
+                <p className="flex flex-wrap items-start justify-between gap-2">
+                  <strong>{address.name}</strong>
+                  {address.is_default ? (
+                    <Badge variant="code" className="text-[11px] font-semibold text-muted-foreground uppercase">
+                      Default
+                    </Badge>
+                  ) : null}
+                </p>
+                <p className="text-[15px] leading-relaxed max-nav:text-sm">
+                  {addressLines(address)
+                    .slice(1)
+                    .map((line) => (
+                      <span key={line} className="block">
+                        {line}
+                      </span>
+                    ))}
+                </p>
+                <div className="flex flex-wrap gap-x-4">
+                  <button type="button" className={`${textAction} text-primary`} onClick={() => setChosen(address.id)}>
+                    Edit<span className="sr-only"> the address of {address.name}</span>
+                  </button>
+                  {address.is_default ? null : <MakeDefault address={address} />}
+                  <DeleteAddress address={address} />
+                </div>
+              </article>
+            ),
+          )}
+        </div>
+      </WhileImpersonated>
     </div>
   );
 }

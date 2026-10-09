@@ -32,6 +32,16 @@ export function formatDate(value: string | number, style: "short" | "long" = "sh
   return `${date} ${style === "long" ? name : name.slice(0, 3)} ${year}`;
 }
 
+/** A moment's time in India, "14:05". */
+export function formatTime(value: string | Date): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(typeof value === "string" ? new Date(value) : value);
+}
+
 /** Under 18 on the day, from a yyyy-mm-dd date (false while the date is incomplete): the consent rules of Register. */
 export function isMinor(dateOfBirth: string, today = new Date()): boolean {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateOfBirth);

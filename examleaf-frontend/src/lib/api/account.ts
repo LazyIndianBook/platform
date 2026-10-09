@@ -28,6 +28,28 @@ export async function settle<T>(answer: Promise<T>, path: string): Promise<T | A
   }
 }
 
+/** While a member of staff is signed in as this customer: when it ends and who (their address, masked). */
+export type Impersonation = { until: string; by: string };
+
+/** The account manifest's `impersonation` (GET account/), once per request: the banner and the actions it closes
+ *  read it. Not in openapi.json yet (the backend is adding it), so read by hand; a 404 (not there yet) or any failure
+ *  reads as none: the API refuses what an impersonation may not do whatever the page draws. */
+export const getImpersonation = cache(async (): Promise<Impersonation | null> => {
+  const { headers } = await personalFetch();
+  try {
+    const response = await fetch(`${API_INTERNAL_BASE}/api/v1/account/`, {
+      headers: { ...FORWARDED_HEADERS, ...headers, Accept: "application/json" },
+      cache: "no-store",
+    });
+    if (!response.ok) return null;
+    const body = (await response.json()) as { impersonation?: Partial<Impersonation> | null };
+    const found = body.impersonation;
+    return found && typeof found.until === "string" ? { until: found.until, by: String(found.by ?? "") } : null;
+  } catch {
+    return null;
+  }
+});
+
 /** GET me/ once per request: the layout, the page and its cards share it. */
 export const getMe = cache(async () => unwrap(serverApi.GET("/api/v1/me/", await personalFetch())));
 

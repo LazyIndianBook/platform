@@ -1,6 +1,8 @@
 // The root layout: fonts, the header and footer around every page (the 404 too), the toast region, the config
-// for client components (useConfig), the service worker, focus after client-side navigation. It reads the session, so
-// every page is rendered per request, which the CSP nonce needs anyway (src/proxy.ts sets their Cache-Control).
+// for client components (useConfig), the service worker, focus after client-side navigation, and while a support
+// colleague is signed in as this account the banner that says so above every page (and the actions it closes,
+// useImpersonation). It reads the session, so every page is rendered per request, which the CSP nonce needs anyway
+// (src/proxy.ts sets their Cache-Control).
 import "./globals.css";
 
 import type { Metadata, Viewport } from "next";
@@ -8,9 +10,11 @@ import type { Metadata, Viewport } from "next";
 import { ConfigProvider } from "@/components/providers/config-provider";
 import { RouteFocus } from "@/components/providers/route-focus";
 import { ServiceWorker } from "@/components/providers/service-worker";
+import { ImpersonationBanner, ImpersonationProvider } from "@/components/site/impersonation";
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteHeader } from "@/components/site/site-header";
 import { Toaster } from "@/components/ui/toaster";
+import { getImpersonation } from "@/lib/api/account";
 import { getBooks, getCartCount } from "@/lib/api/catalogue";
 import { getConfig } from "@/lib/api/config";
 import { hasSessionCookie } from "@/lib/api/server";
@@ -50,8 +54,12 @@ async function footerBooks() {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const [config, user, books] = await Promise.all([getConfig(), getSessionUser(), footerBooks()]);
-  // an account's cart, or a visitor's guest cart (it lives in the session: no session cookie, no cart to ask about)
-  const cartCount = (await hasSessionCookie()) ? await getCartCount() : 0;
+  // an account's cart, or a visitor's guest cart (it lives in the session: no session cookie, no cart to ask about);
+  // and whether a support colleague is signed in as this account (the banner above every page)
+  const [cartCount, impersonation] = await Promise.all([
+    hasSessionCookie().then((has) => (has ? getCartCount() : 0)),
+    user ? getImpersonation() : null,
+  ]);
   return (
     <html lang="en" className={fontVariables}>
       <body>
@@ -59,11 +67,14 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           Skip to the content
         </a>
         <ConfigProvider value={config}>
-          <SiteHeader signedIn={Boolean(user)} cartCount={cartCount} />
-          <main id="main" tabIndex={-1} className="flex flex-col">
-            {children}
-          </main>
-          <SiteFooter books={books} signedIn={Boolean(user)} />
+          <ImpersonationProvider value={impersonation}>
+            <ImpersonationBanner />
+            <SiteHeader signedIn={Boolean(user)} cartCount={cartCount} />
+            <main id="main" tabIndex={-1} className="flex flex-col">
+              {children}
+            </main>
+            <SiteFooter books={books} signedIn={Boolean(user)} />
+          </ImpersonationProvider>
           <Toaster />
         </ConfigProvider>
         <ServiceWorker />

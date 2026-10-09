@@ -6,6 +6,7 @@
 import { PageHead, Problem } from "@/components/account/parts";
 import { DataExport, DeleteAccountForm, KeepAccountButton, ParentResendForm } from "@/components/account/privacy-forms";
 import { SmsUpdatesSwitch } from "@/components/account/security-forms";
+import { WhileImpersonated } from "@/components/site/impersonation";
 import { Alert } from "@/components/ui/alert";
 import { getMe, settle } from "@/lib/api/account";
 import { getConfig } from "@/lib/api/config";
@@ -74,7 +75,9 @@ export default async function PrivacyPage() {
               Not arrived? Check the {config?.auth.sms ? "email address or mobile number" : "address"}, change it if it
               is wrong, and send the link again:
             </p>
-            <ParentResendForm contact={me.parent_contact} sms={Boolean(config?.auth.sms)} />
+            <WhileImpersonated what="Sending the parent's link again">
+              <ParentResendForm contact={me.parent_contact} sms={Boolean(config?.auth.sms)} />
+            </WhileImpersonated>
           </section>
         ) : consentDate ? (
           <section id="consent" aria-label={minor ? "Your parent's consent" : "Your consent"} className="scroll-mt-4">
@@ -103,7 +106,9 @@ export default async function PrivacyPage() {
         ) : null}
 
         <Part id="data" title="Download your data" text="Your details, record, course progress and orders, as a file.">
-          <DataExport hasPassword={hasPassword} summary={summary} />
+          <WhileImpersonated what="Downloading the account's data">
+            <DataExport hasPassword={hasPassword} summary={summary} />
+          </WhileImpersonated>
         </Part>
 
         <Part id="delete" title="Delete my account" text="Orders are kept as the law requires; everything else goes.">
@@ -113,10 +118,14 @@ export default async function PrivacyPage() {
               title={`Your account will be deleted on ${formatDate(me.deletion_due_at, "long")}.`}
             >
               <p>Until then you can log in and keep it.</p>
-              <KeepAccountButton />
+              <WhileImpersonated what="Keeping the account">
+                <KeepAccountButton />
+              </WhileImpersonated>
             </Alert>
           ) : (
-            <DeleteAccountForm hasPassword={hasPassword} email={me.email} />
+            <WhileImpersonated what="Deleting the account">
+              <DeleteAccountForm hasPassword={hasPassword} email={me.email} />
+            </WhileImpersonated>
           )}
         </Part>
       </div>

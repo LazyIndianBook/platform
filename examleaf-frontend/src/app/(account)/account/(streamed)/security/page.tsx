@@ -5,6 +5,7 @@
 // switched on comes from config/, never assumed. #change-email, #mobile-number, #change-password, #google, #passkeys
 // and #devices stay the rows' addresses (next.config.ts redirects the old pages there).
 import { PageHead, Problem } from "@/components/account/parts";
+import { WhileImpersonated } from "@/components/site/impersonation";
 import {
   Devices,
   EmailForm,
@@ -62,7 +63,9 @@ export default async function SecurityPage() {
           action="Change"
           open={Boolean(pending)}
         >
-          <EmailForm pending={pending} />
+          <WhileImpersonated what="Changing the email address">
+            <EmailForm pending={pending} />
+          </WhileImpersonated>
         </Setting>
 
         {config.auth.sms ? (
@@ -74,7 +77,9 @@ export default async function SecurityPage() {
             }
             action={me.login_phone_verified ? "Change" : "Add"}
           >
-            <PhoneForm current={me.login_phone_verified ? me.login_phone : null} />
+            <WhileImpersonated what="Changing the mobile number">
+              <PhoneForm current={me.login_phone_verified ? me.login_phone : null} />
+            </WhileImpersonated>
           </Setting>
         ) : null}
 
@@ -84,14 +89,18 @@ export default async function SecurityPage() {
           value={hasPassword ? "Set" : "None yet: you log in with Google or a code"}
           action={hasPassword ? "Change" : "Set one"}
         >
-          <PasswordForm hasPassword={hasPassword} />
+          <WhileImpersonated what="Changing the password">
+            <PasswordForm hasPassword={hasPassword} />
+          </WhileImpersonated>
         </Setting>
 
         {config.auth.google ? (
           providers instanceof ApiError ? (
             <Problem error={providers} what="Your Google account" retry={path} />
           ) : (
-            <GoogleAccounts accounts={providers} />
+            <WhileImpersonated what="Linking a Google account">
+              <GoogleAccounts accounts={providers} />
+            </WhileImpersonated>
           )
         ) : null}
 
@@ -111,7 +120,9 @@ export default async function SecurityPage() {
             {authenticators instanceof ApiError ? (
               <Problem error={authenticators} what="Your passkeys" retry={path} />
             ) : (
-              <Passkeys passkeys={passkeys} />
+              <WhileImpersonated what="Adding or removing a passkey">
+                <Passkeys passkeys={passkeys} />
+              </WhileImpersonated>
             )}
           </Setting>
         ) : null}
