@@ -42,9 +42,11 @@ if os.environ.get("LOG_JSON", "1") != "0":
             }
         },
         "handlers": {"stdout": {"class": "logging.StreamHandler", "stream": "ext://sys.stdout", "formatter": "json"}},
+        "root": {"level": "INFO", "handlers": ["stdout"]},
         "loggers": {
             "gunicorn.error": {"handlers": ["stdout"], "level": "INFO", "propagate": False},
-            "gunicorn.access": {"handlers": ["stdout"], "level": "INFO", "propagate": False},
+            # a config dict turns gunicorn's access log on: its lines (INFO) are left out, Django logs each request
+            "gunicorn.access": {"handlers": ["stdout"], "level": "WARNING", "propagate": False},
         },
     }
 

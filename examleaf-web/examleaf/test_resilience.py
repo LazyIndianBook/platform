@@ -202,6 +202,15 @@ def test_gunicorn_runs_from_one_config_file_wherever_it_runs(settings, monkeypat
     assert (config.timeout, config.graceful_timeout, config.keepalive) == (60, 30, 5)
     assert (config.max_requests, config.max_requests_jitter, config.control_socket_disable) == (1000, 100, True)
     assert config.logconfig_dict["formatters"]["json"]["()"] == "pythonjsonlogger.json.JsonFormatter"
+    root = logging.getLogger()
+    kept = root.handlers[:], root.level
+    try:
+        from gunicorn.glogging import Logger
+
+        Logger(config)  # gunicorn's own set-up of its logging (dictConfig): it refuses a config it cannot apply
+        assert not logging.getLogger("gunicorn.access").isEnabledFor(logging.INFO)  # Django logs the requests
+    finally:
+        root.handlers[:], root.level = kept
     monkeypatch.setenv("WEB_CONCURRENCY", "3")
     monkeypatch.setenv("GUNICORN_THREADS", "4")
     assert (gunicorn_config(path).workers, gunicorn_config(path).threads) == (3, 4)
