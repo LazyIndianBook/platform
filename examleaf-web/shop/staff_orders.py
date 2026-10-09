@@ -1185,8 +1185,7 @@ class OrderViewSet(OrdersView, mixins.ListModelMixin, mixins.RetrieveModelMixin,
             kind, value = classify(query)
             if kind in LOOKUPS:  # one event per search of a person: its keyed hash, what it found (no query itself)
                 found = self.filter_queryset(self.get_queryset()).count()
-                details = {"kind": kind, "query": audit.mask(value, "contact"), "found": found, "list": "orders"}
-                audit.record("customer.lookup", request=request, details=details)
+                audit.lookup(request, value, found, kind=kind, source="orders")
         return response
 
     @extend_schema(
