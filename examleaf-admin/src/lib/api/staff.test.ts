@@ -101,6 +101,11 @@ describe("the guards", () => {
     expect(manifest.limits).toEqual({ refund_inr: 2000, discount_percent: 20, export_rows: 5000, bulk_rows: 100 });
     expect(manifest.scopes).toEqual({ subject: ["PHY"] });
     expect(manifest.idle_timeout_s).toBe(1800);
+    // the platform's User.full_name serves as the name
+    fetchMock.mockResolvedValueOnce(
+      json(200, { ...SESSION, user: { id: 7, email: "s@example.com", full_name: "S M" } }),
+    );
+    expect((await getSession()).user.name).toBe("S M");
   });
 
   it("fail loudly as bad_response when a field the console needs is missing or renamed", async () => {
@@ -125,6 +130,10 @@ describe("in the browser, the answers that act", () => {
     fetchMock.mockResolvedValueOnce(json(401, { detail: "Authentication credentials were not provided." }));
     await expect(userAction("7101", "unlock")).rejects.toMatchObject({ status: 401 });
     expect(client.sessionEnded).toHaveBeenCalledWith("expired");
+    // the backend's own idle limit says so, and the sign-in page says why
+    fetchMock.mockResolvedValueOnce(json(401, { detail: "Signed out after inactivity.", code: "session_idle" }));
+    await expect(userAction("7101", "unlock")).rejects.toMatchObject({ status: 401 });
+    expect(client.sessionEnded).toHaveBeenLastCalledWith("idle");
   });
 
   it("reauth_required waits for 'confirm it's you', then sends the call once more", async () => {

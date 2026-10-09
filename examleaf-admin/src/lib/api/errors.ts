@@ -6,6 +6,7 @@
 //   403 permission_denied      the role does not allow it (the manifest is read again)
 //   403 scope_denied           the record is outside the person's scopes (the manifest is read again)
 //   403 reauth_required        confirm it's you (allauth's reauthenticate flows), then the call is sent again once
+//                              (reauthentication_required, the platform's name for it, reads the same)
 //   403 approval_required      a change request was made instead; changeRequestId links to it
 //   403 mfa_setup_required     staff without two-step sign-in (StaffMFAMiddleware)
 //   409 conflict               the record changed since it was read (If-Match): reload, the draft kept
@@ -27,6 +28,10 @@ const DEFAULT_MESSAGES: Record<number, string> = {
   503: copy.errors.unavailable,
   504: copy.errors.unavailable,
 };
+
+// The platform's own names for the same answers (API.md: the account endpoints already answer
+// reauthentication_required), read as the brief's, so either side of the contract works.
+const ALIASES: Record<string, string> = { reauthentication_required: "reauth_required" };
 
 const CODES: Record<number, string> = {
   0: "unavailable",
@@ -134,7 +139,7 @@ export function toApiError(status: number, body: unknown, headers?: Headers | nu
   }
 
   if (typeof record.detail === "string") {
-    const named = typeof record.code === "string" && record.code ? record.code : code;
+    const named = typeof record.code === "string" && record.code ? (ALIASES[record.code] ?? record.code) : code;
     return new ApiError(status, named, record.detail, {}, body, retryAfter);
   }
 

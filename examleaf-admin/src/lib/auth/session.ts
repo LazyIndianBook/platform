@@ -11,7 +11,7 @@ import "server-only";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 
-import { signInHref } from "@/lib/api/client";
+import { endedBy, signInHref } from "@/lib/api/client";
 import { ApiError, unavailableError } from "@/lib/api/errors";
 import { hasSessionCookie, staffTransport } from "@/lib/api/server";
 import { getSession, type Manifest } from "@/lib/api/staff";
@@ -29,7 +29,9 @@ const readSession = cache(async (): Promise<Manifest | ApiError> => {
 export async function requireStaff(path: string): Promise<Manifest> {
   const session = await readSession();
   if (!(session instanceof ApiError)) return session;
-  if (session.status === 401) redirect(signInHref(path));
+  // signed out: plain sign-in; a session the backend ended (session_idle, session_expired): says why
+  if (session.status === 401)
+    redirect(signInHref(path, session.code.startsWith("session_") ? endedBy(session.code) : undefined));
   if (session.code === "mfa_setup_required") redirect("/set-up-two-step/");
   if (session.status === 403) redirect("/no-access/");
   if (session.code === "bad_response") throw session;

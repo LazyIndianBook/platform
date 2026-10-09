@@ -19,6 +19,8 @@ describe("toApiError", () => {
       expect(error.message).toBe("No.");
       expect(error.unavailable).toBe(false);
     }
+    // the platform's name for "confirm it's you" (its account endpoints') reads as the brief's
+    expect(toApiError(403, { detail: "Confirm.", code: "reauthentication_required" }).code).toBe("reauth_required");
   });
 
   it("finds the change request an approval_required names, in any of its shapes", () => {

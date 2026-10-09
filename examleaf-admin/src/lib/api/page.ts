@@ -6,7 +6,7 @@ import "server-only";
 import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 
-import { signInHref } from "@/lib/api/client";
+import { endedBy, signInHref } from "@/lib/api/client";
 import { ApiError } from "@/lib/api/errors";
 import { staffTransport } from "@/lib/api/server";
 import type { Manifest, Transport } from "@/lib/api/staff";
@@ -48,7 +48,7 @@ export async function attempt<T>(
   try {
     return await answer;
   } catch (error) {
-    if (error instanceof ApiError && error.status === 401) redirect(signInHref(path, "expired"));
+    if (error instanceof ApiError && error.status === 401) redirect(signInHref(path, endedBy(error.code)));
     if (error instanceof ApiError && error.status === 404 && missing === "404") notFound();
     if (error instanceof ApiError) return error;
     throw error;

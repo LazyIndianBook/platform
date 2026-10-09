@@ -31,6 +31,9 @@ export function signInHref(next?: string | null, reason?: SignInReason): string 
   return reason ? `${href}${href.includes("?") ? "&" : "?"}reason=${reason}` : href;
 }
 
+/** Why a 401 ended the session, in the sign-in page's words: the backend's own idle limit (`session_idle`), or not. */
+export const endedBy = (code: string): SignInReason => (code === "session_idle" ? "idle" : "expired");
+
 /** The page the person is on, for `next`. */
 export function here(): string {
   return typeof window === "undefined" ? "/" : window.location.pathname + window.location.search;

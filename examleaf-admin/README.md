@@ -78,7 +78,8 @@ No `NEXT_PUBLIC_` value is a secret. Sign-in methods come from `GET /api/v1/conf
   server's own. In the browser the transport is left out: same origin, the CSRF token from the `csrftoken` cookie on
   every change, and the browser's reactions (`src/lib/api/client.ts`).
 - **Answers the console acts on** (`src/lib/api/errors.ts`): a 401 sends the person to sign in and back (what they
-  typed stays in sessionStorage, `useDraftForm`); 403 `reauth_required` opens "Confirm it's you" (allauth's
+  typed stays in sessionStorage, `useDraftForm`; the backend's `session_idle` says it was the idle limit); 403
+  `reauth_required` (or the platform's `reauthentication_required`) opens "Confirm it's you" (allauth's
   reauthenticate flows: the authenticator's code, the password, a passkey) and sends the call once more;
   `permission_denied` and `scope_denied` render the page again from the server, which reads the manifest afresh;
   `approval_required` (or a 202 with a change request) shows that a change request was made and links to it; 409 offers

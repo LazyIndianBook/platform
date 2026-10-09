@@ -13,7 +13,7 @@
 import type { Flow } from "@/lib/auth/headless";
 import { copy } from "@/lib/copy";
 
-import { ensureCsrfCookie, manifestStale, reauth, readCookie, sessionEnded } from "./client";
+import { endedBy, ensureCsrfCookie, manifestStale, reauth, readCookie, sessionEnded } from "./client";
 import { ApiError, changeRequestOf, toApiError } from "./errors";
 
 /** Compiled in by next.config.ts: "1" only in `next dev` with STAFF_API_MOCK=1, "" in every build. */
@@ -90,7 +90,7 @@ async function call<T>(
   if (!response.ok) {
     const error = toApiError(response.status, json, response.headers);
     if (browser) {
-      if (error.status === 401) sessionEnded("expired");
+      if (error.status === 401) sessionEnded(endedBy(error.code));
       if (error.code === "reauth_required" && !retried && (await reauth.request(flowsOf(json))))
         return call(transport, method, path, read, options, true);
       if (error.code === "permission_denied" || error.code === "scope_denied") manifestStale();
@@ -228,7 +228,7 @@ export function readManifest(body: unknown): Manifest {
     user: {
       id: anId(user.id, "user.id"),
       email: text(user.email, "user.email"),
-      name: maybeText(user.name, "user.name") ?? "",
+      name: maybeText(user.name ?? user.full_name, "user.name") ?? "",
     },
     roles: list(record.roles, "roles", (value, what) => {
       const role = obj(value, what);

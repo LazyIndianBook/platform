@@ -157,7 +157,7 @@ async function recentlyAuthenticated(request: Request): Promise<boolean> {
 
 const REAUTH = {
   detail: "Confirm it's you to do this.",
-  code: "reauth_required",
+  code: "reauthentication_required", // the platform's name (API.md); the console reads the brief's too
   flows: [{ id: "reauthenticate" }, { id: "mfa_reauthenticate", types: ["totp"] }],
 };
 
