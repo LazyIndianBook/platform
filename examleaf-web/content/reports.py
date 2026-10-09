@@ -126,7 +126,12 @@ def receive(*, target, subject, paper=None, question=None, step=None, printing="
 
 
 def locked(report):
-    return ErrorReport.objects.select_for_update().select_related("paper", "question", "subject").get(pk=report.pk)
+    # of=("self",): the report's row alone; PostgreSQL refuses FOR UPDATE on the nullable side of an outer join
+    return (
+        ErrorReport.objects.select_for_update(of=("self",))
+        .select_related("paper", "question", "subject")
+        .get(pk=report.pk)
+    )
 
 
 @transaction.atomic

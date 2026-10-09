@@ -67,7 +67,8 @@ def subject_code(obj):
 
 def locked(obj):
     """The record again, locked to the end of the transaction (two people saving one draft wait for each other)."""
-    return type(obj).objects.select_for_update().select_related(*related(obj)).get(pk=obj.pk)
+    # of=("self",): the row alone; PostgreSQL refuses FOR UPDATE on the nullable side of an outer join
+    return type(obj).objects.select_for_update(of=("self",)).select_related(*related(obj)).get(pk=obj.pk)
 
 
 def related(obj):
