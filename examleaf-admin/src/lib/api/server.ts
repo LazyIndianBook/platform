@@ -3,10 +3,12 @@
 // docker-compose.yml), speaking for the signed-in person. Their cookies go with every call, with their address
 // (X-Forwarded-For, as Caddy gave it) and browser, and INTERNAL_API_TOKEN (X-Internal-Token), which makes Django believe
 // the address. Never cached: every staff answer is the person's own (Cache-Control: no-store from the API too). The
-// server holds no credential of its own (no "god token"): it can do only what the person's session can.
+// server holds no credential of its own (no "god token"): it can do only what the person's session can. Every call
+// gives up at the request's deadline (apiSignal): a hung Django costs a page 10 s at most.
 import "server-only";
 
 import { cookies, headers } from "next/headers";
+import { cache } from "react";
 
 import { FORWARDED_HEADERS } from "@/lib/site";
 
@@ -18,6 +20,15 @@ export const API_INTERNAL_BASE = (process.env.API_INTERNAL_BASE ?? "http://local
 export { FORWARDED_HEADERS };
 
 const INTERNAL_API_TOKEN = process.env.INTERNAL_API_TOKEN ?? "";
+
+/** One deadline per request (React's cache is per request): every call to Django in a render shares it, so a hung
+ *  Django costs a page this long at most however many calls it makes (10 s, or API_INTERNAL_TIMEOUT_MS), never Node's
+ *  default (5 minutes for the headers alone). Outside a render (a route handler) each call has its own. */
+const deadline = cache(() => AbortSignal.timeout(Number(process.env.API_INTERNAL_TIMEOUT_MS) || 10_000));
+
+/** The signal of a call to Django: the request's deadline, with the caller's own signal when it brings one. A deadline
+ *  that passes rejects the call with a TimeoutError, which call() in staff.ts reports as status 0, "unavailable". */
+export const apiSignal = (signal?: AbortSignal) => (signal ? AbortSignal.any([signal, deadline()]) : deadline());
 
 /** The person's cookies, address and browser, and the secret that makes Django believe the address. */
 export async function personHeaders(): Promise<Record<string, string>> {
@@ -31,7 +42,7 @@ export async function personHeaders(): Promise<Record<string, string>> {
   return forwarded;
 }
 
-const noStore = (request: Request) => fetch(request, { cache: "no-store" });
+const noStore = (request: Request) => fetch(request, { cache: "no-store", signal: apiSignal(request.signal) });
 
 /** The staff API as the signed-in person, for server components. With STAFF_API_MOCK=1 (next dev only) the fixtures
  *  answer in this process, through the same handler as the browser's calls (src/app/api/mock/staff/). */
@@ -59,6 +70,7 @@ export async function allauthGet<T>(path: string): Promise<{ status: number; dat
     const response = await fetch(`${API_INTERNAL_BASE}/_allauth/browser/v1${path}`, {
       headers: { ...(await personHeaders()), Accept: "application/json" },
       cache: "no-store",
+      signal: apiSignal(),
     });
     const body = (await response.json().catch(() => null)) as { data?: T } | null;
     return { status: response.status, data: response.ok ? ((body?.data as T) ?? null) : null };

@@ -2,7 +2,7 @@
 // guide"). The console needs only the sign-in methods: Google, and passkeys for the second step.
 import "server-only";
 
-import { API_INTERNAL_BASE, FORWARDED_HEADERS } from "./server";
+import { API_INTERNAL_BASE, apiSignal, FORWARDED_HEADERS } from "./server";
 
 export type SiteConfig = { auth: { google: boolean; passkeys: boolean } };
 
@@ -12,6 +12,7 @@ export async function getConfig(): Promise<SiteConfig | null> {
     const response = await fetch(`${API_INTERNAL_BASE}/api/v1/config/`, {
       headers: { ...FORWARDED_HEADERS, Accept: "application/json" },
       cache: "no-store",
+      signal: apiSignal(),
     });
     if (!response.ok) return null;
     const body = (await response.json()) as { auth?: { google?: unknown; passkeys?: unknown } } | null;
