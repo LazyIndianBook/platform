@@ -31,6 +31,7 @@ import { ordersJob, ordersJobPermission, ordersPermission, ordersRoute, type Ord
 import { MANAGEMENT_PERMISSIONS, offerEndSessions, passkeyDue, routeManagement } from "./management";
 import { contentPermission, contentRoute, startContentImport, type Tools } from "./content";
 import { grievanceFile, type Kit, startGrievanceExport, supportPermission, supportRoute } from "./support-handler";
+import { financePermission, financeRoute, startSettlementFetch } from "./finance";
 
 type S = MockSchemas;
 
@@ -70,6 +71,7 @@ const SUPPORT = [
   ...["accounts.view_legalhold", "accounts.view_nominee"], // legal and privacy: what holds an erasure
   ...["shop.view_product", "shop.view_invoice", "shop.view_creditnote", "shop.view_quoterequest"],
   ...["shop.view_returnrequest", "staff.handle_return"],
+  ...["shop.view_payment", "shop.view_refund"], // Finance's payments and refunds, read (not its settlements)
   // support (roles.py SUPPORT): every ticket, the saved replies read; the course's entitlements and book codes
   ...["support.view_ticket", "support.note_ticket", "staff.handle_ticket", "support.view_savedreply"],
   ...["learn.view_entitlement", "learn.change_entitlement", "learn.view_bookcode"],
@@ -87,6 +89,9 @@ const FINANCE = [
   ...["shop.view_product", "shop.view_invoice", "shop.view_creditnote", "shop.view_returnrequest"],
   ...["shop.view_quoterequest", "shop.export_order"],
   "integrations.view_integrationaccount", // the connections' cards (the payment settings)
+  // Finance (shop/staff_finance.py): payments, refunds, links and settlements; a day fetched, a line matched by hand
+  ...["shop.view_payment", "shop.view_refund", "shop.view_settlement", "shop.view_settlementline"],
+  ...["shop.view_invoicepaymentlink", "staff.reconcile_settlements", "staff.replay_webhook"],
 ];
 // the Orders module's roles (accounts/roles.py): SALES runs the orders, SALES_REP makes staff orders and quotes, PACKER
 // packs and receives returns
@@ -97,6 +102,7 @@ const SALES = [
   ...["shop.view_creditnote", "shop.view_quoterequest", "shop.change_quoterequest", "shop.view_returnrequest"],
   ...["staff.refund_order", "staff.record_offline_payment", "staff.add_changerequest"],
   ...["staff.handle_return", "staff.receive_return", "staff.view_parcels"],
+  ...["shop.view_payment", "shop.view_refund"], // Finance's payments, refunds and links (they make the links)
 ];
 const SALES_REP = [
   ...PANEL,
@@ -483,6 +489,7 @@ function permissionFor(context: Context): string | null {
       const kind = context.body.kind;
       if (kind === "content_import") return "staff.import_content";
       if (kind === "grievance_export") return "staff.export_grievances";
+      if (kind === "settlement_fetch") return "staff.reconcile_settlements";
       return ordersJobPermission(kind) ?? "staff.add_job";
     }
     case "orders":
@@ -562,6 +569,8 @@ function permissionFor(context: Context): string | null {
     }
     case "support":
       return supportPermission(context);
+    case "finance":
+      return financePermission(context);
   }
   void c;
   return "staff.view_system";
@@ -907,6 +916,8 @@ async function route(context: Context): Promise<Response> {
       if (method === "POST" && !a) {
         const kind = text(body.kind);
         if (kind === "grievance_export") return startGrievanceExport(context, KIT);
+        if (kind === "settlement_fetch")
+          return startSettlementFetch(context, KIT, { ...((body.params ?? {}) as Body), dry_run: body.dry_run });
         if (kind === "content_import") {
           const started = startContentImport(toolsOf(context));
           return started instanceof Response ? started : json(202, visibleJob(context, started));
@@ -1970,6 +1981,9 @@ async function route(context: Context): Promise<Response> {
 
     case "support":
       return supportRoute(context, KIT);
+
+    case "finance":
+      return financeRoute(context, KIT);
   }
   return notFound();
 }

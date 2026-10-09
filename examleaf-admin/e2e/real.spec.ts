@@ -13,22 +13,26 @@
 // books of three, above their ₹1,000: the 202 and its change request. Content: a CONTENT_EDITOR drafts a solution and
 // submits it, a REVIEWER publishes it from the inbox, and the OWNER's audit trail shows both. Support: SUPPORT answers
 // the customer's ticket, its first reply is recorded, and the OWNER finds the reply in the ticket's audit trail.
+// Finance: FINANCE opens Finance today and, from its refunds to approve, the seeded refund's change request.
 import { type Browser, expect, type Page, test } from "@playwright/test";
 
 import { checkPages, type Codes, csrf, settle, signIn, toast } from "./console";
 import {
   type ContentWorld,
   createStaff,
-  deleteOrdersWorld,
   deleteContent,
+  deleteFinanceWorld,
+  deleteOrdersWorld,
   deleteRealWorld,
   deleteStaff,
+  type FinanceWorld,
   newSecret,
   type OrdersWorld,
   type RealTicket,
   type RealWorld,
-  seedOrdersWorld,
   seedContent,
+  seedFinanceWorld,
+  seedOrdersWorld,
   seedRealWorld,
   seedTicket,
   type Staff,
@@ -56,6 +60,7 @@ const reviewer = staffFor("REVIEWER");
 const editorCodes: Codes = { last: null };
 const reviewerCodes: Codes = { last: null };
 let content: ContentWorld;
+let money: FinanceWorld;
 let ticket: RealTicket;
 let supportId: number;
 let editorId: number;
@@ -75,12 +80,14 @@ test.beforeAll(() => {
   reviewerId = createStaff(reviewer, "REVIEWER");
   content = seedContent(stamp);
   ticket = seedTicket(world);
+  money = seedFinanceWorld(stamp, support.email);
 });
 
 test.afterAll(() => {
   if (world) deleteRealWorld(world);
   if (shop) deleteOrdersWorld(shop);
   if (content) deleteContent(content);
+  if (money) deleteFinanceWorld(money);
   deleteStaff([owner.email, support.email, sales.email, finance.email, editor.email, reviewer.email]);
 });
 
@@ -450,6 +457,16 @@ for (const width of [1280, 390]) {
         "/support/new/",
         "/support/replies/",
         "/support/export/",
+        // Phase B: Finance, as this backend answers it with no Razorpay keys (no settlement fetched yet)
+        "/finance/",
+        "/finance/payments/",
+        `/finance/payments/${money.payment}/`,
+        "/finance/refunds/",
+        "/finance/refunds/?state=waiting",
+        "/finance/offline-payments/",
+        "/finance/payment-links/",
+        "/finance/payment-links/?kind=invoice",
+        "/finance/settlements/",
       ],
       width,
     );
@@ -571,4 +588,24 @@ test("Orders: SALES makes a staff order, FINANCE finds it, SUPPORT's refund of t
     await expect(dialog.getByText("staff.approve_refund", { exact: true })).toBeVisible();
     await page.context().close();
   });
+});
+
+test("Finance: FINANCE opens Finance today, and from it the refund waiting for their approval", async ({ browser }) => {
+  const page = await open(browser);
+  await signIn(page, finance, "/finance/", financeCodes);
+  await expect(page.getByRole("heading", { level: 1, name: "Finance" })).toBeVisible();
+  const today = page.getByRole("region", { name: "What waits today" });
+  await expect(today.getByText("Disputes")).toBeVisible();
+  await expect(today.getByText("Not set up")).toBeVisible();
+  await today.getByRole("link", { name: "Refunds to approve" }).click();
+  await expect(page).toHaveURL(/\/finance\/refunds\/\?state=waiting$/);
+  await page
+    .getByRole("region", { name: "Refunds, a table" })
+    .getByRole("link", { name: `Change request #${money.request}` })
+    .click();
+  await expect(page).toHaveURL(new RegExp(`/approvals/${money.request}/$`));
+  await expect(page.getByRole("heading", { level: 1, name: "Refund an order" })).toBeVisible();
+  await expect(page.getByText("A refund of ₹2,400.00 is above the limit of ₹1,000.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Approve" })).toBeVisible(); // FINANCE approves; SUPPORT asked
+  await page.context().close();
 });

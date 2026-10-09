@@ -207,6 +207,42 @@ print(Product.objects.filter(title__startswith=${py(world.title)}).delete())
 `);
 }
 
+export type FinanceWorld = { order: string; payment: number; request: number };
+
+/** For the Finance journey: an order of ₹2,400 paid online and not yet sent, and its refund asked for by `maker` (a
+ *  SUPPORT member: above their ₹1,000, so a change request waits for FINANCE), made as the panel makes one
+ *  (staff.approvals.ask: its inbox item and audit event follow). */
+export function seedFinanceWorld(stamp: number, maker: string): FinanceWorld {
+  return lastJson<FinanceWorld>(
+    shell(`
+import json
+from django.utils import timezone
+from accounts.models import User
+from shop.models import Order, Payment
+from staff import approvals
+address = {"name": "Real E2E Payer", "phone": "+919864012345", "line1": "1 Test Lane", "line2": "", "city": "Guwahati", "district": "Kamrup Metro", "state": "AS", "pin": "781001"}
+order = Order.objects.create(email=${py(`admin-ui-payer-${stamp}@example.com`)}, shipping_address=address, subtotal=2400, total=2400, payment_method="razorpay", placed_at=timezone.now())
+Order.objects.filter(pk=order.pk).update(status="paid")
+payment = Payment.objects.create(order=order, method="razorpay", amount=2400, razorpay_order_id=${py(`order_e2ef${stamp}`)}, razorpay_payment_id=${py(`pay_e2ef${stamp}`)})
+Payment.objects.filter(pk=payment.pk).update(status="captured")
+order.refresh_from_db()
+request, _ = approvals.ask("order.refund", maker=User.objects.get(email=${py(maker)}), target=order.number, payload={}, reason="The customer cancelled by phone (the console's tests).")
+print(json.dumps({"order": order.number, "payment": payment.pk, "request": request.pk}))
+`),
+  );
+}
+
+/** Deletes what seedFinanceWorld made but its change request (deleteStaff takes it, with its maker) and the audit
+ *  events (the log is append-only). */
+export function deleteFinanceWorld(world: FinanceWorld) {
+  shell(`
+from shop.models import Order, Payment
+orders = Order.objects.filter(number=${py(world.order)})
+Payment.objects.filter(order__in=orders).delete()
+print(orders.delete())
+`);
+}
+
 /** Deletes what seedContent made and what the journey made of it (its reviews and their inbox items) but the audit
  *  events (the log is append-only) and the versions (the history keeps them). */
 export function deleteContent(world: ContentWorld) {
