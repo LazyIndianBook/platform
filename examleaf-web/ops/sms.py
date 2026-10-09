@@ -26,6 +26,7 @@ from .models import SmsLog
 
 logger = logging.getLogger(__name__)
 MSG91 = "https://control.msg91.com/api/v5/"
+TIMEOUT = httpx.Timeout(10, connect=3)  # seconds: 3 to connect, 10 for each read or write (retries: send_sms)
 KEEP = timedelta(days=90)  # SmsLog rows
 # Limits before SMS_DAILY_CAP (M2), every kind together: per number over the last hour and day, per account over the
 # last day. Then each purpose's share of the day's cap (since midnight, India), so that consent links or order updates
@@ -79,10 +80,10 @@ def msg91(kind, phone, variables):
     template = settings.MSG91_TEMPLATES[kind]
     if kind == "otp":
         params = {"template_id": template, "mobile": mobile, "otp": variables["otp"]}
-        response = httpx.post(MSG91 + "otp", params=params, json={}, headers=headers, timeout=10)
+        response = httpx.post(MSG91 + "otp", params=params, json={}, headers=headers, timeout=TIMEOUT)
     else:
         body = {"template_id": template, "short_url": "0", "recipients": [{"mobiles": mobile, **variables}]}
-        response = httpx.post(MSG91 + "flow", json=body, headers=headers, timeout=10)
+        response = httpx.post(MSG91 + "flow", json=body, headers=headers, timeout=TIMEOUT)
     try:
         data = response.json()
     except ValueError:

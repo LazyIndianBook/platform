@@ -21,7 +21,10 @@ from . import services
 from .models import INR, Order, Payment, Refund, WebhookEvent, live_mode, paise
 
 logger = logging.getLogger(__name__)
-TIMEOUT = 10  # seconds per Razorpay call: an unreachable Razorpay must not hang a page
+# Seconds per Razorpay call, to connect and then for each read of the answer (requests' pair): an unreachable or a
+# silent Razorpay costs a checkout 3 or 10 seconds and the "could not be reached" answer, never a hung thread. The
+# SDK's own retries stay off (Client.enable_retry): a page retries by the customer's click, a task by Celery.
+TIMEOUT = (3, 10)
 WEBHOOK_MAX_AGE = timedelta(days=7)  # Razorpay retries a webhook for 24 hours; older signed events are replays
 LINK_DAYS = 15  # a payment link's life, as a quotation's (QuoteRequest.VALID_DAYS)
 API_ERRORS = (requests.RequestException, BadRequestError, GatewayError, ServerError)

@@ -46,6 +46,9 @@ def process_clip(self, clip_id):
         media.delete_files(old)
 
 
+FCM_TIMEOUT = 20  # seconds per call to Firebase (firebase-admin's default: 120), its own retries after it
+
+
 def firebase():
     """The Firebase app made from FCM_SERVICE_ACCOUNT_JSON (the JSON itself, or the path of the file)."""
     import firebase_admin
@@ -56,7 +59,8 @@ def firebase():
     except ValueError:
         account = settings.FCM_SERVICE_ACCOUNT_JSON
         info = json.loads(account) if account.lstrip().startswith("{") else account
-        return firebase_admin.initialize_app(credentials.Certificate(info), name="examleaf")
+        options = {"httpTimeout": FCM_TIMEOUT}
+        return firebase_admin.initialize_app(credentials.Certificate(info), options=options, name="examleaf")
 
 
 def reminder(learner, today):

@@ -802,3 +802,42 @@ CELERY_BEAT_SCHEDULE.update(
         "erp-reconcile": {"task": "erp.tasks.reconcile_day", "schedule": crontab(hour=3, minute=30)},
     }
 )
+
+# ---- Resilience (RESILIENCE.md: each knob below, its default and when to change it) --------------------------------
+# Nothing waits without a limit: every call to another service has a connect and a read timeout and a bounded retry,
+# every SQL statement a time limit in the processes that serve people. Kept in one block, after everything it reads.
+from botocore.config import Config as BotoConfig  # noqa: E402
+
+# What runs these settings: "gunicorn" (the web), "celery" (the workers and beat), else manage.py, pytest or a shell.
+PROGRAM = Path(sys.argv[0]).name
+# The S3 buckets (R2, AWS) and SES through boto3, whose defaults are 60 s to connect, 60 s per read and the legacy
+# retries: 3 s, 20 s (a clip's video is read in parts: per read, not in all) and three tries in all, standard mode.
+BOTO_CONFIG = {"connect_timeout": 3, "read_timeout": 20, "retries": {"mode": "standard", "total_max_attempts": 3}}
+for _alias in ("default", "public", "backups"):
+    if STORAGES.get(_alias, {}).get("BACKEND", "").endswith("S3Storage"):
+        STORAGES[_alias]["OPTIONS"].setdefault("client_config", BotoConfig(**BOTO_CONFIG))
+ANYMAIL.setdefault("AMAZON_SES_CLIENT_PARAMS", {}).setdefault("config", {**BOTO_CONFIG, "read_timeout": 10})
+ANYMAIL.setdefault("REQUESTS_TIMEOUT", (3, 10))  # anymail's HTTP backends (Brevo, Postmark): its default is 30 s
+# PostgreSQL: DB_CONNECT_TIMEOUT seconds to connect (libpq waits for the system's TCP timeout otherwise, minutes);
+# DB_STATEMENT_TIMEOUT seconds for any one statement and DB_IDLE_IN_TRANSACTION_TIMEOUT for a transaction left idle
+# (a thread stuck while holding row locks), by role: 15 and 60 in the web, 600 and 600 in Celery, none in manage.py
+# (migrations, imports and reports run as long as they need). Behind PgBouncer in transaction mode these startup
+# options are not passed on: RESILIENCE.md "Pooler" has the per-role ALTER ROLE instead.
+DB_CONNECT_TIMEOUT = env.int("DB_CONNECT_TIMEOUT", default=5)
+DB_STATEMENT_TIMEOUT = env.int("DB_STATEMENT_TIMEOUT", default={"gunicorn": 15, "celery": 600}.get(PROGRAM, 0))
+DB_IDLE_IN_TRANSACTION_TIMEOUT = env.int(
+    "DB_IDLE_IN_TRANSACTION_TIMEOUT", default={"gunicorn": 60, "celery": 600}.get(PROGRAM, 0)
+)
+if DATABASES["default"]["ENGINE"] == "django.db.backends.postgresql":
+    _db_options = DATABASES["default"].setdefault("OPTIONS", {})
+    _db_options.setdefault("connect_timeout", DB_CONNECT_TIMEOUT)
+    _limits = [
+        f"-c {name}={seconds * 1000}"
+        for name, seconds in [
+            ("statement_timeout", DB_STATEMENT_TIMEOUT),
+            ("idle_in_transaction_session_timeout", DB_IDLE_IN_TRANSACTION_TIMEOUT),
+        ]
+        if seconds
+    ]
+    if _limits:
+        _db_options["options"] = " ".join([_db_options.get("options", ""), *_limits]).strip()
