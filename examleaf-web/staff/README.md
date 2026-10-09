@@ -17,6 +17,7 @@ what this API answers and decides nothing itself. The endpoints are in [API.md](
 | `approvals.py` | maker-checker: `ask()`, `approve()`, `reject()`, `execute()`, the actions and their rules |
 | `privacy.py` | the data requests' clocks, the erasure's dry run and its holds, the processors' tasks, the answer's text with the contact block, the erasure ledger's hash, the masks |
 | `compliance.py`, `privacy_api.py` | Legal and privacy: the cockpit's clocks and calendar; its staff API (`/api/v1/staff/privacy/`) |
+| `customers.py`, `customers_api.py` | Customers: the list's tabs, the merged timeline, the spending summary, the children waiting for a parent, a parent's consent recorded by hand, the bulk actions on accounts; its endpoints (`users/…`, `CustomerViewSet`, which is `api.UserViewSet` with the module's paths added) |
 | `services.py` | roles, scopes, invitations, sessions, offboarding; the customers' account actions; impersonation; the role catalogue, a person's access, a role change's preview, the ERPNext mirror, one's own sessions, the offboarding checklist |
 | `config.py` | `site_setting()` and `feature_flag()`: the panel's switches over the environment's |
 | `permissions.py` | `IsStaff`, `StaffPermission`, API keys (`ApiKeyAuthentication`), the per-staff throttle |
@@ -131,11 +132,13 @@ than do something else. Each step is an audit event `<action>.requested|approved
 | `staff.grant_role`, `staff.invite` | `staff.assign_role` | `staff.approve_role_change` | a privileged role, or a role for yourself |
 | `user.reset_mfa` | `staff.reset_user_mfa` | the same (a customer's), `staff.approve_role_change` (staff) | always |
 | `user.erase` (`DeletionRequest.complete`) | `staff.handle_data_request` | `staff.approve_erasure` | always (staff started it) |
+| `user.suspend`, `user.unsuspend`, `user.end_sessions`, `user.resend_consent` (`customers.py`; named by a `bulk_action` job only, never by `change-requests/`) | `staff.suspend_user` (the first two), `staff.end_user_sessions`, `staff.resend_verification` | the job's: `staff.approve_export` (a row has no approval of its own) | the job above its starter's `bulk_rows`, or with a student under 18's account among its targets, however few |
 | `job.run` (a job above its starter's limit: `jobs.start`) | `staff.view_job` (the job's own permission is checked first) | `staff.approve_export` | above the kind's own limit (`jobs.LIMITS`): an export's `export_rows` (the grievance register's too), a bulk action's `bulk_rows` |
 
 The checkers' permissions: `approve_refund`, `approve_payment` and `approve_discount` are FINANCE's (and the owners');
 `approve_role_change`, `approve_erasure` and `approve_export` ADMIN's (and the owners'). `approvals.bulk_rule(maker,
-rows)` is the rule for bulk actions above `bulk_rows`, for when they come. When nobody else can approve, an owner with
+rows, minors=0)` is the rule for bulk actions: above `bulk_rows`, and whatever the count when a student under 18's
+account is among the rows (`Action.children(targets)` counts them; the customers' actions do). When nobody else can approve, an owner with
 `staff.break_glass` approves their own request with `override` and a reason; the owners are told and the event is
 marked `break_glass`. To add an action: a subclass of `approvals.Action` (`validate`, `rule`, `run`, the permissions)
 in `ACTIONS`.
@@ -260,7 +263,9 @@ by `result_url` (signed for 5 minutes; a bucket's own signed link behind it) and
 `expire_access`. Every step is an audit event (`job.requested`, `job.started`, `job.done`, `job.failed`,
 `job.cancelled`, `job.stopped`, `job.result_downloaded`). To add a kind: a `Job.Kind`, its permission in
 `jobs.permission`, its limit in `jobs.LIMITS`, its runner in `jobs.RUNNERS` and its params in
-`serializers.JobStartSerializer`. The ERPNext sync (`erp/README.md`) adds the kind `erp_initial_load`
+`serializers.JobStartSerializer`. The customers' account actions (`user.suspend`, `user.unsuspend`, `user.end_sessions`, `user.resend_consent`: "Phase B:
+customers") are `bulk_action`s, not a kind of their own.
+The ERPNext sync (`erp/README.md`) adds the kind `erp_initial_load`
 (`erp.run_initial_load`, the `bulk_rows` limit) and two kinds of inbox item: `sync_failed` (a dead letter) and
 `reconciliation` (a night's differences). The tax desk (`shop/README.md` "Tax") adds the kind `gstr1_export`
 (`staff.run_gstr1`, the `export_rows` limit; `{"month": "YYYY-MM", "months": 1 or 3}`, its file the GSTR-1 CSVs
@@ -455,6 +460,96 @@ person's access and previews, the connections and templates (changing them), the
 passkey first. FINANCE: the connections' cards read-only (the payment settings), the sync monitor; the passkey first.
 AUDITOR: every page read-only. MARKETING: the templates read-only. Everyone: their own sessions.
 
+## Phase B: customers
+
+The Customers module's backend (plan 5.4; research-lms-crm-cms 3.1, research-rbac-security 5). `customers.py` holds the
+rules, `customers_api.py` the endpoints (`CustomerViewSet`: `api.UserViewSet`, which stays as it was, with the module's
+paths added; `urls.py` mounts it as `users/` in place of the router's registration, the URL names `staff:user-*`
+unchanged) and `serializers.py` the badges. The endpoints are in API.md "Customers (staff)"; the console's pages are
+`/users/`, `/users/<id>/`, `/users/<id>/timeline/` and `/users/consent-pending/`.
+
+**What a read leaves in the log.** Opening a record, its timeline and its spending summary are each one
+`sensitive_read` event (`details.what`: `record`, `timeline`, `commerce`; `details.child`: true for a student under 18),
+as a reveal is, with its reason. A search for a person by name, email address or mobile number (`users/?q=`, the guest
+buyers' too, and the Orders list's) is one `customer.lookup` event: `kind` (email, phone, name), the query's keyed hash
+(`audit.lookup`, one helper for every list that takes a person in its search box), how many it found and `list`; never
+the words. Fewer than three letters finds nobody and is no lookup; browsing the tabs is none. Personal data is in no
+event's details, label or error: accounts are named by their number, orders by theirs, a consent's evidence by where it
+is (a ticket's number), never what it says.
+
+**The tabs** (`?kind=`). *Students*: accounts with a class level, or under 18 by their date of birth. *Parents*: adult
+accounts whose verified email address or verified log-in number is the parent contact a student named. A parent's
+consent is recorded on the child's account (`ConsentRecord.by_parent`, through the link sent to that contact), and most
+parents have no account, so this tab finds those who have one; it is a lookup, not proof of parenthood, and the console
+says so. *Guest buyers*: orders without an account, one row for each email address (lower case) with the number of its
+orders and the newest one; another row shape (`CustomerGuest`), masked as everywhere, readable by whoever may read orders
+(an order of an account holder is no guest's). A test-mode order is in none of them on a live site.
+
+**Badges** (on the list's rows and the record, no query per row; the page's lock-outs come in one): `email_verified`,
+`login_phone_verified`, `age_band` (`under_13`, `13_17`, `adult`, `unknown`: a date of birth not known), `consent` and
+`consent_method` (`declared`, `email_link`, `sms_link`, `adult_account`, `digilocker`, `staff_manual`; empty for an
+adult), `teacher`, `mfa_on` (an authenticator app or a passkey: recovery codes alone are no factor), `status` and
+`locked` (django-axes' lock-out, apart from the status). No lifetime-value prediction, RFM group or churn score exists
+for anyone, and a test says the serializers carry none.
+
+**The timeline** (`customers.timeline`): twelve parts, each one query of its newest rows however many it holds (`order`,
+`payment`, `refund`, `code`, `access`, `course`, `ticket`, `sms`, `email`, `consent`, `note`, `staff`), merged newest
+first, 200 at most, the older ones by `before` (the last answer's `next_before`: the row's time to the microsecond, its
+kind and id, so that rows of one instant are neither lost nor shown twice at the page's edge). A part is shown to a
+reader who may see its records (`PARTS`: the permission of each) and the rest are named in `withheld`; a row's `href` is
+the console's page for the thing. The `staff` part is the audit log's events about the account, so only for whoever reads
+the log, and reading it is itself an `audit.read` event. A student under 18's course is **one row** in counts (the
+chapters opened so far and the last week they were active): no clip, no quiz answer, no day; an adult's adds the clips
+completed in each of the last 26 weeks (`Progress.updated`); an age not known is taken for a child's. SMS rows are
+`SmsLog` by account (the log keeps no number), email rows the order emails by order.
+
+**Spending** (`customers.commerce`): the counts of their live orders (placed and kept, cancelled, returns asked for, parcels
+that came back undelivered by the shipping outcome), and for an adult the money (spent, refunded, spent less refunded,
+the average order), the first and the latest order, up to ten saved addresses (the phone masked) and the tags of their
+orders. A student under 18: the counts only, the rest null. It is a record of what happened, not a forecast.
+
+**Parental consent.** `waiting_children` are the active students under 18 with no consent a parent verified and no
+deletion of their own under way (that one waits for the parent too, and the cockpit lists it apart). Each link that went
+is a `ParentLinkSend` (the account, `email` or `sms`, when, and which member of staff sent it again: kept 365 days by the
+retention rule `parent_links`), recorded by `send_parent_link`; the list says how many went, the last one's time and when
+it stops working (`PARENT_LINK_DAYS`), how many today of `PARENT_LINKS_PER_DAY` (3, to one address or number whichever
+students ask), and whether the account only reads until a parent confirms (`blocking`: `PARENTAL_CONSENT_MODE` is
+`verified`). `users/<id>/resend-verification/` sends the link again; a text goes from 08:00 to 21:00 India time only
+(`shipping.messages.quiet`, as the order texts do), an email at any hour. `users/<id>/consent/verify/`
+(`staff.verify_consent`: high, so re-authenticated; SUPPORT, ADMIN and OWNER) records a consent by hand under a lock on
+the account's row: `method` `staff_manual` (staff checked it), `adult_account` (the parent's own verified account) or
+`digilocker`; `evidence_ref` says where the evidence is (a ticket's number, a letter's date; one that is, or holds, an
+email address or a mobile number is refused, but not ten digits inside a longer number: the document and the contact
+never come into the panel); `reason`. It writes the
+`ConsentRecord` (`by_parent`, `verified_at`, `verified_by`, `evidence_ref`), which clears the account's flag, tells the
+parent by email where their contact is one (so that a consent never given is noticed; a mobile number gets nothing, as no
+text is registered with DLT for it) and writes `user.consent_verified` (the record's number, the method, `parent_told`;
+never the evidence's words). It is refused for an adult, an erased account, a student whose deletion waits for the
+parent, and a consent a parent confirmed already (also when a second member of staff, or the parent's link, was first).
+
+**Bulk actions on accounts.** `user.suspend`, `user.unsuspend`, `user.end_sessions` and `user.resend_consent` are
+approvals Actions (`bulk=True`, `generic=False`: only a `bulk_action` job names them, with the accounts' ids as
+`targets`, no payload and a reason), each under its maker's permission and scope, and never a deletion. A dry run
+(`dry_run`) validates every row and changes nothing; its result counts the rows it would change (`outcomes.valid`), those
+it would refuse with the reason (`errors`), the students under 18 among them (`minors`) and says whether the real run
+will wait for an approver (`approval`: the rule's words, or null). Above the starter's `bulk_rows`, or with any
+student under 18's account among the targets whatever the count, the job waits as a whole for `staff.approve_export`
+(`jobs.start`); each row then runs as its own request and writes its own event (`user.suspended`, `user.unsuspended`,
+`user.sessions_ended`, `user.verification_resent`, with the starter as the actor and the job's reason), and the batch's
+`job.*` events name the action.
+
+**Left out.** `users/<id>/change-email/` (`staff.change_email`): allauth's code-by-email verification keeps its state in
+the session of the request that started it, so a change started by staff cannot be completed by the customer, and a
+change must never be completed by staff alone. It is not a thin wrapper over the existing flows, so it is not built; a
+customer changes their address from their account page.
+
+**What each role sees.** OWNER: everything here. ADMIN: the same but the timeline's staff part, which is the audit log's
+(the owners' and the auditor's). SUPPORT: the list and its tabs (the guest buyers through the orders), the record, the timeline
+without the staff part, the spending summary, the children waiting, the link again and a consent by hand, signing a
+customer out everywhere (alone or in bulk), but not suspending. FINANCE: the list, the record and the parts of the
+timeline their orders, payments and refunds permissions open. AUDITOR: the same reads. SALES, PACKER, the content roles:
+no customer list (the orders show what they need).
+
 ## The jobs
 
 | When (India time) | Task |
@@ -481,5 +576,5 @@ bulk job runs those: refunds, offline payments, prices, coupons); replaying a Ra
 site keeps only the event's id and hash: `system/reconcile/` asks Razorpay again instead); ERPNext's role sync (the
 person's ERPNext tab says what to apply by hand); the
 Django admin's own step for a break-glass session's reason; the website's page that posts an impersonation token, and
-its banner (examleaf-frontend); notes in a data request's access export, and their edits; holding the panel shut
+its banner (examleaf-frontend); notes in a data request's access export, and their edits; changing a customer's email address on their behalf ("Phase B: customers" says why); holding the panel shut
 until the policies due are acknowledged (the manifest says which; the console decides).

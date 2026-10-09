@@ -17,7 +17,7 @@ print runs, item analysis, cohorts, fraud signals). Code: `api/` (`auth.py`, `vi
 [Shop](#shop) · [Revision course](#revision-course) · [Site](#site-configuration-and-legal-pages) ·
 [Insights (staff)](#insights-staff) · [ERPNext sync (staff)](#erpnext-sync-staff) · [Orders (staff)](#orders-staff) ·
 [Tax (staff)](#tax-staff) · [Legal and privacy (staff)](#legal-and-privacy-staff) · [Content (staff)](#content-staff) ·
-[Support (staff)](#support-staff) · [Connections (staff)](#connections-staff) · [Templates (staff)](#templates-staff) ·
+[Support (staff)](#support-staff) · [Customers (staff)](#customers-staff) · [Connections (staff)](#connections-staff) · [Templates (staff)](#templates-staff) ·
 [Lists](#lists) ·
 [Staff API](#staff-api) · [Errors](#errors) ·
 [Rate limits](#rate-limits) · [CORS](#cors) ·
@@ -1581,6 +1581,78 @@ or missing token."}`, kept without its body; more than `SUPPORT_MAIL_MAX_BYTES` 
 auto-replies, bounces and lists, and threads the rest by the thread id in its headers, a known Message-ID, or the
 `[SR-…]` number from the requester's own address. 120 a minute per client address (`API_THROTTLE_SUPPORT_MAIL`).
 
+## Customers (staff)
+
+`/api/v1/staff/users/…` (code: `staff/customers_api.py` for the endpoints, `staff/customers.py` for the rules; the
+app: [staff/README.md](staff/README.md) "Phase B: customers") is the Customers module's API: the list with its tabs and
+badges, a customer's record with its merged timeline and what they bought, the students under 18 waiting for a parent,
+a parent's consent recorded by hand, and bulk actions on accounts. It adds to `UserViewSet` of the [Staff API](#staff-api)
+(the reveal with a reason, suspend, unlock, the password reset, impersonation: all as they were) and keeps every rule of
+it: the admin host only, a member of staff with a second factor (an API key reads only), each action's catalogued
+permission (area "Customers"), every refusal an `authz_fail` event, cursor pages, `Cache-Control: no-store`; the schema
+tags it `customers (staff)`. A customer outside the reader's scope is a 404.
+
+What a read leaves in the log: opening a record (`users/<id>/`), its timeline and its commerce summary are each one
+`sensitive_read` event (`details.what`: `record`, `timeline`, `commerce`; `details.child`: true for a student under 18).
+A search for a person (`users/?q=`: an email address, a mobile number or its last digits, three letters of a name) is
+one `customer.lookup` event with the query's keyed hash and the number found (`kind`, `found`, `list`), never the words;
+less than that finds nobody and is no lookup, and browsing the tabs is none. Test-mode orders are in no row and no number
+on a live site. No lifetime-value forecast, RFM group or churn score exists for anyone.
+
+| Method | Path (under `/api/v1/staff/`) | Permission | What |
+|---|---|---|---|
+| GET | `users/` (`?kind=students\|parents\|guests&q=&class_level=&board=&is_active=`) | `accounts.view_user` | the customers, newest first, each with the badges: `email_verified`, `login_phone_verified`, `age_band` (`under_13`, `13_17`, `adult`, `unknown`), `consent` and `consent_method` (`declared`, `email_link`, `sms_link`, `adult_account`, `digilocker`, `staff_manual`), `teacher`, `mfa_on`, `status`, `locked`. `kind`: students (a class level, or under 18), parents (adult accounts a student named as their parent's contact by a verified email address or log-in number: not proof of parenthood), guests (see below) |
+| GET | `users/?kind=guests` (`&q=`) | `accounts.view_user`; the rows are orders: `shop.view_order` | buyers without an account, one row for each email address (lower case): `id` (their newest order's), `name`, masked `email` and `phone`, `orders` (how many), `last_order` (its number), `last_order_at`; another row shape, still masked and paged |
+| GET | `users/<id>/` | `accounts.view_user` | the record: the badges and the detail (`roles`, `mfa`, masked `parent_contact`, latest `orders`, `consents` with `purpose`, `channel`, `evidence_ref`, `verified_by`, `sessions`, `deletion_due_at`), `parent_link` (a student under 18's consent link: `sent`, `last_at`, `expires_at`, `expired`, `today`, `daily_limit`) and `linked` (a student's parent account, an adult's students: `{id, full_name, relation}`) |
+| GET | `users/<id>/timeline/` (`?kind=order,ticket&before=`) | `accounts.view_user` (each part by its own records' view permission) | one list of what happened to the account, newest first: `{child, rows: [{at, kind, label, href}], next_before, withheld}`; 200 rows at most, `?before=` (the last answer's `next_before`) for the older ones; `kind` narrows it (400 for an unknown one) |
+| GET | `users/<id>/commerce/` | `shop.view_order` | what they bought: `orders`, `kept`, `cancelled`, `returns`, `rtos`, and for an adult `spent`, `refunded`, `lifetime_value` (spent less refunded: a record, no forecast), `average_order`, `first_order_at`, `last_order_at`, up to ten saved `addresses` (masked) and the orders' `tags`; a student under 18 (`child` true): the counts only, the rest null |
+| GET | `users/consent-pending/` | `accounts.view_user` | the students under 18 waiting for a parent, the first registered first: `parent_contact` (masked) and `parent_channel` (`email`, `sms`), `links_sent`, `last_link_at`, `link_expires_at` (the last link works 7 days), `link_expired`, `links_today` of `daily_limit` (3 to one address or number), `blocking` (the account only reads until the parent confirms), `email_verified` (their own) |
+| POST | `users/<id>/consent/verify/` (`method`, `evidence_ref`, `reason`) | `staff.verify_consent` (high; re-authenticated) | a parent's consent recorded by hand: `method` `staff_manual`, `adult_account` or `digilocker`; `evidence_ref` says where the evidence is (a ticket's number, a letter's date; an email address or a number is refused: never the document, never a contact); 201 the consent's record; the account's flag clears and the parent is told by email. 400 for an adult, an erased account, a student whose deletion waits for the parent, a consent already confirmed |
+| POST | `users/<id>/resend-verification/` | `staff.resend_verification` | the parent's link again while consent is pending: 429 beyond 3 a day to one address or number, 400 for a text outside 08:00 to 21:00 India time (an email goes at any hour) |
+| POST | `jobs/` `{"kind": "bulk_action", "params": {"action": "user.suspend", "targets": ["7101", ...], "payload": {}, "reason": "…"}, "dry_run": true}` | the action's: `staff.suspend_user` for `user.suspend` and `user.unsuspend`, `staff.end_user_sessions` for `user.end_sessions`, `staff.resend_verification` for `user.resend_consent` | a bulk action on accounts, by their ids (never a deletion): see below |
+
+```sh
+curl "https://admin.examleaf.in/api/v1/staff/users/?kind=students&q=baruah" -b "sessionid=..."
+# 200 {"next": null, "previous": null, "results": [{"id": 7104, "email": "ar•••@example.com", "phone": "", "full_name":
+#      "Arjun Baruah", "class_level": 12, "board": "ASSEB", "under_18": true, "status": "active", "consent": "pending",
+#      "email_verified": true, "login_phone_verified": false, "age_band": "13_17", "consent_method": "",
+#      "teacher": "none", "mfa_on": false, "locked": false, ...}]}
+curl "https://admin.examleaf.in/api/v1/staff/users/7104/timeline/?kind=sms,consent" -b "sessionid=..."
+# 200 {"child": true, "rows": [{"at": "2026-10-08T10:00:00+05:30", "kind": "sms", "label": "SMS (parent consent): Sent,
+#      Delivered", "href": null}, ...], "next_before": null, "withheld": []}
+curl -X POST https://admin.examleaf.in/api/v1/staff/users/7104/consent/verify/ \
+  -b "sessionid=...; csrftoken=..." -H "X-CSRFToken: ..." -H "Content-Type: application/json" \
+  -d '{"method": "staff_manual", "evidence_ref": "Ticket 4416", "reason": "Her mother called and showed her account."}'
+# 201 {"id": 88, "event": "given", "method": "staff_manual", "by_parent": true, "verified_at": "...", "verified_by": 9003,
+#      "evidence_ref": "Ticket 4416", "notice_version": "2026-10-01", "created": "..."}
+# 400 {"evidence_ref": ["Say where the evidence is (a ticket's number, a letter's date), not a contact's details."]}
+```
+
+**The timeline's parts** are `order`, `payment`, `refund`, `code` (book codes redeemed), `access` (course access
+opened), `course`, `ticket`, `sms` (the account's `SmsLog`), `email` (the order emails), `consent`, `note` and `staff`
+(the audit log's events about the account). Each is shown to a reader who may see its records (`shop.view_order`,
+`shop.view_payment`, `shop.view_refund`, `learn.view_bookcode`, `learn.view_entitlement`, `support.view_ticket`,
+`ops.view_smslog`, `accounts.view_consentrecord`, `staff.view_note`, `staff.view_auditlog`) and the rest are named in
+`withheld`; reading the `staff` part is itself an `audit.read` event. A row's `label` is numbers and codes in words
+(never an address or a number) and its `href` the console's page for the thing (`/orders/EL-…/`, `/support/tickets/SR-…/`,
+`/course/learners/<id>/`). For a student under 18 the course is one row in counts (the chapters opened and the week they
+were last active): never a trail of what they watched or answered; an adult's adds the clips completed by week.
+
+**Bulk actions on accounts** are `bulk_action` jobs ([Staff API](#staff-api) "Background jobs"): `user.suspend`,
+`user.unsuspend`, `user.end_sessions` and `user.resend_consent`, `targets` the accounts' ids as text or numbers, no
+`payload`, a `reason` (saved with each account's event). `dry_run: true` validates every row and changes nothing: the
+job's `result` is `{"outcomes": {"valid": 12, "refused": 1}, "waiting": [], "minors": 3, "approval": "…" or null}` and its
+`errors` list each refused row with the reason (no such customer, already suspended, no consent pending …). `minors`
+counts the students under 18 among the targets and `approval` says, in words, whether the real run will wait for an
+approver: above your `bulk_rows`, and whatever the count when a student under 18's account is among them. The run then
+answers 202 with the job waiting on its change request (`change_request_id`, checker `staff.approve_export`). Each row is
+its own audit event (`user.suspended`, `user.unsuspended`, `user.sessions_ended`, `user.verification_resent`) with you as
+the actor, and the batch's `job.*` events name the action.
+
+**Left out:** `users/<id>/change-email/`. allauth's code-by-email verification keeps its state in the session of the
+request that started it, so a change started by staff cannot be completed by the customer, and staff alone must never
+complete one; it is no thin wrapper over the existing flows. A customer changes their address on their account page.
+
 ## Lists
 
 Lists are paginated: `{"count": 120, "next": "<url>", "previous": null, "results": [...]}`, 50 a page, `?page=2`,
@@ -1683,7 +1755,7 @@ minutes.
 | GET | `people/me/sessions/` | any member of staff | your own sessions (the website's too): `browser`, `system`, `place` (the address cut short), `created_at`, `last_seen_at`, `current` |
 | POST | `people/me/sessions/<id>/end/`, `people/me/sessions/end-others/` | any member of staff | 204: one other session ended (this one: 400, sign out instead); every other one and the app's refresh tokens: `{"sessions", "tokens"}` |
 | POST | `invites/accept/` (`token`; signed out also `full_name`, `password`) | the invitation's token | the one endpoint for people not yet staff |
-| GET | `users/` (`?q=&class_level=&board=&is_active=`), `users/<id>/` | `accounts.view_user` | customers, contacts masked; opening one is logged |
+| GET | `users/` (`?kind=&q=&class_level=&board=&is_active=`), `users/<id>/` | `accounts.view_user` | customers with their badges, contacts masked; opening one is logged; the rest of the module: [Customers (staff)](#customers-staff) |
 | POST | `users/<id>/reveal/` (`show`, `reason`) | `staff.reveal_contact` (re-authenticated; 30 an hour) | `email`, `phone`, `login_phone`, `parent_contact`, `parent_name`, `date_of_birth` |
 | POST | `users/<id>/suspend/`, `…/unsuspend/` (`reason`) | `staff.suspend_user` | suspended: signed out, told by email |
 | POST | `users/<id>/unlock/` | `staff.unlock_user` | lift a lock-out after failed log-ins |
@@ -1781,8 +1853,10 @@ under way), the run fails (`status` "failed", `result.error`) instead of doing s
 
 **Customers.** `users/?q=` finds an email address (exactly), a mobile number (any Indian format) or three letters or
 more of a name. A customer's `status` is `active`, `suspended`, `pending_deletion` or `erased`; `consent` is `adult`,
-`declared`, `pending` (a parent's link awaited) or `verified`; the detail adds `locked`, `mfa`, `teacher`, the masked
-`parent_contact`, the latest orders, consents and devices.
+`declared`, `pending` (a parent's link awaited) or `verified`; the detail adds `mfa`, the masked `parent_contact`, the
+latest orders, consents and devices. The list's tabs, the badges, the timeline, the spending summary, the children
+waiting for a parent, a parent's consent recorded by hand and the bulk actions are in [Customers
+(staff)](#customers-staff).
 
 ```sh
 curl -X POST https://examleaf.in/api/v1/staff/users/42/reveal/ -d '{"show": ["phone"], "reason": "Calling back about EL-2026-000123"}'
@@ -2137,8 +2211,11 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 | GET | `staff/templates/{id}/` | `ops.view_messagetemplate` |  |  | 200 `Template` |
 | PATCH | `staff/templates/{id}/` | `ops.change_messagetemplate` |  | `PatchedTemplateRequest` | 200 `Template` |
 | POST | `staff/templates/{id}/test/` | `ops.change_messagetemplate` |  | `TestSendRequest` | 200 `TestSent` |
-| GET | `staff/users/` | `accounts.view_user` | `board`, `class_level`, `cursor`, `is_active`, `page_size`, `q` |  | 200 `PaginatedCustomerList` |
+| GET | `staff/users/` | `accounts.view_user` | `board`, `class_level`, `cursor`, `is_active`, `kind`, `page_size`, `q` |  | 200 `PaginatedCustomerRowList` |
+| GET | `staff/users/consent-pending/` | `accounts.view_user` | `cursor`, `page_size` |  | 200 `PaginatedCustomerConsentPendingList` |
 | GET | `staff/users/{id}/` | `accounts.view_user` |  |  | 200 `CustomerDetail` |
+| GET | `staff/users/{id}/commerce/` | `shop.view_order` |  |  | 200 `CustomerCommerce` |
+| POST | `staff/users/{id}/consent/verify/` | `staff.verify_consent` |  | `CustomerConsentVerifyRequest` | 201 `CustomerConsentRecord` |
 | POST | `staff/users/{id}/end-sessions/` | `staff.end_user_sessions` |  |  | 200 `SessionsEnded` |
 | POST | `staff/users/{id}/impersonate/` | `staff.impersonate_user` |  | `ImpersonateRequest` | 200 `Impersonation` |
 | POST | `staff/users/{id}/impersonate/end/` | `staff.impersonate_user` |  | `TokenRequest` | 204 |
@@ -2147,6 +2224,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 | POST | `staff/users/{id}/reset-mfa/` | `staff.reset_user_mfa` |  | `ReasonRequest` | 202 `ChangeRequest` |
 | POST | `staff/users/{id}/reveal/` | `staff.reveal_contact` |  | `RevealRequest` | 200 `Revealed` |
 | POST | `staff/users/{id}/suspend/` | `staff.suspend_user` |  | `ReasonRequest` | 200 `Customer` |
+| GET | `staff/users/{id}/timeline/` | `accounts.view_user` | `before`, `kind` |  | 200 `CustomerTimeline` |
 | POST | `staff/users/{id}/unlock/` | `staff.unlock_user` |  |  | 200 `Unlocked` |
 | POST | `staff/users/{id}/unsuspend/` | `staff.suspend_user` |  | `ReasonRequest` | 200 `Customer` |
 
@@ -2229,6 +2307,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ConnectionSourceEnum**: one of `panel`, `environment`, `none`
 - **ConnectionStatusEnum**: one of `connected`, `degraded`, `expired`, `disabled`, `not_configured`
 - **ConsentRow**: `event` string (required); `method` string (required); `by_parent` boolean (required); `verified_at` date-time (required, null); `notice_version` string (required); `created` date-time (required)
+- **ConsentVerifyMethodEnum**: one of `staff_manual`, `adult_account`, `digilocker`
 - **Contact**: `contact` string (required); `source` ContactSourceEnum (required); `placeholder` boolean (required)
 - **ContactSourceEnum**: one of `panel`, `environment`
 - **ContentBook**: `id` integer (required, read-only); `title` string (required); `subject` integer (required); `subject_code` string (required, read-only); `edition` string; `slug` string (required); `cover` string; `isbn` string; `format` BookFormatEnum; `published_on` date (null); `deposit_due_on` date (required, null, read-only); `papers` integer (required, read-only)
@@ -2265,8 +2344,20 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ContentVersionTypeEnum**: one of `+`, `~`, `-`
 - **CourierEnum**: one of `India Post`, `Delhivery`, `Blue Dart`, `Ekart`, `DTDC`, `Xpressbees`, `Other`
 - **CredentialsRequest**: `reason` string (required); `mode` IntegrationModeEnum (required); `credentials` object (required)
-- **Customer**: `id` integer (required, read-only); `email` string (required, read-only); `phone` string (required, read-only); `full_name` string (required); `class_level` any (null); `board` string (required, read-only); `district` string; `under_18` boolean (required, read-only); `status` string (required, read-only); `consent` string (required, read-only); `email_verified` boolean (required, read-only); `login_phone_verified` boolean; `created` date-time (required, read-only); `last_login` date-time (null)
-- **CustomerDetail**: `id` integer (required, read-only); `email` string (required, read-only); `phone` string (required, read-only); `full_name` string (required); `class_level` any (null); `board` string (required, read-only); `district` string; `under_18` boolean (required, read-only); `status` string (required, read-only); `consent` string (required, read-only); `email_verified` boolean (required, read-only); `login_phone_verified` boolean; `created` date-time (required, read-only); `last_login` date-time (null); `roles` [string] (required, read-only); `locked` boolean (required, read-only); `mfa` [string] (required, read-only); `teacher` string (required, read-only); `parent_contact` string (required, read-only); `orders` [object] (required, read-only); `consents` [object] (required, read-only); `sessions` [object] (required, read-only); `deletion_due_at` string (required, null, read-only)
+- **Customer**: `id` integer (required, read-only); `email` string (required, read-only); `phone` string (required, read-only); `full_name` string (required); `class_level` any (null); `board` string (required, read-only); `district` string; `under_18` boolean (required, read-only); `status` string (required, read-only); `consent` string (required, read-only); `email_verified` boolean (required, read-only); `login_phone_verified` boolean; `created` date-time (required, read-only); `last_login` date-time (null); `age_band` string (required, read-only); `consent_method` string (required, read-only); `teacher` string (required, read-only); `mfa_on` boolean (required, read-only); `locked` boolean (required, read-only)
+- **CustomerCommerce**: `child` boolean (required); `orders` integer (required); `kept` integer (required); `cancelled` integer (required); `returns` integer (required); `rtos` integer (required); `spent` decimal (required, null); `refunded` decimal (required, null); `lifetime_value` decimal (required, null); `average_order` decimal (required, null); `first_order_at` date-time (required, null); `last_order_at` date-time (required, null); `addresses` [CustomerCommerceAddress] (required, null); `tags` [CustomerCommerceTag] (required, null)
+- **CustomerCommerceAddress**: `city` string (required); `district` string (required); `state` string (required); `pin` string (required); `phone` string (required); `is_default` boolean (required)
+- **CustomerCommerceTag**: `name` string (required); `orders` integer (required)
+- **CustomerConsentPending**: `id` integer (required, read-only); `full_name` string (required); `class_level` any (null); `board` string (required, read-only); `created` date-time (required, read-only); `age_band` string (required, read-only); `email_verified` boolean (required, read-only); `parent_contact` string (required, read-only); `parent_channel` string (required, read-only); `blocking` boolean (required, read-only); `links_sent` integer (required, read-only); `last_link_at` date-time (required, null, read-only); `link_expires_at` string (required, null, read-only); `link_expired` boolean (required, read-only); `links_today` integer (required, read-only); `daily_limit` integer (required, read-only)
+- **CustomerConsentRecord**: `id` integer (required); `event` string (required); `method` string (required); `by_parent` boolean (required); `verified_at` date-time (required); `verified_by` integer (required, null); `evidence_ref` string (required); `notice_version` string (required); `created` date-time (required)
+- **CustomerConsentVerifyRequest**: `method` ConsentVerifyMethodEnum (required); `evidence_ref` string (required); `reason` string (required)
+- **CustomerDetail**: `id` integer (required, read-only); `email` string (required, read-only); `phone` string (required, read-only); `full_name` string (required); `class_level` any (null); `board` string (required, read-only); `district` string; `under_18` boolean (required, read-only); `status` string (required, read-only); `consent` string (required, read-only); `email_verified` boolean (required, read-only); `login_phone_verified` boolean; `created` date-time (required, read-only); `last_login` date-time (null); `age_band` string (required, read-only); `consent_method` string (required, read-only); `teacher` string (required, read-only); `mfa_on` boolean (required, read-only); `locked` boolean (required, read-only); `roles` [string] (required, read-only); `mfa` [string] (required, read-only); `parent_contact` string (required, read-only); `orders` [object] (required, read-only); `consents` [object] (required, read-only); `sessions` [object] (required, read-only); `deletion_due_at` string (required, null, read-only); `parent_link` CustomerParentLink (required, null, read-only); `linked` [CustomerLinked] (required, read-only)
+- **CustomerGuest**: `id` integer (required); `name` string (required, read-only); `email` string (required, read-only); `phone` string (required, read-only); `orders` integer (required, read-only); `last_order` string (required); `last_order_at` string (required, null, read-only)
+- **CustomerLinked**: `id` integer (required); `full_name` string (required); `relation` string (required)
+- **CustomerParentLink**: `sent` integer (required); `last_at` date-time (required, null); `expires_at` date-time (required, null); `expired` boolean (required); `today` integer (required); `daily_limit` integer (required)
+- **CustomerRow**: any
+- **CustomerTimeline**: `child` boolean (required); `rows` [CustomerTimelineRow] (required); `next_before` string (required, null); `withheld` [string] (required)
+- **CustomerTimelineRow**: `at` date-time (required); `kind` string (required); `label` string (required); `href` string (required, null)
 - **DarkPatternAudit**: `id` integer (required, read-only); `year` integer (required); `rows` [AuditRow]; `certificate_text` string; `effective_from` date (null); `completed_at` date-time (required, null, read-only); `completed_by` integer (required, null, read-only); `created` date-time (required, read-only); `created_by` integer (required, null, read-only); `has_file` boolean (required, read-only)
 - **DarkPatternAuditRequest**: `year` integer (required); `rows` [AuditRowRequest]; `certificate_text` string; `effective_from` date (null)
 - **DataRequest**: `id` integer (required, read-only); `kind` DataRequestKindEnum (required); `channel` ChannelEnum (required); `user` integer (null); `requester` string (required); `summary` string (required); `identity_verified` boolean (required, read-only); `identity_note` string (required, read-only); `verified_by` integer (required, null, read-only); `verified_at` date-time (required, null, read-only); `received_at` date-time; `ack_due_at` date-time (required, read-only); `acknowledged_at` date-time (required, null, read-only); `ack_overdue` boolean (required, read-only); `due_at` date-time (required, read-only); `overdue` boolean (required, read-only); `status` DataRequestStatusEnum (required, read-only); `assignee` integer (null); `notes` string; `details` any; `outcome` DataRequestOutcomeEnum (required, read-only); `response` string (required, read-only); `closed_at` date-time (required, null, read-only); `closed_by` integer (required, null, read-only); `created_by` integer (required, null, read-only)
@@ -2451,7 +2542,8 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **PaginatedContentReportList**: `next` uri (null); `previous` uri (null); `results` [ContentReport] (required)
 - **PaginatedContentReviewList**: `next` uri (null); `previous` uri (null); `results` [ContentReview] (required)
 - **PaginatedContentSolutionList**: `next` uri (null); `previous` uri (null); `results` [ContentSolution] (required)
-- **PaginatedCustomerList**: `next` uri (null); `previous` uri (null); `results` [Customer] (required)
+- **PaginatedCustomerConsentPendingList**: `next` uri (null); `previous` uri (null); `results` [CustomerConsentPending] (required)
+- **PaginatedCustomerRowList**: `next` uri (null); `previous` uri (null); `results` [CustomerRow] (required)
 - **PaginatedDarkPatternAuditList**: `next` uri (null); `previous` uri (null); `results` [DarkPatternAudit] (required)
 - **PaginatedDataRequestListList**: `next` uri (null); `previous` uri (null); `results` [DataRequestList] (required)
 - **PaginatedDeliveryStatList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [DeliveryStat] (required)

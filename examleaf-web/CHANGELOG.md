@@ -5,6 +5,55 @@ commits are in `git log` (phase 4: abffe6f and e5abda5; phase 5 A and B with the
 and E: 4e30e59; the redesign's stage 2 so far: ba0b9dd). Details of each feature are in README.md; the numbers of the
 tests are those of `pytest` at the end of the phase.
 
+## Phase B, Customers (9 October 2026)
+
+Support looked a person up in the Django admin's customer page and chased a child's parent with a shell recipe; the
+plan (5.4) asks for one person page with a merged timeline, badges, a parent's consent that staff can follow up and
+record, and bulk work that is checked before it is done. The panel's Customers module adds them on top of the staff
+API's `UserViewSet`, which is unchanged (`staff/customers.py` holds the rules, `staff/customers_api.py` the endpoints;
+API.md "Customers (staff)", staff/README.md "Phase B: customers"). 1,554 backend tests pass on SQLite (13 skipped,
+4,000 subtests), 35 of them new in `staff/tests/test_customers.py`, which also pass on PostgreSQL 17 (with the touched
+areas' parent-link, orders-API, users and jobs tests: 98); the authorization matrix covers every new endpoint.
+
+- **The list's tabs and badges** (`users/?kind=students|parents|guests`): students are accounts with a class level or
+  under 18; parents the adult accounts whose verified email address or log-in number a student named as their parent's
+  contact (a parent's consent is recorded on the child's account and most parents have no account, so this is a lookup,
+  not proof of parenthood); guest buyers the orders without an account, one row for each email address (another row
+  shape, masked, paged). Every row carries `age_band`, `consent_method`, `teacher`, `mfa_on` and `locked` beside the
+  email and mobile checks, with no query per row.
+- **The timeline** (`users/<id>/timeline/`): orders, payments, refunds, book codes, course access and use, tickets,
+  texts and emails sent, consent events, staff notes and what staff did to the account, merged newest first, 200 at a
+  time with `before` for the older ones (ties kept at a page's edge), each part only for a reader who may see its
+  records. A student under 18's course is one row of counts, never a trail of what they watched or answered. The
+  **spending summary** (`users/<id>/commerce/`) counts their live orders and for an adult values them so far (spent,
+  refunded, the average order, saved addresses masked, tags); a child's is the counts only. Each is a `sensitive_read`
+  (a child's marked as one); test-mode orders are in no row or number on a live site (the detail's latest orders had
+  leaked them: fixed).
+- **The access log**: every search for a person by name, email or mobile number is one `customer.lookup` event with the
+  query's keyed hash and the number found (`audit.lookup`, which the Orders list's search now uses too).
+- **Parental consent**: each link sent is kept with who sent it again (`accounts.ParentLinkSend`, a year in the
+  retention schedule); `users/consent-pending/` lists the children waiting, the first registered first, with the link's
+  life and the day's use (it replaces the RUNBOOK's shell recipe); the link goes again from `resend-verification/`
+  (a text only from 08:00 to 21:00); `users/<id>/consent/verify/` (`staff.verify_consent`, high; SUPPORT, ADMIN, OWNER)
+  records a consent by hand with its method, where the evidence is (a reference, never a contact) and why, clears the
+  account's flag, tells the parent by email and writes the audit event without the evidence's words.
+- **Bulk actions on accounts**: `user.suspend`, `user.unsuspend`, `user.end_sessions` and `user.resend_consent` run as
+  `bulk_action` jobs. A dry run counts what would change and what would be left alone, the children among the targets
+  and whether the real run waits for an approver; above `bulk_rows`, or with a student under 18's account among the
+  targets whatever the count (`Action.children`, `bulk_rule(…, minors)`), the job waits for a second person. One audit
+  event for each account and one for the batch; never a deletion.
+- **Left out**: `users/<id>/change-email/`. allauth's code-by-email verification keeps its state in the session of the
+  request that started it, so a change started by staff cannot be completed by the customer, and staff alone must
+  never complete one: no thin wrapper, so not built.
+- **The console's Customers pages** (`/users/`, `/users/<id>/`, `/users/<id>/timeline/`, `/users/consent-pending/`): the
+  tabs and badges; a student under 18's banner "Under 18: every view is logged"; the consent with the link's life and
+  the dialog that records it by hand; the spending summary; the timeline with its kinds and older rows; the children
+  waiting; the bulk bar, whose actions are checked first (a suspension also asks for the number of accounts typed).
+  Console: Vitest 242 (52 new), Playwright 15 in mock mode (the customers journey is new at both widths: the tabs, a
+  child's record and timeline, a consent recorded by hand found in the audit trail, the children waiting, the bulk
+  check) and 15 against this backend (one new: the customer's timeline and the views it logged, a search's hash in the
+  access log, the child's consent recorded by hand), every new page checked with axe at 1280, 390 and 320 px.
+
 ## Phase B, Tax (9 October 2026)
 
 The storefront's GST was a rate typed on each product, its documents numbered by looking for the last serial in one

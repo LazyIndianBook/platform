@@ -367,6 +367,18 @@ log-in codes go only to a confirmed number), "refused by the provider" (Sentry h
 whitelist, balance), "not sent: a limit was reached" (see above) or "sent" (ask MSG91's report with the request id: DND,
 a switched-off phone). The student can always use "Log in with a code" with the email address instead.
 
+### Finding a customer, and what the panel records of it
+
+Customers (`https://admin.<domain>/users/`): search by an email address (exactly), a mobile number or its last digits, or
+three letters of a name; the tabs Students, Parents (adult accounts a student named as their parent, by a verified
+email address or number: not proof of parenthood) and Guest buyers (people who bought without an account, one row for
+each email address). Contact details stay masked until revealed with a reason. The panel records every search for a
+person (an `customer.lookup` event: a hash of what was typed, never the words), opening a record, its timeline and its
+spending summary (`sensitive_read`; a student under 18's is marked), and every reveal. A record's **Timeline** tab lists
+what happened to the account (orders, payments, refunds, codes, course access and use, tickets, texts and emails sent,
+consent, notes, and what staff did to it); for a student under 18 the course is a count and the last week active,
+never what they watched or answered. Break-glass, the panel down: Admin → Users, and the shell steps in this section.
+
 ### Logging in as a customer (support)
 
 Only when seeing the customer's own pages is the way to answer them ("my cart is empty", "the course does not open"),
@@ -410,10 +422,33 @@ the student has confirmed their own address), and the account can read but not s
 parent presses "I agree". Admin → Consent records then shows the confirmation ("confirmed through the link emailed to
 the parent", with the time).
 
-- **Who is waiting:** the panel's Legal and privacy cockpit lists the accounts whose parent's consent is awaited (by
-  number; the customer's record opens from each). After the switch this includes students under 18 who registered
-  before it; email them that a parent must confirm. Break-glass:
-  `dj shell -c "from accounts.models import User; print([u.email for u in User.objects.filter(is_active=True, date_of_birth__isnull=False) if u.consent_pending])"`.
+- **Who is waiting:** the panel's Customers → **Waiting for a parent** (`https://admin.<domain>/users/consent-pending/`)
+  lists the students under 18 whose parent has not confirmed, the first to register first: the parent's contact
+  (masked, with whether the link goes by email or text), how many links were sent, when the last one went and when it
+  stops working (7 days), how many went today of the day's 3, and whether the account only reads until a parent
+  confirms. Opening a student's record there is recorded as a look at a child's data. After the switch to `verified`
+  this includes students under 18 who registered before it; email them that a parent must confirm. The Legal and
+  privacy cockpit lists the deletions that wait for a parent. Break-glass, when the panel is down:
+  `dj shell -c "from accounts.models import User; print([u.pk for u in User.objects.filter(is_active=True, date_of_birth__isnull=False) if u.consent_pending])"`
+  (the accounts' numbers; open each in the panel when it is back).
+- **Sending the link again from the panel:** the student's record (or the list above) → "Send the link again". A text
+  to a parent's mobile number goes from 08:00 to 21:00 India time only (the panel says so out of hours; an email goes at
+  any hour), and one address or number gets 3 links a day, whichever students ask: the panel then says the parent has
+  had their links for today. Each link sent is kept with who asked for it for a year (`parent_links` in the retention
+  schedule).
+- **A parent who cannot use the link (no email, a shared phone, a letter instead):** check the parent yourself first, by
+  a call to the number on record (the panel masks it: reveal it with a reason), their own verified ExamLeaf account, or
+  a DigiLocker token, then Customers → the student → "Record the consent by hand": how it was checked, **where the
+  evidence is** (a ticket's number, the date of a letter: never the document, never an email address or a number, which
+  the panel refuses), and why. It asks you to confirm it's you, clears the student's flag at once, tells the parent by
+  email where the contact is one (so that a consent they never gave is noticed), and is in the audit trail
+  (`user.consent_verified`) and in Admin → Consent records (the record's page shows who recorded it and the reference).
+  It is refused for an adult, for a
+  student whose deletion waits for the parent, and when a parent has confirmed already.
+- **Many students at once** (a school's, after the switch): the list's bulk bar sends the parents' links again, signs
+  students out everywhere, or suspends. Each is checked first (a count of what would change and what would be left
+  alone, and why); with a student under 18 among them, whatever the number, a second person (ADMIN or an owner) approves
+  it before it runs. Never a deletion.
 - **"My parent never got the link":** the student checks the address and sends it again from My account (also to a
   corrected address; one link every 10 minutes; a link sent to an old address stops working). One parent address or
   number gets at most 3 links a day, whichever students ask: then the page says "The link was not sent: that address or
@@ -1272,7 +1307,8 @@ carries a copy of the complaint as recorded.
 - **Disk full:** `docker system df`; old images (`docker image prune`), backups beyond `BACKUP_KEEP_DAYS`; logs are
   rotated already; the clips' videos are in the `media` volume unless the buckets are set.
 - **Certificate problems:** `docker compose logs caddy`; DNS must point at the server and ports 80/443 be open.
-- **Someone locked out by django-axes** (10 failed log-ins): it lifts after 15 minutes, or run
+- **Someone locked out by django-axes** (10 failed log-ins): it lifts after 15 minutes, or in the panel the customer's
+  record → "Unlock sign-in" (the list shows "Locked"), or, with the panel down, run
   `dj axes_reset_username x@example.com`.
 
 ## Reading the logs
