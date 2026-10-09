@@ -1046,7 +1046,8 @@ minutes.
   background: every request counts as activity.
 - **Answers** are JSON (an audit export: JSON lines), never cached (`Cache-Control: no-store`). Lists are cursor pages,
   newest first: `{"next": "<url>", "previous": "<url>", "results": [...]}` (`?cursor=` from those links, `?page_size=` up
-  to 200; no count: `inbox/count/` gives the inbox's). Filters are query parameters, listed per endpoint below.
+  to 200; no count: `inbox/count/` gives the inbox's). Filters are query parameters, listed per endpoint below;
+  a yes-or-no one takes `true` or `false` (`1` or `0`).
 - **Money actions and approvals** go through `change-requests/`. Send an `Idempotency-Key` header (any unique text): the
   same key answers the first request again instead of making a second one. 201: it ran at once, within your limits
   (`limits` in `session/`); 202: it waits for a second person (`status` "pending"); 400 with `detail`: it ran and

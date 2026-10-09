@@ -144,6 +144,7 @@ def test_each_person_lists_their_jobs_and_operators_everyone_s():
     assert [row["id"] for row in signed_in(sales).get(JOBS).json()["results"]] == [mine.pk]
     assert len(signed_in(admin).get(JOBS).json()["results"]) == 2
     assert signed_in(admin).get(JOBS, {"mine": "true"}).json()["results"] == []
+    assert signed_in(admin).get(JOBS, {"mine": "1"}).json()["results"] == []  # 1 and 0 as true and false
     assert signed_in(sales).get(JOBS, {"state": "done"}).json()["results"] == []
 
 

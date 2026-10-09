@@ -9,7 +9,6 @@ import json
 import time
 from datetime import UTC, datetime, timedelta
 
-import django_filters
 from allauth.account import app_settings as account_settings
 from allauth.account.authentication import get_authentication_records
 from django.conf import settings
@@ -23,6 +22,7 @@ from django.http import FileResponse, HttpResponseRedirect, StreamingHttpRespons
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
+from django_filters import rest_framework as django_filters  # its BooleanFilter takes 1 and 0 too
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema, inline_serializer
