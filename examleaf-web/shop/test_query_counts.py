@@ -16,6 +16,8 @@ pytestmark = [
 
 
 def queries(api, path):
+    """The queries of a request, after a first one has put in the cache what it keeps (the site's switches)."""
+    api.get(path)
     with CaptureQueriesContext(connection) as captured:
         assert api.get(path).status_code == 200
     return len(captured)
