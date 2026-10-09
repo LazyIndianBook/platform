@@ -8,6 +8,7 @@ from rest_framework_simplejwt.views import TokenVerifyView
 
 from insights import api as insights
 from shipping import api as shipping
+from staff import api as staff
 
 from . import auth, learn, parent_link, shop, views
 
@@ -51,6 +52,8 @@ urlpatterns = [
     ),
     path("auth/password/change/", rest_auth.PasswordChangeView.as_view(), name="rest_password_change"),
     path("me/", rest_auth.UserDetailsView.as_view(), name="me"),
+    # a member of staff logged in as a customer (the token from the panel): staff/api.py ImpersonationView
+    path("account/impersonate/", staff.ImpersonationView.as_view(), name="account-impersonate"),
     path("me/export/", views.DataExportView.as_view(), name="me-export"),
     path("me/export/summary/", views.DataExportSummaryView.as_view(), name="me-export-summary"),
     path("me/record/", views.RecordView.as_view(), name="me-record"),  # My record in figures

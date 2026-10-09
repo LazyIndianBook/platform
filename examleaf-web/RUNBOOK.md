@@ -286,6 +286,22 @@ log-in codes go only to a confirmed number), "refused by the provider" (Sentry h
 whitelist, balance), "not sent: a limit was reached" (see above) or "sent" (ask MSG91's report with the request id: DND,
 a switched-off phone). The student can always use "Log in with a code" with the email address instead.
 
+### Logging in as a customer (support)
+
+Only when seeing the customer's own pages is the way to answer them ("my cart is empty", "the course does not open"),
+never for a student under 18 or a member of staff (the panel refuses both):
+
+1. In the panel, the customer's page → "Log in as": a reason and the ticket it answers (SUPPORT, re-authenticated; the
+   owners are told). The token is valid 15 minutes and opens one session, once.
+2. Open the website's page that takes it (it posts the token to `/api/v1/account/impersonate/`) in the same browser,
+   still signed in to the panel. Every page shows the banner ("Staff … until 10:45"); orders, payments, addresses,
+   passwords, second factors, consent and deletion are refused, and every request is in the audit log as yours on
+   behalf of the customer. The customer's device list shows "Staff (support) until 10:45".
+3. End it when done: the banner's "End" (`DELETE /api/v1/account/impersonate/`) or the panel's. It ends by itself at
+   its time, or when you sign out of the panel.
+4. Note on the ticket what you saw and did; the audit log has `user.impersonation_started`, `…_accepted`,
+   `impersonation.request` events and `…_ended`, each with the customer's id.
+
 ### Phone numbers and passkeys: support cases
 
 A mobile number for log-in is added and changed on My account (the app can do the same through allauth.headless), after

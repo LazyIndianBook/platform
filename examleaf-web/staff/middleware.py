@@ -1,15 +1,19 @@
-"""Two guards on every request and two watches on every response. The staff's endpoints (the staff API, the shipping
-app's and the insights') and the Django admin answer only on the admin host (ADMIN_HOSTS): on any other they are 404
-to everyone, signed in or not (plan 9.1). A session that is a member of staff logged in as a customer
-(`staff:impersonating`, set by the website's account area when it accepts a token) is refused payments, passwords,
-email, second factors, consent, addresses and deletion (research 2.7). A 403 from the staff's endpoints to someone
-signed in is an `authz_fail` event (research 3.1: every authorization failure; anonymous probes stay in Caddy's log).
-A Razorpay webhook refused for its signature counts on the day's inbox item for the system's watchers."""
+"""Three guards on every request and three watches on every response. The staff's endpoints (the staff API, the
+shipping app's and the insights') and the Django admin answer only on the admin host (ADMIN_HOSTS): on any other they
+are 404 to everyone, signed in or not (plan 9.1). A session in which a member of staff is logged in as a customer
+(IMPERSONATING, set by the account API's account/impersonate/: staff.services.accept_impersonation) ends once it is
+over (its time, its end by either side, the panel's session gone: 401 `impersonation_ended` under /api/ and
+/_allauth/), is refused payments, passwords, email, second factors, consent, addresses and deletion (403
+`impersonating`, research 2.7), and each of its requests is an audit event by the member of staff on behalf of the
+customer. A 403 from the staff's endpoints to someone signed in is an `authz_fail` event (research 3.1: every
+authorization failure; anonymous probes stay in Caddy's log). A Razorpay webhook refused for its signature counts on
+the day's inbox item for the system's watchers."""
 
 import logging
 import re
 
 from django.conf import settings
+from django.contrib.auth import logout
 from django.http import Http404, JsonResponse
 from django.http.request import split_domain_port, validate_host
 from django.utils import timezone
@@ -23,12 +27,15 @@ STAFF_APIS = re.compile(
 ADMIN = "/admin/"
 STEPS = {"reauthentication_required", "break_glass_reason_required"}
 WEBHOOKS = {"/shop/webhooks/razorpay/": "Razorpay"}
-IMPERSONATING = "staff:impersonating"
+# A website session in which a member of staff is logged in as the customer: who, until when, why, the Impersonation
+IMPERSONATING, IMPERSONATION_UNTIL = "impersonating_staff_id", "impersonation_until"
+IMPERSONATION_REASON, IMPERSONATION_ID = "impersonation_reason", "impersonation_id"
 WHILE_IMPERSONATING = re.compile(
     r"^/(?:api/v1/(?:orders/|auth/password/|me/(?:export|deletion|parent-consent)/|addresses/)"
     r"|_allauth/[^/]+/v1/(?:account/|auth/(?:password|2fa|webauthn|reauthenticate)))"
 )
 SAFE = {"GET", "HEAD", "OPTIONS"}
+JSON_PATHS = ("/api/", "/_allauth/")
 
 
 def on_admin_host(request):
@@ -47,12 +54,25 @@ class StaffAuditMiddleware:
             return JsonResponse({"detail": "Not found."}, status=404)
         if request.path.startswith(ADMIN) and not on_admin_host(request):  # the Django admin: the same rule
             raise Http404
-        if request.method not in SAFE and WHILE_IMPERSONATING.match(request.path):
-            if request.session.get(IMPERSONATING):
+        response, impersonated = None, bool(request.session.get(IMPERSONATING))
+        if impersonated:
+            from .services import website_impersonation_over  # (services imports this module)
+
+            if why := website_impersonation_over(request):
+                request._impersonation_over = why  # the log-out's receiver records the end (staff.signals)
+                logout(request)
+                if request.path.startswith(JSON_PATHS):
+                    detail = "The member of staff's session as the customer is over."
+                    return JsonResponse({"detail": detail, "code": "impersonation_ended"}, status=401)
+                impersonated = False
+            elif request.method not in SAFE and WHILE_IMPERSONATING.match(request.path):
                 detail = "Not while a member of staff is logged in as the customer."
-                return JsonResponse({"detail": detail, "code": "impersonating"}, status=403)
-        response = self.get_response(request)
+                response = JsonResponse({"detail": detail, "code": "impersonating"}, status=403)
+        if response is None:
+            response = self.get_response(request)
         try:
+            if impersonated and request.session.get(IMPERSONATING):  # (not ended by this request)
+                self.on_behalf(request, response)
             if response.status_code == 403 and STAFF_APIS.match(request.path):
                 self.denied(request, response)
             elif response.status_code == 400 and request.path in WEBHOOKS:
@@ -60,6 +80,17 @@ class StaffAuditMiddleware:
         except Exception:  # the answer goes out whatever the log does
             logger.exception("Audit of %s %s failed", request.method, request.path)
         return response
+
+    @staticmethod
+    def on_behalf(request, response):
+        """A request of the member of staff logged in as the customer: by them (staff.audit's actor in such a
+        session), on behalf of and about the customer."""
+        from .audit import Outcome, record
+
+        code = response.status_code
+        outcome = Outcome.DENIED if code in (401, 403) else Outcome.FAILED if code >= 400 else Outcome.SUCCESS
+        details = {"method": request.method, "path": request.path[:200], "status": code}
+        record("impersonation.request", request=request, target=request.user, outcome=outcome, details=details)
 
     @staticmethod
     def denied(request, response):

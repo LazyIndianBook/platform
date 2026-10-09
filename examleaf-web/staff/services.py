@@ -6,17 +6,20 @@ customer). The business rules stay where they are (accounts, shop); these call t
 import hashlib
 import secrets
 from datetime import timedelta
+from importlib import import_module
 
 from allauth.account.forms import ResetPasswordForm
 from allauth.account.models import EmailAddress
 from allauth.usersessions.models import UserSession
 from axes.utils import reset as axes_reset
 from django.conf import settings
-from django.contrib.auth import get_user_model
+from django.contrib.auth import BACKEND_SESSION_KEY, HASH_SESSION_KEY, SESSION_KEY, get_user_model
 from django.contrib.auth.models import Group
 from django.core import signing
 from django.db import IntegrityError, transaction
+from django.middleware.csrf import rotate_token
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from rest_framework import exceptions, serializers
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 
@@ -24,8 +27,9 @@ from accounts import roles
 from accounts.views import send_parent_link
 from ops.tasks import queue_text_email
 
-from .audit import alert, record
-from .models import ApiKey, ChangeRequest, DataRequest, InboxItem, RoleGrant, StaffInvite, StaffScope
+from .audit import Outcome, alert, record
+from .middleware import IMPERSONATING, IMPERSONATION_ID, IMPERSONATION_REASON, IMPERSONATION_UNTIL
+from .models import ApiKey, ChangeRequest, DataRequest, Impersonation, InboxItem, RoleGrant, StaffInvite, StaffScope
 
 IMPERSONATION_SALT, IMPERSONATION_SECONDS = "staff.impersonation", 15 * 60
 
@@ -317,32 +321,51 @@ def reset_mfa(user):
     return {"authenticators": deleted, "sessions": sessions}
 
 
-def impersonation_token(staff, user, *, reason, ticket, request=None):
-    """Research 2.7: a signed token, valid IMPERSONATION_SECONDS, that the website's account area will accept for a
-    session as the customer, read-only for money, passwords, email, second factors, consent, addresses and deletion
-    (staff.middleware.ImpersonationGuard). Never for staff or for a student under 18. Logged, and the owners told."""
+def impersonable(user):
+    """Why `user` may not be logged in as, or None: never staff, a student under 18, a suspended account."""
     if user.is_staff or user.is_superuser:
-        raise exceptions.PermissionDenied("Staff accounts are never impersonated.")
+        return "Staff accounts are never impersonated."
     if user.is_minor:
-        raise exceptions.PermissionDenied("Accounts of students under 18 are never impersonated.")
+        return "Accounts of students under 18 are never impersonated."
     if not user.is_active:
-        raise serializers.ValidationError({"non_field_errors": ["The account is suspended or erased."]})
+        return "The account is suspended or erased."
+    return None
+
+
+def impersonation_token(staff, user, *, reason, ticket, request=None):
+    """Research 2.7: a signed token, valid IMPERSONATION_SECONDS, that the website's account area accepts once for a
+    session as the customer (accept_impersonation), read-only for money, passwords, email, second factors, consent,
+    addresses and deletion (staff.middleware). Never for staff or for a student under 18. Its Impersonation row binds
+    it to the member of staff and to the panel's session it was asked from. Logged, and the owners told."""
+    if user.is_staff or user.is_superuser or user.is_minor:
+        raise exceptions.PermissionDenied(impersonable(user))
+    if not user.is_active:
+        raise serializers.ValidationError({"non_field_errors": [impersonable(user)]})
     expires_at = timezone.now() + timedelta(seconds=IMPERSONATION_SECONDS)
-    event = record(
-        "user.impersonation_started",
-        request=request,
-        target=user,
-        reason=reason,
-        details={"ticket": ticket, "expires_at": expires_at},
-    )
-    payload = {"staff": staff.pk, "user": user.pk, "event": event.pk}
+    with transaction.atomic():
+        grant = Impersonation.objects.create(
+            staff=staff,
+            user=user,
+            reason=reason[:300],
+            ticket=ticket[:60],
+            staff_session_key=getattr(getattr(request, "session", None), "session_key", None) or "",
+            expires_at=expires_at,
+        )
+        event = record(
+            "user.impersonation_started",
+            request=request,
+            target=user,
+            reason=reason,
+            details={"ticket": ticket, "expires_at": expires_at, "impersonation": grant.pk},
+        )
+    payload = {"staff": staff.pk, "user": user.pk, "event": event.pk, "id": grant.pk}
     token = signing.dumps(payload, salt=IMPERSONATION_SALT, compress=True)
     alert(f"User #{staff.pk} logs in as customer #{user.pk}", f"Reason: {reason}\nTicket: {ticket}")
     return token, expires_at
 
 
 def read_impersonation_token(token, max_age=IMPERSONATION_SECONDS):
-    """The token's {"staff", "user", "event"}, or None when forged or expired (for the website's account area)."""
+    """The token's {"staff", "user", "event", "id"}, or None when forged or expired."""
     try:
         return signing.loads(token, salt=IMPERSONATION_SALT, max_age=max_age)
     except signing.BadSignature:
@@ -350,7 +373,114 @@ def read_impersonation_token(token, max_age=IMPERSONATION_SECONDS):
 
 
 def end_impersonation(staff, user, token, *, request=None):
+    """The panel's end: the website's session, if one was opened, ends at its next request."""
     data = read_impersonation_token(token, max_age=None)
     if not data or data["staff"] != staff.pk or data["user"] != user.pk:
         raise serializers.ValidationError({"token": ["Not a token of yours for this account."]})
+    Impersonation.objects.filter(pk=data.get("id"), ended_at=None).update(ended_at=timezone.now())
     record("user.impersonation_ended", request=request, target=user, details={"started": data["event"]})
+
+
+# The website's side of logging in as a customer (the account API's account/impersonate/)
+
+NOT_VALID = {"token": ["This link to log in as the customer is not valid: used, expired, ended or forged."]}
+
+
+def staff_session_alive(grant):
+    """Whether the panel's session the token was asked from is still signed in as its member of staff."""
+    if not grant.staff_session_key:
+        return False
+    store = import_module(settings.SESSION_ENGINE).SessionStore(session_key=grant.staff_session_key)
+    return store.load().get(SESSION_KEY) == str(grant.staff_id)
+
+
+def accept_impersonation(request, token):
+    """Log the visitor's browser in as the token's customer (research 2.7): once per token (accepted_at, set by the
+    first request only), within its 15 minutes, while its member of staff may and the panel's session it came from is
+    still signed in. A new session, marked with who, until when and why, ending at `until`; its device-list row says
+    "Staff (support) until <time>". Not the customer's own log-in: their last log-in, lock-outs and authentication
+    records stay theirs (so no django.contrib.auth.login and its signals). Returns the Impersonation."""
+    data = read_impersonation_token(token) or {}
+    grant = (
+        Impersonation.objects.select_related("staff", "user")
+        .filter(pk=data.get("id"), staff_id=data.get("staff"), user_id=data.get("user"))
+        .first()
+    )
+    if grant is None:  # forged, or older than 15 minutes: nobody to name in the log
+        raise serializers.ValidationError(NOT_VALID)
+    now, staff, user = timezone.now(), grant.staff, grant.user
+    unused = Impersonation.objects.filter(pk=grant.pk, accepted_at=None, ended_at=None, expires_at__gt=now)
+    claimed, why = unused.update(accepted_at=now), None  # (one request only can set it)
+    if not claimed:
+        why = "used, ended or expired"
+    elif not (staff.is_active and staff.has_perm("staff.impersonate_user")) or not staff_session_alive(grant):
+        why = "the member of staff may no longer, or signed out of the panel"
+    elif problem := impersonable(user):
+        why = problem
+    if why:
+        if claimed:  # taken by this request, opened nothing: it is over
+            Impersonation.objects.filter(pk=grant.pk).update(ended_at=now)
+        record(
+            "user.impersonation_refused",
+            request=request,
+            actor=staff,
+            target=user,
+            outcome=Outcome.DENIED,
+            on_behalf_of=user,
+            details={"impersonation": grant.pk, "why": why},
+        )
+        raise serializers.ValidationError(NOT_VALID)
+    session = request.session
+    if session.get(IMPERSONATION_ID):  # this browser was logged in as another customer: that ends here
+        impersonation_ended(request, request.user, "another opened")
+    session.flush()  # a new session: nothing of the browser's before carries over
+    session[SESSION_KEY] = str(user.pk)
+    session[BACKEND_SESSION_KEY] = "django.contrib.auth.backends.ModelBackend"
+    session[HASH_SESSION_KEY] = user.get_session_auth_hash()
+    session[IMPERSONATING], session[IMPERSONATION_UNTIL] = staff.pk, grant.expires_at.isoformat()
+    session[IMPERSONATION_REASON], session[IMPERSONATION_ID] = grant.reason, grant.pk
+    session.set_expiry(grant.expires_at)
+    session.save()
+    rotate_token(request)
+    request.user = user
+    UserSession.objects.create_from_request(request)
+    label = f"Staff (support) until {timezone.localtime(grant.expires_at):%H:%M}"
+    UserSession.objects.filter(session_key=session.session_key).update(
+        user_agent=label, data={"impersonation": grant.pk, "staff_label": label}
+    )
+    record("user.impersonation_accepted", request=request, target=user, details={"impersonation": grant.pk})
+    return grant
+
+
+def website_impersonation_over(request):
+    """Why the session's impersonation is over (its time, its end by either side, the panel's session gone), or
+    None. Only a marked session is asked."""
+    until = parse_datetime(request.session.get(IMPERSONATION_UNTIL) or "")
+    if until is None or until <= timezone.now():
+        return "expired"
+    grant = Impersonation.objects.filter(pk=request.session.get(IMPERSONATION_ID)).first()
+    if grant is None or grant.ended_at is not None:
+        return "ended"
+    if not staff_session_alive(grant):
+        return "the panel's session ended"
+    return None
+
+
+def impersonation_banner(request, user):
+    """{"until", "by": the member of staff's masked address} while a member of staff is logged in as `user` in this
+    session (the website's banner on every page), else None."""
+    from .privacy import mask_email
+
+    session = getattr(request, "session", None)
+    if session is None or not session.get(IMPERSONATING) or session.get(SESSION_KEY) != str(user.pk):
+        return None
+    staff = get_user_model().objects.filter(pk=session[IMPERSONATING]).only("email").first()
+    return {"until": session.get(IMPERSONATION_UNTIL), "by": mask_email(staff.email) if staff else ""}
+
+
+def impersonation_ended(request, user, why):
+    """The session's end (its log-out, by DELETE account/impersonate/, the customer's own log-out, or the middleware
+    when it is over): the Impersonation is ended, and the event names the member of staff."""
+    grant = request.session.get(IMPERSONATION_ID)
+    Impersonation.objects.filter(pk=grant, ended_at=None).update(ended_at=timezone.now())
+    record("user.impersonation_ended", request=request, target=user, details={"impersonation": grant, "why": why})

@@ -16,7 +16,7 @@ from celery.signals import task_failure
 from django.contrib.auth import get_user_model
 from django.contrib.auth.signals import user_logged_out, user_login_failed
 from django.db import transaction
-from django.db.models.signals import m2m_changed, post_save
+from django.db.models.signals import m2m_changed, post_save, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
 from django_fsm.signals import post_transition
@@ -91,6 +91,26 @@ def staff_logged_out(sender, request, user, **kwargs):
             f"Break-glass session of account #{user.pk} ended ({why})",
             "Review its events within 24 hours: audit/?break_glass=true",
         )
+
+
+@receiver(user_logged_out)
+@quietly
+def impersonation_logged_out(sender, request, user, **kwargs):
+    """A website session of a member of staff logged in as the customer, ending (its DELETE account/impersonate/, a
+    log-out, or the middleware once it is over): before the session is flushed, its end is recorded."""
+    from .middleware import IMPERSONATING
+    from .services import impersonation_ended
+
+    if request is not None and request.session.get(IMPERSONATING):
+        impersonation_ended(request, user, getattr(request, "_impersonation_over", None) or "logged out")
+
+
+@receiver(pre_save, sender="usersessions.UserSession")
+def staff_session_label(sender, instance, **kwargs):
+    """The customer's device list shows a session of staff logged in as them as such ("Staff (support) until 10:45"),
+    not the browser the middleware writes on each request."""
+    if label := (instance.data or {}).get("staff_label"):
+        instance.user_agent = label
 
 
 def staff_with(username):

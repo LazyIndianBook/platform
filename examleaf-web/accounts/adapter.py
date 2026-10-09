@@ -6,6 +6,7 @@ from allauth.core import context as allauth_context
 from allauth.core import ratelimit
 from allauth.core.exceptions import ImmediateHttpResponse
 from allauth.core.internal.httpkit import headed_redirect_response
+from allauth.headless.adapter import DefaultHeadlessAdapter
 from allauth.mfa.adapter import DefaultMFAAdapter
 from allauth.mfa.webauthn.internal.flows import did_use_passwordless_login
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
@@ -116,6 +117,15 @@ class AccountAdapter(DefaultAccountAdapter):
         if phone := credentials.get("phone"):
             return f"phone:{normalise_phone(phone) or phone}"
         return super()._get_login_attempts_cache_key(request, **credentials)
+
+
+class HeadlessAdapter(DefaultHeadlessAdapter):
+    def serialize_user(self, user):
+        """allauth.headless's user (`auth/session`, which the website reads on every page) with `impersonation`:
+        {"until", "by"} while a member of staff is logged in as this customer (the website's banner), else null."""
+        from staff.services import impersonation_banner
+
+        return {**super().serialize_user(user), "impersonation": impersonation_banner(self.request, user)}
 
 
 class MFAAdapter(DefaultMFAAdapter):

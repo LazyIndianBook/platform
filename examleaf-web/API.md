@@ -67,6 +67,7 @@ active member of staff with an authenticator app, through the website's session.
 | POST DELETE | `me/deletion/` | signed in | Delete my account (`password`, or a log-in in the last 5 minutes), due in 7 days; DELETE cancels |
 | GET POST | `me/teacher/` | confirmed | teacher access: its status; ask for it (once) |
 | POST | `me/parent-consent/` | signed in | the parent's link to confirm, again (while `consent_pending`) |
+| POST DELETE | `account/impersonate/` | anyone with the panel's token | a member of staff logged in as the customer: open the session (`{"token"}`), end it ([Profile and data rights](#profile-and-data-rights)) |
 | GET | `me/record/` (`?subject=&tier=`) | confirmed | My record in figures: averages per tier and subject, each paper's best and latest attempt |
 | GET | `me/learning/` | confirmed | the learning dashboard: what is open, progress per subject and chapter, the clip to continue with, revise-again counts, the plan's next three days, the streak |
 | GET | `boards/`, `boards/<id>/` | anyone | the boards |
@@ -367,6 +368,30 @@ curl -X POST https://examleaf.in/api/v1/me/parent-consent/ -H "Authorization: Be
   -H 'Content-Type: application/json' -d '{"parent_contact": "anita@example.com"}'
 # 200 {"detail": "We have sent anita@example.com a link to confirm."}      429 within ten minutes of the last one
 ```
+
+**A member of staff logged in as the customer** (research 2.7; the panel's `staff/users/<id>/impersonate/` gives the
+token, with a reason and a ticket, never for staff or a student under 18). The website's page for it posts the token:
+`POST account/impersonate/ {"token": "…"}` (no sign-in: the token is the credential; 20 an hour per client address,
+`API_THROTTLE_IMPERSONATE`). Once per token, within its 15 minutes, while the member of staff may and is still signed
+in to the panel where they asked for it: `200 {"until": "…", "user": {"id": 42, "email": "ra•••@example.com"}}`, and
+the browser is logged in as the customer in a new session (whatever it was signed in as before), which ends at
+`until`; otherwise `400 {"token": ["This link to log in as the customer is not valid: used, expired, ended or
+forged."]}`. It is not the customer's own log-in: their last log-in and authentication records stay theirs.
+While it lasts:
+
+- allauth.headless's `auth/session` (the website's every page) gives the user `impersonation`: `{"until", "by"}` (the
+  member of staff's masked address), null in any other session: show the banner on every page.
+- Every payment, address, password, email, second-factor, consent and deletion change answers `403 {"code":
+  "impersonating"}` (placing and paying for orders under `orders/`, `addresses/`, `auth/password/`, `me/deletion/`,
+  `me/export/`, `me/parent-consent/`, allauth.headless's `account/…` and `auth/password|2fa|webauthn|reauthenticate…`);
+  reading is the point.
+- Each request is an audit event by the member of staff on behalf of the customer (`impersonation.request`, its
+  method, path and answer's status), beside `user.impersonation_accepted` and `…_ended`.
+- The customer's own device list (`auth/sessions`) shows the session as "Staff (support) until 10:45".
+- It ends at `until`, with `DELETE account/impersonate/` (204; 404 when nothing is open), when the panel ends it
+  (`…/impersonate/end/`), when that panel session signs out or ends, or when the customer ends it in their device
+  list: the next request answers `401 {"code": "impersonation_ended"}` under `/api/` and `/_allauth/` (any other page
+  goes on signed out).
 
 ## Catalogue and solutions
 
@@ -1157,7 +1182,7 @@ minutes.
 | POST | `users/<id>/end-sessions/` | `staff.end_user_sessions` | sign them out everywhere |
 | POST | `users/<id>/password-reset/` | `staff.initiate_password_reset` | allauth's reset email to the account's address |
 | POST | `users/<id>/reset-mfa/` (`reason`) | `staff.reset_user_mfa` | 202: another person approves |
-| POST | `users/<id>/impersonate/` (`reason`, `ticket`), `…/impersonate/end/` (`token`) | `staff.impersonate_user` | a 15-minute token for the website's account area (never staff or a child); its end |
+| POST | `users/<id>/impersonate/` (`reason`, `ticket`), `…/impersonate/end/` (`token`) | `staff.impersonate_user` | a 15-minute token that the website's `account/impersonate/` takes once, from a browser on the website's host (never staff or a child); its end, which ends the website's session too |
 | GET | `data-requests/` (`?status=&kind=&user=&assignee=&overdue=`), `data-requests/<id>/` | `staff.view_datarequest` | the requests queue, with its clocks |
 | POST PATCH | `data-requests/`, `data-requests/<id>/` | `staff.handle_data_request` | record one; change its notes, assignee, details |
 | POST | `data-requests/<id>/acknowledge/`, `…/verify-identity/` (`note`), `…/close/` (`outcome`, `response`) | `staff.handle_data_request` | its steps |
@@ -1193,7 +1218,9 @@ curl https://examleaf.in/api/v1/staff/session/ -b "sessionid=…"
 
 `flags.test_mode` is `true` only off production (`STAFF_TEST_MODE`, `DEBUG`'s by default): show the TEST band; absent,
 it is production. `impersonating` is `{"user_id", "email" (masked), "until"}` while this session's token from
-`users/<id>/impersonate/` lasts (15 minutes, or until `…/impersonate/end/`): show the banner.
+`users/<id>/impersonate/` lasts (15 minutes, or until `…/impersonate/end/`): show the banner. Open the website's
+page that posts the token to `/api/v1/account/impersonate/` (API.md "Profile and data rights"): the website's session
+it opens ends with this panel session, at the token's time, or with `…/impersonate/end/`.
 
 **Jobs** (`jobs/`, `staff/jobs.py`) are the background work started from the panel: `audit_export` (`params`:
 `{"filters": {…}}`, the audit list's) and `bulk_action` (`params`: `{"action": "order.refund", "targets": ["EL-2026-…",
@@ -1621,6 +1648,7 @@ Counted in the cache (Redis in production), per client address for anonymous req
 | audit-log exports (`staff/audit/export/`) | 10 an hour | `STAFF_THROTTLE_EXPORT` |
 | money actions and approvals (`staff/change-requests/` asked, approved, run; role grants, invitations, offboarding) | 120 an hour | `STAFF_THROTTLE_MONEY` |
 | staff invitations accepted (`staff/invites/accept/`), per client address | 10 an hour | `STAFF_THROTTLE_INVITE` |
+| a member of staff logged in as a customer, opened or ended (`account/impersonate/`), per client address | 20 an hour | `API_THROTTLE_IMPERSONATE` |
 
 The rows marked "fixed" are counted by the shop itself and refuse (429) while the cache cannot be read (Redis down); the others
 let requests through meanwhile. `auth/exchange/`, `me/parent-consent/` count in the log-in scope (`API_THROTTLE_AUTH`).

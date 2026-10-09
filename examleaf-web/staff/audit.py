@@ -156,6 +156,20 @@ def session_break_glass(request):
     return session.get(BREAK_GLASS) if session is not None else None
 
 
+def impersonator(request):
+    """The member of staff logged in as the customer in this website session (staff.middleware.IMPERSONATING), or
+    None: the actor of what the session does."""
+    from .middleware import IMPERSONATING
+
+    session = getattr(request, "session", None)
+    staff_id = session.get(IMPERSONATING) if session is not None else None
+    if not staff_id:
+        return None
+    if getattr(request, "_impersonator", None) is None:
+        request._impersonator = get_user_model().objects.filter(pk=staff_id).first()
+    return request._impersonator
+
+
 def _lock_head():
     head = AuditHead.objects.select_for_update().filter(pk=1).first()
     if head is None:  # the first event (or a test database flushed): concurrent creators, one row
@@ -187,6 +201,8 @@ def record(
     request = getattr(request, "_request", request) or current_request()
     if actor is None and actor_type is None and request is not None:
         actor = getattr(request, "user", None)
+        if getattr(actor, "is_authenticated", False) and (staff := impersonator(request)) is not None:
+            actor, on_behalf_of = staff, on_behalf_of or actor  # a member of staff logged in as the customer
     actor_id, kind, roles = describe_actor(actor, actor_type)
     target_type, target_id, target_label = describe_target(target)
     fields = {

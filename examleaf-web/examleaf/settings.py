@@ -249,6 +249,7 @@ HEADLESS_FRONTEND_URLS = {
     # where a failed Google log-in lands when its own callback_url is lost: the log-in page shows ?error=
     "socialaccount_login_error": f"{SITE_URL}/account/login/",
 }
+HEADLESS_ADAPTER = "accounts.adapter.HeadlessAdapter"  # the user's `impersonation` (staff logged in as them)
 HEADLESS_SERVE_SPECIFICATION = True
 HEADLESS_SPECIFICATION_TEMPLATE_NAME = None
 

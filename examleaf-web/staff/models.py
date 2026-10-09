@@ -441,6 +441,30 @@ class ApiKey(models.Model):
         return self.revoked_at is None and self.expires_at > timezone.now()
 
 
+class Impersonation(models.Model):
+    """A member of staff logged in as a customer on the website (research 2.7; staff.services): the token of the
+    panel's `users/<id>/impersonate/` opens one website session (`accepted_at`: once), within 15 minutes, which ends at
+    `expires_at`, when either side ends it (`ended_at`), or with the panel's session it was asked from
+    (`staff_session_key`: its session no longer signed in as the member of staff)."""
+
+    staff = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
+    reason = models.CharField(max_length=300)
+    ticket = models.CharField(max_length=60)
+    staff_session_key = models.CharField(max_length=40, blank=True)
+    created = models.DateTimeField(default=timezone.now)
+    expires_at = models.DateTimeField()
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        default_permissions = ()  # staff.impersonate_user
+        ordering = ["-created"]
+
+    def __str__(self):
+        return f"Impersonation #{self.pk}"
+
+
 class StaffInvite(models.Model):
     """An invitation to join the staff with a role, sent by email; the link (whose token only the email holds) works
     once, for VALID."""

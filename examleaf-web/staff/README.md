@@ -20,7 +20,7 @@ what this API answers and decides nothing itself. The endpoints are in [API.md](
 | `config.py` | `site_setting()` and `feature_flag()`: the panel's switches over the environment's |
 | `permissions.py` | `IsStaff`, `StaffPermission`, API keys (`ApiKeyAuthentication`), the per-staff throttle |
 | `api.py`, `serializers.py`, `urls.py` | `/api/v1/staff/` |
-| `middleware.py` | the staff API on the admin host only (404 elsewhere), `authz_fail` for every refusal of the staff API, refused webhooks to the inbox, impersonation's limits |
+| `middleware.py` | the staff's endpoints and the Django admin on the admin host only (404 elsewhere), `authz_fail` for every refusal of the staff's endpoints, refused webhooks to the inbox, a website session as a customer: its end, its limits, its requests audited |
 | `signals.py` | the audit log and the inbox fed from the rest of the site |
 | `tasks.py`, `management/commands/` | the beat tasks and `run_job`; `verify_audit_chain`, `purge_audit`, `staff_api_reference` (API.md's generated reference) |
 | `tests/` | the authorization matrix and the rest (`pytest staff`) |
@@ -250,9 +250,18 @@ by `result_url` (signed for 5 minutes; a bucket's own signed link behind it) and
 - **Personal data is masked** in the staff API (an email as `ra•••@example.com`, a phone as `••••••2345`); revealing it
   needs `staff.reveal_contact`, a reason and a re-authentication, is limited (`STAFF_THROTTLE_REVEAL`, 30 an hour) and
   is a `sensitive_read` event; so is opening a customer's record, with `child: true` for a student under 18.
-- **Logging in as a customer** gives a token valid 15 minutes for the website's account area (which will accept it
-  later): never for staff or a student under 18, with a reason and a ticket, logged at its start and end, alerted; a
-  session that carries it is refused payments, passwords, email, second factors, consent, addresses and deletion.
+- **Logging in as a customer** (research 2.7): `users/<id>/impersonate/` gives a token valid 15 minutes, never for
+  staff or a student under 18, with a reason and a ticket, logged at its start and end, alerted; its `Impersonation`
+  row binds it to the member of staff and to the panel's session it was asked from. The website's account API takes
+  it once (`/api/v1/account/impersonate/`, `services.accept_impersonation`): a new session as the customer (not
+  their log-in: no signal, their last log-in unchanged), marked `impersonating_staff_id`, `impersonation_until`,
+  `impersonation_reason`, ending at `until`, when either side ends it (`DELETE` there, `…/impersonate/end/` here), or
+  once that panel session no longer holds the member of staff (`middleware.py`: `401 impersonation_ended`). While it
+  lasts, payments, passwords, email, second factors, consent, addresses and deletion are refused (`403
+  impersonating`), `auth/session`'s user carries `impersonation` (the website's banner, `accounts.adapter.
+  HeadlessAdapter`), the customer's device list names it "Staff (support) until …", and `audit.record` takes the
+  member of staff for the actor and the customer for `on_behalf_of`, with one `impersonation.request` event per
+  request.
 
 ## The jobs
 
@@ -268,7 +277,7 @@ by `result_url` (signed for 5 minutes; a bucket's own signed link behind it) and
 
 The panel itself (Next.js); the orders, catalogue, content and course modules' own endpoints (their permissions are
 in the catalogue: `staff.publish_paper` waits for the content module); bulk actions beyond the change requests' (a
-bulk job runs those: refunds, offline payments, prices, coupons); the
-website's side of impersonation (the token's acceptance); replaying a Razorpay webhook from its body (the site keeps
-only the event's id and hash: `system/reconcile/` asks Razorpay again instead); ERPNext's role sync; `Note` and
-`PolicyAcknowledgement` (plan 7.1); the Django admin's own step for a break-glass session's reason.
+bulk job runs those: refunds, offline payments, prices, coupons); replaying a Razorpay webhook from its body (the
+site keeps only the event's id and hash: `system/reconcile/` asks Razorpay again instead); ERPNext's role sync;
+`Note` and `PolicyAcknowledgement` (plan 7.1); the Django admin's own step for a break-glass session's reason; the
+website's page that posts an impersonation token, and its banner (examleaf-frontend).

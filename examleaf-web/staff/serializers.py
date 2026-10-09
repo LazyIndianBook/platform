@@ -545,6 +545,16 @@ class TokenSerializer(serializers.Serializer):
     token = serializers.CharField()
 
 
+class ImpersonatedUserSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    email = serializers.CharField(help_text="masked")
+
+
+class ImpersonatingSerializer(serializers.Serializer):
+    until = serializers.DateTimeField(help_text="the session ends then")
+    user = ImpersonatedUserSerializer()
+
+
 class DataRequestSerializer(serializers.ModelSerializer):
     ack_overdue = serializers.SerializerMethodField()
     overdue = serializers.SerializerMethodField()

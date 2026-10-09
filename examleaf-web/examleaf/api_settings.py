@@ -151,6 +151,7 @@ REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"].update(
     staff_export=_env("STAFF_THROTTLE_EXPORT", default="10/hour"),
     staff_money=_env("STAFF_THROTTLE_MONEY", default="120/hour"),
     staff_invite=_env("STAFF_THROTTLE_INVITE", default="10/hour"),
+    impersonate=_env("API_THROTTLE_IMPERSONATE", default="20/hour"),  # account/impersonate/, per client address
 )
 SPECTACULAR_SETTINGS["ENUM_NAME_OVERRIDES"].update(
     ChangeRequestStatusEnum="staff.models.ChangeRequest.Status",

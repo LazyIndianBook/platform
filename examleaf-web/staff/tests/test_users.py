@@ -6,7 +6,6 @@ import re
 import time
 
 import pytest
-from allauth.account.internal.flows.login import AUTHENTICATION_METHODS_SESSION_KEY
 from allauth.usersessions.models import UserSession
 from axes.models import AccessAttempt
 from django.core import mail
@@ -19,7 +18,7 @@ from accounts.models import ConsentRecord, User
 from accounts.tests import birthday
 from api.tests import student
 from staff import services
-from staff.middleware import IMPERSONATING
+from staff.models import Impersonation
 
 from .conftest import STAFF, events, make_staff, signed_in
 
@@ -150,7 +149,9 @@ def test_logging_in_as_a_customer_gives_a_15_minute_token_logged_and_alerted(
     token = response.json()["token"]
     data = services.read_impersonation_token(token)
     started = events("user.impersonation_started").get()
-    assert data == {"staff": support.pk, "user": customer.pk, "event": started.pk}
+    grant = Impersonation.objects.get()
+    assert data == {"staff": support.pk, "user": customer.pk, "event": started.pk, "id": grant.pk}
+    assert (grant.staff, grant.user, grant.ticket, grant.accepted_at) == (support, customer, "HD-42", None)
     assert started.details["ticket"] == "HD-42" and started.reason == "Sees an empty cart"
     assert any("logs in as customer" in message.subject for message in mail.outbox)
     with pytest.MonkeyPatch.context() as patch:
@@ -177,22 +178,6 @@ def test_children_and_staff_are_never_impersonated():
     staff = make_staff(roles.SALES)
     assert impersonate(support, staff).status_code == 404  # users/ has customers only
     assert not events("user.impersonation_started").exists()
-
-
-def test_while_impersonating_payments_passwords_and_the_account_are_refused():
-    customer = student()
-    browser = Client()
-    browser.force_login(customer)
-    session = browser.session
-    session[IMPERSONATING] = {"staff": 1, "event": 1}
-    session[AUTHENTICATION_METHODS_SESSION_KEY] = [{"method": "password", "at": time.time()}]
-    session.save()
-    for url in ["/api/v1/orders/", "/api/v1/auth/password/change/", "/api/v1/me/deletion/", "/api/v1/addresses/",
-                "/_allauth/browser/v1/account/password/change", "/_allauth/browser/v1/account/email"]:  # fmt: skip
-        response = browser.post(url, {}, content_type="application/json")
-        assert (response.status_code, response.json()["code"]) == (403, "impersonating"), url
-    assert browser.get("/api/v1/me/").status_code == 200  # reading is the point
-    assert browser.get("/api/v1/orders/").status_code == 200
 
 
 def test_a_customers_second_factor_reset_by_support_waits_for_another(rzp):

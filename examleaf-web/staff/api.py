@@ -13,7 +13,7 @@ from allauth.account import app_settings as account_settings
 from allauth.account.authentication import get_authentication_records
 from django.conf import settings
 from django.contrib.admin.models import ADDITION, CHANGE, DELETION, LogEntry
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, logout
 from django.contrib.auth.models import Group, Permission
 from django.core.files.storage import FileSystemStorage, default_storage
 from django.db import transaction
@@ -26,7 +26,17 @@ from django_filters import rest_framework as django_filters  # its BooleanFilter
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema, inline_serializer
-from rest_framework import exceptions, generics, mixins, pagination, permissions, serializers, status, viewsets
+from rest_framework import (
+    exceptions,
+    generics,
+    mixins,
+    pagination,
+    permissions,
+    serializers,
+    status,
+    throttling,
+    viewsets,
+)
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -40,6 +50,7 @@ from . import approvals, audit, catalogue, jobs, services
 from . import serializers as s
 from .backends import scoped, staff_scopes
 from .config import FLAG_KEY, SETTINGS, changed, environment_value, feature_flags, site_setting
+from .middleware import IMPERSONATING
 from .models import (
     ApiKey,
     AuditEvent,
@@ -1228,6 +1239,35 @@ class InviteAcceptView(generics.GenericAPIView):
             password=data.validated_data["password"],
         )
         return Response({"detail": "Welcome. Log in, then set up an authenticator app or a passkey."})
+
+
+class ImpersonationView(generics.GenericAPIView):
+    """The website's side of logging in as a customer (research 2.7), `/api/v1/account/impersonate/` of the account API
+    (not the staff API: the website's host). POST the token of the panel's `users/<id>/impersonate/` (the token is the
+    credential: no sign-in needed): once per token, within its 15 minutes, the browser is logged in as the customer
+    until then, in a session marked as staff's (staff.services.accept_impersonation). DELETE ends it."""
+
+    authentication_classes = [SessionAuthentication]
+    permission_classes = [permissions.AllowAny]
+    serializer_class = s.TokenSerializer
+    throttle_classes = [throttling.ScopedRateThrottle]
+    throttle_scope = "impersonate"
+
+    @extend_schema(responses=s.ImpersonatingSerializer)
+    def post(self, request, *args, **kwargs):
+        data = self.get_serializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        grant = services.accept_impersonation(request._request, data.validated_data["token"])
+        user = {"id": grant.user_id, "email": mask_email(grant.user.email)}
+        return Response(s.ImpersonatingSerializer({"until": grant.expires_at, "user": user}).data)
+
+    @extend_schema(request=None, responses={204: None})
+    def delete(self, request, *args, **kwargs):
+        if not request.session.get(IMPERSONATING):
+            raise exceptions.NotFound("No member of staff is logged in as a customer in this session.")
+        request._request._impersonation_over = "ended by the member of staff"
+        logout(request._request)  # the log-out's receiver records the end (staff.signals)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 # Customers (users/)
