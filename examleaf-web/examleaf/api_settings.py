@@ -107,6 +107,7 @@ SPECTACULAR_SETTINGS = {
         {"name": "shop", "description": "Products, reviews, cart, addresses, orders and payment, school quotations."},
         {"name": "learn", "description": "The revision course: chapters, clips, quiz, flash cards, the plan."},
         {"name": "site", "description": "What the server has switched on, and the legal pages."},
+        {"name": "insights", "description": "Staff only: forecasts, print runs, item analysis, cohorts, fraud."},
     ],
     "COMPONENT_SPLIT_REQUEST": True,
     "SWAGGER_UI_DIST": "SIDECAR",

@@ -2,9 +2,11 @@
 
 from dj_rest_auth import views as rest_auth
 from dj_rest_auth.jwt_auth import get_refresh_view
-from django.urls import path
+from django.urls import include, path
 from rest_framework.routers import SimpleRouter
 from rest_framework_simplejwt.views import TokenVerifyView
+
+from insights import api as insights
 
 from . import auth, learn, parent_link, shop, views
 
@@ -77,6 +79,7 @@ urlpatterns = [
     path("learn/redeem/", learn.RedeemView.as_view(), name="learn-redeem"),
     path("learn/settings/", learn.LearnerView.as_view(), name="learn-settings"),
     path("devices/", learn.DeviceView.as_view(), name="devices"),
+    path("insights/", include(insights.urlpatterns)),  # staff only: insights/api.py
     *router.urls,
 ]
 
