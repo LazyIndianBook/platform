@@ -1238,18 +1238,27 @@ def totals_for(day):
         ):
             shipped[row.item_code] = -flt(row.qty)
 
-    je = frappe.qb.DocType("Journal Entry")
+    # settlements by kind, told by the clearing account they empty; total is the gross (net + fee + tax on the fee)
+    je, jea = frappe.qb.DocType("Journal Entry"), frappe.qb.DocType("Journal Entry Account")
+    clearing = {mode_account(MODES[kind]): kind for kind in ("razorpay", "cod")}
     settlements = {}
     for row in (
         frappe.qb.from_(je)
-        .select(je.examleaf_ref, je.total_debit)
-        .where((je.posting_date == day) & (je.docstatus == 1) & je.examleaf_ref.isnotnull())
+        .join(jea)
+        .on(jea.parent == je.name)
+        .select(jea.account, jea.credit_in_account_currency)
+        .where(
+            (je.posting_date == day)
+            & (je.docstatus == 1)
+            & je.examleaf_ref.isnotnull()
+            & jea.account.isin(list(clearing))
+            & (jea.credit_in_account_currency > 0)
+        )
         .run(as_dict=True)
     ):
-        kind = row.examleaf_ref.split(":", 1)[0]
-        entry = settlements.setdefault(kind, {"count": 0, "total": Decimal("0.00")})
+        entry = settlements.setdefault(clearing[row.account], {"count": 0, "total": Decimal("0.00")})
         entry["count"] += 1
-        entry["total"] += to_decimal(row.total_debit)
+        entry["total"] += to_decimal(row.credit_in_account_currency)
 
     return {
         "date": str(day),

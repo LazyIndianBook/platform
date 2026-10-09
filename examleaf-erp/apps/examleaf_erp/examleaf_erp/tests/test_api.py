@@ -289,6 +289,7 @@ class TestSyncAPI(IntegrationTestCase):
 
     def test_a_razorpay_settlement_moves_clearing_to_the_bank(self):
         settlement = unique("setl_")
+        settled = ok(api.daily_totals(date=str(getdate())))["settlements"].get("razorpay", {})
         response = ok(
             api.record_settlement(
                 examleaf_ref=f"settlement:{settlement}",
@@ -311,6 +312,9 @@ class TestSyncAPI(IntegrationTestCase):
         self.assertEqual(lines["Main Bank"], (976.4, 0))
         self.assertEqual(entry.cheque_no, "AXISN26100912345")  # the bank statement's reference
         self.assertIn(settlement, entry.user_remark)
+        now = ok(api.daily_totals(date=str(getdate())))["settlements"]["razorpay"]
+        self.assertEqual(now["count"] - settled.get("count", 0), 1)
+        self.assertEqual(Decimal(now["total"]) - Decimal(settled.get("total", "0")), Decimal("1000.00"))
         refused = api.record_settlement(
             examleaf_ref=f"settlement:{unique()}",
             idempotency_key=unique(),
