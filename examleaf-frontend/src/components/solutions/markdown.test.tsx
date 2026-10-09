@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { isMinor } from "@/lib/dates";
 
-import { MarkdownBlock, MarkdownInline, splitGroup, stepCount } from "./markdown";
+import { CACHE_CHARS, MarkdownBlock, MarkdownInline, splitGroup, stepCount } from "./markdown";
 
 const SOLUTION = [
   "| Step | Marks |",
@@ -78,5 +78,21 @@ describe("isMinor", () => {
     expect(isMinor("2008-10-08", today)).toBe(false);
     expect(isMinor("2008-10-09", today)).toBe(true);
     expect(isMinor("", today)).toBe(false);
+  });
+});
+
+describe("the rendering cache", () => {
+  // the cached tree is the fragment's child: the same object again means a hit, a new one a fresh rendering
+  const rendered = (text: string) => (MarkdownBlock({ children: text }).props as { children: unknown }).children;
+  const filler = (index: number) => `${index} ${"a".repeat(CACHE_CHARS / 8)}`;
+
+  it("keeps a text in use, and lets the least recently used go once its characters pass the budget", () => {
+    const kept = rendered("Kept: $x^2$");
+    const dropped = rendered("Dropped: $y^2$");
+    for (let index = 0; index < 6; index++) rendered(filler(index)); // three quarters of the budget
+    expect(rendered("Kept: $x^2$")).toBe(kept); // a hit, and now the most recent
+    for (let index = 6; index < 10; index++) rendered(filler(index)); // past the budget
+    expect(rendered("Dropped: $y^2$")).not.toBe(dropped); // the least recently used went first
+    expect(rendered("Kept: $x^2$")).toBe(kept);
   });
 });
