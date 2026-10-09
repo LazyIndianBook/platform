@@ -16,6 +16,7 @@ from rest_framework.response import Response
 from staff import audit
 from staff.api import StaffAppView
 
+from . import cells
 from .jobs import latest
 from .jobs.demand import SHOWN_HORIZON
 from .models import (
@@ -89,17 +90,51 @@ class ChapterStatSerializer(serializers.ModelSerializer):
 
 
 class CohortStatSerializer(serializers.ModelSerializer):
+    """A cohort's week. A week of fewer than INSIGHTS_MIN_CELL learners shows its size and no shares (`hidden`)."""
+
+    hidden = serializers.SerializerMethodField(help_text="true: too few learners to show the shares (see `under`)")
+    under = serializers.SerializerMethodField(help_text="the minimum cell a hidden row is under; null when shown")
+
     class Meta:
         model = CohortStat
-        fields = ["cohort_month", "source", "week_index", "active_share", "churned_share", "n"]
+        fields = ["cohort_month", "source", "week_index", "active_share", "churned_share", "n", "hidden", "under"]
+
+    def get_hidden(self, stat) -> bool:
+        return cells.is_hidden(stat.n)
+
+    def get_under(self, stat) -> int | None:
+        return cells.minimum() if cells.is_hidden(stat.n) else None
+
+    def to_representation(self, stat):
+        data = super().to_representation(stat)
+        if data["hidden"]:
+            data["active_share"] = data["churned_share"] = None
+        return data
 
 
 class CodeActivationSerializer(serializers.ModelSerializer):
+    """A batch's redemptions, in all (`district` null) and by district. A district under INSIGHTS_MIN_CELL redemptions
+    is `hidden`: no counts."""
+
     n = serializers.IntegerField(source="redeemed", read_only=True)
+    hidden = serializers.SerializerMethodField(help_text="true: too few redemptions to show the counts (see `under`)")
+    under = serializers.SerializerMethodField(help_text="the minimum cell a hidden row is under; null when shown")
 
     class Meta:
         model = CodeActivationStat
-        fields = ["batch", "district", "printed", "redeemed", "redeemed_7d", "n"]
+        fields = ["batch", "district", "printed", "redeemed", "redeemed_7d", "n", "hidden", "under"]
+
+    def get_hidden(self, stat) -> bool:
+        return stat.district is not None and cells.is_hidden(stat.redeemed)
+
+    def get_under(self, stat) -> int | None:
+        return cells.minimum() if self.get_hidden(stat) else None
+
+    def to_representation(self, stat):
+        data = super().to_representation(stat)
+        if data["hidden"]:
+            data["redeemed"] = data["redeemed_7d"] = data["n"] = None
+        return data
 
 
 class DeliveryStatSerializer(serializers.ModelSerializer):
@@ -235,7 +270,7 @@ class ChapterStatList(InsightList):
 
 class CohortList(InsightList):
     serializer_class = CohortStatSerializer
-    method = "share active each week since the course opened, and gone quiet 14 days, while the exam is ahead (n ≥ 5)"
+    method = "share active each week since the course opened, and gone quiet 14 days, while the exam is ahead (n ≥ 10)"
 
 
 class CodeActivationList(InsightList):
