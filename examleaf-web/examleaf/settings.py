@@ -1,5 +1,6 @@
 """ExamLeaf web settings. Deployment values come from the environment or a .env file (see .env.example)."""
 
+import base64
 import sys
 from datetime import timedelta
 from importlib.util import find_spec
@@ -589,3 +590,26 @@ APP_LINK_IOS = env("APP_LINK_IOS", default="")
 # The revision course's pages on the website (config/ web_course): off until the product decision is made; the
 # course stays in the app. The frontend draws /revision/<subject>/<chapter>/, its flash cards and quiz only when on.
 WEB_COURSE = env.bool("WEB_COURSE", default=False)
+
+# Integrations (integrations/README.md; DEPLOYMENT.md "Integrations"): the services others run for us. Their secrets
+# are encrypted with INTEGRATION_KEYS, Fernet keys separated by commas, newest first (make one with
+# python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"); a server refuses to
+# start without one once an account exists (integrations.E001), development and the tests use one made from
+# SECRET_KEY. A call waits INTEGRATIONS_CONNECT_TIMEOUT seconds to connect and INTEGRATIONS_READ_TIMEOUT for its
+# answer; the call log, the inbound events and the dead letters dealt with go after INTEGRATIONS_RETENTION_DAYS.
+INSTALLED_APPS += ["integrations"]
+INTEGRATION_KEYS = env.list("INTEGRATION_KEYS", default=[])
+for _key in INTEGRATION_KEYS:
+    try:
+        _fernet_key = len(base64.urlsafe_b64decode(_key)) == 32
+    except ValueError:  # not base64 (binascii.Error)
+        _fernet_key = False
+    if not _fernet_key:
+        raise SystemExit("INTEGRATION_KEYS holds a value that is not a Fernet key (44 characters): see DEPLOYMENT.md.")
+INTEGRATIONS_CONNECT_TIMEOUT = env.float("INTEGRATIONS_CONNECT_TIMEOUT", default=5)
+INTEGRATIONS_READ_TIMEOUT = env.float("INTEGRATIONS_READ_TIMEOUT", default=20)
+INTEGRATIONS_RETENTION_DAYS = env.int("INTEGRATIONS_RETENTION_DAYS", default=90)
+CELERY_BEAT_SCHEDULE["integrations-retention"] = {
+    "task": "integrations.tasks.purge_old_records",
+    "schedule": crontab(hour=4, minute=45),
+}
