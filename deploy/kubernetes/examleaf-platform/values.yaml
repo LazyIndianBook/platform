@@ -128,7 +128,7 @@ secrets:
   # monitor:{PLAIN}<HEALTH_CHECK_TOKEN> (nginx's basic-auth file). While it is missing nobody gets through.
   healthAuth: ""  # empty: <release>-health-auth
   # The database backups' bucket keys, AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY as scripts/backup.sh names them.
-  # Only CloudNativePG's Barman Cloud plugin reads them; no pod of the site does.
+  # CloudNativePG's Barman Cloud plugin reads them, and with ERPNext its MariaDB and site backups; no pod of the site does.
   backup: ""  # empty: <release>-backup
   externalSecret:
     storeRef:  # the store that holds the values
@@ -138,6 +138,7 @@ secrets:
     # remote keys, each a JSON object whose properties become the Secret's keys (dataFrom.extract)
     envKey: examleaf/env
     backupKey: examleaf/backup
+    erpKey: examleaf/erp  # with ERPNext: db-root-password and admin-password (values.yaml "erp")
     # where HEALTH_CHECK_TOKEN is kept; written into the health Secret in the form nginx reads
     healthTokenKey: examleaf/env
     healthTokenProperty: HEALTH_CHECK_TOKEN
@@ -376,38 +377,182 @@ cronJobs:
     schedule: "30 4 * * *"
     timeZone: Asia/Kolkata
 
-# ERPNext (frappe/helm's erpnext chart 8.0.84: app v16 on MariaDB), the business's system of record beside the
-# platform (docs/examleaf-admin-control-panel-plan.md sections 3.3 and 3.4). Switched off; README.md "ERPNext" lists
-# what it needs first. The keys below are the chart's own, with the values this cluster will give them.
+# ERPNext, the business's system of record beside the platform (docs/examleaf-admin-control-panel-plan.md sections
+# 3.3 and 3.4; the facts behind these values: docs/research/2026-10-09-admin-control-panel/research-erpnext.md).
+# Switched off; README.md "ERPNext" lists what must exist first. Two sections: "erp" is this chart's own part
+# (MariaDB through mariadb-operator, the site backups, the Ingress), "erpnext" is frappe/helm's chart 8.0.84 (app v16)
+# with the values this cluster gives it. Their names assume the release is called examleaf: dbHost and
+# dbExistingSecret below, and the chart's own names (examleaf-erpnext, examleaf-erpnext-gunicorn …), follow it.
+erp:
+  # the ERP's host and its site's name; the same name stands in erpnext's siteName and probe values below (*erpSite)
+  host: &erpSite erp.examleaf.in
+  # the client addresses that may open the ERP's host, comma separated CIDRs (or the VPN's); empty: everyone, who
+  # then meets ERPNext's own sign-in (SSO, 2FA by role)
+  allowlist: ""
+  bodySize: 50m  # the chart's nginx accepts 50 MB (imports, attachments)
+  # The Secret <release>-erp (made by hand, or by an ExternalSecret from secrets.externalSecret.erpKey): keys
+  # db-root-password (MariaDB's root, which bench uses to make each site's database) and admin-password (the site's
+  # Administrator, read by the createSite Job).
+  secret: ""  # empty: <release>-erp
+  # MariaDB through mariadb-operator 26.10 (installed first): standalone, no Galera at this size. ERPNext v16 needs
+  # MariaDB 11.8 and runs on no supported release of PostgreSQL. The MariaDB resource is kept by `helm uninstall`.
+  database:
+    image: mariadb:11.8.9
+    storage:
+      size: 50Gi
+      storageClass: ""
+    resources:
+      requests: {cpu: "1", memory: 3Gi}
+      limits: {memory: 4Gi}
+    # frappe_docker's 11.8 settings and Frappe's production template; the buffer pool sized for a 4 GiB pod
+    myCnf: |
+      [mariadb]
+      skip-character-set-client-handshake
+      character-set-server = utf8mb4
+      collation-server = utf8mb4_unicode_ci
+      skip-name-resolve
+      innodb-buffer-pool-size = 2G
+      innodb-flush-log-at-trx-commit = 1
+      innodb-flush-method = O_DIRECT
+      max-allowed-packet = 256M
+      log-bin = mariadb-bin
+      binlog-expire-logs-seconds = 1209600
+      slow-query-log = 1
+      long-query-time = 2
+    # physical backups (mariadb-backup) in the platform's backup bucket (postgres.backup.bucket and endpointURL, the
+    # keys of secrets.backup), under their own prefix
+    backup:
+      enabled: true
+      schedule: "30 2 * * *"  # once a day; the site backups below add the files, every 6 hours
+      maxRetention: 720h  # 30 days
+      prefix: erpnext/mariadb
+  # bench backup --with-files every 6 hours (frappe_docker's own interval), then rclone to the same bucket: the
+  # database dump, the public and private files and site_config_backup.json, under <prefix>/<site>/private/backups/.
+  # The bucket keeps every copy: give the prefix a lifecycle rule (30 days).
+  siteBackup:
+    enabled: true
+    schedule: "15 */6 * * *"
+    prefix: erpnext/sites
+    rcloneImage: rclone/rclone:1.75.1
+    resources:
+      requests: {cpu: 100m, memory: 256Mi}
+      limits: {cpu: "1", memory: 1Gi}
+  mariadbOperatorNamespace: mariadb-operator  # it reaches the database (NetworkPolicy)
+
 erpnext:
   enabled: false
-  # image:  # the custom image built with frappe_docker (apps.json: erpnext, india_compliance, hrms … examleaf_erp)
-  #   repository: ghcr.io/lazyindianbook/examleaf-erp
-  #   tag: ""
-  # dbHost: examleaf-erp-mariadb  # the MariaDB of the MariaDB operator, not the chart's own
-  # dbPort: 3306
-  # dbRootUser: root
-  # dbExistingSecret: examleaf-erp-mariadb-root
-  # dbExistingSecretPasswordKey: password
-  # mariadb-sts:
-  #   enabled: false
-  # persistence:
-  #   worker:  # the sites volume: ReadWriteMany, every ERPNext pod mounts it
-  #     storageClass: ""
-  #     size: 8Gi
-  # ingress:
-  #   enabled: true
-  #   ingressName: examleaf-erp
-  #   className: nginx
-  #   annotations:
-  #     cert-manager.io/cluster-issuer: letsencrypt
-  #   hosts:
-  #     - host: erp.examleaf.in
-  #       paths: [{path: /, pathType: ImplementationSpecific}]
-  #   tls: [{secretName: examleaf-erp-tls, hosts: [erp.examleaf.in]}]
-  # jobs:
-  #   createSite:
-  #     enabled: true
-  #     siteName: erp.examleaf.in
-  #     adminExistingSecret: examleaf-erp-admin
-  #     installApps: [erpnext, india_compliance, hrms, examleaf_erp]
+  # the custom image of frappe_docker v4.0.0 (FRAPPE_BRANCH=v16.50.0; apps.json as a BuildKit secret), built in
+  # examleaf-erp/image; never frappe/erpnext:latest, which is develop
+  image:
+    repository: ghcr.io/examleaf/erp
+    tag: ""
+    pullPolicy: IfNotPresent
+  imagePullSecrets:
+    - name: ghcr-pull
+  # the MariaDB of erp.database (mariadb-operator), not the chart's own: its mariadb-sts would start MariaDB 10.6
+  # (end of life since July 2026) and its Bitnami subchart is frozen on bitnamilegacy images
+  dbHost: examleaf-erp-db
+  dbPort: 3306
+  dbRootUser: root
+  dbExistingSecret: examleaf-erp
+  dbExistingSecretPasswordKey: db-root-password
+  mariadb-sts:
+    enabled: false
+  mariadb-subchart:
+    enabled: false
+  # the sites volume (configs, files, local backups), which every ERPNext pod mounts: ReadWriteOnce on one node
+  # (local-path), ReadWriteMany once the pods spread over nodes (NFS, CephFS, Longhorn RWX). The chart wants a
+  # storage class named.
+  persistence:
+    worker:
+      enabled: true
+      size: 20Gi
+      storageClass: local-path
+      accessModes: [ReadWriteOnce]
+  ingress:
+    enabled: false  # this chart's <release>-erp Ingress serves erp.host (TLS, allowlist, headers)
+  nginx:
+    environment:
+      upstreamRealIPAddress: 10.42.0.0/16  # the cluster's pod network (k3s's; kind's is 10.244.0.0/16): the controller's address
+    # the chart's probes only check the port; Frappe's /api/method/ping answers "pong" to guests. Host: the site.
+    livenessProbe:
+      tcpSocket: null
+      httpGet: {path: /api/method/ping, port: 8080, httpHeaders: [{name: Host, value: *erpSite}]}
+      initialDelaySeconds: 10
+      periodSeconds: 20
+    readinessProbe:
+      tcpSocket: null
+      httpGet: {path: /api/method/ping, port: 8080, httpHeaders: [{name: Host, value: *erpSite}]}
+      initialDelaySeconds: 5
+      periodSeconds: 10
+    resources:
+      requests: {cpu: 50m, memory: 64Mi}
+      limits: {cpu: 500m, memory: 256Mi}
+  worker:
+    gunicorn:
+      autoscaling:
+        enabled: false  # never: the chart's gunicorn HPA targets apps/v2, which does not exist
+      envVars:
+        - {name: GUNICORN_WORKERS, value: "3"}
+        - {name: GUNICORN_THREADS, value: "4"}
+        - {name: GUNICORN_TIMEOUT, value: "120"}
+      livenessProbe:
+        tcpSocket: null
+        httpGet: {path: /api/method/ping, port: 8000, httpHeaders: [{name: Host, value: *erpSite}]}
+        initialDelaySeconds: 30
+        periodSeconds: 20
+      readinessProbe:
+        tcpSocket: null
+        httpGet: {path: /api/method/ping, port: 8000, httpHeaders: [{name: Host, value: *erpSite}]}
+        initialDelaySeconds: 10
+        periodSeconds: 10
+      resources:
+        requests: {cpu: 500m, memory: 1Gi}
+        limits: {cpu: "2", memory: 2Gi}
+    default:
+      resources:
+        requests: {cpu: 100m, memory: 256Mi}
+        limits: {cpu: "1", memory: 512Mi}
+    short:
+      resources:
+        requests: {cpu: 100m, memory: 256Mi}
+        limits: {cpu: "1", memory: 512Mi}
+    long:  # GSTR-1, reports, imports
+      resources:
+        requests: {cpu: 200m, memory: 512Mi}
+        limits: {cpu: "2", memory: 1536Mi}
+    scheduler:
+      resources:
+        requests: {cpu: 50m, memory: 192Mi}
+        limits: {cpu: 500m, memory: 384Mi}
+  socketio:
+    resources:
+      requests: {cpu: 50m, memory: 128Mi}
+      limits: {cpu: 500m, memory: 256Mi}
+  valkey-cache:
+    resources:
+      requests: {cpu: 50m, memory: 256Mi}
+      limits: {memory: 320Mi}
+  valkey-queue:
+    resources:
+      requests: {cpu: 50m, memory: 128Mi}
+      limits: {memory: 256Mi}
+  # The Jobs are not part of a release: README.md "ERPNext" renders each with helm template -s and applies it (they
+  # carry a timestamp in their names). createSite once, then for every upgrade: the site backup, the new image tag,
+  # migrate, clearCache.
+  jobs:
+    createSite:
+      enabled: false
+      siteName: *erpSite
+      adminExistingSecret: examleaf-erp
+      adminExistingSecretKey: admin-password
+      installApps: [erpnext, india_compliance, hrms, offsite_backups, examleaf_erp]
+      dbType: mariadb
+    migrate:
+      enabled: false
+      siteName: *erpSite
+    clearCache:
+      enabled: false
+    backup:
+      enabled: false
+      siteName: *erpSite

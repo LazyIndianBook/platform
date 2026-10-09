@@ -16,9 +16,12 @@ podSelector:
 {{- $fullname := include "examleaf.fullname" . -}}
 {{- $labels := dict "ctx" . "component" "network-policy" "app" "examleaf" "version" .Values.image.tag -}}
 {{- $controller := dict "namespaceSelector" (dict "matchLabels" (dict "kubernetes.io/metadata.name" .Values.ingress.controllerNamespace)) "podSelector" (dict "matchLabels" .Values.ingress.controllerPodLabels) -}}
+{{- $webFrom := list $controller (include "examleaf.from" (dict "ctx" . "components" (list "frontend" "admin" "health-check")) | fromYaml) -}}
+{{- if .Values.erpnext.enabled }}{{/* ERPNext's webhooks to the platform, by the web Service */}}
+{{- $webFrom = append $webFrom (dict "podSelector" (dict "matchLabels" (dict "app.kubernetes.io/app" "frappe"))) -}}
+{{- end }}
 {{- $policies := list
-  (dict "name" "web" "selector" (dict "app.kubernetes.io/component" "web") "port" 8000
-        "from" (list $controller (include "examleaf.from" (dict "ctx" . "components" (list "frontend" "admin" "health-check")) | fromYaml)))
+  (dict "name" "web" "selector" (dict "app.kubernetes.io/component" "web") "port" 8000 "from" $webFrom)
   (dict "name" "frontend" "selector" (dict "app.kubernetes.io/component" "frontend") "port" 3000 "from" (list $controller))
   (dict "name" "admin" "selector" (dict "app.kubernetes.io/component" "admin") "port" 3000 "from" (list $controller))
   (dict "name" "redis-queue" "selector" (dict "app.kubernetes.io/component" "redis-queue") "port" 6379

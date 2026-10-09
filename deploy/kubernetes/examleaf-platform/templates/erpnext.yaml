@@ -1,0 +1,282 @@
+{{- /* ERPNext's part of this chart (values.yaml "erp"), rendered with erpnext.enabled. frappe/helm's chart runs ERPNext
+       itself (nginx, gunicorn, three workers, the scheduler, socketio, two Valkey); this adds what it lacks: its
+       MariaDB through mariadb-operator with physical backups, the site backups (bench, then rclone) that its own
+       backup Job never sends off the volume, the Ingress of erp.host with the security headers and an allowlist, and
+       the NetworkPolicies of its pods. Not run on kind (TESTING.md): rendered and checked against the API only. */ -}}
+{{- if .Values.erpnext.enabled }}
+{{- $fullname := include "examleaf.fullname" . -}}
+{{- $erp := .Values.erp -}}
+{{- $erpnext := .Values.erpnext -}}
+{{- $labels := dict "ctx" . "component" "erp" "app" "examleaf" "version" ($erpnext.image.tag | default "") -}}
+{{- $secret := $erp.secret | default (printf "%s-erp" $fullname) -}}
+{{- $db := printf "%s-erp-db" $fullname -}}
+{{- /* frappe/helm's own names, for a release whose name does not contain "erpnext" */ -}}
+{{- $erpnextName := printf "%s-erpnext" .Release.Name -}}
+{{- $bucket := .Values.postgres.backup.bucket -}}
+{{- $endpointURL := .Values.postgres.backup.endpointURL -}}
+{{- $endpointHost := $endpointURL | trimPrefix "https://" | trimPrefix "http://" | trimSuffix "/" -}}
+{{- if and (or $erp.database.backup.enabled $erp.siteBackup.enabled) (not $bucket) }}
+{{- fail "postgres.backup.bucket: ERPNext's backups go to the platform's backup bucket, under erp's prefixes" }}
+{{- end }}
+{{- if or (eq $erpnext.dbHost "") (ne $erpnext.dbHost $db) }}
+{{- fail (printf "erpnext.dbHost is %q: it must name this chart's MariaDB, %s" $erpnext.dbHost $db) }}
+{{- end }}
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: MariaDB
+metadata:
+  name: {{ $db }}
+  labels:
+    {{- include "examleaf.labels" $labels | nindent 4 }}
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  image: {{ $erp.database.image }}
+  rootPasswordSecretKeyRef:
+    name: {{ $secret }}
+    key: db-root-password
+    generate: false
+  storage:
+    size: {{ $erp.database.storage.size }}
+    {{- with $erp.database.storage.storageClass }}
+    storageClassName: {{ . }}
+    {{- end }}
+  myCnf: |
+    {{- $erp.database.myCnf | nindent 4 }}
+  resources:
+    {{- toYaml $erp.database.resources | nindent 4 }}
+{{- if $erp.database.backup.enabled }}
+---
+apiVersion: k8s.mariadb.com/v1alpha1
+kind: PhysicalBackup
+metadata:
+  name: {{ $db }}-daily
+  labels:
+    {{- include "examleaf.labels" $labels | nindent 4 }}
+spec:
+  mariaDbRef:
+    name: {{ $db }}
+    waitForIt: true
+  target: PreferReplica  # a standalone MariaDB has no replica: the backup is taken from the primary
+  schedule:
+    cron: {{ $erp.database.backup.schedule | quote }}
+  maxRetention: {{ $erp.database.backup.maxRetention }}
+  compression: gzip
+  storage:
+    s3:
+      bucket: {{ $bucket }}
+      prefix: {{ $erp.database.backup.prefix }}
+      endpoint: {{ $endpointHost | default "s3.amazonaws.com" }}
+      {{- if contains "r2.cloudflarestorage.com" $endpointHost }}
+      region: auto
+      {{- end }}
+      accessKeyIdSecretKeyRef:
+        name: {{ include "examleaf.backupSecret" . }}
+        key: AWS_ACCESS_KEY_ID
+      secretAccessKeySecretKeyRef:
+        name: {{ include "examleaf.backupSecret" . }}
+        key: AWS_SECRET_ACCESS_KEY
+      tls:
+        enabled: {{ not (hasPrefix "http://" $endpointURL) }}
+{{- end }}
+{{- if $erp.siteBackup.enabled }}
+---
+# Every 6 hours: bench backs the site up onto the sites volume (database dump, public and private files,
+# site_config_backup.json), then rclone copies the backups folder to the bucket. frappe/helm's backup Job does the
+# first half only, and has no schedule.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ $fullname }}-erp-site-backup
+  labels:
+    {{- include "examleaf.labels" (merge (dict "component" "erp-site-backup") $labels) | nindent 4 }}
+spec:
+  schedule: {{ $erp.siteBackup.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 3600
+      template:
+        metadata:
+          labels:
+            {{- include "examleaf.labels" (merge (dict "component" "erp-site-backup") $labels) | nindent 12 }}
+        spec:
+          automountServiceAccountToken: false
+          {{- with $erpnext.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000  # frappe in the ERPNext image, who owns the sites volume
+            runAsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          restartPolicy: Never
+          initContainers:
+            - name: bench-backup
+              image: {{ printf "%s:%s" $erpnext.image.repository (required "erpnext.image.tag" $erpnext.image.tag) }}
+              imagePullPolicy: {{ $erpnext.image.pullPolicy }}
+              command: ["bash", "-c", "bench --site all backup --with-files"]
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: [ALL]
+              resources:
+                {{- toYaml $erp.siteBackup.resources | nindent 16 }}
+              volumeMounts:
+                - {name: sites, mountPath: /home/frappe/frappe-bench/sites}
+                - {name: logs, mountPath: /home/frappe/frappe-bench/logs}
+          containers:
+            - name: upload
+              image: {{ $erp.siteBackup.rcloneImage }}
+              args:
+                - copy
+                - /sites
+                - {{ printf ":s3:%s/%s" $bucket $erp.siteBackup.prefix | quote }}
+                - --include=*/private/backups/**
+                - --s3-provider={{ if contains "r2.cloudflarestorage.com" $endpointHost }}Cloudflare{{ else if $endpointHost }}Other{{ else }}AWS{{ end }}
+                {{- with $endpointURL }}
+                - --s3-endpoint={{ . }}
+                {{- end }}
+                - --s3-no-check-bucket
+                - --stats-one-line
+                - --stats=0
+              env:
+                - name: RCLONE_S3_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "examleaf.backupSecret" . }}
+                      key: AWS_ACCESS_KEY_ID
+                - name: RCLONE_S3_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "examleaf.backupSecret" . }}
+                      key: AWS_SECRET_ACCESS_KEY
+                - name: HOME  # rclone's config directory; the configuration is all in flags and the environment
+                  value: /tmp
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+              resources:
+                {{- toYaml $erp.siteBackup.resources | nindent 16 }}
+              volumeMounts:
+                - {name: sites, mountPath: /sites, readOnly: true}
+                - {name: tmp, mountPath: /tmp}
+          volumes:
+            - name: sites
+              persistentVolumeClaim:
+                claimName: {{ $erpnextName }}
+            - name: logs
+              emptyDir: {}
+            - name: tmp
+              emptyDir: {}
+{{- end }}
+---
+# The headers that frappe_docker's own nginx would add, set by the controller on every answer of the ERP's host
+# (ingress-nginx's custom-headers: the controller must allow them in global-allowed-response-headers, README.md)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $fullname }}-erp-headers
+  labels:
+    {{- include "examleaf.labels" $labels | nindent 4 }}
+data:
+  Strict-Transport-Security: max-age=31536000
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: same-origin
+  X-Frame-Options: SAMEORIGIN
+---
+# erp.host to ERPNext's nginx: staff only (ERPNext's sign-in through SSO, an allowlist or a VPN in front); the
+# platform's own calls go to ERPNext's Service inside the cluster, never through here
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullname }}-erp
+  labels:
+    {{- include "examleaf.labels" $labels | nindent 4 }}
+  annotations:
+    {{- with .Values.ingress.clusterIssuer }}
+    cert-manager.io/cluster-issuer: {{ . }}
+    {{- end }}
+    nginx.ingress.kubernetes.io/proxy-body-size: {{ $erp.bodySize }}
+    nginx.ingress.kubernetes.io/preserve-trailing-slash: "true"
+    nginx.ingress.kubernetes.io/custom-headers: {{ printf "%s/%s-erp-headers" .Release.Namespace $fullname }}
+    {{- with $erp.allowlist }}
+    nginx.ingress.kubernetes.io/whitelist-source-range: {{ . | quote }}
+    {{- end }}
+    {{- with .Values.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  tls:
+    - hosts: [{{ $erp.host | quote }}]
+      secretName: {{ $fullname }}-erp-tls
+  rules:
+    - host: {{ $erp.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $erpnextName }}
+                port:
+                  number: 8080
+{{- if .Values.networkPolicy.enabled }}
+---
+# ERPNext's pods (frappe/helm labels its Deployments app.kubernetes.io/app: frappe; its Jobs' pods carry no labels of
+# their own, so they are reached by the namespace rule): open within the namespace, and its nginx to the controller
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullname }}-erpnext
+  labels:
+    {{- include "examleaf.labels" $labels | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/app: frappe
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: {}
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.ingress.controllerNamespace }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.ingress.controllerPodLabels | nindent 14 }}
+      ports:
+        - port: 8080
+---
+# its two Valkey and MariaDB: from the namespace (ERPNext's Jobs have no labels to select them by) and MariaDB from
+# mariadb-operator
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullname }}-erpnext-backends
+  labels:
+    {{- include "examleaf.labels" $labels | nindent 4 }}
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values: [valkey-cache, valkey-queue, mariadb]
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: {}
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $erp.mariadbOperatorNamespace }}
+{{- end }}
+{{- end }}
