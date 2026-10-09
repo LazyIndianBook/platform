@@ -41,9 +41,9 @@ def physical_and_history(apps, schema_editor):
             through, owner = getattr(model, field).through, name.lower()
             target = m2m._meta.get_field(field.rstrip("s") if field != "categories" else "category").attname
             versions = dict(historical.objects.values_list("id", "history_id"))
-            links = through.objects.values_list(f"{owner}_id", target)
+            links = through.objects.values_list("id", f"{owner}_id", target)  # the version keeps the row's id
             m2m.objects.bulk_create(
-                [m2m(history_id=versions[obj], **{f"{owner}_id": obj, target: other}) for obj, other in links],
+                [m2m(id=pk, history_id=versions[obj], **{f"{owner}_id": obj, target: other}) for pk, obj, other in links],
                 batch_size=500,
             )
 

@@ -233,6 +233,7 @@ def make_codes(coupon, count, prefix, note="", job=None):
         while len(drawn) < count - len(made):
             drawn.add(f"{prefix}-{''.join(secrets.choice(CODE_LETTERS) for _ in range(CODE_LENGTH))}")
         drawn -= set(Coupon.objects.filter(code__in=drawn).values_list("code", flat=True))
+        drawn -= set(CouponCode.objects.filter(code__in=drawn).values_list("code", flat=True))  # earlier batches'
         rows = [CouponCode(coupon=coupon, code=code, note=note, job=job) for code in sorted(drawn)]
         CouponCode.objects.bulk_create(rows, batch_size=500, ignore_conflicts=True)  # a code taken: left out
         made += sorted(CouponCode.objects.filter(code__in=drawn, coupon=coupon, job=job).values_list("code", flat=True))

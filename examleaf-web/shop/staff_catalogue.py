@@ -1030,6 +1030,12 @@ class ProductViewSet(CatalogueView, viewsets.GenericViewSet):
         if before != after:
             with transaction.atomic():
                 Product.objects.select_for_update().get(pk=product.pk)  # one change of its lines at a time
+                if OrderItem.objects.filter(product=product, order__stock_reserved=True).exists():
+                    # a cancellation or a return gives back the books of its lines as they are then
+                    raise refused(
+                        "Orders have taken this bundle's books from stock, and a cancellation or a return gives back "
+                        "the books it holds: its books stay as they are. Make a new bundle for other books."
+                    )
                 for item in product.bundle_items.all():  # one at a time: the erp app's outbox hears each
                     item.delete()
                 for slug, quantity in wanted.items():

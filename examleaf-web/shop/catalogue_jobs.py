@@ -167,7 +167,7 @@ def size(kind, user, params):
 
 
 def offer_words(coupon):
-    return f"{coupon.value:g}% off" if coupon.kind == Coupon.Kind.PERCENT else f"₹{coupon.value:,.2f} off"
+    return f"{coupon.value.normalize():f}% off" if coupon.kind == Coupon.Kind.PERCENT else f"₹{coupon.value:,.2f} off"
 
 
 def coupon_codes(job, progress):
@@ -316,9 +316,13 @@ def import_row(row, user, job):
     for perm in needed(keys, product is None):
         if not user.has_perm(perm):
             raise exceptions.PermissionDenied(f"Needs {perm}.")
-    asked = CatalogueProductWriteSerializer(data=data, product=product, partial=product is not None)
+    reason = f"Product import (job #{job.pk})"  # the versions' and a price's approval's
+    asked = CatalogueProductWriteSerializer(
+        data={**data, "reason": reason}, product=product, partial=product is not None
+    )
     asked.is_valid(raise_exception=True)
     values = dict(asked.validated_data)
+    values.pop("reason", None)
     prices = {name: values.pop(name) for name in list(values) if name in ("mrp", "price")}
     if product is not None:
         prices = {name: value for name, value in prices.items() if value != getattr(product, name).amount}
@@ -333,7 +337,6 @@ def import_row(row, user, job):
     outcome = "created" if product is None else "updated"
     if job.dry_run:
         return outcome, sorted(keys), way
-    reason = f"Product import (job #{job.pk})"
     with transaction.atomic():
         if product is None:  # made at its MRP, its price then through its approval (as the API makes one)
             mrp = prices.pop("mrp")

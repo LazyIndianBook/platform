@@ -328,6 +328,56 @@ ENDPOINTS = [
     ("post", "support/saved-replies/{reply}/restore/", "support.delete_savedreply"),
     ("get", "support/summary/", "support.view_ticket"),
     ("get", "support/agents/", "support.view_ticket"),
+    # the catalogue (shop/staff_catalogue.py): a product's parts, coupons and offers through their approvals, the
+    # shipping rates, the shelves, stock, the import (PATCH {}: the page's part; a price's is staff.change_price)
+    ("get", "catalogue/products/", "shop.view_product"),
+    ("post", "catalogue/products/", "shop.add_product"),
+    ("get", "catalogue/products/{product}/", "shop.view_product"),
+    ("patch", "catalogue/products/{product}/", "shop.change_product"),
+    ("get", "catalogue/products/{product}/history/", "shop.view_product"),
+    ("get", "catalogue/products/{product}/prior-price/", "shop.view_product"),
+    ("get", "catalogue/products/{product}/barcode.svg/", "shop.view_product"),
+    ("put", "catalogue/products/{product}/bundle/", "shop.change_product"),
+    ("post", "catalogue/products/{product}/stock/", "staff.set_stock"),
+    ("post", "catalogue/products/{product}/pictures/", "shop.add_productimage"),
+    ("patch", "catalogue/products/{product}/pictures/{picture}/", "shop.change_productimage"),
+    ("delete", "catalogue/products/{product}/pictures/{picture}/", "shop.delete_productimage"),
+    ("get", "catalogue/stock/", "shop.view_product"),
+    ("get", "catalogue/stock-alerts/", "shop.view_stockalert"),
+    ("get", "catalogue/coupons/", "shop.view_coupon"),
+    ("post", "catalogue/coupons/", "shop.add_coupon"),
+    ("get", "catalogue/coupons/{coupon}/", "shop.view_coupon"),
+    ("patch", "catalogue/coupons/{coupon}/", "shop.change_coupon"),
+    ("get", "catalogue/coupons/{coupon}/codes/", "shop.view_couponcode"),
+    ("get", "catalogue/coupons/{coupon}/history/", "shop.view_coupon"),
+    ("get", "catalogue/offers/", "shop.view_offer"),
+    ("post", "catalogue/offers/", "shop.add_offer"),
+    ("get", "catalogue/offers/{offer}/", "shop.view_offer"),
+    ("patch", "catalogue/offers/{offer}/", "shop.change_offer"),
+    ("get", "catalogue/offers/{offer}/history/", "shop.view_offer"),
+    ("get", "catalogue/shipping-rates/", "shop.view_shippingrate"),
+    ("post", "catalogue/shipping-rates/", "shop.add_shippingrate"),
+    ("get", "catalogue/shipping-rates/{rate}/", "shop.view_shippingrate"),
+    ("patch", "catalogue/shipping-rates/{rate}/", "shop.change_shippingrate"),
+    ("get", "catalogue/shipping-rates/{rate}/history/", "shop.view_shippingrate"),
+    ("get", "catalogue/categories/", "shop.view_category"),
+    ("post", "catalogue/categories/", "shop.add_category"),
+    ("get", "catalogue/categories/{category}/", "shop.view_category"),
+    ("patch", "catalogue/categories/{category}/", "shop.change_category"),
+    ("post", "catalogue/categories/{category}/move/", "shop.change_category"),
+    ("get", "catalogue/collections/", "shop.view_collection"),
+    ("post", "catalogue/collections/", "shop.add_collection"),
+    ("get", "catalogue/collections/{collection}/", "shop.view_collection"),
+    ("patch", "catalogue/collections/{collection}/", "shop.change_collection"),
+    ("get", "catalogue/product-types/", "shop.view_producttype"),
+    ("post", "catalogue/product-types/", "shop.add_producttype"),
+    ("get", "catalogue/product-types/{kind}/", "shop.view_producttype"),
+    ("patch", "catalogue/product-types/{kind}/", "shop.change_producttype"),
+    ("post", "catalogue/product-types/{kind}/attributes/", "shop.add_attribute"),
+    ("patch", "catalogue/product-types/{kind}/attributes/{attribute}/", "shop.change_attribute"),
+    ("get", "catalogue/summary/", "shop.view_product"),
+    ("get", "catalogue/options/", "shop.view_product"),
+    ("post", "catalogue/import/", "shop.import_product"),
     ("post", "people/{person}/offboard/", "staff.assign_role"),  # last: the person goes
 ]
 
@@ -435,6 +485,7 @@ def phase_b_objects(person):
         "erp_failure": IntegrationFailure.objects.create(account=erp, operation="sync", task_id="t-2", **failure).pk,
         "template": MessageTemplate.objects.create(event="otp", channel="sms", category="transactional").pk,
         **content_objects(),
+        **catalogue_objects(),
     }
 
 
@@ -471,6 +522,27 @@ def content_objects():
         "review": review.pk,
         "report": report.pk,
         "deposit": deposit.pk,
+    }
+
+
+def catalogue_objects():
+    """A product with a picture, a coupon, an offer, a shipping rate, a shelf, a collection, a product type with an
+    attribute."""
+    from shop.factories import CouponFactory, ShippingRateFactory, picture
+    from shop.models import Attribute, Category, Collection, Offer, ProductImage, ProductType
+
+    product = ProductFactory(slug="matrix-book", weight_grams=300, packaging="flyer")
+    kind = ProductType.objects.create(name="Matrix book")
+    return {
+        "product": product.slug,
+        "picture": ProductImage.objects.create(product=product, image=picture("products/matrix.png")).pk,
+        "coupon": CouponFactory(code="MATRIX10").code,
+        "offer": Offer.objects.create(name="Matrix offer", value=10).pk,
+        "rate": ShippingRateFactory().pk,
+        "category": Category.objects.add_root(instance=Category(name="Matrix", slug="matrix-shelf")).slug,
+        "collection": Collection.objects.create(name="Matrix", slug="matrix-collection").slug,
+        "kind": kind.pk,
+        "attribute": Attribute.objects.create(product_type=kind, name="Language", code="language").pk,
     }
 
 

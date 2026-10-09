@@ -246,6 +246,29 @@ def test_a_bundle_holds_books_and_takes_its_copies_from_them(sales, rzp):
     physics.refresh_from_db(), chemistry.refresh_from_db()
     assert (physics.stock, chemistry.stock) == (3, 1)
     assert sales.get(URL + "products/set/").json()["stock_info"]["available"] == 0  # chemistry: 1 copy, 2 a set
+    swapped = {"lines": [{"product": "physics", "quantity": 1}]}
+    refused = sales.put(URL + "products/set/bundle/", swapped, format="json")
+    assert refused.status_code == 400 and "Make a new bundle" in str(refused.json())  # its copies would come back
+    services.cancel_order(order, "Not wanted", email=False)
+    physics.refresh_from_db(), chemistry.refresh_from_db()
+    assert (physics.stock, chemistry.stock) == (5, 5)
+    assert sales.put(URL + "products/set/bundle/", swapped, format="json").status_code == 200  # nothing taken now
+
+
+def test_erpnext_still_hears_of_a_product_changed_here(sales, settings):
+    from erp.models import ErpOutbox
+
+    settings.ERP_MODE, settings.ERP_ENABLED, settings.ERP_SYNC_CATALOGUE = "fake", True, True
+    physics, chemistry = book(slug="physics"), book(slug="chemistry")
+    bundle = ProductFactory(kind=Product.Kind.BUNDLE, slug="set", weight_grams=0)
+    rows = ErpOutbox.objects.filter(examleaf_ref=f"item:{physics.pk}", event="item.upserted")
+    first = rows.count()
+    assert sales.patch(URL + "products/physics/", {"weight_grams": 450}, format="json").status_code == 200
+    assert rows.count() == first + 1 and rows.latest("pk").payload["weight_grams"] == 450
+    lines = {"lines": [{"product": "physics", "quantity": 1}, {"product": "chemistry", "quantity": 1}]}
+    assert sales.put(URL + "products/set/bundle/", lines, format="json").status_code == 200
+    sent = ErpOutbox.objects.filter(examleaf_ref=f"bundle:{bundle.pk}", event="bundle.upserted").latest("pk")
+    assert [line["qty"] for line in sent.payload["items"]] == [1, 1] and chemistry.pk
 
 
 def test_pictures_go_up_as_the_admins_do(editor, sales):
