@@ -146,9 +146,8 @@ docker compose exec web python manage.py sendtestemail you@example.com   # the e
 
 Then register a test student from a phone, type the emailed code, open a paper's solutions, and delete the account from
 My account (the purge erases it seven days later). Point the uptime monitor at `/health/` with the header
-`X-Health-Token` (it returns 500 when the database, cache, storage or the Celery worker fails; with two workers it can
-also say "No worker for Celery task queue celery" when the media worker answers the ping first, so look again before
-restarting anything).
+`X-Health-Token` (it returns 500 when the database, cache or storage fails, or when the default or the media queue has
+no Celery worker: the ping waits two seconds for every worker before it judges, so a 500 means a worker is really gone).
 
 ## 8. QR codes for print
 

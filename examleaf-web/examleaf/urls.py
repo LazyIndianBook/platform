@@ -35,11 +35,12 @@ WEB_CHECKS = ["health_check.checks.Database", "health_check.checks.Cache", "heal
 
 
 def health_checks(eager):
-    """The checks of /health/: the web ones, plus a ping of the Celery workers when a broker is in use. limit=1: the
-    first worker's answer is enough; without it the ping waits out its whole timeout and holds a gunicorn worker."""
+    """The checks of /health/: the web ones, plus a ping of the Celery workers when a broker is in use. The ping waits
+    two seconds for every worker and then checks that the default and the media queue each have one
+    (examleaf.health.WorkerPing); HealthView keeps the result for 20 seconds, so the wait costs little."""
     if eager:
         return WEB_CHECKS
-    return [*WEB_CHECKS, ("health_check.contrib.celery.Ping", {"timeout": timedelta(seconds=3), "limit": 1})]
+    return [*WEB_CHECKS, ("examleaf.health.WorkerPing", {"timeout": timedelta(seconds=2)})]
 
 
 ALL_CHECKS = health_checks(settings.CELERY_TASK_ALWAYS_EAGER)

@@ -560,6 +560,7 @@ LEARN_CODE_SECRET = env("LEARN_CODE_SECRET", default="")
 # Firebase Cloud Messaging (the daily revision reminder in the app): the service account's JSON, or a path to it.
 FCM_SERVICE_ACCOUNT_JSON = env("FCM_SERVICE_ACCOUNT_JSON", default="")
 CELERY_TASK_ROUTES = {"learn.tasks.process_clip": {"queue": "media"}}
+CELERY_HEALTH_QUEUES = ["celery", "media"]  # every queue /health/ expects a worker for (examleaf.health.WorkerPing)
 CELERY_BEAT_SCHEDULE["learn-reminders"] = {"task": "learn.tasks.send_reminders", "schedule": crontab(hour=18, minute=0)}
 # The staff player (hls.js: media from blob: URLs). The bucket's own origin is added on the pages that need it only, as
 # their storage's links name it (learn.uploads.allow_storage: the staff player, the clip pages that upload to it; I3).

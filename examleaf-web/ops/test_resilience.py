@@ -6,7 +6,9 @@ import threading
 import pytest
 from django.core import mail
 from django.core.mail import EmailMessage
+from health_check.exceptions import ServiceUnavailable
 
+from examleaf.health import WorkerPing
 from examleaf.urls import WEB_CHECKS, health_checks
 from ops import tasks
 
@@ -58,7 +60,27 @@ def test_the_provider_failing_too_does_not_fail_the_page(half_open_broker, monke
     assert "could not be sent here either" in caplog.text and not mail.outbox
 
 
-def test_the_health_ping_returns_with_the_first_worker_instead_of_waiting_out_its_timeout():
+class FakeCeleryApp:
+    """control.inspect(workers).active_queues() answering a fixed table: worker name -> its queues."""
+
+    def __init__(self, active_queues):
+        self.active = active_queues
+        self.control = self
+
+    def inspect(self, workers):
+        return self
+
+    def active_queues(self):
+        return self.active
+
+
+def test_the_health_ping_waits_for_every_worker_and_checks_each_queue_the_platform_uses():
     assert health_checks(eager=True) == WEB_CHECKS  # inline tasks: no worker to ask
     [*web, (ping, options)] = health_checks(eager=False)
-    assert web == WEB_CHECKS and ping == "health_check.contrib.celery.Ping" and options["limit"] == 1
+    assert web == WEB_CHECKS and ping == "examleaf.health.WorkerPing" and "limit" not in options  # every worker answers
+    both = FakeCeleryApp({"celery@web": [{"name": "celery"}], "media@web": [{"name": "media"}]})
+    WorkerPing(app=both).check_active_queues("celery@web", "media@web")  # both queues served: no complaint
+    with pytest.raises(ServiceUnavailable, match="media"):  # the media worker is down, whichever worker answered first
+        WorkerPing(app=FakeCeleryApp({"celery@web": [{"name": "celery"}]})).check_active_queues("celery@web")
+    with pytest.raises(ServiceUnavailable, match="celery"):
+        WorkerPing(app=FakeCeleryApp({"media@web": [{"name": "media"}]})).check_active_queues("media@web")

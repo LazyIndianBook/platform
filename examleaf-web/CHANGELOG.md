@@ -5,6 +5,16 @@ commits are in `git log` (phase 4: abffe6f and e5abda5; phase 5 A and B with the
 and E: 4e30e59; the redesign's stage 2 so far: ba0b9dd). Details of each feature are in README.md; the numbers of the
 tests are those of `pytest` at the end of the phase.
 
+## Admin Control Panel, Phase A (9 October 2026, in progress)
+
+The plan is `docs/examleaf-admin-control-panel-plan.md`; the research behind it is in
+`docs/research/2026-10-09-admin-control-panel/`. Platform changes so far:
+
+- `/health/` no longer flaps: the Celery ping waits for every worker (two seconds at most) and checks that the default
+  and the media queue each have one (`examleaf.health.WorkerPing`, `CELERY_HEALTH_QUEUES`). Before, `limit=1` took the
+  first worker's answer, and when that was the media worker the check reported the default queue as unserved. Found by
+  the Kubernetes packaging's smoke test (`deploy/kubernetes/TESTING.md`).
+
 ## The Answer Script redesign (9 October 2026)
 
 The frontend restyled to "Direction A, Answer Script" (`implementation/design/*.dc.html`; the report with the
