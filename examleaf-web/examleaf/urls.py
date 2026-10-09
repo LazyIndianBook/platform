@@ -24,6 +24,8 @@ from accounts.forms import (
     VerifyPhoneInput,
 )
 from content import views as content
+from ops.ses import SesTrackingView
+from ops.ses import mounted as ses_mounted
 
 from .views import HealthView, live
 
@@ -103,6 +105,13 @@ urlpatterns = [
     path("learn/", include("learn.urls")),  # revision course: clip files behind signed links, staff preview
     path("admin/", admin.site.urls),
 ]
+
+# Amazon SES's tracking webhook first: anymail's, each SNS message's signature and topic verified (ops/ses.py). It
+# exists with ANYMAIL_WEBHOOK_SECRET's basic auth, SES_SNS_TOPIC_ARN's topic restriction, or both (production).
+if ses_mounted():
+    urlpatterns.append(
+        path("anymail/amazon_ses/tracking/", SesTrackingView.as_view(), name="amazon_ses_tracking_webhook")
+    )
 
 # The email provider's bounce and complaint webhooks (ops.models.EmailSuppression). Their only protection is the
 # HTTP basic auth of ANYMAIL_WEBHOOK_SECRET: without it Anymail would take events from anyone, so no URL then.

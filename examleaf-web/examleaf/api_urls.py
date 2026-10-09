@@ -7,6 +7,7 @@ from django.urls import include, path, re_path
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerSplitView
 
 from erp.inbound import ErpEventsView
+from ops.webhooks import SmsEventsView
 from shipping.webhooks import ParcelEventsView
 
 
@@ -23,5 +24,6 @@ urlpatterns = [
     path("redoc/", SpectacularRedocView.as_view(url_name="api-schema"), name="api-redoc"),
     path("hooks/parcel-events/", ParcelEventsView.as_view(), name="parcel-events"),  # no "sr" or "kr" in it
     path("hooks/erp-events/", ErpEventsView.as_view(), name="erp-events"),
+    path("hooks/sms-events/", SmsEventsView.as_view(), name="sms-events"),  # MSG91's delivery reports (ops/webhooks.py)
     re_path(r"", not_found),  # any other /api/ address: a JSON 404 like the API's own (and no slash redirects)
 ]
