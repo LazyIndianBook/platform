@@ -28,6 +28,10 @@ RUN npm run build
 FROM node:24-alpine AS run
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
+# The heap for the chart's 512 MiB memory limit (75 % of it; under load the process stayed under 320 MB of RSS): set
+# NODE_OPTIONS again with another limit (RESILIENCE.md). Keep-alive longer than the proxies keep an idle connection
+# (Caddy 2 minutes, Traefik 90 s), so that the proxy closes it first, never this server under a request it is sending.
+ENV NODE_OPTIONS=--max-old-space-size=384 KEEP_ALIVE_TIMEOUT=125000
 COPY --from=build --chown=node:node /app/.next/standalone ./
 COPY --from=build --chown=node:node /app/.next/static ./.next/static
 COPY --from=build --chown=node:node /app/public ./public
