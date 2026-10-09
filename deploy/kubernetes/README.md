@@ -11,21 +11,22 @@ validated, not run); the chart has not yet run on a real cluster.
 
 | Path | What it holds |
 |---|---|
-| `examleaf-platform/` | the chart: `values.yaml` (every setting, each explained), `values-kind.yaml` (the laptop profile), `templates/` |
+| `examleaf-platform/` | the chart: `values.yaml` (every setting, each explained), `values-ha.yaml` (three nodes, section "High availability"), `values-kind.yaml` and `values-kind-ha.yaml` (the laptop), `templates/` |
 | `Makefile` | the images, the chart's checks and the kind cluster (`make` lists the tasks) |
 | `traefik-values.yaml` | Traefik's own settings that go with the chart (section "The ingress controller") |
 | `kind-config.yaml`, `kind-extras.yaml` | the kind test cluster, and its stand-ins for Let's Encrypt and Cloudflare R2 |
 | `TESTING.md` | what was run on kind, and what it showed |
+| `load.mjs` | the steady request stream of TESTING.md's chaos runs (Node, no dependency) |
 
 ## What runs where
 
 | docker-compose.yml | Kubernetes (release `examleaf`) |
 |---|---|
-| `web` (migrate, bootstrap_roles, gunicorn) | Deployment `examleaf-web`: an init container waits for the database and runs `migrate` and `bootstrap_roles`; gunicorn is ready once `/health/web/` answers |
+| `web` (migrate, bootstrap_roles, gunicorn) | Deployment `examleaf-web`: an init container waits for the database and runs `migrate` and `bootstrap_roles` (one pod at a time, under a lock); gunicorn is ready once it serves a static file |
 | `worker`, `beat`, `media-worker` | Deployments `examleaf-worker`, `examleaf-beat` (always one pod), `examleaf-media-worker` (its own small environment); each waits until the migrations are applied |
 | `frontend` | Deployment `examleaf-frontend` |
 | `admin` (profile `admin`) | Deployment `examleaf-admin` at `admin.<domain>` (Django's paths there go to web), with `admin.enabled` |
-| `db` (postgres:17) | CloudNativePG `Cluster` `examleaf-db` (PostgreSQL 17), continuous backup to a bucket |
+| `db` (postgres:17) | CloudNativePG `Cluster` `examleaf-db` (PostgreSQL 17), continuous backup to a bucket; with `postgres.pooler` PgBouncer `examleaf-db-pooler` in front (values-ha.yaml) |
 | `redis`, `redis-cache` | Deployments `examleaf-redis-queue` (with a volume) and `examleaf-redis-cache` |
 | `caddy` | Ingresses and Middlewares for Traefik (k3s's bundled controller), certificates from cert-manager |
 | `.env` | the ConfigMap `examleaf-config` (from `values.yaml` "config") and the Secrets you make (`examleaf-env` …) |
@@ -196,7 +197,7 @@ for your store (AWS Secrets Manager, Vault, 1Password, Doppler …), the chart r
 same Secrets: `secrets.externalSecret.envKey` (default `examleaf/env`) is one JSON object whose properties are the
 environment's keys, `backupKey` (`examleaf/backup`) holds the two backup keys, `erpKey` (`examleaf/erp`) ERPNext's
 two, and the health Secret's password is the `HEALTH_CHECK_TOKEN` property of `envKey`. The ExternalSecrets were
-rendered but not run (TESTING.md section 8).
+rendered but not run (TESTING.md section 9).
 
 A changed Secret reaches the pods when they start again: `kubectl -n examleaf rollout restart deployment` (the
 settings in the ConfigMap restart the pods by themselves on `helm upgrade`). RUNBOOK.md's "Secrets and key rotation"
@@ -210,18 +211,21 @@ value) and `admin.examleaf.in` (`admin.host`, default `admin.<domain>`) once the
 asks Let's Encrypt for each host's certificate once the name resolves to the controller and port 80 answers there.
 
 Both hosts route as the Caddyfile does: `/api/`, `/_allauth/`, `/admin/`, `/shop/webhooks/`, `/anymail/`,
-`/shop/media/`, `/learn/preview/`, `/learn/hls/`, `/account/google/`, `/qr/` and `/static/` to Django, every other
-path to the website on the main host and to the panel on the admin host; http is redirected to https. The paths keep
-the Caddyfile's trailing slashes (`/api/*` there): Traefik matches a Prefix path character by character, so `/api`
-alone would also have caught `/apiary/`. The admin host needs Django's paths because the panel signs in and calls
+`/shop/media/`, `/learn/preview/`, `/learn/hls/`, `/account/google/`, `/qr/` and `/static/` to Django, every other path
+to the website on the main host and to the panel on the admin host; http is redirected to https. The paths keep the
+Caddyfile's trailing slashes (`/api/*` there): Traefik matches a Prefix path character by character, so `/api` alone
+would also have caught `/apiary/`. The admin host needs Django's paths because the panel signs in and calls
 `/api/v1/staff/` on its own host: with the admin on, the chart adds the host to `ALLOWED_HOSTS` and its origin to
-`CSRF_TRUSTED_ORIGINS` (both from the environment, as Django reads them). Its cookies are its own (Django's and the
-panel's are host-only, so a session there is not the website's). `admin.allowlist` (a list of CIDRs) limits who reaches
-the admin host at all, Django's paths there included: others get 403 from Traefik before the panel's own sign-in.
-`/health` is not served on the admin host; the panel's server never sees it (`health-hide`), so it answers 404. As
-the Caddyfile's admin site does, Traefik drops the request header `X-Middleware-Subrequest` before the panel
-(`drop-subrequest`: Next.js's internal header, never a visitor's, CVE-2025-29927). Staff who sign in with Google there
-need `https://admin.<domain>/account/google/login/callback/` among the OAuth client's redirect URIs
+`CSRF_TRUSTED_ORIGINS` (both from the environment, as Django reads them), and sets `ADMIN_HOSTS` to it (the staff API
+answers there only, 404 on the website's host) and `STAFF_PANEL_URL` to `https://admin.<domain>` (invitations link
+there). On any site that is not production, `config.STAFF_TEST_MODE: "1"` shows the panel's TEST band (its default
+follows `DEBUG`, off on a server). Its cookies are its own (Django's and the panel's are host-only, so a session there
+is not the website's). `admin.allowlist` (a list of CIDRs) limits who reaches the admin host at all, Django's paths
+there included: others get 403 from Traefik before the panel's own sign-in. `/health` is not served on the admin host;
+the panel's server never sees it (`health-hide`), so it answers 404. As the Caddyfile's admin site does, Traefik drops
+the request header `X-Middleware-Subrequest` before the panel (`drop-subrequest`: Next.js's internal header, never a
+visitor's, CVE-2025-29927). Staff who sign in with Google there need
+`https://admin.<domain>/account/google/login/callback/` among the OAuth client's redirect URIs
 (`examleaf-admin/README.md` "Deploy").
 
 ## Install
@@ -281,9 +285,10 @@ BasicAuth cannot, so `/health` would fall through to the website's router; that 
 before the website sees it (`health-hide`), and the answer is the website's 404, as Caddy's was while the token was
 unset. TESTING.md section 3 tries it.
 
-Inside the cluster nothing changes: the kubelet asks `/health/web/` directly for web's readiness, with the site's host
-and `X-Forwarded-Proto: https` as the compose health check does; it needs no token, and putting the token into the
-probe would copy the secret into the Deployment. `/health/` waits two seconds for every Celery worker and fails unless
+Inside the cluster the gate is not in the way: the smoke test and the website's and the panel's own outage checks ask
+web's Service directly, with the site's host and `X-Forwarded-Proto: https`, and need no token. Web's readiness probe
+is not `/health/web/` but a static file ("Graceful shutdown": a shared dependency in the probe took every pod out of
+the rotation at once). `/health/` waits two seconds for every Celery worker and fails unless
 the default and the media queue each have one (`examleaf.health.WorkerPing`), so the media worker is part of a
 healthy site: `CELERY_HEALTH_QUEUES` in settings.py lists both, and with `mediaWorker.enabled: false` `/health/`
 answers 500 until that list changes.
@@ -294,17 +299,35 @@ answers 500 until that list changes.
 
 ```sh
 make images push TAG=<new>            # or the CI's images
-helm upgrade examleaf examleaf-platform -n examleaf -f values-production.yaml \
-  --set image.tag=<new> --set frontend.image.tag=<new> --wait --timeout 15m
+helm upgrade examleaf examleaf-platform -n examleaf -f values-production.yaml [-f values-ha.yaml] \
+  --set image.tag=<new> --set frontend.image.tag=<new> --set admin.image.tag=<new> \
+  --wait --timeout 15m --rollback-on-failure
 ```
 
-The new web pod runs `migrate` and `bootstrap_roles` in its init container while the old pod still serves; once it is
-ready the old one goes (`maxUnavailable: 0`, one new pod at a time, so only one pod migrates). Worker, beat and the
+Every Deployment that serves rolls one new pod at a time and keeps its old ones until the new one is ready
+(`maxSurge: 1`, `maxUnavailable: 0`). The new web pod runs `migrate` and `bootstrap_roles` in its init container while
+the old pods serve, under a PostgreSQL advisory lock on a session of its own with the primary: pods that start
+together anyway (an autoscaler's, a first install of two) take turns, one migrates and the others find nothing to do,
+and a pod killed while it migrates takes its migration's transaction and the lock with it. Worker, beat and the
 media worker each wait in their init container until the migrations are applied, then replace their old pods; beat's
-old pod is gone before the new one starts. As with compose, the old code runs against the new schema for the
-minute of the rollout: a migration that drops or renames something the old code reads goes out in two releases.
-`helm rollback` brings the old images back but not the old schema; restore from a backup if a migration must be
-undone. A release can bring settings: compare `values.yaml` with yours and DEPLOYMENT.md section 13.
+old pod is gone before the new one starts. As with compose, the old code runs against the new schema for the minutes
+of the rollout, so a migration that drops or renames something the old code reads goes out in two releases (the
+first stops reading it, the second drops it). TESTING.md rolled a new image under load.
+
+**A failed upgrade** leaves the site as it was: a migration that fails keeps the new web pod in its init container,
+so no old pod goes, the rollout stalls and `--wait` times out; `--rollback-on-failure` (Helm 4's name for `--atomic`)
+then puts the previous release back. **By hand:**
+
+```sh
+helm -n examleaf history examleaf                     # the revisions, with their charts and images
+helm -n examleaf rollback examleaf <REVISION> --wait  # the old images and values; the schema stays as it is
+```
+
+The old code then runs on the new schema, which the two-release rule makes safe. A migration that must be undone is
+undone with the new image, before the rollback:
+`kubectl -n examleaf exec deploy/examleaf-web -c web -- python manage.py migrate <app> <the migration before>`; data a
+release damaged comes back by the point-in-time restore ("Backups and restore") to the minute before the upgrade. A
+release can bring settings: compare `values.yaml` with yours and DEPLOYMENT.md section 13.
 
 ## Backups and restore
 
@@ -388,7 +411,7 @@ and the media volume across (`tar` out of the compose volume, then into the web 
 
 | Claim | Access | Size (default) | Notes |
 |---|---|---|---|
-| `examleaf-media` | `media.accessMode`: ReadWriteMany | 10Gi | web, worker, beat and the media worker mount it. ReadWriteOnce works while those pods run on one node: single-node clusters, and provisioners without ReadWriteMany (k3s's local-path, kind) need it; with more nodes pin the pods to one (`nodeSelector`) or use RWX storage (NFS, CephFS, Longhorn) or the buckets |
+| `examleaf-media` | `media.accessMode`: ReadWriteMany | 10Gi | only while the media are not in the buckets (`config.MEDIA_BUCKET` empty). Web, worker, beat and the media worker mount it. ReadWriteOnce works while those pods run on one node (single-node clusters; k3s's local-path and kind have no ReadWriteMany); the chart refuses it once several replicas or `spreadAcrossNodes` would mount it from more than one node: then the buckets (values-ha.yaml) or RWX storage (NFS, CephFS, Longhorn) |
 | the Cluster's | ReadWriteOnce | 10Gi | made by CloudNativePG, one per instance |
 | `examleaf-redis-queue` | ReadWriteOnce | 1Gi | the queue's AOF |
 
@@ -410,8 +433,10 @@ kubectl -n examleaf patch cluster examleaf-db --type merge -p '{"spec":{"nodeMai
 kubectl -n examleaf scale deployment examleaf-beat --replicas 1
 ```
 
-On a single node the site is down while the node is; with three nodes and `postgres.instances: 3` the database fails
-over and the drain needs none of this but the beat step.
+On a single node the site is down while the node is. With values-ha.yaml the drain needs only the beat step: the
+operator moves the primary off a node being drained (a switchover to the standby), web and the Next servers keep one
+of their two (`minAvailable: 1`), and the workers finish their tasks first (the media worker's clip may take up to an
+hour: "Graceful shutdown").
 
 ## Sizing for a single node
 
@@ -435,6 +460,198 @@ plugin; TESTING.md has what they used on kind), and the cluster itself (k3s, or 
 of 8 vCPU and 16 GB. TESTING.md has the memory measured on kind; `values-kind.yaml` shows the smallest settings that
 work.
 
+## High availability
+
+`values-ha.yaml` is the profile for three nodes, on top of your production values:
+
+```sh
+helm upgrade --install examleaf examleaf-platform -n examleaf -f values-production.yaml -f values-ha.yaml \
+  --set image.tag=<TAG> --set frontend.image.tag=<TAG> --set admin.image.tag=<TAG> --wait --timeout 15m
+```
+
+Every pod that serves a request has a twin on another node, the database has a standby on another node, and no pod
+of the site keeps anything of its own: the media are in the buckets (the chart refuses to start the profile without
+them rather than make a volume three nodes cannot share), sessions and everything else in PostgreSQL. What changes:
+
+| | values.yaml | values-ha.yaml |
+|---|---|---|
+| web, frontend, admin | 1 each | 2 each, autoscaled on CPU and memory (web to 6, the frontend to 4, the admin to 3), a disruption budget of `minAvailable: 1` |
+| worker, media worker | 1 each | 2 each |
+| beat, the two Redis | 1 each | 1 each (below) |
+| spreading | none | `spreadAcrossNodes`: each component's pods spread evenly over the nodes (`topologySpreadConstraints`, a cordoned or failed node not counted) and each prefers a node without one (pod anti-affinity) |
+| PostgreSQL | 1 instance | 2, never on one node (`antiAffinity: required`), PgBouncer in front (`pooler`, 2 pods) |
+| alerts | off | `monitoring.enabled` (section "Alerts") |
+| ERPNext, once on | standalone MariaDB | a primary and an asynchronous replica, the sites volume ReadWriteMany |
+
+### The nodes, and what they cost
+
+Three nodes of **4 vCPU and 8 GiB** each, k3s servers with embedded etcd, every one running workloads too (k3s's
+default), so the control plane survives one node as the site does. What they carry, as requests: the site at its
+autoscalers' minimums 2.1 CPU and 5.1 GiB, at their maximums 3.4 CPU and 8.4 GiB (`values-ha.yaml`, PostgreSQL's
+backup sidecars included); the operators and Traefik about 0.3 CPU and 0.6 GiB; k3s itself about 0.5 CPU and 1 GiB per
+node; kube-prometheus-stack about 0.5 CPU and 1.5 GiB. That is about 4.5 CPU and 10 GiB of 12 CPU and 24 GiB, and at
+the autoscalers' maximums still within the 8 CPU and 16 GiB that two nodes give while the third is down: the rule
+for the size is that two nodes carry everything. With ERPNext (2.2 CPU and 5.8 GiB, and its MariaDB replica 1 CPU
+and 3 GiB more) the nodes become **8 vCPU and 16 GiB**.
+
+At 2026's list prices (check them before buying), for example in DigitalOcean's Bangalore region, near the platform's
+users: three Basic droplets of 4 vCPU and 8 GiB at $48 a month each, $144, plus a load balancer at $12 and 100 GiB of
+block storage at $10 (Longhorn's replicas, for ERPNext's sites): about **$170 a month**, or about **$310** with the 8
+vCPU / 16 GiB droplets ERPNext needs ($96 each). AWS Mumbai (`ap-south-1`) costs two to three times that for the same
+sizes, plus EKS's $73 a month for its control plane if it is EKS rather than k3s on EC2. Cloudflare R2 (media, backups)
+is billed apart and does not change with the profile.
+
+In front of the nodes: k3s's ServiceLB answers on each node's ports 80 and 443, so either a load balancer that checks
+them (above), or DNS with an address per node and a short TTL (a failed node keeps its share of visitors until its
+record goes). Storage: k3s's local-path is enough for PostgreSQL (each instance has its own volume and replication
+does the rest) and for the queue's Redis (below); ERPNext's sites volume needs a ReadWriteMany class (Longhorn's RWX,
+NFS or CephFS: `erpnext.persistence.worker.storageClass`).
+
+### What fails over, and how fast
+
+| Component | Copies | A pod lost | A node lost |
+|---|---|---|---|
+| web, frontend, admin | 2+ on different nodes | a deleted pod gets no new request (Traefik keeps a terminating pod "fenced") and finishes those it has: TESTING.md saw no request fail on a deleted web or frontend pod ("Graceful shutdown") | the node's pods leave the endpoints once the node is NotReady (Kubernetes' node-monitor grace period, under a minute), then are replaced on the others (not measured: section "Not tested" of TESTING.md) |
+| worker, media worker | 2 | the queue waits for the other; the task the pod was running is lost (below) | the same |
+| PostgreSQL | primary and standby | CloudNativePG promotes the standby: TESTING.md measured 35 s from the primary killed to the standby taking writes (and 103 s once, while its archive answered slowly), no pod of the site restarted, nothing lost | the same once the operator sees the instance gone (not measured) |
+| PgBouncer | 2 | the Service sends to the other | the same |
+| queue's Redis | 1, its AOF on a volume | back in 2 to 3 s with every queued task (TESTING.md: 200 of 200, deleted and killed) | rescheduled after the node's pods are evicted (5 minutes by default), and only if its volume can follow (a replicated class such as Longhorn; local-path waits for the node) |
+| cache's Redis | 1, nothing saved | back in seconds, empty: the site goes on (every cache call gives up within a second), a minute of slower pages and throttles that let requests through | the same |
+| beat | 1 | back in about 30 s (it waits for the migrations first, so in a rollout once web has migrated) | rescheduled with the node's pods (5 minutes); a periodic task due meanwhile runs at its next turn |
+
+**PostgreSQL's replication is asynchronous** by default: a commit returns once the primary has it, and a failover can
+lose the last moment of commits the standby had not yet received (normally well under a second). `postgres.synchronous`
+makes a commit wait for the standby: `{method: any, number: 1, dataDurability: preferred}` loses nothing in a failover
+and goes on alone, still writing, while the standby is away (asynchronous then); `dataDurability: required` stops
+writes while there is no standby. Synchronous commits cost a round trip to the other node on every write.
+
+**PgBouncer** runs in transaction mode: the site's pods connect to it (`DATABASE_URL` points at `examleaf-db-pooler`,
+with `disable_server_side_cursors`, Django's setting for a transaction pooler), so a few PostgreSQL connections serve
+every gunicorn thread and Celery process, however many pods the autoscaler starts; a failover breaks the transactions
+under way and nothing else, since PgBouncer reconnects to the new primary behind the clients' open connections. Two of
+its settings are the chart's, from TESTING.md: `query_wait_timeout: 10`, so that a query waiting for a primary gives up
+after 10 seconds (by default PgBouncer holds it for 120: every gunicorn thread ended up waiting, the readiness probes
+behind them, and Traefik took both web pods out of the rotation after the primary was already back), and
+`server_login_retry: 1`, so that it tries the new primary within a second. The migrations bypass it (they hold an
+advisory lock, which needs a session of its own: "Upgrades and migrations").
+
+**The queue's Redis stays one pod.** Celery could follow a Redis failover only through Redis Sentinel (three
+sentinels, and the broker's transport options set in settings.py): an application change for a recovery that AOF on a
+volume already gives in seconds after a pod restart. A replica without Sentinel would be a copy nobody switches to.
+While it is down, queueing an email falls back to sending it in the web process (settings.py), the workers reconnect
+by themselves, and beat's tasks of those minutes run at their next turn.
+
+**Beat stays one pod, Recreate.** Two beats would send every periodic task twice (the shop's clean-up, the account
+purge, the insights jobs), and django-celery-beat has no lock between beats; Recreate stops the old pod before the new
+one starts, and its disruption budget refuses eviction, so a drain waits for you ("Node maintenance"). A restart takes
+about 30 seconds (run 2's whole upgrade took 29), more in a rollout, where beat waits for web's migrations; a task due
+in that window runs at its next turn.
+
+**A task under way is lost with its worker**: the app acknowledges a task when a worker takes it, so a killed
+worker's task is not delivered again (TESTING.md: `WorkerLostError`, the clip left "processing"), and
+`manage.py reprocess_clips` queues clips stuck in processing (RUNBOOK.md). An out-of-memory kill takes the whole
+container, not one process (cgroup v2's `memory.oom.group`, which Kubernetes sets). `CELERY_TASK_ACKS_LATE` with
+`CELERY_TASK_REJECT_ON_WORKER_LOST` would deliver the task again (TESTING.md tried it: retried once, then done), but
+after a whole-container kill only once the broker's `visibility_timeout` has passed, which must outlast the longest
+task (an hour for a clip), and every task must then be safe to run twice (an email, an SMS, a courier's booking): the
+backend's decision, not the chart's.
+
+### Graceful shutdown
+
+| Pod | On deletion | terminationGracePeriodSeconds |
+|---|---|---|
+| web | leaves the endpoints at once; `preStopSeconds` (10) for Traefik to notice; then gunicorn's SIGTERM: it accepts nothing new and its threads finish what they have, up to `--graceful-timeout` (60, as `--timeout`) | 75: 10 + 60 + 5 |
+| frontend, admin | the same pause; then Next stops accepting, finishes its requests and exits | 30: 10 + 20 |
+| worker | Celery's warm shutdown: no new task, the running ones finish; `CELERY_TASK_TIME_LIMIT` (300 s) cuts the longest | 330 |
+| media worker | the same; `process_clip` may run an hour (its own `time_limit`), so a drain may wait that long; `kubectl delete pod --grace-period` cuts it, and `reprocess_clips` queues the clip again | 3630 |
+| beat | stops at once | 30 |
+
+Kubernetes takes a deleted pod out of its Service's endpoints at once (terminating), and Traefik sends it nothing new
+from then on; the pause covers the moment Traefik takes to hear of it, and the server then drains. Readiness goes
+before liveness everywhere: unready after 30 s of failures, restarted only after 60 s of no answer at all. Web's
+readiness is the pod's own: a static file through gunicorn, WhiteNoise and Django's middleware, not `/health/web/`
+(database, cache, storage), which the monitors ask: those are shared, and under load the storage check timed out on
+both pods at once and took the whole of Django's paths out of the rotation (TESTING.md section 7).
+
+gunicorn's `--max-requests 1000 --max-requests-jitter 100` (examleaf-web's Dockerfile) replaces a process after its
+thousandth request; processes that started together and share the load are replaced together, and a pod answers
+nothing until the new ones have loaded Django (TESTING.md saw 14 to 20 seconds on a saturated laptop). With one process
+a pod (`web.concurrency: 1`) every replacement is such a gap. `--preload` in that command (workers forked from a
+master that has loaded the app start at once) or a wider jitter would close it; the chart cannot set either, since
+the image's command line wins over `GUNICORN_CMD_ARGS`: the backend's to decide.
+
+### Alerts
+
+`monitoring.enabled` renders PodMonitors for PostgreSQL's instances, the pooler and the queue's Redis (with
+redis_exporter beside it, for the queues' lengths), and a PrometheusRule, `examleaf-alerts`, for kube-prometheus-stack
+(or any Prometheus Operator); `monitoring.labels` must carry the labels its Prometheus selects rules and monitors by
+(`release: kube-prometheus-stack` for the stack's defaults), and `monitoring.namespace` is let through the
+NetworkPolicies to the metrics ports.
+
+| Alert | When | Severity |
+|---|---|---|
+| ExamleafPodRestarting | a container restarted more than twice in 30 minutes | warning |
+| ExamleafPodCrashLooping | in CrashLoopBackOff for 15 minutes | critical |
+| ExamleafContainerOOMKilled | a container was killed for memory | warning |
+| ExamleafDeploymentDegraded | fewer pods ready than wanted for 15 minutes (a stuck rollout: a failed migration, an image that cannot be pulled, no room) | warning |
+| ExamleafDisruptionBudgetBroken | fewer healthy pods than a disruption budget promises, for 10 minutes | critical |
+| ExamleafPostgresRoleChanged | an instance changed role: a failover or a switchover | warning |
+| ExamleafPostgresNoStandby | the primary streams to no standby for 10 minutes (with 2+ instances) | critical |
+| ExamleafPostgresReplicationLag | a standby more than a minute behind (with 2+ instances) | warning |
+| ExamleafBackupTooOld | no base backup for 26 hours (`monitoring.backupAgeHours`) | critical |
+| ExamleafWALArchivingFailing | WAL could not be archived to the bucket | critical |
+| ExamleafCertificateExpiring, …ExpiringSoon | a certificate expires within 21 days (renewal failing: cert-manager renews at 30), within 7 days | warning, critical |
+| ExamleafCertificateNotReady | a certificate not ready for 30 minutes | warning |
+| ExamleafQueueBacklog | over 100 tasks wait in `celery` or `media` for 15 minutes (`monitoring.queueLength`) | warning |
+| ExamleafQueueRedisDown | the queue's Redis does not answer for 5 minutes | critical |
+
+Pod restarts, deployments and disruption budgets come from kube-state-metrics, which the stack runs. The
+certificates' metrics are cert-manager's own: give cert-manager a ServiceMonitor (its Helm chart's
+`prometheus.servicemonitor.enabled`, or a ServiceMonitor on the `cert-manager` Service's port
+`tcp-prometheus-servicemonitor`) with `honorLabels: true`, so that each certificate keeps its own `namespace` label
+(the rules select `namespace="examleaf"`; without it Prometheus renames it `exported_namespace`). TESTING.md read every
+metric the rules use from its exporter, and `promtool check rules` passed them.
+**Dead letters** and failed webhooks of the integrations are not Prometheus's: the second uptime monitor, on
+`/health/integrations/` ("Health checks"), fails while they wait for staff, and the first, on `/health/`, is the alert
+for the site itself, from outside, which still works when the cluster does not.
+
+Where they go is Alertmanager's configuration, in kube-prometheus-stack's values, with the secrets in a Secret that
+Alertmanager mounts (never in values):
+
+```sh
+kubectl -n monitoring create secret generic alertmanager-examleaf \
+  --from-literal=smtp-password=<SES SMTP password> --from-literal=pagerduty-key=<PagerDuty Events v2 integration key>
+```
+
+```yaml
+alertmanager:
+  alertmanagerSpec:
+    secrets: [alertmanager-examleaf]  # mounted at /etc/alertmanager/secrets/alertmanager-examleaf/
+  config:
+    global:
+      smtp_smarthost: email-smtp.ap-south-1.amazonaws.com:587
+      smtp_from: alerts@examleaf.in
+      smtp_auth_username: <SES SMTP user>
+      smtp_auth_password_file: /etc/alertmanager/secrets/alertmanager-examleaf/smtp-password
+    route:
+      receiver: email
+      group_by: [alertname, namespace]
+      routes:
+        - matchers: ['severity="critical"']
+          receiver: pager
+          continue: true  # and the email too
+    receivers:
+      - name: email
+        email_configs: [{to: ops@examleaf.in, send_resolved: true}]
+      - name: pager
+        pagerduty_configs:
+          - routing_key_file: /etc/alertmanager/secrets/alertmanager-examleaf/pagerduty-key
+```
+
+Every warning is an email to `ops@`, every critical one also pages (PagerDuty's free plan, or Opsgenie's
+`opsgenie_configs`, or ntfy and Telegram through `webhook_configs`). SES's SMTP credentials are not its API keys: SES →
+SMTP settings makes them.
+
 ## ERPNext
 
 ERPNext v16 is the business's system of record beside the platform (plan sections 3.1 to 3.4); the facts behind its
@@ -445,7 +662,8 @@ worker-short, worker-long, the scheduler, socketio) and its two Valkey, and from
 
 | Part (values.yaml) | What |
 |---|---|
-| `erp.database` | a standalone `MariaDB` of mariadb-operator, `examleaf-erp-db`, kept by `helm uninstall`: MariaDB 11.8 (v16 needs it, and no supported release runs on PostgreSQL), `utf8mb4` and `utf8mb4_unicode_ci` with `skip-character-set-client-handshake`, a 2 GiB buffer pool in a 4 GiB pod, `innodb-flush-log-at-trx-commit = 1`, the binlog kept 14 days |
+| `erp.database` | a `MariaDB` of mariadb-operator, `examleaf-erp-db`, kept by `helm uninstall`: MariaDB 11.8 (v16 needs it, and no supported release runs on PostgreSQL), `utf8mb4` and `utf8mb4_unicode_ci` with `skip-character-set-client-handshake`, a 2 GiB buffer pool in a 4 GiB pod, `innodb-flush-log-at-trx-commit = 1`, the binlog kept 14 days. Standalone, or with `replicas: 2` (values-ha.yaml) a primary and an asynchronous replica on another node, which the operator promotes when the primary fails; ERPNext then writes through `examleaf-erp-db-primary` |
+| `erp.siteSetup` | the site's set-up Job (below): its site config, the outgoing Email Account, the bootstrap |
 | `erp.database.backup` | a `PhysicalBackup` (mariadb-backup) every day at 02:30 to the platform's bucket under `erpnext/mariadb`, kept 30 days |
 | `erp.siteBackup` | a CronJob every 6 hours: `bench --site all backup --with-files` onto the sites volume, then rclone copies the backups folder (the database dump, the public and private files, `site_config_backup.json`) to the bucket under `erpnext/sites` |
 | `erp.host`, `erp.allowlist` | the Ingress `examleaf-erp` for `erp.examleaf.in`: its certificate, HSTS, nosniff, Referrer-Policy and X-Frame-Options set by Traefik (`erp-headers`), an optional allowlist (`erp-allowlist`); no Buffering, so that socketio's WebSockets pass and ERPNext's nginx keeps its own 50 MB limit |
@@ -460,9 +678,10 @@ one node.
 ### Before switching it on
 
 1. **mariadb-operator** 26.10 ("Operators first").
-2. **The image** `<registry>/examleaf-erp:<tag>` (`ghcr.io/lazyindianbook/examleaf-erp`), built and tagged with
-   frappe_docker v4.0.0 in `examleaf-erp/image` (`FRAPPE_BRANCH=v16.50.0`, `apps.json` as a BuildKit secret). Its tag
-   comes from there: `erpnext.image.tag` has no default and the chart refuses to render ERPNext without it.
+2. **The image** `<registry>/examleaf-erp:16.50.0-<commit>` (`ghcr.io/lazyindianbook/examleaf-erp`), built with
+   frappe_docker v4.0.0 by `examleaf-erp/image/build.sh` (`FRAPPE_BRANCH=v16.50.0`, `apps.json` as a BuildKit
+   secret), which prints the tag; CI pushes it on an `erp-v*` git tag. The same image runs every component.
+   `erpnext.image.tag` has no default and the chart refuses to render ERPNext without it.
    frappe/helm's chart reads only `erpnext.image.repository`, so that value spells the registry out, and the chart
    refuses one that is not `<registry>/examleaf-erp`. The pull Secret `ghcr-pull` serves it too
    (`erpnext.imagePullSecrets`). Never `frappe/erpnext:latest`, which is the `develop` branch.
@@ -471,13 +690,15 @@ one node.
    `kubectl -n examleaf create secret generic examleaf-erp --from-literal=db-root-password=… --from-literal=admin-password=…`.
    The backup bucket's keys are `examleaf-backup`'s.
 4. **Storage**: `erpnext.persistence.worker.storageClass` named (the chart refuses an empty one; `local-path` on
-   k3s), ReadWriteOnce on one node, ReadWriteMany (NFS, CephFS, Longhorn RWX) once ERPNext's pods spread over nodes;
-   `erp.database.storage` for MariaDB.
+   k3s), ReadWriteOnce on one node, ReadWriteMany (Longhorn's RWX, NFS, CephFS) as soon as ERPNext's pods can land on
+   different nodes, since every one of them mounts the sites volume: values-ha.yaml asks for it, and the chart refuses
+   a ReadWriteOnce sites volume with `spreadAcrossNodes`. `erp.database.storage` for MariaDB (each instance its own).
 5. **Names**: DNS for `erp.examleaf.in`. Another host means `erp.host` and the values that repeat it (the `*erpSite`
    anchor in values.yaml: the Jobs' site name and the probes' Host). `erpnext.nginx.environment.upstreamRealIPAddress`
    is the cluster's pod network (k3s's 10.42.0.0/16 by default), so that ERPNext's nginx takes the visitor's address
-   from the controller. The release is called `examleaf`: `erpnext.dbHost` (`examleaf-erp-db`) and
-   `erpnext.dbExistingSecret` follow its name, and the chart refuses a `dbHost` that is not its MariaDB.
+   from the controller. The release is called `examleaf`: `erpnext.dbHost` (`examleaf-erp-db`, or
+   `examleaf-erp-db-primary` with a replica) and `erpnext.dbExistingSecret` follow its name, and the chart refuses a
+   `dbHost` that is not its MariaDB's.
 
 Then `helm upgrade … --set erpnext.enabled=true --set erpnext.image.tag=<tag>`.
 
@@ -491,16 +712,64 @@ erp_job() {  # frappe/helm's charts/erpnext/templates/job-$1.yaml, with jobs.$2.
   helm template examleaf examleaf-platform -n examleaf -f "$VALUES" --set erpnext.enabled=true \
     --set "erpnext.jobs.$2.enabled=true" -s "charts/erpnext/templates/job-$1.yaml" | kubectl -n examleaf apply -f -
 }
-erp_job create-site createSite   # once: erp.examleaf.in with erpnext, india_compliance, hrms, offsite_backups, examleaf_erp
+erp_job create-site createSite   # once: erp.examleaf.in with erpnext, india_compliance, hrms, offsite_backups, examleaf_erp (MariaDB)
 ```
+
+Then, once and in this order (`examleaf-erp/README.md` "For the Kubernetes chart"):
+
+1. **The site config.** The `examleaf_*` keys of `examleaf-erp/README.md` "Site config" (the company's name,
+   abbreviation, GSTIN and address, the sync user and the platform's egress addresses, the platform's webhook URL and
+   its secret, the Google domain and OAuth client) go into a file outside the repository, `site-config.json`, and
+   with the outgoing Email Account's fields into `email-account.json` (SES's SMTP: `{"email_id": "erp@examleaf.in",
+   "smtp_server": "email-smtp.ap-south-1.amazonaws.com", "login_id": "<SES SMTP user>", "password": "<its
+   password>"}`), both into a Secret:
+
+   ```sh
+   kubectl -n examleaf create secret generic examleaf-erp-setup \
+     --from-file=site-config.json --from-file=email-account.json && shred -u site-config.json email-account.json
+   ```
+
+2. **The set-up Job** (`templates/erp-site-setup.yaml`): it merges `site-config.json` into the site's config (with
+   `allow_reads_during_maintenance: 1`, so that Desk stays readable during `migrate`), makes the Email Account (Frappe
+   signs in to SES before it saves it), then runs `bench --site erp.examleaf.in execute examleaf_erp.setup.bootstrap`.
+   The Email Account comes first because the bootstrap turns on two-factor sign-in, which Administrator needs too (it
+   holds every role), and the first two-factor sign-in emails the authenticator's set-up. Each step changes nothing
+   when run again, so a failed Job is simply applied again:
+
+   ```sh
+   helm template examleaf examleaf-platform -n examleaf -f "$VALUES" --set erpnext.enabled=true \
+     --set erp.siteSetup.enabled=true -s templates/erp-site-setup.yaml | kubectl -n examleaf apply -f -
+   kubectl -n examleaf logs -f job/<the Job's name>
+   ```
+
+3. **The sync user's key**, made straight into a Secret, so that it is never in a log or a file (generating keys
+   again revokes the old secret):
+
+   ```sh
+   kubectl -n examleaf exec deploy/examleaf-erpnext-worker-d -- bench --site erp.examleaf.in execute \
+       frappe.core.doctype.user.user.generate_keys --args "['erp-sync@examleaf.in']" \
+     | python3 -c 'import json, sys; d = json.loads(sys.stdin.read().strip().splitlines()[-1]); print("token=" + d["api_key"] + ":" + d["api_secret"])' \
+     | kubectl -n examleaf create secret generic examleaf-erp-sync --from-env-file=/dev/stdin
+   ```
+
+   From there it becomes the credentials of the platform's ERPNext integration account (provider `erpnext` in the
+   admin's Integrations; the platform's ERP app says which fields), and the Secret is deleted.
 
 Once the site exists, keep its `site_config.json` as a secret: it holds the Fernet `encryption_key` that decrypts
 every password field (API secrets, email passwords), and a site restored without it cannot read its own secrets.
 
 ```sh
-kubectl -n examleaf exec deploy/examleaf-erpnext-gunicorn -- cat sites/erp.examleaf.in/site_config.json \
+kubectl -n examleaf exec deploy/examleaf-erpnext-worker-d -- cat sites/erp.examleaf.in/site_config.json \
   | kubectl -n examleaf create secret generic examleaf-erp-site-config --from-file=site_config.json=/dev/stdin
 ```
+
+Bench commands go to a worker pod (`examleaf-erpnext-worker-d`) or a pod of their own, **never to the gunicorn pod**,
+and `bench browse` never there: gunicorn is PID 1 in it, reaps the `xdg-open` that browse leaves behind and shuts
+down on its exit code. A Desk sign-in link for Administrator comes from a one-off pod on the ERPNext image with the
+sites volume mounted. And gunicorn loads the app once: a new image rolls the pods (`helm upgrade`), but anything else
+that changes the code they run (an `install-app`) needs `kubectl -n examleaf rollout restart deployment
+examleaf-erpnext-gunicorn examleaf-erpnext-worker-d examleaf-erpnext-worker-s examleaf-erpnext-worker-l
+examleaf-erpnext-scheduler`.
 
 A copy goes into the password manager too, again whenever System Settings' "Encrypt Backup" adds its
 `backup_encryption_key`. Every upgrade (Frappe tags a release every week: patch weekly, a major after a staging run):
@@ -513,8 +782,8 @@ erp_job clear-cache clearCache                                                  
 ```
 
 A new app means a new image (apps are baked in, a pod cannot fetch one), then
-`kubectl -n examleaf exec deploy/examleaf-erpnext-gunicorn -- bench --site erp.examleaf.in install-app <app>`, then
-steps 3 and 4.
+`kubectl -n examleaf exec deploy/examleaf-erpnext-worker-d -- bench --site erp.examleaf.in install-app <app>`, then
+steps 3 and 4 and the rollout restart above (`examleaf-erp/UPGRADE.md`).
 
 ### ERPNext's backups and restore
 
@@ -531,11 +800,30 @@ scratch namespace.
 
 ERPNext is for staff only: sign-in through Google Workspace SSO with 2FA by role, email-link log-in off (it is on by
 default), sessions of 8 to 12 hours instead of the default 170 (System Settings), no portal or website pages for the
-public. `erp.allowlist`, or a VPN in front, limits who reaches the host at all. The platform calls ERPNext's API inside
-the cluster (`http://examleaf-erpnext.examleaf.svc:8080`, with the site's name as the Host), and ERPNext's webhooks
-reach Django the same way (`http://examleaf-web.examleaf.svc:8000/…`). Django checks ALLOWED_HOSTS, so every webhook
-carries the headers `X-Forwarded-Host: examleaf.in` and `X-Forwarded-Proto: https` (Webhook → Headers), or Django
-answers 400; the website's health check had exactly that fault (TESTING.md section 7).
+public. `erp.allowlist`, or a VPN in front, limits who reaches the host at all.
+
+### The platform's ERPNext sync
+
+The platform's side (`examleaf-web/erp/`, DEPLOYMENT.md section 24) runs in the site's own pods and beat (the relay
+every minute, the pull every 15 minutes, the reconciliation at 03:30 India time). Everything is off until switched
+on, in DEPLOYMENT.md's order: the switches are `config` values (`ERP_ENABLED`, then the `ERP_SYNC_*` flows and the
+`ERP_PULL_*` reads, `ERP_STOCK_PROJECTION` at the cut-over; values.yaml lists them with `ERP_WAREHOUSE`,
+`ERP_MAX_ATTEMPTS`, `ERP_ALERT_EMAILS` and `ERP_INSTANCE_PREFIX`), and each is also a flag the panel can set without
+a deploy. Both directions stay inside the cluster:
+
+- **The platform to ERPNext**: the integration account for provider `erpnext`, made in the admin with the sync user's
+  key ("The site, its Jobs and its upgrades", step 3): `{"api_key": "…", "api_secret": "…", "base_url":
+  "http://examleaf-erpnext.examleaf.svc:8080", "site_name": "erp.examleaf.in"}`, ERPNext's nginx Service (the site's
+  name goes as `X-Frappe-Site-Name`, since the Service's host name is not the site's).
+- **ERPNext to the platform**: its six webhooks post to `examleaf_webhook_base`,
+  `http://examleaf-web.examleaf.svc:8000/api/hooks/erp-events/`, signed with the account's webhook token
+  (`examleaf_webhook_secret`; both in `site-config.json` above). With ERPNext on, the chart adds web's Service names to
+  `ALLOWED_HOSTS` (DEPLOYMENT.md asks for it), and the NetworkPolicy lets ERPNext's pods reach web. **Open**: Django
+  also redirects a plain-http request to https (`SECURE_SSL_REDIRECT`) unless it carries `X-Forwarded-Proto: https`,
+  and the webhook fixtures send only `Content-Type`, while headers added in Desk are lost at the next `migrate`
+  (Frappe imports the fixtures again). Until `examleaf_erp` adds that header to its webhooks, point
+  `examleaf_webhook_base` at the public `https://examleaf.in/api/hooks/erp-events/`, which Traefik serves from inside
+  the cluster as from outside; the website's health check had the same fault (TESTING.md section 8).
 
 ### ERPNext's sizing
 
@@ -575,7 +863,10 @@ section 6: rendered and validated against the API server, not run).
 - **Timeouts.** A request has 5 minutes, its headers included (`traefik-values.yaml`); Caddy gave the headers 10
   seconds and the body 5 minutes.
 - **Migrations** run in web's init container, as compose's web command runs them, and the Celery processes wait for
-  them (compose waited for web to be healthy). The readiness probe replaces the start-up `health_check` command.
+  them (compose waited for web to be healthy), and pods that start together migrate one at a time, under an
+  advisory lock. The readiness probe is a static file, not compose's `/health/web/` health check.
+- **Database connections**: with the pooler (values-ha.yaml), through PgBouncer in transaction mode, where compose
+  connects to PostgreSQL directly.
 - **Beat** cannot overlap: Recreate on rollout and a disruption budget against eviction.
 - **Backups** are continuous (WAL and daily base backups, to any moment of 30 days) instead of a nightly `pg_dump`,
   and not age-encrypted ("Backups and restore").
