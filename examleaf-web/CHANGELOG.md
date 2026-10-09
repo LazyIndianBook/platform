@@ -5,6 +5,41 @@ commits are in `git log` (phase 4: abffe6f and e5abda5; phase 5 A and B with the
 and E: 4e30e59; the redesign's stage 2 so far: ba0b9dd). Details of each feature are in README.md; the numbers of the
 tests are those of `pytest` at the end of the phase.
 
+## The Admin Control Panel's backend, the rest of Phase A (9 October 2026)
+
+The apps that came before the staff app now follow its rules, and the plan's last staff pieces are in
+(`../docs/examleaf-admin-control-panel-plan.md` sections 3.5, 5.7, 5.16, 6, 7.1 and 9.1). 994 backend tests pass on
+SQLite (8 skipped, 1,637 subtests; 933, 8 skipped and 1,181 before), 1,001 on PostgreSQL (1 skipped; 940 before).
+
+- **Shipping and the insights on the staff app's permissions.** The placeholders that let any member of staff in, on
+  every host, are gone: both apps' staff endpoints run on `staff.api.StaffAppView` (the panel's session or an API key,
+  never the app's JWT), name a catalogued permission per action and reach their objects through `scoped()` (a
+  PACKER's parcels are those of the orders to pack and on their way). New: `staff.view_parcels`, `book_parcel`,
+  `act_on_exception`, `view_cod`, `reconcile_cod` (high: a re-authentication), `manage_pickup_locations`,
+  `view_insights`, `acknowledge_signal`; PACKER books, SALES acts on failed deliveries and sees COD, FINANCE
+  reconciles COD and reads the insights, MARKETING reads them, AUDITOR has the views. They answer on the admin host
+  only, their refusals are `authz_fail`, and every change is an audit event targeting the order. New endpoints:
+  `shipping/cod/<id>/reconcile/` (the bank's credit matched by its UTR; `payment.cod_reconciled`, the money chain) and
+  `insights/fraud-signals/<id>/acknowledge/`. The role × endpoint matrix and the generated API.md reference cover both.
+- **The inbox** files a parcel's exception (due when it is, FINANCE's for COD), an integration's dead letter, a failed
+  provider event and an open circuit, and closes each once settled (new signals: `shipping.exceptions_closed`,
+  `integrations.dead_letter_closed`).
+- **The Django admin** answers on the admin host only (`ADMIN_HOSTS`) and signs in through the console there. Its
+  refund action, and "Cancel" on an order paid online, are the panel's refund: the maker's limit, a change request for
+  FINANCE above it. The pack, ship and deliver actions are tested against `staff.pack_order`.
+- **Google Workspace sign-in for staff** (`STAFF_GOOGLE_DOMAIN`): the ID token's `hd` and a confirmed address checked
+  by the server, no break-glass account through Google, a new account only with `STAFF_GOOGLE_AUTO_STAFF`, refusals
+  audited; the admin host can have the Workspace's own client with an Internal consent screen
+  (`STAFF_GOOGLE_CLIENT_ID`); the second factor still follows. The Google scope asks `openid`.
+- **Break-glass sessions** give their reason before anything (`staff/session/reason/`, the manifest's `break_glass`),
+  carry it in every audit event, end 2 hours after their log-in (`STAFF_BREAK_GLASS_HOURS`), and alert the owners at
+  their start and end.
+- **Logging in as a customer, on the website**: `account/impersonate/` takes the panel's token once, for a session
+  marked as staff's that ends at its time, by either side or with the panel's session; money, passwords, second
+  factors, addresses and deletion refused; every request audited as the member of staff's on behalf of the customer;
+  the website's `auth/session` carries the banner and the customer's device list names it.
+- **Notes** on any record its readers may see (`staff/notes/`), and **policy acknowledgements** per version
+  (`staff/policies/ack/`, `STAFF_POLICIES`, the manifest's `policies_due`).
 ## The ERPNext sync: the erp app (9 October 2026)
 
 ERPNext keeps the books and the warehouse behind the platform; a new app, `erp/` (`erp/README.md`), keeps the two in

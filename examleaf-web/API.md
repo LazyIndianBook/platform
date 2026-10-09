@@ -42,8 +42,9 @@ print runs, item analysis, cohorts, fraud signals). Code: `api/` (`auth.py`, `vi
 ## Endpoints
 
 Paths are under `/api/v1/` except those of the last three rows. Who: **anyone** needs no sign-in; **signed in** needs a
-valid access token (or the website's session); **confirmed** also needs a confirmed email address; **staff** is an
-active member of staff with an authenticator app, through the website's session. **Shop open**: while
+valid access token (or the website's session); **confirmed** also needs a confirmed email address; a permission
+(`staff.view_parcels` …) is the [Staff API](#staff-api)'s rule: a member of staff with an authenticator app holding
+it, on the panel's session (or an API key), on the admin host only. **Shop open**: while
 `SHOP_OPEN=0` (before the launch) changing the cart, checkout and payment answer 403
 `{"detail": "The shop opens soon."}` except for staff; reading stays possible.
 

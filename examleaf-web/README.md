@@ -495,8 +495,9 @@ endpoint, request and answer examples, the error format, rate limits and the ver
   Razorpay webhook stays `/shop/webhooks/razorpay/`.
 - The revision course (`api/learn.py`): chapters (public), clips, progress, the quiz, flash cards, the plan, book
   codes, entitlements, settings and the app's devices.
-- The insights (`insights/api.py`, active staff only): the newest rows of each predictive job, each answer with its
-  method, data time, last backtest and whether the method beats the seasonal naive (API.md, "Insights (staff)").
+- The insights (`insights/api.py`, `staff.view_insights`, on the admin host): the newest rows of each predictive job,
+  each answer with its method, data time, last backtest and whether the method beats the seasonal naive (API.md,
+  "Insights (staff)").
 - JSON only; page-number pagination (50, at most 200), filters, search and ordering; DRF's error format (a JSON 404
   for unknown `/api/` paths); throttles counted in the cache; CORS only for `CORS_ALLOWED_ORIGINS` and only on `/api/`;
   `X-Request-ID` as on the site. Beat deletes expired refresh tokens daily (`api.tasks.flush_expired_tokens`).
@@ -773,8 +774,8 @@ What the test modules cover:
   damping, the district split adding up, a new title's borrowed curve, hidden demand, the backtest and the print-run
   advice; `test_learning.py` item analysis worked out by hand, the 30-learner gate and each flag, the option chosen,
   chapter accuracy and cohorts with groups under 5 hidden; `test_codes_delivery.py`, `test_risk.py`, `test_offers.py`;
-  `test_fraud.py` each rule on a case and on ordinary use, tries kept as hashes, the email; `test_api.py` staff only and
-  the answers' method, backtest and n; `test_admin.py` every page with rows; `test_commands.py` every job and the
+  `test_fraud.py` each rule on a case and on ordinary use, tries kept as hashes, the email; `test_api.py` the staff
+  app's permissions, acknowledging a signal, and the answers' method, backtest and n; `test_admin.py` every page with rows; `test_commands.py` every job and the
   review on an empty database, a failure retried and kept; `test_privacy.py` no key to an account or a learner.
 - **ops/**: `tests.py` health checks, the site with Redis down, request IDs, email fallback, the dashboard,
   `upload_backup`, Sentry scrubbing; `test_resilience.py` a broker that never answers; `test_security.py` the security
@@ -798,15 +799,19 @@ What the test modules cover:
   attribute filters, the PIN lookup's caching, staff orders for a student awaiting a parent, category imports, email
   subjects from forms.
 - **staff/tests/** (the Admin Control Panel's backend; helpers in `staff/tests/conftest.py`): `test_matrix.py` every
-  role against every staff endpoint and method (a 403 and an `authz_fail` event without the permission, never a 403
-  with it), every endpoint naming a catalogued permission; `test_catalogue.py`; `test_scopes.py` each scope kind;
+  role against every staff endpoint and method, the shipping app's and the insights' too (a 403 and an `authz_fail`
+  event without the permission, never a 403 with it), every endpoint naming a catalogued permission;
+  `test_catalogue.py`; `test_scopes.py` each scope kind;
   `test_audit.py` an event's fields and masks, the chains, the PostgreSQL trigger, the daily copy, retention, the
   nightly check, the flows that feed it, who reads it; `test_approvals.py` maker-checker and the refund flow;
   `test_people.py` roles, SSD, invitations, offboarding, the access review; `test_users.py` customers, reveals,
-  impersonation; `test_privacy.py` data requests' clocks, erasure, incidents, processors; `test_settings.py` the panel's
-  switches over the environment's; `test_api_keys.py`; `test_session.py` the manifest, the idle limits by role, the
-  absolute limit, the admin host; `test_inbox.py` the inbox and the system page; `test_jobs.py` the background
-  jobs (exports, bulk actions, their approval, cancelling, the result's link).
+  impersonation's token; `test_impersonation.py` the website's side: once, its limits, its audit, its end;
+  `test_privacy.py` data requests' clocks, erasure, incidents, processors; `test_settings.py` the panel's switches over
+  the environment's; `test_api_keys.py`; `test_session.py` the manifest, the idle limits by role, the absolute limit,
+  break-glass sessions, the admin host (the staff API and the Django admin); `test_inbox.py` the inbox (parcels'
+  exceptions and the integrations' failures too) and the system page; `test_jobs.py` the background jobs (exports,
+  bulk actions, their approval, cancelling, the result's link); `test_notes.py` notes and policy acknowledgements.
+  `accounts/test_google.py` also has the staff's Google Workspace sign-in.
 
 ## Production
 

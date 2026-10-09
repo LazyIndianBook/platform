@@ -34,7 +34,10 @@ A request is allowed only if all of these hold (research 1.1); anything else is 
    re-authentication and no idle limit.
 2. **The permission** the endpoint names for the action (`StaffView.permissions`; an action not named is refused).
    Roles give permissions; the action permissions are `staff.<codename>` (`StaffPermissions.Meta.permissions`), next to
-   Django's own `view_`, `add_`, `change_` and `delete_` of each model. GET always names a `view_` permission.
+   Django's own `view_`, `add_`, `change_` and `delete_` of each model. GET always names a `view_` permission, but for
+   two reads of the packing room's, `staff.book_parcel`: the courier's quote for an order and a parcel's label (the
+   customer's address on it). The shipping app's and the insights' staff endpoints are on the same rules
+   (`StaffAppView`, their own pages and filters).
 3. **The object in scope** (`backends.py`): `scoped()` narrows every staff queryset, `ScopeBackend` answers
    `has_perm(perm, obj)` the same way. A person's `StaffScope` rows of a kind (subject, board and class, order status,
    warehouse, school, work queue) narrow them to those values; without any, a permission held only through scoped
@@ -46,15 +49,16 @@ A request is allowed only if all of these hold (research 1.1); anything else is 
    the last 5 minutes (allauth's, `api.views.recently_authenticated`), which an API key never has; critical ones alert
    the owners.
 
-Every refusal (403) is an `authz_fail` event; a step-up asked for (`reauthentication_required`, with allauth's
-`flows`) is not. Every error answer of the staff API has a `code` beside its `detail` (`api.coded`:
+Every refusal (403) is an `authz_fail` event; a step asked for (`reauthentication_required`, with allauth's `flows`;
+a break-glass session's `break_glass_reason_required`) is not. Every error answer of the staff API has a `code` beside its `detail` (`api.coded`:
 permission_denied, not_found, not_authenticated, throttled …; API.md "Staff API" lists them).
 
 The roles (the plan's 4.1): STUDENT and TEACHER (no staff permissions), CONTENT_EDITOR, SALES, SUPPORT, ADMIN (as
 before, each with the panel's own permissions added), and the panel's OWNER (the founder: every catalogued permission,
 which is all but the changes the superusers' apps keep), FINANCE, PACKER (the packing queue only: the orders to pack,
-their books, `staff.pack_order`, the inbox), REVIEWER, MARKETING, AUDITOR (every `view_` permission and the audit
-log, nothing that writes) and SALES_REP (school and phone orders, without refunds or shipping). SALES no longer packs,
+their books, `staff.pack_order`, booking their parcels, the inbox), REVIEWER, MARKETING, AUDITOR (every `view_`
+permission and the audit log, nothing that writes) and SALES_REP (school and phone orders, without refunds or
+shipping). SALES no longer packs,
 ships or refunds in the admin: packing, shipping and delivery (`staff.pack_order`, also the admin's three actions)
 are PACKER's and ADMIN's, and SALES asks for refunds in the panel, where FINANCE approves those above the cap. ADMIN
 has everything but the superusers' apps' changes, `OWNER_ONLY` (giving roles and making API keys, which ADMIN sees;
@@ -89,7 +93,9 @@ the maker, and never the person the change is about.
    `MONEY_APPROVALS`).
 3. Name it on the endpoint: `permissions = {"action": "staff.codename"}`.
 4. `pytest staff` checks that every permission a role or an endpoint names is catalogued and exists
-   (`test_catalogue.py`, `test_matrix.py`); add the endpoint to `test_matrix.ENDPOINTS`.
+   (`test_catalogue.py`, `test_matrix.py`); add the endpoint to `test_matrix.ENDPOINTS` (another app's staff endpoint:
+   `APP_ENDPOINTS`, and its path to `middleware.STAFF_APIS`, which keeps it on the admin host, audits its refusals and
+   puts it in API.md's generated reference).
 
 ## Adding a role
 
@@ -191,8 +197,16 @@ lock-out, a staff member offboarded, a broken chain or a failed export.
 
 A staff session (website, panel, admin) ends after its idle limit without a request, the shortest of the person's
 roles' (plan 3.5: `STAFF_IDLE_TIMEOUTS`, 15 minutes for OWNER, ADMIN, FINANCE and PACKER; `STAFF_IDLE_TIMEOUT`,
-1,800 seconds, for the others; a break-glass account's is the shortest), and 8 hours after its log-in, the absolute
-limit it is given (`accounts.models.STAFF_SESSION`). The manifest's `idle_timeout_s` is the person's.
+1,800 seconds, for the others; a break-glass account's is the shortest), and 8 hours after its log-in (a break-glass
+account's: 2), the absolute limit it is given (`accounts.models.staff_session_limit`). The manifest's
+`idle_timeout_s` is the person's.
+
+**Google Workspace** (`STAFF_GOOGLE_DOMAIN`, `accounts.adapter.SocialAccountAdapter.pre_social_login`; DEPLOYMENT.md
+"Google sign-in for staff"): a staff Google sign-in (on the admin host, into a staff account, or by an account of
+the domain) needs the ID token's `hd` to be the domain and its address confirmed, never reaches a break-glass account,
+and makes an account only with `STAFF_GOOGLE_AUTO_STAFF` (a member of staff with no role); accounts are linked by
+`sub`. A refusal is `authz_fail` and the console's `?error=staff_google_…`. allauth's second-factor stage follows
+Google as any log-in.
 `StaffMFAMiddleware` checks both before anything else; the time of the last request is written in the session at most
 once a minute. An API call then gets `401 {"code": "session_idle"}` (or `"session_expired"`); the event is
 `session_expired`. Every staff log-in sends the person an email with the time, the address and the browser. The panel
