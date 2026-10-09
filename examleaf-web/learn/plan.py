@@ -22,7 +22,7 @@ INTERVALS = [1, 3, 7]  # days until a wrong answer comes back, then after each r
 def weakness(user, chapters):
     """{chapter id: share of the student's quiz answers in it that were wrong}."""
     rows = (
-        QuizAttempt.objects.filter(user=user, item__chapter__in=chapters)
+        QuizAttempt.objects.filter(user=user, item__chapter__in=chapters, item__deleted_at__isnull=True)
         .values("item__chapter")
         .annotate(total=Count("pk"), wrong=Count("pk", filter=Q(correct=False)))
     )

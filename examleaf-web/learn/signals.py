@@ -25,7 +25,9 @@ def delete_clip_files(sender, instance, **kwargs):
 @receiver(post_save, sender=DeletionRequest)
 def forget_course_data(sender, instance, **kwargs):
     """Account deletion (accounts.DeletionRequest.complete): progress, quiz answers, card reviews, settings, the app's
-    devices (no more reminders) and entitlements go. Redeemed book codes stay used (by the anonymised account)."""
+    devices (no more reminders) and entitlements go, with the entitlements' history (their notes are staff's words
+    about the person). Redeemed book codes stay used (by the anonymised account)."""
     if instance.status == DeletionRequest.Status.DONE:
         for model in (Progress, QuizAttempt, CardReview, Learner, Device, Entitlement):
             model.objects.filter(user=instance.user_id).delete()
+        Entitlement.history.filter(user_id=instance.user_id).delete()

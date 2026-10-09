@@ -1,9 +1,10 @@
 from django.contrib import admin, messages
 from django.core.exceptions import PermissionDenied
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.http import HttpResponseNotAllowed
 from django.urls import path, reverse
 from django.utils.html import format_html
+from simple_history.admin import SimpleHistoryAdmin
 
 from . import uploads
 from .models import (
@@ -11,6 +12,7 @@ from .models import (
     BookCode,
     Chapter,
     Clip,
+    CodeBatch,
     Entitlement,
     FlashCard,
     QuizItem,
@@ -18,6 +20,27 @@ from .models import (
     clean_code,
     code_digest,
 )
+
+
+class IntoTheBin:
+    """Phase B: a clip, card or quiz item deleted here goes into the panel's 30-day bin (learn.course), as there; its
+    list shows the rows outside it (the default manager). The panel's Course module restores and purges."""
+
+    def delete_model(self, request, obj):
+        from .course import delete
+
+        delete(obj, request=request)
+
+    def delete_queryset(self, request, queryset):
+        from .course import delete
+
+        for obj in queryset:
+            delete(obj, request=request)
+
+
+def publishes(request):
+    """Publishing a revision is a reviewer's (staff.publish_course), as in the panel."""
+    return request.user.has_perm("staff.publish_course")
 
 
 def move(clips, step):
@@ -43,6 +66,7 @@ class FlashCardInline(admin.TabularInline):
     model = FlashCard
     fields = ["order", "front", "back"]
     extra = 0
+    can_delete = False  # a card's deletion: its own page, or the panel (the bin)
 
 
 @admin.register(Chapter)
@@ -68,6 +92,7 @@ class ClipInline(admin.TabularInline):
     readonly_fields = ["processing", "duration", preview]
     extra = 0
     show_change_link = True
+    can_delete = False  # a clip's deletion: its own page, or the panel (the bin keeps its files 30 days)
 
 
 class UploadsToStorage:
@@ -95,18 +120,23 @@ class RevisionAdmin(UploadsToStorage, admin.ModelAdmin):
     def clip_count(self, revision):
         return revision.clip_count
 
-    @admin.action(description="Publish the selected revisions", permissions=["change"])
+    @admin.action(description="Publish the selected revisions", permissions=["publish"])
     def publish(self, request, queryset):
-        not_ready = queryset.exclude(clips__processing=Clip.Processing.READY).count()
-        ready = queryset.filter(clips__processing=Clip.Processing.READY).distinct()
-        done = ready.update(status=Revision.Status.PUBLISHED)
+        live = Q(clips__processing=Clip.Processing.READY, clips__deleted_at__isnull=True)
+        not_ready = queryset.exclude(live).count()
+        ready = queryset.filter(live).distinct()
+        done = ready.update(status=Revision.Status.PUBLISHED, publish_at=None)
         self.message_user(request, f"{done} published.")
         if not_ready:
             self.message_user(request, f"{not_ready} left as they are: no clip is ready yet.", messages.WARNING)
 
-    @admin.action(description="Back to draft", permissions=["change"])
+    @admin.action(description="Back to draft", permissions=["publish"])
     def unpublish(self, request, queryset):
-        self.message_user(request, f"{queryset.update(status=Revision.Status.DRAFT)} back to draft.")
+        done = queryset.update(status=Revision.Status.DRAFT, publish_at=None, reviewer=None)
+        self.message_user(request, f"{done} back to draft.")
+
+    def has_publish_permission(self, request):
+        return publishes(request)
 
     def save_formset(self, request, form, formset, change):
         super().save_formset(request, form, formset, change)
@@ -119,7 +149,7 @@ class RevisionAdmin(UploadsToStorage, admin.ModelAdmin):
 
 
 @admin.register(Clip)
-class ClipAdmin(UploadsToStorage, admin.ModelAdmin):
+class ClipAdmin(IntoTheBin, UploadsToStorage, admin.ModelAdmin):
     form = uploads.ClipForm
     list_display = ["title", "revision", "order", "kind", "processing", "duration", "is_free_preview", preview]
     list_filter = ["processing", "kind", "revision__chapter__subject"]
@@ -169,18 +199,36 @@ class ClipAdmin(UploadsToStorage, admin.ModelAdmin):
 
 
 @admin.register(FlashCard)
-class FlashCardAdmin(admin.ModelAdmin):
+class FlashCardAdmin(IntoTheBin, admin.ModelAdmin):
     list_display = ["__str__", "chapter", "order"]
     list_filter = ["chapter__subject"]
     search_fields = ["front", "back"]
 
 
 @admin.register(QuizItem)
-class QuizItemAdmin(admin.ModelAdmin):
-    list_display = ["__str__", "chapter", "kind", "source"]
-    list_filter = ["kind", "chapter__subject"]
+class QuizItemAdmin(IntoTheBin, SimpleHistoryAdmin):
+    list_display = ["__str__", "chapter", "kind", "difficulty", "source"]
+    list_filter = ["kind", "difficulty", "bloom", "chapter__subject"]
     search_fields = ["text", "chapter__title"]
     raw_id_fields = ["chapter"]
+
+
+@admin.register(CodeBatch)
+class CodeBatchAdmin(admin.ModelAdmin):
+    """The panel makes, dispatches and voids batches (Course, Book codes): read-only here."""
+
+    list_display = ["label", "subject", "product", "printed", "generated_at", "dispatched_at", "voided_at"]
+    list_filter = ["subject", ("dispatched_at", admin.EmptyFieldListFilter), ("voided_at", admin.EmptyFieldListFilter)]
+    search_fields = ["label"]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(Entitlement)

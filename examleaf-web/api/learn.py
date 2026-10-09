@@ -56,7 +56,11 @@ class ParentConfirmed(permissions.BasePermission):
 
 STUDENT = [permissions.IsAuthenticated, VerifiedEmail, ParentConfirmed]
 LOCKED = "Unlock this subject with the code printed in your book."
-READY = Q(revision__status=Revision.Status.PUBLISHED, revision__clips__processing=Clip.Processing.READY)
+READY = Q(
+    revision__status=Revision.Status.PUBLISHED,
+    revision__clips__processing=Clip.Processing.READY,
+    revision__clips__deleted_at__isnull=True,  # a clip in the course's bin (the panel) is not the app's
+)
 
 
 @extend_schema_field(OpenApiTypes.STR)
@@ -164,7 +168,7 @@ def course_context(request):
     user = request.user
     signed_in = user.is_authenticated
     progress = Progress.objects.filter(user=user, completed=True) if signed_in else Progress.objects.none()
-    done = progress.values("clip__revision__chapter").annotate(n=Count("pk"))
+    done = progress.filter(clip__deleted_at__isnull=True).values("clip__revision__chapter").annotate(n=Count("pk"))
     return {
         "subjects": services.entitled_subjects(user),
         "firsts": dict(Chapter.objects.values_list("subject").annotate(Min("number"))),  # free cards
@@ -497,6 +501,14 @@ class EntitlementSerializer(serializers.ModelSerializer):
 
 class CodeSerializer(serializers.Serializer):
     code = serializers.CharField(max_length=40, help_text="as printed: 7KQM-3XPA-9TRW (any case, spaces or dashes)")
+    device = serializers.CharField(
+        max_length=512,
+        required=False,
+        allow_blank=True,
+        write_only=True,
+        help_text="optional: the app's Firebase installation ID (as sent to devices/): the fraud rules count the tries "
+        "of a phone by its keyed hash, never the ID itself",
+    )
 
 
 class PerAddress(throttling.SimpleRateThrottle):
@@ -520,12 +532,13 @@ class RedeemView(generics.GenericAPIView):
     def post(self, request, *args, **kwargs):
         given = self.get_serializer(data=request.data)
         given.is_valid(raise_exception=True)
+        code, device = given.validated_data["code"], given.validated_data.get("device", "")
         try:
-            entitlement = services.redeem(request.user, given.validated_data["code"])
+            entitlement = services.redeem(request.user, code)
         except services.CodeError as error:
-            record_redemption(request, given.validated_data["code"], ok=False)  # insights' fraud rules: hashes only
+            record_redemption(request, code, ok=False, device=device)  # insights' fraud rules: hashes only
             raise exceptions.ValidationError({"code": [str(error)]}) from None
-        record_redemption(request, given.validated_data["code"], ok=True)
+        record_redemption(request, code, ok=True, device=device)
         return Response(EntitlementSerializer(entitlement).data)
 
 

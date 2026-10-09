@@ -102,3 +102,35 @@ def send_reminders():
         sent += sum(answer.success for answer in answers)
     logger.info("revision reminders sent: %s of %s", sent, total)
     return sent
+
+
+# Phase B: course (learn.course, learn.codes; settings.CELERY_BEAT_SCHEDULE's "learn-…" entries)
+
+
+@shared_task
+@single_run(300)
+def publish_due():
+    """Every 5 minutes: the approved revisions whose publish time has come go live, once each (a revision is taken
+    under its row's lock and only while still approved, so a second run publishes nothing twice)."""
+    from .course import publish_due as publish
+
+    return publish()
+
+
+@shared_task(**LONG_TASK)
+@single_run(LONG_TASK["time_limit"])
+def purge_bin():
+    """Nightly: the clips, cards and quiz items in the bin more than 30 days deleted for good, with a clip's video
+    and HLS files (learn.signals, once each deletion is saved)."""
+    from .course import purge
+
+    return purge()
+
+
+@shared_task
+def purge_code_files():
+    """Hourly: the printer's files of book codes past their 24 hours deleted (staff.jobs.delete_old_files)."""
+    from staff.jobs import delete_old_files
+    from staff.models import Job
+
+    return delete_old_files(kinds=[Job.Kind.CODE_BATCH])

@@ -190,7 +190,9 @@ class JobStartSerializer(serializers.Serializer):
         "order list's); "
         'content_import: {"subject": "physics", "commit": "" or a commit, "dry_run_job": the dry run\'s id (to '
         "apply)}; "
-        'grievance_export: {"from": "YYYY-MM-DD", "until": "YYYY-MM-DD"} (the days received, both optional)',
+        'grievance_export: {"from": "YYYY-MM-DD", "until": "YYYY-MM-DD"} (the days received, both optional); '
+        'code_batch: {"batch": a batch\'s id} (its codes made again after a failed job: course/codes/batches/ makes '
+        "a new one)",
     )
     dry_run = serializers.BooleanField(required=False, default=False, help_text="check every row, change nothing")
 
@@ -227,6 +229,13 @@ class JobStartSerializer(serializers.Serializer):
                     raise serializers.ValidationError({"params": {name: ["A day: YYYY-MM-DD."]}}) from None
             if data["params"].get("from", "") > data["params"].get("until", "9999"):
                 raise serializers.ValidationError({"params": {"until": ["Not before the first day."]}})
+            return data
+        if data["kind"] == Job.Kind.CODE_BATCH:  # a batch's codes made again after its first job failed (learn.codes)
+            from learn.codes import job_params
+
+            if data["dry_run"]:
+                raise serializers.ValidationError({"dry_run": ["Making book codes has no dry run."]})
+            data["params"] = job_params(params)
             return data
         if data["kind"] == Job.Kind.ERP_INITIAL_LOAD:
             since = params.get("invoices_from")

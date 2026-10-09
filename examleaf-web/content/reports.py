@@ -235,7 +235,8 @@ def flag_items():
         .values_list("target_id", flat=True)
     )
     made = 0
-    for stat in ItemStat.objects.filter(run_date=latest).select_related("item__chapter__subject").order_by("pk"):
+    stats = ItemStat.objects.filter(run_date=latest, item__deleted_at__isnull=True)  # not an item in the course's bin
+    for stat in stats.select_related("item__chapter__subject").order_by("pk"):
         if not stat.flags or stat.item_id in reported:
             continue
         p = f"{stat.p:.0%}" if stat.p is not None else "N/A"

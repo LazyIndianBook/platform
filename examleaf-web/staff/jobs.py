@@ -19,6 +19,7 @@ from django.core import signing
 from django.core.files import File
 from django.core.files.storage import default_storage
 from django.db import transaction
+from django.db.models import Q
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import exceptions, serializers
@@ -33,6 +34,17 @@ logger = logging.getLogger(__name__)
 SIGNER = signing.TimestampSigner(salt="staff.job.result")
 LINK_SECONDS = 300  # a result's link, as the private storage's own are (settings.STORAGES "default")
 KEEP_FILES_DAYS = 7  # then the nightly task deletes the result file
+# Phase B: course. A kind's file kept less than a week: the printer's file of book codes (learn.codes) 24 hours, its
+# link refused after that, and the file deleted by the hourly purge (learn.tasks.purge_code_files)
+KEEP_FILES = {Job.Kind.CODE_BATCH: timedelta(hours=24)}
+
+
+def file_expired(job, now=None):
+    """Whether a job's file is past the time its kind keeps it (its link refused, the file to delete)."""
+    keep = KEEP_FILES.get(job.kind, timedelta(days=KEEP_FILES_DAYS))
+    return job.finished_at is not None and job.finished_at + keep <= (now or timezone.now())
+
+
 LIMITS = {
     Job.Kind.AUDIT_EXPORT: "export_rows",
     Job.Kind.BULK_ACTION: "bulk_rows",
@@ -67,6 +79,8 @@ def permission(kind, params):
         return "staff.import_content"
     if kind == Job.Kind.GRIEVANCE_EXPORT:
         return "staff.export_grievances"
+    if kind == Job.Kind.CODE_BATCH:
+        return "staff.make_book_codes"
     return order_jobs.PERMISSIONS.get(kind)
 
 
@@ -108,6 +122,8 @@ def start(kind, params, *, user, dry_run=False, request=None):
         from support.register import tickets
 
         total = tickets(params).count()
+    elif kind == Job.Kind.CODE_BATCH:
+        total = params["count"]  # no approver: the owners are told once the codes are made (learn.codes)
     else:
         total = len(params["targets"])
     with transaction.atomic():
@@ -150,8 +166,9 @@ def cancel(job, *, user, request=None):
 
 
 def result_url(job, request):
-    """The result file's link for the job's starter, signed for 5 minutes; None for anyone else, or without a file."""
-    if not job.result_file or request is None or job.started_by_id != request.user.pk:
+    """The result file's link for the job's starter, signed for 5 minutes; None for anyone else, without a file, or
+    once its kind's time to keep it is over (KEEP_FILES)."""
+    if not job.result_file or request is None or job.started_by_id != request.user.pk or file_expired(job):
         return None
     token = SIGNER.sign_object({"job": job.pk, "user": request.user.pk})
     path = reverse("staff:job-result", kwargs={"version": "v1", "pk": job.pk})
@@ -159,9 +176,12 @@ def result_url(job, request):
 
 
 def check_link(job, user, token):
-    """Whether `token` is a link to this job's file made for `user` less than 5 minutes ago."""
+    """Whether `token` is a link to this job's file made for `user` less than 5 minutes ago (and the file's time not
+    over)."""
     try:
-        return SIGNER.unsign_object(token, max_age=LINK_SECONDS) == {"job": job.pk, "user": user.pk}
+        return SIGNER.unsign_object(token, max_age=LINK_SECONDS) == {"job": job.pk, "user": user.pk} and not (
+            file_expired(job)
+        )
     except signing.BadSignature:  # forged or expired
         return False
 
@@ -280,6 +300,13 @@ def grievance_export(job, progress):
     return export(job, progress)
 
 
+def code_batch(job, progress):
+    """A print run's book codes: their digests kept, the codes once into the printer's file (learn.codes.run_job)."""
+    from learn.codes import run_job
+
+    return run_job(job, progress)
+
+
 RUNNERS = {
     Job.Kind.AUDIT_EXPORT: export_audit,
     Job.Kind.BULK_ACTION: bulk_action,
@@ -288,6 +315,7 @@ RUNNERS = {
     **order_jobs.RUNNERS,
     Job.Kind.CONTENT_IMPORT: content_import,
     Job.Kind.GRIEVANCE_EXPORT: grievance_export,
+    Job.Kind.CODE_BATCH: code_batch,
 }
 
 
@@ -322,10 +350,16 @@ def run(job_id):
     return state
 
 
-def delete_old_files():
-    """The result files of jobs finished more than a week ago (nightly: staff.tasks.expire_access)."""
-    cutoff = timezone.now() - timedelta(days=KEEP_FILES_DAYS)
-    old = Job.objects.filter(finished_at__lt=cutoff).exclude(result_file="")
+def delete_old_files(kinds=None):
+    """The result files of jobs finished more than a week ago, or their kind's time (KEEP_FILES) (nightly:
+    staff.tasks.expire_access; `kinds` only, hourly: learn.tasks.purge_code_files)."""
+    now = timezone.now()
+    older = Q(finished_at__lt=now - timedelta(days=KEEP_FILES_DAYS))
+    for kind, keep in KEEP_FILES.items():
+        older |= Q(kind=kind, finished_at__lt=now - keep)
+    old = Job.objects.filter(older).exclude(result_file="")
+    if kinds is not None:
+        old = old.filter(kind__in=kinds)
     for job in old:
         default_storage.delete(job.result_file)
     return old.update(result_file="")
