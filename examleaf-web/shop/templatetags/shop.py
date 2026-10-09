@@ -2,12 +2,13 @@ from datetime import timedelta
 
 from django import template
 from django.conf import settings
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, Sum
 from django.db.models.functions import TruncDate
 from django.utils import timezone
 from djmoney.money import Money
 
-from shop.models import INR, Order, OrderItem, Product, QuoteRequest, Refund, Review
+from insights import metrics
+from shop.models import INR, OrderItem, Product, Review
 
 register = template.Library()
 
@@ -20,45 +21,26 @@ def inr(value):
 
 @register.simple_tag
 def shop_stats():
-    """The admin index's shop block: orders (paid online, or placed with cash on delivery; not cancelled or refunded)
-    and revenue (the same orders and the part-refunded ones, net of what was refunded) today and in the last 30 days,
-    and the orders waiting for staff."""
-    today, since = timezone.localdate(), timezone.now() - timedelta(days=30)
-    sales = Order.objects.counted().aggregate(
-        orders_today=Count("pk", filter=Q(placed_at__date=today)),
-        orders_month=Count("pk", filter=Q(placed_at__gte=since)),
-    )
-    # revenue is what was kept: refused parcel refunded less the shipping (the order then reads "refunded") still
-    # brings in the shipping, and a refunded order brings in nothing
-    kept = Order.objects.filter(placed_at__isnull=False).exclude(status=Order.Status.CANCELLED)
-    revenue = kept.aggregate(
-        today=Sum("total", filter=Q(placed_at__date=today), default=0),
-        month=Sum("total", filter=Q(placed_at__gte=since), default=0),
-    )
-    refunded = Refund.objects.filter(status=Refund.Status.PROCESSED, order__in=kept).aggregate(
-        today=Sum("amount", filter=Q(order__placed_at__date=today), default=0),
-        month=Sum("amount", filter=Q(order__placed_at__gte=since), default=0),
-    )
-    waiting = Order.objects.aggregate(
-        to_pack=Count(
-            "pk", filter=Q(status=Order.Status.PAID) | Q(status=Order.Status.PENDING, placed_at__isnull=False)
-        ),
-        to_deliver=Count("pk", filter=Q(status=Order.Status.SHIPPED)),
-    )
+    """The admin index's shop block: orders and revenue today and in the last 30 days, and what waits for staff. Every
+    number is the panel's own (insights/metrics.py: one definition, test-mode orders left out on a live site): orders
+    paid online or placed with cash on delivery and not cancelled or refunded; revenue the money in less the money back
+    (payments captured less refunds processed, a cash-on-delivery order when its parcel is delivered)."""
+    today, month = metrics.last_days(1), metrics.last_days(30)
     return {
         "rows": [
-            ("Orders", sales["orders_today"], sales["orders_month"]),
-            ("Revenue", inr(revenue["today"] - refunded["today"]), inr(revenue["month"] - refunded["month"])),
+            ("Orders", metrics.orders_placed(None, today).value, metrics.orders_placed(None, month).value),
+            ("Revenue", inr(metrics.net_revenue(None, today).value), inr(metrics.net_revenue(None, month).value)),
         ],
-        **waiting,
-        **store_stats(since),
+        "to_pack": metrics.orders_to_pack(None).value,
+        "to_deliver": metrics.orders_on_the_way(None).value,
+        **store_stats(timezone.now() - timedelta(days=30)),
     }
 
 
 def store_stats(since):
     """The store's section: orders and their value by day (two weeks), the books most sold in `since`, books running
-    out (below SHOP_LOW_STOCK), reviews and quotation requests waiting for staff."""
-    counted = Order.objects.counted()
+    out (below SHOP_LOW_STOCK), reviews and quotation requests waiting for staff (test-mode orders left out)."""
+    counted = metrics.live_orders()
     by_day = (
         counted.filter(placed_at__gte=timezone.now() - timedelta(days=14))
         .annotate(day=TruncDate("placed_at"))
@@ -78,5 +60,5 @@ def store_stats(since):
         "top_products": list(top),
         "low_stock": low.exclude(kind__in=[Product.Kind.BUNDLE, Product.Kind.DIGITAL]).order_by("stock", "title")[:10],
         "reviews_waiting": Review.objects.filter(status=Review.Status.PENDING).count(),
-        "quotes_waiting": QuoteRequest.objects.filter(status=QuoteRequest.Status.NEW).count(),
+        "quotes_waiting": metrics.quotes_open(None, None).value,
     }
