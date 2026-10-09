@@ -1,26 +1,34 @@
-// Home: what waits for the person today, all from the API (nothing invented): their inbox (its open and overdue
-// counts, GET inbox/count/, and the first page by kind), the change requests waiting for them to decide and theirs
-// waiting for someone else, the legal clocks nearest to due (data requests to acknowledge or answer, incidents to
-// report), the system's failing checks, and their modules. Each part is drawn only when the manifest opens its
+// Home: what waits for the person today, all from the API (nothing invented). First the numbers of their roles (GET
+// home/: the money, the orders, the queues, each a link to the list it counts, with its definition and when it was
+// worked out), streamed on their own so that they show as soon as they are ready; then their inbox (its open and
+// overdue counts, GET inbox/count/, and the first page by kind), the change requests waiting for them to decide and
+// theirs waiting for someone else, the legal clocks nearest to due (data requests to acknowledge or answer, incidents
+// to report), the system's failing checks, and their modules. Each part is drawn only when the manifest opens its
 // module, and each fails on its own (a Problem in its card).
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 
 import { Clock } from "@/components/data/clock";
 import { Problem } from "@/components/data/problem";
+import { HomeCards, HomeCardsSkeleton } from "@/components/modules/reports/home-cards";
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError } from "@/lib/api/errors";
-import { attempt, requestTime, staffPage } from "@/lib/api/page";
+import { attempt, param, pathOf, requestTime, type SearchParams, staffPage } from "@/lib/api/page";
 import {
   type DataRequestRow,
   getSystem,
+  type HomePeriod,
   type Incident,
   inboxCount,
   listChangeRequests,
   listDataRequests,
   listIncidents,
   listInbox,
+  type Manifest,
+  type Transport,
 } from "@/lib/api/staff";
 import { copy, labelOf } from "@/lib/copy";
 import { has, moduleHref, P, visibleModules } from "@/lib/modules";
@@ -79,8 +87,30 @@ function clocksOf(requests: DataRequestRow[], incidents: Incident[]): ClockRow[]
   return rows.sort((a, b) => Date.parse(a.due) - Date.parse(b.due)).slice(0, 6);
 }
 
-export default async function HomePage() {
-  const { manifest, transport, path } = await staffPage("/");
+const PERIODS: HomePeriod[] = ["today", "week", "month"];
+
+export default async function HomePage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const params = await searchParams;
+  const { manifest, transport, path } = await staffPage(pathOf("/", params));
+  const asked = param(params, "period");
+  const period = (PERIODS as string[]).includes(asked) ? (asked as HomePeriod) : "";
+  return (
+    <>
+      <PageHeader title={copy.home.title} lead={copy.home.lead} />
+      <div className="flex flex-col gap-8">
+        <Suspense fallback={<HomeCardsSkeleton />}>
+          <HomeCards transport={transport} path={path} period={period} />
+        </Suspense>
+        <Suspense fallback={<Skeleton className="h-48 rounded-lg" />}>
+          <HomeParts manifest={manifest} transport={transport} path={path} />
+        </Suspense>
+      </div>
+    </>
+  );
+}
+
+/** The rest of Home, below the numbers: the inbox, the approvals, the clocks, the system's health, the modules. */
+async function HomeParts({ manifest, transport, path }: { manifest: Manifest; transport: Transport; path: string }) {
   const now = requestTime();
   const approvals = has(manifest, P.approvalsView);
   const [count, inbox, awaiting, mine, requests, incidents, system] = await Promise.all([
@@ -108,7 +138,6 @@ export default async function HomePage() {
 
   return (
     <>
-      <PageHeader title={copy.home.title} lead={copy.home.lead} />
       <div className="grid gap-5 min-[1100px]:grid-cols-2">
         {inbox ? (
           <Card>
