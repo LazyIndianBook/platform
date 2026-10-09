@@ -824,7 +824,7 @@ ANYMAIL.setdefault("REQUESTS_TIMEOUT", (3, 10))  # anymail's HTTP backends (Brev
 # DB_STATEMENT_TIMEOUT seconds for any one statement and DB_IDLE_IN_TRANSACTION_TIMEOUT for a transaction left idle
 # (a thread stuck while holding row locks), by role: 15 and 60 in the web, 600 and 600 in Celery, none in manage.py
 # (migrations, imports and reports run as long as they need). Behind PgBouncer in transaction mode these startup
-# options are not passed on: RESILIENCE.md "Pooler" has the per-role ALTER ROLE instead.
+# options are not passed on: RESILIENCE.md "The pooler and the connections" has the per-role ALTER ROLE instead.
 DB_CONNECT_TIMEOUT = env.int("DB_CONNECT_TIMEOUT", default=5)
 DB_STATEMENT_TIMEOUT = env.int("DB_STATEMENT_TIMEOUT", default={"gunicorn": 15, "celery": 600}.get(PROGRAM, 0))
 DB_IDLE_IN_TRANSACTION_TIMEOUT = env.int(

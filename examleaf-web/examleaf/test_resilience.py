@@ -263,7 +263,7 @@ def task_ids_seen():
 
 
 def test_a_tasks_log_lines_name_the_task_and_its_id():
-    task_id, name = task_ids_seen.delay().get()
+    task_id, name = task_ids_seen.apply().result  # run as a task is (no .get(): it refuses inside a worker)
     assert name == "examleaf.test_resilience.task_ids_seen" and len(task_id) == 36
     outside = logging.LogRecord("examleaf.test", logging.INFO, __file__, 1, "outside", None, None)
     assert TaskIds().filter(outside) and not hasattr(outside, "task_id")

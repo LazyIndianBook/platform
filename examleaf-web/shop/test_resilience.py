@@ -141,7 +141,8 @@ def test_a_periodic_job_that_finds_itself_running_does_nothing(commit, db):
 
 def test_the_quotation_pdf_is_made_by_the_worker_or_here_while_the_queue_is_down(client, monkeypatch, db):
     ProductFactory(slug="physics")
-    quote = QuoteRequest.objects.create(**QUOTE, items=[{"product": "physics", "title": "Physics", "quantity": 40}])
+    fields = {**QUOTE, "gstin": "", "delivery_pin": "781001", "phone": "+919864012345"}  # as the form cleans them
+    quote = QuoteRequest.objects.create(**fields, items=[{"product": "physics", "title": "Physics", "quantity": 40}])
     client.force_login(UserFactory(is_staff=True, is_superuser=True))
     queued = []
     monkeypatch.setattr(tasks.make_quotation, "delay", queued.append)  # a broker: the worker makes it
