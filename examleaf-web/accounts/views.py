@@ -18,7 +18,7 @@ from ops.sms import queue_sms
 from ops.tasks import queue_text_email
 
 from .forms import parent_link_contact
-from .models import ConsentRecord, DeletionRequest, TeacherProfile
+from .models import ConsentRecord, DeletionRequest, Nominee, TeacherProfile
 
 PROFILE_FIELDS = [
     "email",
@@ -157,6 +157,9 @@ def export_user_data(user):
         "email_suppressed": EmailSuppression.objects.filter(email__iexact=user.email)
         .values("reason", "created")
         .first(),
+        "nominee": Nominee.objects.filter(user=user).values("name", "contact", "relation", "created").first(),
+        # DPDP s.11(1)(b): who else processes the data, from the processor register (none of their own data here)
+        "recipients": recipients(),
     }
 
 
@@ -180,7 +183,16 @@ DATA_PARTS = {  # the parts of Download my data in words, shown before the file 
     "learning": "The revision course: settings, codes, progress, quiz answers, devices",
     "sms": "SMS sent to you",
     "email_suppressed": "Emails stopped after a bounce",
+    "nominee": "The person you nominated to act for you",
+    "recipients": "Who processes your data for us: their purpose, the kinds of data, where",
 }
+
+
+def recipients():
+    """The processors of the register in use (staff.privacy.recipients), for Download my data."""
+    from staff.privacy import recipients as register
+
+    return register()
 
 
 def how_many(value):
@@ -215,6 +227,8 @@ def request_deletion(request):
         f'Changed your mind, or did not ask for this? Log in before then and press "Keep my '
         f'account" on {settings.SITE_URL}/account/',
     )
+    if user.is_minor:  # a child's erasure waits for the parent or guardian (staff.privacy.erasure_holds)
+        send_parent_deletion_link(user)
     return deletion, True
 
 
@@ -293,6 +307,28 @@ def send_parent_link(user):
         f"{PARENT_LINK_DAYS} days):\n\n{settings.SITE_URL}/c/{token}/\n\n"
         f"If you do not agree, do nothing: the account cannot save marks or order books. To have it deleted, write "
         f"to us: {settings.SITE_URL}/contact/",
+    )
+    return True
+
+
+def send_parent_deletion_link(user):
+    """A student under 18 asked to delete their account: the erasure waits for the parent or guardian (research 4.5),
+    who confirms it through the same signed link as their consent (`/c/<token>/`, PARENT_LINK_DAYS), which then sets
+    the deletion request's parent_confirmed_at (api/parent_link.py). By email only: the SMS templates registered with
+    DLT say nothing of a deletion, so a parent known by a number alone is called by staff, who record the confirmation
+    with its evidence (the cockpit lists the deletions that wait). Fixed text, the student's name only as shown_name
+    allows. Returns whether it went."""
+    contact = user.parent_contact
+    if "@" not in contact or not parent_link_allowed(contact):
+        return False
+    token, name = parent_signer(contact).sign(int_to_base36(user.pk)), shown_name(user.full_name)
+    queue_text_email(
+        contact,
+        "Please confirm the deletion of your child's account",
+        f"{name[0].upper()}{name[1:]} has asked us to delete their ExamLeaf account. They are under 18, so we delete "
+        f"it once you confirm, here (the link works for {PARENT_LINK_DAYS} days):\n\n{settings.SITE_URL}/c/{token}/"
+        f"\n\nIf you do not want it deleted, do nothing, and talk with them: they can keep their account from their "
+        f"account page. Questions: {settings.SITE_URL}/contact/",
     )
     return True
 

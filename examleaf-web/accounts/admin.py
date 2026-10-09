@@ -10,7 +10,7 @@ from import_export import resources
 from ops.admin import LoggedExportMixin
 
 from . import roles
-from .models import ConsentRecord, DeletionRequest, TeacherProfile, User
+from .models import ConsentRecord, DeletionRequest, LegalHold, Nominee, TeacherProfile, User
 
 
 class UserResource(resources.ModelResource):  # CSV export: no password hashes, no dates of birth or parents' contacts
@@ -164,10 +164,25 @@ class ConsentRecordAdmin(LoggedExportMixin, ReadOnlyAdmin):
 
 @admin.register(DeletionRequest)
 class DeletionRequestAdmin(ReadOnlyAdmin):
-    list_display = ["user", "status", "requested_at", "due_at", "closed_at"]
+    list_display = ["user", "status", "requested_at", "due_at", "closed_at", "parent_confirmed_at"]
     list_filter = ["status", "due_at"]
     list_select_related = ["user"]
     search_fields = ["user__email"]
+    exclude = ["subject_hash"]  # the erasure ledger's hash: for reapply_erasures, nothing to read here
+
+
+@admin.register(LegalHold)
+class LegalHoldAdmin(ReadOnlyAdmin):  # made and released in the panel (staff/privacy_api.py), with the audit log
+    list_display = ["id", "reason", "user", "target_type", "target_id", "until", "created", "released_at"]
+    list_filter = ["reason", "released_at"]
+    list_select_related = ["user", "target_type"]
+
+
+@admin.register(Nominee)
+class NomineeAdmin(ReadOnlyAdmin):  # given by the person on My account; staff read it masked in the panel
+    list_display = ["id", "user", "relation", "created", "verified_at"]
+    list_select_related = ["user"]
+    exclude = ["contact"]
 
 
 admin.site.unregister(UserSession)  # allauth's searches user__username, which this User has not
