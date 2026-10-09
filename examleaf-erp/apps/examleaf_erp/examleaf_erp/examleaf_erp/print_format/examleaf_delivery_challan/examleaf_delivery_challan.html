@@ -1,0 +1,40 @@
+{#- Delivery challan (Rule 55): goods sent on approval (sale or return), specimen copies, returns to the printer, and
+    the dispatch of an invoiced order. Rule 55(3): in triplicate, each copy saying whose it is. The batches are the
+    print runs the stock came out of. -#}
+{% from "examleaf_erp/templates/print/answer_script.html" import style, head, address_lines, lines_table, hsn_summary, footer %}
+{{ style() }}
+{%- set data = invoice_lines(doc) -%}
+{%- set purpose = challan_purpose(doc.name) -%}
+{%- set batches = challan_batches(doc) -%}
+{% for copy in ["Original for consignee", "Duplicate for transporter", "Triplicate for consigner"] %}
+<div class="el-doc{% if not loop.last %} page-break{% endif %}">
+{{ head(doc, "Delivery challan", ["Purpose: " ~ purpose], copy) }}
+<table class="parties"><tr>
+  <td>
+    <p class="label">Consignee</p>
+    <p><strong>{{ doc.customer_name }}</strong></p>
+    {{ address_lines(doc.shipping_address_name or doc.customer_address) }}
+    {% if doc.get("billing_address_gstin") %}<p>GSTIN <span class="code">{{ doc.billing_address_gstin }}</span></p>{% else %}<p>Not registered for GST</p>{% endif %}
+  </td>
+  <td>
+    <p class="label">Place of supply</p>
+    <p>{{ doc.get("place_of_supply") or "—" }}</p>
+    <p class="label" style="margin-top: 2mm">Transport</p>
+    <p>{{ doc.transporter_name or "—" }}{% if doc.lr_no %} · <span class="code">{{ doc.lr_no }}</span>{% endif %}</p>
+    {% if doc.vehicle_no %}<p>Vehicle <span class="code">{{ doc.vehicle_no }}</span></p>{% endif %}
+  </td>
+</tr></table>
+{{ lines_table(data, taxed=True) }}
+{% if batches %}
+<h2>Print runs</h2>
+<table class="lines">
+  <thead><tr><th>Item</th><th>Batch</th><th>Printed</th><th class="num">Copies</th></tr></thead>
+  <tbody>
+  {% for b in batches %}<tr><td>{{ b.item_name }}</td><td class="code">{{ b.batch_no }}</td><td>{{ frappe.utils.formatdate(b.print_date, "d MMMM yyyy") if b.print_date else "—" }}</td><td class="num">{{ "{:g}".format(b.qty) }}</td></tr>{% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{{ hsn_summary(data) }}
+{{ footer("Goods travel on this challan; quantities are exact.") }}
+</div>
+{% endfor %}
