@@ -246,7 +246,8 @@ def pull(doctypes=None):
                     break
                 if doctype not in contract.STOCK_DOCTYPES:
                     for row in rows:
-                        mirror_doc(erp, doctype, row["name"])
+                        if not contract.own(doctype, row):  # the storefront's own invoices: nothing to mirror
+                            mirror_doc(erp, doctype, row["name"])
                     _move(cursor, following, len(rows))
                 position, count = following, count + len(rows)
                 if not more:

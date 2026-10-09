@@ -104,6 +104,17 @@ def test_a_b2b_invoice_is_mirrored_without_contacts(on):
     assert "contact_email" not in mirror.data and "contact_mobile" not in mirror.data
 
 
+def test_a_b2b_customer_is_enabled_or_disabled_never_a_draft(on):
+    # the shadow run (SHADOW-RUN.md): ERPNext keeps a Customer at docstatus 0 and gives it no status, so 50 schools
+    # and distributors were mirrored as "Draft"
+    name = school(docstatus=0, disabled=0)
+    assert inbound.apply("Customer", name) == ""
+    assert ErpMirror.objects.get(name=name).status == "Enabled"
+    FAKE.docs[("Customer", name)]["disabled"] = 1
+    assert inbound.apply("Customer", name) == ""
+    assert ErpMirror.objects.get(name=name).status == "Disabled"
+
+
 def test_a_stock_doorbell_reads_the_stock_once_for_a_burst(on, book, client, django_capture_on_commit_callbacks):
     relay()  # the book's item in ERPNext
     stock_in(book, 50)
@@ -163,6 +174,20 @@ def test_the_pull_reads_page_by_page_from_its_cursor(on, monkeypatch):
     assert inbound.pull(["Customer"]) == {"Customer": 0}
     school("School 6")
     assert inbound.pull(["Customer"]) == {"Customer": 1}
+
+
+def test_the_pull_reads_only_b2b_invoices_again(on, book, customer):
+    # the shadow run (SHADOW-RUN.md): the first pull read 192 invoices over REST to mirror 1, the storefront's own
+    # mirrors among them (every one of them would be read once more in the parallel run)
+    pay_offline(ordered((book, 1), user=customer))
+    relay()
+    school = FAKE.add_b2b("Sales Invoice", customer="St. Mary's School", customer_group="School", status="Unpaid")
+    FAKE.calls.clear()
+    assert inbound.pull(["Sales Invoice"]) == {"Sales Invoice": 2}
+    reads = [method for method, _ in FAKE.calls if method.startswith("/api/resource/")]
+    assert reads == [f"/api/resource/Sales Invoice/{school}"]
+    assert list(ErpMirror.objects.values_list("name", flat=True)) == [school]
+    assert ErpCursor.objects.get(doctype="Sales Invoice").rows_read == 2
 
 
 def test_the_pull_keeps_its_cursor_when_erpnext_cannot_be_asked(on):
