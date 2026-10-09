@@ -2104,6 +2104,59 @@
                 }
             }
         },
+        "/api/v1/errata/": {
+            "get": {
+                "operationId": "errata_list",
+                "description": "A book's errata: the mistakes staff confirmed or fixed and published, in paper and question order, with the\nprinting each was read in and the printing that carries its fix. Public, kept 5 minutes by shared caches.",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "book",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "its slug: physics-2027",
+                        "required": true
+                    },
+                    {
+                        "name": "page",
+                        "required": false,
+                        "in": "query",
+                        "description": "A page number within the paginated result set.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "page_size",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "tags": [
+                    "catalogue"
+                ],
+                "security": [
+                    {}
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedErratumList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
         "/api/v1/learn/chapters/": {
             "get": {
                 "operationId": "learn_chapters_list",
@@ -4833,6 +4886,62 @@
                 }
             }
         },
+        "/api/v1/reports/": {
+            "post": {
+                "operationId": "reports_create",
+                "description": "Report a mistake: anyone (signed in: the reporter's account is kept; a verified teacher's is marked), 5 an hour\nand 20 a day per client address, Turnstile while it is on; a filled-in `website` (the honeypot) is thanked and\ndropped; a note that reads as spam is kept apart, out of the queue, and goes after 30 days.",
+                "tags": [
+                    "catalogue"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/MistakeReportRequest"
+                            },
+                            "examples": {
+                                "AWrongStep": {
+                                    "value": {
+                                        "kind": "solution",
+                                        "paper": "PHY-E01",
+                                        "question": "2(c)",
+                                        "step": 2,
+                                        "printing": "PHY-2027-1",
+                                        "category": "wrong_answer",
+                                        "note": "The current should be 0.5 A, not 5 A.",
+                                        "email": "",
+                                        "turnstile": "0.Zx…"
+                                    },
+                                    "summary": "A wrong step"
+                                }
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "cookieAuth": []
+                    },
+                    {}
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MistakeReportSent"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
         "/api/v1/shipping/": {
             "get": {
                 "operationId": "shipping_retrieve",
@@ -6608,6 +6717,100 @@
                     "source"
                 ]
             },
+            "Erratum": {
+                "type": "object",
+                "properties": {
+                    "paper": {
+                        "type": "string",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "question": {
+                        "type": "string",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "step": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "nullable": true,
+                        "description": "The marking step, 1 for the first."
+                    },
+                    "category": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ErrorReportCategoryEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "printing": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "The print run it was read in: PHY-2027-1."
+                    },
+                    "state": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ErrorReportStateEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "fixed_in": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "The printing that carries the fix."
+                    },
+                    "fixed_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true,
+                        "description": "When it was fixed online."
+                    },
+                    "reported_on": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "category",
+                    "fixed_at",
+                    "fixed_in",
+                    "paper",
+                    "printing",
+                    "question",
+                    "reported_on",
+                    "state",
+                    "step"
+                ]
+            },
+            "ErrorReportCategoryEnum": {
+                "enum": [
+                    "wrong_answer",
+                    "typo",
+                    "marks",
+                    "unclear",
+                    "display",
+                    "other",
+                    "item_analysis"
+                ],
+                "type": "string",
+                "description": "* `wrong_answer` - a wrong answer or step\n* `typo` - a typing or spelling mistake\n* `marks` - the marks or the marking scheme\n* `unclear` - hard to follow\n* `display` - maths or a picture does not show\n* `other` - something else\n* `item_analysis` - flagged by the item analysis"
+            },
+            "ErrorReportStateEnum": {
+                "enum": [
+                    "reported",
+                    "confirmed",
+                    "rejected",
+                    "fixed_online",
+                    "fixed_in_printing"
+                ],
+                "type": "string",
+                "description": "* `reported` - reported\n* `confirmed` - confirmed\n* `rejected` - rejected\n* `fixed_online` - fixed online\n* `fixed_in_printing` - fixed in printing"
+            },
             "ExportPart": {
                 "type": "object",
                 "properties": {
@@ -7176,6 +7379,111 @@
                 "required": [
                     "email",
                     "number"
+                ]
+            },
+            "MistakeReportRequest": {
+                "type": "object",
+                "properties": {
+                    "kind": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ReportTargetEnum"
+                            }
+                        ],
+                        "description": "what the mistake is in\n\n* `solution` - solution\n* `question` - question\n* `quiz_item` - quiz_item\n* `clip` - clip"
+                    },
+                    "paper": {
+                        "type": "string",
+                        "description": "its code: PHY-E01",
+                        "maxLength": 20
+                    },
+                    "question": {
+                        "type": "string",
+                        "description": "its label: 2(c)",
+                        "maxLength": 20
+                    },
+                    "quiz_item": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "description": "a quiz item's id"
+                    },
+                    "clip": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "description": "a clip's id"
+                    },
+                    "step": {
+                        "type": "integer",
+                        "maximum": 50,
+                        "minimum": 1,
+                        "nullable": true,
+                        "description": "the marking step, 1 for the first"
+                    },
+                    "printing": {
+                        "description": "the print run read: PHY-2027-1",
+                        "oneOf": [
+                            {
+                                "type": "string",
+                                "maxLength": 40,
+                                "pattern": "^[A-Za-z0-9][A-Za-z0-9-]{0,39}$"
+                            },
+                            {
+                                "type": "string",
+                                "maxLength": 0
+                            }
+                        ]
+                    },
+                    "category": {
+                        "$ref": "#/components/schemas/ReaderCategoryEnum"
+                    },
+                    "note": {
+                        "type": "string",
+                        "maxLength": 1000
+                    },
+                    "email": {
+                        "description": "to hear of the fix (once); optional",
+                        "oneOf": [
+                            {
+                                "type": "string",
+                                "format": "email"
+                            },
+                            {
+                                "type": "string",
+                                "maxLength": 0
+                            }
+                        ]
+                    },
+                    "website": {
+                        "type": "string",
+                        "writeOnly": true,
+                        "description": "the honeypot: a field people never see; send none"
+                    },
+                    "turnstile": {
+                        "type": "string",
+                        "writeOnly": true,
+                        "description": "Turnstile's token while the bot check is on"
+                    }
+                },
+                "required": [
+                    "category",
+                    "kind"
+                ]
+            },
+            "MistakeReportSent": {
+                "type": "object",
+                "properties": {
+                    "reference": {
+                        "type": "integer",
+                        "nullable": true,
+                        "description": "its number, for a question about it"
+                    },
+                    "detail": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "detail",
+                    "reference"
                 ]
             },
             "NextClip": {
@@ -8032,6 +8340,37 @@
                         "type": "array",
                         "items": {
                             "$ref": "#/components/schemas/Entitlement"
+                        }
+                    }
+                }
+            },
+            "PaginatedErratumList": {
+                "type": "object",
+                "required": [
+                    "count",
+                    "results"
+                ],
+                "properties": {
+                    "count": {
+                        "type": "integer",
+                        "example": 123
+                    },
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=4"
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=2"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Erratum"
                         }
                     }
                 }
@@ -9754,6 +10093,18 @@
                     "number"
                 ]
             },
+            "ReaderCategoryEnum": {
+                "enum": [
+                    "wrong_answer",
+                    "typo",
+                    "marks",
+                    "unclear",
+                    "display",
+                    "other"
+                ],
+                "type": "string",
+                "description": "* `wrong_answer` - a wrong answer or step\n* `typo` - a typing or spelling mistake\n* `marks` - the marks or the marking scheme\n* `unclear` - hard to follow\n* `display` - maths or a picture does not show\n* `other` - something else"
+            },
             "Record": {
                 "type": "object",
                 "properties": {
@@ -9887,6 +10238,16 @@
                     "password1",
                     "password2"
                 ]
+            },
+            "ReportTargetEnum": {
+                "enum": [
+                    "solution",
+                    "question",
+                    "quiz_item",
+                    "clip"
+                ],
+                "type": "string",
+                "description": "* `solution` - solution\n* `question` - question\n* `quiz_item` - quiz_item\n* `clip` - clip"
             },
             "RestAuthDetail": {
                 "type": "object",
