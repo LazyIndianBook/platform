@@ -3821,6 +3821,772 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/staff/course/bin/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description What is in the bin, newest first, by kind: each restorable until `bin_until`, then purged with a clip's files. */
+        get: operations["staff_course_bin_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/cards/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A flash card: changed (front, back, tags), moved, put in the bin and restored. */
+        get: operations["staff_course_cards_retrieve"];
+        put?: never;
+        post?: never;
+        /** @description A flash card: changed (front, back, tags), moved, put in the bin and restored. */
+        delete: operations["staff_course_cards_destroy"];
+        options?: never;
+        head?: never;
+        /** @description A flash card: changed (front, back, tags), moved, put in the bin and restored. */
+        patch: operations["staff_course_cards_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/course/cards/{id}/move/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description A flash card: changed (front, back, tags), moved, put in the bin and restored. */
+        post: operations["staff_course_cards_move_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/cards/{id}/restore/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description A flash card: changed (front, back, tags), moved, put in the bin and restored. */
+        post: operations["staff_course_cards_restore_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/chapters/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description A chapter's must-do note (its number, title and the Board's figures come from the syllabus' import). */
+        patch: operations["staff_course_chapters_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/course/clips/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A clip: its processing in words with Retry, its poster and duration once ready, the staff player's link, its
+         *     free preview; changed (title, kind, notes, free preview, tags), moved, put in the bin (its files kept 30 days)
+         *     and restored. Its video is uploaded on its admin page (straight to the bucket).
+         */
+        get: operations["staff_course_clips_retrieve"];
+        put?: never;
+        post?: never;
+        /**
+         * @description A clip: its processing in words with Retry, its poster and duration once ready, the staff player's link, its
+         *     free preview; changed (title, kind, notes, free preview, tags), moved, put in the bin (its files kept 30 days)
+         *     and restored. Its video is uploaded on its admin page (straight to the bucket).
+         */
+        delete: operations["staff_course_clips_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description A clip: its processing in words with Retry, its poster and duration once ready, the staff player's link, its
+         *     free preview; changed (title, kind, notes, free preview, tags), moved, put in the bin (its files kept 30 days)
+         *     and restored. Its video is uploaded on its admin page (straight to the bucket).
+         */
+        patch: operations["staff_course_clips_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/course/clips/{id}/move/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A clip: its processing in words with Retry, its poster and duration once ready, the staff player's link, its
+         *     free preview; changed (title, kind, notes, free preview, tags), moved, put in the bin (its files kept 30 days)
+         *     and restored. Its video is uploaded on its admin page (straight to the bucket).
+         */
+        post: operations["staff_course_clips_move_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/clips/{id}/restore/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A clip: its processing in words with Retry, its poster and duration once ready, the staff player's link, its
+         *     free preview; changed (title, kind, notes, free preview, tags), moved, put in the bin (its files kept 30 days)
+         *     and restored. Its video is uploaded on its admin page (straight to the bucket).
+         */
+        post: operations["staff_course_clips_restore_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/clips/{id}/retry/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Its video processed again (reprocess_clips' function): a failed clip, or one stuck in processing. */
+        post: operations["staff_course_clips_retry_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/codes/batches/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The print runs' book codes: made by a job (the printer's file, its maker's for 24 hours), marked dispatched,
+         *     voided (every unused code: a typed confirmation in the panel), each with its redemptions by week and the fraud
+         *     signals that name it. Addressed by its label (or `key`).
+         */
+        get: operations["staff_course_codes_batches_list"];
+        put?: never;
+        /**
+         * @description A new print run's codes, made by a job (202): its file is yours to download once it is done, for 24 hours
+         *     (then deleted); the owners are told.
+         */
+        post: operations["staff_course_codes_batches_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/codes/batches/{label}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The print runs' book codes: made by a job (the printer's file, its maker's for 24 hours), marked dispatched,
+         *     voided (every unused code: a typed confirmation in the panel), each with its redemptions by week and the fraud
+         *     signals that name it. Addressed by its label (or `key`).
+         */
+        get: operations["staff_course_codes_batches_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/codes/batches/{label}/dispatched/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The print runs' book codes: made by a job (the printer's file, its maker's for 24 hours), marked dispatched,
+         *     voided (every unused code: a typed confirmation in the panel), each with its redemptions by week and the fraud
+         *     signals that name it. Addressed by its label (or `key`).
+         */
+        post: operations["staff_course_codes_batches_dispatched_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/codes/batches/{label}/void/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The print runs' book codes: made by a job (the printer's file, its maker's for 24 hours), marked dispatched,
+         *     voided (every unused code: a typed confirmation in the panel), each with its redemptions by week and the fraud
+         *     signals that name it. Addressed by its label (or `key`).
+         */
+        post: operations["staff_course_codes_batches_void_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/codes/lookup/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A typed or scanned code, answered in one line: unused, redeemed (when, by which account: masked, linked),
+         *     void, or unknown. The code is hashed, never kept; each lookup is audited and throttled.
+         */
+        post: operations["staff_course_codes_lookup_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/codes/report/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The codes report (plan 5.16): printed, sold, activated, revoked and void by batch, the activation rate, by
+         *     district with the cells under 10 hidden ("fewer than 10"). Computed when asked; the newest 200 print runs.
+         */
+        get: operations["staff_course_codes_report_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/codes/void/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description One code voided by its digest (a leaked one): its redemption refused from now; one redeemed already is
+         *     refused here (revoke the access it opened instead).
+         */
+        post: operations["staff_course_codes_void_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/entitlements/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Who may watch what: filters subject, source, state, user, and `q`, an account's email address (exactly): a
+         *     person looked up, so a `customer.lookup` event with its keyed hash. Granted (a reason), extended (days, a reason),
+         *     revoked (a reason): the student's progress stays whatever happens. Bulk: POST jobs/ with a bulk_action of
+         *     entitlement.grant (targets: account ids), entitlement.extend or entitlement.revoke (targets: entitlement ids),
+         *     a dry run first.
+         */
+        get: operations["staff_course_entitlements_list"];
+        put?: never;
+        /**
+         * @description Who may watch what: filters subject, source, state, user, and `q`, an account's email address (exactly): a
+         *     person looked up, so a `customer.lookup` event with its keyed hash. Granted (a reason), extended (days, a reason),
+         *     revoked (a reason): the student's progress stays whatever happens. Bulk: POST jobs/ with a bulk_action of
+         *     entitlement.grant (targets: account ids), entitlement.extend or entitlement.revoke (targets: entitlement ids),
+         *     a dry run first.
+         */
+        post: operations["staff_course_entitlements_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/entitlements/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Who may watch what: filters subject, source, state, user, and `q`, an account's email address (exactly): a
+         *     person looked up, so a `customer.lookup` event with its keyed hash. Granted (a reason), extended (days, a reason),
+         *     revoked (a reason): the student's progress stays whatever happens. Bulk: POST jobs/ with a bulk_action of
+         *     entitlement.grant (targets: account ids), entitlement.extend or entitlement.revoke (targets: entitlement ids),
+         *     a dry run first.
+         */
+        get: operations["staff_course_entitlements_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/entitlements/{id}/extend/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Who may watch what: filters subject, source, state, user, and `q`, an account's email address (exactly): a
+         *     person looked up, so a `customer.lookup` event with its keyed hash. Granted (a reason), extended (days, a reason),
+         *     revoked (a reason): the student's progress stays whatever happens. Bulk: POST jobs/ with a bulk_action of
+         *     entitlement.grant (targets: account ids), entitlement.extend or entitlement.revoke (targets: entitlement ids),
+         *     a dry run first.
+         */
+        post: operations["staff_course_entitlements_extend_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/entitlements/{id}/revoke/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Who may watch what: filters subject, source, state, user, and `q`, an account's email address (exactly): a
+         *     person looked up, so a `customer.lookup` event with its keyed hash. Granted (a reason), extended (days, a reason),
+         *     revoked (a reason): the student's progress stays whatever happens. Bulk: POST jobs/ with a bulk_action of
+         *     entitlement.grant (targets: account ids), entitlement.extend or entitlement.revoke (targets: entitlement ids),
+         *     a dry run first.
+         */
+        post: operations["staff_course_entitlements_revoke_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/items/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The quiz bank: every item with its chapter, topic, marks, difficulty, Bloom level, source, tags and its item
+         *     analysis (N/A under 30 learners), all filters; one changed (validated as the admin's form), moved, put in the
+         *     bin, restored, flagged "needs checking" into the content triage (once while one is open), its history. Bulk edits
+         *     of the metadata are a job: POST jobs/ {"kind": "bulk_action", "params": {"action": "item_metadata", …}}.
+         */
+        get: operations["staff_course_items_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/items/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The quiz bank: every item with its chapter, topic, marks, difficulty, Bloom level, source, tags and its item
+         *     analysis (N/A under 30 learners), all filters; one changed (validated as the admin's form), moved, put in the
+         *     bin, restored, flagged "needs checking" into the content triage (once while one is open), its history. Bulk edits
+         *     of the metadata are a job: POST jobs/ {"kind": "bulk_action", "params": {"action": "item_metadata", …}}.
+         */
+        get: operations["staff_course_items_retrieve"];
+        put?: never;
+        post?: never;
+        /**
+         * @description The quiz bank: every item with its chapter, topic, marks, difficulty, Bloom level, source, tags and its item
+         *     analysis (N/A under 30 learners), all filters; one changed (validated as the admin's form), moved, put in the
+         *     bin, restored, flagged "needs checking" into the content triage (once while one is open), its history. Bulk edits
+         *     of the metadata are a job: POST jobs/ {"kind": "bulk_action", "params": {"action": "item_metadata", …}}.
+         */
+        delete: operations["staff_course_items_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description The quiz bank: every item with its chapter, topic, marks, difficulty, Bloom level, source, tags and its item
+         *     analysis (N/A under 30 learners), all filters; one changed (validated as the admin's form), moved, put in the
+         *     bin, restored, flagged "needs checking" into the content triage (once while one is open), its history. Bulk edits
+         *     of the metadata are a job: POST jobs/ {"kind": "bulk_action", "params": {"action": "item_metadata", …}}.
+         */
+        patch: operations["staff_course_items_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/course/items/{id}/flag/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The quiz bank: every item with its chapter, topic, marks, difficulty, Bloom level, source, tags and its item
+         *     analysis (N/A under 30 learners), all filters; one changed (validated as the admin's form), moved, put in the
+         *     bin, restored, flagged "needs checking" into the content triage (once while one is open), its history. Bulk edits
+         *     of the metadata are a job: POST jobs/ {"kind": "bulk_action", "params": {"action": "item_metadata", …}}.
+         */
+        post: operations["staff_course_items_flag_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/items/{id}/history/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Its versions, newest first (50), each with what it changed. */
+        get: operations["staff_course_items_history_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/items/{id}/move/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The quiz bank: every item with its chapter, topic, marks, difficulty, Bloom level, source, tags and its item
+         *     analysis (N/A under 30 learners), all filters; one changed (validated as the admin's form), moved, put in the
+         *     bin, restored, flagged "needs checking" into the content triage (once while one is open), its history. Bulk edits
+         *     of the metadata are a job: POST jobs/ {"kind": "bulk_action", "params": {"action": "item_metadata", …}}.
+         */
+        post: operations["staff_course_items_move_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/items/{id}/restore/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The quiz bank: every item with its chapter, topic, marks, difficulty, Bloom level, source, tags and its item
+         *     analysis (N/A under 30 learners), all filters; one changed (validated as the admin's form), moved, put in the
+         *     bin, restored, flagged "needs checking" into the content triage (once while one is open), its history. Bulk edits
+         *     of the metadata are a job: POST jobs/ {"kind": "bulk_action", "params": {"action": "item_metadata", …}}.
+         */
+        post: operations["staff_course_items_restore_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/learners/{user}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A learner's course for support, opened from a ticket's sidebar: entitlements, codes redeemed, devices (each
+         *     signed out here), chapter progress, quiz accuracy and card reviews per chapter, the account's tickets. Every view
+         *     is a `sensitive_read` (a child's marked so) and says so (`logged`); a child's is a usage summary, no times.
+         */
+        get: operations["staff_course_learners_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/learners/{user}/devices/{device}/sign-out/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description One of the learner's phones taken off the account: no more reminders to it until the app registers it again
+         *     (at its next log-in). Ending the app's sign-in everywhere is the customer's page's (users/{id}/end-sessions/).
+         */
+        post: operations["staff_course_learners_devices_sign_out_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/revisions/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A revision's record and its review: submit (an editor), approve, send back with what to change, publish now
+         *     or at a time, back to draft (a reviewer: staff.publish_course, never who submitted it: 403 own_edit).
+         */
+        get: operations["staff_course_revisions_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description A revision's record and its review: submit (an editor), approve, send back with what to change, publish now
+         *     or at a time, back to draft (a reviewer: staff.publish_course, never who submitted it: 403 own_edit).
+         */
+        patch: operations["staff_course_revisions_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/course/revisions/{id}/approve/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A revision's record and its review: submit (an editor), approve, send back with what to change, publish now
+         *     or at a time, back to draft (a reviewer: staff.publish_course, never who submitted it: 403 own_edit).
+         */
+        post: operations["staff_course_revisions_approve_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/revisions/{id}/needs-changes/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A revision's record and its review: submit (an editor), approve, send back with what to change, publish now
+         *     or at a time, back to draft (a reviewer: staff.publish_course, never who submitted it: 403 own_edit).
+         */
+        post: operations["staff_course_revisions_needs_changes_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/revisions/{id}/publish/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A revision's record and its review: submit (an editor), approve, send back with what to change, publish now
+         *     or at a time, back to draft (a reviewer: staff.publish_course, never who submitted it: 403 own_edit).
+         */
+        post: operations["staff_course_revisions_publish_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/revisions/{id}/submit/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A revision's record and its review: submit (an editor), approve, send back with what to change, publish now
+         *     or at a time, back to draft (a reviewer: staff.publish_course, never who submitted it: 403 own_edit).
+         */
+        post: operations["staff_course_revisions_submit_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/revisions/{id}/unpublish/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A revision's record and its review: submit (an editor), approve, send back with what to change, publish now
+         *     or at a time, back to draft (a reviewer: staff.publish_course, never who submitted it: 403 own_edit).
+         */
+        post: operations["staff_course_revisions_unpublish_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/subjects/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The subjects whose chapters the person reaches, each with its course's counts (the module's first page). */
+        get: operations["staff_course_subjects_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/course/subjects/{subject}/outline/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A subject's outline: its chapters by number, each with its revision (status, schedule) and clips, its flash
+         *     cards and quiz items in their order, with the clips' processing and free previews. Bounded by the subject's
+         *     content; a few queries whatever its size.
+         */
+        get: operations["staff_course_subjects_outline_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/staff/data-requests/": {
         parameters: {
             query?: never;
@@ -7921,9 +8687,13 @@ export interface components {
          *     * `order.offline_payment` - order.offline_payment
          *     * `product.price` - product.price
          *     * `coupon.create` - coupon.create
+         *     * `entitlement.grant` - entitlement.grant
+         *     * `entitlement.extend` - entitlement.extend
+         *     * `entitlement.revoke` - entitlement.revoke
+         *     * `item_metadata` - item_metadata
          * @enum {string}
          */
-        AskActionEnum: "order.refund" | "order.offline_payment" | "product.price" | "coupon.create";
+        AskActionEnum: "order.refund" | "order.offline_payment" | "product.price" | "coupon.create" | "entitlement.grant" | "entitlement.extend" | "entitlement.revoke" | "item_metadata";
         AskRequest: {
             /**
              * @description order.refund, order.offline_payment, product.price, coupon.create
@@ -7932,6 +8702,10 @@ export interface components {
              *     * `order.offline_payment` - order.offline_payment
              *     * `product.price` - product.price
              *     * `coupon.create` - coupon.create
+             *     * `entitlement.grant` - entitlement.grant
+             *     * `entitlement.extend` - entitlement.extend
+             *     * `entitlement.revoke` - entitlement.revoke
+             *     * `item_metadata` - item_metadata
              */
             action: components["schemas"]["AskActionEnum"];
             /** @description an order's number, a product's slug, a new coupon's code */
@@ -8647,6 +9421,14 @@ export interface components {
          * @enum {string}
          */
         ClipKindEnum: "concept" | "trick" | "shortcut" | "formula" | "pattern" | "mistake" | "pyq";
+        /**
+         * @description * `uploaded` - uploaded
+         *     * `processing` - processing
+         *     * `ready` - ready
+         *     * `failed` - failed
+         * @enum {string}
+         */
+        ClipProcessingEnum: "uploaded" | "processing" | "ready" | "failed";
         ClipRow: {
             readonly id: number;
             /** Format: int64 */
@@ -8793,6 +9575,8 @@ export interface components {
         CodeRequest: {
             /** @description as printed: 7KQM-3XPA-9TRW (any case, spaces or dashes) */
             code: string;
+            /** @description optional: the app's Firebase installation ID (as sent to devices/): the fraud rules count the tries of a phone by its keyed hash, never the ID itself */
+            device?: string;
         };
         CodeRow: {
             batch: string;
@@ -9560,6 +10344,879 @@ export interface components {
          * @enum {string}
          */
         CourierEnum: "India Post" | "Delhivery" | "Blue Dart" | "Ekart" | "DTDC" | "Xpressbees" | "Other";
+        CourseBatch: {
+            readonly id: number;
+            /** @description its page's address: course/codes/batches/{key}/ */
+            readonly key: string;
+            /** @description PHY-2027-1. */
+            readonly label: string;
+            /** @description its code; null: every subject */
+            readonly subject: string | null;
+            readonly product: components["schemas"]["CourseBatchProduct"] | null;
+            /** @description Codes made for the print run. */
+            readonly printed: number;
+            /** @description made */
+            readonly codes: number;
+            readonly redeemed: number;
+            /** @description codes voided */
+            readonly void: number;
+            readonly state: components["schemas"]["CourseBatchStateEnum"];
+            /**
+             * The print run's note
+             * @description The printer, the run, the delivery.
+             */
+            readonly note: string;
+            /** Format: date-time */
+            readonly created: string;
+            /**
+             * Format: date-time
+             * @description Empty while its job makes the codes.
+             */
+            readonly generated_at: string | null;
+            readonly generated_by: components["schemas"]["CoursePerson"];
+            /**
+             * Format: date-time
+             * @description The books left: redemptions start here.
+             */
+            readonly dispatched_at: string | null;
+            /** Format: date-time */
+            readonly voided_at: string | null;
+            readonly void_reason: string;
+            readonly job: components["schemas"]["CourseBatchJob"] | null;
+        };
+        CourseBatchCreateRequest: {
+            /** @description the print run's: PHY-2027-1 */
+            label: string;
+            /** @description a subject's code (PHY), or ALL: a set of the four books */
+            subject: string;
+            count: number;
+            /** @description the book the codes are printed in: its slug */
+            product: string;
+            /**
+             * @description the printer, the run, the delivery
+             * @default
+             */
+            note: string;
+        };
+        CourseBatchDetail: {
+            readonly id: number;
+            /** @description its page's address: course/codes/batches/{key}/ */
+            readonly key: string;
+            /** @description PHY-2027-1. */
+            readonly label: string;
+            /** @description its code; null: every subject */
+            readonly subject: string | null;
+            readonly product: components["schemas"]["CourseBatchProduct"] | null;
+            /** @description Codes made for the print run. */
+            readonly printed: number;
+            /** @description made */
+            readonly codes: number;
+            readonly redeemed: number;
+            /** @description codes voided */
+            readonly void: number;
+            readonly state: components["schemas"]["CourseBatchStateEnum"];
+            /**
+             * The print run's note
+             * @description The printer, the run, the delivery.
+             */
+            readonly note: string;
+            /** Format: date-time */
+            readonly created: string;
+            /**
+             * Format: date-time
+             * @description Empty while its job makes the codes.
+             */
+            readonly generated_at: string | null;
+            readonly generated_by: components["schemas"]["CoursePerson"];
+            /**
+             * Format: date-time
+             * @description The books left: redemptions start here.
+             */
+            readonly dispatched_at: string | null;
+            /** Format: date-time */
+            readonly voided_at: string | null;
+            readonly void_reason: string;
+            readonly job: components["schemas"]["CourseBatchJob"] | null;
+            readonly redeemed_by_week: components["schemas"]["CourseWeek"][];
+            /** @description the fraud signals that name it, newest first */
+            readonly signals: components["schemas"]["CourseBatchSignal"][];
+            /**
+             * Format: double
+             * @description redeemed ÷ codes made
+             */
+            readonly activation_rate: number | null;
+            /** @description the printer's file, downloadable by its maker until */
+            readonly file_until: string | null;
+            /** @description the job that made the codes (its file: result_url) */
+            readonly generation: components["schemas"]["Job"] | null;
+        };
+        CourseBatchJob: {
+            id: number;
+            state: string;
+            done: number;
+            total: number;
+        };
+        CourseBatchProduct: {
+            id: number;
+            slug: string;
+            title: string;
+        };
+        CourseBatchSignal: {
+            readonly id: number;
+            readonly kind: components["schemas"]["FraudSignalKindEnum"];
+            readonly label: string;
+            readonly count: number;
+            /** Format: date-time */
+            readonly window_start: string;
+            /** Format: date-time */
+            readonly window_end: string;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly acknowledged_at: string | null;
+        };
+        CourseBatchStarted: {
+            batch: components["schemas"]["CourseBatch"];
+            job: components["schemas"]["Job"];
+        };
+        /**
+         * @description * `generating` - generating
+         *     * `failed` - failed
+         *     * `ready` - ready
+         *     * `dispatched` - dispatched
+         *     * `void` - void
+         * @enum {string}
+         */
+        CourseBatchStateEnum: "generating" | "failed" | "ready" | "dispatched" | "void";
+        CourseBatchVoided: {
+            batch: components["schemas"]["CourseBatch"];
+            voided: number;
+        };
+        CourseBinChapter: {
+            id: number;
+            number: number;
+            title: string;
+            subject: string;
+        };
+        CourseBinRow: {
+            id: number;
+            kind: components["schemas"]["CourseRowKindEnum"];
+            /** @description a clip's title, a card's front, an item's text: its first words */
+            title: string;
+            chapter: components["schemas"]["CourseBinChapter"];
+            /** @description a clip's revision */
+            revision: number | null;
+            /** Format: date-time */
+            deleted_at: string;
+            /**
+             * Format: date-time
+             * @description restored until then; purged the night after
+             */
+            bin_until: string;
+        };
+        CourseCard: {
+            readonly id: number;
+            readonly chapter: number;
+            readonly order: number;
+            /** @description Markdown. */
+            front: string;
+            /** @description Markdown. */
+            back: string;
+            tags?: string[];
+            /**
+             * Format: date-time
+             * @description In the bin: purged 30 days later.
+             */
+            readonly deleted_at: string | null;
+            readonly bin_until: string | null;
+        };
+        CourseChapter: {
+            readonly id: number;
+            readonly subject: number;
+            readonly number: number;
+            readonly title: string;
+            /**
+             * Board marks
+             * Format: decimal
+             * @description From format.json: import_chapter_insights.
+             */
+            readonly weight: string;
+            /**
+             * Previous-year questions
+             * @description Questions the Board asked on it (production/<subject>/pyq/).
+             */
+            readonly frequency: number;
+            /**
+             * Must-do note
+             * @description Markdown.
+             */
+            must_do?: string;
+        };
+        CourseClip: {
+            readonly id: number;
+            readonly revision: components["schemas"]["CourseClipRevision"];
+            readonly order: number;
+            title: string;
+            kind?: components["schemas"]["ClipKindEnum"];
+            /**
+             * Transcript or notes
+             * @description Markdown.
+             */
+            notes?: string;
+            /**
+             * Free preview
+             * @description The first clip of a revision is free anyway (LEARN_FREE_PREVIEW).
+             */
+            is_free_preview?: boolean;
+            /** @description free to anyone signed in (the first clip, or marked) */
+            readonly free: boolean;
+            tags?: string[];
+            readonly processing: components["schemas"]["ClipProcessingEnum"];
+            readonly processing_label: string;
+            /** @description why it is not ready, in words */
+            readonly reason: string;
+            /** @description ffmpeg's last words */
+            readonly error_detail: string;
+            /** Format: date-time */
+            readonly processing_since: string;
+            /** @description processing for over an hour: its task was lost */
+            readonly stuck: boolean;
+            readonly can_retry: boolean;
+            readonly has_video: boolean;
+            /** Seconds */
+            readonly duration: number;
+            /** @description its poster once ready, a link signed for 10 minutes */
+            readonly poster_url: string | null;
+            /** @description the staff player (opened on this host) once ready */
+            readonly player_url: string | null;
+            /** @description the Board questions it prepares for */
+            readonly questions: components["schemas"]["CourseClipQuestion"][];
+            /**
+             * Format: date-time
+             * @description In the bin: purged 30 days later.
+             */
+            readonly deleted_at: string | null;
+            readonly bin_until: string | null;
+            readonly completion_rule: string;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly modified: string;
+        };
+        CourseClipQuestion: {
+            id: number;
+            paper: string;
+            label: string;
+        };
+        CourseClipRevision: {
+            id: number;
+            title: string;
+            status: components["schemas"]["CourseRevisionStatusEnum"];
+            chapter: number;
+            chapter_number: number;
+            chapter_title: string;
+            subject: number;
+            subject_code: string;
+        };
+        CourseCodeLookup: {
+            state: components["schemas"]["CourseCodeStateEnum"];
+            /** @description the answer in one line */
+            line: string;
+            batch: string | null;
+            batch_state: (components["schemas"]["CourseBatchStateEnum"] | components["schemas"]["NullEnum"]) | null;
+            subject: string | null;
+            /** Format: date-time */
+            redeemed_at: string | null;
+            /** Format: date-time */
+            voided_at: string | null;
+            redeemed_by: components["schemas"]["CourseCodeRedeemer"] | null;
+        };
+        CourseCodeRedeemer: {
+            /** @description the account: its learner page and customer record */
+            id: number;
+            /** @description masked */
+            email: string;
+            is_minor: boolean;
+        };
+        CourseCodeRequest: {
+            /** @description typed or scanned: 7KQM-3XPA-9TRW (any case, spaces, dashes) */
+            code: string;
+        };
+        /**
+         * @description * `unknown` - unknown
+         *     * `unused` - unused
+         *     * `redeemed` - redeemed
+         *     * `void` - void
+         * @enum {string}
+         */
+        CourseCodeStateEnum: "unknown" | "unused" | "redeemed" | "void";
+        CourseCodeVoidRequest: {
+            /** @description typed or scanned: 7KQM-3XPA-9TRW (any case, spaces, dashes) */
+            code: string;
+            reason: string;
+        };
+        CourseCodeVoided: {
+            id: number;
+            batch: string;
+            /** Format: date-time */
+            voided_at: string;
+        };
+        CourseCommentRequest: {
+            /** @default  */
+            comment: string;
+        };
+        CourseDispatchedRequest: {
+            /**
+             * Format: date-time
+             * @description when the books left; empty: now
+             */
+            at?: string | null;
+        };
+        CourseEntitlement: {
+            readonly id: number;
+            readonly user: components["schemas"]["CourseLearnerRef"];
+            /** @description its code; null: every subject */
+            readonly subject: string | null;
+            readonly subject_name: string;
+            readonly source: components["schemas"]["EntitlementSourceEnum"];
+            /** @description The order or the book code. */
+            readonly reference: string;
+            /**
+             * Format: date
+             * @description The last day; empty: no end.
+             */
+            readonly valid_until: string | null;
+            /** @description Why it was granted (staff). */
+            readonly note: string;
+            readonly state: components["schemas"]["CourseEntitlementStateEnum"];
+            /**
+             * Format: date-time
+             * @description Revoked by staff, with why.
+             */
+            readonly revoked_at: string | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly modified: string;
+            readonly can_extend: boolean;
+            readonly can_revoke: boolean;
+        };
+        CourseEntitlementDetail: {
+            readonly id: number;
+            readonly user: components["schemas"]["CourseLearnerRef"];
+            /** @description its code; null: every subject */
+            readonly subject: string | null;
+            readonly subject_name: string;
+            readonly source: components["schemas"]["EntitlementSourceEnum"];
+            /** @description The order or the book code. */
+            readonly reference: string;
+            /**
+             * Format: date
+             * @description The last day; empty: no end.
+             */
+            readonly valid_until: string | null;
+            /** @description Why it was granted (staff). */
+            readonly note: string;
+            readonly state: components["schemas"]["CourseEntitlementStateEnum"];
+            /**
+             * Format: date-time
+             * @description Revoked by staff, with why.
+             */
+            readonly revoked_at: string | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly modified: string;
+            readonly can_extend: boolean;
+            readonly can_revoke: boolean;
+            readonly history: components["schemas"]["CourseVersion"][];
+        };
+        /**
+         * @description * `active` - open today
+         *     * `ended` - ended
+         *     * `revoked` - revoked by staff
+         * @enum {string}
+         */
+        CourseEntitlementStateEnum: "active" | "ended" | "revoked";
+        CourseExtendRequest: {
+            days: number;
+            reason: string;
+        };
+        CourseFlagAnswer: {
+            /** @description the report in the content triage */
+            report: number;
+            /** @description false: one was open already */
+            created: boolean;
+        };
+        CourseFlagRequest: {
+            /**
+             * @description what looks wrong (optional)
+             * @default
+             */
+            note: string;
+        };
+        CourseGrantRequest: {
+            /** @description the account's id */
+            user: number;
+            /** @description a subject's code (PHY), or ALL */
+            subject: string;
+            /**
+             * Format: date
+             * @description null: no end
+             */
+            valid_until?: string | null;
+            reason: string;
+            /**
+             * @description a ticket's number, a school order's (optional)
+             * @default
+             */
+            reference: string;
+        };
+        CourseItem: {
+            readonly id: number;
+            readonly chapter: components["schemas"]["CourseItemChapter"];
+            /** @description Its place in the chapter's quiz. */
+            readonly order: number;
+            kind: components["schemas"]["QuizItemKindEnum"];
+            /**
+             * Question
+             * @description Markdown.
+             */
+            text: string;
+            /** @description Multiple choice: the options, ["(i) …", …]. */
+            options?: unknown;
+            /** @description Multiple choice: the right option's number (1 for the first); true or false: true or false; fill in the blank: the accepted answers, separated by |. */
+            answer: string;
+            /** @description Markdown. */
+            explanation?: string;
+            /** @description Within the chapter: Coulomb's law. */
+            topic?: string;
+            marks?: number;
+            difficulty?: components["schemas"]["QuizItemDifficultyEnum"] | components["schemas"]["BlankEnum"];
+            /** Bloom level */
+            bloom?: components["schemas"]["QuizItemBloomEnum"] | components["schemas"]["BlankEnum"];
+            tags?: string[];
+            /** @description the book question it came from; null: written for the app */
+            readonly source: components["schemas"]["CourseItemSource"] | null;
+            readonly stats: components["schemas"]["CourseItemStats"];
+            /** @description its open report in the content triage */
+            readonly flagged: number | null;
+            /**
+             * Format: date-time
+             * @description In the bin: purged 30 days later.
+             */
+            readonly deleted_at: string | null;
+            readonly bin_until: string | null;
+        };
+        CourseItemChapter: {
+            id: number;
+            number: number;
+            title: string;
+            subject: string;
+        };
+        /** @description A row of the bank: the item's first words, without its key and explanation. */
+        CourseItemRow: {
+            readonly id: number;
+            readonly chapter: components["schemas"]["CourseItemChapter"];
+            /** @description Its place in the chapter's quiz. */
+            readonly order: number;
+            readonly kind: components["schemas"]["QuizItemKindEnum"];
+            /**
+             * Question
+             * @description Markdown.
+             */
+            readonly text: string;
+            /** @description Within the chapter: Coulomb's law. */
+            readonly topic: string;
+            readonly marks: number;
+            readonly difficulty: components["schemas"]["QuizItemDifficultyEnum"];
+            /** Bloom level */
+            readonly bloom: components["schemas"]["QuizItemBloomEnum"];
+            tags?: string[];
+            /** @description the book question it came from; null: written for the app */
+            readonly source: components["schemas"]["CourseItemSource"] | null;
+            readonly stats: components["schemas"]["CourseItemStats"];
+            /** @description its open report in the content triage */
+            readonly flagged: number | null;
+        };
+        CourseItemSource: {
+            question: number;
+            paper: string;
+            label: string;
+        };
+        CourseItemStats: {
+            /** @description learners who answered it (first attempts) */
+            n: number | null;
+            /**
+             * Format: double
+             * @description share right; null (N/A) under 30 learners
+             */
+            p: number | null;
+            /**
+             * Format: double
+             * @description corrected item-total point-biserial
+             */
+            discrimination: number | null;
+            flags: string[];
+            /**
+             * Format: date-time
+             * @description last calculated (nightly)
+             */
+            computed_at: string | null;
+            /** @description fewer than 30 learners: p and discrimination are N/A */
+            n_too_small: boolean;
+        };
+        CourseLearner: {
+            /** @description true: this view is in the access log */
+            logged: boolean;
+            user: components["schemas"]["CourseLearnerUser"];
+            /** @description under 18 or of unknown age: a usage summary (counts and the week last active), no times */
+            summary_only: boolean;
+            summary: components["schemas"]["CourseLearnerSummary"];
+            entitlements: components["schemas"]["CourseEntitlement"][];
+            codes: components["schemas"]["CourseLearnerCode"][] | null;
+            devices: components["schemas"]["CourseLearnerDevice"][];
+            chapters: components["schemas"]["CourseLearnerChapter"][];
+            tickets: components["schemas"]["CourseLearnerTicket"][] | null;
+        };
+        CourseLearnerChapter: {
+            id: number;
+            subject: string;
+            number: number;
+            title: string;
+            clips_watched: number;
+            clips_total: number;
+            minutes_watched: number;
+            quiz_answers: number;
+            quiz_accuracy: number | null;
+            card_reviews: number;
+            cards_known: number;
+        };
+        CourseLearnerCode: {
+            id: number;
+            batch: string;
+            subject: string;
+            /** Format: date-time */
+            redeemed_at: string;
+        };
+        CourseLearnerDevice: {
+            id: number;
+            platform: string;
+            /**
+             * Format: date-time
+             * @description null for a summary
+             */
+            added: string | null;
+            /**
+             * Format: date-time
+             * @description null for a summary
+             */
+            last_seen: string | null;
+            /** Format: date */
+            last_seen_week: string | null;
+        };
+        CourseLearnerRef: {
+            id: number;
+            name: string;
+            /** @description masked */
+            email: string;
+            is_minor: boolean;
+        };
+        CourseLearnerSummary: {
+            clips_watched: number;
+            minutes_watched: number;
+            quiz_answers: number;
+            quiz_accuracy: number | null;
+            card_reviews: number;
+            /**
+             * Format: date-time
+             * @description null for a summary
+             */
+            last_active: string | null;
+            /**
+             * Format: date
+             * @description its Monday
+             */
+            last_active_week: string | null;
+        };
+        CourseLearnerTicket: {
+            number: string;
+            subject: string;
+            category: string;
+            status: string;
+            /** Format: date-time */
+            received_at: string;
+        };
+        CourseLearnerUser: {
+            id: number;
+            name: string;
+            /** @description masked */
+            email: string;
+            is_minor: boolean;
+            is_active: boolean;
+        };
+        /**
+         * @description * `first` - first
+         *     * `last` - last
+         *     * `before` - before
+         *     * `after` - after
+         * @enum {string}
+         */
+        CourseMoveEnum: "first" | "last" | "before" | "after";
+        CourseMoveRequest: {
+            /**
+             * @description first, last, or before or after `target`
+             *
+             *     * `first` - first
+             *     * `last` - last
+             *     * `before` - before
+             *     * `after` - after
+             */
+            to: components["schemas"]["CourseMoveEnum"];
+            /** @description a sibling's id (before, after) */
+            target?: number | null;
+        };
+        CourseOutline: {
+            subject: components["schemas"]["CourseOutlineSubject"];
+            chapters: components["schemas"]["CourseOutlineChapter"][];
+            /** @description what counts as a clip completed */
+            completion_rule: string;
+            /** @description LEARN_FREE_PREVIEW: the first clip of each revision is free */
+            free_preview: boolean;
+        };
+        CourseOutlineCard: {
+            id: number;
+            order: number;
+            /** @description its first words */
+            front: string;
+        };
+        CourseOutlineChapter: {
+            id: number;
+            number: number;
+            title: string;
+            /**
+             * Format: decimal
+             * @description the Board's marks
+             */
+            weight: string;
+            /** @description previous-year questions */
+            frequency: number;
+            must_do: string;
+            revision: components["schemas"]["CourseOutlineRevision"] | null;
+            cards: components["schemas"]["CourseOutlineCard"][];
+            items: components["schemas"]["CourseOutlineItem"][];
+        };
+        CourseOutlineClip: {
+            id: number;
+            order: number;
+            title: string;
+            kind: components["schemas"]["ClipKindEnum"];
+            /** @description seconds (once ready) */
+            duration: number;
+            processing: components["schemas"]["ClipProcessingEnum"];
+            /** @description why it is not ready, in words; empty when ready */
+            reason: string;
+            /** @description marked a free preview by an editor */
+            is_free_preview: boolean;
+            /** @description free to anyone signed in: the revision's first clip, or marked */
+            free: boolean;
+        };
+        CourseOutlineItem: {
+            id: number;
+            order: number;
+            kind: components["schemas"]["QuizItemKindEnum"];
+            /** @description its first words */
+            text: string;
+            difficulty: string;
+            /** @description its open report in the content triage, if any */
+            flagged: number | null;
+        };
+        CourseOutlineRevision: {
+            id: number;
+            title: string;
+            status: components["schemas"]["CourseRevisionStatusEnum"];
+            target_minutes: number;
+            /** @description of its ready clips */
+            minutes: number;
+            /** Format: date-time */
+            publish_at: string | null;
+            clips: components["schemas"]["CourseOutlineClip"][];
+        };
+        CourseOutlineSubject: {
+            id: number;
+            code: string;
+            name: string;
+        };
+        CoursePerson: {
+            id: number;
+            name: string;
+        };
+        CoursePublishRequest: {
+            /**
+             * Format: date-time
+             * @description a time to come; empty or null: now
+             */
+            publish_at?: string | null;
+        };
+        CourseReasonRequest: {
+            reason: string;
+        };
+        CourseReport: {
+            /** Format: date-time */
+            computed_at: string;
+            /** @description a district's cell under it is hidden */
+            min_cell: number;
+            /** @description how each number is made */
+            definitions: {
+                [key: string]: string;
+            };
+            totals: components["schemas"]["CourseReportTotals"];
+            rows: components["schemas"]["CourseReportRow"][];
+        };
+        CourseReportCell: {
+            district: string;
+            /** @description null: fewer than 10 (hidden) */
+            activated: number | null;
+            hidden: boolean;
+        };
+        CourseReportRow: {
+            batch: components["schemas"]["CourseBatch"];
+            printed: number;
+            /** @description copies of its book sold online; null: no book named */
+            sold: number | null;
+            /** @description codes redeemed */
+            activated: number;
+            /** @description access its codes opened, revoked by staff */
+            revoked: number;
+            void: number;
+            /**
+             * Format: double
+             * @description activated ÷ printed
+             */
+            activation_rate: number | null;
+            districts: components["schemas"]["CourseReportCell"][];
+        };
+        CourseReportTotals: {
+            printed: number;
+            sold: number;
+            activated: number;
+            revoked: number;
+            void: number;
+            /** Format: double */
+            activation_rate: number | null;
+        };
+        CourseRevision: {
+            readonly id: number;
+            readonly chapter: components["schemas"]["CourseRevisionChapter"];
+            title: string;
+            /** @description 10 to 15. */
+            target_minutes?: number;
+            readonly status: components["schemas"]["CourseRevisionStatusEnum"];
+            readonly status_label: string;
+            readonly submitted_by: components["schemas"]["CoursePerson"];
+            /** Format: date-time */
+            readonly submitted_at: string | null;
+            readonly reviewer: components["schemas"]["CoursePerson"];
+            /**
+             * Format: date-time
+             * @description Approved: published by the task at this time.
+             */
+            readonly publish_at: string | null;
+            /** @description of its ready clips */
+            readonly minutes: number;
+            readonly clips: components["schemas"]["CourseOutlineClip"][];
+            /** @description its chapter's flash cards (live with it) */
+            readonly cards: number;
+            /** @description its chapter's quiz items (live with it) */
+            readonly items: number;
+            /** @description the moves the reader may make now */
+            readonly transitions: components["schemas"]["CourseTransitionEnum"][];
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly modified: string;
+        };
+        CourseRevisionChapter: {
+            id: number;
+            number: number;
+            title: string;
+            subject: number;
+            subject_code: string;
+        };
+        /**
+         * @description * `draft` - draft
+         *     * `published` - published
+         *     * `review` - in review
+         *     * `approved` - approved
+         * @enum {string}
+         */
+        CourseRevisionStatusEnum: "draft" | "published" | "review" | "approved";
+        /**
+         * @description * `clips` - clips
+         *     * `cards` - cards
+         *     * `items` - items
+         * @enum {string}
+         */
+        CourseRowKindEnum: "clips" | "cards" | "items";
+        CourseSubject: {
+            id: number;
+            code: string;
+            name: string;
+            chapters: number;
+            /** @description revisions published */
+            published: number;
+            /** @description revisions waiting for a reviewer */
+            in_review: number;
+            /** @description revisions approved, to be published at their time */
+            scheduled: number;
+            /** @description outside the bin */
+            clips: number;
+            /** @description clips whose video failed */
+            failed: number;
+            cards: number;
+            items: number;
+            /** @description clips, cards and quiz items in the bin */
+            bin: number;
+        };
+        /**
+         * @description * `submit` - submit
+         *     * `approve` - approve
+         *     * `needs_changes` - needs_changes
+         *     * `publish` - publish
+         *     * `unpublish` - unpublish
+         * @enum {string}
+         */
+        CourseTransitionEnum: "submit" | "approve" | "needs_changes" | "publish" | "unpublish";
+        CourseVersion: {
+            id: number;
+            /** Format: date-time */
+            at: string;
+            by: number | null;
+            type: components["schemas"]["CourseVersionTypeEnum"];
+            reason: string | null;
+            /** @description field, before, after */
+            changes: {
+                [key: string]: unknown;
+            }[];
+        };
+        /**
+         * @description * `+` - +
+         *     * `~` - ~
+         *     * `-` - -
+         * @enum {string}
+         */
+        CourseVersionTypeEnum: "+" | "~" | "-";
+        CourseVoidRequest: {
+            reason: string;
+        };
+        CourseWeek: {
+            /**
+             * Format: date
+             * @description its Monday
+             */
+            week: string;
+            redeemed: number;
+        };
         CredentialsRequest: {
             /** @description why (kept in the audit log; the owners read it) */
             reason: string;
@@ -10491,9 +12148,11 @@ export interface components {
          *     * `accounts_per_code` - one code tried by several accounts
          *     * `shared_phone` - accounts sharing a phone number on COD or coupon orders
          *     * `shared_address` - accounts sharing an address on COD or coupon orders
+         *     * `codes_failed_device` - failed book codes from one device in an hour
+         *     * `codes_undispatched` - codes redeemed from a batch not yet dispatched (a leak)
          * @enum {string}
          */
-        FraudSignalKindEnum: "codes_failed_account" | "codes_failed_ip" | "codes_failed_spike" | "codes_per_account" | "accounts_per_code" | "shared_phone" | "shared_address";
+        FraudSignalKindEnum: "codes_failed_account" | "codes_failed_ip" | "codes_failed_spike" | "codes_per_account" | "accounts_per_code" | "shared_phone" | "shared_address" | "codes_failed_device" | "codes_undispatched";
         GoogleFigures: {
             /** @description STAFF_GOOGLE_DOMAIN: staff's Workspace */
             domain: string;
@@ -10852,9 +12511,10 @@ export interface components {
          *     * `ticket_due` - a ticket's legal clock three quarters gone
          *     * `ticket_breach` - a ticket past its legal clock
          *     * `ticket_mention` - named in a ticket's note
+         *     * `fraud_signal` - a fraud signal to look at
          * @enum {string}
          */
-        InboxKindEnum: "approval" | "teacher_request" | "deletion_request" | "data_request" | "incident" | "failed_job" | "failed_webhook" | "sync_failed" | "reconciliation" | "shipping_exception" | "dead_letter" | "failed_event" | "integration_down" | "tax_threshold" | "credit_note_missing" | "processor_task" | "compliance" | "order_hold" | "return_request" | "bank_refund" | "role_expired" | "offboarding" | "webhook_silent" | "template_idle" | "template_certify" | "backup_stale" | "dependencies_stale" | "scripts_changed" | "review" | "error_report" | "legal_deposit" | "ticket_due" | "ticket_breach" | "ticket_mention";
+        InboxKindEnum: "approval" | "teacher_request" | "deletion_request" | "data_request" | "incident" | "failed_job" | "failed_webhook" | "sync_failed" | "reconciliation" | "shipping_exception" | "dead_letter" | "failed_event" | "integration_down" | "tax_threshold" | "credit_note_missing" | "processor_task" | "compliance" | "order_hold" | "return_request" | "bank_refund" | "role_expired" | "offboarding" | "webhook_silent" | "template_idle" | "template_certify" | "backup_stale" | "dependencies_stale" | "scripts_changed" | "review" | "error_report" | "legal_deposit" | "ticket_due" | "ticket_breach" | "ticket_mention" | "fraud_signal";
         Incident: {
             readonly id: number;
             title: string;
@@ -11040,12 +12700,13 @@ export interface components {
          *     * `orders_export` - order export
          *     * `content_import` - import from the books repository
          *     * `grievance_export` - grievance register export
+         *     * `code_batch` - book codes made for the printer
          * @enum {string}
          */
-        JobKindEnum: "audit_export" | "bulk_action" | "erp_initial_load" | "gstr1_export" | "orders_pack" | "orders_print" | "orders_cancel" | "orders_export" | "content_import" | "grievance_export";
+        JobKindEnum: "audit_export" | "bulk_action" | "erp_initial_load" | "gstr1_export" | "orders_pack" | "orders_print" | "orders_cancel" | "orders_export" | "content_import" | "grievance_export" | "code_batch";
         JobStartRequest: {
             kind: components["schemas"]["JobKindEnum"];
-            /** @description audit_export: {"filters": {…}} (the audit list's); bulk_action: {"action": "order.refund", "targets": [order numbers, slugs or ids], "payload": {…} (each target's, as for change-requests/), "reason"}; erp_initial_load: {"invoices_from": "YYYY-MM-DD"} (optional: without it, the catalogue only); gstr1_export: {"month": "YYYY-MM", "months": 1 or 3} (a month, or the quarter ending with it); orders_pack, orders_print ({"document": packing_slip, label or invoices}) and orders_cancel ({"reason", "customer_requested"}, 250 at most): {"targets": [order numbers]}; orders_export: {"filters": {…}} (the order list's); content_import: {"subject": "physics", "commit": "" or a commit, "dry_run_job": the dry run's id (to apply)}; grievance_export: {"from": "YYYY-MM-DD", "until": "YYYY-MM-DD"} (the days received, both optional) */
+            /** @description audit_export: {"filters": {…}} (the audit list's); bulk_action: {"action": "order.refund", "targets": [order numbers, slugs or ids], "payload": {…} (each target's, as for change-requests/), "reason"}; erp_initial_load: {"invoices_from": "YYYY-MM-DD"} (optional: without it, the catalogue only); gstr1_export: {"month": "YYYY-MM", "months": 1 or 3} (a month, or the quarter ending with it); orders_pack, orders_print ({"document": packing_slip, label or invoices}) and orders_cancel ({"reason", "customer_requested"}, 250 at most): {"targets": [order numbers]}; orders_export: {"filters": {…}} (the order list's); content_import: {"subject": "physics", "commit": "" or a commit, "dry_run_job": the dry run's id (to apply)}; grievance_export: {"from": "YYYY-MM-DD", "until": "YYYY-MM-DD"} (the days received, both optional); code_batch: {"batch": a batch's id} (its codes made again after a failed job: course/codes/batches/ makes a new one) */
             params?: {
                 [key: string]: unknown;
             };
@@ -12789,6 +14450,58 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["ContentSolution"][];
         };
+        PaginatedCourseBatchList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["CourseBatch"][];
+        };
+        PaginatedCourseBinRowList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["CourseBinRow"][];
+        };
+        PaginatedCourseEntitlementList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["CourseEntitlement"][];
+        };
+        PaginatedCourseItemRowList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["CourseItemRow"][];
+        };
         PaginatedCustomerList: {
             /**
              * Format: uri
@@ -13790,6 +15503,61 @@ export interface components {
             printing?: string;
             step?: number | null;
         };
+        PatchedCourseCardRequest: {
+            /** @description Markdown. */
+            front?: string;
+            /** @description Markdown. */
+            back?: string;
+            tags?: string[];
+        };
+        PatchedCourseChapterRequest: {
+            /**
+             * Must-do note
+             * @description Markdown.
+             */
+            must_do?: string;
+        };
+        PatchedCourseClipRequest: {
+            title?: string;
+            kind?: components["schemas"]["ClipKindEnum"];
+            /**
+             * Transcript or notes
+             * @description Markdown.
+             */
+            notes?: string;
+            /**
+             * Free preview
+             * @description The first clip of a revision is free anyway (LEARN_FREE_PREVIEW).
+             */
+            is_free_preview?: boolean;
+            tags?: string[];
+        };
+        PatchedCourseItemRequest: {
+            kind?: components["schemas"]["QuizItemKindEnum"];
+            /**
+             * Question
+             * @description Markdown.
+             */
+            text?: string;
+            /** @description Multiple choice: the options, ["(i) …", …]. */
+            options?: unknown;
+            /** @description Multiple choice: the right option's number (1 for the first); true or false: true or false; fill in the blank: the accepted answers, separated by |. */
+            answer?: string;
+            /** @description Markdown. */
+            explanation?: string;
+            /** @description Within the chapter: Coulomb's law. */
+            topic?: string;
+            marks?: number;
+            difficulty?: components["schemas"]["QuizItemDifficultyEnum"] | components["schemas"]["BlankEnum"];
+            /** Bloom level */
+            bloom?: components["schemas"]["QuizItemBloomEnum"] | components["schemas"]["BlankEnum"];
+            tags?: string[];
+        };
+        PatchedCourseRevisionRequest: {
+            title?: string;
+            /** @description 10 to 15. */
+            target_minutes?: number;
+        };
         PatchedDarkPatternAuditRequest: {
             /**
              * Format: int64
@@ -14688,6 +16456,23 @@ export interface components {
             /** @description Multiple choice: the options, ["(i) …", …]. */
             options?: unknown;
         };
+        /**
+         * @description * `remember` - remember
+         *     * `understand` - understand
+         *     * `apply` - apply
+         *     * `analyse` - analyse
+         *     * `evaluate` - evaluate
+         *     * `create` - create
+         * @enum {string}
+         */
+        QuizItemBloomEnum: "remember" | "understand" | "apply" | "analyse" | "evaluate" | "create";
+        /**
+         * @description * `easy` - easy
+         *     * `medium` - medium
+         *     * `hard` - hard
+         * @enum {string}
+         */
+        QuizItemDifficultyEnum: "easy" | "medium" | "hard";
         /**
          * @description * `mcq` - multiple choice
          *     * `true_false` - true or false
@@ -23115,6 +24900,1129 @@ export interface operations {
             };
         };
     };
+    staff_course_bin_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description clips (default), cards or items */
+                kind?: "cards" | "clips" | "items";
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedCourseBinRowList"];
+                };
+            };
+        };
+    };
+    staff_course_cards_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this flash card. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseCard"];
+                };
+            };
+        };
+    };
+    staff_course_cards_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this flash card. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseBinRow"];
+                };
+            };
+        };
+    };
+    staff_course_cards_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this flash card. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedCourseCardRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseCard"];
+                };
+            };
+        };
+    };
+    staff_course_cards_move_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this flash card. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseMoveRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseCard"];
+                };
+            };
+        };
+    };
+    staff_course_cards_restore_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this flash card. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseCard"];
+                };
+            };
+        };
+    };
+    staff_course_chapters_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this chapter. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedCourseChapterRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseChapter"];
+                };
+            };
+        };
+    };
+    staff_course_clips_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this clip. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseClip"];
+                };
+            };
+        };
+    };
+    staff_course_clips_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this clip. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseBinRow"];
+                };
+            };
+        };
+    };
+    staff_course_clips_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this clip. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedCourseClipRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseClip"];
+                };
+            };
+        };
+    };
+    staff_course_clips_move_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this clip. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseMoveRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseClip"];
+                };
+            };
+        };
+    };
+    staff_course_clips_restore_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this clip. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseClip"];
+                };
+            };
+        };
+    };
+    staff_course_clips_retry_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this clip. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseClip"];
+                };
+            };
+        };
+    };
+    staff_course_codes_batches_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description its label */
+                q?: string;
+                /**
+                 * @description * `generating` - generating
+                 *     * `failed` - failed
+                 *     * `ready` - ready
+                 *     * `dispatched` - dispatched
+                 *     * `void` - void
+                 */
+                state?: "dispatched" | "failed" | "generating" | "ready" | "void";
+                /** @description its code, or ALL */
+                subject?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedCourseBatchList"];
+                };
+            };
+        };
+    };
+    staff_course_codes_batches_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseBatchCreateRequest"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseBatchStarted"];
+                };
+            };
+        };
+    };
+    staff_course_codes_batches_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                label: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseBatchDetail"];
+                };
+            };
+        };
+    };
+    staff_course_codes_batches_dispatched_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                label: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CourseDispatchedRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseBatch"];
+                };
+            };
+        };
+    };
+    staff_course_codes_batches_void_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                label: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseVoidRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseBatchVoided"];
+                };
+            };
+        };
+    };
+    staff_course_codes_lookup_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseCodeRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseCodeLookup"];
+                };
+            };
+        };
+    };
+    staff_course_codes_report_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseReport"];
+                };
+            };
+        };
+    };
+    staff_course_codes_void_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseCodeVoidRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseCodeVoided"];
+                };
+            };
+        };
+    };
+    staff_course_entitlements_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description an account's email address, exactly */
+                q?: string;
+                /**
+                 * @description * `book_code` - book code
+                 *     * `purchase` - purchase
+                 *     * `grant` - staff grant
+                 */
+                source?: "book_code" | "grant" | "purchase";
+                /**
+                 * @description * `active` - open today
+                 *     * `ended` - ended
+                 *     * `revoked` - revoked by staff
+                 */
+                state?: "active" | "ended" | "revoked";
+                /** @description its code, or ALL: every subject */
+                subject?: string;
+                user?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedCourseEntitlementList"];
+                };
+            };
+        };
+    };
+    staff_course_entitlements_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseGrantRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseEntitlement"];
+                };
+            };
+        };
+    };
+    staff_course_entitlements_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this entitlement. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseEntitlementDetail"];
+                };
+            };
+        };
+    };
+    staff_course_entitlements_extend_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this entitlement. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseExtendRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseEntitlement"];
+                };
+            };
+        };
+    };
+    staff_course_entitlements_revoke_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this entitlement. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseReasonRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseEntitlement"];
+                };
+            };
+        };
+    };
+    staff_course_items_list: {
+        parameters: {
+            query?: {
+                /** @description a Bloom level, or none (not set) */
+                bloom?: string;
+                chapter?: number;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description easy, medium, hard, or none (not set) */
+                difficulty?: string;
+                /** @description true: an open report in the triage */
+                flagged?: boolean;
+                /** @description any, or a flag: low_discrimination, too_easy, too_hard, distractor */
+                flags?: string;
+                /**
+                 * @description * `mcq` - multiple choice
+                 *     * `true_false` - true or false
+                 *     * `fill_blank` - fill in the blank
+                 */
+                kind?: "fill_blank" | "mcq" | "true_false";
+                marks?: number;
+                /** @description true: under 30 learners (N/A) */
+                n_too_small?: boolean;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description words of its text */
+                q?: string;
+                /**
+                 * @description * `book` - from a book question
+                 *     * `app` - written for the app
+                 */
+                source?: "app" | "book";
+                /** @description its code: PHY */
+                subject?: string;
+                /** @description one tag's name, exactly */
+                tag?: string;
+                topic?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedCourseItemRowList"];
+                };
+            };
+        };
+    };
+    staff_course_items_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this quiz item. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseItem"];
+                };
+            };
+        };
+    };
+    staff_course_items_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this quiz item. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseBinRow"];
+                };
+            };
+        };
+    };
+    staff_course_items_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this quiz item. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedCourseItemRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseItem"];
+                };
+            };
+        };
+    };
+    staff_course_items_flag_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this quiz item. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CourseFlagRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseFlagAnswer"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseFlagAnswer"];
+                };
+            };
+        };
+    };
+    staff_course_items_history_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this quiz item. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseVersion"][];
+                };
+            };
+        };
+    };
+    staff_course_items_move_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this quiz item. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CourseMoveRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseItem"];
+                };
+            };
+        };
+    };
+    staff_course_items_restore_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this quiz item. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseItem"];
+                };
+            };
+        };
+    };
+    staff_course_learners_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseLearner"];
+                };
+            };
+        };
+    };
+    staff_course_learners_devices_sign_out_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                device: number;
+                user: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    staff_course_revisions_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this revision. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseRevision"];
+                };
+            };
+        };
+    };
+    staff_course_revisions_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this revision. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedCourseRevisionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseRevision"];
+                };
+            };
+        };
+    };
+    staff_course_revisions_approve_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this revision. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CourseCommentRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseRevision"];
+                };
+            };
+        };
+    };
+    staff_course_revisions_needs_changes_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this revision. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CourseCommentRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseRevision"];
+                };
+            };
+        };
+    };
+    staff_course_revisions_publish_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this revision. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CoursePublishRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseRevision"];
+                };
+            };
+        };
+    };
+    staff_course_revisions_submit_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this revision. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseRevision"];
+                };
+            };
+        };
+    };
+    staff_course_revisions_unpublish_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this revision. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseRevision"];
+                };
+            };
+        };
+    };
+    staff_course_subjects_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseSubject"][];
+                };
+            };
+        };
+    };
+    staff_course_subjects_outline_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subject: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CourseOutline"];
+                };
+            };
+        };
+    };
     staff_data_requests_list: {
         parameters: {
             query?: {
@@ -23868,8 +26776,9 @@ export interface operations {
                  *     * `ticket_due` - a ticket's legal clock three quarters gone
                  *     * `ticket_breach` - a ticket past its legal clock
                  *     * `ticket_mention` - named in a ticket's note
+                 *     * `fraud_signal` - a fraud signal to look at
                  */
-                kind?: "approval" | "backup_stale" | "bank_refund" | "compliance" | "credit_note_missing" | "data_request" | "dead_letter" | "deletion_request" | "dependencies_stale" | "error_report" | "failed_event" | "failed_job" | "failed_webhook" | "incident" | "integration_down" | "legal_deposit" | "offboarding" | "order_hold" | "processor_task" | "reconciliation" | "return_request" | "review" | "role_expired" | "scripts_changed" | "shipping_exception" | "sync_failed" | "tax_threshold" | "teacher_request" | "template_certify" | "template_idle" | "ticket_breach" | "ticket_due" | "ticket_mention" | "webhook_silent";
+                kind?: "approval" | "backup_stale" | "bank_refund" | "compliance" | "credit_note_missing" | "data_request" | "dead_letter" | "deletion_request" | "dependencies_stale" | "error_report" | "failed_event" | "failed_job" | "failed_webhook" | "fraud_signal" | "incident" | "integration_down" | "legal_deposit" | "offboarding" | "order_hold" | "processor_task" | "reconciliation" | "return_request" | "review" | "role_expired" | "scripts_changed" | "shipping_exception" | "sync_failed" | "tax_threshold" | "teacher_request" | "template_certify" | "template_idle" | "ticket_breach" | "ticket_due" | "ticket_mention" | "webhook_silent";
                 /** @description true: assigned to me */
                 mine?: boolean;
                 /** @description Number of results to return per page. */
@@ -24155,8 +27064,9 @@ export interface operations {
                  *     * `orders_export` - order export
                  *     * `content_import` - import from the books repository
                  *     * `grievance_export` - grievance register export
+                 *     * `code_batch` - book codes made for the printer
                  */
-                kind?: "audit_export" | "bulk_action" | "content_import" | "erp_initial_load" | "grievance_export" | "gstr1_export" | "orders_cancel" | "orders_export" | "orders_pack" | "orders_print";
+                kind?: "audit_export" | "bulk_action" | "code_batch" | "content_import" | "erp_initial_load" | "grievance_export" | "gstr1_export" | "orders_cancel" | "orders_export" | "orders_pack" | "orders_print";
                 /** @description true: the jobs I started */
                 mine?: boolean;
                 /** @description Number of results to return per page. */

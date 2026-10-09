@@ -12056,8 +12056,15 @@
                     }
                 ],
                 "responses": {
-                    "204": {
-                        "description": "No response body"
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CourseBinRow"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -12313,8 +12320,15 @@
                     }
                 ],
                 "responses": {
-                    "204": {
-                        "description": "No response body"
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CourseBinRow"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -13358,8 +13372,15 @@
                     }
                 ],
                 "responses": {
-                    "204": {
-                        "description": "No response body"
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CourseBinRow"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -30739,8 +30760,10 @@
                         "minimum": 1
                     },
                     "product": {
-                        "type": "integer",
-                        "description": "the book the codes are printed in (its sales: the codes report)"
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "the book the codes are printed in: its slug",
+                        "maxLength": 200
                     },
                     "note": {
                         "type": "string",
@@ -30961,12 +30984,16 @@
                     "id": {
                         "type": "integer"
                     },
+                    "slug": {
+                        "type": "string"
+                    },
                     "title": {
                         "type": "string"
                     }
                 },
                 "required": [
                     "id",
+                    "slug",
                     "title"
                 ]
             },

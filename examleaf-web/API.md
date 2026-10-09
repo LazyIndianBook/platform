@@ -1933,13 +1933,13 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 | GET | `staff/course/bin/` | `learn.view_clip` (by the key or the body: see the table above) | `cursor`, `kind`, `page_size` |  | 200 `PaginatedCourseBinRowList` |
 | GET | `staff/course/cards/{id}/` | `learn.view_flashcard` |  |  | 200 `CourseCard` |
 | PATCH | `staff/course/cards/{id}/` | `learn.change_flashcard` |  | `PatchedCourseCardRequest` | 200 `CourseCard` |
-| DELETE | `staff/course/cards/{id}/` | `learn.delete_flashcard` |  |  | 204 |
+| DELETE | `staff/course/cards/{id}/` | `learn.delete_flashcard` |  |  | 200 `CourseBinRow` |
 | POST | `staff/course/cards/{id}/move/` | `learn.change_flashcard` |  | `CourseMoveRequest` | 200 `CourseCard` |
 | POST | `staff/course/cards/{id}/restore/` | `learn.change_flashcard` |  |  | 200 `CourseCard` |
 | PATCH | `staff/course/chapters/{id}/` | `learn.change_chapter` |  | `PatchedCourseChapterRequest` | 200 `CourseChapter` |
 | GET | `staff/course/clips/{id}/` | `learn.view_clip` |  |  | 200 `CourseClip` |
 | PATCH | `staff/course/clips/{id}/` | `learn.change_clip` |  | `PatchedCourseClipRequest` | 200 `CourseClip` |
-| DELETE | `staff/course/clips/{id}/` | `learn.delete_clip` |  |  | 204 |
+| DELETE | `staff/course/clips/{id}/` | `learn.delete_clip` |  |  | 200 `CourseBinRow` |
 | POST | `staff/course/clips/{id}/move/` | `learn.change_clip` |  | `CourseMoveRequest` | 200 `CourseClip` |
 | POST | `staff/course/clips/{id}/restore/` | `learn.change_clip` |  |  | 200 `CourseClip` |
 | POST | `staff/course/clips/{id}/retry/` | `learn.change_clip` |  |  | 200 `CourseClip` |
@@ -1959,7 +1959,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 | GET | `staff/course/items/` | `learn.view_quizitem` | `bloom`, `chapter`, `cursor`, `difficulty`, `flagged`, `flags`, `kind`, `marks`, `n_too_small`, `page_size`, `q`, `source`, `subject`, `tag`, `topic` |  | 200 `PaginatedCourseItemRowList` |
 | GET | `staff/course/items/{id}/` | `learn.view_quizitem` |  |  | 200 `CourseItem` |
 | PATCH | `staff/course/items/{id}/` | `learn.change_quizitem` |  | `PatchedCourseItemRequest` | 200 `CourseItem` |
-| DELETE | `staff/course/items/{id}/` | `learn.delete_quizitem` |  |  | 204 |
+| DELETE | `staff/course/items/{id}/` | `learn.delete_quizitem` |  |  | 200 `CourseBinRow` |
 | POST | `staff/course/items/{id}/flag/` | `staff.triage_report` |  | `CourseFlagRequest` | 200 `CourseFlagAnswer`; 201 `CourseFlagAnswer` |
 | GET | `staff/course/items/{id}/history/` | `learn.view_quizitem` |  |  | 200 `[CourseVersion]` |
 | POST | `staff/course/items/{id}/move/` | `learn.change_quizitem` |  | `CourseMoveRequest` | 200 `CourseItem` |
@@ -2312,10 +2312,10 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ContentVersionTypeEnum**: one of `+`, `~`, `-`
 - **CourierEnum**: one of `India Post`, `Delhivery`, `Blue Dart`, `Ekart`, `DTDC`, `Xpressbees`, `Other`
 - **CourseBatch**: `id` integer (required, read-only); `key` string (required, read-only); `label` string (required, read-only); `subject` string (required, null, read-only); `product` CourseBatchProduct (required, null, read-only); `printed` integer (required, read-only); `codes` integer (required, read-only); `redeemed` integer (required, read-only); `void` integer (required, read-only); `state` CourseBatchStateEnum (required, read-only); `note` string (required, read-only); `created` date-time (required, read-only); `generated_at` date-time (required, null, read-only); `generated_by` CoursePerson (required, read-only); `dispatched_at` date-time (required, null, read-only); `voided_at` date-time (required, null, read-only); `void_reason` string (required, read-only); `job` CourseBatchJob (required, null, read-only)
-- **CourseBatchCreateRequest**: `label` string (required); `subject` string (required); `count` integer (required); `product` integer (required); `note` string
+- **CourseBatchCreateRequest**: `label` string (required); `subject` string (required); `count` integer (required); `product` string (required); `note` string
 - **CourseBatchDetail**: `id` integer (required, read-only); `key` string (required, read-only); `label` string (required, read-only); `subject` string (required, null, read-only); `product` CourseBatchProduct (required, null, read-only); `printed` integer (required, read-only); `codes` integer (required, read-only); `redeemed` integer (required, read-only); `void` integer (required, read-only); `state` CourseBatchStateEnum (required, read-only); `note` string (required, read-only); `created` date-time (required, read-only); `generated_at` date-time (required, null, read-only); `generated_by` CoursePerson (required, read-only); `dispatched_at` date-time (required, null, read-only); `voided_at` date-time (required, null, read-only); `void_reason` string (required, read-only); `job` CourseBatchJob (required, null, read-only); `redeemed_by_week` [CourseWeek] (required, read-only); `signals` [CourseBatchSignal] (required, read-only); `activation_rate` double (required, null, read-only); `file_until` string (required, null, read-only); `generation` Job (required, null, read-only)
 - **CourseBatchJob**: `id` integer (required); `state` string (required); `done` integer (required); `total` integer (required)
-- **CourseBatchProduct**: `id` integer (required); `title` string (required)
+- **CourseBatchProduct**: `id` integer (required); `slug` string (required); `title` string (required)
 - **CourseBatchSignal**: `id` integer (required, read-only); `kind` FraudSignalKindEnum (required, read-only); `label` string (required, read-only); `count` integer (required, read-only); `window_start` date-time (required, read-only); `window_end` date-time (required, read-only); `created` date-time (required, read-only); `acknowledged_at` date-time (required, null, read-only)
 - **CourseBatchStarted**: `batch` CourseBatch (required); `job` Job (required)
 - **CourseBatchStateEnum**: one of `generating`, `failed`, `ready`, `dispatched`, `void`

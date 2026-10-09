@@ -37,7 +37,7 @@ BATCHES = f"{COURSE}codes/batches/"
 
 def make_batch(client, physics, label="PHY-2027-1", count=5, callbacks=None):
     book = ProductFactory(subject=physics)
-    body = {"label": label, "subject": "PHY", "count": count, "product": book.pk, "note": "Printed by Saraighat"}
+    body = {"label": label, "subject": "PHY", "count": count, "product": book.slug, "note": "Printed by Saraighat"}
     with callbacks(execute=True):
         response = client.post(BATCHES, body, format="json")
     assert response.status_code == 202, response.content
@@ -103,16 +103,16 @@ def test_the_label_is_the_print_runs_own(physics, django_capture_on_commit_callb
     make_batch(client, physics, callbacks=django_capture_on_commit_callbacks)
     book = ProductFactory(subject=physics)
     again = client.post(
-        BATCHES, {"label": "phy-2027-1", "subject": "PHY", "count": 2, "product": book.pk}, format="json"
+        BATCHES, {"label": "phy-2027-1", "subject": "PHY", "count": 2, "product": book.slug}, format="json"
     )
     assert again.json() == {"label": ["A print run has this label already: give the new one its own (PHY-2027-2)."]}
-    bad = client.post(BATCHES, {"label": "PHY 2027", "subject": "PHY", "count": 2, "product": book.pk}, format="json")
+    bad = client.post(BATCHES, {"label": "PHY 2027", "subject": "PHY", "count": 2, "product": book.slug}, format="json")
     assert "label" in bad.json()
     digital = ProductFactory(kind="digital", subject=physics)
-    body = {"label": "PHY-2027-9", "subject": "PHY", "count": 2, "product": digital.pk}
+    body = {"label": "PHY-2027-9", "subject": "PHY", "count": 2, "product": digital.slug}
     assert client.post(BATCHES, body, format="json").json() == {"product": ["A book (printed) the codes go into."]}
-    assert client.post(BATCHES, {**body, "count": 0, "product": book.pk}, format="json").status_code == 400
-    assert signed_in(make_staff(roles.SUPPORT)).post(BATCHES, {**body, "product": book.pk}).status_code == 403
+    assert client.post(BATCHES, {**body, "count": 0, "product": book.slug}, format="json").status_code == 400
+    assert signed_in(make_staff(roles.SUPPORT)).post(BATCHES, {**body, "product": book.slug}).status_code == 403
 
 
 def test_a_void_batch_refuses_its_unused_codes_and_keeps_the_redeemed(physics):

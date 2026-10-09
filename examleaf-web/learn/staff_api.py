@@ -664,7 +664,7 @@ class RowActions:
         moved = course.move(self.get_object(), data.validated_data["to"], data.validated_data.get("target"), request)
         return Response(self.get_serializer(self.get_queryset().get(pk=moved.pk)).data)
 
-    @extend_schema(responses=CourseBinRowSerializer)
+    @extend_schema(responses={200: CourseBinRowSerializer})
     def destroy(self, request, *args, **kwargs):
         return Response(CourseBinRowSerializer(bin_row(course.delete(self.get_object(), request))).data)
 
@@ -1424,11 +1424,14 @@ class CourseBatchSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(
         inline_serializer(
-            "CourseBatchProduct", {"id": serializers.IntegerField(), "title": serializers.CharField()}, allow_null=True
+            "CourseBatchProduct",
+            {"id": serializers.IntegerField(), "slug": serializers.CharField(), "title": serializers.CharField()},
+            allow_null=True,
         )
     )
     def get_product(self, batch):
-        return {"id": batch.product.pk, "title": batch.product.title} if batch.product_id else None
+        book = batch.product
+        return {"id": book.pk, "slug": book.slug, "title": book.title} if batch.product_id else None
 
     @extend_schema_field(serializers.ChoiceField(choices=BATCH_STATES))
     def get_state(self, batch):
@@ -1495,7 +1498,7 @@ class CourseBatchCreateSerializer(serializers.Serializer):
     label = serializers.CharField(max_length=40, help_text="the print run's: PHY-2027-1")
     subject = serializers.CharField(max_length=10, help_text="a subject's code (PHY), or ALL: a set of the four books")
     count = serializers.IntegerField(min_value=1, max_value=codes.MAX_CODES)
-    product = serializers.IntegerField(help_text="the book the codes are printed in (its sales: the codes report)")
+    product = serializers.CharField(max_length=200, help_text="the book the codes are printed in: its slug")
     note = serializers.CharField(required=False, allow_blank=True, default="", max_length=2000,
                                  help_text="the printer, the run, the delivery")  # fmt: skip
 
@@ -1628,7 +1631,7 @@ class BatchViewSet(CourseView, mixins.ListModelMixin, mixins.RetrieveModelMixin,
         values = data.validated_data
         from shop.models import Product
 
-        product = Product.objects.filter(pk=values["product"]).first()
+        product = Product.objects.filter(slug=values["product"]).first()
         if product is None or product.kind == Product.Kind.DIGITAL:
             raise course.refused("A book (printed) the codes go into.", "product")
         subject = subject_of(values["subject"])
