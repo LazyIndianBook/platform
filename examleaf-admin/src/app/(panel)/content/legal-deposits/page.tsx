@@ -39,7 +39,7 @@ export default async function DepositsPage({ searchParams }: { searchParams: Pro
   ]);
   return (
     <>
-      <PageHeader title={copy.content.title} lead={words.lead} />
+      <PageHeader eyebrow={copy.content.title} title={words.title} lead={words.lead} />
       <ContentNav manifest={manifest} current="deposits" />
       <div className="flex flex-col gap-10">
         <Section id="missing" title={words.missingTitle}>

@@ -28,7 +28,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
   ]);
   return (
     <>
-      <PageHeader title={copy.content.title} lead={copy.content.reviews.lead} />
+      <PageHeader eyebrow={copy.content.title} title={copy.content.reviews.title} lead={copy.content.reviews.lead} />
       <ContentNav manifest={manifest} current="reviews" />
       {page instanceof ApiError ? (
         <Problem error={page} />

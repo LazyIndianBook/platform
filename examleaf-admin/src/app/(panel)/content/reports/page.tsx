@@ -28,7 +28,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   ]);
   return (
     <>
-      <PageHeader title={copy.content.title} lead={copy.content.reports.lead} />
+      <PageHeader eyebrow={copy.content.title} title={copy.content.reports.title} lead={copy.content.reports.lead} />
       <ContentNav manifest={manifest} current="reports" />
       {page instanceof ApiError ? (
         <Problem error={page} />

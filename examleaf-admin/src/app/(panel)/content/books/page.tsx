@@ -32,7 +32,7 @@ export default async function BooksPage({ searchParams }: { searchParams: Promis
   ]);
   return (
     <>
-      <PageHeader title={copy.content.title} lead={copy.content.books.lead} />
+      <PageHeader eyebrow={copy.content.title} title={copy.content.books.title} lead={copy.content.books.lead} />
       <ContentNav manifest={manifest} current="books" />
       <div className="flex flex-col gap-10">
         {page instanceof ApiError ? (

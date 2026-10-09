@@ -38,7 +38,7 @@ export default async function ErrataPage({ searchParams }: { searchParams: Promi
     books && !(books instanceof ApiError) ? books.results.map((book) => ({ value: String(book.id), label: book.title })) : [];
   return (
     <>
-      <PageHeader title={copy.content.title} lead={copy.content.errata.lead} />
+      <PageHeader eyebrow={copy.content.title} title={copy.content.errata.title} lead={copy.content.errata.lead} />
       <ContentNav manifest={manifest} current="errata" />
       {page instanceof ApiError ? (
         <Problem error={page} />

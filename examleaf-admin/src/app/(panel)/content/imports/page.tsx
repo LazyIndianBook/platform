@@ -27,7 +27,7 @@ export default async function ImportsPage({ searchParams }: { searchParams: Prom
   const chosen = page instanceof ApiError ? undefined : page.results.find((job) => String(job.id) === param(params, "job"));
   return (
     <>
-      <PageHeader title={copy.content.title} lead={words.lead} />
+      <PageHeader eyebrow={copy.content.title} title={words.title} lead={words.lead} />
       <ContentNav manifest={manifest} current="imports" />
       <div className="flex flex-col gap-10">
         {has(manifest, P.contentImport) ? (

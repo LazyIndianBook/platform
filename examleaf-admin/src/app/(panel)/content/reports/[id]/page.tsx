@@ -12,7 +12,8 @@ import { recordSide } from "@/components/data/record-side";
 import { StatusChip } from "@/components/data/status-chip";
 import { Markdown } from "@/components/modules/content/markdown";
 import { ReportNotes, ReportSteps } from "@/components/modules/content/report-actions";
-import { ContentState, reportWhere } from "@/components/modules/content/tables";
+import { ContentState } from "@/components/modules/content/tables";
+import { reportWhere } from "@/components/modules/content/where";
 import { Section } from "@/components/shell/page-header";
 import { Alert } from "@/components/ui/alert";
 import { ApiError } from "@/lib/api/errors";
@@ -39,7 +40,9 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
     );
   const linked = report.linked;
   const editor =
-    linked.paper_id && linked.solution_id ? `/content/papers/${linked.paper_id}/?solution=${linked.solution_id}#editor` : null;
+    linked.paper_id && linked.solution_id
+      ? `/content/papers/${linked.paper_id}/?solution=${linked.solution_id}#editor`
+      : null;
   const triage = has(manifest, P.reportsTriage);
   return (
     <RecordPage
@@ -79,9 +82,11 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
           },
           {
             label: words.email,
-            value: report.reporter_told_at
-              ? words.told(formatDateTime(report.reporter_told_at))
-              : <span className="font-mono">{report.email || words.noEmail}</span>,
+            value: report.reporter_told_at ? (
+              words.told(formatDateTime(report.reporter_told_at))
+            ) : (
+              <span className="font-mono">{report.email || words.noEmail}</span>
+            ),
           },
           { label: words.columns.reported, value: formatDateTime(report.created) },
           ...(report.fixed_in ? [{ label: words.fixInPrinting, value: report.fixed_in }] : []),
@@ -93,7 +98,9 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
         </Section>
       ) : null}
       <Section id="linked" title={words.linked} lead={words.linkedLead}>
-        {linked.solution_state && linked.solution_state !== "published" ? <Alert variant="info" title={words.solutionDraft} /> : null}
+        {linked.solution_state && linked.solution_state !== "published" ? (
+          <Alert variant="info" title={words.solutionDraft} />
+        ) : null}
         {linked.question_text ? (
           <div className="flex flex-col gap-1.5">
             <p className="m-0 text-sm font-semibold">{words.liveQuestion}</p>
