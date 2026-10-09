@@ -18,7 +18,9 @@ CALLER_ROLES = (SYNC_ROLE, "System Manager")
 IGNORED_KEYS = {"cmd"}  # frappe adds the method's name to the form
 
 KEY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9:_./-]{0,139}$")
-REF = re.compile(r"^[a-z][a-z0-9-]{1,30}:[A-Za-z0-9][A-Za-z0-9/_.:-]{0,100}$")
+REF = re.compile(
+    r"^[a-z][a-z0-9_-]{1,30}:[A-Za-z0-9][A-Za-z0-9/_.:-]{0,100}$"
+)  # kind:id (credit_note:CN/2026-27/00001)
 DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 DATETIME = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\.\d{1,6})?$")
 PAISA = Decimal("0.01")

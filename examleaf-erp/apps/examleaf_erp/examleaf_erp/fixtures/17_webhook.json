@@ -7,7 +7,7 @@
   "enable_security": 0,
   "enabled": 0,
   "is_dynamic_url": 0,
-  "modified": "2026-10-09 10:59:03.840723",
+  "modified": "2026-10-09 11:22:31.991565",
   "name": "EL Stock Ledger Entry after_insert",
   "request_method": "POST",
   "request_structure": "JSON",
@@ -33,7 +33,7 @@
   "enable_security": 0,
   "enabled": 0,
   "is_dynamic_url": 0,
-  "modified": "2026-10-09 10:59:03.818939",
+  "modified": "2026-10-09 11:22:31.983830",
   "name": "EL Purchase Receipt on_submit",
   "request_method": "POST",
   "request_structure": "JSON",
@@ -59,7 +59,7 @@
   "enable_security": 0,
   "enabled": 0,
   "is_dynamic_url": 0,
-  "modified": "2026-10-09 10:59:03.801631",
+  "modified": "2026-10-09 11:22:31.969315",
   "name": "EL Stock Reconciliation on_submit",
   "request_method": "POST",
   "request_structure": "JSON",
@@ -85,7 +85,7 @@
   "enable_security": 0,
   "enabled": 0,
   "is_dynamic_url": 0,
-  "modified": "2026-10-09 10:59:03.757220",
+  "modified": "2026-10-09 11:22:31.867836",
   "name": "EL Sales Invoice on_submit (B2B)",
   "request_method": "POST",
   "request_structure": "JSON",
@@ -105,39 +105,13 @@
  },
  {
   "background_jobs_queue": null,
-  "condition": null,
-  "docstatus": 0,
-  "doctype": "Webhook",
-  "enable_security": 0,
-  "enabled": 0,
-  "is_dynamic_url": 0,
-  "modified": "2026-10-09 10:59:03.719900",
-  "name": "EL Quotation on_update_after_submit",
-  "request_method": "POST",
-  "request_structure": "JSON",
-  "request_url": "https://platform.invalid/erp/webhooks/frappe/",
-  "timeout": 5,
-  "webhook_data": [],
-  "webhook_docevent": "on_update_after_submit",
-  "webhook_doctype": "Quotation",
-  "webhook_headers": [
-   {
-    "key": "Content-Type",
-    "value": "application/json"
-   }
-  ],
-  "webhook_json": "{\"doctype\": {{ doc.doctype | tojson }}, \"name\": {{ doc.name | tojson }}, \"modified\": {{ doc.modified | tojson }}, \"examleaf_ref\": {{ doc.examleaf_ref | tojson }}, \"event\": \"on_update_after_submit\"}",
-  "webhook_secret": null
- },
- {
-  "background_jobs_queue": null,
   "condition": "doc.customer_group in (\"School\", \"Distributor\", \"Bookseller\", \"Teacher\")",
   "docstatus": 0,
   "doctype": "Webhook",
   "enable_security": 0,
   "enabled": 0,
   "is_dynamic_url": 0,
-  "modified": "2026-10-09 10:59:03.507908",
+  "modified": "2026-10-09 11:22:31.790338",
   "name": "EL Customer on_update (B2B)",
   "request_method": "POST",
   "request_structure": "JSON",
@@ -153,6 +127,32 @@
    }
   ],
   "webhook_json": "{\"doctype\": {{ doc.doctype | tojson }}, \"name\": {{ doc.name | tojson }}, \"modified\": {{ doc.modified | tojson }}, \"examleaf_ref\": {{ doc.examleaf_ref | tojson }}, \"event\": \"on_update\"}",
+  "webhook_secret": null
+ },
+ {
+  "background_jobs_queue": null,
+  "condition": null,
+  "docstatus": 0,
+  "doctype": "Webhook",
+  "enable_security": 0,
+  "enabled": 0,
+  "is_dynamic_url": 0,
+  "modified": "2026-10-09 11:29:04.433115",
+  "name": "EL Quotation on_submit",
+  "request_method": "POST",
+  "request_structure": "JSON",
+  "request_url": "https://platform.invalid/erp/webhooks/frappe/",
+  "timeout": 5,
+  "webhook_data": [],
+  "webhook_docevent": "on_submit",
+  "webhook_doctype": "Quotation",
+  "webhook_headers": [
+   {
+    "key": "Content-Type",
+    "value": "application/json"
+   }
+  ],
+  "webhook_json": "{\"doctype\": {{ doc.doctype | tojson }}, \"name\": {{ doc.name | tojson }}, \"modified\": {{ doc.modified | tojson }}, \"examleaf_ref\": {{ doc.examleaf_ref | tojson }}, \"event\": \"on_submit\"}",
   "webhook_secret": null
  }
 ]

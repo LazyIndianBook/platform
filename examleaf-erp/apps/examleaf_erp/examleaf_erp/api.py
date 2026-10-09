@@ -34,7 +34,8 @@ GSTIN = re.compile(r"^\d{2}[A-Z0-9]{13}$")
 NUMBER = re.compile(r"^(?P<prefix>[A-Z]{1,2})/(?P<fy>\d{4}-\d{2})/\d{5}$")
 INVOICE_PREFIXES, NOTE_PREFIXES = ("EL",), ("CN",)
 TEST_INVOICE_PREFIXES, TEST_NOTE_PREFIXES = ("T",), ("TC",)
-MODES = {"Razorpay": "receive and refund", "COD": "", "UPI": "", "NEFT/RTGS": "", "Cheque": ""}
+# the platform's payment method: ERPNext's Mode of Payment
+MODES = {"razorpay": "Razorpay", "cod": "COD", "upi": "UPI", "neft": "NEFT/RTGS", "cheque": "Cheque"}
 CHANGE_DOCTYPES = (
     "Item",
     "Item Price",
@@ -155,9 +156,11 @@ def upsert_item(data):
 
 @whitelisted(mutating=True)
 def upsert_bundle(data):
-    """A shop bundle (BundleItem rows) as a Product Bundle on its non-stock Item, made first with upsert_item."""
+    """A shop bundle (BundleItem rows) as a Product Bundle on its non-stock Item, made first with upsert_item. The
+    bundle's examleaf_ref (bundle:<id>) may differ from its Item's (item:<id>): a Product Bundle has no examleaf_ref,
+    and setting the same rows again changes nothing, so the Item is found by item_code."""
     f = Fields(data)
-    ref, _key = ref_and_key(f)
+    _ref, _key = ref_and_key(f)
     item_code = f.str("item_code", pattern=ITEM_CODE)
     rows = f.list("items", max_items=50)
     components = []
@@ -167,11 +170,13 @@ def upsert_bundle(data):
     is_active = f.bool("is_active", default=True)
     f.done()
 
-    item = frappe.db.get_value("Item", {"examleaf_ref": ref}, ["name", "examleaf_kind", "is_stock_item"], as_dict=True)
-    if not item:
-        raise ApiError("not_found", f"No Item carries {ref}: upsert_item first.", 404, "examleaf_ref")
-    if item.name != item_code or item.examleaf_kind != "bundle" or item.is_stock_item:
-        raise ApiError("conflict", f"{ref} is the Item {item.name}, which is not this bundle.", 409, "item_code")
+    item = frappe.db.get_value(
+        "Item", item_code, ["name", "examleaf_ref", "examleaf_kind", "is_stock_item"], as_dict=True
+    )
+    if not item or not item.examleaf_ref:
+        raise ApiError("not_found", f"No platform Item {item_code}: upsert_item first.", 404, "item_code")
+    if item.examleaf_kind != "bundle" or item.is_stock_item:
+        raise ApiError("conflict", f"Item {item_code} is not a bundle (kind {item.examleaf_kind}).", 409, "item_code")
     seen = set()
     for index, (code, _qty) in enumerate(components):
         if code in seen:
@@ -411,7 +416,7 @@ def create_payment_entry(data):
     against = f.str("invoice_number", max_length=16, pattern=NUMBER)
     amount = f.money("amount", allow_zero=False)
     posting_date = f.date("posting_date")
-    mode = f.str("mode", choices=tuple(MODES))
+    mode = MODES[f.str("mode", choices=tuple(MODES))]
     reference_no = f.str("reference_no")
     reference_date = f.date("reference_date", required=False) or posting_date
     f.done()
@@ -474,6 +479,7 @@ def record_settlement(data):
     tax = f.money("tax_on_fee", required=False, default=Decimal("0.00"))
     net = f.money("net_amount", allow_zero=False)
     tax_type = f.str("tax_type", required=False, choices=("igst", "cgst_sgst"), default="igst")
+    utr = f.str("utr", required=False, max_length=40)  # the bank's reference, which bank reconciliation matches
     f.done()
 
     if gross != net + fee + tax:
@@ -486,7 +492,7 @@ def record_settlement(data):
     bank = frappe.get_cached_value("Company", the_company, "default_bank_account")
     if not bank:
         raise ApiError("not_configured", "The company has no default bank account: run the bootstrap.", 500)
-    clearing = mode_account("Razorpay" if kind == "razorpay" else "COD")
+    clearing = mode_account(MODES[kind])
     fee_account = f"{'Payment Gateway Charges' if kind == 'razorpay' else 'Freight and Forwarding Charges'} - {abbr}"
     cost_center = frappe.get_cached_value("Company", the_company, "cost_center")
     rows = [
@@ -508,7 +514,7 @@ def record_settlement(data):
             "voucher_type": "Bank Entry",
             "company": the_company,
             "posting_date": str(posting_date),  # strings: whitelisted ERPNext helpers type-check dates
-            "cheque_no": settlement_id,
+            "cheque_no": utr or settlement_id,
             "cheque_date": str(posting_date),
             "user_remark": f"{'Razorpay settlement' if kind == 'razorpay' else 'COD remittance'} {settlement_id}",
             "examleaf_ref": ref,
@@ -644,14 +650,14 @@ def get_changes_since(data):
     (modified, name), so documents saved in the same microsecond are neither skipped nor repeated."""
     f = Fields(data)
     doctype = f.str("doctype", choices=CHANGE_DOCTYPES)
-    since = f.str("modified", max_length=26, pattern=DATETIME)
+    since = f.str("modified_after", max_length=26, pattern=DATETIME)
     after_name = f.str("after_name", required=False)
     limit = f.int("limit", required=False, minimum=1, maximum=500, default=100)
     f.done()
     try:
         since_dt = get_datetime(since)
     except Exception:
-        raise bad("modified", "Not a date and time (YYYY-MM-DD HH:MM:SS.ffffff).")
+        raise bad("modified_after", "Not a date and time (YYYY-MM-DD HH:MM:SS.ffffff).")
     table = frappe.qb.DocType(doctype)
     has_ref = frappe.get_meta(doctype).has_field("examleaf_ref")
     fields = [table.name, table.modified, table.docstatus]
@@ -675,8 +681,14 @@ def get_changes_since(data):
         {"name": r.name, "modified": iso(r.modified), "docstatus": r.docstatus, "examleaf_ref": r.get("examleaf_ref")}
         for r in rows
     ]
-    cursor = {"modified": items[-1]["modified"], "name": items[-1]["name"]} if items else None
-    return {"name": None, "items": items, "has_more": has_more, "next_cursor": cursor}, None
+    # the arguments of the next call (the same cursor again when nothing changed)
+    cursor = {"modified_after": items[-1]["modified"], "after_name": items[-1]["name"]} if items else None
+    return {
+        "name": None,
+        "rows": items,
+        "has_more": has_more,
+        "next": cursor or {"modified_after": since, "after_name": after_name},
+    }, None
 
 
 @whitelisted(mutating=False)
@@ -1203,7 +1215,8 @@ def totals_for(day):
         .run(as_dict=True)
     ):
         side = "receive" if row.payment_type == "Receive" else "refund"
-        payments[side][row.mode_of_payment] = {"count": row.count, "amount": money_str(row.amount)}
+        mode = next((code for code, name in MODES.items() if name == row.mode_of_payment), row.mode_of_payment)
+        payments[side][mode] = {"count": row.count, "amount": money_str(row.amount)}
 
     dn = frappe.qb.DocType("Delivery Note")
     notes = (

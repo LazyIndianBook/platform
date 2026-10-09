@@ -218,7 +218,7 @@ class TestSyncAPI(IntegrationTestCase):
         total = sum((Decimal(i["amount"]) for i in items), Decimal("0.00")) + Decimal(shipping)
         note_number = extra.pop("credit_note_number", None) or number("CN")
         return api.create_credit_note(
-            examleaf_ref=f"credit-note:{note_number}",
+            examleaf_ref=f"credit_note:{note_number}",  # the platform's kinds: order, invoice, credit_note, payment, …
             idempotency_key=unique("cn-"),
             credit_note_number=note_number,
             invoice_number=invoice.name,
@@ -253,7 +253,7 @@ class TestSyncAPI(IntegrationTestCase):
         self.assertEqual(too_much["error"]["code"], "over_credit")
 
     # ---------------------------------------------------------------------------------------------- payments
-    def pay(self, against, amount, mode="Razorpay", reference=None):
+    def pay(self, against, amount, mode="razorpay", reference=None):
         return api.create_payment_entry(
             examleaf_ref=f"payment:{unique()}",
             idempotency_key=unique("pay-"),
@@ -281,10 +281,10 @@ class TestSyncAPI(IntegrationTestCase):
 
     def test_cod_goes_to_the_couriers_account_and_overpayment_is_refused(self):
         invoice = make_invoice([line(self.book, 1, "299.00")])
-        paid = ok(self.pay(invoice.name, "299.00", mode="COD", reference="AWB123456"))
+        paid = ok(self.pay(invoice.name, "299.00", mode="cod", reference="AWB123456"))
         self.assertEqual(frappe.db.get_value("Payment Entry", paid["name"], "paid_to"), f"COD in Transit - {abbr()}")
         frappe.db.commit()
-        again = self.pay(invoice.name, "1.00", mode="COD")
+        again = self.pay(invoice.name, "1.00", mode="cod")
         self.assertEqual(again["error"]["code"], "overpayment")
 
     def test_a_razorpay_settlement_moves_clearing_to_the_bank(self):
@@ -300,6 +300,7 @@ class TestSyncAPI(IntegrationTestCase):
                 fee="20.00",
                 tax_on_fee="3.60",
                 net_amount="976.40",
+                utr="AXISN26100912345",
             )
         )
         entry = frappe.get_doc("Journal Entry", response["name"])
@@ -308,7 +309,8 @@ class TestSyncAPI(IntegrationTestCase):
         self.assertEqual(lines["Payment Gateway Charges"], (20.0, 0))
         self.assertEqual(lines["Input Tax IGST"], (3.6, 0))
         self.assertEqual(lines["Main Bank"], (976.4, 0))
-        self.assertEqual(entry.cheque_no, settlement)
+        self.assertEqual(entry.cheque_no, "AXISN26100912345")  # the bank statement's reference
+        self.assertIn(settlement, entry.user_remark)
         refused = api.record_settlement(
             examleaf_ref=f"settlement:{unique()}",
             idempotency_key=unique(),
@@ -366,12 +368,20 @@ class TestSyncAPI(IntegrationTestCase):
         bundle = make_item("bundle", "0", "4901", mrp="499.00")
         ok(
             api.upsert_bundle(
-                examleaf_ref=f"product:{bundle.lower()}",
+                examleaf_ref=f"bundle:{bundle.lower()}",  # its own ref, not the Item's
                 idempotency_key=unique(),
                 item_code=bundle,
                 items=[{"item_code": self.book, "qty": 1}, {"item_code": self.solutions, "qty": 1}],
             )
         )
+        frappe.db.commit()  # a refusal rolls back
+        not_a_bundle = api.upsert_bundle(
+            examleaf_ref=f"bundle:{self.book.lower()}",
+            idempotency_key=unique(),
+            item_code=self.book,
+            items=[{"item_code": self.solutions, "qty": 1}],
+        )
+        self.assertEqual(not_a_bundle["error"]["code"], "conflict")
         invoice = make_invoice([line(bundle, 1, "449.00")])
         response = ok(
             api.create_delivery_note(
@@ -391,7 +401,7 @@ class TestSyncAPI(IntegrationTestCase):
         mixed = make_invoice(
             [line(self.solutions, 1, "199.00"), line(self.course, 1, "999.00", gst_rate="18", hsn_code="999293")]
         )
-        self.pay(mixed.name, "1198.00", mode="UPI", reference="UTR1")
+        self.pay(mixed.name, "1198.00", mode="upi", reference="UTR1")
         self.credit(mixed, [{"item_code": self.solutions, "amount": "199.00", "qty": 1}])
         ok(
             api.create_delivery_note(
@@ -418,7 +428,7 @@ class TestSyncAPI(IntegrationTestCase):
         self.assertEqual(delta("invoices.tax_total"), Decimal("152.38"))
         self.assertEqual(delta("credit_notes.count"), 1)
         self.assertEqual(delta("credit_notes.total"), Decimal("199.00"))
-        self.assertEqual(delta("payments.receive.UPI.amount"), Decimal("1198.00"))
+        self.assertEqual(delta("payments.receive.upi.amount"), Decimal("1198.00"))
         self.assertEqual(delta("shipped.items." + self.solutions), 1)
 
     def test_get_changes_since_pages_without_gaps_or_repeats(self):
@@ -426,15 +436,13 @@ class TestSyncAPI(IntegrationTestCase):
         stamp = now_datetime().replace(microsecond=0) + __import__("datetime").timedelta(days=3650)
         for code in codes:  # one shared modified time: only the name orders them
             frappe.db.set_value("Item", code, "modified", stamp, update_modified=False)
-        seen, cursor = [], {"modified": str(add_days(stamp, -1)), "name": None}
+        seen, cursor = [], {"modified_after": str(add_days(stamp, -1))}
         while True:
-            response = ok(
-                api.get_changes_since(doctype="Item", modified=cursor["modified"], after_name=cursor["name"], limit=2)
-            )
-            seen += [row["name"] for row in response["items"]]
+            response = ok(api.get_changes_since(doctype="Item", limit=2, **cursor))
+            seen += [row["name"] for row in response["rows"]]
             if not response["has_more"]:
                 break
-            cursor = response["next_cursor"]
+            cursor = response["next"]
         self.assertEqual([code for code in seen if code in codes], sorted(codes))
         self.assertEqual(len(seen), len(set(seen)))
 
@@ -565,7 +573,7 @@ class TestSyncAPI(IntegrationTestCase):
                 )
             )
             ok(api.get_stock(item_code=self.book))
-            ok(api.get_changes_since(doctype="Bin", modified="2026-01-01 00:00:00"))
+            ok(api.get_changes_since(doctype="Bin", modified_after="2026-01-01 00:00:00"))
             ok(api.daily_totals(date=str(getdate())))
             self.assertTrue(book)
             self.assertEqual(frappe.get_doc("Sales Invoice", invoice.name).owner, user)
