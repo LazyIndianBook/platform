@@ -1,4 +1,4 @@
-// /orders/, /catalogue/, /marketing/, /content/, /course/, /partners/, /support/: the modules planned for the next
+// /catalogue/, /marketing/, /content/, /course/, /partners/, /support/: the modules planned for the next
 // phase, drawn in the sidebar for whoever holds their permissions, each with one honest page that says so and where
 // the work is done today (the Django admin; Support's messages by email). No sample data. Any other address, or a
 // module the manifest does not open, is a 404.

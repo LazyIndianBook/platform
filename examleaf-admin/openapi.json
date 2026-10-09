@@ -11264,6 +11264,87 @@
                 }
             }
         },
+        "/api/v1/staff/orders/preview/": {
+            "post": {
+                "operationId": "staff_orders_preview_create",
+                "description": "What a staff order would cost before it is asked for: today's prices with the offers, your discount's share\nof the books after them, the shipping, and whether it would wait for a second person (`approval`: the rule's\nwords) or be made at once (null). Nothing is stored.",
+                "tags": [
+                    "orders (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/StaffOrderPreviewAskRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/StaffOrderPreview"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/orders/products/": {
+            "get": {
+                "operationId": "staff_orders_products_list",
+                "description": "Books on sale for a staff order's lines: 20 at most, matched by title, slug or ISBN.",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "q",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "a title, slug or ISBN: 2 characters or more"
+                    }
+                ],
+                "tags": [
+                    "orders (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/ProductPick"
+                                    }
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
         "/api/v1/staff/orders/quotes/": {
             "get": {
                 "operationId": "staff_orders_quotes_list",
@@ -20334,6 +20415,10 @@
                 "type": "object",
                 "description": "An order as its record shows it (GET orders/{number}/).",
                 "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
                     "number": {
                         "type": "string",
                         "readOnly": true,
@@ -20398,6 +20483,7 @@
                                 "$ref": "#/components/schemas/OrderCourier"
                             }
                         ],
+                        "nullable": true,
                         "readOnly": true
                     },
                     "parcel": {
@@ -20422,13 +20508,16 @@
                         "readOnly": true
                     },
                     "risk_bucket": {
-                        "allOf": [
+                        "readOnly": true,
+                        "description": "a COD order's; blank: not scored\n\n* `low` - low\n* `medium` - medium\n* `high` - high",
+                        "oneOf": [
                             {
                                 "$ref": "#/components/schemas/OrderRiskEnum"
+                            },
+                            {
+                                "$ref": "#/components/schemas/BlankEnum"
                             }
-                        ],
-                        "readOnly": true,
-                        "title": "COD risk"
+                        ]
                     },
                     "is_test": {
                         "type": "boolean",
@@ -20614,6 +20703,7 @@
                     "held",
                     "hold",
                     "hold_reason",
+                    "id",
                     "is_cod",
                     "is_digital",
                     "is_test",
@@ -21888,6 +21978,10 @@
                 "type": "object",
                 "description": "An order in the list: what a row shows, with no query per row (the view prefetches).",
                 "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
                     "number": {
                         "type": "string",
                         "readOnly": true,
@@ -21952,6 +22046,7 @@
                                 "$ref": "#/components/schemas/OrderCourier"
                             }
                         ],
+                        "nullable": true,
                         "readOnly": true
                     },
                     "parcel": {
@@ -21976,13 +22071,16 @@
                         "readOnly": true
                     },
                     "risk_bucket": {
-                        "allOf": [
+                        "readOnly": true,
+                        "description": "a COD order's; blank: not scored\n\n* `low` - low\n* `medium` - medium\n* `high` - high",
+                        "oneOf": [
                             {
                                 "$ref": "#/components/schemas/OrderRiskEnum"
+                            },
+                            {
+                                "$ref": "#/components/schemas/BlankEnum"
                             }
-                        ],
-                        "readOnly": true,
-                        "title": "COD risk"
+                        ]
                     },
                     "is_test": {
                         "type": "boolean",
@@ -22017,6 +22115,7 @@
                     "has_returns",
                     "held",
                     "hold_reason",
+                    "id",
                     "is_cod",
                     "is_test",
                     "items",
@@ -25793,6 +25892,58 @@
                     "redirect_to"
                 ]
             },
+            "ProductPick": {
+                "type": "object",
+                "properties": {
+                    "slug": {
+                        "type": "string",
+                        "readOnly": true,
+                        "pattern": "^[-a-zA-Z0-9_]+$"
+                    },
+                    "title": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "kind": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ProductKindEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "isbn": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "price": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "readOnly": true
+                    },
+                    "mrp": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "readOnly": true
+                    },
+                    "available": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "description": "copies that can be sold now"
+                    }
+                },
+                "required": [
+                    "available",
+                    "isbn",
+                    "kind",
+                    "mrp",
+                    "price",
+                    "slug",
+                    "title"
+                ]
+            },
             "ProductReview": {
                 "type": "object",
                 "description": "A buyer's review as the product page shows it: \"Verified buyer\", never a name (many buyers are minors).",
@@ -27107,7 +27258,9 @@
                     },
                     "refund": {
                         "type": "integer",
-                        "readOnly": true
+                        "readOnly": true,
+                        "nullable": true,
+                        "description": "its refund, once asked"
                     },
                     "created": {
                         "type": "string",
@@ -27321,7 +27474,9 @@
                     },
                     "refund": {
                         "type": "integer",
-                        "readOnly": true
+                        "readOnly": true,
+                        "nullable": true,
+                        "description": "its refund, once asked"
                     },
                     "created": {
                         "type": "string",
@@ -28579,6 +28734,165 @@
                 "required": [
                     "product",
                     "quantity"
+                ]
+            },
+            "StaffOrderPreview": {
+                "type": "object",
+                "description": "What the staff order would be: priced as the checkout prices it, and the approval rule's answer.",
+                "properties": {
+                    "lines": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/StaffOrderPreviewLine"
+                        }
+                    },
+                    "subtotal": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$"
+                    },
+                    "offers": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "description": "the automatic offers' rupees"
+                    },
+                    "discount": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "description": "yours, at most the books' value"
+                    },
+                    "percent": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,4}(?:\\.\\d{0,2})?$",
+                        "description": "of the books after the offers"
+                    },
+                    "shipping": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$",
+                        "nullable": true
+                    },
+                    "total": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$"
+                    },
+                    "limit": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,4}(?:\\.\\d{0,2})?$",
+                        "nullable": true,
+                        "description": "yours; null: none"
+                    },
+                    "approval": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "why a second person approves it; null: made at once"
+                    },
+                    "problems": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "what stops it: off sale, sold out"
+                    }
+                },
+                "required": [
+                    "approval",
+                    "discount",
+                    "limit",
+                    "lines",
+                    "offers",
+                    "percent",
+                    "problems",
+                    "shipping",
+                    "subtotal",
+                    "total"
+                ]
+            },
+            "StaffOrderPreviewAskRequest": {
+                "type": "object",
+                "properties": {
+                    "lines": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/StaffOrderLineRequest"
+                        }
+                    },
+                    "state": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "the delivery address's state code: the shipping rate's",
+                        "maxLength": 2
+                    },
+                    "email": {
+                        "description": "the customer's: offers once a person",
+                        "oneOf": [
+                            {
+                                "type": "string",
+                                "format": "email"
+                            },
+                            {
+                                "type": "string",
+                                "maxLength": 0
+                            }
+                        ]
+                    },
+                    "discount": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,8}(?:\\.\\d{0,2})?$",
+                        "default": "0.00"
+                    },
+                    "shipping": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,8}(?:\\.\\d{0,2})?$",
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "lines",
+                    "state"
+                ]
+            },
+            "StaffOrderPreviewLine": {
+                "type": "object",
+                "properties": {
+                    "product": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "unit_price": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$"
+                    },
+                    "quantity": {
+                        "type": "integer"
+                    },
+                    "line_total": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,10}(?:\\.\\d{0,2})?$"
+                    },
+                    "available": {
+                        "type": "integer",
+                        "description": "copies that can be sold now"
+                    }
+                },
+                "required": [
+                    "available",
+                    "line_total",
+                    "product",
+                    "quantity",
+                    "title",
+                    "unit_price"
                 ]
             },
             "StaffOrderRequest": {

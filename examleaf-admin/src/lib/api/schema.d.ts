@@ -3712,6 +3712,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/staff/orders/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description What a staff order would cost before it is asked for: today's prices with the offers, your discount's share
+         *     of the books after them, the shipping, and whether it would wait for a second person (`approval`: the rule's
+         *     words) or be made at once (null). Nothing is stored.
+         */
+        post: operations["staff_orders_preview_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/products/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Books on sale for a staff order's lines: 20 at most, matched by title, slug or ISBN. */
+        get: operations["staff_orders_products_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/staff/orders/quotes/": {
         parameters: {
             query?: never;
@@ -6884,6 +6922,7 @@ export interface components {
         };
         /** @description An order as its record shows it (GET orders/{number}/). */
         OrderDetail: {
+            readonly id: number;
             readonly number: string | null;
             /** Format: date-time */
             readonly created: string;
@@ -6899,14 +6938,20 @@ export interface components {
             readonly total: string;
             readonly items: string[];
             readonly customer: components["schemas"]["OrderCustomer"];
-            readonly courier: components["schemas"]["OrderCourier"];
+            readonly courier: components["schemas"]["OrderCourier"] | null;
             /** @description the latest parcel's status (the shipping app's), or null */
             readonly parcel: string | null;
             readonly tags: string[];
             readonly held: boolean;
             readonly hold_reason: string;
-            /** COD risk */
-            readonly risk_bucket: components["schemas"]["OrderRiskEnum"];
+            /**
+             * @description a COD order's; blank: not scored
+             *
+             *     * `low` - low
+             *     * `medium` - medium
+             *     * `high` - high
+             */
+            readonly risk_bucket: components["schemas"]["OrderRiskEnum"] | components["schemas"]["BlankEnum"];
             /** @description made with test keys on the live site: TEST */
             readonly is_test: boolean;
             readonly is_cod: boolean;
@@ -7356,6 +7401,7 @@ export interface components {
         OrderRiskEnum: "low" | "medium" | "high";
         /** @description An order in the list: what a row shows, with no query per row (the view prefetches). */
         OrderRow: {
+            readonly id: number;
             readonly number: string | null;
             /** Format: date-time */
             readonly created: string;
@@ -7371,14 +7417,20 @@ export interface components {
             readonly total: string;
             readonly items: string[];
             readonly customer: components["schemas"]["OrderCustomer"];
-            readonly courier: components["schemas"]["OrderCourier"];
+            readonly courier: components["schemas"]["OrderCourier"] | null;
             /** @description the latest parcel's status (the shipping app's), or null */
             readonly parcel: string | null;
             readonly tags: string[];
             readonly held: boolean;
             readonly hold_reason: string;
-            /** COD risk */
-            readonly risk_bucket: components["schemas"]["OrderRiskEnum"];
+            /**
+             * @description a COD order's; blank: not scored
+             *
+             *     * `low` - low
+             *     * `medium` - medium
+             *     * `high` - high
+             */
+            readonly risk_bucket: components["schemas"]["OrderRiskEnum"] | components["schemas"]["BlankEnum"];
             /** @description made with test keys on the live site: TEST */
             readonly is_test: boolean;
             readonly is_cod: boolean;
@@ -8899,6 +8951,18 @@ export interface components {
             /** @description the renamed product's slug; Location: its products/<slug>/ */
             redirect_to: string;
         };
+        ProductPick: {
+            readonly slug: string;
+            readonly title: string;
+            readonly kind: components["schemas"]["ProductKindEnum"];
+            readonly isbn: string;
+            /** Format: decimal */
+            readonly price: string;
+            /** Format: decimal */
+            readonly mrp: string;
+            /** @description copies that can be sold now */
+            readonly available: number;
+        };
         /** @description A buyer's review as the product page shows it: "Verified buyer", never a name (many buyers are minors). */
         ProductReview: {
             rating: number;
@@ -9336,7 +9400,8 @@ export interface components {
             readonly received_at: string | null;
             /** Format: date-time */
             readonly inspected_at: string | null;
-            readonly refund: number;
+            /** @description its refund, once asked */
+            readonly refund: number | null;
             /** Format: date-time */
             readonly created: string;
             /** Format: date-time */
@@ -9402,7 +9467,8 @@ export interface components {
             readonly received_at: string | null;
             /** Format: date-time */
             readonly inspected_at: string | null;
-            readonly refund: number;
+            /** @description its refund, once asked */
+            readonly refund: number | null;
             /** Format: date-time */
             readonly created: string;
             /** Format: date-time */
@@ -9879,6 +9945,65 @@ export interface components {
             /** @description a product on sale */
             product: string;
             quantity: number;
+        };
+        /** @description What the staff order would be: priced as the checkout prices it, and the approval rule's answer. */
+        StaffOrderPreview: {
+            lines: components["schemas"]["StaffOrderPreviewLine"][];
+            /** Format: decimal */
+            subtotal: string;
+            /**
+             * Format: decimal
+             * @description the automatic offers' rupees
+             */
+            offers: string;
+            /**
+             * Format: decimal
+             * @description yours, at most the books' value
+             */
+            discount: string;
+            /**
+             * Format: decimal
+             * @description of the books after the offers
+             */
+            percent: string;
+            /** Format: decimal */
+            shipping: string | null;
+            /** Format: decimal */
+            total: string;
+            /**
+             * Format: decimal
+             * @description yours; null: none
+             */
+            limit: string | null;
+            /** @description why a second person approves it; null: made at once */
+            approval: string | null;
+            /** @description what stops it: off sale, sold out */
+            problems: string[];
+        };
+        StaffOrderPreviewAskRequest: {
+            lines: components["schemas"]["StaffOrderLineRequest"][];
+            /** @description the delivery address's state code: the shipping rate's */
+            state: string;
+            /** @description the customer's: offers once a person */
+            email?: string;
+            /**
+             * Format: decimal
+             * @default 0.00
+             */
+            discount: string;
+            /** Format: decimal */
+            shipping?: string | null;
+        };
+        StaffOrderPreviewLine: {
+            product: string;
+            title: string;
+            /** Format: decimal */
+            unit_price: string;
+            quantity: number;
+            /** Format: decimal */
+            line_total: string;
+            /** @description copies that can be sold now */
+            available: number;
         };
         StaffOrderRequest: {
             channel: components["schemas"]["StaffOrderChannelEnum"];
@@ -15843,6 +15968,51 @@ export interface operations {
                 };
                 content: {
                     "application/pdf": string;
+                };
+            };
+        };
+    };
+    staff_orders_preview_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffOrderPreviewAskRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffOrderPreview"];
+                };
+            };
+        };
+    };
+    staff_orders_products_list: {
+        parameters: {
+            query?: {
+                /** @description a title, slug or ISBN: 2 characters or more */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductPick"][];
                 };
             };
         };

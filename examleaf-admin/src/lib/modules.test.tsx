@@ -14,7 +14,7 @@ const keys = (permissions: string[], erp = "") => visibleModules(manifestWith(pe
 
 describe("P", () => {
   it("names only the backend's codenames (app_label.codename)", () => {
-    for (const perm of Object.values(P)) expect(perm).toMatch(/^(staff|accounts|shipping|insights|erp)\.[a-z_]+$/);
+    for (const perm of Object.values(P)) expect(perm).toMatch(/^(staff|accounts|shop|shipping|insights|erp)\.[a-z_]+$/);
   });
 });
 
@@ -83,8 +83,9 @@ describe("visibleModules", () => {
   });
 
   it("finds a planned module only for whoever holds its permission", () => {
-    expect(soonModule("orders", manifestWith(["shop.view_order"]))?.key).toBe("orders");
-    expect(soonModule("orders", manifestWith([P.usersView]))).toBeNull();
+    expect(soonModule("catalogue", manifestWith(["shop.view_product"]))?.key).toBe("catalogue");
+    expect(soonModule("catalogue", manifestWith([P.usersView]))).toBeNull();
+    expect(soonModule("orders", manifestWith([P.ordersView]))).toBeNull(); // built: its own pages
     expect(soonModule("users", manifestWith([P.usersView]))).toBeNull();
   });
 
