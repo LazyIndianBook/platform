@@ -38,13 +38,15 @@ from .models import (
 )
 def refund_payment(refund_id):
     """Ask Razorpay to refund a payment in full. Razorpay unreachable or failing: retried for about four hours.
-    Refused (a bad request): the refund is marked failed for staff (admin, Refunds). The row stays locked during the
-    call, so a task queued twice cannot refund twice. Each try first asks Razorpay for the payment's refunds and adopts
-    the one that carries this refund's id in its notes: a refund made by a try whose answer was lost (a timeout) is
-    never sent again."""
+    Refused (a bad request): the refund is marked failed for staff (admin, Refunds). The refund's row stays locked
+    during the call, so a task queued twice cannot refund twice; a second one finds it locked and leaves it to the
+    first at once (skip_locked), rather than wait for its Razorpay calls. Each try first asks Razorpay for the
+    payment's refunds and adopts the one that carries this refund's id in its notes: a refund made by a try whose
+    answer was lost (a timeout) is never sent again."""
     with transaction.atomic():
-        refund = Refund.objects.select_for_update().select_related("payment", "order").get(pk=refund_id)
-        if refund.status != Refund.Status.PENDING or refund.razorpay_refund_id:
+        mine = Refund.objects.select_for_update(skip_locked=True, of=("self",)).select_related("payment", "order")
+        refund = mine.filter(pk=refund_id).first()  # None: another worker has it (or it is gone)
+        if refund is None or refund.status != Refund.Status.PENDING or refund.razorpay_refund_id:
             return
         client, payment_id, ours = payments.client(), refund.payment.razorpay_payment_id, str(refund.pk)
         made = client.payment.fetch_multiple_refund(payment_id, timeout=payments.TIMEOUT).get("items", [])

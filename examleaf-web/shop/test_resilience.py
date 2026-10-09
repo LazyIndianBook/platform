@@ -1,14 +1,19 @@
 """When Razorpay hangs (RESILIENCE.md): the real SDK and requests against a local server that takes the connection and
-never answers, so that only the client's own timeout ends the wait."""
+never answers, so that only the client's own timeout ends the wait. And a refund another worker is making."""
 
+import threading
+
+import pytest
 import razorpay
 import requests
+from django.db import connection, connections, transaction
 
 from shop import payments, tasks
 from shop.factories import KEY, SECRET, ProductFactory, make_order
 from shop.models import Order, Payment, Refund
 
 REAL_REQUEST = requests.Session.request  # before shop/conftest.py's no_network fixture refuses every call
+postgres_only = pytest.mark.skipif(connection.vendor != "postgresql", reason="needs row locks (select_for_update)")
 
 
 def pending_refund():
@@ -47,3 +52,29 @@ def test_a_refund_task_meeting_a_silent_razorpay_gives_up_its_try_and_is_retried
     assert isinstance(within.error, requests.Timeout)  # retried by autoretry_for (requests.RequestException)
     refund.refresh_from_db()
     assert refund.status == Refund.Status.PENDING and refund.razorpay_refund_id is None
+
+
+@postgres_only
+@pytest.mark.django_db(transaction=True, serialized_rollback=True)
+def test_a_refund_another_worker_is_making_is_left_to_it_at_once(rzp, within):
+    refund = pending_refund()
+    held, release = threading.Event(), threading.Event()
+
+    def other_worker():  # holds the refund's row as refund_payment does during its Razorpay calls
+        with transaction.atomic():
+            Refund.objects.select_for_update().get(pk=refund.pk)
+            held.set()
+            release.wait(10)
+        connections.close_all()
+
+    holder = threading.Thread(target=other_worker)
+    holder.start()
+    assert held.wait(5)
+    try:
+        assert within(3, lambda: tasks.refund_payment.run(refund.pk)) and within.error is None
+    finally:
+        release.set()
+        holder.join()
+    assert not rzp.payment.refund.called  # nothing sent twice; the first worker finishes it
+    tasks.refund_payment.run(refund.pk)  # once free, the row is the task's again
+    assert Refund.objects.get(pk=refund.pk).status == Refund.Status.PROCESSED
