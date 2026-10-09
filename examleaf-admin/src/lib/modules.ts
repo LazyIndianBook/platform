@@ -127,6 +127,18 @@ export const P = {
   contentImport: "staff.import_content",
   depositsView: "content.view_legaldeposit",
   depositsAdd: "content.add_legaldeposit",
+  // support (the backend's support app): the tickets, their notes, the saved replies, the grievance register
+  ticketsView: "support.view_ticket",
+  ticketsHandle: "staff.handle_ticket",
+  ticketsNote: "support.note_ticket",
+  repliesView: "support.view_savedreply",
+  repliesAdd: "support.add_savedreply",
+  repliesChange: "support.change_savedreply",
+  repliesDelete: "support.delete_savedreply",
+  grievancesExport: "staff.export_grievances",
+  // what a ticket's actions also need beyond the Orders module's keys: the course's own permissions
+  accessExtend: "learn.change_entitlement",
+  bookCodesView: "learn.view_bookcode",
 } as const;
 
 /** Whether the manifest lists the permission (the shell's only use of permissions: what to draw). */
@@ -172,6 +184,7 @@ export const MODULES: readonly Module[] = [
   { key: "users", href: "/users/", group: "customers", any: [P.usersView] },
   { key: "partners", href: "/partners/", group: "customers", any: ["accounts.view_teacherprofile"], soon: true },
   { key: "cockpit", href: "/privacy/", group: "privacy", any: [P.requestsView] },
+  { key: "support", href: "/support/", group: "customers", any: [P.ticketsView, P.repliesView, P.grievancesExport] },
   { key: "requests", href: "/privacy/requests/", group: "privacy", any: [P.requestsView] },
   { key: "policies", href: "/privacy/policies/", group: "privacy", any: [P.policiesView] },
   { key: "incidents", href: "/privacy/incidents/", group: "privacy", any: [P.incidentsView] },

@@ -1,0 +1,13 @@
+{% autoescape off %}We have your request {{ ticket.number }}{% if category %} about {{ category }}{% endif %}, received on {{ received|date:"j F Y" }} at {{ received|date:"H:i" }} (India time).
+
+We will answer it by {{ due|date:"j F Y" }} at the latest. Keep the number: reply to this email to add to the request, or quote the number when you write to us.
+{% if copy %}
+Your complaint as we recorded it:
+
+{{ complaint }}
+{% endif %}
+If you have an account, My requests shows its status: {{ site_url }}/account/requests/
+{% if officer %}
+Grievance Officer: {{ officer }}
+{% endif %}
+ExamLeaf{% endautoescape %}

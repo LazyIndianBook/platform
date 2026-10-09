@@ -189,7 +189,8 @@ class JobStartSerializer(serializers.Serializer):
         '"customer_requested"}, 250 at most): {"targets": [order numbers]}; orders_export: {"filters": {…}} (the '
         "order list's); "
         'content_import: {"subject": "physics", "commit": "" or a commit, "dry_run_job": the dry run\'s id (to '
-        "apply)}",
+        "apply)}; "
+        'grievance_export: {"from": "YYYY-MM-DD", "until": "YYYY-MM-DD"} (the days received, both optional)',
     )
     dry_run = serializers.BooleanField(required=False, default=False, help_text="check every row, change nothing")
 
@@ -215,6 +216,17 @@ class JobStartSerializer(serializers.Serializer):
             from content.imports import clean_params
 
             data["params"] = clean_params(params, dry_run=data["dry_run"])
+            return data
+        if data["kind"] == Job.Kind.GRIEVANCE_EXPORT:
+            data["params"] = {}
+            for name in ("from", "until"):
+                try:
+                    if day := params.get(name):
+                        data["params"][name] = date.fromisoformat(str(day)).isoformat()
+                except ValueError:
+                    raise serializers.ValidationError({"params": {name: ["A day: YYYY-MM-DD."]}}) from None
+            if data["params"].get("from", "") > data["params"].get("until", "9999"):
+                raise serializers.ValidationError({"params": {"until": ["Not before the first day."]}})
             return data
         if data["kind"] == Job.Kind.ERP_INITIAL_LOAD:
             since = params.get("invoices_from")

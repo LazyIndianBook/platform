@@ -41,6 +41,8 @@ class StaffScope(models.Model):
         WAREHOUSE = "warehouse", "warehouse"
         SCHOOL = "school", "school"
         TICKET_QUEUE = "ticket_queue", "work queue (an inbox kind)"
+        # Phase B: support
+        TICKET_CATEGORY = "ticket_category", "ticket category (support: order, content_error …)"
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="staff_scopes")
     kind = models.CharField(max_length=20, choices=Kind.choices)
@@ -293,6 +295,10 @@ class InboxItem(models.Model):
         REVIEW = "review", "content review"  # content/review.py
         ERROR_REPORT = "error_report", "reported mistake"  # content/reports.py
         LEGAL_DEPOSIT = "legal_deposit", "legal deposit due"  # content/tasks.py
+        # Phase B: support (support/services.py)
+        TICKET_DUE = "ticket_due", "a ticket's legal clock three quarters gone"
+        TICKET_BREACH = "ticket_breach", "a ticket past its legal clock"
+        TICKET_MENTION = "ticket_mention", "named in a ticket's note"
 
     kind = models.CharField(max_length=20, choices=Kind.choices, db_index=True)
     title = models.CharField(max_length=200, help_text="Names no one: a number, a kind.")
@@ -359,6 +365,8 @@ class Job(models.Model):
         ORDERS_CANCEL = "orders_cancel", "orders cancelled"
         ORDERS_EXPORT = "orders_export", "order export"
         CONTENT_IMPORT = "content_import", "import from the books repository"  # content/imports.py
+        # Phase B: support
+        GRIEVANCE_EXPORT = "grievance_export", "grievance register export"  # support.register
 
     class State(models.TextChoices):
         QUEUED = "queued", "queued"

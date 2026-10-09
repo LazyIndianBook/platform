@@ -39,6 +39,7 @@ urlpatterns = [
     path("connections/", include("integrations.api")),
     path("content/", include("content.staff_api")),
     path("orders/", include("shop.staff_orders")),
+    path("support/", include("support.api")),
     path("system/", include("staff.system_api")),
     path("tax/", include("shop.staff_tax")),
     path("templates/", include("ops.staff_api")),

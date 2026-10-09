@@ -4,6 +4,34 @@
  */
 
 export interface paths {
+    "/api/v1/account/impersonate/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The website's side of logging in as a customer (research 2.7), `/api/v1/account/impersonate/` of the account API
+         *     (not the staff API: the website's host). POST the token of the panel's `users/<id>/impersonate/` (the token is the
+         *     credential: no sign-in needed): once per token, within its 15 minutes, the browser is logged in as the customer
+         *     until then, in a session marked as staff's (staff.services.accept_impersonation). DELETE ends it.
+         */
+        post: operations["account_impersonate_create"];
+        /**
+         * @description The website's side of logging in as a customer (research 2.7), `/api/v1/account/impersonate/` of the account API
+         *     (not the staff API: the website's host). POST the token of the panel's `users/<id>/impersonate/` (the token is the
+         *     credential: no sign-in needed): once per token, within its 15 minutes, the browser is logged in as the customer
+         *     until then, in a session marked as staff's (staff.services.accept_impersonation). DELETE ends it.
+         */
+        delete: operations["account_impersonate_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/addresses/": {
         parameters: {
             query?: never;
@@ -582,7 +610,9 @@ export interface paths {
          *     (allauth.headless's /_allauth/<client>/v1/config has allauth's own view of them), the bot check, the shop, whether
          *     the solutions need an account, the parent's consent mode, the support contacts (null while the seller's details
          *     still hold a [placeholder]), the app's store pages (null until set) and whether the revision course has pages on
-         *     the website (WEB_COURSE, off by default). Public, cacheable for 5 minutes.
+         *     the website (WEB_COURSE, off by default), and maintenance mode with its banner. SHOP_OPEN, SHOP_COD_ENABLED,
+         *     PARENTAL_CONSENT_MODE, WEB_COURSE and maintenance are the panel's when it has set them (staff.config), the
+         *     environment's otherwise. Public, cacheable for 5 minutes.
          */
         get: operations["config_retrieve"];
         put?: never;
@@ -603,10 +633,12 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description The contact form, as on the website's /contact/: the message is emailed to the support address (SUPPORT_EMAIL,
-         *     else SELLER_EMAIL) with Reply-To the sender, and nothing is stored. Turnstile's token while the bot check is on; 5
-         *     an hour per client address, the website's form included; a filled-in `website` (the honeypot) is thanked and
-         *     dropped. 503 while the support address is still a [placeholder].
+         * @description The contact form, as on the website's /contact/: the message becomes a support ticket (support.services
+         *     .from_contact_form: a number, the legal clocks, the acknowledgement with the number to the sender's address; with
+         *     SUPPORT_COPY_TO_EMAIL a copy to the support address, SUPPORT_EMAIL else SELLER_EMAIL). Turnstile's token while the
+         *     bot check is on; 5 an hour per client address, the website's form included; a filled-in `website` (the honeypot)
+         *     is thanked and dropped. 503 while the support address is still a [placeholder]: the acknowledgement's replies go
+         *     there.
          */
         post: operations["contact_create"];
         delete?: never;
@@ -651,6 +683,196 @@ export interface paths {
          *     printing each was read in and the printing that carries its fix. Public, kept 5 minutes by shared caches.
          */
         get: operations["errata_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/insights/backtests/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The rows of a job's newest run (`kind` and `rows`: a ForecastRun's) or newest day (a stat model's). */
+        get: operations["insights_backtests_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/insights/chapter-stats/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The rows of a job's newest run (`kind` and `rows`: a ForecastRun's) or newest day (a stat model's). */
+        get: operations["insights_chapter_stats_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/insights/code-activation/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The rows of a job's newest run (`kind` and `rows`: a ForecastRun's) or newest day (a stat model's). */
+        get: operations["insights_code_activation_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/insights/cohorts/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The rows of a job's newest run (`kind` and `rows`: a ForecastRun's) or newest day (a stat model's). */
+        get: operations["insights_cohorts_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/insights/delivery/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The rows of a job's newest run (`kind` and `rows`: a ForecastRun's) or newest day (a stat model's). */
+        get: operations["insights_delivery_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/insights/forecasts/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Weekly forecasts of each title: every district together, or `?district=all` (each district) or a district's
+         *     name; `?product=<slug>` for one title.
+         */
+        get: operations["insights_forecasts_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/insights/fraud-signals/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The fraud rules' signals, newest first (`?open=1`: those not acknowledged yet). */
+        get: operations["insights_fraud_signals_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/insights/fraud-signals/{id}/acknowledge/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Looked at and handled: the signal leaves `?open=1`. Once (again: the same answer); the audit log keeps who. */
+        post: operations["insights_fraud_signals_acknowledge_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/insights/item-stats/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Today's item analysis (`?chapter=<id>` for one chapter's items). */
+        get: operations["insights_item_stats_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/insights/offers/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The rows of a job's newest run (`kind` and `rows`: a ForecastRun's) or newest day (a stat model's). */
+        get: operations["insights_offers_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/insights/print-runs/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The rows of a job's newest run (`kind` and `rows`: a ForecastRun's) or newest day (a stat model's). */
+        get: operations["insights_print_runs_list"];
         put?: never;
         post?: never;
         delete?: never;
@@ -937,6 +1159,26 @@ export interface paths {
         patch: operations["me_partial_update"];
         trace?: never;
     };
+    "/api/v1/me/consent/withdraw/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Withdraw a marketing consent (one channel, or every one): recorded in the consent ledger (once: a second
+         *     withdrawal answers the first), and each processor that holds marketing data is told to stop (an inbox task).
+         */
+        post: operations["me_consent_withdraw_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/deletion/": {
         parameters: {
             query?: never;
@@ -1024,6 +1266,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/nominee/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description My nominee: GET it (404 while none), PUT it (made or changed; a nomination proved at a claim is not changed
+         *     here), DELETE it (withdrawn).
+         */
+        get: operations["me_nominee_retrieve"];
+        /**
+         * @description My nominee: GET it (404 while none), PUT it (made or changed; a nomination proved at a claim is not changed
+         *     here), DELETE it (withdrawn).
+         */
+        put: operations["me_nominee_update"];
+        post?: never;
+        /**
+         * @description My nominee: GET it (404 while none), PUT it (made or changed; a nomination proved at a claim is not changed
+         *     here), DELETE it (withdrawn).
+         */
+        delete: operations["me_nominee_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/parent-consent/": {
         parameters: {
             query?: never;
@@ -1085,6 +1355,34 @@ export interface paths {
          *     in me/).
          */
         post: operations["me_teacher_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/tickets/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description My requests: the signed-in customer's tickets (their account's, and those sent from one of its confirmed email
+         *     addresses before it had them), newest first, 50 a page: the number, what it is about, its status and dates, never
+         *     staff's notes nor who works on it. POST makes one (a confirmed email address; 10 an hour): it is acknowledged by
+         *     email with its number at once.
+         */
+        get: operations["me_tickets_list"];
+        put?: never;
+        /**
+         * @description My requests: the signed-in customer's tickets (their account's, and those sent from one of its confirmed email
+         *     addresses before it had them), newest first, 50 a page: the number, what it is about, its status and dates, never
+         *     staff's notes nor who works on it. POST makes one (a confirmed email address; 10 an hour): it is acknowledged by
+         *     email with its number at once.
+         */
+        post: operations["me_tickets_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1428,6 +1726,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/pages/{slug}/versions/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A legal page's versions, newest first (the one waiting for its day first of all): its number, the day it is
+         *     in force from and what it changed. Public, cacheable for 15 minutes.
+         */
+        get: operations["pages_versions_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/papers/": {
         parameters: {
             query?: never;
@@ -1467,7 +1785,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description The questions in paper order, each with its marking-scheme solution (Markdown and HTML). */
+        /**
+         * @description The questions in paper order, each with its marking-scheme solution (Markdown and HTML): the live text (a
+         *     draft waits apart until it is reviewed); a question no longer in the books repository is left out.
+         */
         get: operations["papers_solutions_list"];
         put?: never;
         post?: never;
@@ -1662,6 +1983,233 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/shipping/charges/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description What the courier account charged and gave back, line by line (filters kind, shipment). */
+        get: operations["shipping_charges_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping/charges/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description What the courier account charged and gave back, line by line (filters kind, shipment). */
+        get: operations["shipping_charges_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping/cod/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Cash on delivery: expected, overdue, remitted, mismatched (filter state); reconcile one with the bank. */
+        get: operations["shipping_cod_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping/cod/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Cash on delivery: expected, overdue, remitted, mismatched (filter state); reconcile one with the bank. */
+        get: operations["shipping_cod_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping/cod/{id}/reconcile/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The bank's credit for this parcel's cash, matched by its UTR: remitted at the amount expected, otherwise a
+         *     mismatch (and its exception).
+         */
+        post: operations["shipping_cod_reconcile_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping/exceptions/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description What parcels need from staff, by deadline (filters kind, state, shipment); resolve or dismiss one. */
+        get: operations["shipping_exceptions_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping/exceptions/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description What parcels need from staff, by deadline (filters kind, state, shipment); resolve or dismiss one. */
+        get: operations["shipping_exceptions_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping/exceptions/{id}/resolve/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description What parcels need from staff, by deadline (filters kind, state, shipment); resolve or dismiss one. */
+        post: operations["shipping_exceptions_resolve_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping/manifest/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The handover list of booked parcels (one courier account): the carrier's PDF. */
+        post: operations["shipping_manifest_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping/orders/{number}/quote/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The couriers for an order's parcel, ranked, with India Post's prices for a prepaid order. */
+        get: operations["shipping_orders_quote_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping/pickup-locations/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Our pickup addresses by the courier's nicknames; `sync` reads them from the courier account. */
+        get: operations["shipping_pickup_locations_list"];
+        put?: never;
+        /** @description Our pickup addresses by the courier's nicknames; `sync` reads them from the courier account. */
+        post: operations["shipping_pickup_locations_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping/pickup-locations/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Our pickup addresses by the courier's nicknames; `sync` reads them from the courier account. */
+        get: operations["shipping_pickup_locations_retrieve"];
+        /** @description Our pickup addresses by the courier's nicknames; `sync` reads them from the courier account. */
+        put: operations["shipping_pickup_locations_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Our pickup addresses by the courier's nicknames; `sync` reads them from the courier account. */
+        patch: operations["shipping_pickup_locations_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/shipping/pickup-locations/sync/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Our pickup addresses by the courier's nicknames; `sync` reads them from the courier account. */
+        post: operations["shipping_pickup_locations_sync_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/shipping/quote/": {
         parameters: {
             query?: never;
@@ -1678,6 +2226,5338 @@ export interface paths {
         get: operations["shipping_quote_retrieve"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping/shipments/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Parcels: the list (filters status, carrier, courier, order; search by AWB, order or our reference), one with
+         *     its timeline, exceptions, charges and COD remittance; booking (POST) and the packing room's actions.
+         */
+        get: operations["shipping_shipments_list"];
+        put?: never;
+        /**
+         * @description Book a parcel for a packed order: with a courier of the quote, prepared now and booked by a task (202; its
+         *     status becomes "booked" with its AWB), or sent by hand, shipped at once (201).
+         */
+        post: operations["shipping_shipments_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping/shipments/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Parcels: the list (filters status, carrier, courier, order; search by AWB, order or our reference), one with
+         *     its timeline, exceptions, charges and COD remittance; booking (POST) and the packing room's actions.
+         */
+        get: operations["shipping_shipments_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping/shipments/{id}/cancel/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Cancel the booking, until the courier is out to collect it. */
+        post: operations["shipping_shipments_cancel_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping/shipments/{id}/events/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The parcel's timeline, oldest first. */
+        get: operations["shipping_shipments_events_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping/shipments/{id}/label/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description GET: the label's PDF, kept with us (404 until fetched). POST: fetch it (a task). */
+        get: operations["shipping_shipments_label_retrieve"];
+        put?: never;
+        /** @description GET: the label's PDF, kept with us (404 until fetched). POST: fetch it (a task). */
+        post: operations["shipping_shipments_label_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping/shipments/{id}/ndr-action/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description After a failed delivery: re-attempt (a date, phone or address), fake-attempt (disputed), or return. */
+        post: operations["shipping_shipments_ndr_action_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping/shipments/{id}/photo/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The parcel on the scale, label side up: the evidence for a weight dispute or a fake attempt. */
+        post: operations["shipping_shipments_photo_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shipping/shipments/{id}/pickup/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Ask the courier to collect the parcel (on a date, or the next possible day). */
+        post: operations["shipping_shipments_pickup_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/access-review/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The quarterly access review (research 6): each member of staff with roles, scopes, last log-in, second
+         *     factor, and the action permissions they hold but have not used in 90 days (the audit log, and the Django admin's
+         *     own log for what they did there).
+         */
+        get: operations["staff_access_review_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/api-keys/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Integrations' keys (OWNER: staff.manage_api_keys; ADMIN and AUDITOR see them): made with view permissions
+         *     only, shown once, for 12 months at most, optionally from some addresses; revoked at once.
+         */
+        get: operations["staff_api_keys_list"];
+        put?: never;
+        /**
+         * @description Integrations' keys (OWNER: staff.manage_api_keys; ADMIN and AUDITOR see them): made with view permissions
+         *     only, shown once, for 12 months at most, optionally from some addresses; revoked at once.
+         */
+        post: operations["staff_api_keys_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/api-keys/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Integrations' keys (OWNER: staff.manage_api_keys; ADMIN and AUDITOR see them): made with view permissions
+         *     only, shown once, for 12 months at most, optionally from some addresses; revoked at once.
+         */
+        get: operations["staff_api_keys_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/api-keys/{id}/revoke/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Integrations' keys (OWNER: staff.manage_api_keys; ADMIN and AUDITOR see them): made with view permissions
+         *     only, shown once, for 12 months at most, optionally from some addresses; revoked at once.
+         */
+        post: operations["staff_api_keys_revoke_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/audit/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Search the audit log (AUDITOR and OWNER: staff.view_auditlog); each read is itself recorded (`audit.read`).
+         *     `export/` gives JSON lines (with the hashes, so a copy can be checked) up to 5,000 rows within your export limit;
+         *     more is a background job (`jobs/`), which ADMIN approves first above your limit.
+         */
+        get: operations["staff_audit_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/audit/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Search the audit log (AUDITOR and OWNER: staff.view_auditlog); each read is itself recorded (`audit.read`).
+         *     `export/` gives JSON lines (with the hashes, so a copy can be checked) up to 5,000 rows within your export limit;
+         *     more is a background job (`jobs/`), which ADMIN approves first above your limit.
+         */
+        get: operations["staff_audit_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/audit/export/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Search the audit log (AUDITOR and OWNER: staff.view_auditlog); each read is itself recorded (`audit.read`).
+         *     `export/` gives JSON lines (with the hashes, so a copy can be checked) up to 5,000 rows within your export limit;
+         *     more is a background job (`jobs/`), which ADMIN approves first above your limit.
+         */
+        post: operations["staff_audit_export_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/catalogue/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Every catalogued permission (label, area, risk, what it triggers) and every role (its permissions, limits,
+         *     scopes, separation-of-duty conflicts, members): the role catalogue page and the "Needs: …" tooltips.
+         */
+        get: operations["staff_catalogue_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/change-requests/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Maker-checker. POST asks (with an Idempotency-Key header): within your limits it runs at once (201), above
+         *     them it waits (202). approve/ sends back the payload's hash you read; execute/ runs the stored payload once (its
+         *     maker or a checker). Every member of staff with staff.view_changerequest sees them (the payloads name orders,
+         *     products and accounts by number or id, no one's details); `?awaiting=true` lists those you may approve.
+         */
+        get: operations["staff_change_requests_list"];
+        put?: never;
+        /**
+         * @description Maker-checker. POST asks (with an Idempotency-Key header): within your limits it runs at once (201), above
+         *     them it waits (202). approve/ sends back the payload's hash you read; execute/ runs the stored payload once (its
+         *     maker or a checker). Every member of staff with staff.view_changerequest sees them (the payloads name orders,
+         *     products and accounts by number or id, no one's details); `?awaiting=true` lists those you may approve.
+         */
+        post: operations["staff_change_requests_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/change-requests/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Maker-checker. POST asks (with an Idempotency-Key header): within your limits it runs at once (201), above
+         *     them it waits (202). approve/ sends back the payload's hash you read; execute/ runs the stored payload once (its
+         *     maker or a checker). Every member of staff with staff.view_changerequest sees them (the payloads name orders,
+         *     products and accounts by number or id, no one's details); `?awaiting=true` lists those you may approve.
+         */
+        get: operations["staff_change_requests_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/change-requests/{id}/approve/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Maker-checker. POST asks (with an Idempotency-Key header): within your limits it runs at once (201), above
+         *     them it waits (202). approve/ sends back the payload's hash you read; execute/ runs the stored payload once (its
+         *     maker or a checker). Every member of staff with staff.view_changerequest sees them (the payloads name orders,
+         *     products and accounts by number or id, no one's details); `?awaiting=true` lists those you may approve.
+         */
+        post: operations["staff_change_requests_approve_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/change-requests/{id}/execute/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Maker-checker. POST asks (with an Idempotency-Key header): within your limits it runs at once (201), above
+         *     them it waits (202). approve/ sends back the payload's hash you read; execute/ runs the stored payload once (its
+         *     maker or a checker). Every member of staff with staff.view_changerequest sees them (the payloads name orders,
+         *     products and accounts by number or id, no one's details); `?awaiting=true` lists those you may approve.
+         */
+        post: operations["staff_change_requests_execute_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/change-requests/{id}/reject/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Maker-checker. POST asks (with an Idempotency-Key header): within your limits it runs at once (201), above
+         *     them it waits (202). approve/ sends back the payload's hash you read; execute/ runs the stored payload once (its
+         *     maker or a checker). Every member of staff with staff.view_changerequest sees them (the payloads name orders,
+         *     products and accounts by number or id, no one's details); `?awaiting=true` lists those you may approve.
+         */
+        post: operations["staff_change_requests_reject_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/connections/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description One card per integration, in the page's order: is it working (connected, degraded, expired, disabled,
+         *     not_configured), since when, test or live, where its keys come from, its calls of the day and the week.
+         */
+        get: operations["staff_connections_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/connections/{provider}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One integration's card (the provider's page opens on it). */
+        get: operations["staff_connections_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/connections/{provider}/calls/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The provider's outbound calls, newest first (filters operation, failed), their excerpts redacted when kept. */
+        get: operations["staff_connections_calls_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/connections/{provider}/circuit/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Hold the circuit open (calls wait until it is reset), or reset it (calls go through). */
+        post: operations["staff_connections_circuit_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/connections/{provider}/credentials/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Replace one mode's credentials: tested first, in the same call, and kept only if the test passes (400 with the
+         *     provider's answer otherwise; the old ones stay). Never answered: the card shows their last four characters.
+         */
+        post: operations["staff_connections_credentials_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/connections/{provider}/events/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The provider's inbound events, newest first (filter state), their bodies redacted. */
+        get: operations["staff_connections_events_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/connections/{provider}/events/{id}/replay/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Process one event again (a rejected one never). */
+        post: operations["staff_connections_events_replay_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/connections/{provider}/events/replay-failed/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Process again every failed event received since a time (500 at a time). */
+        post: operations["staff_connections_events_replay_failed_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/connections/{provider}/failures/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The provider's dead letters, newest first (filters state, operation). */
+        get: operations["staff_connections_failures_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/connections/{provider}/failures/{id}/discard/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Give a dead letter up, with the reason. */
+        post: operations["staff_connections_failures_discard_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/connections/{provider}/failures/{id}/replay/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Run a dead letter's task again, once (ERPNext's: the sync's own replay of its outbox row). */
+        post: operations["staff_connections_failures_replay_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/connections/{provider}/mode/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Off, test or live: the account of that mode used from now on (its credentials needed). */
+        post: operations["staff_connections_mode_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/connections/{provider}/test/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Test the connection with the keys in force: one harmless authenticated read (the result kept on its account,
+         *     the call in the call log). A failed test answers 200 with ok false: the test ran.
+         */
+        post: operations["staff_connections_test_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/connections/{provider}/webhooks/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The provider's inbound webhooks: our address to paste, how it authenticates, the token's last four characters
+         *     and its rotation (the previous one's last moment), the week's events by state, and whether it fell silent.
+         */
+        get: operations["staff_connections_webhooks_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/connections/{provider}/webhooks/rotate/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description A new webhook token, answered this once; the previous one is still accepted for 24 hours. */
+        post: operations["staff_connections_webhooks_rotate_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/books/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Books (filters subject, board, class_level, format): their ISBN (checked when set or changed), format,
+         *     edition and publication date (the legal deposit's clock); made and changed at once, audited.
+         */
+        get: operations["staff_content_books_list"];
+        put?: never;
+        /**
+         * @description Books (filters subject, board, class_level, format): their ISBN (checked when set or changed), format,
+         *     edition and publication date (the legal deposit's clock); made and changed at once, audited.
+         */
+        post: operations["staff_content_books_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/books/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Books (filters subject, board, class_level, format): their ISBN (checked when set or changed), format,
+         *     edition and publication date (the legal deposit's clock); made and changed at once, audited.
+         */
+        get: operations["staff_content_books_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description Books (filters subject, board, class_level, format): their ISBN (checked when set or changed), format,
+         *     edition and publication date (the legal deposit's clock); made and changed at once, audited.
+         */
+        patch: operations["staff_content_books_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/content/books/{id}/history/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Books (filters subject, board, class_level, format): their ISBN (checked when set or changed), format,
+         *     edition and publication date (the legal deposit's clock); made and changed at once, audited.
+         */
+        get: operations["staff_content_books_history_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/books/{id}/history/{history_id}/restore/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Back to a version: a book's or a paper's fields at once, a question's or a solution's text into its
+         *     draft (to be reviewed).
+         */
+        post: operations["staff_content_books_history_restore_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/errata/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The errata per book and printing: confirmed and fixed mistakes (filters book, printing, public); those marked
+         *     `public` are the website's (GET /api/v1/errata/?book=).
+         */
+        get: operations["staff_content_errata_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/imports/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The imports, newest first: dry runs and applies (each a staff job; POST /api/v1/staff/jobs/ with kind
+         *     content_import starts one, staff.import_content), within the person's subjects.
+         */
+        get: operations["staff_content_imports_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/legal-deposits/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The deposits made (filters book, library), one recorded (content.add_legaldeposit: JSON, or multipart with the
+         *     proof's scan), its scan, and the published books still missing some of the four libraries.
+         */
+        get: operations["staff_content_legal_deposits_list"];
+        put?: never;
+        /**
+         * @description The deposits made (filters book, library), one recorded (content.add_legaldeposit: JSON, or multipart with the
+         *     proof's scan), its scan, and the published books still missing some of the four libraries.
+         */
+        post: operations["staff_content_legal_deposits_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/legal-deposits/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The deposits made (filters book, library), one recorded (content.add_legaldeposit: JSON, or multipart with the
+         *     proof's scan), its scan, and the published books still missing some of the four libraries.
+         */
+        get: operations["staff_content_legal_deposits_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/legal-deposits/{id}/proof/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The proof's scan: the file, or 302 to the private bucket's own link (signed for 5 minutes). */
+        get: operations["staff_content_legal_deposits_proof_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/legal-deposits/missing/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The deposits made (filters book, library), one recorded (content.add_legaldeposit: JSON, or multipart with the
+         *     proof's scan), its scan, and the published books still missing some of the four libraries.
+         */
+        get: operations["staff_content_legal_deposits_missing_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/papers/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Papers by code (filters subject, board, class_level, book, tier, is_published, changed, q); one with its
+         *     questions and solutions as a tree; its QR code. Publishing or unpublishing a paper, or making it the book's open
+         *     sample (which the book's other paper then is no longer), is publish/'s (staff.publish_paper), not the PATCH's. Its
+         *     code is in its printed QR code: it never changes here.
+         */
+        get: operations["staff_content_papers_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/papers/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Papers by code (filters subject, board, class_level, book, tier, is_published, changed, q); one with its
+         *     questions and solutions as a tree; its QR code. Publishing or unpublishing a paper, or making it the book's open
+         *     sample (which the book's other paper then is no longer), is publish/'s (staff.publish_paper), not the PATCH's. Its
+         *     code is in its printed QR code: it never changes here.
+         */
+        get: operations["staff_content_papers_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description Papers by code (filters subject, board, class_level, book, tier, is_published, changed, q); one with its
+         *     questions and solutions as a tree; its QR code. Publishing or unpublishing a paper, or making it the book's open
+         *     sample (which the book's other paper then is no longer), is publish/'s (staff.publish_paper), not the PATCH's. Its
+         *     code is in its printed QR code: it never changes here.
+         */
+        patch: operations["staff_content_papers_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/content/papers/{id}/history/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Papers by code (filters subject, board, class_level, book, tier, is_published, changed, q); one with its
+         *     questions and solutions as a tree; its QR code. Publishing or unpublishing a paper, or making it the book's open
+         *     sample (which the book's other paper then is no longer), is publish/'s (staff.publish_paper), not the PATCH's. Its
+         *     code is in its printed QR code: it never changes here.
+         */
+        get: operations["staff_content_papers_history_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/papers/{id}/history/{history_id}/restore/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Back to a version: a book's or a paper's fields at once, a question's or a solution's text into its
+         *     draft (to be reviewed).
+         */
+        post: operations["staff_content_papers_history_restore_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/papers/{id}/publish/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The paper on the site or off it (every solution behind its printed code with it), and the book's open
+         *     sample or not: made the sample, it stops being the book's other paper's (one per book).
+         */
+        post: operations["staff_content_papers_publish_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/papers/{id}/qr/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The paper's QR code and the address it prints, which the site can redirect later, with the print run when
+         *     one is named; refused while SITE_URL is not a public https address (a printed book cannot be corrected), as
+         *     export_qr refuses.
+         */
+        get: operations["staff_content_papers_qr_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/questions/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A question's or a solution's live text and its draft: PATCH writes the draft (the structural check of
+         *     content.latex first), submit/ sends it to a reviewer, discard/ drops it, rollback/ undoes the last publish
+         *     (staff.publish_paper); history/ and restore (into the draft).
+         */
+        get: operations["staff_content_questions_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/questions/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A question's or a solution's live text and its draft: PATCH writes the draft (the structural check of
+         *     content.latex first), submit/ sends it to a reviewer, discard/ drops it, rollback/ undoes the last publish
+         *     (staff.publish_paper); history/ and restore (into the draft).
+         */
+        get: operations["staff_content_questions_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description A question's or a solution's live text and its draft: PATCH writes the draft (the structural check of
+         *     content.latex first), submit/ sends it to a reviewer, discard/ drops it, rollback/ undoes the last publish
+         *     (staff.publish_paper); history/ and restore (into the draft).
+         */
+        patch: operations["staff_content_questions_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/content/questions/{id}/discard/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The draft dropped (and its review withdrawn): the live text stays. */
+        post: operations["staff_content_questions_discard_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/questions/{id}/history/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A question's or a solution's live text and its draft: PATCH writes the draft (the structural check of
+         *     content.latex first), submit/ sends it to a reviewer, discard/ drops it, rollback/ undoes the last publish
+         *     (staff.publish_paper); history/ and restore (into the draft).
+         */
+        get: operations["staff_content_questions_history_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/questions/{id}/history/{history_id}/restore/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Back to a version: a book's or a paper's fields at once, a question's or a solution's text into its
+         *     draft (to be reviewed).
+         */
+        post: operations["staff_content_questions_history_restore_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/questions/{id}/rollback/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The last publish undone: the text before it live again, the text it published back in the draft. */
+        post: operations["staff_content_questions_rollback_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/questions/{id}/submit/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The draft to a second person: a review task (201) and an inbox item for the subject's reviewers. */
+        post: operations["staff_content_questions_submit_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/reports/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The triage queue, oldest first; the open ones unless `state` says (filters state, category, subject, printing,
+         *     teacher, paper, book); spam never shows. Each step and the reporter told are staff.triage_report's.
+         */
+        get: operations["staff_content_reports_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/reports/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The triage queue, oldest first; the open ones unless `state` says (filters state, category, subject, printing,
+         *     teacher, paper, book); spam never shows. Each step and the reporter told are staff.triage_report's.
+         */
+        get: operations["staff_content_reports_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description The triage queue, oldest first; the open ones unless `state` says (filters state, category, subject, printing,
+         *     teacher, paper, book); spam never shows. Each step and the reporter told are staff.triage_report's.
+         */
+        patch: operations["staff_content_reports_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/content/reports/{id}/confirm/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The triage's step `confirm` (content.reports.TRANSITIONS). */
+        post: operations["staff_content_reports_confirm_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/reports/{id}/fix-in-printing/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The triage's step `fix-in-printing` (content.reports.TRANSITIONS). */
+        post: operations["staff_content_reports_fix_in_printing_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/reports/{id}/fix-online/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The triage's step `fix-online` (content.reports.TRANSITIONS). */
+        post: operations["staff_content_reports_fix_online_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/reports/{id}/reject/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The triage's step `reject` (content.reports.TRANSITIONS). */
+        post: operations["staff_content_reports_reject_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/reports/{id}/reopen/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The triage's step `reopen` (content.reports.TRANSITIONS). */
+        post: operations["staff_content_reports_reopen_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/reports/{id}/tell/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The reporter emailed that the fix is published: once, fixed, if they left an address (then cleared). */
+        post: operations["staff_content_reports_tell_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/reviews/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The review queue, oldest first (filters subject, paper, state, stage, mine, submitted, open): `mine` is
+         *     "waiting for me". A reviewer (staff.publish_paper, in their subjects) approves, asks for changes (with a comment)
+         *     or publishes (approving on the way); never their own edit (403 `own_edit`).
+         */
+        get: operations["staff_content_reviews_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/reviews/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The review queue, oldest first (filters subject, paper, state, stage, mine, submitted, open): `mine` is
+         *     "waiting for me". A reviewer (staff.publish_paper, in their subjects) approves, asks for changes (with a comment)
+         *     or publishes (approving on the way); never their own edit (403 `own_edit`).
+         */
+        get: operations["staff_content_reviews_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/reviews/{id}/approve/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The review queue, oldest first (filters subject, paper, state, stage, mine, submitted, open): `mine` is
+         *     "waiting for me". A reviewer (staff.publish_paper, in their subjects) approves, asks for changes (with a comment)
+         *     or publishes (approving on the way); never their own edit (403 `own_edit`).
+         */
+        post: operations["staff_content_reviews_approve_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/reviews/{id}/needs-changes/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The review queue, oldest first (filters subject, paper, state, stage, mine, submitted, open): `mine` is
+         *     "waiting for me". A reviewer (staff.publish_paper, in their subjects) approves, asks for changes (with a comment)
+         *     or publishes (approving on the way); never their own edit (403 `own_edit`).
+         */
+        post: operations["staff_content_reviews_needs_changes_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/reviews/{id}/publish/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The review queue, oldest first (filters subject, paper, state, stage, mine, submitted, open): `mine` is
+         *     "waiting for me". A reviewer (staff.publish_paper, in their subjects) approves, asks for changes (with a comment)
+         *     or publishes (approving on the way); never their own edit (403 `own_edit`).
+         */
+        post: operations["staff_content_reviews_publish_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/solutions/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A question's or a solution's live text and its draft: PATCH writes the draft (the structural check of
+         *     content.latex first), submit/ sends it to a reviewer, discard/ drops it, rollback/ undoes the last publish
+         *     (staff.publish_paper); history/ and restore (into the draft).
+         */
+        get: operations["staff_content_solutions_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/solutions/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A question's or a solution's live text and its draft: PATCH writes the draft (the structural check of
+         *     content.latex first), submit/ sends it to a reviewer, discard/ drops it, rollback/ undoes the last publish
+         *     (staff.publish_paper); history/ and restore (into the draft).
+         */
+        get: operations["staff_content_solutions_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description A question's or a solution's live text and its draft: PATCH writes the draft (the structural check of
+         *     content.latex first), submit/ sends it to a reviewer, discard/ drops it, rollback/ undoes the last publish
+         *     (staff.publish_paper); history/ and restore (into the draft).
+         */
+        patch: operations["staff_content_solutions_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/content/solutions/{id}/discard/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The draft dropped (and its review withdrawn): the live text stays. */
+        post: operations["staff_content_solutions_discard_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/solutions/{id}/history/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A question's or a solution's live text and its draft: PATCH writes the draft (the structural check of
+         *     content.latex first), submit/ sends it to a reviewer, discard/ drops it, rollback/ undoes the last publish
+         *     (staff.publish_paper); history/ and restore (into the draft).
+         */
+        get: operations["staff_content_solutions_history_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/solutions/{id}/history/{history_id}/restore/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Back to a version: a book's or a paper's fields at once, a question's or a solution's text into its
+         *     draft (to be reviewed).
+         */
+        post: operations["staff_content_solutions_history_restore_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/solutions/{id}/rollback/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The last publish undone: the text before it live again, the text it published back in the draft. */
+        post: operations["staff_content_solutions_rollback_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/solutions/{id}/submit/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The draft to a second person: a review task (201) and an inbox item for the subject's reviewers. */
+        post: operations["staff_content_solutions_submit_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/content/summary/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The content module's home: reports open by category, reviews waiting (and for me), drafts changed since
+         *     publish, books missing legal deposits, the last import; each part null for whoever may not see it.
+         */
+        get: operations["staff_content_summary_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/data-requests/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The data principals' requests and complaints by email, letter or phone, with their clocks (acknowledge in 48
+         *     hours; answer in a month, 90 days for the DPDP rights from 13 May 2027). An access request's data goes by email
+         *     to the account's own address; an erasure is dry-run first and approved by a second person.
+         */
+        get: operations["staff_data_requests_list"];
+        put?: never;
+        /**
+         * @description The data principals' requests and complaints by email, letter or phone, with their clocks (acknowledge in 48
+         *     hours; answer in a month, 90 days for the DPDP rights from 13 May 2027). An access request's data goes by email
+         *     to the account's own address; an erasure is dry-run first and approved by a second person.
+         */
+        post: operations["staff_data_requests_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/data-requests/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The data principals' requests and complaints by email, letter or phone, with their clocks (acknowledge in 48
+         *     hours; answer in a month, 90 days for the DPDP rights from 13 May 2027). An access request's data goes by email
+         *     to the account's own address; an erasure is dry-run first and approved by a second person.
+         */
+        get: operations["staff_data_requests_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description The data principals' requests and complaints by email, letter or phone, with their clocks (acknowledge in 48
+         *     hours; answer in a month, 90 days for the DPDP rights from 13 May 2027). An access request's data goes by email
+         *     to the account's own address; an erasure is dry-run first and approved by a second person.
+         */
+        patch: operations["staff_data_requests_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/data-requests/{id}/acknowledge/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The data principals' requests and complaints by email, letter or phone, with their clocks (acknowledge in 48
+         *     hours; answer in a month, 90 days for the DPDP rights from 13 May 2027). An access request's data goes by email
+         *     to the account's own address; an erasure is dry-run first and approved by a second person.
+         */
+        post: operations["staff_data_requests_acknowledge_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/data-requests/{id}/close/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The data principals' requests and complaints by email, letter or phone, with their clocks (acknowledge in 48
+         *     hours; answer in a month, 90 days for the DPDP rights from 13 May 2027). An access request's data goes by email
+         *     to the account's own address; an erasure is dry-run first and approved by a second person.
+         */
+        post: operations["staff_data_requests_close_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/data-requests/{id}/erase/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The data principals' requests and complaints by email, letter or phone, with their clocks (acknowledge in 48
+         *     hours; answer in a month, 90 days for the DPDP rights from 13 May 2027). An access request's data goes by email
+         *     to the account's own address; an erasure is dry-run first and approved by a second person.
+         */
+        post: operations["staff_data_requests_erase_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/data-requests/{id}/erasure-report/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The data principals' requests and complaints by email, letter or phone, with their clocks (acknowledge in 48
+         *     hours; answer in a month, 90 days for the DPDP rights from 13 May 2027). An access request's data goes by email
+         *     to the account's own address; an erasure is dry-run first and approved by a second person.
+         */
+        get: operations["staff_data_requests_erasure_report_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/data-requests/{id}/export/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The data principals' requests and complaints by email, letter or phone, with their clocks (acknowledge in 48
+         *     hours; answer in a month, 90 days for the DPDP rights from 13 May 2027). An access request's data goes by email
+         *     to the account's own address; an erasure is dry-run first and approved by a second person.
+         */
+        post: operations["staff_data_requests_export_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/data-requests/{id}/response/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The data principals' requests and complaints by email, letter or phone, with their clocks (acknowledge in 48
+         *     hours; answer in a month, 90 days for the DPDP rights from 13 May 2027). An access request's data goes by email
+         *     to the account's own address; an erasure is dry-run first and approved by a second person.
+         */
+        get: operations["staff_data_requests_response_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/data-requests/{id}/verify-identity/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The data principals' requests and complaints by email, letter or phone, with their clocks (acknowledge in 48
+         *     hours; answer in a month, 90 days for the DPDP rights from 13 May 2027). An access request's data goes by email
+         *     to the account's own address; an erasure is dry-run first and approved by a second person.
+         */
+        post: operations["staff_data_requests_verify_identity_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/erp/cursors/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description How far the pull has read each doctype. */
+        get: operations["staff_erp_cursors_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/erp/dead-letters/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The dead rows, each holding its aggregate's later ones: replay (again from its first try), or discard with a
+         *     reason (its aggregate goes on). Both need erp.replay_sync and a recent re-authentication.
+         */
+        get: operations["staff_erp_dead_letters_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/erp/dead-letters/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The dead rows, each holding its aggregate's later ones: replay (again from its first try), or discard with a
+         *     reason (its aggregate goes on). Both need erp.replay_sync and a recent re-authentication.
+         */
+        get: operations["staff_erp_dead_letters_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/erp/dead-letters/{id}/discard/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The dead rows, each holding its aggregate's later ones: replay (again from its first try), or discard with a
+         *     reason (its aggregate goes on). Both need erp.replay_sync and a recent re-authentication.
+         */
+        post: operations["staff_erp_dead_letters_discard_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/erp/dead-letters/{id}/replay/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The dead rows, each holding its aggregate's later ones: replay (again from its first try), or discard with a
+         *     reason (its aggregate goes on). Both need erp.replay_sync and a recent re-authentication.
+         */
+        post: operations["staff_erp_dead_letters_replay_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/erp/differences/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description What did not match (filters run, kind, open); resolve one with a note (erp.resolve_difference). */
+        get: operations["staff_erp_differences_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/erp/differences/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description What did not match (filters run, kind, open); resolve one with a note (erp.resolve_difference). */
+        get: operations["staff_erp_differences_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/erp/differences/{id}/resolve/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description What did not match (filters run, kind, open); resolve one with a note (erp.resolve_difference). */
+        post: operations["staff_erp_differences_resolve_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/erp/outbox/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The outbox, newest first (filters state, event, aggregate_type, aggregate_id, examleaf_ref). */
+        get: operations["staff_erp_outbox_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/erp/outbox/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The outbox, newest first (filters state, event, aggregate_type, aggregate_id, examleaf_ref). */
+        get: operations["staff_erp_outbox_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/erp/reconciliations/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The nightly runs, newest first (filters date, state); one with its differences. */
+        get: operations["staff_erp_reconciliations_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/erp/reconciliations/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The nightly runs, newest first (filters date, state); one with its differences. */
+        get: operations["staff_erp_reconciliations_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/erp/status/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The sync at a glance: switches, account, outbox by state, the oldest row waiting, aggregates held, cursors,
+         *     the last reconciliation.
+         */
+        get: operations["staff_erp_status_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/flags/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Every feature flag that has a value, as it stands now; and the flags the code reads over an environment's value
+         *     (staff.config.KNOWN_FLAGS: the ERP switches), set or not, with that value and where the one in effect comes from.
+         */
+        get: operations["staff_flags_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/flags/{key}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One flag: GET its history; PUT a new value (true/false or any JSON; null: off) from now or `effective_from`. */
+        get: operations["staff_flag_history"];
+        /** @description One flag: GET its history; PUT a new value (true/false or any JSON; null: off) from now or `effective_from`. */
+        put: operations["staff_flags_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/flags/{key}/history/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A flag's history, newest first (as GET flags/<KEY>/). */
+        get: operations["staff_flags_history_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/inbox/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description What waits for this person: items assigned to them, or to nobody and needing a permission they hold (open,
+         *     not snoozed, unless the filters say).
+         */
+        get: operations["staff_inbox_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/inbox/{id}/assign/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description What waits for this person: items assigned to them, or to nobody and needing a permission they hold (open,
+         *     not snoozed, unless the filters say).
+         */
+        post: operations["staff_inbox_assign_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/inbox/{id}/done/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description What waits for this person: items assigned to them, or to nobody and needing a permission they hold (open,
+         *     not snoozed, unless the filters say).
+         */
+        post: operations["staff_inbox_done_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/inbox/{id}/snooze/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description What waits for this person: items assigned to them, or to nobody and needing a permission they hold (open,
+         *     not snoozed, unless the filters say).
+         */
+        post: operations["staff_inbox_snooze_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/inbox/count/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description What waits for this person: items assigned to them, or to nobody and needing a permission they hold (open,
+         *     not snoozed, unless the filters say).
+         */
+        get: operations["staff_inbox_count_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/incidents/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The breach register: each incident with its clocks from detection (CERT-In 6 hours, the Board's detailed
+         *     report 72 hours), the reports' times and references, the notices to the people affected, actions and closure.
+         *     A new one tells the owners at once.
+         */
+        get: operations["staff_incidents_list"];
+        put?: never;
+        /**
+         * @description The breach register: each incident with its clocks from detection (CERT-In 6 hours, the Board's detailed
+         *     report 72 hours), the reports' times and references, the notices to the people affected, actions and closure.
+         *     A new one tells the owners at once.
+         */
+        post: operations["staff_incidents_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/incidents/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The breach register: each incident with its clocks from detection (CERT-In 6 hours, the Board's detailed
+         *     report 72 hours), the reports' times and references, the notices to the people affected, actions and closure.
+         *     A new one tells the owners at once.
+         */
+        get: operations["staff_incidents_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description The breach register: each incident with its clocks from detection (CERT-In 6 hours, the Board's detailed
+         *     report 72 hours), the reports' times and references, the notices to the people affected, actions and closure.
+         *     A new one tells the owners at once.
+         */
+        patch: operations["staff_incidents_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/incidents/{id}/close/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The breach register: each incident with its clocks from detection (CERT-In 6 hours, the Board's detailed
+         *     report 72 hours), the reports' times and references, the notices to the people affected, actions and closure.
+         *     A new one tells the owners at once.
+         */
+        post: operations["staff_incidents_close_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/invites/accept/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description An invitation's link (the panel's /invite/<token>/ page): signed in with the invited address, the role is
+         *     given; signed out, a new account is made with a name and a password (the link proves the address). Then the
+         *     second factor before anything opens. The one staff endpoint for people who are not staff yet.
+         */
+        post: operations["staff_invites_accept_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/jobs/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Background work (staff.jobs): POST starts an audit-log export or a bulk action (202, the job; above your limit
+         *     `change_request_id`: an approver passes it first); poll it for `state`, `done` of `total` and the rows' `errors`;
+         *     `result_url` (yours only) links its file for 5 minutes; cancel/ stops it (yours only). You see the jobs you
+         *     started; whoever holds staff.view_system (ADMIN, the owners, AUDITOR) sees everyone's, without their files.
+         */
+        get: operations["staff_jobs_list"];
+        put?: never;
+        /**
+         * @description Background work (staff.jobs): POST starts an audit-log export or a bulk action (202, the job; above your limit
+         *     `change_request_id`: an approver passes it first); poll it for `state`, `done` of `total` and the rows' `errors`;
+         *     `result_url` (yours only) links its file for 5 minutes; cancel/ stops it (yours only). You see the jobs you
+         *     started; whoever holds staff.view_system (ADMIN, the owners, AUDITOR) sees everyone's, without their files.
+         */
+        post: operations["staff_jobs_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/jobs/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Background work (staff.jobs): POST starts an audit-log export or a bulk action (202, the job; above your limit
+         *     `change_request_id`: an approver passes it first); poll it for `state`, `done` of `total` and the rows' `errors`;
+         *     `result_url` (yours only) links its file for 5 minutes; cancel/ stops it (yours only). You see the jobs you
+         *     started; whoever holds staff.view_system (ADMIN, the owners, AUDITOR) sees everyone's, without their files.
+         */
+        get: operations["staff_jobs_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/jobs/{id}/cancel/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Background work (staff.jobs): POST starts an audit-log export or a bulk action (202, the job; above your limit
+         *     `change_request_id`: an approver passes it first); poll it for `state`, `done` of `total` and the rows' `errors`;
+         *     `result_url` (yours only) links its file for 5 minutes; cancel/ stops it (yours only). You see the jobs you
+         *     started; whoever holds staff.view_system (ADMIN, the owners, AUDITOR) sees everyone's, without their files.
+         */
+        post: operations["staff_jobs_cancel_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/jobs/{id}/result/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The job's file, through the link in `result_url`: for its starter, within 5 minutes of the link. */
+        get: operations["staff_jobs_result_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/notes/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Notes on a record, its timeline's: GET `?target_type=&target_id=` (both), pinned first, all of them; POST one.
+         *     Only on a record you may see (else 404). The audit log names the record and the note's number, never its body.
+         */
+        get: operations["staff_notes_list"];
+        put?: never;
+        /**
+         * @description Notes on a record, its timeline's: GET `?target_type=&target_id=` (both), pinned first, all of them; POST one.
+         *     Only on a record you may see (else 404). The audit log names the record and the note's number, never its body.
+         */
+        post: operations["staff_notes_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Orders: the list, a staff order (POST), the packing queue, a pick list, a record with its timeline, and the
+         *     actions on one (each its permission; the state machine refuses what cannot happen now).
+         */
+        get: operations["staff_orders_list"];
+        put?: never;
+        /**
+         * @description A phone, WhatsApp or school order at today's prices with the offers: 201 with the change request run at
+         *     once (its result names the order) within your discount limit; 202 beyond it, or for a ₹0 total: nothing is
+         *     made until a second person approves.
+         */
+        post: operations["staff_orders_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The record; opening a child's order (its account under 18) is a logged read, as the child's record is. */
+        get: operations["staff_orders_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/cancel/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Cancel before it leaves (its stock back; the customer told; no fee). Paid online: through its refund
+         *     (staff.approvals "order.refund": your refund limit, FINANCE above it). Paid by transfer: refund it by bank or
+         *     UPI (refunds/), which cancels it. A cash-on-delivery parcel back undelivered (RTO): cancelled, its copies back
+         *     unless damaged (`restock`), its invoice credited.
+         */
+        post: operations["staff_orders_cancel_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/credit-notes/{note}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A credit note's PDF (404 until it is made). */
+        get: operations["staff_orders_credit_notes_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/deliver/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Delivered (a parcel sent by hand: a courier's scans deliver theirs): a COD payment is captured. */
+        post: operations["staff_orders_deliver_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/documents/label/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The 4 × 6 inch label of a parcel sent by hand (India Post, a courier without an API): to and from, the
+         *     number as a QR, the cash to collect. A courier's own label is the shipping app's.
+         */
+        get: operations["staff_orders_documents_label_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/documents/packing-slip/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The order's A4 packing slip: its books (title, ISBN, copies), the school or class, its number as a QR. */
+        get: operations["staff_orders_documents_packing_slip_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/hold/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Hold it, with the reason (it leaves the packing queue until released). */
+        post: operations["staff_orders_hold_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/invoice/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The invoice's PDF (404 until it is made). */
+        get: operations["staff_orders_invoice_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/invoice/regenerate/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Make what is missing of the order's invoice and credit notes (RUNBOOK's shell step, as a button): queued
+         *     for the worker (202); refused while SELLER_* holds a placeholder, or when nothing is missing.
+         */
+        post: operations["staff_orders_invoice_regenerate_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/invoice/resend/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Email the customer the invoice's link again (the order's page, where its PDF is). */
+        post: operations["staff_orders_invoice_resend_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/notify/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Send a status message again (the email, and an SMS where the customer asked for them), when it is true. */
+        post: operations["staff_orders_notify_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/offline-payment/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A payment received by transfer or UPI: staff.approvals "order.offline_payment" (above your limit, or a ₹0
+         *     order, FINANCE approves).
+         */
+        post: operations["staff_orders_offline_payment_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/pack/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Packed (the customer is told). Refused for a held order, a test order, one not paid or placed. */
+        post: operations["staff_orders_pack_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/payment-link/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A staff order's Razorpay Payment Link: sent (made once; then the same link again), or cancelled (the next
+         *     one sent is new). 503 while Razorpay cannot be reached.
+         */
+        post: operations["staff_orders_payment_link_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/refunds/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A refund: its lines with quantities (from 0) and the shipping, the copies back into stock or not, to the
+         *     way it was paid (Razorpay, normal or optimum) or by bank or UPI (cash on delivery and transfers; an online
+         *     payment with the customer's agreement), or a return's (`return`); not sent yet: cancelled and refunded in
+         *     full. Through staff.approvals "order.refund": within your refund limit it runs at once (201), above it FINANCE
+         *     approves (202). `warnings`: a payment older than 6 months.
+         */
+        post: operations["staff_orders_refunds_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/release/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Release a held order: back in the packing queue. */
+        post: operations["staff_orders_release_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/returns/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A return asked for by staff for the customer (a delivered order; no window: the website's is
+         *     SHOP_RETURN_DAYS).
+         */
+        post: operations["staff_orders_returns_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/ship/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Sent by hand at the counter (India Post, a courier without an API): the courier and the number; the
+         *     customer is told with the tracking link. A courier booked through Shiprocket is the shipping app's.
+         */
+        post: operations["staff_orders_ship_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/{number}/tags/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Add and remove tags (school, awaiting reprint …). */
+        post: operations["staff_orders_tags_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/packing/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The packing queue: paid (or placed to pay on delivery) and not packed, not on hold, not a test order, not
+         *     courses alone; oldest first, each with its books to pick, a weight hint, the COD badge and its risk.
+         */
+        get: operations["staff_orders_packing_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/pick-list/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The pick list of these orders (numbers): each book once, with its copies and the orders it goes in. */
+        post: operations["staff_orders_pick_list_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description What a staff order would cost before it is asked for: today's prices with the offers, your discount's share
+         *     of the books after them, the shipping, and whether it would wait for a second person (`approval`: the rule's
+         *     words) or be made at once (null). Nothing is stored.
+         */
+        post: operations["staff_orders_preview_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/products/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Books on sale for a staff order's lines: 20 at most, matched by title, slug or ISBN. */
+        get: operations["staff_orders_products_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/quotes/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Schools' and booksellers' quotation requests (the website's form), and their conversion to a staff order:
+         *     the quote's books, its discount and shipping, the address given; once (the quote keeps its order).
+         */
+        get: operations["staff_orders_quotes_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/quotes/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Schools' and booksellers' quotation requests (the website's form), and their conversion to a staff order:
+         *     the quote's books, its discount and shipping, the address given; once (the quote keeps its order).
+         */
+        get: operations["staff_orders_quotes_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/quotes/{id}/convert/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A staff order from the quote: its books (at today's prices, with the offers), its discount and shipping,
+         *     the address given; through the staff order's approval. Refused once it has an order, or one waits.
+         */
+        post: operations["staff_orders_quotes_convert_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/quotes/{id}/quotation/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The quotation's PDF, once made (the admin's "Make the quotation PDF"). */
+        get: operations["staff_orders_quotes_quotation_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/refunds/{id}/mark-paid/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A refund by bank or UPI: its payee shown to FINANCE with a reason (logged, re-authenticated, limited), and
+         *     marked paid with the transfer's UTR (the refund processed, the credit note made, the customer told; once).
+         */
+        post: operations["staff_orders_refunds_mark_paid_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/refunds/{id}/payee/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The customer's bank account or UPI ID, for the transfer: a reason, logged (sensitive_read). */
+        post: operations["staff_orders_refunds_payee_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/returns/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Returns: asked for (by the customer on the website, or staff), decided (staff.handle_return), received and
+         *     inspected (staff.receive_return: the packing room), then refunded through the order's refunds/ naming it.
+         */
+        get: operations["staff_orders_returns_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/returns/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Returns: asked for (by the customer on the website, or staff), decided (staff.handle_return), received and
+         *     inspected (staff.receive_return: the packing room), then refunded through the order's refunds/ naming it.
+         */
+        get: operations["staff_orders_returns_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/returns/{id}/approve/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Approved: the customer is told how to send it back. */
+        post: operations["staff_orders_returns_approve_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/returns/{id}/decline/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Declined, with the reason the customer is told. */
+        post: operations["staff_orders_returns_decline_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/returns/{id}/inspect/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Inspected: back into stock (its copies added, the return the reason) or damaged. */
+        post: operations["staff_orders_returns_inspect_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/returns/{id}/label/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The return label sent: the courier and the AWB the customer hands the parcel over with. */
+        post: operations["staff_orders_returns_label_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/returns/{id}/photos/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description A photograph of what came back (5 at most; the private storage). */
+        post: operations["staff_orders_returns_photos_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/returns/{id}/photos/{index}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description One of its photographs (by its place, from 0). */
+        get: operations["staff_orders_returns_photos_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/orders/returns/{id}/receive/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The parcel is back with us. */
+        post: operations["staff_orders_returns_receive_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/people/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The staff: their roles (with who gave them, why, until when), scopes and second factor. Invitations, roles
+         *     (a privileged one, or one for yourself, waits for a second person; SSD refused), scopes, sessions ended, and
+         *     offboarding in one step (staff.services.offboard). Only a superuser changes a superuser.
+         */
+        get: operations["staff_people_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/people/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The staff: their roles (with who gave them, why, until when), scopes and second factor. Invitations, roles
+         *     (a privileged one, or one for yourself, waits for a second person; SSD refused), scopes, sessions ended, and
+         *     offboarding in one step (staff.services.offboard). Only a superuser changes a superuser.
+         */
+        get: operations["staff_people_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/people/{id}/access/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The Access tab: roles with who gave them and until when, scopes, limits, every permission by area with the
+         *     last use of the high and critical ones, the open change requests about or by them, their second factors.
+         */
+        get: operations["staff_people_access_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/people/{id}/end-sessions/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The staff: their roles (with who gave them, why, until when), scopes and second factor. Invitations, roles
+         *     (a privileged one, or one for yourself, waits for a second person; SSD refused), scopes, sessions ended, and
+         *     offboarding in one step (staff.services.offboard). Only a superuser changes a superuser.
+         */
+        post: operations["staff_people_end_sessions_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/people/{id}/erp/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The ERPNext user they should have from their roles (applied by hand in ERPNext: role profiles, enabled). */
+        get: operations["staff_people_erp_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/people/{id}/offboard/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The staff: their roles (with who gave them, why, until when), scopes and second factor. Invitations, roles
+         *     (a privileged one, or one for yourself, waits for a second person; SSD refused), scopes, sessions ended, and
+         *     offboarding in one step (staff.services.offboard). Only a superuser changes a superuser.
+         */
+        post: operations["staff_people_offboard_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/people/{id}/offboarding/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Their latest offboarding's checklist: each step, done by the panel or ticked by an owner (who, when). */
+        get: operations["staff_people_offboarding_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/people/{id}/offboarding/tick/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description An owner ticks a step done by hand (or not needed, or back to do), with a note: audited. */
+        post: operations["staff_people_offboarding_tick_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/people/{id}/reset-mfa/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description A member of staff's second factor reset: ADMIN or an owner approves it (research 1.5), never the person. */
+        post: operations["staff_people_reset_mfa_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/people/{id}/roles/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The staff: their roles (with who gave them, why, until when), scopes and second factor. Invitations, roles
+         *     (a privileged one, or one for yourself, waits for a second person; SSD refused), scopes, sessions ended, and
+         *     offboarding in one step (staff.services.offboard). Only a superuser changes a superuser.
+         */
+        post: operations["staff_people_roles_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/people/{id}/roles/{role}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * @description The staff: their roles (with who gave them, why, until when), scopes and second factor. Invitations, roles
+         *     (a privileged one, or one for yourself, waits for a second person; SSD refused), scopes, sessions ended, and
+         *     offboarding in one step (staff.services.offboard). Only a superuser changes a superuser.
+         */
+        delete: operations["staff_people_roles_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/people/{id}/roles/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description What giving or taking away a role would change (gains, losses, limits, scopes, conflicts, the approver),
+         *     before anything is asked: nothing changes.
+         */
+        post: operations["staff_people_roles_preview_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/people/{id}/scopes/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The staff: their roles (with who gave them, why, until when), scopes and second factor. Invitations, roles
+         *     (a privileged one, or one for yourself, waits for a second person; SSD refused), scopes, sessions ended, and
+         *     offboarding in one step (staff.services.offboard). Only a superuser changes a superuser.
+         */
+        post: operations["staff_people_scopes_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/people/{id}/scopes/{scope}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * @description The staff: their roles (with who gave them, why, until when), scopes and second factor. Invitations, roles
+         *     (a privileged one, or one for yourself, waits for a second person; SSD refused), scopes, sessions ended, and
+         *     offboarding in one step (staff.services.offboard). Only a superuser changes a superuser.
+         */
+        delete: operations["staff_people_scopes_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/people/invite/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The staff: their roles (with who gave them, why, until when), scopes and second factor. Invitations, roles
+         *     (a privileged one, or one for yourself, waits for a second person; SSD refused), scopes, sessions ended, and
+         *     offboarding in one step (staff.services.offboard). Only a superuser changes a superuser.
+         */
+        post: operations["staff_people_invite_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/people/invites/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The staff: their roles (with who gave them, why, until when), scopes and second factor. Invitations, roles
+         *     (a privileged one, or one for yourself, waits for a second person; SSD refused), scopes, sessions ended, and
+         *     offboarding in one step (staff.services.offboard). Only a superuser changes a superuser.
+         */
+        get: operations["staff_people_invites_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/people/invites/{invite}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * @description The staff: their roles (with who gave them, why, until when), scopes and second factor. Invitations, roles
+         *     (a privileged one, or one for yourself, waits for a second person; SSD refused), scopes, sessions ended, and
+         *     offboarding in one step (staff.services.offboard). Only a superuser changes a superuser.
+         */
+        delete: operations["staff_people_invites_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/people/me/sessions/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Your own sessions (every member of staff's): browser and system, where from (the address's first octets),
+         *     since when, last seen, and which one is this.
+         */
+        get: operations["staff_people_me_sessions_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/people/me/sessions/{session}/end/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description End one of your other sessions (this one: sign out instead). */
+        post: operations["staff_people_me_sessions_end_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/people/me/sessions/end-others/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description End every session of yours but this one, and the app's refresh tokens: "end all". */
+        post: operations["staff_people_me_sessions_end_others_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/people/roles/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Every staff role: what it is for and what it can't do, its capabilities by area with their risk, its
+         *     limits, scopes and conflicts, its ERPNext role profiles, whether it needs a passkey, its members.
+         */
+        get: operations["staff_people_roles_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/policies/ack/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The policies staff acknowledge (research 6: acceptable use, children's data, confidentiality, incident
+         *     reporting), each version once: GET your acknowledgements (`?user=` someone else's, with staff.view_staff); POST
+         *     `{policy, version}`, the version in force (STAFF_POLICIES; the manifest's `policies_due` lists what waits).
+         */
+        get: operations["staff_policies_ack_list"];
+        put?: never;
+        /**
+         * @description The policies staff acknowledge (research 6: acceptable use, children's data, confidentiality, incident
+         *     reporting), each version once: GET your acknowledgements (`?user=` someone else's, with staff.view_staff); POST
+         *     `{policy, version}`, the version in force (STAFF_POLICIES; the manifest's `policies_due` lists what waits).
+         */
+        post: operations["staff_policies_ack_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/cockpit/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The compliance cockpit: every clock the rules start, the consents by the notice's version, the dark-pattern
+         *     self-audit, the legal calendar.
+         */
+        get: operations["staff_privacy_cockpit_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/dark-pattern-audits/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The yearly dark-pattern self-audit (the CCPA's 13 named patterns): a finding and a fix for each, the
+         *     certificate's text and its signed copy; completed once (then unchanged), its certificate shown on the website
+         *     from its day (config/).
+         */
+        get: operations["staff_privacy_dark_pattern_audits_list"];
+        put?: never;
+        /**
+         * @description The yearly dark-pattern self-audit (the CCPA's 13 named patterns): a finding and a fix for each, the
+         *     certificate's text and its signed copy; completed once (then unchanged), its certificate shown on the website
+         *     from its day (config/).
+         */
+        post: operations["staff_privacy_dark_pattern_audits_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/dark-pattern-audits/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The yearly dark-pattern self-audit (the CCPA's 13 named patterns): a finding and a fix for each, the
+         *     certificate's text and its signed copy; completed once (then unchanged), its certificate shown on the website
+         *     from its day (config/).
+         */
+        get: operations["staff_privacy_dark_pattern_audits_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description The yearly dark-pattern self-audit (the CCPA's 13 named patterns): a finding and a fix for each, the
+         *     certificate's text and its signed copy; completed once (then unchanged), its certificate shown on the website
+         *     from its day (config/).
+         */
+        patch: operations["staff_privacy_dark_pattern_audits_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/dark-pattern-audits/{id}/complete/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The yearly dark-pattern self-audit (the CCPA's 13 named patterns): a finding and a fix for each, the
+         *     certificate's text and its signed copy; completed once (then unchanged), its certificate shown on the website
+         *     from its day (config/).
+         */
+        post: operations["staff_privacy_dark_pattern_audits_complete_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/dark-pattern-audits/{id}/file/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The yearly dark-pattern self-audit (the CCPA's 13 named patterns): a finding and a fix for each, the
+         *     certificate's text and its signed copy; completed once (then unchanged), its certificate shown on the website
+         *     from its day (config/).
+         */
+        get: operations["staff_privacy_dark_pattern_audits_file_retrieve"];
+        put?: never;
+        /**
+         * @description The yearly dark-pattern self-audit (the CCPA's 13 named patterns): a finding and a fix for each, the
+         *     certificate's text and its signed copy; completed once (then unchanged), its certificate shown on the website
+         *     from its day (config/).
+         */
+        post: operations["staff_privacy_dark_pattern_audits_file_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/deletions/{id}/parent-confirmation/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A child's deletion confirmed by their parent or guardian by phone or letter (when their link cannot reach
+         *     them): staff record it, with where the evidence is; the nightly purge erases it once due.
+         */
+        post: operations["staff_privacy_deletions_parent_confirmation_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/disclosures/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The e-commerce disclosures and the privacy contacts (site settings of the group "disclosures"): GET each in
+         *     effect with where it comes from, and the group's history; PUT the changed ones together, with one reason (each a
+         *     `setting.changed` event).
+         */
+        get: operations["staff_privacy_disclosures_retrieve"];
+        /**
+         * @description The e-commerce disclosures and the privacy contacts (site settings of the group "disclosures"): GET each in
+         *     effect with where it comes from, and the group's history; PUT the changed ones together, with one reason (each a
+         *     `setting.changed` event).
+         */
+        put: operations["staff_privacy_disclosures_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/holds/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Legal holds on an account or one record (an order, an invoice, a credit note, a payment, a refund, a data
+         *     request): they keep it from the erasure and the retention clean-up until their day, or their release.
+         */
+        get: operations["staff_privacy_holds_list"];
+        put?: never;
+        /**
+         * @description Legal holds on an account or one record (an order, an invoice, a credit note, a payment, a refund, a data
+         *     request): they keep it from the erasure and the retention clean-up until their day, or their release.
+         */
+        post: operations["staff_privacy_holds_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/holds/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Legal holds on an account or one record (an order, an invoice, a credit note, a payment, a refund, a data
+         *     request): they keep it from the erasure and the retention clean-up until their day, or their release.
+         */
+        get: operations["staff_privacy_holds_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/holds/{id}/release/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Legal holds on an account or one record (an order, an invoice, a credit note, a payment, a refund, a data
+         *     request): they keep it from the erasure and the retention clean-up until their day, or their release.
+         */
+        post: operations["staff_privacy_holds_release_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/nominees/{user}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The nominee a customer recorded on My account (DPDP s.14), its contact masked; each look at one is a
+         *     `sensitive_read`, a child's marked as such.
+         */
+        get: operations["staff_privacy_nominees_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/nominees/{user}/reveal/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The nominee's contact, shown with a reason (re-authenticated, 30 an hour, a `sensitive_read` event). */
+        post: operations["staff_privacy_nominees_reveal_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/policies/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The legal pages (privacy, terms, refunds, shipping, contact) and their versions: each publish a numbered version
+         *     with the day it is in force from and a line on what changed; a diff of each against the one before.
+         */
+        get: operations["staff_privacy_policies_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/policies/{slug}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The legal pages (privacy, terms, refunds, shipping, contact) and their versions: each publish a numbered version
+         *     with the day it is in force from and a line on what changed; a diff of each against the one before.
+         */
+        get: operations["staff_privacy_policies_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/policies/{slug}/cancel-scheduled/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The legal pages (privacy, terms, refunds, shipping, contact) and their versions: each publish a numbered version
+         *     with the day it is in force from and a line on what changed; a diff of each against the one before.
+         */
+        post: operations["staff_privacy_policies_cancel_scheduled_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/policies/{slug}/publish/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The legal pages (privacy, terms, refunds, shipping, contact) and their versions: each publish a numbered version
+         *     with the day it is in force from and a line on what changed; a diff of each against the one before.
+         */
+        post: operations["staff_privacy_policies_publish_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/policies/{slug}/versions/{number}/diff/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The legal pages (privacy, terms, refunds, shipping, contact) and their versions: each publish a numbered version
+         *     with the day it is in force from and a line on what changed; a diff of each against the one before.
+         */
+        get: operations["staff_privacy_policies_versions_diff_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/privacy/retention/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The retention schedule in code (examleaf/retention.py): each kind of record's minimum today, the day it
+         *     changes, what is kept and who deletes it.
+         */
+        get: operations["staff_privacy_retention_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/processors/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The processor register: who handles personal data for ExamLeaf, for what, where, under which contract. */
+        get: operations["staff_processors_list"];
+        put?: never;
+        /** @description The processor register: who handles personal data for ExamLeaf, for what, where, under which contract. */
+        post: operations["staff_processors_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/processors/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The processor register: who handles personal data for ExamLeaf, for what, where, under which contract. */
+        get: operations["staff_processors_retrieve"];
+        /** @description The processor register: who handles personal data for ExamLeaf, for what, where, under which contract. */
+        put: operations["staff_processors_update"];
+        post?: never;
+        /** @description The processor register: who handles personal data for ExamLeaf, for what, where, under which contract. */
+        delete: operations["staff_processors_destroy"];
+        options?: never;
+        head?: never;
+        /** @description The processor register: who handles personal data for ExamLeaf, for what, where, under which contract. */
+        patch: operations["staff_processors_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/saved-views/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A person's saved lists: their own, and those shared with a role they hold (read-only to the others). */
+        get: operations["staff_saved_views_list"];
+        put?: never;
+        /** @description A person's saved lists: their own, and those shared with a role they hold (read-only to the others). */
+        post: operations["staff_saved_views_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/saved-views/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A person's saved lists: their own, and those shared with a role they hold (read-only to the others). */
+        get: operations["staff_saved_views_retrieve"];
+        /** @description A person's saved lists: their own, and those shared with a role they hold (read-only to the others). */
+        put: operations["staff_saved_views_update"];
+        post?: never;
+        /** @description A person's saved lists: their own, and those shared with a role they hold (read-only to the others). */
+        delete: operations["staff_saved_views_destroy"];
+        options?: never;
+        head?: never;
+        /** @description A person's saved lists: their own, and those shared with a role they hold (read-only to the others). */
+        patch: operations["staff_saved_views_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/session/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The capability manifest of the signed-in member of staff (`Cache-Control: no-store`): roles with expiry,
+         *     permissions, scopes, limits, flags, the re-authentication window, the idle and absolute limits. Fetch it again
+         *     after any 403 and whenever `manifest_version` changes.
+         */
+        get: operations["staff_session_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/session/reason/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A break-glass session's reason (research 1.6), once, before anything else opens (`break_glass.reason_required`
+         *     in the manifest): kept on the session, in every audit event of the session (`details.break_glass_reason`), and sent
+         *     to the owners. The session ends STAFF_BREAK_GLASS_HOURS after its log-in, however busy.
+         */
+        post: operations["staff_session_reason_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/settings/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The site's switches: what is in effect, the environment's value, where it comes from, changes to come. */
+        get: operations["staff_settings_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/settings/{key}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description One switch: GET its history (every row); PUT a new value from now or from `effective_from` (null: back to
+         *     the environment's). SHOP_OPEN, SHOP_COD_ENABLED, PARENTAL_CONSENT_MODE and WEB_COURSE need
+         *     staff.manage_settings; MAINTENANCE_MODE and MAINTENANCE_BANNER staff.toggle_maintenance.
+         */
+        get: operations["staff_setting_history"];
+        /**
+         * @description One switch: GET its history (every row); PUT a new value from now or from `effective_from` (null: back to
+         *     the environment's). SHOP_OPEN, SHOP_COD_ENABLED, PARENTAL_CONSENT_MODE and WEB_COURSE need
+         *     staff.manage_settings; MAINTENANCE_MODE and MAINTENANCE_BANNER staff.toggle_maintenance.
+         */
+        put: operations["staff_settings_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/settings/{key}/history/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A setting's history, newest first: every value it was given, from when, by whom and why (as GET settings/<key>/,
+         *     under its own name for the Settings page).
+         */
+        get: operations["staff_settings_history_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/agents/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Who a ticket may be given to or a note may name: the active staff who read tickets (`handles`: who may be
+         *     given them).
+         */
+        get: operations["staff_support_agents_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/saved-replies/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Saved replies (support.view_savedreply to read; changes: ADMIN's): a delete puts one in the bin for 30 days,
+         *     restore/ takes it out.
+         */
+        get: operations["staff_support_saved_replies_list"];
+        put?: never;
+        /**
+         * @description Saved replies (support.view_savedreply to read; changes: ADMIN's): a delete puts one in the bin for 30 days,
+         *     restore/ takes it out.
+         */
+        post: operations["staff_support_saved_replies_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/saved-replies/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Saved replies (support.view_savedreply to read; changes: ADMIN's): a delete puts one in the bin for 30 days,
+         *     restore/ takes it out.
+         */
+        get: operations["staff_support_saved_replies_retrieve"];
+        /**
+         * @description Saved replies (support.view_savedreply to read; changes: ADMIN's): a delete puts one in the bin for 30 days,
+         *     restore/ takes it out.
+         */
+        put: operations["staff_support_saved_replies_update"];
+        post?: never;
+        /**
+         * @description Saved replies (support.view_savedreply to read; changes: ADMIN's): a delete puts one in the bin for 30 days,
+         *     restore/ takes it out.
+         */
+        delete: operations["staff_support_saved_replies_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description Saved replies (support.view_savedreply to read; changes: ADMIN's): a delete puts one in the bin for 30 days,
+         *     restore/ takes it out.
+         */
+        patch: operations["staff_support_saved_replies_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/support/saved-replies/{id}/restore/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Saved replies (support.view_savedreply to read; changes: ADMIN's): a delete puts one in the bin for 30 days,
+         *     restore/ takes it out.
+         */
+        post: operations["staff_support_saved_replies_restore_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/summary/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The module's numbers (research lms 4.9), from what each ticket stores: the period's volume by category and
+         *     source, the median first response and resolution, the breaches; the backlog and what is overdue now. Spam and
+         *     tickets about a test order are left out of every number.
+         */
+        get: operations["staff_support_summary_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/tickets/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The queue (the next legal clock first) and each ticket: its conversation, its sidebar, its actions. */
+        get: operations["staff_support_tickets_list"];
+        put?: never;
+        /** @description Log a ticket that came another way: a call, WhatsApp, an NCH complaint with its docket, a letter or email. */
+        post: operations["staff_support_tickets_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/tickets/{number}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Opening a ticket is a `sensitive_read` (its customer's record: their account's when there is one, a
+         *     child's marked so); the mentions waiting for the reader there are done.
+         */
+        get: operations["staff_support_tickets_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description Sort or correct it: category, priority, language, subject, source and NCH docket, the order or paper it is
+         *     about, the requester's name, email address, mobile number.
+         */
+        patch: operations["staff_support_tickets_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/support/tickets/{number}/acknowledge/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The acknowledgement again (an address added, a copy of the complaint owed), or `note`: it was given
+         *     another way (on the call).
+         */
+        post: operations["staff_support_tickets_acknowledge_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/tickets/{number}/assign/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The queue (the next legal clock first) and each ticket: its conversation, its sidebar, its actions. */
+        post: operations["staff_support_tickets_assign_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/tickets/{number}/attachments/{attachment}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A file of the conversation: the private storage's link signed for 5 minutes (or the file itself). */
+        get: operations["staff_support_tickets_attachments_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/tickets/{number}/book-code/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A book code looked up by its digest: one line (its batch, its subject, redeemed or not, by this requester
+         *     or someone else). The code is never kept.
+         */
+        post: operations["staff_support_tickets_book_code_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/tickets/{number}/cancel/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Cancel one of the requester's orders: paid online, through its refund (a change request, as refund/);
+         *     otherwise at once.
+         */
+        post: operations["staff_support_tickets_cancel_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/tickets/{number}/claim/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Give it to yourself. */
+        post: operations["staff_support_tickets_claim_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/tickets/{number}/data-request/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A data request from a grievance or privacy ticket: the rights queue's own clocks, from when the ticket
+         *     came.
+         */
+        post: operations["staff_support_tickets_data_request_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/tickets/{number}/extend-access/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The queue (the next legal clock first) and each ticket: its conversation, its sidebar, its actions. */
+        post: operations["staff_support_tickets_extend_access_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/tickets/{number}/messages/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description A reply (emailed, or a call or WhatsApp message recorded) or an internal note, with @mentions. */
+        post: operations["staff_support_tickets_messages_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/tickets/{number}/refund/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Through the shop's refund (order.refund): within your limit it runs (201), above it waits for FINANCE
+         *     (202). Not shipped: cancelled and refunded in full. Shipped: by `amount`, or by `lines` (copies from 0).
+         */
+        post: operations["staff_support_tickets_refund_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/tickets/{number}/reopen/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description A resolved or closed ticket back to open (counted); its clocks never stopped. */
+        post: operations["staff_support_tickets_reopen_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/tickets/{number}/resend-confirmation/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The order's confirmation email again (for an order with the course: how to open it). */
+        post: operations["staff_support_tickets_resend_confirmation_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/tickets/{number}/resend-invoice/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The queue (the next legal clock first) and each ticket: its conversation, its sidebar, its actions. */
+        post: operations["staff_support_tickets_resend_invoice_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/tickets/{number}/reveal/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The requester's email address or mobile number, with a reason (a `sensitive_read`, re-authenticated, 30 an
+         *     hour).
+         */
+        post: operations["staff_support_tickets_reveal_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/tickets/{number}/status/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Move it on (its `transitions`); resolving or closing asks for its `closing_fields`. */
+        post: operations["staff_support_tickets_status_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/system/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The system at a glance: the health checks (/health/'s), Celery's queues and failed tasks, Razorpay's webhooks,
+         *     email suppressions and the SMS log, the last backup in the bucket, maintenance mode, the audit chain's last
+         *     verification. The panel shows them; Sentry, the logs and the uptime monitor stay where they are.
+         */
+        get: operations["staff_system_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/system/backups/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The backups (research 7): the newest object of each source in the backups bucket (its time, size, checksum,
+         *     whether it is encrypted; read at most every two hours, the hourly check alerts past BACKUP_STALE_HOURS), the
+         *     retention, and the restore drills, the last one that worked in words on the page.
+         */
+        get: operations["staff_system_backups_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/system/backups/drills/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Restore drills: GET every one, newest first (staff.view_restoredrill); POST one just done (staff.manage_system,
+         *     high: a re-authentication): the day, the engine, the backup restored, whether it worked, how long it took, notes.
+         */
+        get: operations["staff_system_backups_drills_retrieve"];
+        put?: never;
+        /**
+         * @description Restore drills: GET every one, newest first (staff.view_restoredrill); POST one just done (staff.manage_system,
+         *     high: a re-authentication): the day, the engine, the backup restored, whether it worked, how long it took, notes.
+         */
+        post: operations["staff_system_backups_drills_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/system/dependencies/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The dependencies (research 7): CI's last pip-audit and npm audit (the report the deploy loads), the open
+         *     advisories by severity with the 7-day target of the critical ones, and the versions in use.
+         */
+        get: operations["staff_system_dependencies_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/system/hardening/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The admin host's hardening, each check with what it found and the fix: the admin host set apart, staff
+         *     endpoints 404 elsewhere, HSTS, the CSP's frame-ancestors, no-store, the console's robots.txt, the cookies, DEBUG,
+         *     the secret keys, the proxy's stripped header.
+         */
+        get: operations["staff_system_hardening_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/system/logs/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Logs and time (CERT-In's directions; the DPDP Rules): the log inventory (what, where, how long, who reads it,
+         *     and whether that meets the retention in force), the clock against the database's with the host's documented time
+         *     source, and the point of contact registered with CERT-In.
+         */
+        get: operations["staff_system_logs_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/system/reconcile/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Ask Razorpay what became of an online order's payment (a lost webhook; RUNBOOK.md "A stuck payment"): a payment
+         *     it captured is recorded (shop.payments.reconcile). Webhooks keep no body to replay; this asks the source again.
+         */
+        post: operations["staff_system_reconcile_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/system/scripts/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The scripts the checkout and the console's sign-in load, as the daily check found them (staff.tasks
+         *     .check_scripts): each page's last check, and its scripts with when they were first and last seen.
+         */
+        get: operations["staff_system_scripts_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/system/sync/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The sync monitor (plan 5.19): the ERPNext sync's status, its outbox per flow and state, the newest dead letters
+         *     (replayed and discarded through staff/erp/dead-letters/), ERPNext's doorbells of 7 days, the last week's nightly
+         *     reconciliations with their open differences.
+         */
+        get: operations["staff_system_sync_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/system/sync/links/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description ErpLink lookups (`?q=`): a reference (invoice:EL-2026-000123), an ERPNext name, or a platform object's id; the
+         *     first 50 matches, newest first. A query of fewer than 3 characters finds nothing.
+         */
+        get: operations["staff_system_sync_links_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/tax/calendar/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description What is due in a month (?month=YYYY-MM, this one by default): the returns, payments and cut-offs computed from
+         *     the law's dates and the QRMP switch, and the threshold lines crossed this year.
+         */
+        get: operations["staff_tax_calendar_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/tax/documents/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The storefront's tax documents, newest first: invoices (by default) or credit notes (?kind=credit_note), by
+         *     series, type, month, year, cancelled or not; the test series only with ?test=true. One by its number (dashes for
+         *     its slashes: EL-2026-27-00001) with its lines, charges and Rule 46 checks; its PDF (a look at the buyer's name and
+         *     address: audited); cancel one with a reason (staff.cancel_document, high: re-authenticated). A cancelled document
+         *     keeps its number; the order and its refunds are left as they are.
+         */
+        get: operations["staff_tax_documents_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/tax/documents/{number}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The storefront's tax documents, newest first: invoices (by default) or credit notes (?kind=credit_note), by
+         *     series, type, month, year, cancelled or not; the test series only with ?test=true. One by its number (dashes for
+         *     its slashes: EL-2026-27-00001) with its lines, charges and Rule 46 checks; its PDF (a look at the buyer's name and
+         *     address: audited); cancel one with a reason (staff.cancel_document, high: re-authenticated). A cancelled document
+         *     keeps its number; the order and its refunds are left as they are.
+         */
+        get: operations["staff_tax_documents_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/tax/documents/{number}/cancel/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The storefront's tax documents, newest first: invoices (by default) or credit notes (?kind=credit_note), by
+         *     series, type, month, year, cancelled or not; the test series only with ?test=true. One by its number (dashes for
+         *     its slashes: EL-2026-27-00001) with its lines, charges and Rule 46 checks; its PDF (a look at the buyer's name and
+         *     address: audited); cancel one with a reason (staff.cancel_document, high: re-authenticated). A cancelled document
+         *     keeps its number; the order and its refunds are left as they are.
+         */
+        post: operations["staff_tax_documents_cancel_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/tax/documents/{number}/pdf/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The document's PDF as issued (cancelled: marked so): it names the buyer, so the look is audited. */
+        get: operations["staff_tax_documents_pdf_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/tax/gstr1/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Run the GSTR-1 export for a month, or the quarter ending with it, as a background job (staff.run_gstr1): 202
+         *     with the job; its file, the Offline Tool's CSV files zipped, through the job's result link. Above the starter's
+         *     export_rows the job waits for an approver first (its change_request_id).
+         */
+        post: operations["staff_tax_gstr1_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/tax/hsn/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The HSN and SAC master: codes with their rate today and any scheduled change (filters kind, taxability today,
+         *     q); one with its history and the products on it; a new code with its first rate, a new rate of a code (FINANCE:
+         *     shop.change_hsncode). Rates are never edited or deleted.
+         */
+        get: operations["staff_tax_hsn_list"];
+        put?: never;
+        /**
+         * @description The HSN and SAC master: codes with their rate today and any scheduled change (filters kind, taxability today,
+         *     q); one with its history and the products on it; a new code with its first rate, a new rate of a code (FINANCE:
+         *     shop.change_hsncode). Rates are never edited or deleted.
+         */
+        post: operations["staff_tax_hsn_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/tax/hsn/{code}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The HSN and SAC master: codes with their rate today and any scheduled change (filters kind, taxability today,
+         *     q); one with its history and the products on it; a new code with its first rate, a new rate of a code (FINANCE:
+         *     shop.change_hsncode). Rates are never edited or deleted.
+         */
+        get: operations["staff_tax_hsn_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/tax/hsn/{code}/rates/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The HSN and SAC master: codes with their rate today and any scheduled change (filters kind, taxability today,
+         *     q); one with its history and the products on it; a new code with its first rate, a new rate of a code (FINANCE:
+         *     shop.change_hsncode). Rates are never edited or deleted.
+         */
+        post: operations["staff_tax_hsn_rates_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/tax/problems/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The products whose GST disagrees with the master today, with why (the catalogue's red chip; ?all=true: the
+         *     ones off sale too). Not paged: the whole catalogue is checked at once.
+         */
+        get: operations["staff_tax_problems_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/tax/series/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Table 13, the documents issued: each series of the real documents of a financial year (?financial_year=, this
+         *     year's by default), or of one month of it (?month=YYYY-MM): its first and last number, how many, how many
+         *     cancelled, and its next serial.
+         */
+        get: operations["staff_tax_series_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/tax/thresholds/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The threshold card: the latest night's lines (₹2, 4, 5 and 10 crore of turnover this financial year; invoices
+         *     above ₹1 lakh to another state; taxable goods above ₹50,000 in a parcel), the year before's turnover, the QRMP
+         *     switch and the HSN digits documents print.
+         */
+        get: operations["staff_tax_thresholds_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/templates/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The template registry (filters channel, language, approval_state, event, category), by event: add one, change
+         *     one (PATCH: what it is for, its channel and language stay), send yourself a test. Never deleted: deactivated.
+         */
+        get: operations["staff_templates_list"];
+        put?: never;
+        /**
+         * @description The template registry (filters channel, language, approval_state, event, category), by event: add one, change
+         *     one (PATCH: what it is for, its channel and language stay), send yourself a test. Never deleted: deactivated.
+         */
+        post: operations["staff_templates_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/templates/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The template registry (filters channel, language, approval_state, event, category), by event: add one, change
+         *     one (PATCH: what it is for, its channel and language stay), send yourself a test. Never deleted: deactivated.
+         */
+        get: operations["staff_templates_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description The template registry (filters channel, language, approval_state, event, category), by event: add one, change
+         *     one (PATCH: what it is for, its channel and language stay), send yourself a test. Never deleted: deactivated.
+         */
+        patch: operations["staff_templates_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/templates/{id}/test/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Send this template to yourself: an SMS to your own confirmed mobile number, an email to your own address. */
+        post: operations["staff_templates_test_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/users/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
+         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
+         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
+         */
+        get: operations["staff_users_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/users/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
+         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
+         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
+         */
+        get: operations["staff_users_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/users/{id}/end-sessions/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
+         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
+         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
+         */
+        post: operations["staff_users_end_sessions_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/users/{id}/impersonate/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
+         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
+         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
+         */
+        post: operations["staff_users_impersonate_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/users/{id}/impersonate/end/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
+         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
+         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
+         */
+        post: operations["staff_users_impersonate_end_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/users/{id}/password-reset/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
+         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
+         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
+         */
+        post: operations["staff_users_password_reset_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/users/{id}/resend-verification/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
+         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
+         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
+         */
+        post: operations["staff_users_resend_verification_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/users/{id}/reset-mfa/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
+         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
+         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
+         */
+        post: operations["staff_users_reset_mfa_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/users/{id}/reveal/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
+         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
+         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
+         */
+        post: operations["staff_users_reveal_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/users/{id}/suspend/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
+         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
+         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
+         */
+        post: operations["staff_users_suspend_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/users/{id}/unlock/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
+         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
+         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
+         */
+        post: operations["staff_users_unlock_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/users/{id}/unsuspend/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Customers (staff are in people/): search with masked contacts; opening one is logged (`sensitive_read`), and
+         *     so is revealing a detail (reveal/, a reason, a re-authentication, 30 an hour). The account actions each name
+         *     their permission; a second factor reset waits for a second person; impersonation gives a 15-minute token.
+         */
+        post: operations["staff_users_unsuspend_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1720,6 +7600,181 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AcceptRequest: {
+            token: string;
+            /** @default  */
+            full_name: string;
+            /** @default  */
+            password: string;
+        };
+        Access: {
+            id: number;
+            /** Format: email */
+            email: string;
+            full_name: string;
+            is_active: boolean;
+            is_superuser: boolean;
+            /** Format: date-time */
+            last_login: string | null;
+            roles: components["schemas"]["AccessRole"][];
+            scopes: components["schemas"]["AccessScope"][];
+            /** @description the roles' own narrowing */
+            role_scopes: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            /** @description null: no limit */
+            limits: {
+                [key: string]: number | null;
+            };
+            idle_timeout_s: number;
+            /** @description how many it holds */
+            permissions: number;
+            capabilities: components["schemas"]["CapabilityArea"][];
+            /** @description change requests about them or by them, still open */
+            pending: components["schemas"]["AccessPending"][];
+            second_factors: components["schemas"]["SecondFactors"];
+            /** @description their role needs a passkey they have not added */
+            passkey_required: boolean;
+            erp_profiles: string[];
+        };
+        AccessExtended: {
+            entitlement: number;
+            /** Format: date */
+            valid_until: string;
+        };
+        AccessPending: {
+            id: number;
+            action: string;
+            status: components["schemas"]["ChangeRequestStatusEnum"];
+            target_label: string;
+            about_them: boolean;
+            by_them: boolean;
+            /** Format: date-time */
+            created: string;
+            /** Format: date-time */
+            expires_at: string;
+        };
+        AccessRole: {
+            name: components["schemas"]["RoleEnum"];
+            /**
+             * @description admin: given in the Django admin, no grant
+             *
+             *     * `panel` - panel
+             *     * `admin` - admin
+             */
+            source: components["schemas"]["AccessRoleSourceEnum"];
+            granted_by: number | null;
+            /** Format: date-time */
+            granted_at: string | null;
+            /** Format: date-time */
+            expires_at: string | null;
+            reason: string;
+        };
+        /**
+         * @description * `panel` - panel
+         *     * `admin` - admin
+         * @enum {string}
+         */
+        AccessRoleSourceEnum: "panel" | "admin";
+        AccessRow: {
+            id: number;
+            /** Format: email */
+            email: string;
+            roles: string[];
+            grants: {
+                [key: string]: unknown;
+            }[];
+            scopes: {
+                [key: string]: string[];
+            };
+            /** Format: date-time */
+            last_login: string | null;
+            /** @description no log-in for STAFF_DORMANT_DAYS */
+            dormant: boolean;
+            mfa: boolean;
+            /** @description how many it holds */
+            permissions: number;
+            /** @description action permissions unused in 90 days */
+            unused: string[];
+            /** @description permission: last use */
+            last_used: {
+                [key: string]: string;
+            };
+        };
+        AccessScope: {
+            id: number;
+            kind: components["schemas"]["ScopeKindEnum"];
+            value: string;
+            granted_by: number | null;
+            /** Format: date-time */
+            created: string;
+            /** Format: date-time */
+            expires_at: string | null;
+        };
+        AccountNominee: {
+            user: number;
+            nominee: components["schemas"]["PrivacyNominee"] | null;
+        };
+        AccountRow: {
+            id: number;
+            mode: components["schemas"]["IntegrationModeEnum"];
+            /** @description the account in use */
+            enabled: boolean;
+            label: string;
+            /** @description each credential's last four characters */
+            held: {
+                [key: string]: string;
+            };
+            /** @description its secrets cannot be read with INTEGRATION_KEYS */
+            unreadable: boolean;
+            /** Format: date-time */
+            credentials_updated_at: string | null;
+            credentials_updated_by: number | null;
+            /**
+             * Format: date
+             * @description our 90-day rotation
+             */
+            rotate_by: string | null;
+            /** @description negative: overdue */
+            rotate_in_days: number | null;
+            /**
+             * Format: date-time
+             * @description the cached access token (Shiprocket)
+             */
+            token_expires_at: string | null;
+            /** Format: double */
+            token_in_hours: number | null;
+            /** @description its last four characters */
+            webhook_token: string;
+            /** Format: date-time */
+            webhook_rotated_at: string | null;
+        };
+        AcknowledgeRequest: {
+            /**
+             * @description given another way: how (the acknowledgement is not sent then)
+             * @default
+             */
+            note: string;
+        };
+        Actions: {
+            test: boolean;
+            /** @description its keys are the panel's to replace */
+            credentials: boolean;
+            mode: boolean;
+            circuit: boolean;
+            webhooks: boolean;
+        };
+        /**
+         * @description * `staff` - staff
+         *     * `user` - user
+         *     * `service` - service (API key)
+         *     * `system` - system
+         *     * `anonymous` - anonymous
+         * @enum {string}
+         */
+        ActorTypeEnum: "staff" | "user" | "service" | "system" | "anonymous";
         /**
          * @description A saved delivery address: a state code from the list, a 6-digit PIN code and a 10-digit Indian mobile number
          *     (the website's rules).
@@ -1767,9 +7822,69 @@ export interface components {
             /** Use by default */
             is_default?: boolean;
         };
+        Advisory: {
+            id: string;
+            /** @description python or npm */
+            ecosystem: string;
+            /** @description examleaf-web, examleaf-admin, examleaf-frontend */
+            project: string;
+            package: string;
+            version: string;
+            severity: components["schemas"]["SeverityEnum"];
+            title: string;
+            url: string;
+            fixed_in: string;
+            /** Format: date */
+            first_seen: string;
+            /**
+             * Format: date
+             * @description a critical one's 7-day target
+             */
+            due: string | null;
+            overdue: boolean;
+        };
+        Agent: {
+            id: number;
+            name: string;
+            /** @description may be given tickets (staff.handle_ticket) */
+            handles: boolean;
+        };
         AnswerRequest: {
             /** @description the option's number from 1, true/false, or the word(s) */
             answer: string;
+        };
+        ApiKey: {
+            readonly id: number;
+            name: string;
+            readonly prefix: string;
+            /** @description the whole key: only in the answer that made it */
+            readonly key: string | null;
+            /** @description Permissions, e.g. ["shop.view_order"]. */
+            scopes?: unknown;
+            sponsor?: number;
+            readonly created_by: number | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            expires_at?: string;
+            /** @description Addresses or networks (CIDR); empty: any. */
+            allowed_ips?: unknown;
+            /** Format: date-time */
+            readonly last_used_at: string | null;
+            readonly last_used_ip: string | null;
+            /** Format: date-time */
+            readonly revoked_at: string | null;
+            readonly revoked_by: number | null;
+        };
+        ApiKeyRequest: {
+            name: string;
+            /** @description Permissions, e.g. ["shop.view_order"]. */
+            scopes?: unknown;
+            sponsor?: number;
+            /** Format: date-time */
+            expires_at?: string;
+            /** @description Addresses or networks (CIDR); empty: any. */
+            allowed_ips?: unknown;
         };
         AppLinksConfig: {
             /**
@@ -1782,6 +7897,60 @@ export interface components {
              * @description the App Store's page; null until out
              */
             ios: string | null;
+        };
+        Approval: {
+            user: number;
+            decision: components["schemas"]["DecisionEnum"];
+            comment?: string;
+            /** Format: date-time */
+            created?: string;
+        };
+        ApproveRequest: {
+            /** @description the hash of the payload you read */
+            payload_sha256: string;
+            /** @default  */
+            comment: string;
+            /**
+             * @description an owner approves their own
+             * @default false
+             */
+            override: boolean;
+        };
+        /**
+         * @description * `order.refund` - order.refund
+         *     * `order.offline_payment` - order.offline_payment
+         *     * `product.price` - product.price
+         *     * `coupon.create` - coupon.create
+         * @enum {string}
+         */
+        AskActionEnum: "order.refund" | "order.offline_payment" | "product.price" | "coupon.create";
+        AskRequest: {
+            /**
+             * @description order.refund, order.offline_payment, product.price, coupon.create
+             *
+             *     * `order.refund` - order.refund
+             *     * `order.offline_payment` - order.offline_payment
+             *     * `product.price` - product.price
+             *     * `coupon.create` - coupon.create
+             */
+            action: components["schemas"]["AskActionEnum"];
+            /** @description an order's number, a product's slug, a new coupon's code */
+            target: string;
+            /** @description the action's details: amount, reference, price, value … */
+            payload: {
+                [key: string]: unknown;
+            };
+            reason: string;
+        };
+        AssignRequest: {
+            /** @description a member of staff's id; null: nobody */
+            assignee: number | null;
+        };
+        Attachment: {
+            readonly id: number;
+            readonly name: string;
+            readonly content_type: string;
+            readonly size: number;
         };
         /** @description A student's marks for a published paper, from 0 to its full marks (as the website's form); the paper is fixed. */
         Attempt: {
@@ -1822,6 +7991,65 @@ export interface components {
             readonly name: string;
             value: string;
         };
+        AuditEvent: {
+            readonly id: number;
+            chain?: components["schemas"]["ChainEnum"];
+            /**
+             * Time (UTC)
+             * Format: date-time
+             */
+            ts: string;
+            /** Format: int64 */
+            actor_id?: number | null;
+            actor_type: components["schemas"]["ActorTypeEnum"];
+            /** @description The actor's roles at the time. */
+            actor_roles?: unknown;
+            /**
+             * Format: int64
+             * @description The customer, while impersonating.
+             */
+            on_behalf_of?: number | null;
+            /** @description By a break-glass account (a superuser), or an owner's override of an approval. */
+            break_glass?: boolean;
+            action: string;
+            /** @description The permission exercised (or missing). */
+            permission?: string;
+            target_type?: string;
+            target_id?: string;
+            target_label?: string;
+            outcome?: components["schemas"]["AuditOutcomeEnum"];
+            reason?: string;
+            /** Format: int64 */
+            change_request_id?: number | null;
+            request_id?: string;
+            ip?: string | null;
+            user_agent?: string;
+            session_hash?: string;
+            /** @description {field: [before, after]}, personal data masked. */
+            changes?: unknown;
+            /** @description Context: an export's filter and row count; masked too. */
+            details?: unknown;
+            prev_hash: string;
+            hash: string;
+        };
+        /**
+         * @description * `success` - success
+         *     * `denied` - denied
+         *     * `failed` - failed
+         * @enum {string}
+         */
+        AuditOutcomeEnum: "success" | "denied" | "failed";
+        AuditRow: {
+            pattern: components["schemas"]["PatternEnum"];
+            readonly label: string;
+            finding: string;
+            fix: string;
+        };
+        AuditRowRequest: {
+            pattern: components["schemas"]["PatternEnum"];
+            finding: string;
+            fix: string;
+        };
         AuthConfig: {
             /** @description "email", "phone" */
             login_methods: string[];
@@ -1835,6 +8063,72 @@ export interface components {
             passkeys: boolean;
             /** @description Cloudflare Turnstile's, while the bot check is on; send its token */
             turnstile_site_key: string | null;
+        };
+        Backtest: {
+            readonly product: string;
+            /** Format: int64 */
+            horizon_weeks: number;
+            /**
+             * Format: double
+             * @description Sum of absolute errors ÷ sum of copies sold.
+             */
+            wape?: number | null;
+            /**
+             * MASE
+             * Format: double
+             * @description Mean absolute error ÷ the seasonal naive's on the same weeks: below 1 beats it.
+             */
+            mase_vs_seasonal_naive?: number | null;
+            /** @description It beats the seasonal naive, so the panel may show it. */
+            shown?: boolean;
+            readonly n: number;
+        };
+        BackupFile: {
+            name: string;
+            /** Format: date-time */
+            at: string;
+            size: number;
+            /** @description kept beside it by manage.py upload_backup */
+            sha256: string;
+            /** @description encrypted with age (BACKUP_AGE_RECIPIENT) */
+            encrypted: boolean;
+        };
+        BackupSource: {
+            key: string;
+            label: string;
+            prefix: string;
+            latest: components["schemas"]["BackupFile"] | null;
+            /** Format: double */
+            age_hours: number | null;
+            stale: boolean;
+            error: string;
+        };
+        Backups: {
+            /** @description a backups bucket is set (BACKUP_BUCKET) */
+            configured: boolean;
+            bucket: string;
+            sources: components["schemas"]["BackupSource"][];
+            /** @description no recent backup in any source (BACKUP_STALE_HOURS) */
+            stale: boolean;
+            /** @description the bucket could not be read */
+            unreadable: boolean;
+            stale_hours: number;
+            /** @description BACKUP_KEEP_DAYS */
+            retention_days: number;
+            /** Format: date-time */
+            checked_at: string;
+            /** @description the newest restore drill that worked */
+            last_proven: components["schemas"]["Proven"] | null;
+            /** @description the newest 20 */
+            drills: components["schemas"]["RestoreDrill"][];
+        };
+        BeforeAfterProfiles: {
+            before: string[];
+            after: string[];
+        };
+        BeforeAfterSeconds: {
+            before: number;
+            after: number;
         };
         /** @enum {unknown} */
         BlankEnum: "";
@@ -1854,12 +8148,120 @@ export interface components {
             readonly subject: components["schemas"]["Subject"];
             readonly papers: components["schemas"]["PaperBrief"][];
         };
+        BookCodeLookupRequest: {
+            /** @description as printed: 7KQM-3XPA-9TRW */
+            code: string;
+        };
+        /**
+         * @description * `print` - printed book
+         *     * `ebook` - e-book
+         * @enum {string}
+         */
+        BookFormatEnum: "print" | "ebook";
+        /**
+         * @description Book a parcel for a packed order: with a courier of the quote (`courier_company_id`), booked by a task; or
+         *     sent by hand (India Post, a courier without an API): `courier` and `tracking_number`, shipped at once.
+         */
+        BookRequest: {
+            order: string | null;
+            courier_company_id?: number;
+            /** @default  */
+            courier_name: string;
+            /** Format: decimal */
+            quoted_rate?: string | null;
+            weight_g?: number;
+            length_cm?: number;
+            breadth_cm?: number;
+            height_cm?: number;
+            pickup_location?: number | null;
+            /**
+             * @description sent by hand
+             *
+             *     * `India Post` - India Post
+             *     * `Delhivery` - Delhivery
+             *     * `Blue Dart` - Blue Dart
+             *     * `Ekart` - Ekart
+             *     * `DTDC` - DTDC
+             *     * `Xpressbees` - Xpressbees
+             *     * `Other` - another courier
+             */
+            courier?: components["schemas"]["CourierEnum"];
+            /** @description sent by hand */
+            tracking_number?: string;
+            tracking_url?: string;
+        };
+        BreakGlassReasonRequest: {
+            /** @description why nothing else works: the owners read it */
+            reason: string;
+        };
+        Bucket: {
+            alias: string;
+            bucket: string;
+        };
         BundleItem: {
             readonly product: string;
             readonly title: string;
             /** Format: int64 */
             quantity?: number;
         };
+        Call: {
+            readonly id: number;
+            readonly mode: string;
+            readonly operation: string;
+            readonly method: string;
+            /** @description Without its query string. */
+            readonly path: string;
+            /** @description Empty: no answer (network). */
+            readonly status_code: number | null;
+            readonly duration_ms: number;
+            readonly provider_request_id: string;
+            readonly error: string;
+            readonly excerpt: string;
+            /** Format: date-time */
+            readonly created: string;
+        };
+        Calls: {
+            /** @description calls in the last 24 hours */
+            day: number;
+            day_errors: number;
+            /** @description calls in the last 7 days */
+            week: number;
+            week_errors: number;
+            /** @description the week's 90th percentile, in milliseconds */
+            p90_ms: number | null;
+        };
+        CancelRequest: {
+            /** @description why: kept with the document */
+            reason: string;
+        };
+        Capability: {
+            /** @description app_label.codename */
+            perm: string;
+            label: string;
+            area: string;
+            risk: components["schemas"]["RiskEnum"];
+            /** @description needs a re-authentication in the last 5 minutes */
+            reauth: boolean;
+            /** @description may wait for a second person */
+            approval: boolean;
+            /** @description the owners are told */
+            alert: boolean;
+            /**
+             * Format: date-time
+             * @description the Access tab: its last use in a year (high and critical ones)
+             */
+            last_used?: string | null;
+        };
+        CapabilityArea: {
+            area: string;
+            permissions: components["schemas"]["Capability"][];
+        };
+        /**
+         * @description * `manual` - by hand (staff type the courier and number)
+         *     * `shiprocket` - Shiprocket
+         * @enum {string}
+         */
+        CarrierEnum: "manual" | "shiprocket";
         /**
          * @description The cart at today's prices (shop.cart.totals, as the website): `savings` are the coupon's and the automatic
          *     offers' discounts, `discount` their sum.
@@ -1939,6 +8341,74 @@ export interface components {
             readonly parent: string | null;
             readonly web_url: string;
         };
+        CertificateFileRequest: {
+            /**
+             * Format: binary
+             * @description the signed certificate: PDF, PNG or JPEG, 5 MB at most
+             */
+            file: string;
+        };
+        /**
+         * @description * `general` - general
+         *     * `money` - money
+         * @enum {string}
+         */
+        ChainEnum: "general" | "money";
+        ChangeRequest: {
+            readonly id: number;
+            action: string;
+            readonly label: string;
+            target_type?: string;
+            target_id?: string;
+            target_label?: string;
+            payload?: unknown;
+            payload_sha256: string;
+            /**
+             * Amount (₹)
+             * Format: decimal
+             */
+            amount?: string | null;
+            maker: number;
+            reason: string;
+            /** @description Why it needed approval, or why not. */
+            rule?: string;
+            status?: components["schemas"]["ChangeRequestStatusEnum"];
+            /** Format: date-time */
+            expires_at: string;
+            /** @description Approved by its maker: an owner's override. */
+            overridden?: boolean;
+            /** @description the permission an approver needs */
+            readonly checker: string;
+            readonly approvals: components["schemas"]["Approval"][];
+            result?: unknown;
+            executed_by?: number | null;
+            /** Format: date-time */
+            executed_at?: string | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly modified: string;
+        };
+        /**
+         * @description * `pending` - waiting for approval
+         *     * `approved` - approved
+         *     * `rejected` - rejected
+         *     * `expired` - expired
+         *     * `executed` - done
+         *     * `failed` - failed
+         * @enum {string}
+         */
+        ChangeRequestStatusEnum: "pending" | "approved" | "rejected" | "expired" | "executed" | "failed";
+        /**
+         * @description * `email` - email
+         *     * `letter` - letter
+         *     * `phone` - phone
+         *     * `form` - the website's contact form
+         *     * `in_person` - in person
+         *     * `board` - through the Data Protection Board
+         * @enum {string}
+         */
+        ChannelEnum: "email" | "letter" | "phone" | "form" | "in_person" | "board";
         Chapter: {
             readonly id: number;
             subject: number;
@@ -2028,6 +8498,23 @@ export interface components {
             number: number;
             title: string;
         };
+        ChapterStat: {
+            chapter: number;
+            readonly subject: number;
+            readonly number: number;
+            readonly title: string;
+            /**
+             * Format: double
+             * @description Empty below 5 learners.
+             */
+            mean_accuracy?: number | null;
+            /**
+             * Format: double
+             * @description The last 4 weeks' accuracy less the 4 weeks before.
+             */
+            trend?: number | null;
+            readonly n: number;
+        };
         Checked: {
             correct: boolean;
             right_answer: string;
@@ -2046,7 +8533,74 @@ export interface components {
             /** @description the id of one of the customer's addresses (addresses/) */
             address: number;
             payment_method: components["schemas"]["CheckoutMethodEnum"];
+            /**
+             * @description a cart of courses alone: the state the buyer is billed in, the place of supply (else the address's); with books, the delivery address's state decides and another is refused
+             *
+             *     * `KA` - Karnataka
+             *     * `AP` - Andhra Pradesh
+             *     * `KL` - Kerala
+             *     * `TN` - Tamil Nadu
+             *     * `MH` - Maharashtra
+             *     * `UP` - Uttar Pradesh
+             *     * `GA` - Goa
+             *     * `GJ` - Gujarat
+             *     * `RJ` - Rajasthan
+             *     * `HP` - Himachal Pradesh
+             *     * `TG` - Telangana
+             *     * `AR` - Arunachal Pradesh
+             *     * `AS` - Assam
+             *     * `BR` - Bihar
+             *     * `CT` - Chhattisgarh
+             *     * `HR` - Haryana
+             *     * `JH` - Jharkhand
+             *     * `MP` - Madhya Pradesh
+             *     * `MN` - Manipur
+             *     * `ML` - Meghalaya
+             *     * `MZ` - Mizoram
+             *     * `NL` - Nagaland
+             *     * `OR` - Odisha
+             *     * `PB` - Punjab
+             *     * `SK` - Sikkim
+             *     * `TR` - Tripura
+             *     * `UT` - Uttarakhand
+             *     * `WB` - West Bengal
+             *     * `AN` - Andaman and Nicobar Islands
+             *     * `CH` - Chandigarh
+             *     * `DH` - Dadra and Nagar Haveli and Daman and Diu
+             *     * `DL` - Delhi
+             *     * `JK` - Jammu and Kashmir
+             *     * `LD` - Lakshadweep
+             *     * `LA` - Ladakh
+             *     * `PY` - Puducherry
+             */
+            billing_state?: components["schemas"]["StateEnum"];
         };
+        Circuit: {
+            state: components["schemas"]["CircuitStateEnum"];
+            /** @description opened by staff: no trial call until reset */
+            held_open: boolean;
+            /** Format: date-time */
+            opened_at: string | null;
+            failures: number;
+        };
+        /**
+         * @description * `open` - open
+         *     * `reset` - reset
+         * @enum {string}
+         */
+        CircuitActionEnum: "open" | "reset";
+        CircuitActionRequest: {
+            /** @description why (kept in the audit log; the owners read it) */
+            reason: string;
+            action: components["schemas"]["CircuitActionEnum"];
+        };
+        /**
+         * @description * `closed` - closed: calls go through
+         *     * `open` - open: calls wait
+         *     * `half_open` - half open: one trial call
+         * @enum {string}
+         */
+        CircuitStateEnum: "closed" | "open" | "half_open";
         /**
          * @description * `10` - Class 10
          *     * `12` - Class 12
@@ -2106,9 +8660,173 @@ export interface components {
             readonly locked: boolean;
             readonly completed: boolean;
         };
+        Clock: {
+            kind: components["schemas"]["ClockKindEnum"];
+            label: string;
+            /** @description the law's clock, in words */
+            rule: string;
+            /** Format: date-time */
+            started_at: string | null;
+            /**
+             * Format: date-time
+             * @description null: awaited, no legal end
+             */
+            due_at: string | null;
+            overdue: boolean;
+            /** @description the record behind it: app_label.model */
+            target_type: string;
+            target_id: string;
+            target_label: string;
+            /** @description the account it is about (its number), if any */
+            account: number | null;
+        };
+        ClockCount: {
+            open: number;
+            overdue: number;
+        };
+        /**
+         * @description * `data_request_ack` - data_request_ack
+         *     * `data_request_answer` - data_request_answer
+         *     * `incident_cert_in` - incident_cert_in
+         *     * `incident_board` - incident_board
+         *     * `complaint_ack` - complaint_ack
+         *     * `complaint_redress` - complaint_redress
+         *     * `complaint_nch` - complaint_nch
+         *     * `parent_consent` - parent_consent
+         *     * `deletion_parent` - deletion_parent
+         *     * `dark_pattern_audit` - dark_pattern_audit
+         * @enum {string}
+         */
+        ClockKindEnum: "data_request_ack" | "data_request_answer" | "incident_cert_in" | "incident_board" | "complaint_ack" | "complaint_redress" | "complaint_nch" | "parent_consent" | "deletion_parent" | "dark_pattern_audit";
+        CloseRequest: {
+            outcome: components["schemas"]["DataRequestOutcomeEnum"];
+            /** @description the answer sent, as sent */
+            response: string;
+        };
+        Cockpit: {
+            /** Format: date-time */
+            now: string;
+            /** @description the overdue first, then by due time; 20 of each kind at most */
+            clocks: components["schemas"]["Clock"][];
+            /** @description every one of each kind */
+            counts: {
+                [key: string]: components["schemas"]["ClockCount"];
+            };
+            support: components["schemas"]["PrivacyCockpitSupport"];
+            consents: components["schemas"]["PrivacyConsentVersion"][];
+            dark_pattern: components["schemas"]["PrivacyDarkPatternState"];
+            calendar: components["schemas"]["PrivacyCalendarItem"][];
+            /** @description the processors' tasks and compliance items open in the inbox */
+            inbox: number;
+        };
+        CodReconcileRequest: {
+            /** @description the bank credit's UTR */
+            utr: string;
+            /**
+             * Format: decimal
+             * @description what the credit gave for this parcel
+             */
+            amount: string;
+            /**
+             * Format: date
+             * @description the credit's day; today by default
+             */
+            on?: string;
+        };
+        CodRemittance: {
+            readonly id: number;
+            readonly shipment: number;
+            readonly order: string;
+            /**
+             * Expected (₹)
+             * Format: decimal
+             */
+            readonly expected_amount: string;
+            /** Format: date */
+            readonly expected_on: string;
+            /**
+             * Remitted (₹)
+             * Format: decimal
+             */
+            readonly remitted_amount: string | null;
+            readonly utr: string;
+            /** Format: date */
+            readonly remitted_at: string | null;
+            readonly state: components["schemas"]["CodRemittanceStateEnum"];
+            /** Format: date-time */
+            readonly checked_at: string | null;
+        };
+        /**
+         * @description * `expected` - expected
+         *     * `overdue` - overdue
+         *     * `remitted` - remitted
+         *     * `mismatch` - remitted, another amount
+         *     * `not_expected` - not expected
+         * @enum {string}
+         */
+        CodRemittanceStateEnum: "expected" | "overdue" | "remitted" | "mismatch" | "not_expected";
+        CodeActivation: {
+            batch: string;
+            district?: string | null;
+            /**
+             * Format: int64
+             * @description On the batch's row only.
+             */
+            printed?: number | null;
+            /** Format: int64 */
+            redeemed: number;
+            /**
+             * Redeemed in the last 7 days
+             * Format: int64
+             */
+            redeemed_7d: number;
+            readonly n: number;
+        };
+        CodeAnswer: {
+            found: boolean;
+            batch?: string;
+            subject?: string;
+            redeemed?: boolean;
+            by_requester?: boolean;
+            line: string;
+        };
         CodeRequest: {
             /** @description as printed: 7KQM-3XPA-9TRW (any case, spaces or dashes) */
             code: string;
+        };
+        CodeRow: {
+            batch: string;
+            subject: string;
+            /** Format: date-time */
+            redeemed_at: string;
+        };
+        CohortStat: {
+            /**
+             * Format: date
+             * @description The first day of the month the course opened.
+             */
+            cohort_month: string;
+            source: components["schemas"]["EntitlementSourceEnum"];
+            /**
+             * Format: int64
+             * @description Weeks since the course opened (0: the first).
+             */
+            week_index: number;
+            /**
+             * Format: double
+             * @description Empty below 5 learners.
+             */
+            active_share?: number | null;
+            /**
+             * Format: double
+             * @description No activity for 14 days; empty below 5 or in week 0.
+             */
+            churned_share?: number | null;
+            /**
+             * Format: int64
+             * @description Learners counted that week (their exam still ahead).
+             */
+            n: number;
         };
         Collection: {
             slug: string;
@@ -2117,6 +8835,17 @@ export interface components {
             readonly description: string;
             readonly products: string[];
             readonly web_url: string;
+        };
+        CommentRequest: {
+            /** @default  */
+            comment: string;
+        };
+        CompleteRequest: {
+            /**
+             * Format: date
+             * @description shown on the website from (today if empty)
+             */
+            effective_from?: string;
         };
         Config: {
             auth: components["schemas"]["AuthConfig"];
@@ -2128,6 +8857,139 @@ export interface components {
             app_links: components["schemas"]["AppLinksConfig"];
             /** @description the revision course's chapter, flash-card and quiz pages on the website; off: the app only */
             web_course: boolean;
+            maintenance: components["schemas"]["MaintenanceConfig"];
+            /** @description the e-commerce disclosures (E-Commerce Rules r.4): each null while not set yet */
+            disclosures: components["schemas"]["DisclosuresConfig"];
+            /** @description the dark-pattern self-audit's certificate in force, to show prominently; null: none yet */
+            dark_pattern_certificate: components["schemas"]["DarkPatternCertificate"] | null;
+        };
+        /**
+         * @description * `consent` - consent
+         *     * `deletion` - deletion
+         * @enum {string}
+         */
+        ConfirmEnum: "consent" | "deletion";
+        Conflict: {
+            roles: string[];
+            text: string;
+        };
+        ConnectionCard: {
+            provider: components["schemas"]["ConnectionProviderEnum"];
+            name: string;
+            kind: components["schemas"]["ConnectionKindEnum"];
+            status: components["schemas"]["ConnectionStatusEnum"];
+            /**
+             * @description the mode in force
+             *
+             *     * `off` - off
+             *     * `test` - test
+             *     * `live` - live
+             */
+            mode: components["schemas"]["ConnectionModeEnum"];
+            /**
+             * @description where its keys are read from
+             *
+             *     * `panel` - panel
+             *     * `environment` - environment
+             *     * `none` - none
+             */
+            source: components["schemas"]["ConnectionSourceEnum"];
+            /** @description the environment's keys' last characters */
+            held: {
+                [key: string]: string;
+            };
+            accounts: components["schemas"]["AccountRow"][];
+            /** Format: date-time */
+            last_success_at: string | null;
+            /** Format: date-time */
+            last_error_at: string | null;
+            last_error: string;
+            last_test: components["schemas"]["LastTest"];
+            circuit: components["schemas"]["Circuit"];
+            calls: components["schemas"]["Calls"];
+            /** @description the credentials Replace asks for */
+            fields: string[];
+            optional: string[];
+            modes: components["schemas"]["IntegrationModeEnum"][];
+            overlap_warning: string;
+            actions: components["schemas"]["Actions"];
+            extra: components["schemas"]["Extra"];
+        };
+        /**
+         * @description * `email` - email
+         *     * `erp` - erp
+         *     * `errors` - errors
+         *     * `payments` - payments
+         *     * `shipping` - shipping
+         *     * `sign_in` - sign_in
+         *     * `sms` - sms
+         *     * `storage` - storage
+         *     * `whatsapp` - whatsapp
+         * @enum {string}
+         */
+        ConnectionKindEnum: "email" | "erp" | "errors" | "payments" | "shipping" | "sign_in" | "sms" | "storage" | "whatsapp";
+        /**
+         * @description * `off` - off
+         *     * `test` - test
+         *     * `live` - live
+         * @enum {string}
+         */
+        ConnectionModeEnum: "off" | "test" | "live";
+        /**
+         * @description * `razorpay` - razorpay
+         *     * `shiprocket` - shiprocket
+         *     * `manual` - manual
+         *     * `msg91` - msg91
+         *     * `whatsapp` - whatsapp
+         *     * `ses` - ses
+         *     * `storage` - storage
+         *     * `error_tracker` - error_tracker
+         *     * `google` - google
+         *     * `erpnext` - erpnext
+         * @enum {string}
+         */
+        ConnectionProviderEnum: "razorpay" | "shiprocket" | "manual" | "msg91" | "whatsapp" | "ses" | "storage" | "error_tracker" | "google" | "erpnext";
+        ConnectionReasonRequest: {
+            /** @description why (kept in the audit log; the owners read it) */
+            reason: string;
+        };
+        /**
+         * @description * `panel` - panel
+         *     * `environment` - environment
+         *     * `none` - none
+         * @enum {string}
+         */
+        ConnectionSourceEnum: "panel" | "environment" | "none";
+        /**
+         * @description * `connected` - connected
+         *     * `degraded` - degraded
+         *     * `expired` - expired
+         *     * `disabled` - disabled
+         *     * `not_configured` - not_configured
+         * @enum {string}
+         */
+        ConnectionStatusEnum: "connected" | "degraded" | "expired" | "disabled" | "not_configured";
+        ConsentRow: {
+            event: string;
+            method: string;
+            by_parent: boolean;
+            /** Format: date-time */
+            verified_at: string | null;
+            notice_version: string;
+            /** Format: date-time */
+            created: string;
+        };
+        ConsentWithdrawn: {
+            purpose: string;
+            channel: string;
+            /** Format: date-time */
+            withdrawn_at: string;
+            detail: string;
+        };
+        Contact: {
+            contact: string;
+            source: components["schemas"]["ContactSourceEnum"];
+            placeholder: boolean;
         };
         /**
          * @description * `email` - email
@@ -2148,6 +9010,535 @@ export interface components {
             /** @description Turnstile's token while the bot check is on */
             turnstile?: string;
         };
+        /**
+         * @description * `panel` - panel
+         *     * `environment` - environment
+         * @enum {string}
+         */
+        ContactSourceEnum: "panel" | "environment";
+        ContentBook: {
+            readonly id: number;
+            title: string;
+            subject: number;
+            readonly subject_code: string;
+            edition?: string;
+            slug: string;
+            /** @description Static path, e.g. img/physics.png */
+            cover?: string;
+            /** @description ISBN-13, hyphens allowed: kept as its 13 digits */
+            isbn?: string;
+            format?: components["schemas"]["BookFormatEnum"];
+            /**
+             * Format: date
+             * @description The day this edition was published: the legal deposit's clock (CONTENT_LEGAL_DEPOSIT_DAYS) starts.
+             */
+            published_on?: string | null;
+            /**
+             * Format: date
+             * @description the legal deposit's last day
+             */
+            readonly deposit_due_on: string | null;
+            /** @description its papers */
+            readonly papers: number;
+        };
+        ContentBookDetail: {
+            readonly id: number;
+            title: string;
+            subject: number;
+            readonly subject_code: string;
+            edition?: string;
+            slug: string;
+            /** @description Static path, e.g. img/physics.png */
+            cover?: string;
+            /** @description ISBN-13, hyphens allowed: kept as its 13 digits */
+            isbn?: string;
+            format?: components["schemas"]["BookFormatEnum"];
+            /**
+             * Format: date
+             * @description The day this edition was published: the legal deposit's clock (CONTENT_LEGAL_DEPOSIT_DAYS) starts.
+             */
+            published_on?: string | null;
+            /**
+             * Format: date
+             * @description the legal deposit's last day
+             */
+            readonly deposit_due_on: string | null;
+            /** @description its papers */
+            readonly papers: number;
+            /** @description the libraries without this edition yet */
+            readonly missing_deposits: string[];
+        };
+        ContentBookRequest: {
+            title: string;
+            subject: number;
+            edition?: string;
+            slug: string;
+            /** @description Static path, e.g. img/physics.png */
+            cover?: string;
+            /** @description ISBN-13, hyphens allowed: kept as its 13 digits */
+            isbn?: string;
+            format?: components["schemas"]["BookFormatEnum"];
+            /**
+             * Format: date
+             * @description The day this edition was published: the legal deposit's clock (CONTENT_LEGAL_DEPOSIT_DAYS) starts.
+             */
+            published_on?: string | null;
+        };
+        ContentChange: {
+            /** @description a field, or "draft.<field>" for a draft's */
+            field: string;
+            before: unknown;
+            after: unknown;
+            /** @description the two, line by line */
+            lines: components["schemas"]["ContentLine"][];
+        };
+        ContentComment: {
+            author: number | null;
+            text: string;
+            /** Format: date-time */
+            at: string;
+            field: string;
+        };
+        ContentDecisionRequest: {
+            comment?: string;
+        };
+        ContentErratum: {
+            readonly id: number;
+            readonly book: number | null;
+            readonly paper_code: string | null;
+            readonly question_label: string | null;
+            /** @description The marking step, 1 for the first. */
+            readonly step: number | null;
+            readonly category: components["schemas"]["ErrorReportCategoryEnum"];
+            /** @description The print run it was read in: PHY-2027-1. */
+            readonly printing: string;
+            readonly state: components["schemas"]["ErrorReportStateEnum"];
+            /** @description The printing that carries the fix. */
+            readonly fixed_in: string;
+            /**
+             * Format: date-time
+             * @description When it was fixed online.
+             */
+            readonly fixed_at: string | null;
+            /** @description On the errata of its book and printing. */
+            readonly public: boolean;
+            /** Format: date-time */
+            readonly created: string;
+        };
+        ContentHeader: {
+            lines?: string[];
+            allotment?: string[];
+        };
+        ContentHeaderRequest: {
+            lines?: string[];
+            allotment?: string[];
+        };
+        ContentLine: {
+            op: components["schemas"]["ContentLineOpEnum"];
+            text: string;
+        };
+        /**
+         * @description * `equal` - equal
+         *     * `delete` - delete
+         *     * `insert` - insert
+         * @enum {string}
+         */
+        ContentLineOpEnum: "equal" | "delete" | "insert";
+        ContentLinked: {
+            paper_id: number | null;
+            question_id: number | null;
+            solution_id: number | null;
+            question_text?: string;
+            solution_text?: string;
+            solution_state?: string | null;
+            /** @description a quiz item's text, a clip's title */
+            title?: string;
+        };
+        ContentOpenReview: {
+            readonly id: number;
+            readonly state: components["schemas"]["ReviewTaskStateEnum"];
+            readonly stage: components["schemas"]["ReviewTaskStageEnum"];
+            readonly assignee: number | null;
+            readonly submitted_by: number | null;
+            /** Format: date-time */
+            readonly created: string;
+        };
+        ContentPaper: {
+            readonly id: number;
+            readonly code: string;
+            title: string;
+            readonly book: number;
+            readonly book_title: string;
+            readonly subject_code: string;
+            tier: components["schemas"]["TierEnum"];
+            /** Format: int64 */
+            number: number;
+            /** Format: int64 */
+            full_marks: number;
+            /** Format: int64 */
+            pass_marks: number;
+            time_text: string;
+            is_published?: boolean;
+            /**
+             * Open sample
+             * @description Its solutions open without an account, even when the others need one: the paper the home, book and product pages offer as a sample. One per book.
+             * @default false
+             */
+            is_sample: boolean;
+            /** @description its questions on the site */
+            readonly questions: number;
+            /** @description its questions and solutions with a draft */
+            readonly drafts: number;
+        };
+        ContentPaperDetail: {
+            readonly id: number;
+            readonly code: string;
+            title: string;
+            readonly book: number;
+            readonly book_title: string;
+            readonly subject_code: string;
+            tier: components["schemas"]["TierEnum"];
+            /** Format: int64 */
+            number: number;
+            /** Format: int64 */
+            full_marks: number;
+            /** Format: int64 */
+            pass_marks: number;
+            time_text: string;
+            readonly is_published: boolean;
+            /**
+             * Open sample
+             * @description Its solutions open without an account, even when the others need one: the paper the home, book and product pages offer as a sample. One per book.
+             */
+            readonly is_sample: boolean;
+            /** @description its questions on the site */
+            readonly questions: number;
+            /** @description its questions and solutions with a draft */
+            readonly drafts: number;
+            /** @description the paper's instruction lines and allotment tables */
+            header_json?: components["schemas"]["ContentHeader"];
+            /** @description its questions in order, each with its solution */
+            readonly tree: components["schemas"]["ContentTreeQuestion"][];
+        };
+        ContentQuestion: {
+            readonly id: number;
+            readonly paper: number;
+            readonly paper_code: string;
+            readonly order: number;
+            readonly label: string;
+            readonly number: string;
+            readonly marks_text: string;
+            /** @description Off: no longer in the books repository (kept, hidden, with its history). */
+            readonly is_published: boolean;
+            readonly state: components["schemas"]["ContentStateEnum"];
+            readonly preview: string;
+            /** @description its solution's id, if it has one */
+            readonly solution: number | null;
+        };
+        ContentQuestionDetail: {
+            readonly id: number;
+            readonly paper: number;
+            readonly paper_code: string;
+            readonly order: number;
+            readonly label: string;
+            readonly number: string;
+            readonly marks_text: string;
+            /** @description Off: no longer in the books repository (kept, hidden, with its history). */
+            readonly is_published: boolean;
+            readonly state: components["schemas"]["ContentStateEnum"];
+            readonly preview: string;
+            /** @description its solution's id, if it has one */
+            readonly solution: number | null;
+            readonly text_md: string;
+            readonly table_md: string;
+            readonly options_json: unknown;
+            readonly group_label: string;
+            readonly part_label: string;
+            /** @description the OR alternative of the previous question */
+            readonly is_alternative: boolean;
+            readonly tags: string[];
+            /** @description The changed fields to review: {field: value}. */
+            readonly draft: unknown;
+            readonly draft_by: number | null;
+            /**
+             * Format: date-time
+             * @description Its last publish from the panel.
+             */
+            readonly published_at: string | null;
+            readonly published_by: number | null;
+            /** @description the review its draft waits in, if any */
+            readonly review: {
+                [key: string]: unknown;
+            } | null;
+        };
+        ContentReport: {
+            readonly id: number;
+            /** @description solution, question, quiz_item or clip */
+            readonly kind: string;
+            readonly target_id: number;
+            readonly subject: string | null;
+            readonly paper: number | null;
+            readonly paper_code: string | null;
+            readonly question: number | null;
+            readonly question_label: string | null;
+            /** @description The marking step, 1 for the first. */
+            readonly step: number | null;
+            /** @description The print run it was read in: PHY-2027-1. */
+            readonly printing: string;
+            readonly category: components["schemas"]["ErrorReportCategoryEnum"];
+            readonly note: string;
+            /** @description masked; only to tell them of the fix */
+            readonly email: string;
+            readonly reporter: number | null;
+            /** @description Reported by a verified teacher. */
+            readonly teacher_verified: boolean;
+            readonly state: components["schemas"]["ErrorReportStateEnum"];
+            /** @description The printing that carries the fix. */
+            readonly fixed_in: string;
+            /**
+             * Format: date-time
+             * @description When it was fixed online.
+             */
+            readonly fixed_at: string | null;
+            /**
+             * Format: date-time
+             * @description When it was confirmed or rejected.
+             */
+            readonly resolved_at: string | null;
+            readonly staff_note: string;
+            /** Format: date-time */
+            readonly reporter_told_at: string | null;
+            /** @description On the errata of its book and printing. */
+            readonly public: boolean;
+            /** Format: date-time */
+            readonly created: string;
+            /** @description fixed, an address left, not told yet */
+            readonly can_tell: boolean;
+        };
+        ContentReportDetail: {
+            readonly id: number;
+            /** @description solution, question, quiz_item or clip */
+            readonly kind: string;
+            readonly target_id: number;
+            readonly subject: string | null;
+            readonly paper: number | null;
+            readonly paper_code: string | null;
+            readonly question: number | null;
+            readonly question_label: string | null;
+            /** @description The marking step, 1 for the first. */
+            readonly step: number | null;
+            /** @description The print run it was read in: PHY-2027-1. */
+            readonly printing: string;
+            readonly category: components["schemas"]["ErrorReportCategoryEnum"];
+            readonly note: string;
+            /** @description masked; only to tell them of the fix */
+            readonly email: string;
+            readonly reporter: number | null;
+            /** @description Reported by a verified teacher. */
+            readonly teacher_verified: boolean;
+            readonly state: components["schemas"]["ErrorReportStateEnum"];
+            /** @description The printing that carries the fix. */
+            readonly fixed_in: string;
+            /**
+             * Format: date-time
+             * @description When it was fixed online.
+             */
+            readonly fixed_at: string | null;
+            /**
+             * Format: date-time
+             * @description When it was confirmed or rejected.
+             */
+            readonly resolved_at: string | null;
+            readonly staff_note: string;
+            /** Format: date-time */
+            readonly reporter_told_at: string | null;
+            /** @description On the errata of its book and printing. */
+            readonly public: boolean;
+            /** Format: date-time */
+            readonly created: string;
+            /** @description fixed, an address left, not told yet */
+            readonly can_tell: boolean;
+            readonly handled_by: number | null;
+            /** @description what it is about, as the site shows it now */
+            readonly linked: components["schemas"]["ContentLinked"];
+        };
+        ContentReview: {
+            readonly id: number;
+            /** @description What it is, by code: "PHY-E01 2(c), solution". */
+            readonly label: string;
+            /** @description question or solution */
+            readonly kind: string;
+            readonly target_id: number;
+            readonly subject: string | null;
+            readonly paper: number | null;
+            readonly stage: components["schemas"]["ReviewTaskStageEnum"];
+            readonly state: components["schemas"]["ReviewTaskStateEnum"];
+            readonly assignee: number | null;
+            readonly submitted_by: number | null;
+            /** @description The draft's last editor when it was submitted: never its checker. */
+            readonly edited_by: number | null;
+            readonly approved_by: number | null;
+            /** Format: date-time */
+            readonly approved_at: string | null;
+            readonly published_by: number | null;
+            /** Format: date-time */
+            readonly published_at: string | null;
+            readonly rolled_back_by: number | null;
+            /** Format: date-time */
+            readonly rolled_back_at: string | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** @description the fields its draft changes */
+            readonly fields_changed: string[];
+            /** @description you edited or submitted it: another reviewer decides */
+            readonly yours: boolean;
+        };
+        ContentReviewDetail: {
+            readonly id: number;
+            /** @description What it is, by code: "PHY-E01 2(c), solution". */
+            readonly label: string;
+            /** @description question or solution */
+            readonly kind: string;
+            readonly target_id: number;
+            readonly subject: string | null;
+            readonly paper: number | null;
+            readonly stage: components["schemas"]["ReviewTaskStageEnum"];
+            readonly state: components["schemas"]["ReviewTaskStateEnum"];
+            readonly assignee: number | null;
+            readonly submitted_by: number | null;
+            /** @description The draft's last editor when it was submitted: never its checker. */
+            readonly edited_by: number | null;
+            readonly approved_by: number | null;
+            /** Format: date-time */
+            readonly approved_at: string | null;
+            readonly published_by: number | null;
+            /** Format: date-time */
+            readonly published_at: string | null;
+            readonly rolled_back_by: number | null;
+            /** Format: date-time */
+            readonly rolled_back_at: string | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** @description the fields its draft changes */
+            readonly fields_changed: string[];
+            /** @description you edited or submitted it: another reviewer decides */
+            readonly yours: boolean;
+            /** @description The changed fields as submitted: {field: value}. */
+            readonly draft: unknown;
+            /** @description The live values its publish replaced. */
+            readonly previous: unknown;
+            readonly comments: components["schemas"]["ContentComment"][];
+            /** @description its draft against the live text now, field by field; once published, the text it replaced against it */
+            readonly changes: components["schemas"]["ContentChange"][];
+            /** @description the question's id (for a solution: its question's) */
+            readonly question: number | null;
+        };
+        ContentSolution: {
+            readonly id: number;
+            readonly question: number;
+            readonly question_label: string;
+            readonly paper: number;
+            readonly paper_code: string;
+            readonly state: components["schemas"]["ContentStateEnum"];
+            readonly preview: string;
+        };
+        ContentSolutionDetail: {
+            readonly id: number;
+            readonly question: number;
+            readonly question_label: string;
+            readonly paper: number;
+            readonly paper_code: string;
+            readonly state: components["schemas"]["ContentStateEnum"];
+            readonly preview: string;
+            readonly question_text: string;
+            readonly marks_text: string;
+            readonly body_md: string;
+            /** @description The changed fields to review: {field: value}. */
+            readonly draft: unknown;
+            readonly draft_by: number | null;
+            /**
+             * Format: date-time
+             * @description Its last publish from the panel.
+             */
+            readonly published_at: string | null;
+            readonly published_by: number | null;
+            /** @description the review its draft waits in, if any */
+            readonly review: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /**
+         * @description * `draft` - draft
+         *     * `in_review` - in review
+         *     * `published` - published
+         * @enum {string}
+         */
+        ContentStateEnum: "draft" | "in_review" | "published";
+        ContentSubmitRequest: {
+            /** @description a reviewer of the subject */
+            assignee?: number | null;
+        };
+        ContentSummary: {
+            reports_open: components["schemas"]["ReportsOpen"];
+            /** @description open reviews; null: not yours to see */
+            reviews_waiting: number | null;
+            /** @description waiting for you */
+            reviews_mine: number | null;
+            /** @description questions and solutions changed since publish */
+            drafts: number | null;
+            legal_deposits_missing: components["schemas"]["MissingDeposit"][] | null;
+            last_import: components["schemas"]["Job"] | null;
+        };
+        ContentTransitionRequest: {
+            /** @description why (a rejection) */
+            staff_note?: string;
+            /** @description the printing (fix-in-printing) */
+            fixed_in?: string;
+        };
+        ContentTreeQuestion: {
+            readonly id: number;
+            readonly order: number;
+            readonly label: string;
+            readonly number: string;
+            readonly group_label: string;
+            readonly part_label: string;
+            /** @description the OR alternative of the previous question */
+            readonly is_alternative: boolean;
+            readonly marks_text: string;
+            /** @description Off: no longer in the books repository (kept, hidden, with its history). */
+            readonly is_published: boolean;
+            readonly state: components["schemas"]["ContentStateEnum"];
+            readonly preview: string;
+            readonly solution: components["schemas"]["ContentTreeSolution"] | null;
+        };
+        ContentTreeSolution: {
+            readonly id: number;
+            readonly state: components["schemas"]["ContentStateEnum"];
+        };
+        ContentVersion: {
+            id: number;
+            /** Format: date-time */
+            at: string;
+            by: number | null;
+            reason: string | null;
+            type: components["schemas"]["ContentVersionTypeEnum"];
+            /** @description what this version changed from the one before it */
+            changes: components["schemas"]["ContentChange"][];
+        };
+        ContentVersionPage: {
+            /** Format: uri */
+            next: string | null;
+            /** Format: uri */
+            previous: string | null;
+            results: components["schemas"]["ContentVersion"][];
+        };
+        /**
+         * @description * `+` - made
+         *     * `~` - changed
+         *     * `-` - deleted
+         * @enum {string}
+         */
+        ContentVersionTypeEnum: "+" | "~" | "-";
         Continue: {
             clip: components["schemas"]["NextClip"];
             revision: components["schemas"]["RevisionRef"];
@@ -2157,6 +9548,26 @@ export interface components {
             code: string;
             /** @description a visitor's: Turnstile's token while it is on */
             turnstile?: string;
+        };
+        /**
+         * @description * `India Post` - India Post
+         *     * `Delhivery` - Delhivery
+         *     * `Blue Dart` - Blue Dart
+         *     * `Ekart` - Ekart
+         *     * `DTDC` - DTDC
+         *     * `Xpressbees` - Xpressbees
+         *     * `Other` - another courier
+         * @enum {string}
+         */
+        CourierEnum: "India Post" | "Delhivery" | "Blue Dart" | "Ekart" | "DTDC" | "Xpressbees" | "Other";
+        CredentialsRequest: {
+            /** @description why (kept in the audit log; the owners read it) */
+            reason: string;
+            mode: components["schemas"]["IntegrationModeEnum"];
+            /** @description the provider's fields (the card's `fields`); never answered */
+            credentials: {
+                [key: string]: string;
+            };
         };
         CreditNote: {
             number: string;
@@ -2173,6 +9584,65 @@ export interface components {
              */
             readonly amount: string;
         };
+        /** @description A customer as support sees one: contact details masked (reveal/ shows them, logged). */
+        Customer: {
+            readonly id: number;
+            readonly email: string;
+            readonly phone: string;
+            full_name: string;
+            class_level?: (components["schemas"]["ClassLevelEnum"] | components["schemas"]["NullEnum"]) | null;
+            readonly board: string;
+            district?: string;
+            readonly under_18: boolean;
+            readonly status: string;
+            /** @description adult, declared, pending, verified */
+            readonly consent: string;
+            readonly email_verified: boolean;
+            /** Mobile number confirmed */
+            login_phone_verified?: boolean;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            last_login?: string | null;
+        };
+        /** @description A customer as support sees one: contact details masked (reveal/ shows them, logged). */
+        CustomerDetail: {
+            readonly id: number;
+            readonly email: string;
+            readonly phone: string;
+            full_name: string;
+            class_level?: (components["schemas"]["ClassLevelEnum"] | components["schemas"]["NullEnum"]) | null;
+            readonly board: string;
+            district?: string;
+            readonly under_18: boolean;
+            readonly status: string;
+            /** @description adult, declared, pending, verified */
+            readonly consent: string;
+            readonly email_verified: boolean;
+            /** Mobile number confirmed */
+            login_phone_verified?: boolean;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            last_login?: string | null;
+            readonly roles: string[];
+            /** @description locked out by failed log-ins (axes) */
+            readonly locked: boolean;
+            readonly mfa: string[];
+            /** @description none, requested, verified */
+            readonly teacher: string;
+            readonly parent_contact: string;
+            readonly orders: {
+                [key: string]: unknown;
+            }[];
+            readonly consents: {
+                [key: string]: unknown;
+            }[];
+            readonly sessions: {
+                [key: string]: unknown;
+            }[];
+            readonly deletion_due_at: string | null;
+        };
         CustomerReturnLineRequest: {
             /** @description a book of the order: its items' `product` */
             product: string;
@@ -2185,6 +9655,199 @@ export interface components {
             /** @description what happened */
             note?: string;
         };
+        DarkPatternAudit: {
+            readonly id: number;
+            /**
+             * Format: int64
+             * @description The calendar year its certificate covers.
+             */
+            year: number;
+            /** @description the 13 patterns, each once (new: all blank) */
+            rows?: components["schemas"]["AuditRow"][];
+            certificate_text?: string;
+            /**
+             * Format: date
+             * @description Shown on the website from this day.
+             */
+            effective_from?: string | null;
+            /** Format: date-time */
+            readonly completed_at: string | null;
+            readonly completed_by: number | null;
+            /** Format: date-time */
+            readonly created: string;
+            readonly created_by: number | null;
+            /** @description its signed copy is kept: file/ */
+            readonly has_file: boolean;
+        };
+        DarkPatternAuditRequest: {
+            /**
+             * Format: int64
+             * @description The calendar year its certificate covers.
+             */
+            year: number;
+            /** @description the 13 patterns, each once (new: all blank) */
+            rows?: components["schemas"]["AuditRowRequest"][];
+            certificate_text?: string;
+            /**
+             * Format: date
+             * @description Shown on the website from this day.
+             */
+            effective_from?: string | null;
+        };
+        DarkPatternCertificate: {
+            year: number;
+            text: string;
+            /** Format: date */
+            effective_from: string;
+        };
+        DataRequest: {
+            readonly id: number;
+            /** Type */
+            kind: components["schemas"]["DataRequestKindEnum"];
+            channel: components["schemas"]["ChannelEnum"];
+            user?: number | null;
+            /** @description Where to answer: the address or number it came from. */
+            requester: string;
+            /** @description What was asked. */
+            summary: string;
+            readonly identity_verified: boolean;
+            /** @description How the identity was checked (the method, not the document). */
+            readonly identity_note: string;
+            readonly verified_by: number | null;
+            /** Format: date-time */
+            readonly verified_at: string | null;
+            /** Format: date-time */
+            received_at?: string;
+            /**
+             * Acknowledge by
+             * Format: date-time
+             */
+            readonly ack_due_at: string;
+            /** Format: date-time */
+            readonly acknowledged_at: string | null;
+            readonly ack_overdue: boolean;
+            /**
+             * Answer by
+             * Format: date-time
+             */
+            readonly due_at: string;
+            readonly overdue: boolean;
+            readonly status: components["schemas"]["DataRequestStatusEnum"];
+            assignee?: number | null;
+            notes?: string;
+            /** @description A nominee; a parent's confirmation; holds. */
+            details?: unknown;
+            readonly outcome: components["schemas"]["DataRequestOutcomeEnum"];
+            /** @description The answer sent. */
+            readonly response: string;
+            /** Format: date-time */
+            readonly closed_at: string | null;
+            readonly closed_by: number | null;
+            readonly created_by: number | null;
+        };
+        /**
+         * @description * `access` - access (a copy of the data)
+         *     * `correction` - correction
+         *     * `erasure` - erasure
+         *     * `nomination` - nomination (death or incapacity)
+         *     * `grievance` - grievance
+         *     * `complaint` - complaint
+         * @enum {string}
+         */
+        DataRequestKindEnum: "access" | "correction" | "erasure" | "nomination" | "grievance" | "complaint";
+        DataRequestList: {
+            readonly id: number;
+            /** Type */
+            kind: components["schemas"]["DataRequestKindEnum"];
+            channel: components["schemas"]["ChannelEnum"];
+            user?: number | null;
+            /** @description masked in lists */
+            readonly requester: string;
+            /** @description What was asked. */
+            summary: string;
+            readonly identity_verified: boolean;
+            /** @description How the identity was checked (the method, not the document). */
+            readonly identity_note: string;
+            readonly verified_by: number | null;
+            /** Format: date-time */
+            readonly verified_at: string | null;
+            /** Format: date-time */
+            received_at?: string;
+            /**
+             * Acknowledge by
+             * Format: date-time
+             */
+            readonly ack_due_at: string;
+            /** Format: date-time */
+            readonly acknowledged_at: string | null;
+            readonly ack_overdue: boolean;
+            /**
+             * Answer by
+             * Format: date-time
+             */
+            readonly due_at: string;
+            readonly overdue: boolean;
+            readonly status: components["schemas"]["DataRequestStatusEnum"];
+            assignee?: number | null;
+            notes?: string;
+            /** @description A nominee; a parent's confirmation; holds. */
+            details?: unknown;
+            readonly outcome: components["schemas"]["DataRequestOutcomeEnum"];
+            /** @description The answer sent. */
+            readonly response: string;
+            /** Format: date-time */
+            readonly closed_at: string | null;
+            readonly closed_by: number | null;
+            readonly created_by: number | null;
+        };
+        /**
+         * @description * `done` - done as asked
+         *     * `refused` - refused (with the reason)
+         *     * `withdrawn` - withdrawn
+         * @enum {string}
+         */
+        DataRequestOutcomeEnum: "done" | "refused" | "withdrawn";
+        DataRequestRequest: {
+            /** Type */
+            kind: components["schemas"]["DataRequestKindEnum"];
+            channel: components["schemas"]["ChannelEnum"];
+            user?: number | null;
+            /** @description Where to answer: the address or number it came from. */
+            requester: string;
+            /** @description What was asked. */
+            summary: string;
+            /** Format: date-time */
+            received_at?: string;
+            assignee?: number | null;
+            notes?: string;
+            /** @description A nominee; a parent's confirmation; holds. */
+            details?: unknown;
+        };
+        DataRequestStartRequest: {
+            kind: components["schemas"]["DataRequestKindEnum"];
+            /** @default  */
+            summary: string;
+        };
+        /**
+         * @description * `new` - received
+         *     * `acknowledged` - acknowledged
+         *     * `closed` - closed
+         * @enum {string}
+         */
+        DataRequestStatusEnum: "new" | "acknowledged" | "closed";
+        /**
+         * @description * `open` - waiting for staff
+         *     * `replayed` - replayed
+         *     * `discarded` - discarded
+         * @enum {string}
+         */
+        DeadLetterStateEnum: "open" | "replayed" | "discarded";
+        /**
+         * @description * `approve` - approved
+         *     * `reject` - rejected
+         * @enum {string}
+         */
+        DecisionEnum: "approve" | "reject";
         Deletion: {
             status?: components["schemas"]["DeletionStatusEnum"];
             /** Format: date-time */
@@ -2199,6 +9862,36 @@ export interface components {
          * @enum {string}
          */
         DeletionStatusEnum: "pending" | "cancelled" | "done";
+        DeliveryStat: {
+            courier: string;
+            district?: string | null;
+            /** Format: double */
+            median_days: number;
+            /** Format: double */
+            p90_days: number;
+            /** Format: int64 */
+            n: number;
+        };
+        Dependencies: {
+            /** @description a report was loaded */
+            available: boolean;
+            path: string;
+            /** Format: date-time */
+            generated_at: string | null;
+            age_days: number | null;
+            /** @description older than 8 days, or none */
+            stale: boolean;
+            commit: string;
+            /** @description open advisories by severity */
+            counts: {
+                [key: string]: number;
+            };
+            advisories: components["schemas"]["Advisory"][];
+            versions: {
+                [key: string]: string;
+            };
+            error: string;
+        };
         Detail: {
             detail: string;
         };
@@ -2218,6 +9911,91 @@ export interface components {
             token: string;
             platform?: components["schemas"]["PlatformEnum"] | components["schemas"]["BlankEnum"];
         };
+        DeviceRow: {
+            /** @description app (the reminders' phone) or browser (a signed-in session) */
+            kind: string;
+            label: string;
+            /** @description masked */
+            ip: string;
+            /** Format: date-time */
+            last_seen: string | null;
+        };
+        DiscardRequest: {
+            /** @description why it is given up (kept with it) */
+            reason: string;
+        };
+        DisclosureHistory: {
+            key: string;
+            value: unknown;
+            /** Format: date-time */
+            effective_from: string;
+            changed_by: number | null;
+            reason: string;
+            /** Format: date-time */
+            created: string;
+        };
+        DisclosureSetting: {
+            key: string;
+            label: string;
+            /** @description "str", or the allowed values */
+            kind: unknown;
+            max_length: number;
+            /** @description shown on the website (config/'s disclosures) */
+            public: boolean;
+            /** @description in effect now */
+            value: unknown;
+            /** @description settings.py's value, which stands until the panel sets one */
+            environment: unknown;
+            source: components["schemas"]["SettingSourceEnum"];
+            /** Format: date-time */
+            effective_from: string | null;
+            changed_by: number | null;
+            reason: string;
+        };
+        Disclosures: {
+            settings: components["schemas"]["DisclosureSetting"][];
+            /** @description the group's changes, newest first (the last 100) */
+            history: components["schemas"]["DisclosureHistory"][];
+        };
+        DisclosuresChangeRequest: {
+            /** @description {KEY: the new value}; null: back to settings.py's */
+            values: {
+                [key: string]: unknown;
+            };
+            reason: string;
+        };
+        DisclosuresConfig: {
+            /** @description the legal name */
+            legal_name: string | null;
+            /** @description the registered office's address */
+            registered_address: string | null;
+            /** @description where it works from, when not the registered office */
+            operating_address: string | null;
+            /** @description customer care's phone */
+            care_phone: string | null;
+            /** @description customer care's email address */
+            care_email: string | null;
+            /** @description customer care's hours */
+            care_hours: string | null;
+            /** @description the Grievance Officer's name */
+            grievance_officer: string | null;
+            /** @description their designation */
+            grievance_designation: string | null;
+            /** @description their email address and phone */
+            grievance_contact: string | null;
+            /** @description the nodal contact resident in India */
+            nodal_contact: string | null;
+            /** @description the page of the return and refund terms (its slug) */
+            returns_page: string | null;
+            /** @description who answers questions about personal data */
+            dpdp_contact: string | null;
+            /** @description how to make a request about one's personal data */
+            rights_text: string | null;
+            /** @description the National Consumer Helpline: not_joined, applied or member */
+            nch_status: string | null;
+            /** @description applied or joined on (YYYY-MM-DD) */
+            nch_since: string | null;
+        };
         Document: {
             number: string;
             /** Format: date-time */
@@ -2228,13 +10006,45 @@ export interface components {
              */
             url: string;
         };
+        EmailFigures: {
+            /** @description the last 7 days against SES's review thresholds */
+            rates: components["schemas"]["EmailRates"];
+            suppressed: number;
+            /**
+             * Format: date-time
+             * @description SES's list last read
+             */
+            suppressions_synced: string | null;
+            /** @description SES_SNS_TOPIC_ARN is set */
+            topic_restricted: boolean;
+            /** @description ANYMAIL_WEBHOOK_SECRET is set */
+            webhook_secret_set: boolean;
+        };
+        EmailRates: {
+            sent: number;
+            delivered: number;
+            bounced: number;
+            complained: number;
+            /** Format: double */
+            bounce_rate: number | null;
+            /** Format: double */
+            complaint_rate: number | null;
+            /** Format: double */
+            bounce_limit: number;
+            /** Format: double */
+            complaint_limit: number;
+        };
+        Ended: {
+            sessions: number;
+            tokens: number;
+        };
         Entitlement: {
             readonly id: number;
             /** @description Empty: all. */
             subject?: number | null;
             /** @description null: every subject */
             subject_name?: string;
-            readonly source: components["schemas"]["SourceEnum"];
+            readonly source: components["schemas"]["EntitlementSourceEnum"];
             /**
              * Format: date
              * @description The last day; empty: no end.
@@ -2242,6 +10052,283 @@ export interface components {
             valid_until?: string | null;
             /** Format: date-time */
             readonly created: string;
+        };
+        EntitlementRow: {
+            id: number;
+            subject: string;
+            source: string;
+            reference: string;
+            /** Format: date */
+            valid_until: string | null;
+            active: boolean;
+        };
+        /**
+         * @description * `book_code` - book code
+         *     * `purchase` - purchase
+         *     * `grant` - staff grant
+         * @enum {string}
+         */
+        EntitlementSourceEnum: "book_code" | "purchase" | "grant";
+        ErasureErase: {
+            part: string;
+            what: string;
+            count: number;
+        };
+        ErasureKeep: {
+            /**
+             * @description the hold: the books, the year of logs …
+             *
+             *     * `books` - books
+             *     * `processing_logs` - processing_logs
+             *     * `legal_hold` - legal_hold
+             *     * `intermediary` - intermediary
+             *     * `consent` - consent
+             *     * `statistics` - statistics
+             *     * `by_hand` - by_hand
+             *     * `test` - test
+             */
+            kind: components["schemas"]["ErasureKeepKindEnum"];
+            part: string;
+            what: string;
+            count: number;
+            why: string;
+            /**
+             * Format: date
+             * @description the last day it is kept; null: no end set
+             */
+            until: string | null;
+            /** @description in words: "kept until 31 March 2035: 3 invoices …, for GST …" */
+            line: string;
+        };
+        /**
+         * @description * `books` - books
+         *     * `processing_logs` - processing_logs
+         *     * `legal_hold` - legal_hold
+         *     * `intermediary` - intermediary
+         *     * `consent` - consent
+         *     * `statistics` - statistics
+         *     * `by_hand` - by_hand
+         *     * `test` - test
+         * @enum {string}
+         */
+        ErasureKeepKindEnum: "books" | "processing_logs" | "legal_hold" | "intermediary" | "consent" | "statistics" | "by_hand" | "test";
+        ErasureReport: {
+            erase: components["schemas"]["ErasureErase"][];
+            keep: components["schemas"]["ErasureKeep"][];
+            blocks: string[];
+            can_erase: boolean;
+            notes: string[];
+        };
+        ErpAccountStatus: {
+            id: number;
+            label: string;
+            mode: string;
+            circuit: string;
+            /** Format: date-time */
+            last_success_at: string | null;
+            last_error: string;
+        };
+        ErpCursor: {
+            readonly id: number;
+            readonly doctype: string;
+            /** @description Empty: from the start. */
+            readonly modified_after: string;
+            readonly last_name: string;
+            /** @description In all, since the cursor was made. */
+            readonly rows_read: number;
+            /** Format: date-time */
+            readonly last_run_at: string | null;
+            readonly last_error: string;
+        };
+        ErpCursorStatus: {
+            doctype: string;
+            modified_after: string;
+            /** Format: date-time */
+            last_run_at: string | null;
+            error: string;
+        };
+        ErpDifference: {
+            readonly id: number;
+            readonly run: number;
+            readonly kind: components["schemas"]["ErpDifferenceKindEnum"];
+            readonly key: string;
+            readonly platform_value: string;
+            /** ERPNext's value */
+            readonly erp_value: string;
+            /** @description Staff's, when resolved. */
+            readonly note: string;
+            /** Format: date-time */
+            readonly resolved_at: string | null;
+            readonly resolved_by: number | null;
+        };
+        /**
+         * @description * `invoices` - invoices
+         *     * `credit_notes` - credit notes
+         *     * `payments` - payments and refunds
+         *     * `settlements` - settlements
+         *     * `deliveries` - delivery notes
+         *     * `stock` - stock invariant
+         *     * `missing` - document not in ERPNext
+         * @enum {string}
+         */
+        ErpDifferenceKindEnum: "invoices" | "credit_notes" | "payments" | "settlements" | "deliveries" | "stock" | "missing";
+        ErpDiscardRequest: {
+            /** @description why it is given up (kept with its dead letter) */
+            reason: string;
+        };
+        ErpHealth: {
+            /** @description ERP_ENABLED */
+            enabled: boolean;
+            /** @description outbox rows pending, sending or failing */
+            waiting: number;
+            dead: number;
+            oldest_waiting_seconds: number | null;
+            last_reconciliation: components["schemas"]["ReconciliationLine"] | null;
+            /** @description the sync user's API key is held */
+            key_present: boolean;
+            webhook_secret_set: boolean;
+        };
+        ErpLink: {
+            examleaf_ref: string;
+            model: string;
+            object_id: string;
+            doctype: string;
+            /** @description ERPNext's name of the document */
+            name: string;
+            /** Format: date-time */
+            synced_at: string;
+        };
+        ErpMirror: {
+            /** Format: email */
+            email: string;
+            /** @description the ERPNext user: enabled (or disabled, never deleted) */
+            enabled: boolean;
+            role_profiles: string[];
+            by_role: components["schemas"]["ErpRole"][];
+            erp_in_use: boolean;
+        };
+        ErpOutbox: {
+            readonly id: number;
+            /** @description order, product or settlement. */
+            readonly aggregate_type: string;
+            /** @description The order's number, the product's id, the settlement's. */
+            readonly aggregate_id: string;
+            /** @description The row's place in its aggregate. */
+            readonly sequence: number;
+            readonly event: string;
+            /** Reference */
+            readonly examleaf_ref: string;
+            /** @description The platform object it is about: shop.invoice … */
+            readonly model: string;
+            readonly object_id: string;
+            readonly idempotency_key: string;
+            readonly payload: unknown;
+            readonly state: components["schemas"]["ErpOutboxStateEnum"];
+            readonly attempts: number;
+            /**
+             * Next try
+             * Format: date-time
+             */
+            readonly next_at: string;
+            readonly last_error: string;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly sent_at: string | null;
+            /** ERPNext's answer */
+            readonly response: unknown;
+            readonly dead_letter: number | null;
+        };
+        /**
+         * @description * `pending` - pending
+         *     * `sending` - sending
+         *     * `sent` - sent
+         *     * `failed` - failed, to be tried again
+         *     * `dead` - dead letter (its aggregate waits)
+         *     * `discarded` - discarded by staff
+         * @enum {string}
+         */
+        ErpOutboxStateEnum: "pending" | "sending" | "sent" | "failed" | "dead" | "discarded";
+        /**
+         * @description * `running` - running
+         *     * `done` - done
+         *     * `failed` - failed
+         * @enum {string}
+         */
+        ErpReconciliationStateEnum: "running" | "done" | "failed";
+        ErpResolveRequest: {
+            /** @description what was done about it */
+            note: string;
+        };
+        ErpRole: {
+            role: components["schemas"]["RoleEnum"];
+            profiles: string[];
+        };
+        ErpRun: {
+            readonly id: number;
+            /** Format: date */
+            readonly date: string;
+            readonly state: components["schemas"]["ErpReconciliationStateEnum"];
+            readonly platform_totals: unknown;
+            /** ERPNext's totals */
+            readonly erp_totals: unknown;
+            readonly differences_count: number;
+            /** Format: date-time */
+            readonly started_at: string;
+            /** Format: date-time */
+            readonly finished_at: string | null;
+            readonly error: string;
+        };
+        ErpRunDetail: {
+            readonly id: number;
+            /** Format: date */
+            readonly date: string;
+            readonly state: components["schemas"]["ErpReconciliationStateEnum"];
+            readonly platform_totals: unknown;
+            /** ERPNext's totals */
+            readonly erp_totals: unknown;
+            readonly differences_count: number;
+            /** Format: date-time */
+            readonly started_at: string;
+            /** Format: date-time */
+            readonly finished_at: string | null;
+            readonly error: string;
+            readonly differences: components["schemas"]["ErpDifference"][];
+        };
+        ErpRunStatus: {
+            id: number;
+            /** Format: date */
+            date: string;
+            state: string;
+            differences: number;
+            open_differences: number;
+            /** Format: date-time */
+            finished_at: string | null;
+        };
+        ErpStatus: {
+            /** @description ERP_ENABLED: the platform talks to ERPNext */
+            enabled: boolean;
+            /** @description erpnext, or fake (an in-memory ERPNext) */
+            mode: string;
+            /** @description each ERP_SYNC_* switch */
+            flows: {
+                [key: string]: boolean;
+            };
+            pull_stock: boolean;
+            pull_b2b: boolean;
+            stock_projection: boolean;
+            account: components["schemas"]["ErpAccountStatus"] | null;
+            /** @description rows by state */
+            outbox: {
+                [key: string]: number;
+            };
+            /** Format: date-time */
+            oldest_waiting_at: string | null;
+            oldest_waiting_seconds: number | null;
+            /** @description aggregates whose rows wait behind a dead one */
+            held_aggregates: number;
+            cursors: components["schemas"]["ErpCursorStatus"][];
+            last_reconciliation: components["schemas"]["ErpRunStatus"] | null;
         };
         Erratum: {
             readonly paper: string | null;
@@ -2282,12 +10369,76 @@ export interface components {
          * @enum {string}
          */
         ErrorReportStateEnum: "reported" | "confirmed" | "rejected" | "fixed_online" | "fixed_in_printing";
+        ErrorsFigures: {
+            host: string;
+        };
         ExportPart: {
             /** @description the part's name in the file */
             key: string;
             label: string;
             /** @description its records (a part that is one record: 1, or 0 when empty) */
             count: number;
+        };
+        ExportRequest: {
+            /** @description the list's filters */
+            filters?: {
+                [key: string]: unknown;
+            };
+        };
+        ExtendRequest: {
+            entitlement: number;
+            days: number;
+            reason: string;
+        };
+        /** @description What a provider's card adds (each key present for its provider only). */
+        Extra: {
+            webhook?: components["schemas"]["RazorpayHealth"];
+            sms?: components["schemas"]["SmsFigures"];
+            email?: components["schemas"]["EmailFigures"];
+            storage?: components["schemas"]["StorageFigures"];
+            google?: components["schemas"]["GoogleFigures"];
+            errors?: components["schemas"]["ErrorsFigures"];
+            erp?: components["schemas"]["ErpHealth"];
+            /** @description WhatsApp: the phase it comes in */
+            phase?: string;
+        };
+        Failure: {
+            readonly id: number;
+            readonly account: number | null;
+            readonly operation: string;
+            readonly task_name: string;
+            /** @description {"args": [...], "kwargs": {...}}, redacted. */
+            readonly args: unknown;
+            readonly attempts: number;
+            readonly last_error: string;
+            readonly state: components["schemas"]["DeadLetterStateEnum"];
+            readonly discard_reason: string;
+            /** Format: date-time */
+            readonly resolved_at: string | null;
+            readonly resolved_by: number | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** @description the sync's dead row, if one */
+            readonly erp_outbox: number | null;
+        };
+        Flag: {
+            key: string;
+            /** @description in effect now (a known flag not set: the environment's) */
+            value: unknown;
+            /**
+             * Format: date-time
+             * @description null: a known flag never set
+             */
+            effective_from: string | null;
+            changed_by: number | null;
+            reason: string;
+            /** @description a known flag's (staff.config.KNOWN_FLAGS) */
+            label: string;
+            /** @description the Settings page's section: erp, or flags for any other */
+            group: string;
+            /** @description a known flag's value in the environment */
+            environment: unknown;
+            source: components["schemas"]["SettingSourceEnum"];
         };
         FlashCard: {
             readonly id: number;
@@ -2300,6 +10451,79 @@ export interface components {
             /** @description Markdown. */
             back: string;
             readonly back_html: string;
+        };
+        Forecast: {
+            readonly product: string;
+            readonly title: string;
+            district?: string | null;
+            /** Format: date */
+            week_start: string;
+            /** Format: double */
+            p10: number;
+            /** Format: double */
+            p50: number;
+            /** Format: double */
+            p90: number;
+            readonly n: number;
+        };
+        FraudSignal: {
+            readonly id: number;
+            kind: components["schemas"]["FraudSignalKindEnum"];
+            readonly label: string;
+            /** @description A keyed hash, or “all”. */
+            subject: string;
+            /** Format: date-time */
+            window_start: string;
+            /** Format: date-time */
+            window_end: string;
+            details?: unknown;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            acknowledged_at?: string | null;
+            readonly n: number;
+        };
+        /**
+         * @description * `codes_failed_account` - failed book codes from one account in an hour
+         *     * `codes_failed_ip` - failed book codes from one IP address in an hour
+         *     * `codes_failed_spike` - failed book codes: an hour far above the usual
+         *     * `codes_per_account` - one account redeeming many codes
+         *     * `accounts_per_code` - one code tried by several accounts
+         *     * `shared_phone` - accounts sharing a phone number on COD or coupon orders
+         *     * `shared_address` - accounts sharing an address on COD or coupon orders
+         * @enum {string}
+         */
+        FraudSignalKindEnum: "codes_failed_account" | "codes_failed_ip" | "codes_failed_spike" | "codes_per_account" | "accounts_per_code" | "shared_phone" | "shared_address";
+        GoogleFigures: {
+            /** @description STAFF_GOOGLE_DOMAIN: staff's Workspace */
+            domain: string;
+            auto_staff: boolean;
+        };
+        GrantRequest: {
+            role: components["schemas"]["RoleEnum"];
+            /**
+             * Format: date-time
+             * @description taken away after (JIT)
+             */
+            expires_at?: string | null;
+            reason: string;
+        };
+        Gstr1Request: {
+            /** @description YYYY-MM: a month that has begun */
+            month: string;
+            /**
+             * @description 3: the quarter ending with `month`
+             *
+             *     * `1` - 1
+             *     * `3` - 3
+             * @default 1
+             */
+            months: components["schemas"]["MonthsEnum"];
+            /**
+             * @description count the documents, write nothing
+             * @default false
+             */
+            dry_run: boolean;
         };
         /**
          * @description A visitor's checkout (no account): the email address for the order's emails, the delivery address, online
@@ -2366,19 +10590,492 @@ export interface components {
             readonly invoice: components["schemas"]["Document"] | null;
             readonly credit_notes: components["schemas"]["CreditNote"][];
             readonly web_url: string;
-            /** @description for orders/t/<token>/ and its payment; also in the emails */
-            readonly token: string;
             readonly returns: components["schemas"]["OrderReturn"][];
             /** @description its owner may ask to send books back now (returns/) */
             readonly can_return: boolean;
             /** @description the last moment to ask, SHOP_RETURN_DAYS after delivery */
             readonly return_until: string | null;
+            /** @description for orders/t/<token>/ and its payment; also in the emails */
+            readonly token: string;
+        };
+        HardeningRow: {
+            key: string;
+            label: string;
+            /** @description null: not testable from here */
+            ok: boolean | null;
+            detail: string;
+            fix: string;
+        };
+        /**
+         * @description * `P` - P (promotional)
+         *     * `S` - S (service)
+         *     * `T` - T (transactional)
+         *     * `G` - G (government)
+         * @enum {string}
+         */
+        HeaderSuffixEnum: "P" | "S" | "T" | "G";
+        HoldCreateRequest: {
+            /** @description the account held (its number) */
+            user?: number | null;
+            /**
+             * @description a record instead
+             *
+             *     * `shop.creditnote` - shop.creditnote
+             *     * `shop.invoice` - shop.invoice
+             *     * `shop.order` - shop.order
+             *     * `shop.payment` - shop.payment
+             *     * `shop.refund` - shop.refund
+             *     * `staff.datarequest` - staff.datarequest
+             */
+            target_type?: components["schemas"]["TargetTypeEnum"] | components["schemas"]["BlankEnum"];
+            /** @description its number or id */
+            target_id?: string;
+            reason: components["schemas"]["LegalHoldReasonEnum"];
+            note?: string;
+            /**
+             * Format: date
+             * @description the last day it holds; none: released
+             */
+            until?: string | null;
+        };
+        HsnCode: {
+            readonly code: string;
+            readonly kind: components["schemas"]["HsnKindEnum"];
+            readonly description: string;
+            /**
+             * Unit (UQC)
+             * @description GSTR-1's unit in the HSN summary: NOS for books, NA for services (the CA confirms).
+             */
+            readonly uqc: string;
+            /** @description its rate today: null when the master has none */
+            readonly today: components["schemas"]["HsnRateBrief"] | null;
+            /** @description a rate that starts later, if one is set */
+            readonly next_change: components["schemas"]["HsnRateBrief"] | null;
+            /** @description the products on it */
+            readonly products: number;
+            /** Format: date-time */
+            readonly created: string;
+        };
+        HsnCodeDetail: {
+            readonly code: string;
+            readonly kind: components["schemas"]["HsnKindEnum"];
+            readonly description: string;
+            /**
+             * Unit (UQC)
+             * @description GSTR-1's unit in the HSN summary: NOS for books, NA for services (the CA confirms).
+             */
+            readonly uqc: string;
+            /** @description its rate today: null when the master has none */
+            readonly today: components["schemas"]["HsnRateBrief"] | null;
+            /** @description a rate that starts later, if one is set */
+            readonly next_change: components["schemas"]["HsnRateBrief"] | null;
+            /** @description the products on it */
+            readonly products: number;
+            /** Format: date-time */
+            readonly created: string;
+            /** @description its history, oldest first */
+            readonly rates: components["schemas"]["HsnRate"][];
+            /** @description the products on it, with their disagreement */
+            readonly linked: components["schemas"]["HsnProduct"][];
+        };
+        /**
+         * @description * `hsn` - HSN (goods)
+         *     * `sac` - SAC (services)
+         * @enum {string}
+         */
+        HsnKindEnum: "hsn" | "sac";
+        HsnProduct: {
+            readonly id: number;
+            readonly slug: string;
+            readonly title: string;
+            readonly kind: components["schemas"]["ProductKindEnum"];
+            /**
+             * GST rate (%)
+             * Format: decimal
+             * @description Printed books are exempt: 0.
+             */
+            readonly gst_rate: string;
+            /** On sale */
+            readonly is_active: boolean;
+            readonly problem: string;
+        };
+        HsnRate: {
+            readonly id: number;
+            /**
+             * GST rate (%)
+             * Format: decimal
+             */
+            readonly rate: string;
+            readonly taxability: components["schemas"]["TaxabilityEnum"];
+            /** Format: date */
+            readonly effective_from: string;
+            /**
+             * Format: date
+             * @description Empty: until the next row starts.
+             */
+            readonly effective_to: string | null;
+            /**
+             * Format: date
+             * @description its end, or the day before the next
+             */
+            readonly until: string | null;
+            /** @description e.g. 10/2025-Central Tax (Rate) */
+            readonly notification: string;
+            /** Serial number */
+            readonly serial: string;
+            /** @description Where it was read; what the CA should confirm. */
+            readonly note: string;
+            /** Format: date-time */
+            readonly created: string;
+            readonly created_by: number | null;
+        };
+        HsnRateBrief: {
+            /** Format: decimal */
+            rate: string;
+            taxability: components["schemas"]["TaxabilityEnum"];
+            /** Format: date */
+            effective_from: string;
+            notification: string;
+        };
+        ImpersonateRequest: {
+            reason: string;
+            /** @description the support ticket or mail it answers */
+            ticket: string;
+        };
+        ImpersonatedUser: {
+            id: number;
+            /** @description masked */
+            email: string;
+        };
+        Impersonating: {
+            /**
+             * Format: date-time
+             * @description the session ends then
+             */
+            until: string;
+            user: components["schemas"]["ImpersonatedUser"];
+        };
+        Impersonation: {
+            /** @description for the website's account area; 15 minutes */
+            token: string;
+            /** Format: date-time */
+            expires_at: string;
+        };
+        InboundEvent: {
+            readonly id: number;
+            readonly account: number | null;
+            readonly state: components["schemas"]["InboundEventStateEnum"];
+            /**
+             * Provider's event id
+             * @description The provider's own id of what it reports (MSG91: its request ids and statuses, hashed); a repeat under the same id is a duplicate whatever its body.
+             */
+            readonly event_id: string;
+            /** SHA-256 of the body */
+            readonly sha256: string;
+            readonly headers: unknown;
+            /** Format: date-time */
+            readonly received_at: string;
+            /** Format: date-time */
+            readonly processed_at: string | null;
+            readonly error: string;
+            /** @description redacted: no names, phone numbers to 4 digits */
+            readonly body_excerpt: string;
+        };
+        /**
+         * @description * `accepted` - accepted
+         *     * `duplicate` - duplicate (nothing new)
+         *     * `rejected` - rejected (wrong or missing token)
+         *     * `failed` - failed
+         * @enum {string}
+         */
+        InboundEventStateEnum: "accepted" | "duplicate" | "rejected" | "failed";
+        InboxCount: {
+            open: number;
+            overdue: number;
+        };
+        InboxItem: {
+            readonly id: number;
+            kind: components["schemas"]["InboxKindEnum"];
+            /** @description Names no one: a number, a kind. */
+            title: string;
+            /** @default  */
+            target_type: string;
+            /** @default  */
+            target_id: string;
+            /** @description Who sees it: the holders of this permission. */
+            permission: string;
+            assignee?: number | null;
+            /** Format: date-time */
+            due_at?: string | null;
+            readonly overdue: boolean;
+            /** Format: date-time */
+            snoozed_until?: string | null;
+            /** Format: date-time */
+            done_at?: string | null;
+            done_by?: number | null;
+            data?: unknown;
+            /** Format: date-time */
+            created?: string;
+        };
+        /**
+         * @description * `approval` - approval
+         *     * `teacher_request` - teacher access request
+         *     * `deletion_request` - account deletion
+         *     * `data_request` - data request
+         *     * `incident` - incident
+         *     * `failed_job` - failed job
+         *     * `failed_webhook` - failed webhook
+         *     * `sync_failed` - ERPNext refused a document (a dead letter)
+         *     * `reconciliation` - ERPNext reconciliation differences
+         *     * `shipping_exception` - parcel exception
+         *     * `dead_letter` - integration task given up
+         *     * `failed_event` - provider event not processed
+         *     * `integration_down` - integration unavailable
+         *     * `tax_threshold` - a tax threshold crossed
+         *     * `credit_note_missing` - a refund without its credit note
+         *     * `processor_task` - a processor to tell: erase, or stop
+         *     * `compliance` - a compliance duty: a self-audit, a held erasure
+         *     * `order_hold` - order on hold
+         *     * `return_request` - return asked for
+         *     * `bank_refund` - refund to transfer by bank or UPI
+         *     * `role_expired` - a temporary role ended
+         *     * `offboarding` - offboarding: accounts to close by hand
+         *     * `webhook_silent` - a provider's webhooks fell silent
+         *     * `template_idle` - a message template unused for months
+         *     * `template_certify` - a message template's yearly self-certification
+         *     * `backup_stale` - no recent backup
+         *     * `dependencies_stale` - the dependency report is old
+         *     * `scripts_changed` - the checkout's or console's scripts changed
+         *     * `review` - content review
+         *     * `error_report` - reported mistake
+         *     * `legal_deposit` - legal deposit due
+         *     * `ticket_due` - a ticket's legal clock three quarters gone
+         *     * `ticket_breach` - a ticket past its legal clock
+         *     * `ticket_mention` - named in a ticket's note
+         * @enum {string}
+         */
+        InboxKindEnum: "approval" | "teacher_request" | "deletion_request" | "data_request" | "incident" | "failed_job" | "failed_webhook" | "sync_failed" | "reconciliation" | "shipping_exception" | "dead_letter" | "failed_event" | "integration_down" | "tax_threshold" | "credit_note_missing" | "processor_task" | "compliance" | "order_hold" | "return_request" | "bank_refund" | "role_expired" | "offboarding" | "webhook_silent" | "template_idle" | "template_certify" | "backup_stale" | "dependencies_stale" | "scripts_changed" | "review" | "error_report" | "legal_deposit" | "ticket_due" | "ticket_breach" | "ticket_mention";
+        Incident: {
+            readonly id: number;
+            title: string;
+            kind: components["schemas"]["IncidentKindEnum"];
+            /** Format: date-time */
+            detected_at?: string;
+            readonly noticed_by: number | null;
+            description?: string;
+            systems?: string;
+            data_categories?: string;
+            /** Format: int64 */
+            people_affected?: number | null;
+            children_affected?: boolean;
+            /** Format: date-time */
+            readonly cert_in_due: string;
+            readonly cert_in_overdue: boolean;
+            /**
+             * CERT-In told at
+             * Format: date-time
+             */
+            cert_in_reported_at?: string | null;
+            cert_in_reference?: string;
+            /** Format: date-time */
+            readonly board_due: string;
+            readonly board_overdue: boolean;
+            /**
+             * Board told at (first)
+             * Format: date-time
+             */
+            board_notified_at?: string | null;
+            /**
+             * Board's detailed report at
+             * Format: date-time
+             */
+            board_report_at?: string | null;
+            board_reference?: string;
+            /** Notice to the people affected */
+            notice_text?: string;
+            /** Format: int64 */
+            notices_sent?: number;
+            /** Format: date-time */
+            notices_sent_at?: string | null;
+            /** Actions taken */
+            actions?: string;
+            root_cause?: string;
+            /** Format: date-time */
+            readonly closed_at: string | null;
+            readonly closed_by: number | null;
+            /** Format: date-time */
+            readonly created: string;
+        };
+        /**
+         * @description * `data_breach` - data breach
+         *     * `data_leak` - data leak
+         *     * `unauthorised_access` - unauthorised access to systems or data
+         *     * `malicious_code` - ransomware or other malicious code
+         *     * `application_attack` - attack on the website, the app or the API
+         *     * `denial_of_service` - denial of service
+         *     * `loss_of_access` - loss of access to personal data (outage, deletion)
+         *     * `other` - other
+         * @enum {string}
+         */
+        IncidentKindEnum: "data_breach" | "data_leak" | "unauthorised_access" | "malicious_code" | "application_attack" | "denial_of_service" | "loss_of_access" | "other";
+        IncidentRequest: {
+            title: string;
+            kind: components["schemas"]["IncidentKindEnum"];
+            /** Format: date-time */
+            detected_at?: string;
+            description?: string;
+            systems?: string;
+            data_categories?: string;
+            /** Format: int64 */
+            people_affected?: number | null;
+            children_affected?: boolean;
+            /**
+             * CERT-In told at
+             * Format: date-time
+             */
+            cert_in_reported_at?: string | null;
+            cert_in_reference?: string;
+            /**
+             * Board told at (first)
+             * Format: date-time
+             */
+            board_notified_at?: string | null;
+            /**
+             * Board's detailed report at
+             * Format: date-time
+             */
+            board_report_at?: string | null;
+            board_reference?: string;
+            /** Notice to the people affected */
+            notice_text?: string;
+            /** Format: int64 */
+            notices_sent?: number;
+            /** Format: date-time */
+            notices_sent_at?: string | null;
+            /** Actions taken */
+            actions?: string;
+            root_cause?: string;
+        };
+        /**
+         * @description * `test` - test
+         *     * `live` - live
+         * @enum {string}
+         */
+        IntegrationModeEnum: "test" | "live";
+        InviteRequest: {
+            /** Format: email */
+            email: string;
+            role: components["schemas"]["RoleEnum"];
+            reason: string;
+        };
+        ItemStat: {
+            item: number;
+            readonly chapter: number;
+            readonly kind: string;
+            readonly text: string;
+            /**
+             * Format: int64
+             * @description Learners who answered it (first attempts).
+             */
+            n: number;
+            /**
+             * Format: double
+             * @description Share who got it right.
+             */
+            p?: number | null;
+            /**
+             * Format: double
+             * @description Corrected item-total point-biserial against the chapter's other items.
+             */
+            discrimination?: number | null;
+            flags?: unknown;
         };
         /** @description Serializer for JWT authentication. */
         JWT: {
             access: string;
             refresh: string;
             readonly user: components["schemas"]["Profile"];
+        };
+        Job: {
+            readonly id: number;
+            readonly kind: components["schemas"]["JobKindEnum"];
+            readonly state: components["schemas"]["JobStateEnum"];
+            /** @description Checks every row and changes nothing. */
+            readonly dry_run: boolean;
+            /** @description audit_export: filters; bulk_action: action, targets, payload… */
+            readonly params: unknown;
+            /** @description Rows done. */
+            readonly done: number;
+            readonly total: number;
+            /** @description the rows that failed (the first 1,000) */
+            readonly errors: components["schemas"]["JobError"][];
+            readonly result: unknown;
+            /** @description its file, signed for 5 minutes; its starter only */
+            readonly result_url: string | null;
+            /** @description the approval it waits for */
+            readonly change_request_id: number | null;
+            readonly cancel_requested: boolean;
+            readonly started_by: number | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly started_at: string | null;
+            /** Format: date-time */
+            readonly finished_at: string | null;
+        };
+        JobError: {
+            /** @description the row's target (an order number, an id), null: the job's */
+            id: unknown;
+            label: string;
+            message: string;
+        };
+        /**
+         * @description * `audit_export` - audit log export
+         *     * `bulk_action` - bulk action
+         *     * `erp_initial_load` - ERPNext initial load
+         *     * `gstr1_export` - GSTR-1 export
+         *     * `orders_pack` - orders marked packed
+         *     * `orders_print` - order documents printed
+         *     * `orders_cancel` - orders cancelled
+         *     * `orders_export` - order export
+         *     * `content_import` - import from the books repository
+         *     * `grievance_export` - grievance register export
+         * @enum {string}
+         */
+        JobKindEnum: "audit_export" | "bulk_action" | "erp_initial_load" | "gstr1_export" | "orders_pack" | "orders_print" | "orders_cancel" | "orders_export" | "content_import" | "grievance_export";
+        JobStartRequest: {
+            kind: components["schemas"]["JobKindEnum"];
+            /** @description audit_export: {"filters": {…}} (the audit list's); bulk_action: {"action": "order.refund", "targets": [order numbers, slugs or ids], "payload": {…} (each target's, as for change-requests/), "reason"}; erp_initial_load: {"invoices_from": "YYYY-MM-DD"} (optional: without it, the catalogue only); gstr1_export: {"month": "YYYY-MM", "months": 1 or 3} (a month, or the quarter ending with it); orders_pack, orders_print ({"document": packing_slip, label or invoices}) and orders_cancel ({"reason", "customer_requested"}, 250 at most): {"targets": [order numbers]}; orders_export: {"filters": {…}} (the order list's); content_import: {"subject": "physics", "commit": "" or a commit, "dry_run_job": the dry run's id (to apply)}; grievance_export: {"from": "YYYY-MM-DD", "until": "YYYY-MM-DD"} (the days received, both optional) */
+            params?: {
+                [key: string]: unknown;
+            };
+            /**
+             * @description check every row, change nothing
+             * @default false
+             */
+            dry_run: boolean;
+        };
+        /**
+         * @description * `queued` - queued
+         *     * `running` - running
+         *     * `done` - done
+         *     * `failed` - failed
+         *     * `cancelled` - cancelled
+         * @enum {string}
+         */
+        JobStateEnum: "queued" | "running" | "done" | "failed" | "cancelled";
+        /**
+         * @description * `as` - Assamese
+         *     * `bn` - Bengali
+         *     * `en` - English
+         * @enum {string}
+         */
+        LanguageEnum: "as" | "bn" | "en";
+        LastTest: {
+            /** Format: date-time */
+            at: string | null;
+            ok: boolean | null;
+            message: string;
         };
         Learner: {
             /** Format: date */
@@ -2451,9 +11148,109 @@ export interface components {
             /** @description its chapters with a published revision, by number */
             chapters: components["schemas"]["LearningChapter"][];
         };
+        LegalDeposit: {
+            readonly id: number;
+            book: number;
+            readonly book_title: string;
+            /** @description the book's edition when left out */
+            edition?: string;
+            library: components["schemas"]["LegalDepositLibraryEnum"];
+            /** Format: date */
+            sent_on: string;
+            /** @description How it went and its reference: Speed Post EA123456789IN. */
+            proof: string;
+            readonly has_file: boolean;
+            /** @description ERPNext's delivery note, once made. */
+            erp_delivery_note?: string;
+            readonly created_by: number | null;
+            /** Format: date-time */
+            readonly created: string;
+        };
+        /**
+         * @description * `national_library` - National Library, Kolkata
+         *     * `connemara` - Connemara Public Library, Chennai
+         *     * `asiatic_society` - Central Library (Asiatic Society), Mumbai
+         *     * `delhi_public_library` - Delhi Public Library, Delhi
+         * @enum {string}
+         */
+        LegalDepositLibraryEnum: "national_library" | "connemara" | "asiatic_society" | "delhi_public_library";
+        LegalDepositRequest: {
+            book: number;
+            /** @description the book's edition when left out */
+            edition?: string;
+            library: components["schemas"]["LegalDepositLibraryEnum"];
+            /** Format: date */
+            sent_on: string;
+            /** @description How it went and its reference: Speed Post EA123456789IN. */
+            proof: string;
+            /**
+             * Format: binary
+             * @description a scan: PDF or a picture, 5 MB at most
+             */
+            proof_file?: string;
+            /** @description ERPNext's delivery note, once made. */
+            erp_delivery_note?: string;
+        };
+        LegalHold: {
+            readonly id: number;
+            readonly user: number | null;
+            /** @description app_label.model; empty for a person */
+            readonly target_type: string;
+            readonly target_id: string;
+            /** @description what it keeps, by number or code */
+            readonly target_label: string;
+            readonly reason: components["schemas"]["LegalHoldReasonEnum"];
+            /** @description The case: its reference and what it is about, briefly. */
+            readonly note: string;
+            /**
+             * Format: date
+             * @description The last day it holds; empty: until released.
+             */
+            readonly until: string | null;
+            readonly active: boolean;
+            /** Format: date-time */
+            readonly created: string;
+            readonly created_by: number | null;
+            /** Format: date-time */
+            readonly released_at: string | null;
+            readonly released_by: number | null;
+            readonly release_reason: string;
+        };
+        /**
+         * @description * `dispute` - a dispute
+         *     * `chargeback` - a chargeback
+         *     * `claim` - a legal claim
+         *     * `investigation` - an investigation
+         *     * `other` - another reason (in the note)
+         * @enum {string}
+         */
+        LegalHoldReasonEnum: "dispute" | "chargeback" | "claim" | "investigation" | "other";
+        /**
+         * @description * `ok` - nothing to do
+         *     * `watch` - watch
+         *     * `act` - act now
+         * @enum {string}
+         */
+        LevelEnum: "ok" | "watch" | "act";
+        LimitChange: {
+            name: string;
+            /** @description null: no limit */
+            before: number | null;
+            after: number | null;
+        };
         LinkSent: {
             /** @description always: If an order matches, we have emailed you a link. */
             detail: string;
+        };
+        LogRow: {
+            key: string;
+            what: string;
+            where: string;
+            kept: string;
+            readers: string;
+            days: number | null;
+            /** @description null: kept as the host decides */
+            meets_retention: boolean | null;
         };
         /**
          * @description Email and password. An address not confirmed yet gets a new code: the 400 answer then carries a
@@ -2466,6 +11263,16 @@ export interface components {
         LogoutRequest: {
             refresh: string;
         };
+        Logs: {
+            /** @description what the law asks for logs now */
+            retention_days: number;
+            rule: string;
+            /** Format: date */
+            dpdp_from: string;
+            inventory: components["schemas"]["LogRow"][];
+            time: components["schemas"]["SystemClock"];
+            cert_in: components["schemas"]["Contact"];
+        };
         LookupRequest: {
             number: string;
             /**
@@ -2473,6 +11280,90 @@ export interface components {
              * @description the address the order was placed with
              */
             email: string;
+        };
+        MaintenanceConfig: {
+            /** @description show the banner; staff may still work */
+            on: boolean;
+            /** @description its text; null: none */
+            banner: string | null;
+        };
+        Manifest: {
+            /**
+             * Format: uri
+             * @description the carrier's PDF of the handover list
+             */
+            url: string;
+        };
+        ManifestRequestRequest: {
+            shipments: number[];
+        };
+        Message: {
+            readonly id: number;
+            readonly direction: components["schemas"]["TicketDirectionEnum"];
+            readonly channel: components["schemas"]["TicketChannelEnum"];
+            readonly author: number | null;
+            /** @description a member of staff's name; empty for the customer */
+            readonly author_name: string;
+            /** @description Written by the site, not a person. */
+            readonly automatic: boolean;
+            readonly body: string;
+            /** Format: date-time */
+            readonly sent_at: string;
+            /** @description staff named (ids) */
+            readonly mentions: number[];
+            readonly attachments: components["schemas"]["Attachment"][];
+            /** @description an email from another address than the requester's */
+            readonly other_sender: boolean;
+            /** @description attachments not kept, and why */
+            readonly dropped: string[];
+        };
+        /**
+         * @description * `email` - email
+         *     * `sms` - SMS
+         *     * `whatsapp` - WhatsApp
+         * @enum {string}
+         */
+        MessageChannelEnum: "email" | "sms" | "whatsapp";
+        /**
+         * @description * `email` - email
+         *     * `phone` - phone
+         *     * `whatsapp` - WhatsApp
+         *     * `nch` - the National Consumer Helpline's portal
+         * @enum {string}
+         */
+        MessageCreateChannelEnum: "email" | "phone" | "whatsapp" | "nch";
+        /**
+         * @description * `out` - out
+         *     * `note` - note
+         * @enum {string}
+         */
+        MessageCreateDirectionEnum: "out" | "note";
+        MessageCreateRequest: {
+            direction: components["schemas"]["MessageCreateDirectionEnum"];
+            body: string;
+            /**
+             * @description a reply's: email (sent), or phone, WhatsApp or NCH's portal (recorded); default email
+             *
+             *     * `email` - email
+             *     * `phone` - phone
+             *     * `whatsapp` - WhatsApp
+             *     * `nch` - the National Consumer Helpline's portal
+             * @default
+             */
+            channel: components["schemas"]["MessageCreateChannelEnum"] | components["schemas"]["BlankEnum"];
+            mentions?: number[];
+        };
+        MissingDeposit: {
+            book: number;
+            title: string;
+            edition: string;
+            subject: string;
+            /** Format: date */
+            published_on: string;
+            /** Format: date */
+            due_on: string;
+            overdue: boolean;
+            missing: components["schemas"]["LegalDepositLibraryEnum"][];
         };
         MistakeReportRequest: {
             /**
@@ -2510,6 +11401,124 @@ export interface components {
             reference: number | null;
             detail: string;
         };
+        ModeRequest: {
+            /** @description why (kept in the audit log; the owners read it) */
+            reason: string;
+            mode: components["schemas"]["ConnectionModeEnum"];
+        };
+        /**
+         * @description * `1` - 1
+         *     * `3` - 3
+         * @enum {integer}
+         */
+        MonthsEnum: 1 | 3;
+        /**
+         * @description One of the customer's requests: its number, what it is about, where it stands and its dates; never staff's
+         *     notes, never who works on it.
+         */
+        MyTicket: {
+            readonly number: string;
+            readonly subject: string;
+            /**
+             * @description empty: unsorted
+             *
+             *     * `order` - order
+             *     * `payment` - payment or refund
+             *     * `book_code` - book code
+             *     * `qr_solutions` - QR solutions
+             *     * `content_error` - a mistake in the content
+             *     * `school_order` - school order
+             *     * `privacy_request` - privacy request
+             *     * `grievance` - grievance
+             */
+            readonly category: components["schemas"]["TicketCategoryEnum"] | components["schemas"]["BlankEnum"];
+            readonly category_label: string;
+            readonly status: components["schemas"]["TicketStatusEnum"];
+            readonly status_label: string;
+            readonly order: string | null;
+            /** Format: date-time */
+            readonly received_at: string;
+            /** Format: date-time */
+            readonly acknowledged_at: string | null;
+            /**
+             * Format: date-time
+             * @description the latest we answer it by
+             */
+            readonly answer_by: string;
+            /** Format: date-time */
+            readonly resolved_at: string | null;
+            /** Format: date-time */
+            readonly closed_at: string | null;
+            /** Format: date-time */
+            readonly modified: string;
+        };
+        MyTicketCreateRequest: {
+            category: components["schemas"]["TicketCategoryEnum"];
+            subject: string;
+            message: string;
+            /** @default  */
+            order: string;
+        };
+        /**
+         * @description * `re-attempt` - re-attempt
+         *     * `return` - return
+         *     * `fake-attempt` - fake-attempt
+         * @enum {string}
+         */
+        NdrActionActionEnum: "re-attempt" | "return" | "fake-attempt";
+        NdrActionRequest: {
+            action: components["schemas"]["NdrActionActionEnum"];
+            comments: string;
+            /** Format: date */
+            deferred_date?: string;
+            /** @description a corrected number, 10 digits */
+            phone?: string;
+            address1?: string;
+            address2?: string;
+        };
+        NeedsChangesRequest: {
+            /** @description what to change */
+            comment: string;
+            /** @description the field it is about */
+            field?: string;
+        };
+        /** @description A code new to the master, with its first rate. */
+        NewHsnCodeRequest: {
+            code: string;
+            kind: components["schemas"]["HsnKindEnum"];
+            description: string;
+            /**
+             * Unit (UQC)
+             * @description GSTR-1's unit in the HSN summary: NOS for books, NA for services (the CA confirms).
+             */
+            uqc?: string;
+            first_rate: components["schemas"]["NewHsnRateRequest"];
+        };
+        /**
+         * @description A new rate of a code: from a day after its latest rate's start (its history is never rewritten), citing the
+         *     notification and serial number that set it.
+         */
+        NewHsnRateRequest: {
+            /**
+             * GST rate (%)
+             * Format: decimal
+             */
+            rate: string;
+            taxability: components["schemas"]["TaxabilityEnum"];
+            /** Format: date */
+            effective_from: string;
+            /**
+             * Format: date
+             * @description Empty: until the next row starts.
+             */
+            effective_to?: string | null;
+            /** @description e.g. 10/2025-Central Tax (Rate) */
+            notification: string;
+            /** Serial number */
+            serial?: string;
+            /** @description Where it was read; what the CA should confirm. */
+            note?: string;
+        };
         NextClip: {
             readonly id: number;
             readonly order: number;
@@ -2537,8 +11546,149 @@ export interface components {
             /** @description why there are no days; empty when there are */
             hint: string;
         };
+        Nominee: {
+            name: string;
+            /** @description An email address or an Indian mobile number. */
+            contact: string;
+            /** @description Mother, brother, friend … */
+            relation: string;
+            /**
+             * Format: date-time
+             * @description When a claim proved the nomination.
+             */
+            readonly verified_at: string | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly updated: string;
+        };
+        NomineeRequest: {
+            name: string;
+            /** @description An email address or an Indian mobile number. */
+            contact: string;
+            /** @description Mother, brother, friend … */
+            relation: string;
+        };
+        Note: {
+            readonly id: number;
+            /** @description app_label.model, e.g. shop.order */
+            target_type: string;
+            target_id: string;
+            readonly author: number;
+            body: string;
+            pinned?: boolean;
+            /** Format: date-time */
+            readonly created: string;
+        };
+        NoteRequest: {
+            /** @description app_label.model, e.g. shop.order */
+            target_type: string;
+            target_id: string;
+            body: string;
+            pinned?: boolean;
+        };
         /** @enum {unknown} */
         NullEnum: null;
+        Offboarded: {
+            roles: string[];
+            scopes: number;
+            api_keys: number;
+            change_requests: number;
+            sessions: number;
+            tokens: number;
+            /** @description its checklist: people/<id>/offboarding/ */
+            offboarding: number;
+        };
+        Offboarding: {
+            readonly id: number;
+            user: number;
+            started_by?: number | null;
+            reason: string;
+            /** Format: date-time */
+            started_at?: string;
+            /**
+             * Format: date-time
+             * @description When its last step was done.
+             */
+            finished_at?: string | null;
+            readonly steps: components["schemas"]["OffboardingStep"][];
+        };
+        OffboardingStep: {
+            key: string;
+            readonly label: string;
+            kind: components["schemas"]["OffboardingStepKindEnum"];
+            state?: components["schemas"]["OffboardingStepStateEnum"];
+            detail?: string;
+            /** Format: date-time */
+            done_at?: string | null;
+            done_by?: number | null;
+        };
+        /**
+         * @description * `auto` - done by the panel
+         *     * `manual` - ticked by an owner
+         * @enum {string}
+         */
+        OffboardingStepKindEnum: "auto" | "manual";
+        /**
+         * @description * `done` - done
+         *     * `todo` - to do
+         *     * `not_needed` - not needed
+         * @enum {string}
+         */
+        OffboardingStepStateEnum: "done" | "todo" | "not_needed";
+        OffboardingTickRequest: {
+            /** @description a step done by hand: its key */
+            step: string;
+            state: components["schemas"]["OffboardingStepStateEnum"];
+            /** @default  */
+            note: string;
+        };
+        OfferStat: {
+            /** @description Stored in capitals; customers may type any case. */
+            readonly coupon: string;
+            /** @description Customers see it on the saving's line: “Board 2027 offer”. */
+            readonly offer: string;
+            /** Format: date */
+            period_start: string;
+            /** Format: date */
+            period_end: string;
+            /**
+             * Format: int64
+             * @description Orders that used it.
+             */
+            orders: number;
+            /**
+             * Their revenue (₹)
+             * Format: decimal
+             */
+            revenue: string;
+            /**
+             * Discount given (₹)
+             * Format: decimal
+             */
+            discount_cost: string;
+            /**
+             * Format: int64
+             * @description Every order while it ran.
+             */
+            period_orders: number;
+            /**
+             * Format: int64
+             * @description Every order in the same weeks last season.
+             */
+            baseline_orders: number;
+            /** Format: decimal */
+            baseline_revenue: string;
+            /**
+             * Format: double
+             * @description 95 % interval of orders while it ran ÷ the baseline's.
+             */
+            interval_low?: number | null;
+            /** Format: double */
+            interval_high?: number | null;
+            note: string;
+            readonly n: number;
+        };
         /**
          * @description An order as its owner sees it on the website: status and timeline, the books (prices as ordered), the address
          *     copied at checkout, shipments with tracking, refunds, and the invoice and credit notes once their PDFs exist.
@@ -2592,6 +11742,27 @@ export interface components {
             /** @description the last moment to ask, SHOP_RETURN_DAYS after delivery */
             readonly return_until: string | null;
         };
+        OrderAction: {
+            /** @description pack, ship, deliver, cancel, hold, release, payment_link, offline_payment, … */
+            name: string;
+            permission: string;
+            /** @description the one next action: the header's button */
+            primary: boolean;
+        };
+        OrderActionRequest: {
+            /** @default  */
+            order: string;
+        };
+        OrderAddress: {
+            name: string;
+            phone: string;
+            line1: string;
+            line2: string;
+            city: string;
+            district: string;
+            state: string;
+            pin: string;
+        };
         OrderBrief: {
             readonly number: string | null;
             /** Format: date-time */
@@ -2614,6 +11785,150 @@ export interface components {
             /** @description books to deliver: the address, fee and tracking apply */
             readonly has_shipping: boolean;
         };
+        OrderCancelRequest: {
+            /** @description told to the customer */
+            reason: string;
+            /**
+             * @description the customer asked
+             * @default false
+             */
+            customer_requested: boolean;
+            /**
+             * @description a parcel back: its copies sellable
+             * @default true
+             */
+            restock: boolean;
+        };
+        OrderCourier: {
+            name: string;
+            tracking_number: string;
+        };
+        /** @description The buyer, masked: the account (its full view is users/{id}/), or a guest. */
+        OrderCustomer: {
+            /** @description the account; null: a guest (or an account erased) */
+            id: number | null;
+            /** @description as on the delivery address */
+            name: string;
+            /** @description masked */
+            email: string;
+            /** @description masked */
+            phone: string;
+            is_minor: boolean;
+        };
+        /** @description An order as its record shows it (GET orders/{number}/). */
+        OrderDetail: {
+            readonly id: number;
+            readonly number: string | null;
+            /** Format: date-time */
+            readonly created: string;
+            /**
+             * Format: date-time
+             * @description Paid online, or placed with cash on delivery.
+             */
+            readonly placed_at: string | null;
+            readonly status: components["schemas"]["OrderStatusEnum"];
+            readonly status_label: string;
+            readonly payment_method: components["schemas"]["PaymentMethodEnum"];
+            /** Format: decimal */
+            readonly total: string;
+            readonly items: string[];
+            readonly customer: components["schemas"]["OrderCustomer"];
+            readonly courier: components["schemas"]["OrderCourier"] | null;
+            /** @description the latest parcel's status (the shipping app's), or null */
+            readonly parcel: string | null;
+            readonly tags: string[];
+            readonly held: boolean;
+            readonly hold_reason: string;
+            /**
+             * @description a COD order's; blank: not scored
+             *
+             *     * `low` - low
+             *     * `medium` - medium
+             *     * `high` - high
+             */
+            readonly risk_bucket: components["schemas"]["OrderRiskEnum"] | components["schemas"]["BlankEnum"];
+            /** @description made with test keys on the live site: TEST */
+            readonly is_test: boolean;
+            readonly is_cod: boolean;
+            /** @default false */
+            readonly has_returns: boolean;
+            /** @description made by staff: a phone, WhatsApp or school order */
+            readonly staff_order: boolean;
+            /**
+             * Live mode
+             * @description Made with live Razorpay keys (its payment's mode).
+             */
+            readonly livemode: boolean;
+            /** Format: decimal */
+            readonly subtotal: string;
+            /** Format: decimal */
+            readonly discount: string;
+            /** Format: decimal */
+            readonly shipping_fee: string;
+            readonly coupon_code: string;
+            readonly savings: components["schemas"]["OrderSaving"][];
+            readonly address: components["schemas"]["OrderAddress"];
+            readonly lines: components["schemas"]["OrderLine"][];
+            readonly payments: components["schemas"]["OrderPayment"][];
+            readonly refunds: components["schemas"]["OrderRefund"][];
+            readonly documents: components["schemas"]["OrderDocument"][];
+            readonly shipments: components["schemas"]["OrderParcel"][];
+            readonly returns: components["schemas"]["ReturnRow"][];
+            readonly hold: components["schemas"]["OrderHold"] | null;
+            readonly risk_reasons: string[];
+            readonly is_digital: boolean;
+            readonly quote: string | null;
+            readonly created_by: string | null;
+            readonly actions: components["schemas"]["OrderAction"][];
+            readonly refund: components["schemas"]["OrderRefundOptions"];
+            readonly erp: components["schemas"]["OrderErpLink"][];
+            readonly timeline: components["schemas"]["OrderTimelineEntry"][];
+            /** Format: date-time */
+            readonly modified: string;
+        };
+        OrderDocument: {
+            kind: components["schemas"]["OrderDocumentKindEnum"];
+            id: number;
+            number: string;
+            /** Format: date-time */
+            created: string;
+            /** @description its PDF is made: GET its url */
+            ready: boolean;
+            /** @description the PDF, for staff (this API's) */
+            url: string;
+            /** Format: decimal */
+            amount: string | null;
+        };
+        /**
+         * @description * `invoice` - invoice
+         *     * `credit_note` - credit_note
+         * @enum {string}
+         */
+        OrderDocumentKindEnum: "invoice" | "credit_note";
+        OrderDocumentsQueued: {
+            detail: string;
+        };
+        OrderErpLink: {
+            model: string;
+            object_id: string;
+            doctype: string;
+            name: string;
+            /** Format: date-time */
+            synced_at: string;
+        };
+        OrderHold: {
+            /** Format: date-time */
+            at: string;
+            by: string;
+            reason: string;
+        };
+        OrderHoldReasonRequest: {
+            /** @description an address to check, a payment to confirm … */
+            reason: string;
+        };
+        OrderInvoiceSent: {
+            detail: string;
+        };
         OrderItem: {
             readonly product: string;
             title: string;
@@ -2632,6 +11947,44 @@ export interface components {
             quantity: number;
             /** Format: decimal */
             readonly line_total: string;
+        };
+        OrderLine: {
+            id: number;
+            /** @description its slug */
+            product: string;
+            title: string;
+            isbn: string;
+            hsn_code: string;
+            /** Format: decimal */
+            gst_rate: string;
+            /** Format: decimal */
+            readonly mrp: string;
+            /** Format: decimal */
+            readonly unit_price: string;
+            quantity: number;
+            /** Format: decimal */
+            readonly line_total: string;
+            /**
+             * Format: decimal
+             * @description its share of the order's discounts
+             */
+            readonly discount: string;
+            /**
+             * Format: decimal
+             * @description its total less its discount: what a refund of it is worth
+             */
+            readonly invoiced: string;
+            /** @description copies refunded already (refunds under way or made) */
+            refunded: number;
+            /** @description copies not yet asked back */
+            returnable: number;
+            digital: boolean;
+        };
+        OrderLineAskRequest: {
+            /** @description an order line's id */
+            item: number;
+            /** @description copies; 0: not this line */
+            quantity: number;
         };
         /**
          * @description The order by the link in its emails, as the website's page shows it: its PDFs by the link (no account needed);
@@ -2687,6 +12040,231 @@ export interface components {
             /** @description the last moment to ask, SHOP_RETURN_DAYS after delivery */
             readonly return_until: string | null;
         };
+        OrderNotified: {
+            detail: string;
+        };
+        /**
+         * @description * `placed` - placed
+         *     * `paid` - paid
+         *     * `packed` - packed
+         *     * `shipped` - shipped
+         *     * `delivered` - delivered
+         *     * `cancelled` - cancelled
+         *     * `refunded` - refunded
+         * @enum {string}
+         */
+        OrderNotifyKindEnum: "placed" | "paid" | "packed" | "shipped" | "delivered" | "cancelled" | "refunded";
+        OrderNotifyRequest: {
+            kind: components["schemas"]["OrderNotifyKindEnum"];
+        };
+        OrderOfflinePaymentRequest: {
+            /** @description the UTR or UPI reference, as on the bank statement */
+            reference: string;
+            reason: string;
+        };
+        /** @description A parcel of the order (the shipping app's) and its last scan. */
+        OrderParcel: {
+            readonly id: number;
+            readonly order: string;
+            readonly courier: components["schemas"]["CourierEnum"];
+            readonly tracking_number: string;
+            /**
+             * Format: uri
+             * @description Empty: the courier's tracking page, or 17TRACK's.
+             */
+            readonly tracking_url: string;
+            /** Format: date-time */
+            readonly shipped_at: string;
+            /** Format: date-time */
+            readonly delivered_at: string | null;
+            readonly detail: components["schemas"]["ParcelDetail"] | null;
+            readonly last_event: components["schemas"]["ShipmentEvent"] | null;
+        };
+        OrderPayment: {
+            readonly id: number;
+            readonly method: components["schemas"]["PaymentMethodEnum"];
+            /** Format: decimal */
+            readonly amount: string;
+            readonly status: components["schemas"]["OrderPaymentStatusEnum"];
+            readonly razorpay_order_id: string | null;
+            readonly razorpay_payment_id: string | null;
+            /** Format: uri */
+            readonly payment_link_url: string;
+            /**
+             * Bank or UPI reference
+             * @description A payment recorded by staff (offline).
+             */
+            readonly reference: string;
+            /** @description Why the last attempt failed (from Razorpay). */
+            readonly error: string;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly modified: string;
+            /**
+             * Format: decimal
+             * @description what is left of it to refund
+             */
+            readonly refundable: string;
+            /** @description Razorpay may refuse a normal refund */
+            readonly older_than_6_months: boolean;
+        };
+        /**
+         * @description * `send` - send
+         *     * `cancel` - cancel
+         * @enum {string}
+         */
+        OrderPaymentLinkActionEnum: "send" | "cancel";
+        OrderPaymentLinkRequest: {
+            /** @default send */
+            action: components["schemas"]["OrderPaymentLinkActionEnum"];
+        };
+        OrderPaymentLinkSent: {
+            detail: string;
+            url: string;
+        };
+        /**
+         * @description * `created` - created
+         *     * `authorized` - authorized
+         *     * `captured` - captured
+         *     * `failed` - failed
+         *     * `refunded` - refunded
+         * @enum {string}
+         */
+        OrderPaymentStatusEnum: "created" | "authorized" | "captured" | "failed" | "refunded";
+        OrderRefund: {
+            readonly id: number;
+            /** Format: decimal */
+            readonly amount: string;
+            readonly status: components["schemas"]["RefundStatusEnum"];
+            readonly reason: string;
+            readonly method: components["schemas"]["OrderRefundMethodEnum"];
+            readonly speed: components["schemas"]["RefundSpeedEnum"];
+            readonly lines: components["schemas"]["OrderRefundLine"][];
+            /** Format: decimal */
+            readonly shipping_amount: string;
+            /** @description The copies refunded went back into stock. */
+            readonly restock: boolean;
+            readonly payee_masked: string;
+            /**
+             * UTR or UPI reference
+             * @description Of a transfer by bank or UPI.
+             */
+            readonly utr: string;
+            /** @description The bank's reference, from Razorpay. */
+            readonly arn: string;
+            readonly razorpay_refund_id: string | null;
+            readonly change_request: number | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly processed_at: string | null;
+            readonly error: string;
+            readonly credit_note: string | null;
+            readonly payment_method: string;
+        };
+        /**
+         * @description * `source` - source
+         *     * `bank` - bank
+         * @enum {string}
+         */
+        OrderRefundAskMethodEnum: "source" | "bank";
+        OrderRefundAskRequest: {
+            /** @description the copies refunded; quantities start at 0 */
+            lines?: components["schemas"]["OrderLineAskRequest"][];
+            /** Format: decimal */
+            shipping?: string;
+            /**
+             * @description the copies go back into stock
+             * @default false
+             */
+            restock: boolean;
+            /**
+             * @description default: the payment's
+             *
+             *     * `source` - source
+             *     * `bank` - bank
+             */
+            method?: components["schemas"]["OrderRefundAskMethodEnum"];
+            /** @default normal */
+            speed: components["schemas"]["RefundSpeedEnum"];
+            /** @description method bank: the customer's UPI ID, or bank account */
+            payee?: components["schemas"]["RefundPayeeRequest"];
+            /**
+             * @description bank for an online payment
+             * @default false
+             */
+            customer_agreed: boolean;
+            reason: string;
+            /** @description a return of the order, inspected: its refund (its lines by default) */
+            return?: number;
+        };
+        OrderRefundAsked: {
+            readonly id: number;
+            action: string;
+            readonly label: string;
+            target_type?: string;
+            target_id?: string;
+            target_label?: string;
+            payload?: unknown;
+            payload_sha256: string;
+            /**
+             * Amount (₹)
+             * Format: decimal
+             */
+            amount?: string | null;
+            maker: number;
+            reason: string;
+            /** @description Why it needed approval, or why not. */
+            rule?: string;
+            status?: components["schemas"]["ChangeRequestStatusEnum"];
+            /** Format: date-time */
+            expires_at: string;
+            /** @description Approved by its maker: an owner's override. */
+            overridden?: boolean;
+            /** @description the permission an approver needs */
+            readonly checker: string;
+            readonly approvals: components["schemas"]["Approval"][];
+            result?: unknown;
+            executed_by?: number | null;
+            /** Format: date-time */
+            executed_at?: string | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly modified: string;
+            readonly warnings: string[];
+        };
+        OrderRefundLine: {
+            item: number;
+            quantity: number;
+            /** Format: decimal */
+            amount: string;
+        };
+        /**
+         * @description * `source` - to the way it was paid (Razorpay)
+         *     * `bank` - by bank transfer or UPI to the account the customer gave
+         *     * `none` - nothing was paid: the credit note only
+         * @enum {string}
+         */
+        OrderRefundMethodEnum: "source" | "bank" | "none";
+        OrderRefundOptions: {
+            payment: number | null;
+            payment_method: string | null;
+            /**
+             * Format: decimal
+             * @description what is left to refund
+             */
+            refundable: string;
+            /** Format: decimal */
+            shipping_left: string;
+            /** @description source and bank, or bank only */
+            methods: string[];
+            /** @description not sent yet: a refund cancels it and gives back everything */
+            cancels: boolean;
+            payment_age_days: number | null;
+            warnings: string[];
+        };
         /** @description A return of the order (asked for on the website or by staff for the customer), where it stands. */
         OrderReturn: {
             /** @description RR-00012 */
@@ -2710,6 +12288,77 @@ export interface components {
             quantity: number;
         };
         /**
+         * @description * `low` - low
+         *     * `medium` - medium
+         *     * `high` - high
+         * @enum {string}
+         */
+        OrderRiskEnum: "low" | "medium" | "high";
+        /** @description An order in the list: what a row shows, with no query per row (the view prefetches). */
+        OrderRow: {
+            readonly id: number;
+            readonly number: string | null;
+            /** Format: date-time */
+            readonly created: string;
+            /**
+             * Format: date-time
+             * @description Paid online, or placed with cash on delivery.
+             */
+            readonly placed_at: string | null;
+            readonly status: components["schemas"]["OrderStatusEnum"];
+            readonly status_label: string;
+            readonly payment_method: components["schemas"]["PaymentMethodEnum"];
+            /** Format: decimal */
+            readonly total: string;
+            readonly items: string[];
+            readonly customer: components["schemas"]["OrderCustomer"];
+            readonly courier: components["schemas"]["OrderCourier"] | null;
+            /** @description the latest parcel's status (the shipping app's), or null */
+            readonly parcel: string | null;
+            readonly tags: string[];
+            readonly held: boolean;
+            readonly hold_reason: string;
+            /**
+             * @description a COD order's; blank: not scored
+             *
+             *     * `low` - low
+             *     * `medium` - medium
+             *     * `high` - high
+             */
+            readonly risk_bucket: components["schemas"]["OrderRiskEnum"] | components["schemas"]["BlankEnum"];
+            /** @description made with test keys on the live site: TEST */
+            readonly is_test: boolean;
+            readonly is_cod: boolean;
+            /** @default false */
+            readonly has_returns: boolean;
+            /** @description made by staff: a phone, WhatsApp or school order */
+            readonly staff_order: boolean;
+            /**
+             * Live mode
+             * @description Made with live Razorpay keys (its payment's mode).
+             */
+            readonly livemode: boolean;
+        };
+        OrderSaving: {
+            label: string;
+            /** Format: decimal */
+            amount: string;
+        };
+        OrderShipRequest: {
+            courier: components["schemas"]["CourierEnum"];
+            tracking_number: string;
+            tracking_url?: string;
+        };
+        OrderShipment: {
+            courier: string;
+            tracking_number: string;
+            tracking_url: string;
+            /** Format: date-time */
+            shipped_at: string;
+            /** Format: date-time */
+            delivered_at: string | null;
+        };
+        /**
          * @description * `pending` - awaiting payment
          *     * `paid` - paid
          *     * `packed` - packed
@@ -2720,6 +12369,63 @@ export interface components {
          * @enum {string}
          */
         OrderStatusEnum: "pending" | "paid" | "packed" | "shipped" | "delivered" | "cancelled" | "refunded";
+        OrderTagsRequest: {
+            add?: string[];
+            remove?: string[];
+        };
+        OrderTimelineEntry: {
+            /** Format: date-time */
+            at: string;
+            /** @description status, payment, refund, parcel, scan, message, note, hold, return, audit, erp */
+            kind: string;
+            label: string;
+            /** @description a member of staff's name, the customer, the site, or empty */
+            actor: string;
+            details: {
+                [key: string]: unknown;
+            };
+        };
+        OwnSession: {
+            id: number;
+            /** @description Chrome, Firefox …; empty: not known */
+            browser: string;
+            /** @description Android, Windows …; empty: not known */
+            system: string;
+            /** @description the address's first octets: 203.0.113.x */
+            place: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            last_seen_at: string;
+            /** @description this session */
+            current: boolean;
+        };
+        OwnSessionsEnded: {
+            sessions: number;
+            /** @description the app's refresh tokens blacklisted */
+            tokens: number;
+        };
+        /** @description An order of the packing queue. */
+        PackingRow: {
+            number: string;
+            /** Format: date-time */
+            placed_at: string;
+            payment_method: string;
+            is_cod: boolean;
+            /**
+             * Format: decimal
+             * @description the cash to collect, if COD
+             */
+            total: string;
+            risk_bucket: string;
+            tags: string[];
+            /** @description town, district and PIN code */
+            destination: string;
+            /** @description the books' and the packing; null: a book has none */
+            weight_g: number | null;
+            /** @description each book once, with its copies (a bundle's books) */
+            pick: components["schemas"]["PickLine"][];
+        };
         Page: {
             slug: components["schemas"]["SlugEnum"];
             title: string;
@@ -2734,6 +12440,31 @@ export interface components {
             /** @description as the website shows it; a [placeholder] is <mark class="…"> */
             readonly html: string;
             readonly web_url: string;
+            /** @description the version in force, numbered: "Version 2" */
+            readonly number: number;
+            /**
+             * Format: date
+             * @description in force from that day
+             */
+            readonly effective_from: string;
+            /** @description what this version changed, in a line */
+            readonly summary: string;
+        };
+        PageVersion: {
+            /** @description "Version 2" */
+            number: number;
+            /** @description the label consent records keep (consents/notice_version) */
+            version: string;
+            /**
+             * Format: date
+             * @description in force from that day
+             */
+            effective_from: string;
+            /** @description what it changed, in a line */
+            summary: string;
+            in_force: boolean;
+            /** @description published for a later day: not in force yet */
+            upcoming: boolean;
         };
         PaginatedAddressList: {
             /** @example 123 */
@@ -2750,6 +12481,19 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["Address"][];
         };
+        PaginatedApiKeyList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["ApiKey"][];
+        };
         PaginatedAttemptList: {
             /** @example 123 */
             count: number;
@@ -2764,6 +12508,34 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["Attempt"][];
+        };
+        PaginatedAuditEventList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["AuditEvent"][];
+        };
+        PaginatedBacktestList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["Backtest"][];
         };
         PaginatedBoardList: {
             /** @example 123 */
@@ -2795,6 +12567,19 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["Book"][];
         };
+        PaginatedCallList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Call"][];
+        };
         PaginatedCategoryList: {
             /** @example 123 */
             count: number;
@@ -2809,6 +12594,19 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["Category"][];
+        };
+        PaginatedChangeRequestList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["ChangeRequest"][];
         };
         PaginatedChapterList: {
             /** @example 123 */
@@ -2825,6 +12623,66 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["Chapter"][];
         };
+        PaginatedChapterStatList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["ChapterStat"][];
+        };
+        PaginatedCodRemittanceList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["CodRemittance"][];
+        };
+        PaginatedCodeActivationList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["CodeActivation"][];
+        };
+        PaginatedCohortStatList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["CohortStat"][];
+        };
         PaginatedCollectionList: {
             /** @example 123 */
             count: number;
@@ -2839,6 +12697,151 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["Collection"][];
+        };
+        PaginatedContentBookList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["ContentBook"][];
+        };
+        PaginatedContentErratumList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["ContentErratum"][];
+        };
+        PaginatedContentPaperList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["ContentPaper"][];
+        };
+        PaginatedContentQuestionList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["ContentQuestion"][];
+        };
+        PaginatedContentReportList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["ContentReport"][];
+        };
+        PaginatedContentReviewList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["ContentReview"][];
+        };
+        PaginatedContentSolutionList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["ContentSolution"][];
+        };
+        PaginatedCustomerList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Customer"][];
+        };
+        PaginatedDarkPatternAuditList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["DarkPatternAudit"][];
+        };
+        PaginatedDataRequestListList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["DataRequestList"][];
+        };
+        PaginatedDeliveryStatList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["DeliveryStat"][];
         };
         PaginatedEntitlementList: {
             /** @example 123 */
@@ -2855,6 +12858,58 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["Entitlement"][];
         };
+        PaginatedErpCursorList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["ErpCursor"][];
+        };
+        PaginatedErpDifferenceList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["ErpDifference"][];
+        };
+        PaginatedErpOutboxList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["ErpOutbox"][];
+        };
+        PaginatedErpRunList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["ErpRun"][];
+        };
         PaginatedErratumList: {
             /** @example 123 */
             count: number;
@@ -2869,6 +12924,19 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["Erratum"][];
+        };
+        PaginatedFailureList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Failure"][];
         };
         PaginatedFlashCardList: {
             /** @example 123 */
@@ -2885,6 +12953,172 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["FlashCard"][];
         };
+        PaginatedForecastList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["Forecast"][];
+        };
+        PaginatedFraudSignalList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["FraudSignal"][];
+        };
+        PaginatedHsnCodeList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["HsnCode"][];
+        };
+        PaginatedInboundEventList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["InboundEvent"][];
+        };
+        PaginatedInboxItemList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["InboxItem"][];
+        };
+        PaginatedIncidentList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Incident"][];
+        };
+        PaginatedItemStatList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["ItemStat"][];
+        };
+        PaginatedJobList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Job"][];
+        };
+        PaginatedLegalDepositList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["LegalDeposit"][];
+        };
+        PaginatedLegalHoldList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["LegalHold"][];
+        };
+        PaginatedMyTicketList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["MyTicket"][];
+        };
+        PaginatedOfferStatList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["OfferStat"][];
+        };
         PaginatedOrderBriefList: {
             /** @example 123 */
             count: number;
@@ -2899,6 +13133,32 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["OrderBrief"][];
+        };
+        PaginatedOrderRowList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["OrderRow"][];
+        };
+        PaginatedPackingRowList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["PackingRow"][];
         };
         PaginatedPageList: {
             /** @example 123 */
@@ -2930,6 +13190,77 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["Paper"][];
         };
+        PaginatedParcelList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["Parcel"][];
+        };
+        PaginatedPersonList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Person"][];
+        };
+        PaginatedPickupLocationList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["PickupLocation"][];
+        };
+        PaginatedPrintRunAdviceList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["PrintRunAdvice"][];
+        };
+        PaginatedProcessorList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Processor"][];
+        };
         PaginatedProductList: {
             /** @example 123 */
             count: number;
@@ -2960,6 +13291,101 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["QuizItem"][];
         };
+        PaginatedQuoteRowList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["QuoteRow"][];
+        };
+        PaginatedReturnRowList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["ReturnRow"][];
+        };
+        PaginatedSavedReplyList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["SavedReply"][];
+        };
+        PaginatedSavedViewList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["SavedView"][];
+        };
+        PaginatedShipmentChargeList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["ShipmentCharge"][];
+        };
+        PaginatedShippingExceptionList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["ShippingException"][];
+        };
+        PaginatedStaffInviteList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["StaffInvite"][];
+        };
         PaginatedSubjectList: {
             /** @example 123 */
             count: number;
@@ -2974,6 +13400,32 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["Subject"][];
+        };
+        PaginatedTaxDocumentList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["TaxDocument"][];
+        };
+        PaginatedTicketList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Ticket"][];
         };
         Paper: {
             code: string;
@@ -3021,6 +13473,21 @@ export interface components {
              */
             is_sample?: boolean;
         };
+        PaperPublishRequest: {
+            /** @description on the site, or off it */
+            is_published?: boolean;
+            /** @description the book's open sample (its solutions need no account); the book's other one stops */
+            is_sample?: boolean;
+        };
+        PaperQr: {
+            /**
+             * Format: uri
+             * @description what the code encodes: SITE_URL/s/<CODE>/ (?printing=<run>)
+             */
+            url: string;
+            /** @description the code as a data: URL (PNG) */
+            png: string;
+        };
         PaperRecord: {
             /** @description its code */
             paper: string;
@@ -3030,6 +13497,117 @@ export interface components {
             /** @description the most marks (the latest of equals) */
             best: components["schemas"]["Attempt"];
             latest: components["schemas"]["Attempt"];
+        };
+        /**
+         * @description A parcel: the shop's shipment (courier, tracking number and link, sent and delivered) and its courier side
+         *     (`detail`), null for a parcel typed by hand in the admin.
+         */
+        Parcel: {
+            readonly id: number;
+            readonly order: string;
+            readonly courier: components["schemas"]["CourierEnum"];
+            readonly tracking_number: string;
+            /**
+             * Format: uri
+             * @description Empty: the courier's tracking page, or 17TRACK's.
+             */
+            readonly tracking_url: string;
+            /** Format: date-time */
+            readonly shipped_at: string;
+            /** Format: date-time */
+            readonly delivered_at: string | null;
+            readonly detail: components["schemas"]["ParcelDetail"] | null;
+        };
+        ParcelDetail: {
+            readonly carrier: components["schemas"]["CarrierEnum"];
+            readonly account: number | null;
+            readonly status: (components["schemas"]["ParcelStatusEnum"] | components["schemas"]["NullEnum"]) | null;
+            /**
+             * Our order id at the carrier
+             * @default
+             */
+            readonly reference: string;
+            /** Carrier's order id */
+            readonly external_order_id: string;
+            /** Carrier's shipment id */
+            readonly external_shipment_id: string;
+            readonly courier_company_id: number | null;
+            readonly courier_name: string;
+            /**
+             * Weight (g)
+             * @description As weighed at packing.
+             */
+            readonly weight_g: number | null;
+            readonly length_cm: number | null;
+            readonly breadth_cm: number | null;
+            readonly height_cm: number | null;
+            /** Charged weight (g) */
+            readonly charged_weight_g: number | null;
+            /**
+             * Quoted rate (₹)
+             * Format: decimal
+             */
+            readonly quoted_rate: string | null;
+            /**
+             * Cash to collect (₹)
+             * Format: decimal
+             * @description Empty: prepaid.
+             */
+            readonly cod_amount: string | null;
+            /**
+             * Declared value (₹)
+             * Format: decimal
+             */
+            readonly declared_value: string | null;
+            /** Format: date-time */
+            readonly last_event_at: string | null;
+            readonly pickup_location: number | null;
+            /** Format: date */
+            readonly pickup_date: string | null;
+            /** Format: date-time */
+            readonly manifested_at: string | null;
+            readonly has_label: boolean;
+            readonly has_photo: boolean;
+        };
+        /** @description A parcel with its timeline, exceptions, charges and COD remittance. */
+        ParcelHistory: {
+            readonly id: number;
+            readonly order: string;
+            readonly courier: components["schemas"]["CourierEnum"];
+            readonly tracking_number: string;
+            /**
+             * Format: uri
+             * @description Empty: the courier's tracking page, or 17TRACK's.
+             */
+            readonly tracking_url: string;
+            /** Format: date-time */
+            readonly shipped_at: string;
+            /** Format: date-time */
+            readonly delivered_at: string | null;
+            readonly detail: components["schemas"]["ParcelDetail"] | null;
+            readonly events: components["schemas"]["ShipmentEvent"][];
+            readonly exceptions: components["schemas"]["ShippingException"][];
+            readonly charges: components["schemas"]["ShipmentCharge"][];
+            readonly cod_remittance: components["schemas"]["CodRemittance"] | null;
+        };
+        /**
+         * @description * `booked` - booked
+         *     * `pickup_problem` - pickup problem
+         *     * `in_transit` - in transit
+         *     * `out_for_delivery` - out for delivery
+         *     * `delivered` - delivered
+         *     * `delivery_failed` - delivery failed
+         *     * `returning` - returning to us
+         *     * `returned` - returned to us
+         *     * `lost_or_damaged` - lost or damaged
+         *     * `cancelled` - cancelled
+         *     * `partial` - partly delivered
+         * @enum {string}
+         */
+        ParcelStatusEnum: "booked" | "pickup_problem" | "in_transit" | "out_for_delivery" | "delivered" | "delivery_failed" | "returning" | "returned" | "lost_or_damaged" | "cancelled" | "partial";
+        ParentConfirmationRequest: {
+            /** @description where the evidence is: a ticket's number, a letter's date; never the document */
+            evidence_ref: string;
         };
         ParentContactRequest: {
             /** @description the parent's or guardian's email address or mobile number: the one on record, or new */
@@ -3052,6 +13630,28 @@ export interface components {
             first_name: string | null;
             /** @description how long a link works */
             days: number;
+            /** @description the student (under 18) asked to delete their account: null otherwise */
+            deletion?: components["schemas"]["ParentLinkDeletion"] | null;
+        };
+        ParentLinkConfirmRequest: {
+            /**
+             * @description consent ("I agree", the default) or deletion
+             *
+             *     * `consent` - consent
+             *     * `deletion` - deletion
+             */
+            confirm?: components["schemas"]["ConfirmEnum"];
+        };
+        ParentLinkDeletion: {
+            /** Format: date-time */
+            requested_at: string;
+            /**
+             * Format: date-time
+             * @description erased then, once the parent has confirmed
+             */
+            due_at: string;
+            /** @description the parent or guardian confirmed it */
+            confirmed: boolean;
         };
         /**
          * @description * `pending` - pending
@@ -3113,6 +13713,14 @@ export interface components {
             /** Format: email */
             email: string;
         };
+        PastTicket: {
+            number: string;
+            subject: string;
+            category: string;
+            status: string;
+            /** Format: date-time */
+            received_at: string;
+        };
         /**
          * @description A saved delivery address: a state code from the list, a 6-digit PIN code and a 10-digit Indian mobile number
          *     (the website's rules).
@@ -3146,12 +13754,146 @@ export interface components {
             /** What to revise */
             notes?: string;
         };
+        PatchedContentBookRequest: {
+            title?: string;
+            subject?: number;
+            edition?: string;
+            slug?: string;
+            /** @description Static path, e.g. img/physics.png */
+            cover?: string;
+            /** @description ISBN-13, hyphens allowed: kept as its 13 digits */
+            isbn?: string;
+            format?: components["schemas"]["BookFormatEnum"];
+            /**
+             * Format: date
+             * @description The day this edition was published: the legal deposit's clock (CONTENT_LEGAL_DEPOSIT_DAYS) starts.
+             */
+            published_on?: string | null;
+        };
+        PatchedContentPaperDetailRequest: {
+            title?: string;
+            tier?: components["schemas"]["TierEnum"];
+            /** Format: int64 */
+            number?: number;
+            /** Format: int64 */
+            full_marks?: number;
+            /** Format: int64 */
+            pass_marks?: number;
+            time_text?: string;
+            /** @description the paper's instruction lines and allotment tables */
+            header_json?: components["schemas"]["ContentHeaderRequest"];
+        };
+        PatchedContentReportUpdateRequest: {
+            staff_note?: string;
+            /** @description on the errata of its book and printing */
+            public?: boolean;
+            printing?: string;
+            step?: number | null;
+        };
+        PatchedDarkPatternAuditRequest: {
+            /**
+             * Format: int64
+             * @description The calendar year its certificate covers.
+             */
+            year?: number;
+            /** @description the 13 patterns, each once (new: all blank) */
+            rows?: components["schemas"]["AuditRowRequest"][];
+            certificate_text?: string;
+            /**
+             * Format: date
+             * @description Shown on the website from this day.
+             */
+            effective_from?: string | null;
+        };
+        PatchedDataRequestRequest: {
+            /** Type */
+            kind?: components["schemas"]["DataRequestKindEnum"];
+            channel?: components["schemas"]["ChannelEnum"];
+            user?: number | null;
+            /** @description Where to answer: the address or number it came from. */
+            requester?: string;
+            /** @description What was asked. */
+            summary?: string;
+            /** Format: date-time */
+            received_at?: string;
+            assignee?: number | null;
+            notes?: string;
+            /** @description A nominee; a parent's confirmation; holds. */
+            details?: unknown;
+        };
+        PatchedIncidentRequest: {
+            title?: string;
+            kind?: components["schemas"]["IncidentKindEnum"];
+            /** Format: date-time */
+            detected_at?: string;
+            description?: string;
+            systems?: string;
+            data_categories?: string;
+            /** Format: int64 */
+            people_affected?: number | null;
+            children_affected?: boolean;
+            /**
+             * CERT-In told at
+             * Format: date-time
+             */
+            cert_in_reported_at?: string | null;
+            cert_in_reference?: string;
+            /**
+             * Board told at (first)
+             * Format: date-time
+             */
+            board_notified_at?: string | null;
+            /**
+             * Board's detailed report at
+             * Format: date-time
+             */
+            board_report_at?: string | null;
+            board_reference?: string;
+            /** Notice to the people affected */
+            notice_text?: string;
+            /** Format: int64 */
+            notices_sent?: number;
+            /** Format: date-time */
+            notices_sent_at?: string | null;
+            /** Actions taken */
+            actions?: string;
+            root_cause?: string;
+        };
         PatchedLearnerRequest: {
             /** Format: date */
             exam_date?: string | null;
             minutes_per_day?: number;
             /** Daily reminder in the app */
             reminders?: boolean;
+        };
+        PatchedPickupLocationRequest: {
+            nickname?: string;
+            address?: string;
+            city?: string;
+            state?: string;
+            pin_code?: string;
+            phone?: string;
+            is_default?: boolean;
+            active?: boolean;
+        };
+        PatchedProcessorRequest: {
+            name?: string;
+            purpose?: string;
+            data_categories?: string;
+            /** @description Where the data is processed. */
+            country?: string;
+            /** Format: date */
+            contract_signed_on?: string | null;
+            /** Format: date */
+            contract_ends_on?: string | null;
+            active?: boolean;
+            notes?: string;
+            /** @description Keeps personal data after the processing: each erasure asks them to erase it. */
+            holds_personal_data?: boolean;
+            /** @description Holds marketing lists: told to stop when someone withdraws marketing consent. */
+            holds_marketing_data?: boolean;
+            /** @description What to ask them: 'ask SES to purge the address', 'delete the media in R2'. */
+            erasure_action?: string;
         };
         /**
          * @description The signed-in user. The email address, date of birth and parent details change only on the website (the email
@@ -3173,6 +13915,108 @@ export interface components {
             /** @description 0 removes the book */
             quantity?: number;
         };
+        /**
+         * @description What the panel changes: the text and what the site shows of it go to the draft (DRAFTED); the order, the
+         *     label and the tags change at once (the import keys on the label: a renamed one is a new question there).
+         */
+        PatchedQuestionUpdateRequest: {
+            text_md?: string;
+            table_md?: string;
+            /** @description the options, in order */
+            options_json?: string[];
+            marks_text?: string;
+            group_label?: string;
+            part_label?: string;
+            is_alternative?: boolean;
+            order?: number;
+            label?: string;
+            tags?: string[];
+        };
+        PatchedSavedReplyRequest: {
+            title?: string;
+            /** @default en */
+            language: components["schemas"]["LanguageEnum"];
+            body?: string;
+        };
+        PatchedSavedViewRequest: {
+            /** @description Shared with this role's members; empty: private. */
+            role?: string;
+            /**
+             * List
+             * @description Which list: audit, users, change-requests …
+             */
+            list_key?: string;
+            name?: string;
+            filters?: unknown;
+            columns?: unknown;
+            sort?: unknown;
+        };
+        PatchedSolutionUpdateRequest: {
+            /** @description Markdown with $…$ maths: into the draft */
+            body_md?: string;
+        };
+        PatchedTemplateRequest: {
+            /** @description What it is sent for: otp, order_placed … (ops.sms's kinds). */
+            event?: string;
+            channel?: components["schemas"]["MessageChannelEnum"];
+            /** @default en */
+            language: components["schemas"]["LanguageEnum"];
+            /** @description As registered: DLT's {#var#} placeholders. */
+            text?: string;
+            /** @description An email's subject. */
+            subject?: string;
+            variables?: components["schemas"]["VariableRequest"][];
+            dlt_template_id?: string;
+            /** Principal entity id */
+            pe_id?: string;
+            /** @description The registered sender id, e.g. EXMLEF. */
+            header?: string;
+            header_suffix?: components["schemas"]["HeaderSuffixEnum"] | components["schemas"]["BlankEnum"];
+            /** MSG91 template id */
+            msg91_id?: string;
+            /** WhatsApp template name */
+            whatsapp_name?: string;
+            category?: components["schemas"]["TemplateCategoryEnum"];
+            approval_state?: components["schemas"]["TemplateApprovalEnum"];
+            /**
+             * Format: date
+             * @description DLT's yearly self-certification.
+             */
+            self_certified_on?: string | null;
+            notes?: string;
+        };
+        PatchedTicketChangeRequest: {
+            category?: components["schemas"]["TicketCategoryEnum"] | components["schemas"]["BlankEnum"];
+            priority?: components["schemas"]["TicketPriorityEnum"];
+            language?: components["schemas"]["LanguageEnum"];
+            source?: components["schemas"]["TicketSourceEnum"];
+            nch_docket?: string;
+            subject?: string;
+            name?: string;
+            email?: string;
+            phone?: string;
+            /** @description its number; empty: none */
+            order?: string;
+            /** @description a paper's code */
+            record?: string;
+        };
+        /**
+         * @description * `false_urgency` - False urgency
+         *     * `basket_sneaking` - Basket sneaking
+         *     * `confirm_shaming` - Confirm shaming
+         *     * `forced_action` - Forced action
+         *     * `subscription_trap` - Subscription trap
+         *     * `interface_interference` - Interface interference
+         *     * `bait_and_switch` - Bait and switch
+         *     * `drip_pricing` - Drip pricing
+         *     * `disguised_advertisement` - Disguised advertisement
+         *     * `nagging` - Nagging
+         *     * `trick_question` - Trick question
+         *     * `saas_billing` - SaaS billing
+         *     * `rogue_malware` - Rogue malware
+         * @enum {string}
+         */
+        PatternEnum: "false_urgency" | "basket_sneaking" | "confirm_shaming" | "forced_action" | "subscription_trap" | "interface_interference" | "bait_and_switch" | "drip_pricing" | "disguised_advertisement" | "nagging" | "trick_question" | "saas_billing" | "rogue_malware";
         /** @description What the SDK's success callback returns. */
         PaymentConfirmRequest: {
             razorpay_order_id: string;
@@ -3209,6 +14053,30 @@ export interface components {
             };
             test_mode: boolean;
         };
+        /** @description A member of staff (their own colleagues see their work address and name). */
+        Person: {
+            readonly id: number;
+            /** Format: email */
+            email: string;
+            full_name: string;
+            is_active?: boolean;
+            /**
+             * Superuser status
+             * @description Designates that this user has all permissions without explicitly assigning them.
+             */
+            is_superuser?: boolean;
+            readonly roles: string[];
+            readonly grants: {
+                [key: string]: unknown;
+            }[];
+            readonly scopes: components["schemas"]["Scope"][];
+            /** @description an authenticator app or a passkey is set up */
+            readonly mfa: boolean;
+            /** Format: date-time */
+            last_login?: string | null;
+            /** Format: date-time */
+            readonly created: string;
+        };
         PhoneCodeRequest: {
             /** @description the mobile number confirmed on the account, as typed */
             phone: string;
@@ -3216,6 +14084,55 @@ export interface components {
         PhoneConfirmRequest: {
             verification_token: string;
             code: string;
+        };
+        PhotoRequest: {
+            /**
+             * Format: binary
+             * @description the parcel on the scale, label side up; JPEG or PNG, 5 MB at most
+             */
+            photo: string;
+        };
+        PickLine: {
+            title: string;
+            isbn: string;
+            quantity: number;
+        };
+        PickListRequest: {
+            orders: string[];
+        };
+        PickupLocation: {
+            readonly id: number;
+            nickname: string;
+            address?: string;
+            city?: string;
+            state?: string;
+            pin_code: string;
+            phone?: string;
+            is_default?: boolean;
+            active?: boolean;
+            /** Carrier's id */
+            readonly external_id: string;
+        };
+        PickupLocationRequest: {
+            nickname: string;
+            address?: string;
+            city?: string;
+            state?: string;
+            pin_code: string;
+            phone?: string;
+            is_default?: boolean;
+            active?: boolean;
+        };
+        PickupRequestRequest: {
+            /**
+             * Format: date
+             * @description empty: the next possible day
+             */
+            date?: string;
+        };
+        PickupResult: {
+            /** Format: date */
+            pickup_date: string | null;
         };
         /**
          * @description A product picture for <picture>/srcset: AVIF and WebP sizes (made by the Celery worker after an upload; until
@@ -3269,6 +14186,272 @@ export interface components {
          * @enum {string}
          */
         PlatformEnum: "android" | "ios";
+        Policy: {
+            /** @description the page's: its audit events and notes name it (pages.page) */
+            id: number;
+            slug: string;
+            title: string;
+            version: string;
+            /** @description the version in force */
+            number: number;
+            /** Format: date */
+            effective_from: string;
+            summary: string;
+            /** Format: date-time */
+            updated: string;
+            /** @description [placeholders] still to fill in */
+            placeholders: number;
+            /** @description a version waiting for its day */
+            scheduled: components["schemas"]["PolicyVersion"] | null;
+            /** @description how many versions it has had */
+            versions: number;
+        };
+        PolicyAcknowledgement: {
+            readonly id: number;
+            readonly user: number;
+            policy: string;
+            version: string;
+            /** Format: date-time */
+            readonly acknowledged_at: string;
+        };
+        PolicyAcknowledgementRequest: {
+            policy: string;
+            version: string;
+        };
+        PolicyDetail: {
+            /** @description the page's: its audit events and notes name it (pages.page) */
+            id: number;
+            slug: string;
+            title: string;
+            version: string;
+            /** @description the version in force */
+            number: number;
+            /** Format: date */
+            effective_from: string;
+            summary: string;
+            /** Format: date-time */
+            updated: string;
+            /** @description [placeholders] still to fill in */
+            placeholders: number;
+            /** @description a version waiting for its day */
+            scheduled: components["schemas"]["PolicyVersion"] | null;
+            /** @description every version, newest first */
+            versions: components["schemas"]["PolicyVersion"][];
+            /** @description the text in force */
+            markdown: string;
+        };
+        PolicyDiff: {
+            number: number;
+            version: string;
+            previous: number | null;
+            /** Format: date */
+            effective_from: string;
+            summary: string;
+            title: string;
+            title_changed: boolean;
+            added: number;
+            removed: number;
+            lines: components["schemas"]["PolicyDiffLine"][];
+        };
+        PolicyDiffLine: {
+            kind: components["schemas"]["PolicyDiffLineKindEnum"];
+            text: string;
+        };
+        /**
+         * @description * `hunk` - hunk
+         *     * `added` - added
+         *     * `removed` - removed
+         *     * `context` - context
+         * @enum {string}
+         */
+        PolicyDiffLineKindEnum: "hunk" | "added" | "removed" | "context";
+        PolicyVersion: {
+            number: number;
+            /** @description the label consent records keep */
+            version: string;
+            title: string;
+            summary: string;
+            /** Format: date */
+            effective_from: string;
+            /** Format: date-time */
+            published_at: string | null;
+            published_by: number | null;
+            in_force: boolean;
+            /** @description published for a later day: not in force yet */
+            upcoming: boolean;
+        };
+        PostalPrice: {
+            service: string;
+            label: string;
+            /** Format: decimal */
+            price: string;
+        };
+        PrintRunAdvice: {
+            readonly product: string;
+            readonly title: string;
+            /**
+             * Net price (₹)
+             * Format: decimal
+             */
+            net_price: string;
+            /**
+             * Print cost (₹)
+             * Format: decimal
+             */
+            unit_cost: string;
+            /**
+             * Salvage (₹)
+             * Format: decimal
+             */
+            salvage: string;
+            /**
+             * Format: double
+             * @description (net price − cost) ÷ (net price − salvage): the quantile to print.
+             */
+            critical_ratio: number;
+            /**
+             * Format: int64
+             * @description The season's demand from now at the critical ratio.
+             */
+            target_quantity: number;
+            /**
+             * Format: int64
+             * @description Copies in stock and on order.
+             */
+            supply: number;
+            /**
+             * Format: int64
+             * @description Copies to print now: the target less the supply.
+             */
+            recommended_quantity: number;
+            /**
+             * Format: int64
+             * @description Reprint once the supply is at or below this: the P90 of the demand over the reprint lead time.
+             */
+            reprint_trigger_units: number;
+            /**
+             * Format: double
+             * @description Empty: the supply outlasts the season.
+             */
+            weeks_of_cover?: number | null;
+            /**
+             * Format: int64
+             * @description Copies left at the exam if nothing more is printed.
+             */
+            projected_leftover: number;
+            level?: components["schemas"]["LevelEnum"];
+            alert?: string;
+            readonly n: number;
+        };
+        PrivacyCalendarItem: {
+            /** Format: date */
+            date: string;
+            title: string;
+            detail: string;
+            state: components["schemas"]["PrivacyCalendarItemStateEnum"];
+        };
+        /**
+         * @description * `upcoming` - upcoming
+         *     * `in_force` - in_force
+         *     * `done` - done
+         *     * `overdue` - overdue
+         * @enum {string}
+         */
+        PrivacyCalendarItemStateEnum: "upcoming" | "in_force" | "done" | "overdue";
+        PrivacyCockpitSupport: {
+            installed: boolean;
+            error: string;
+        };
+        PrivacyConsentVersion: {
+            /** @description the privacy notice's version the consents were given under */
+            version: string;
+            number: number | null;
+            in_force: boolean;
+            given: number;
+            withdrawn: number;
+        };
+        PrivacyDarkPatternState: {
+            year: number;
+            /** Format: date */
+            due: string;
+            audit: number | null;
+            state: components["schemas"]["PrivacyDarkPatternStateStateEnum"];
+            /** Format: date-time */
+            completed_at: string | null;
+            /** Format: date */
+            effective_from: string | null;
+            /** @description the certificate shown now */
+            certificate_year: number | null;
+        };
+        /**
+         * @description * `missing` - missing
+         *     * `draft` - draft
+         *     * `completed` - completed
+         * @enum {string}
+         */
+        PrivacyDarkPatternStateStateEnum: "missing" | "draft" | "completed";
+        PrivacyDeletionConfirmed: {
+            deletion: number;
+            /** Format: date-time */
+            parent_confirmed_at: string;
+        };
+        PrivacyNominee: {
+            name: string;
+            /** @description masked: reveal/ shows it, with a reason (logged) */
+            contact: string;
+            relation: string;
+            /**
+             * Format: date-time
+             * @description when a claim proved it (Phase C)
+             */
+            verified_at: string | null;
+            /** Format: date-time */
+            created: string;
+            /** Format: date-time */
+            updated: string;
+        };
+        PrivacyNomineeContact: {
+            contact: string;
+        };
+        Processor: {
+            readonly id: number;
+            name: string;
+            purpose: string;
+            data_categories: string;
+            /** @description Where the data is processed. */
+            country: string;
+            /** Format: date */
+            contract_signed_on?: string | null;
+            /** Format: date */
+            contract_ends_on?: string | null;
+            active?: boolean;
+            notes?: string;
+            /** @description Keeps personal data after the processing: each erasure asks them to erase it. */
+            holds_personal_data?: boolean;
+            /** @description Holds marketing lists: told to stop when someone withdraws marketing consent. */
+            holds_marketing_data?: boolean;
+            /** @description What to ask them: 'ask SES to purge the address', 'delete the media in R2'. */
+            erasure_action?: string;
+        };
+        ProcessorRequest: {
+            name: string;
+            purpose: string;
+            data_categories: string;
+            /** @description Where the data is processed. */
+            country: string;
+            /** Format: date */
+            contract_signed_on?: string | null;
+            /** Format: date */
+            contract_ends_on?: string | null;
+            active?: boolean;
+            notes?: string;
+            /** @description Keeps personal data after the processing: each erasure asks them to erase it. */
+            holds_personal_data?: boolean;
+            /** @description Holds marketing lists: told to stop when someone withdraws marketing consent. */
+            holds_marketing_data?: boolean;
+            /** @description What to ask them: 'ask SES to purge the address', 'delete the media in R2'. */
+            erasure_action?: string;
+        };
         /**
          * @description A book on sale. `in_stock` says whether copies can be ordered (a bundle: of each of its books; a digital
          *     product: always); the number of copies is not given.
@@ -3326,6 +14509,18 @@ export interface components {
         ProductMoved: {
             /** @description the renamed product's slug; Location: its products/<slug>/ */
             redirect_to: string;
+        };
+        ProductPick: {
+            readonly slug: string;
+            readonly title: string;
+            readonly kind: components["schemas"]["ProductKindEnum"];
+            readonly isbn: string;
+            /** Format: decimal */
+            readonly price: string;
+            /** Format: decimal */
+            readonly mrp: string;
+            /** @description copies that can be sold now */
+            readonly available: number;
         };
         /** @description A buyer's review as the product page shows it: "Verified buyer", never a name (many buyers are minors). */
         ProductReview: {
@@ -3436,6 +14631,29 @@ export interface components {
             seconds_watched?: number;
             completed?: boolean;
         };
+        Proven: {
+            /** Format: date */
+            on: string;
+            engine: components["schemas"]["RestoreDrillEngineEnum"];
+        };
+        PublishRequest: {
+            /** @description the new text, in Markdown */
+            markdown: string;
+            /** @description the same if empty */
+            title?: string;
+            /** @description what this version changes, in a line */
+            summary: string;
+            /**
+             * Format: date
+             * @description in force from (today if empty, never before)
+             */
+            effective_from?: string;
+        };
+        /**
+         * @description * `marketing` - marketing
+         * @enum {string}
+         */
+        PurposeEnum: "marketing";
         QuantityRequest: {
             /** @description 0 removes the book */
             quantity: number;
@@ -3477,6 +14695,81 @@ export interface components {
          * @enum {string}
          */
         QuizItemKindEnum: "mcq" | "true_false" | "fill_blank";
+        Quote: {
+            courier_company_id: number;
+            courier_name: string;
+            /** Format: decimal */
+            rate: string;
+            /** @description days to deliver, as the courier says */
+            etd_days: number | null;
+            /** Format: double */
+            rating: number | null;
+            cod: boolean;
+            /** Format: decimal */
+            cod_charges: string;
+            /**
+             * Format: decimal
+             * @description what a return would cost
+             */
+            rto_charges: string;
+            /** @description the carrier's own pick */
+            recommended: boolean;
+        };
+        QuoteConvertRequest: {
+            /** @description where the books go (the quote has only its PIN code) */
+            address: components["schemas"]["ShippingAddressRequest"];
+            /**
+             * Format: email
+             * @description default: the quote's
+             */
+            email?: string;
+            /** @default true */
+            send_link: boolean;
+            note?: string;
+            /** @default A school's quotation accepted. */
+            reason: string;
+        };
+        QuoteDetail: {
+            readonly id: number;
+            readonly number: string;
+            /** School or organisation */
+            readonly school: string;
+            /** Contact person */
+            readonly contact_name: string;
+            readonly email: string;
+            readonly phone: string;
+            readonly gstin: string;
+            /** Delivery PIN code */
+            readonly delivery_pin: string;
+            readonly copies: number;
+            readonly status: components["schemas"]["QuoteStatusEnum"];
+            /**
+             * Discount (%)
+             * Format: decimal
+             * @description On the books, in the next quotation.
+             */
+            readonly discount_percent: string;
+            /**
+             * Shipping (₹)
+             * Format: decimal
+             */
+            readonly shipping_fee: string;
+            /** Format: date-time */
+            readonly quoted_at: string | null;
+            /** Format: date */
+            readonly valid_until: string | null;
+            readonly has_quotation: boolean;
+            readonly order: string | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** @description product, title, quantity */
+            readonly items: {
+                [key: string]: unknown;
+            }[];
+            readonly note: string;
+            /** @description a conversion waiting for approval: its change request */
+            readonly waiting: number | null;
+        };
         QuoteItemRequest: {
             /** @description a product's slug (products/) */
             product: string;
@@ -3497,10 +14790,73 @@ export interface components {
             /** @description Turnstile's token while the bot check is on */
             turnstile?: string;
         };
+        QuoteResult: {
+            /** @description the top three, ranked (research 3.4) */
+            couriers: components["schemas"]["Quote"][];
+            /** @description prepaid orders only, from the tariff table */
+            india_post: components["schemas"]["PostalPrice"][];
+            weight_g: number;
+            /** @description the carrier could not be asked: its last answer for this parcel */
+            stale: boolean;
+            error: string;
+        };
+        QuoteRow: {
+            readonly id: number;
+            readonly number: string;
+            /** School or organisation */
+            readonly school: string;
+            /** Contact person */
+            readonly contact_name: string;
+            readonly email: string;
+            readonly phone: string;
+            readonly gstin: string;
+            /** Delivery PIN code */
+            readonly delivery_pin: string;
+            readonly copies: number;
+            readonly status: components["schemas"]["QuoteStatusEnum"];
+            /**
+             * Discount (%)
+             * Format: decimal
+             * @description On the books, in the next quotation.
+             */
+            readonly discount_percent: string;
+            /**
+             * Shipping (₹)
+             * Format: decimal
+             */
+            readonly shipping_fee: string;
+            /** Format: date-time */
+            readonly quoted_at: string | null;
+            /** Format: date */
+            readonly valid_until: string | null;
+            readonly has_quotation: boolean;
+            readonly order: string | null;
+            /** Format: date-time */
+            readonly created: string;
+        };
         QuoteSent: {
             /** @description QT-2026-00012 */
             number: string;
             detail: string;
+        };
+        /**
+         * @description * `new` - new
+         *     * `quoted` - quotation made
+         *     * `ordered` - ordered
+         *     * `closed` - closed
+         * @enum {string}
+         */
+        QuoteStatusEnum: "new" | "quoted" | "ordered" | "closed";
+        RazorpayHealth: {
+            /** Format: date-time */
+            last_event_at: string | null;
+            /** Format: double */
+            age_hours: number | null;
+            /** @description online payments captured in the window */
+            paid_in_window: number;
+            window_hours: number;
+            /** @description payments came in, no webhook did */
+            silent: boolean;
         };
         /**
          * @description * `wrong_answer` - a wrong answer or step
@@ -3512,6 +14868,24 @@ export interface components {
          * @enum {string}
          */
         ReaderCategoryEnum: "wrong_answer" | "typo" | "marks" | "unclear" | "display" | "other";
+        ReasonRequest: {
+            /** @description Why: kept in the audit log */
+            reason: string;
+        };
+        ReconcileRequest: {
+            /** @description the order's number */
+            order: string;
+        };
+        Reconciled: {
+            order: string;
+            paid: boolean | null;
+        };
+        ReconciliationLine: {
+            /** Format: date */
+            date: string;
+            state: string;
+            differences: number;
+        };
         Record: {
             /** @description attempts */
             count: number;
@@ -3532,6 +14906,56 @@ export interface components {
             /** Format: date-time */
             processed_at: string | null;
         };
+        RefundLineRequest: {
+            /** @description the order line's id */
+            item: number;
+            /** @description copies to refund, from 0 */
+            quantity: number;
+        };
+        RefundMarkPaidRequest: {
+            /** @description the transfer's UTR or UPI reference */
+            utr: string;
+        };
+        RefundPayee: {
+            /** @description name@bank */
+            upi?: string;
+            account?: string;
+            ifsc?: string;
+            /** @description the account holder */
+            name?: string;
+        };
+        RefundPayeeReasonRequest: {
+            reason: string;
+        };
+        RefundPayeeRequest: {
+            /** @description name@bank */
+            upi?: string;
+            account?: string;
+            ifsc?: string;
+            /** @description the account holder */
+            name?: string;
+        };
+        RefundRequest: {
+            /** @default  */
+            order: string;
+            /** Format: decimal */
+            amount?: string | null;
+            lines?: components["schemas"]["RefundLineRequest"][];
+            reason: string;
+        };
+        /**
+         * @description * `normal` - normal (5 to 7 working days)
+         *     * `optimum` - optimum (instant where the bank allows, else normal)
+         * @enum {string}
+         */
+        RefundSpeedEnum: "normal" | "optimum";
+        /**
+         * @description * `pending` - requested
+         *     * `processed` - processed
+         *     * `failed` - failed
+         * @enum {string}
+         */
+        RefundStatusEnum: "pending" | "processed" | "failed";
         /**
          * @description The website's sign-up form, field for field, with its rules: under 18, a parent's name and phone or email, and
          *     the parent ticks the consent; everyone agrees to the privacy notice; the email and password rules of the site.
@@ -3555,6 +14979,22 @@ export interface components {
             /** @description agrees to the privacy notice (the parent, under 18) */
             consent: boolean;
         };
+        ReleaseRequest: {
+            /** @description why it ends: kept with it and in the audit log */
+            reason: string;
+        };
+        ReplayFailedRequest: {
+            /**
+             * Format: date-time
+             * @description every failed event received since then
+             */
+            since: string;
+        };
+        Replayed: {
+            replayed: number;
+            /** @description more failed events wait: replay again */
+            more: boolean;
+        };
         /**
          * @description * `solution` - solution
          *     * `question` - question
@@ -3563,8 +15003,159 @@ export interface components {
          * @enum {string}
          */
         ReportTargetEnum: "solution" | "question" | "quiz_item" | "clip";
+        ReportsOpen: {
+            total: number;
+            by_category: {
+                [key: string]: number;
+            };
+        };
+        Requester: {
+            name: string;
+            /** @description masked; reveal/ shows it, logged */
+            email: string;
+            /** @description masked */
+            phone: string;
+            /** @description the requester's account */
+            user: number | null;
+        };
+        ResolveRequest: {
+            /** @description what was done, or why it is dismissed */
+            resolution: string;
+            /** @default false */
+            dismiss: boolean;
+        };
+        ResponseText: {
+            subject: string;
+            body: string;
+        };
         RestAuthDetail: {
             readonly detail: string;
+        };
+        RestoreDrill: {
+            readonly id: number;
+            /** Format: date */
+            performed_on: string;
+            engine: components["schemas"]["RestoreDrillEngineEnum"];
+            /** @description The backup restored: its object's name in the bucket. */
+            backup: string;
+            result: components["schemas"]["RestoreDrillResultEnum"];
+            /** Format: int64 */
+            duration_minutes: number;
+            notes?: string;
+            readonly recorded_by: number | null;
+            /** Format: date-time */
+            readonly created: string;
+        };
+        /**
+         * @description * `platform` - the platform's PostgreSQL
+         *     * `erpnext` - ERPNext's MariaDB and files
+         *     * `both` - both engines
+         * @enum {string}
+         */
+        RestoreDrillEngineEnum: "platform" | "erpnext" | "both";
+        RestoreDrillRequest: {
+            /** Format: date */
+            performed_on: string;
+            engine: components["schemas"]["RestoreDrillEngineEnum"];
+            /** @description The backup restored: its object's name in the bucket. */
+            backup: string;
+            result: components["schemas"]["RestoreDrillResultEnum"];
+            /** Format: int64 */
+            duration_minutes: number;
+            notes?: string;
+        };
+        /**
+         * @description * `passed` - it worked
+         *     * `partial` - it worked in part
+         *     * `failed` - it failed
+         * @enum {string}
+         */
+        RestoreDrillResultEnum: "passed" | "partial" | "failed";
+        RetentionRule: {
+            key: string;
+            records: string;
+            /** @description the law's least time today */
+            minimum: string;
+            minimum_days: number | null;
+            source: string;
+            /**
+             * Format: date
+             * @description when the minimum changes next
+             */
+            changes_on: string | null;
+            next_minimum: string | null;
+            /** @description what this site keeps */
+            keep: string;
+            keep_days: number | null;
+            trim_days: number | null;
+            enforced_by: string;
+        };
+        ReturnAskRequest: {
+            lines: components["schemas"]["OrderLineAskRequest"][];
+            reason: components["schemas"]["ReturnReasonEnum"];
+            /** @description the customer's words */
+            note?: string;
+        };
+        ReturnDeclineRequest: {
+            /** @description why: the customer is told */
+            note: string;
+        };
+        ReturnDetail: {
+            readonly id: number;
+            readonly number: string;
+            readonly order: string;
+            readonly status: components["schemas"]["ReturnStatusEnum"];
+            readonly status_label: string;
+            readonly reason: components["schemas"]["ReturnReasonEnum"];
+            readonly reason_label: string;
+            readonly lines: components["schemas"]["ReturnLine"][];
+            /** @description Asked for on the website, not by staff. */
+            readonly by_customer: boolean;
+            /** @description Told to the customer: why it was declined. */
+            readonly decision_note: string;
+            readonly return_courier: string;
+            readonly return_awb: string;
+            /** @description how many: GET photos/{index}/ each */
+            readonly photos: number;
+            /** Format: date-time */
+            readonly received_at: string | null;
+            /** Format: date-time */
+            readonly inspected_at: string | null;
+            /** @description its refund, once asked */
+            readonly refund: number | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly modified: string;
+            /** @description the customer's words */
+            readonly note: string;
+            /** @description the moves it may make now, as the actions' names */
+            readonly next: string[];
+        };
+        /**
+         * @description * `restocked` - restocked
+         *     * `damaged` - damaged
+         * @enum {string}
+         */
+        ReturnInspectOutcomeEnum: "restocked" | "damaged";
+        ReturnInspectRequest: {
+            outcome: components["schemas"]["ReturnInspectOutcomeEnum"];
+        };
+        ReturnLabelRequest: {
+            courier: string;
+            awb: string;
+        };
+        ReturnLine: {
+            item: number;
+            title: string;
+            quantity: number;
+        };
+        ReturnPhotoRequest: {
+            /**
+             * Format: binary
+             * @description JPEG, PNG or WebP, 5 MB at most
+             */
+            photo: string;
         };
         /**
          * @description * `damaged` - damaged in transit
@@ -3576,6 +15167,34 @@ export interface components {
          * @enum {string}
          */
         ReturnReasonEnum: "damaged" | "misprint" | "wrong_item" | "late" | "not_as_described" | "other";
+        ReturnRow: {
+            readonly id: number;
+            readonly number: string;
+            readonly order: string;
+            readonly status: components["schemas"]["ReturnStatusEnum"];
+            readonly status_label: string;
+            readonly reason: components["schemas"]["ReturnReasonEnum"];
+            readonly reason_label: string;
+            readonly lines: components["schemas"]["ReturnLine"][];
+            /** @description Asked for on the website, not by staff. */
+            readonly by_customer: boolean;
+            /** @description Told to the customer: why it was declined. */
+            readonly decision_note: string;
+            readonly return_courier: string;
+            readonly return_awb: string;
+            /** @description how many: GET photos/{index}/ each */
+            readonly photos: number;
+            /** Format: date-time */
+            readonly received_at: string | null;
+            /** Format: date-time */
+            readonly inspected_at: string | null;
+            /** @description its refund, once asked */
+            readonly refund: number | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly modified: string;
+        };
         /**
          * @description * `requested` - requested
          *     * `approved` - approved: send it back
@@ -3588,10 +15207,42 @@ export interface components {
          * @enum {string}
          */
         ReturnStatusEnum: "requested" | "approved" | "declined" | "label_sent" | "received" | "restocked" | "damaged" | "refunded";
+        RevealReasonRequest: {
+            /** @description why: kept in the audit log */
+            reason: string;
+        };
+        RevealRequest: {
+            /** @description the details to show */
+            show: components["schemas"]["ShowEnum"][];
+            /** @description why: kept in the audit log */
+            reason: string;
+        };
+        Revealed: {
+            email?: string | null;
+            phone?: string | null;
+            login_phone?: string | null;
+            parent_contact?: string | null;
+            parent_name?: string | null;
+            date_of_birth?: string | null;
+        };
         ReviewRequest: {
             /** @description the student knew the back */
             known: boolean;
         };
+        /**
+         * @description * `check` - a second person checks it
+         *     * `publish` - approved: to publish
+         * @enum {string}
+         */
+        ReviewTaskStageEnum: "check" | "publish";
+        /**
+         * @description * `in_progress` - in progress
+         *     * `approved` - approved
+         *     * `needs_changes` - needs changes
+         *     * `cancelled` - cancelled
+         * @enum {string}
+         */
+        ReviewTaskStateEnum: "in_progress" | "approved" | "needs_changes" | "cancelled";
         ReviseAgainCount: {
             /** @description quiz items and flash cards due today or before */
             due_today: number;
@@ -3614,12 +15265,329 @@ export interface components {
          * @enum {string}
          */
         RevisionStatusEnum: "published" | "none";
+        /**
+         * @description * `low` - low
+         *     * `medium` - medium
+         *     * `high` - high
+         *     * `critical` - critical
+         * @enum {string}
+         */
+        RiskEnum: "low" | "medium" | "high" | "critical";
+        RoleCard: {
+            /** @description for people who need to … */
+            for: string;
+            /** @description they can't … */
+            cannot: string;
+        };
+        RoleCatalogue: {
+            name: components["schemas"]["RoleEnum"];
+            card: components["schemas"]["RoleCard"];
+            /** @description given only with a second person's approval */
+            privileged: boolean;
+            /** @description opens the Django admin */
+            admin_site: boolean;
+            /** @description its members need a passkey or a security key */
+            passkey: boolean;
+            idle_timeout_s: number;
+            /** @description null: no limit */
+            limits: {
+                [key: string]: number | null;
+            };
+            scopes: {
+                [key: string]: string[];
+            };
+            /** @description roles it may not be held with */
+            conflicts: string[];
+            /** @description its ERPNext role profiles */
+            erp_profiles: string[];
+            /** @description active members */
+            members: number;
+            permissions: number;
+            capabilities: components["schemas"]["CapabilityArea"][];
+        };
+        /**
+         * @description * `grant` - grant
+         *     * `revoke` - revoke
+         * @enum {string}
+         */
+        RoleChangeActionEnum: "grant" | "revoke";
+        /**
+         * @description * `ADMIN` - ADMIN
+         *     * `AUDITOR` - AUDITOR
+         *     * `CONTENT_EDITOR` - CONTENT_EDITOR
+         *     * `FINANCE` - FINANCE
+         *     * `MARKETING` - MARKETING
+         *     * `OWNER` - OWNER
+         *     * `PACKER` - PACKER
+         *     * `REVIEWER` - REVIEWER
+         *     * `SALES` - SALES
+         *     * `SALES_REP` - SALES_REP
+         *     * `SUPPORT` - SUPPORT
+         * @enum {string}
+         */
+        RoleEnum: "ADMIN" | "AUDITOR" | "CONTENT_EDITOR" | "FINANCE" | "MARKETING" | "OWNER" | "PACKER" | "REVIEWER" | "SALES" | "SALES_REP" | "SUPPORT";
+        RolePreview: {
+            role: components["schemas"]["RoleEnum"];
+            action: components["schemas"]["RoleChangeActionEnum"];
+            /** @description a grant of a role held: only its end date would change */
+            holds_already: boolean;
+            gains: components["schemas"]["CapabilityArea"][];
+            losses: components["schemas"]["CapabilityArea"][];
+            /** @description the limits that change */
+            limits: components["schemas"]["LimitChange"][];
+            scopes: components["schemas"]["RoleScopeChange"][];
+            idle_timeout_s: components["schemas"]["BeforeAfterSeconds"];
+            /** @description separation of duties: the grant would be refused */
+            conflicts: components["schemas"]["Conflict"][];
+            blocked: boolean;
+            needs_approval: boolean;
+            /** @description why a second person approves it */
+            rule: string;
+            /** @description the permission its approver needs */
+            checker: string;
+            /** @description the role needs a passkey they have not added */
+            passkey_needed: boolean;
+            erp_profiles: components["schemas"]["BeforeAfterProfiles"];
+        };
+        RolePreviewRequestRequest: {
+            role: components["schemas"]["RoleEnum"];
+            /** @default grant */
+            action: components["schemas"]["RoleChangeActionEnum"];
+        };
+        RoleScopeChange: {
+            role: components["schemas"]["RoleEnum"];
+            scopes: {
+                [key: string]: string[];
+            };
+            /** @description false: the narrowing goes with the role */
+            added: boolean;
+        };
+        Rotated: {
+            /** @description shown this once: paste it at the provider */
+            token: string;
+            webhooks: components["schemas"]["WebhookInfo"];
+        };
+        SavedReply: {
+            readonly id: number;
+            title: string;
+            /** @default en */
+            language: components["schemas"]["LanguageEnum"];
+            body: string;
+            /** @description the variables its text uses */
+            readonly variables: string[];
+            readonly created_by: number | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly modified: string;
+            /**
+             * Format: date-time
+             * @description In the bin since.
+             */
+            readonly deleted_at: string | null;
+        };
+        SavedReplyRequest: {
+            title: string;
+            /** @default en */
+            language: components["schemas"]["LanguageEnum"];
+            body: string;
+        };
+        SavedReplyText: {
+            id: number;
+            title: string;
+            language: string;
+            /** @description filled for this ticket: its variables replaced */
+            text: string;
+        };
+        SavedView: {
+            readonly id: number;
+            readonly owner: number;
+            /** @description Shared with this role's members; empty: private. */
+            role?: string;
+            /**
+             * List
+             * @description Which list: audit, users, change-requests …
+             */
+            list_key: string;
+            name: string;
+            filters?: unknown;
+            columns?: unknown;
+            sort?: unknown;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly modified: string;
+        };
+        SavedViewRequest: {
+            /** @description Shared with this role's members; empty: private. */
+            role?: string;
+            /**
+             * List
+             * @description Which list: audit, users, change-requests …
+             */
+            list_key: string;
+            name: string;
+            filters?: unknown;
+            columns?: unknown;
+            sort?: unknown;
+        };
         Saving: {
             /** @description "Coupon WELCOME10", an offer's name, "Discount" */
             label: string;
             /** Format: decimal */
             readonly amount: string;
         };
+        Scope: {
+            readonly id: number;
+            kind: components["schemas"]["ScopeKindEnum"];
+            value: string;
+            readonly granted_by: number | null;
+            /** Format: date-time */
+            readonly created: string;
+            /**
+             * Format: date-time
+             * @description Removed by the nightly task after this.
+             */
+            expires_at?: string | null;
+        };
+        ScopeAddRequest: {
+            kind: components["schemas"]["ScopeKindEnum"];
+            value: string;
+            /** Format: date-time */
+            expires_at?: string | null;
+        };
+        /**
+         * @description * `subject` - subject (PHY, CHE, MAT, BIO)
+         *     * `board_class` - board and class (ASSEB:12)
+         *     * `order_status` - order status
+         *     * `warehouse` - warehouse
+         *     * `school` - school
+         *     * `ticket_queue` - work queue (an inbox kind)
+         *     * `ticket_category` - ticket category (support: order, content_error …)
+         * @enum {string}
+         */
+        ScopeKindEnum: "subject" | "board_class" | "order_status" | "warehouse" | "school" | "ticket_queue" | "ticket_category";
+        /**
+         * @description * `checkout` - the storefront's checkout
+         *     * `console` - the console's sign-in
+         * @enum {string}
+         */
+        ScriptPageEnum: "checkout" | "console";
+        ScriptRow: {
+            readonly id: number;
+            page: components["schemas"]["ScriptPageEnum"];
+            /** @description Empty: an inline script. */
+            src?: string;
+            sha256: string;
+            /** Format: date-time */
+            first_seen?: string;
+            /** Format: date-time */
+            last_seen?: string;
+            /** @description seen by its page's last check */
+            readonly current: boolean;
+        };
+        ScriptRun: {
+            page: components["schemas"]["ScriptPageEnum"];
+            url: string;
+            /** Format: date-time */
+            at: string | null;
+            /** @description null: not checked yet */
+            ok: boolean | null;
+            error: string;
+            added: number;
+            removed: number;
+        };
+        Scripts: {
+            runs: components["schemas"]["ScriptRun"][];
+            /** @description each page's last check's, then the 50 newest others */
+            scripts: components["schemas"]["ScriptRow"][];
+        };
+        SecondFactors: {
+            authenticator_app: boolean;
+            /** @description a passkey or a security key */
+            passkey: boolean;
+            recovery_codes: boolean;
+        };
+        SeriesRegister: {
+            financial_year: string;
+            month: string | null;
+            /** @description SHOP_SERIES_FROM_FY: one series a type from this year */
+            series_from: string;
+            /** @description SHOP_SERIES_PREFIXES */
+            prefixes: {
+                [key: string]: string;
+            };
+            rows: components["schemas"]["SeriesRow"][];
+        };
+        SeriesRow: {
+            series: string;
+            /** @description table 13's nature of document */
+            nature: string;
+            document_type: components["schemas"]["SeriesTypeEnum"];
+            financial_year: string;
+            /** @description Sr. No. from */
+            first: string;
+            /** @description Sr. No. to */
+            last: string;
+            total: number;
+            cancelled: number;
+            /** @description the series' next serial */
+            next_number: number | null;
+        };
+        /**
+         * @description * `invoice` - invoices of every kind
+         *     * `tax_invoice` - tax invoices
+         *     * `bill_of_supply` - bills of supply
+         *     * `invoice_cum_bill_of_supply` - invoices-cum-bills of supply
+         *     * `credit_note` - credit notes
+         *     * `debit_note` - debit notes
+         *     * `receipt_voucher` - receipt vouchers
+         *     * `refund_voucher` - refund vouchers
+         * @enum {string}
+         */
+        SeriesTypeEnum: "invoice" | "tax_invoice" | "bill_of_supply" | "invoice_cum_bill_of_supply" | "credit_note" | "debit_note" | "receipt_voucher" | "refund_voucher";
+        SessionsEnded: {
+            sessions: number;
+            tokens: number;
+        };
+        Setting: {
+            key: string;
+            label: string;
+            /** @description "bool", "str", or the allowed values */
+            kind: unknown;
+            /** @description what changing it needs */
+            permission: string;
+            /** @description in effect now */
+            value: unknown;
+            /** @description the environment's value (settings.py, .env) */
+            environment: unknown;
+            source: components["schemas"]["SettingSourceEnum"];
+            /** Format: date-time */
+            effective_from: string | null;
+            changed_by: number | null;
+            reason: string;
+            /** @description changes still to come */
+            scheduled: {
+                [key: string]: unknown;
+            }[];
+            /** @description the Settings page's section: shop, consent, course, maintenance … */
+            group: string;
+        };
+        /**
+         * @description * `environment` - environment
+         *     * `database` - database
+         * @enum {string}
+         */
+        SettingSourceEnum: "environment" | "database";
+        /**
+         * @description * `critical` - critical
+         *     * `high` - high
+         *     * `moderate` - moderate
+         *     * `low` - low
+         *     * `unknown` - unknown
+         * @enum {string}
+         */
+        SeverityEnum: "critical" | "high" | "moderate" | "low" | "unknown";
         Shipment: {
             courier: string;
             tracking_number: string;
@@ -3630,6 +15598,54 @@ export interface components {
             /** Format: date-time */
             delivered_at: string | null;
         };
+        ShipmentCharge: {
+            readonly id: number;
+            readonly shipment: number | null;
+            readonly kind: components["schemas"]["ShipmentChargeKindEnum"];
+            /**
+             * Amount (₹)
+             * Format: decimal
+             * @description Positive: charged to us; negative: given back.
+             */
+            readonly amount: string;
+            readonly charged_weight_g: number | null;
+            readonly awb: string;
+            readonly description: string;
+            readonly statement_line_id: string;
+            /** Format: date-time */
+            readonly charged_at: string;
+        };
+        /**
+         * @description * `freight` - freight
+         *     * `freight_reversal` - freight reversed
+         *     * `cod` - COD charge
+         *     * `cod_reversal` - COD charge reversed
+         *     * `rto_freight` - RTO freight
+         *     * `rto_freight_reversal` - RTO freight reversed
+         *     * `excess_weight` - excess weight
+         *     * `excess_weight_reversal` - excess weight reversed
+         *     * `other` - other
+         * @enum {string}
+         */
+        ShipmentChargeKindEnum: "freight" | "freight_reversal" | "cod" | "cod_reversal" | "rto_freight" | "rto_freight_reversal" | "excess_weight" | "excess_weight_reversal" | "other";
+        ShipmentEvent: {
+            source: components["schemas"]["ShipmentEventSourceEnum"];
+            /** @description Shiprocket's status code, e.g. 18. */
+            carrier_code?: string;
+            carrier_label?: string;
+            status?: (components["schemas"]["ParcelStatusEnum"] | components["schemas"]["BlankEnum"] | components["schemas"]["NullEnum"]) | null;
+            /** Format: date-time */
+            occurred_at: string;
+            location?: string;
+            activity?: string;
+        };
+        /**
+         * @description * `webhook` - webhook
+         *     * `poll` - tracking read
+         *     * `manual` - staff
+         * @enum {string}
+         */
+        ShipmentEventSourceEnum: "webhook" | "poll" | "manual";
         Shipping: {
             /**
              * Format: decimal
@@ -3671,6 +15687,46 @@ export interface components {
              */
             free_above: string | null;
         };
+        ShippingException: {
+            readonly id: number;
+            readonly kind: components["schemas"]["ShippingExceptionKindEnum"];
+            readonly shipment: number;
+            readonly order: string;
+            /** Format: date-time */
+            readonly due_at: string;
+            readonly state: components["schemas"]["ShippingExceptionStateEnum"];
+            /**
+             * @description The carrier's id of it, if it has one.
+             * @default
+             */
+            readonly reference: string;
+            readonly data: unknown;
+            readonly resolution: string;
+            /** Format: date-time */
+            readonly resolved_at: string | null;
+            readonly resolved_by: number | null;
+            /** Format: date-time */
+            readonly created: string;
+        };
+        /**
+         * @description * `pickup_problem` - pickup problem
+         *     * `ndr` - delivery failed (NDR)
+         *     * `rto` - returning or returned (RTO)
+         *     * `lost` - lost or damaged
+         *     * `partial` - partly delivered
+         *     * `weight_dispute` - weight dispute
+         *     * `cod_overdue` - COD overdue or mismatched
+         *     * `no_movement` - no movement
+         * @enum {string}
+         */
+        ShippingExceptionKindEnum: "pickup_problem" | "ndr" | "rto" | "lost" | "partial" | "weight_dispute" | "cod_overdue" | "no_movement";
+        /**
+         * @description * `open` - open
+         *     * `resolved` - resolved
+         *     * `dismissed` - dismissed
+         * @enum {string}
+         */
+        ShippingExceptionStateEnum: "open" | "resolved" | "dismissed";
         ShippingQuote: {
             pin: string | null;
             /** @description the PIN's (a few lie in two); [] unknown */
@@ -3720,6 +15776,74 @@ export interface components {
             currency: string;
         };
         /**
+         * @description * `email` - email
+         *     * `phone` - phone
+         *     * `login_phone` - login_phone
+         *     * `parent_contact` - parent_contact
+         *     * `parent_name` - parent_name
+         *     * `date_of_birth` - date_of_birth
+         * @enum {string}
+         */
+        ShowEnum: "email" | "phone" | "login_phone" | "parent_contact" | "parent_name" | "date_of_birth";
+        Sidebar: {
+            account: components["schemas"]["Customer"] | null;
+            orders: components["schemas"]["SidebarOrder"][] | null;
+            entitlements: components["schemas"]["EntitlementRow"][] | null;
+            codes: components["schemas"]["CodeRow"][] | null;
+            devices: components["schemas"]["DeviceRow"][] | null;
+            tickets: components["schemas"]["PastTicket"][] | null;
+            consents: components["schemas"]["ConsentRow"][] | null;
+        };
+        SidebarLine: {
+            id: number;
+            title: string;
+            quantity: number;
+            unit_price: string;
+            discount: string | null;
+        };
+        SidebarOrder: {
+            number: string;
+            status: string;
+            status_label: string;
+            total: string;
+            payment_method: string;
+            /** Format: date-time */
+            created: string;
+            /** Format: date-time */
+            placed_at: string | null;
+            is_test: boolean;
+            /** @description cancel: refunded in full with its cancellation; partial: shipped */
+            refund_mode: string;
+            /** @description why a refund through Razorpay may not go, or empty */
+            refund_warning: string;
+            /** @description the ticket's own order */
+            linked: boolean;
+            payments: components["schemas"]["SidebarPayment"][];
+            refunds: components["schemas"]["SidebarRefund"][];
+            shipments: components["schemas"]["OrderShipment"][];
+            invoice: string | null;
+            credit_notes: string[];
+            items: components["schemas"]["SidebarLine"][];
+        };
+        SidebarPayment: {
+            method: string;
+            /** @description Razorpay's method: upi, card, netbanking … (180 days) */
+            paid_with: string;
+            status: string;
+            amount: string;
+            razorpay_order_id: string | null;
+            razorpay_payment_id: string | null;
+            /** Format: date-time */
+            created: string;
+        };
+        SidebarRefund: {
+            amount: string;
+            status: string;
+            razorpay_refund_id: string | null;
+            /** Format: date-time */
+            created: string;
+        };
+        /**
          * @description * `privacy` - privacy
          *     * `terms` - terms
          *     * `refunds` - refunds
@@ -3728,18 +15852,233 @@ export interface components {
          * @enum {string}
          */
         SlugEnum: "privacy" | "terms" | "refunds" | "shipping" | "contact";
+        SmsFigures: {
+            sent_today: number;
+            /** @description held back by a limit today */
+            capped_today: number;
+            capped_7_days: number;
+            /** @description delivery reports by state */
+            delivery_7_days: {
+                [key: string]: number;
+            };
+            daily_cap: number;
+            /** @description approved SMS templates in the registry */
+            templates: number;
+        };
+        SnoozeRequest: {
+            /** Format: date-time */
+            until: string;
+        };
         Solution: {
             markdown: string;
             /** @description rendered by the site; $…$ maths left for KaTeX */
             readonly html: string;
         };
+        StaffBreakGlass: {
+            /** @description true: POST session/reason/ before anything else */
+            reason_required: boolean;
+            reason: string | null;
+            /**
+             * Format: date-time
+             * @description its log-in + STAFF_BREAK_GLASS_HOURS, however busy
+             */
+            ends_at: string;
+        };
+        StaffCatalogue: {
+            /** @description perm, label, area, risk … */
+            permissions: {
+                [key: string]: unknown;
+            }[];
+            /** @description name, permissions, limits … */
+            roles: {
+                [key: string]: unknown;
+            }[];
+        };
+        StaffImpersonating: {
+            user_id: number;
+            email: string;
+            /** Format: date-time */
+            until: string;
+        };
+        StaffInvite: {
+            readonly id: number;
+            readonly email: string;
+            role: string;
+            invited_by?: number | null;
+            /** Format: date-time */
+            created?: string;
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: date-time */
+            accepted_at?: string | null;
+            accepted_by?: number | null;
+            /** Format: date-time */
+            revoked_at?: string | null;
+        };
+        StaffManifest: {
+            break_glass: components["schemas"]["StaffBreakGlass"] | null;
+            user: components["schemas"]["StaffUser"];
+            /** @description name, expires_at, granted_by */
+            roles: {
+                [key: string]: unknown;
+            }[];
+            /** @description app_label.codename, sorted */
+            permissions: string[];
+            scopes: {
+                [key: string]: string[];
+            };
+            role_scopes: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            /** @description null: none */
+            limits: {
+                [key: string]: number | null;
+            };
+            /** @description the feature flags; test_mode: true when not production */
+            flags: {
+                [key: string]: unknown;
+            };
+            /** @description policy, version: not acknowledged yet (POST policies/ack/) */
+            policies_due: {
+                [key: string]: unknown;
+            }[];
+            /** Format: date-time */
+            reauth_valid_until: string | null;
+            idle_timeout_s: number;
+            /** Format: date-time */
+            absolute_expires_at: string;
+            impersonating: components["schemas"]["StaffImpersonating"] | null;
+            /** @description changes when anything above changes: fetch again */
+            manifest_version: string;
+            /** @description what the session does before the rest of the staff API opens: passkey_required (add a passkey on the website's /account/security/; every other call answers 403 passkey_required meanwhile) */
+            steps: components["schemas"]["StepsEnum"][];
+            /** @description true once after a second factor changed: offer to end the other sessions */
+            offer_end_sessions: boolean;
+        };
         /**
-         * @description * `book_code` - book code
-         *     * `purchase` - purchase
-         *     * `grant` - staff grant
+         * @description * `phone` - by phone
+         *     * `whatsapp` - on WhatsApp
+         *     * `school` - for a school
+         *     * `email` - by email
          * @enum {string}
          */
-        SourceEnum: "book_code" | "purchase" | "grant";
+        StaffOrderChannelEnum: "phone" | "whatsapp" | "school" | "email";
+        StaffOrderLineRequest: {
+            /** @description a product on sale */
+            product: string;
+            quantity: number;
+        };
+        /** @description What the staff order would be: priced as the checkout prices it, and the approval rule's answer. */
+        StaffOrderPreview: {
+            lines: components["schemas"]["StaffOrderPreviewLine"][];
+            /** Format: decimal */
+            subtotal: string;
+            /**
+             * Format: decimal
+             * @description the automatic offers' rupees
+             */
+            offers: string;
+            /**
+             * Format: decimal
+             * @description yours, at most the books' value
+             */
+            discount: string;
+            /**
+             * Format: decimal
+             * @description of the books after the offers
+             */
+            percent: string;
+            /** Format: decimal */
+            shipping: string | null;
+            /** Format: decimal */
+            total: string;
+            /**
+             * Format: decimal
+             * @description yours; null: none
+             */
+            limit: string | null;
+            /** @description why a second person approves it; null: made at once */
+            approval: string | null;
+            /** @description what stops it: off sale, sold out */
+            problems: string[];
+        };
+        StaffOrderPreviewAskRequest: {
+            lines: components["schemas"]["StaffOrderLineRequest"][];
+            /** @description the delivery address's state code: the shipping rate's */
+            state: string;
+            /** @description the customer's: offers once a person */
+            email?: string;
+            /**
+             * Format: decimal
+             * @default 0.00
+             */
+            discount: string;
+            /** Format: decimal */
+            shipping?: string | null;
+        };
+        StaffOrderPreviewLine: {
+            product: string;
+            title: string;
+            /** Format: decimal */
+            unit_price: string;
+            quantity: number;
+            /** Format: decimal */
+            line_total: string;
+            /** @description copies that can be sold now */
+            available: number;
+        };
+        StaffOrderRequest: {
+            channel: components["schemas"]["StaffOrderChannelEnum"];
+            lines: components["schemas"]["StaffOrderLineRequest"][];
+            /**
+             * Format: email
+             * @description the customer's: the order, the payment link and the invoice go there
+             */
+            email: string;
+            /** @description the PIN code's state is checked against India Post's directory */
+            address: components["schemas"]["ShippingAddressRequest"];
+            /**
+             * Format: decimal
+             * @description rupees off the books, after the offers
+             * @default 0.00
+             */
+            discount: string;
+            /**
+             * Format: decimal
+             * @description null: the shipping rates'
+             */
+            shipping?: string | null;
+            /**
+             * @description email a Razorpay payment link
+             * @default true
+             */
+            send_link: boolean;
+            /** @description an internal note */
+            note?: string;
+            /** @description why (the approvals' and the audit log's) */
+            reason: string;
+        };
+        StaffSystem: {
+            health: unknown;
+            celery: unknown;
+            webhooks: unknown;
+            email: unknown;
+            sms: unknown;
+            backups: unknown;
+            maintenance: unknown;
+            audit: unknown;
+            /** @description one line per subsystem (staff/system_api.py) */
+            status: components["schemas"]["SystemStatus"][];
+        };
+        StaffUser: {
+            id: number;
+            /** Format: email */
+            email: string;
+            full_name: string;
+            is_superuser: boolean;
+        };
         /**
          * @description * `KA` - Karnataka
          *     * `AP` - Andhra Pradesh
@@ -3780,6 +16119,24 @@ export interface components {
          * @enum {string}
          */
         StateEnum: "KA" | "AP" | "KL" | "TN" | "MH" | "UP" | "GA" | "GJ" | "RJ" | "HP" | "TG" | "AR" | "AS" | "BR" | "CT" | "HR" | "JH" | "MP" | "MN" | "ML" | "MZ" | "NL" | "OR" | "PB" | "SK" | "TR" | "UT" | "WB" | "AN" | "CH" | "DH" | "DL" | "JK" | "LD" | "LA" | "PY";
+        StatusRequest: {
+            status: components["schemas"]["TicketStatusEnum"];
+            /** @default  */
+            resolution: string;
+            /** @default  */
+            order: string;
+            /** @default  */
+            record: string;
+        };
+        /**
+         * @description * `passkey_required` - passkey_required
+         * @enum {string}
+         */
+        StepsEnum: "passkey_required";
+        StorageFigures: {
+            buckets: components["schemas"]["Bucket"][];
+            public_domain: string;
+        };
         Streak: {
             /** @description in a row with a clip watched, a quiz answer or a card review */
             days: number;
@@ -3816,6 +16173,344 @@ export interface components {
             /** @description null until the real one is set */
             phone: string | null;
         };
+        SupportSummary: {
+            /** Format: date */
+            since: string;
+            /** Format: date */
+            until: string;
+            received: number;
+            /** @description "" : not sorted yet */
+            by_category: {
+                [key: string]: number;
+            };
+            by_source: {
+                [key: string]: number;
+            };
+            /**
+             * Format: double
+             * @description the median
+             */
+            first_response_hours: number | null;
+            /**
+             * Format: double
+             * @description the median
+             */
+            resolution_hours: number | null;
+            /** @description open tickets by status, now */
+            backlog: {
+                [key: string]: number;
+            };
+            /** @description open tickets past a clock, now */
+            overdue: number;
+            /** @description ack and due, of the period */
+            breaches: {
+                [key: string]: number;
+            };
+        };
+        SwitchChangeRequest: {
+            /** @description the new value; null: back to the environment's (a flag: off) */
+            value: unknown;
+            reason: string;
+            /**
+             * Format: date-time
+             * @description from when (now unless given)
+             */
+            effective_from?: string;
+        };
+        SwitchRow: {
+            key: string;
+            value: unknown;
+            /** Format: date-time */
+            effective_from: string;
+            changed_by: number | null;
+            reason: string;
+            /** Format: date-time */
+            created: string;
+        };
+        Sync: {
+            /** @description as staff/erp/status/ answers it */
+            status: unknown;
+            flows: components["schemas"]["SyncFlow"][];
+            /** @description the newest 20 (replay or discard: staff/erp/dead-letters/) */
+            dead_letters: components["schemas"]["SyncDead"][];
+            dead_count: number;
+            inbound: components["schemas"]["SyncInbound"];
+            /** @description the last 7 nights */
+            reconciliations: components["schemas"]["SyncRun"][];
+        };
+        SyncDead: {
+            id: number;
+            event: string;
+            examleaf_ref: string;
+            aggregate_type: string;
+            aggregate_id: string;
+            attempts: number;
+            last_error: string;
+            /** Format: date-time */
+            created: string;
+        };
+        SyncFlow: {
+            flow: string;
+            /** @description its ERP_SYNC_* switch, as the code reads it */
+            switch: boolean;
+            /** @description its outbox rows by state */
+            states: {
+                [key: string]: number;
+            };
+        };
+        SyncInbound: {
+            /** @description ERPNext's doorbells of 7 days by state */
+            states: {
+                [key: string]: number;
+            };
+            /** Format: date-time */
+            last_received_at: string | null;
+        };
+        SyncRun: {
+            id: number;
+            /** Format: date */
+            date: string;
+            state: string;
+            differences_count: number;
+            open_differences: number;
+            /** Format: date-time */
+            finished_at: string | null;
+            error: string;
+        };
+        SystemClock: {
+            /** @description LOG_TIME_SOURCE: the host's documented time source */
+            source: string;
+            documented: boolean;
+            /** Format: date-time */
+            app_now: string;
+            /** Format: date-time */
+            database_now: string | null;
+            /** @description the database's clock minus the application's */
+            offset_ms: number | null;
+            /** @description within a second (two on SQLite) */
+            ok: boolean;
+        };
+        SystemStatus: {
+            /** @description health, queues, webhooks, email, sms, backups, audit, sync, dependencies … */
+            key: string;
+            state: components["schemas"]["SystemStatusStateEnum"];
+            /** @description in a few words */
+            summary: string;
+            /**
+             * Format: date-time
+             * @description when it came to this state, as far as seen
+             */
+            since: string | null;
+        };
+        /**
+         * @description * `ok` - ok
+         *     * `warn` - warn
+         *     * `bad` - bad
+         *     * `off` - off
+         * @enum {string}
+         */
+        SystemStatusStateEnum: "ok" | "warn" | "bad" | "off";
+        /**
+         * @description * `shop.creditnote` - shop.creditnote
+         *     * `shop.invoice` - shop.invoice
+         *     * `shop.order` - shop.order
+         *     * `shop.payment` - shop.payment
+         *     * `shop.refund` - shop.refund
+         *     * `staff.datarequest` - staff.datarequest
+         * @enum {string}
+         */
+        TargetTypeEnum: "shop.creditnote" | "shop.invoice" | "shop.order" | "shop.payment" | "shop.refund" | "staff.datarequest";
+        TaxCalendar: {
+            month: string;
+            qrmp: boolean;
+            items: components["schemas"]["TaxCalendarItem"][];
+            /** @description the lines the threshold monitor finds crossed */
+            crossed: components["schemas"]["ThresholdRow"][];
+        };
+        TaxCalendarItem: {
+            key: string;
+            title: string;
+            /** @description the period or year it is for */
+            covers: string;
+            /** Format: date */
+            due: string;
+            applies: boolean;
+            note: string;
+            past: boolean;
+        };
+        TaxCharge: {
+            label: string;
+            /** Format: decimal */
+            rate: string;
+            /** Format: decimal */
+            amount: string;
+            /** Format: decimal */
+            taxable: string;
+            /** Format: decimal */
+            tax: string;
+        };
+        TaxDocument: {
+            /** @description its number with dashes: the address of tax/documents/{number}/ */
+            key: string;
+            kind: components["schemas"]["TaxDocumentKindEnum"];
+            id: number;
+            number: string;
+            series: string;
+            financial_year: string;
+            serial: number;
+            document_type: components["schemas"]["TaxDocumentTypeEnum"] | components["schemas"]["BlankEnum"];
+            /** @description the test series: not a tax document */
+            test: boolean;
+            /** Format: date */
+            date: string;
+            /** @description the order's number */
+            order: string;
+            /** @description a credit note's invoice */
+            against: string | null;
+            /** @description a state code: the billing state */
+            place_of_supply: string;
+            /** @description its name and GST code: "Assam (18)" */
+            place_label: string;
+            /** Format: decimal */
+            total: string;
+            /** Format: decimal */
+            taxable_value: string | null;
+            /** Format: decimal */
+            exempt_value: string | null;
+            /** Format: decimal */
+            tax_amount: string | null;
+            /** Format: date-time */
+            cancelled_at: string | null;
+            cancel_reason: string;
+            cancelled_by: number | null;
+            has_pdf: boolean;
+        };
+        TaxDocumentDetail: {
+            /** @description its number with dashes: the address of tax/documents/{number}/ */
+            key: string;
+            kind: components["schemas"]["TaxDocumentKindEnum"];
+            id: number;
+            number: string;
+            series: string;
+            financial_year: string;
+            serial: number;
+            document_type: components["schemas"]["TaxDocumentTypeEnum"] | components["schemas"]["BlankEnum"];
+            /** @description the test series: not a tax document */
+            test: boolean;
+            /** Format: date */
+            date: string;
+            /** @description the order's number */
+            order: string;
+            /** @description a credit note's invoice */
+            against: string | null;
+            /** @description a state code: the billing state */
+            place_of_supply: string;
+            /** @description its name and GST code: "Assam (18)" */
+            place_label: string;
+            /** Format: decimal */
+            total: string;
+            /** Format: decimal */
+            taxable_value: string | null;
+            /** Format: decimal */
+            exempt_value: string | null;
+            /** Format: decimal */
+            tax_amount: string | null;
+            /** Format: date-time */
+            cancelled_at: string | null;
+            cancel_reason: string;
+            cancelled_by: number | null;
+            has_pdf: boolean;
+            title: string;
+            lines: components["schemas"]["TaxLine"][];
+            /** @description the shipping, following the goods it carries */
+            charges: components["schemas"]["TaxCharge"][];
+            /** Format: decimal */
+            round_off: string;
+            /** @description what Rule 46 asks that it misses */
+            checks: string[];
+            /** @description an invoice's credit notes */
+            credit_notes: string[];
+        };
+        /**
+         * @description * `invoice` - invoice
+         *     * `credit_note` - credit note
+         * @enum {string}
+         */
+        TaxDocumentKindEnum: "invoice" | "credit_note";
+        /**
+         * @description * `tax_invoice` - Tax invoice
+         *     * `bill_of_supply` - Bill of supply
+         *     * `invoice_cum_bill_of_supply` - Invoice-cum-bill of supply
+         * @enum {string}
+         */
+        TaxDocumentTypeEnum: "tax_invoice" | "bill_of_supply" | "invoice_cum_bill_of_supply";
+        TaxLine: {
+            title: string;
+            /** @description a split bundle's title, for its components */
+            bundle: string;
+            hsn_code: string;
+            quantity: number;
+            /** Format: decimal */
+            rate: string;
+            /**
+             * Format: decimal
+             * @description after its discount, tax included
+             */
+            amount: string;
+            /** Format: decimal */
+            taxable: string;
+            /** Format: decimal */
+            tax: string;
+        };
+        TaxProblem: {
+            readonly id: number;
+            readonly slug: string;
+            readonly title: string;
+            readonly kind: components["schemas"]["ProductKindEnum"];
+            readonly hsn_code: string;
+            /**
+             * GST rate (%)
+             * Format: decimal
+             * @description Printed books are exempt: 0.
+             */
+            readonly gst_rate: string;
+            /** On sale */
+            readonly is_active: boolean;
+            /**
+             * @description A bundle's GST, as the CA decides: split (recommended), composite or mixed.
+             *
+             *     * `split` - split: each component a line of its own, the price shared by their MRPs
+             *     * `composite` - composite: one line at the principal supply's rate
+             *     * `mixed` - mixed: one line at the highest rate
+             */
+            readonly tax_treatment: components["schemas"]["TaxTreatmentEnum"];
+            readonly problem: string;
+        };
+        /**
+         * @description * `gstr9` - ₹2 crore: the annual return (GSTR-9) is due
+         *     * `warning` - ₹4 crore: e-invoicing and monthly returns come at ₹5 crore
+         *     * `e_invoice` - ₹5 crore: e-invoicing, QRMP ends, 6-digit HSN codes
+         *     * `irp_30_days` - ₹10 crore: e-invoices reported to the IRP within 30 days
+         *     * `b2c_large` - invoices above ₹1 lakh to another state (GSTR-1 table 5)
+         *     * `eway_bill` - taxable goods above ₹50,000 in one parcel: an e-way bill
+         * @enum {string}
+         */
+        TaxThresholdLineEnum: "gstr9" | "warning" | "e_invoice" | "irp_30_days" | "b2c_large" | "eway_bill";
+        /**
+         * @description * `split` - split: each component a line of its own, the price shared by their MRPs
+         *     * `composite` - composite: one line at the principal supply's rate
+         *     * `mixed` - mixed: one line at the highest rate
+         * @enum {string}
+         */
+        TaxTreatmentEnum: "split" | "composite" | "mixed";
+        /**
+         * @description * `taxable` - taxable
+         *     * `nil` - nil-rated
+         *     * `exempt` - exempt
+         *     * `non_gst` - non-GST
+         * @enum {string}
+         */
+        TaxabilityEnum: "taxable" | "nil" | "exempt" | "non_gst";
         Teacher: {
             school_name: string;
             district: string;
@@ -3833,6 +16528,557 @@ export interface components {
             /** Subject taught */
             subject: string;
         };
+        Template: {
+            readonly id: number;
+            /** @description What it is sent for: otp, order_placed … (ops.sms's kinds). */
+            event: string;
+            channel: components["schemas"]["MessageChannelEnum"];
+            /** @default en */
+            language: components["schemas"]["LanguageEnum"];
+            /** @description As registered: DLT's {#var#} placeholders. */
+            text?: string;
+            /** @description An email's subject. */
+            subject?: string;
+            variables?: components["schemas"]["Variable"][];
+            dlt_template_id?: string;
+            /** Principal entity id */
+            pe_id?: string;
+            /** @description The registered sender id, e.g. EXMLEF. */
+            header?: string;
+            header_suffix?: components["schemas"]["HeaderSuffixEnum"] | components["schemas"]["BlankEnum"];
+            /** MSG91 template id */
+            msg91_id?: string;
+            /** WhatsApp template name */
+            whatsapp_name?: string;
+            category: components["schemas"]["TemplateCategoryEnum"];
+            approval_state?: components["schemas"]["TemplateApprovalEnum"];
+            /** Format: date-time */
+            readonly last_used_at: string | null;
+            /**
+             * Format: date
+             * @description DLT's yearly self-certification.
+             */
+            self_certified_on?: string | null;
+            notes?: string;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly modified: string;
+            /** @description since its last use (or since it was added) */
+            readonly days_unused: number;
+            /** @description what to see to, in plain words */
+            readonly warnings: string[];
+        };
+        /**
+         * @description * `draft` - draft
+         *     * `submitted` - submitted for approval
+         *     * `approved` - approved
+         *     * `rejected` - rejected
+         *     * `paused` - paused
+         *     * `deactivated` - deactivated
+         * @enum {string}
+         */
+        TemplateApprovalEnum: "draft" | "submitted" | "approved" | "rejected" | "paused" | "deactivated";
+        /**
+         * @description * `transactional` - transactional (one-time codes)
+         *     * `service` - service (about something bought)
+         *     * `promotional` - promotional
+         *     * `utility` - utility (WhatsApp)
+         *     * `authentication` - authentication (WhatsApp)
+         * @enum {string}
+         */
+        TemplateCategoryEnum: "transactional" | "service" | "promotional" | "utility" | "authentication";
+        TemplateRequest: {
+            /** @description What it is sent for: otp, order_placed … (ops.sms's kinds). */
+            event: string;
+            channel: components["schemas"]["MessageChannelEnum"];
+            /** @default en */
+            language: components["schemas"]["LanguageEnum"];
+            /** @description As registered: DLT's {#var#} placeholders. */
+            text?: string;
+            /** @description An email's subject. */
+            subject?: string;
+            variables?: components["schemas"]["VariableRequest"][];
+            dlt_template_id?: string;
+            /** Principal entity id */
+            pe_id?: string;
+            /** @description The registered sender id, e.g. EXMLEF. */
+            header?: string;
+            header_suffix?: components["schemas"]["HeaderSuffixEnum"] | components["schemas"]["BlankEnum"];
+            /** MSG91 template id */
+            msg91_id?: string;
+            /** WhatsApp template name */
+            whatsapp_name?: string;
+            category: components["schemas"]["TemplateCategoryEnum"];
+            approval_state?: components["schemas"]["TemplateApprovalEnum"];
+            /**
+             * Format: date
+             * @description DLT's yearly self-certification.
+             */
+            self_certified_on?: string | null;
+            notes?: string;
+        };
+        TestResult: {
+            ok: boolean | null;
+            message: string;
+            card: components["schemas"]["ConnectionCard"];
+        };
+        TestSendRequest: {
+            /** @description a value for each variable (30 characters at most); a sample of its type otherwise */
+            variables?: {
+                [key: string]: string;
+            };
+        };
+        TestSent: {
+            sent: boolean;
+            /** @description where it went: the last digits of your number, or your address masked */
+            to: string;
+            detail: string;
+        };
+        ThresholdCard: {
+            /**
+             * Format: date
+             * @description the night of the latest look; null: none yet
+             */
+            as_of: string | null;
+            financial_year: string;
+            previous_year: string;
+            /** Format: decimal */
+            previous_turnover: string;
+            /** @description SHOP_GST_QRMP */
+            qrmp: boolean;
+            /** @description SHOP_HSN_DIGITS */
+            hsn_digits: number;
+            /** @description what the turnover counts */
+            basis: string;
+            rows: components["schemas"]["ThresholdRow"][];
+        };
+        ThresholdRow: {
+            readonly line: components["schemas"]["TaxThresholdLineEnum"];
+            label: string;
+            /**
+             * Format: decimal
+             * @description Rupees, or documents for the counts.
+             */
+            readonly value: string;
+            /** Format: decimal */
+            readonly limit: string;
+            readonly crossed: boolean;
+            /** @description a number of documents, not rupees */
+            readonly count: boolean;
+            /** @description The documents' numbers, for the counts. */
+            readonly detail: unknown;
+            /** Format: date */
+            readonly date: string;
+            readonly financial_year: string;
+        };
+        /** @description A ticket in the queue. */
+        Ticket: {
+            readonly id: number;
+            readonly number: string;
+            readonly subject: string;
+            readonly source: components["schemas"]["TicketSourceEnum"];
+            /** NCH docket number */
+            readonly nch_docket: string;
+            /**
+             * @description empty: unsorted
+             *
+             *     * `order` - order
+             *     * `payment` - payment or refund
+             *     * `book_code` - book code
+             *     * `qr_solutions` - QR solutions
+             *     * `content_error` - a mistake in the content
+             *     * `school_order` - school order
+             *     * `privacy_request` - privacy request
+             *     * `grievance` - grievance
+             */
+            readonly category: components["schemas"]["TicketCategoryEnum"] | components["schemas"]["BlankEnum"];
+            readonly priority: components["schemas"]["TicketPriorityEnum"];
+            readonly status: components["schemas"]["TicketStatusEnum"];
+            readonly language: components["schemas"]["LanguageEnum"];
+            readonly requester: components["schemas"]["Requester"];
+            readonly assignee: number | null;
+            readonly order: string | null;
+            /** Format: date-time */
+            readonly received_at: string;
+            /** Format: date-time */
+            readonly acknowledged_at: string | null;
+            /**
+             * Format: date-time
+             * @description The first reply a person sent.
+             */
+            readonly first_response_at: string | null;
+            /** Format: date-time */
+            readonly resolved_at: string | null;
+            /** Format: date-time */
+            readonly closed_at: string | null;
+            /**
+             * Acknowledge by
+             * Format: date-time
+             */
+            readonly ack_due_at: string;
+            /**
+             * Resolve by
+             * Format: date-time
+             */
+            readonly due_at: string;
+            /** Format: date-time */
+            readonly next_due_at: string;
+            readonly ack_breached: boolean;
+            readonly due_breached: boolean;
+            /** @description a running clock past its due time */
+            readonly overdue: boolean;
+            /** @description the running clock next_due_at is: ack or due; null: stopped */
+            readonly clock: string | null;
+            /** @description about a test order: shown under the TEST band only */
+            readonly is_test: boolean;
+            readonly reopened_count: number;
+            /** @default 0 */
+            readonly message_count: number;
+            /** Format: date-time */
+            readonly last_message_at: string | null;
+        };
+        TicketAssignRequest: {
+            /** @description a member of staff's id; null: nobody */
+            assignee: number | null;
+        };
+        TicketCancelRequest: {
+            /** @default  */
+            order: string;
+            reason: string;
+        };
+        /**
+         * @description * `order` - order
+         *     * `payment` - payment or refund
+         *     * `book_code` - book code
+         *     * `qr_solutions` - QR solutions
+         *     * `content_error` - a mistake in the content
+         *     * `school_order` - school order
+         *     * `privacy_request` - privacy request
+         *     * `grievance` - grievance
+         * @enum {string}
+         */
+        TicketCategoryEnum: "order" | "payment" | "book_code" | "qr_solutions" | "content_error" | "school_order" | "privacy_request" | "grievance";
+        /**
+         * @description * `web` - the website
+         *     * `email` - email
+         *     * `phone` - phone
+         *     * `whatsapp` - WhatsApp
+         *     * `sms` - SMS
+         *     * `nch` - the National Consumer Helpline's portal
+         *     * `panel` - the panel (a note)
+         * @enum {string}
+         */
+        TicketChannelEnum: "web" | "email" | "phone" | "whatsapp" | "sms" | "nch" | "panel";
+        TicketClock: {
+            /** @description ack, redress, nch, dpdp, it_ack, it_resolve */
+            name: string;
+            /** @description ack (stops at the acknowledgement) or resolve (at the resolution) */
+            kind: string;
+            /** Format: date-time */
+            due: string;
+            rule: string;
+            /** Format: date-time */
+            stopped_at: string | null;
+            breached: boolean;
+        };
+        /**
+         * @description * `phone` - phone
+         *     * `whatsapp` - WhatsApp
+         *     * `nch` - the National Consumer Helpline
+         *     * `email` - email
+         * @enum {string}
+         */
+        TicketContactEnum: "phone" | "whatsapp" | "nch" | "email";
+        /** @description A ticket staff log: a call, a WhatsApp message, an NCH complaint with its docket, a letter or an email. */
+        TicketCreateRequest: {
+            source: components["schemas"]["TicketContactEnum"];
+            /** @default  */
+            nch_docket: string;
+            /** @default  */
+            name: string;
+            email?: string;
+            /** @default  */
+            phone: string;
+            /** @default  */
+            category: components["schemas"]["TicketCategoryEnum"] | components["schemas"]["BlankEnum"];
+            /** @default medium */
+            priority: components["schemas"]["TicketPriorityEnum"];
+            subject: string;
+            /** @description the complaint as recorded: what they said or wrote */
+            message: string;
+            /**
+             * Format: date-time
+             * @description when it came (default now); never ahead
+             */
+            received_at?: string;
+            /** @default  */
+            order: string;
+        };
+        /**
+         * @description A ticket with its requester (masked), its clocks, what closing it asks for, its moves, its messages; the
+         *     sidebar and the saved replies are the view's (by the reader's permissions).
+         */
+        TicketDetail: {
+            readonly id: number;
+            readonly number: string;
+            readonly subject: string;
+            readonly source: components["schemas"]["TicketSourceEnum"];
+            /** NCH docket number */
+            readonly nch_docket: string;
+            /**
+             * @description empty: unsorted
+             *
+             *     * `order` - order
+             *     * `payment` - payment or refund
+             *     * `book_code` - book code
+             *     * `qr_solutions` - QR solutions
+             *     * `content_error` - a mistake in the content
+             *     * `school_order` - school order
+             *     * `privacy_request` - privacy request
+             *     * `grievance` - grievance
+             */
+            readonly category: components["schemas"]["TicketCategoryEnum"] | components["schemas"]["BlankEnum"];
+            readonly priority: components["schemas"]["TicketPriorityEnum"];
+            readonly status: components["schemas"]["TicketStatusEnum"];
+            readonly language: components["schemas"]["LanguageEnum"];
+            readonly requester: components["schemas"]["Requester"];
+            readonly assignee: number | null;
+            readonly order: string | null;
+            /** Format: date-time */
+            readonly received_at: string;
+            /** Format: date-time */
+            readonly acknowledged_at: string | null;
+            /**
+             * Format: date-time
+             * @description The first reply a person sent.
+             */
+            readonly first_response_at: string | null;
+            /** Format: date-time */
+            readonly resolved_at: string | null;
+            /** Format: date-time */
+            readonly closed_at: string | null;
+            /**
+             * Acknowledge by
+             * Format: date-time
+             */
+            readonly ack_due_at: string;
+            /**
+             * Resolve by
+             * Format: date-time
+             */
+            readonly due_at: string;
+            /** Format: date-time */
+            readonly next_due_at: string;
+            readonly ack_breached: boolean;
+            readonly due_breached: boolean;
+            /** @description a running clock past its due time */
+            readonly overdue: boolean;
+            /** @description the running clock next_due_at is: ack or due; null: stopped */
+            readonly clock: string | null;
+            /** @description about a test order: shown under the TEST band only */
+            readonly is_test: boolean;
+            readonly reopened_count: number;
+            /** @default 0 */
+            readonly message_count: number;
+            /** Format: date-time */
+            readonly last_message_at: string | null;
+            readonly data_request: number | null;
+            /** @description the paper a content error is in (its code) */
+            readonly record: string | null;
+            /** @description What was done: asked for when closing. */
+            readonly resolution: string;
+            /** Format: date-time */
+            readonly complaint_copy_sent_at: string | null;
+            /** @description An SMS acknowledgement waiting for 08:00. */
+            readonly ack_held: boolean;
+            /**
+             * Redress by (E-Commerce Rules)
+             * Format: date-time
+             */
+            readonly redress_due_at: string | null;
+            /**
+             * Respond by (NCH)
+             * Format: date-time
+             */
+            readonly nch_due_at: string | null;
+            /**
+             * Answer by (SPDI or DPDP Rules)
+             * Format: date-time
+             */
+            readonly dpdp_due_at: string | null;
+            /**
+             * Resolve by (IT Rules)
+             * Format: date-time
+             */
+            readonly it_due_at: string | null;
+            readonly clocks: components["schemas"]["TicketClock"][];
+            /** @description what resolving or closing asks for */
+            readonly closing_fields: string[];
+            /** @description the statuses it may move to now */
+            readonly transitions: string[];
+            readonly messages: components["schemas"]["Message"][];
+        };
+        /**
+         * @description * `in` - from the customer
+         *     * `out` - to the customer
+         *     * `note` - internal note
+         * @enum {string}
+         */
+        TicketDirectionEnum: "in" | "out" | "note";
+        TicketOrderCancelled: {
+            order: string;
+            status: string;
+        };
+        /**
+         * @description * `low` - low
+         *     * `medium` - medium
+         *     * `high` - high
+         *     * `urgent` - urgent
+         * @enum {string}
+         */
+        TicketPriorityEnum: "low" | "medium" | "high" | "urgent";
+        /**
+         * @description A ticket as its page draws it: TicketDetailSerializer, the sidebar (by the reader's permissions) and the saved
+         *     replies filled for it.
+         */
+        TicketRecord: {
+            readonly id: number;
+            readonly number: string;
+            readonly subject: string;
+            readonly source: components["schemas"]["TicketSourceEnum"];
+            /** NCH docket number */
+            readonly nch_docket: string;
+            /**
+             * @description empty: unsorted
+             *
+             *     * `order` - order
+             *     * `payment` - payment or refund
+             *     * `book_code` - book code
+             *     * `qr_solutions` - QR solutions
+             *     * `content_error` - a mistake in the content
+             *     * `school_order` - school order
+             *     * `privacy_request` - privacy request
+             *     * `grievance` - grievance
+             */
+            readonly category: components["schemas"]["TicketCategoryEnum"] | components["schemas"]["BlankEnum"];
+            readonly priority: components["schemas"]["TicketPriorityEnum"];
+            readonly status: components["schemas"]["TicketStatusEnum"];
+            readonly language: components["schemas"]["LanguageEnum"];
+            readonly requester: components["schemas"]["Requester"];
+            readonly assignee: number | null;
+            readonly order: string | null;
+            /** Format: date-time */
+            readonly received_at: string;
+            /** Format: date-time */
+            readonly acknowledged_at: string | null;
+            /**
+             * Format: date-time
+             * @description The first reply a person sent.
+             */
+            readonly first_response_at: string | null;
+            /** Format: date-time */
+            readonly resolved_at: string | null;
+            /** Format: date-time */
+            readonly closed_at: string | null;
+            /**
+             * Acknowledge by
+             * Format: date-time
+             */
+            readonly ack_due_at: string;
+            /**
+             * Resolve by
+             * Format: date-time
+             */
+            readonly due_at: string;
+            /** Format: date-time */
+            readonly next_due_at: string;
+            readonly ack_breached: boolean;
+            readonly due_breached: boolean;
+            /** @description a running clock past its due time */
+            readonly overdue: boolean;
+            /** @description the running clock next_due_at is: ack or due; null: stopped */
+            readonly clock: string | null;
+            /** @description about a test order: shown under the TEST band only */
+            readonly is_test: boolean;
+            readonly reopened_count: number;
+            /** @default 0 */
+            readonly message_count: number;
+            /** Format: date-time */
+            readonly last_message_at: string | null;
+            readonly data_request: number | null;
+            /** @description the paper a content error is in (its code) */
+            readonly record: string | null;
+            /** @description What was done: asked for when closing. */
+            readonly resolution: string;
+            /** Format: date-time */
+            readonly complaint_copy_sent_at: string | null;
+            /** @description An SMS acknowledgement waiting for 08:00. */
+            readonly ack_held: boolean;
+            /**
+             * Redress by (E-Commerce Rules)
+             * Format: date-time
+             */
+            readonly redress_due_at: string | null;
+            /**
+             * Respond by (NCH)
+             * Format: date-time
+             */
+            readonly nch_due_at: string | null;
+            /**
+             * Answer by (SPDI or DPDP Rules)
+             * Format: date-time
+             */
+            readonly dpdp_due_at: string | null;
+            /**
+             * Resolve by (IT Rules)
+             * Format: date-time
+             */
+            readonly it_due_at: string | null;
+            readonly clocks: components["schemas"]["TicketClock"][];
+            /** @description what resolving or closing asks for */
+            readonly closing_fields: string[];
+            /** @description the statuses it may move to now */
+            readonly transitions: string[];
+            readonly messages: components["schemas"]["Message"][];
+            readonly sidebar: components["schemas"]["Sidebar"];
+            readonly saved_replies: components["schemas"]["SavedReplyText"][];
+        };
+        /**
+         * @description * `email` - email address
+         *     * `phone` - mobile number
+         * @enum {string}
+         */
+        TicketRevealFieldEnum: "email" | "phone";
+        TicketRevealRequest: {
+            show: components["schemas"]["TicketRevealFieldEnum"][];
+            /** @description why: kept in the audit log */
+            reason: string;
+        };
+        TicketRevealed: {
+            email: string | null;
+            phone: string | null;
+        };
+        /**
+         * @description * `form` - the website (the contact form, My requests)
+         *     * `email` - email
+         *     * `phone` - phone
+         *     * `whatsapp` - WhatsApp
+         *     * `nch` - the National Consumer Helpline
+         * @enum {string}
+         */
+        TicketSourceEnum: "form" | "email" | "phone" | "whatsapp" | "nch";
+        /**
+         * @description * `new` - new
+         *     * `open` - open
+         *     * `waiting_customer` - waiting on the customer
+         *     * `waiting_third_party` - waiting on a third party
+         *     * `resolved` - resolved
+         *     * `closed` - closed
+         *     * `spam` - spam (quarantined)
+         * @enum {string}
+         */
+        TicketStatusEnum: "new" | "open" | "waiting_customer" | "waiting_third_party" | "resolved" | "closed" | "spam";
         TierAverage: {
             tier: components["schemas"]["TierEnum"];
             label: string;
@@ -3860,9 +17106,43 @@ export interface components {
         TokenRefreshRequest: {
             refresh: string;
         };
+        TokenRequest: {
+            token: string;
+        };
         TokenVerifyRequest: {
             token: string;
         };
+        Unlocked: {
+            attempts_cleared: number;
+        };
+        Variable: {
+            /** @description as the provider names it: var1, otp … */
+            name: string;
+            type: components["schemas"]["VariableTypeEnum"];
+            /** @description DLT: at most 30 characters */
+            max_length: number;
+            /** @default  */
+            about: string;
+        };
+        VariableRequest: {
+            /** @description as the provider names it: var1, otp … */
+            name: string;
+            type: components["schemas"]["VariableTypeEnum"];
+            /** @description DLT: at most 30 characters */
+            max_length: number;
+            /** @default  */
+            about: string;
+        };
+        /**
+         * @description * `numeric` - numeric
+         *     * `alphanumeric` - alphanumeric
+         *     * `url` - url
+         *     * `urlott` - urlott
+         *     * `cbn` - cbn
+         *     * `email` - email
+         * @enum {string}
+         */
+        VariableTypeEnum: "numeric" | "alphanumeric" | "url" | "urlott" | "cbn" | "email";
         VerificationSent: {
             detail: string;
             /** @description send it back to verify-email with the emailed code */
@@ -3871,6 +17151,62 @@ export interface components {
         VerifyEmailRequest: {
             verification_token: string;
             code: string;
+        };
+        VerifyIdentityRequest: {
+            /** @description how it was checked: the method, not the document */
+            note: string;
+        };
+        /**
+         * @description * `token` - token
+         *     * `signature` - signature
+         *     * `basic_and_sns` - basic_and_sns
+         * @enum {string}
+         */
+        WebhookAuthEnum: "token" | "signature" | "basic_and_sns";
+        WebhookInfo: {
+            provider: components["schemas"]["ConnectionProviderEnum"];
+            /** @description our address, to paste at the provider */
+            url: string;
+            auth: components["schemas"]["WebhookAuthEnum"];
+            /** @description the header it sends the token or signature in */
+            header: string;
+            /** @description its last four characters; empty: none set */
+            token: string;
+            /** Format: date-time */
+            rotated_at: string | null;
+            /**
+             * Format: date-time
+             * @description the previous token's last moment
+             */
+            previous_valid_until: string | null;
+            rotatable: boolean;
+            /** @description its events are listed under events/ */
+            events_kept: boolean;
+            /** @description the last 7 days' events by state */
+            states: {
+                [key: string]: number;
+            };
+            /** Format: date-time */
+            last_event_at: string | null;
+            silence_hours: number;
+            /** @description nothing came in silence_hours while it is in use */
+            silent: boolean;
+        };
+        WithdrawRequest: {
+            /**
+             * @description marketing
+             *
+             *     * `marketing` - marketing
+             */
+            purpose: components["schemas"]["PurposeEnum"];
+            /**
+             * @description one channel; empty: all
+             *
+             *     * `email` - email
+             *     * `sms` - SMS
+             *     * `whatsapp` - WhatsApp
+             */
+            channel?: components["schemas"]["MessageChannelEnum"] | components["schemas"]["BlankEnum"];
         };
     };
     responses: never;
@@ -3881,6 +17217,47 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    account_impersonate_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TokenRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Impersonating"];
+                };
+            };
+        };
+    };
+    account_impersonate_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     addresses_list: {
         parameters: {
             query?: {
@@ -4970,6 +18347,267 @@ export interface operations {
             };
         };
     };
+    insights_backtests_list: {
+        parameters: {
+            query?: {
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedBacktestList"];
+                };
+            };
+        };
+    };
+    insights_chapter_stats_list: {
+        parameters: {
+            query?: {
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedChapterStatList"];
+                };
+            };
+        };
+    };
+    insights_code_activation_list: {
+        parameters: {
+            query?: {
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedCodeActivationList"];
+                };
+            };
+        };
+    };
+    insights_cohorts_list: {
+        parameters: {
+            query?: {
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedCohortStatList"];
+                };
+            };
+        };
+    };
+    insights_delivery_list: {
+        parameters: {
+            query?: {
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedDeliveryStatList"];
+                };
+            };
+        };
+    };
+    insights_forecasts_list: {
+        parameters: {
+            query?: {
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedForecastList"];
+                };
+            };
+        };
+    };
+    insights_fraud_signals_list: {
+        parameters: {
+            query?: {
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedFraudSignalList"];
+                };
+            };
+        };
+    };
+    insights_fraud_signals_acknowledge_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FraudSignal"];
+                };
+            };
+        };
+    };
+    insights_item_stats_list: {
+        parameters: {
+            query?: {
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedItemStatList"];
+                };
+            };
+        };
+    };
+    insights_offers_list: {
+        parameters: {
+            query?: {
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedOfferStatList"];
+                };
+            };
+        };
+    };
+    insights_print_runs_list: {
+        parameters: {
+            query?: {
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedPrintRunAdviceList"];
+                };
+            };
+        };
+    };
     learn_chapters_list: {
         parameters: {
             query?: {
@@ -5396,6 +19034,37 @@ export interface operations {
             };
         };
     };
+    me_consent_withdraw_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WithdrawRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsentWithdrawn"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsentWithdrawn"];
+                };
+            };
+        };
+    };
     me_deletion_create: {
         parameters: {
             query?: never;
@@ -5508,6 +19177,74 @@ export interface operations {
             };
         };
     };
+    me_nominee_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Nominee"];
+                };
+            };
+        };
+    };
+    me_nominee_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NomineeRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Nominee"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Nominee"];
+                };
+            };
+        };
+    };
+    me_nominee_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     me_parent_consent_create: {
         parameters: {
             query?: never;
@@ -5592,6 +19329,53 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Teacher"];
+                };
+            };
+        };
+    };
+    me_tickets_list: {
+        parameters: {
+            query?: {
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedMyTicketList"];
+                };
+            };
+        };
+    };
+    me_tickets_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MyTicketCreateRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyTicket"];
                 };
             };
         };
@@ -6024,6 +19808,32 @@ export interface operations {
             };
         };
     };
+    pages_versions_list: {
+        parameters: {
+            query?: {
+                /** @description Which field to use when ordering the results. */
+                ordering?: string;
+                /** @description A search term. */
+                search?: string;
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageVersion"][];
+                };
+            };
+        };
+    };
     papers_list: {
         parameters: {
             query?: {
@@ -6142,7 +19952,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ParentLinkConfirmRequest"];
+            };
+        };
         responses: {
             200: {
                 headers: {
@@ -6384,6 +20198,438 @@ export interface operations {
             };
         };
     };
+    shipping_charges_list: {
+        parameters: {
+            query?: {
+                /**
+                 * @description * `freight` - freight
+                 *     * `freight_reversal` - freight reversed
+                 *     * `cod` - COD charge
+                 *     * `cod_reversal` - COD charge reversed
+                 *     * `rto_freight` - RTO freight
+                 *     * `rto_freight_reversal` - RTO freight reversed
+                 *     * `excess_weight` - excess weight
+                 *     * `excess_weight_reversal` - excess weight reversed
+                 *     * `other` - other
+                 */
+                kind?: "cod" | "cod_reversal" | "excess_weight" | "excess_weight_reversal" | "freight" | "freight_reversal" | "other" | "rto_freight" | "rto_freight_reversal";
+                /** @description Which field to use when ordering the results. */
+                ordering?: string;
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description A search term. */
+                search?: string;
+                shipment?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedShipmentChargeList"];
+                };
+            };
+        };
+    };
+    shipping_charges_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this shipment charge. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShipmentCharge"];
+                };
+            };
+        };
+    };
+    shipping_cod_list: {
+        parameters: {
+            query?: {
+                /** @description Which field to use when ordering the results. */
+                ordering?: string;
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description A search term. */
+                search?: string;
+                /**
+                 * @description * `expected` - expected
+                 *     * `overdue` - overdue
+                 *     * `remitted` - remitted
+                 *     * `mismatch` - remitted, another amount
+                 *     * `not_expected` - not expected
+                 */
+                state?: "expected" | "mismatch" | "not_expected" | "overdue" | "remitted";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedCodRemittanceList"];
+                };
+            };
+        };
+    };
+    shipping_cod_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this cod remittance. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodRemittance"];
+                };
+            };
+        };
+    };
+    shipping_cod_reconcile_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this cod remittance. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CodReconcileRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodRemittance"];
+                };
+            };
+        };
+    };
+    shipping_exceptions_list: {
+        parameters: {
+            query?: {
+                /**
+                 * @description * `pickup_problem` - pickup problem
+                 *     * `ndr` - delivery failed (NDR)
+                 *     * `rto` - returning or returned (RTO)
+                 *     * `lost` - lost or damaged
+                 *     * `partial` - partly delivered
+                 *     * `weight_dispute` - weight dispute
+                 *     * `cod_overdue` - COD overdue or mismatched
+                 *     * `no_movement` - no movement
+                 */
+                kind?: "cod_overdue" | "lost" | "ndr" | "no_movement" | "partial" | "pickup_problem" | "rto" | "weight_dispute";
+                /** @description Which field to use when ordering the results. */
+                ordering?: string;
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description A search term. */
+                search?: string;
+                shipment?: number;
+                /**
+                 * @description * `open` - open
+                 *     * `resolved` - resolved
+                 *     * `dismissed` - dismissed
+                 */
+                state?: "dismissed" | "open" | "resolved";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedShippingExceptionList"];
+                };
+            };
+        };
+    };
+    shipping_exceptions_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this shipping exception. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingException"];
+                };
+            };
+        };
+    };
+    shipping_exceptions_resolve_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this shipping exception. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingException"];
+                };
+            };
+        };
+    };
+    shipping_manifest_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManifestRequestRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Manifest"];
+                };
+            };
+        };
+    };
+    shipping_orders_quote_retrieve: {
+        parameters: {
+            query?: {
+                /** @description as weighed */
+                weight_g?: number;
+            };
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuoteResult"];
+                };
+            };
+        };
+    };
+    shipping_pickup_locations_list: {
+        parameters: {
+            query?: {
+                /** @description Which field to use when ordering the results. */
+                ordering?: string;
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description A search term. */
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedPickupLocationList"];
+                };
+            };
+        };
+    };
+    shipping_pickup_locations_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PickupLocationRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PickupLocation"];
+                };
+            };
+        };
+    };
+    shipping_pickup_locations_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this pickup location. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PickupLocation"];
+                };
+            };
+        };
+    };
+    shipping_pickup_locations_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this pickup location. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PickupLocationRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PickupLocation"];
+                };
+            };
+        };
+    };
+    shipping_pickup_locations_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this pickup location. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedPickupLocationRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PickupLocation"];
+                };
+            };
+        };
+    };
+    shipping_pickup_locations_sync_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PickupLocation"][];
+                };
+            };
+        };
+    };
     shipping_quote_retrieve: {
         parameters: {
             query?: {
@@ -6448,6 +20694,8021 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ShippingQuote"];
+                };
+            };
+        };
+    };
+    shipping_shipments_list: {
+        parameters: {
+            query?: {
+                /**
+                 * @description * `manual` - by hand (staff type the courier and number)
+                 *     * `shiprocket` - Shiprocket
+                 */
+                carrier?: "manual" | "shiprocket";
+                courier_company_id?: number;
+                order?: string;
+                /** @description Which field to use when ordering the results. */
+                ordering?: string;
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description A search term. */
+                search?: string;
+                /**
+                 * @description * `booked` - booked
+                 *     * `pickup_problem` - pickup problem
+                 *     * `in_transit` - in transit
+                 *     * `out_for_delivery` - out for delivery
+                 *     * `delivered` - delivered
+                 *     * `delivery_failed` - delivery failed
+                 *     * `returning` - returning to us
+                 *     * `returned` - returned to us
+                 *     * `lost_or_damaged` - lost or damaged
+                 *     * `cancelled` - cancelled
+                 *     * `partial` - partly delivered
+                 */
+                status?: "booked" | "cancelled" | "delivered" | "delivery_failed" | "in_transit" | "lost_or_damaged" | "out_for_delivery" | "partial" | "pickup_problem" | "returned" | "returning" | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedParcelList"];
+                };
+            };
+        };
+    };
+    shipping_shipments_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Parcel"];
+                };
+            };
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Parcel"];
+                };
+            };
+        };
+    };
+    shipping_shipments_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this shipment. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParcelHistory"];
+                };
+            };
+        };
+    };
+    shipping_shipments_cancel_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this shipment. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Parcel"];
+                };
+            };
+        };
+    };
+    shipping_shipments_events_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this shipment. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShipmentEvent"][];
+                };
+            };
+        };
+    };
+    shipping_shipments_label_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this shipment. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+        };
+    };
+    shipping_shipments_label_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this shipment. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Detail"];
+                };
+            };
+        };
+    };
+    shipping_shipments_ndr_action_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this shipment. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NdrActionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShippingException"];
+                };
+            };
+        };
+    };
+    shipping_shipments_photo_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this shipment. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["PhotoRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Parcel"];
+                };
+            };
+        };
+    };
+    shipping_shipments_pickup_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this shipment. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PickupRequestRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PickupResult"];
+                };
+            };
+        };
+    };
+    staff_access_review_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessRow"][];
+                };
+            };
+        };
+    };
+    staff_api_keys_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedApiKeyList"];
+                };
+            };
+        };
+    };
+    staff_api_keys_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApiKeyRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKey"];
+                };
+            };
+        };
+    };
+    staff_api_keys_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this api key. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKey"];
+                };
+            };
+        };
+    };
+    staff_api_keys_revoke_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this api key. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKey"];
+                };
+            };
+        };
+    };
+    staff_audit_list: {
+        parameters: {
+            query?: {
+                /** @description exact */
+                action?: string;
+                /** @description e.g. order. */
+                action_prefix?: string;
+                actor?: number;
+                /**
+                 * @description * `staff` - staff
+                 *     * `user` - user
+                 *     * `service` - service (API key)
+                 *     * `system` - system
+                 *     * `anonymous` - anonymous
+                 */
+                actor_type?: "anonymous" | "service" | "staff" | "system" | "user";
+                break_glass?: boolean;
+                /**
+                 * @description * `general` - general
+                 *     * `money` - money
+                 */
+                chain?: "general" | "money";
+                change_request?: number;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                ip?: string;
+                /**
+                 * @description * `success` - success
+                 *     * `denied` - denied
+                 *     * `failed` - failed
+                 */
+                outcome?: "denied" | "failed" | "success";
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                permission?: string;
+                request_id?: string;
+                since?: string;
+                target_id?: string;
+                target_type?: string;
+                until?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedAuditEventList"];
+                };
+            };
+        };
+    };
+    staff_audit_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this audit event. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditEvent"];
+                };
+            };
+        };
+    };
+    staff_audit_export_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description one event per line */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/x-ndjson": string;
+                };
+            };
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+        };
+    };
+    staff_catalogue_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffCatalogue"];
+                };
+            };
+        };
+    };
+    staff_change_requests_list: {
+        parameters: {
+            query?: {
+                action?: string;
+                /** @description true: waiting for someone like me */
+                awaiting?: boolean;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description true: the ones I asked for */
+                mine?: boolean;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /**
+                 * @description * `pending` - waiting for approval
+                 *     * `approved` - approved
+                 *     * `rejected` - rejected
+                 *     * `expired` - expired
+                 *     * `executed` - done
+                 *     * `failed` - failed
+                 */
+                status?: "approved" | "executed" | "expired" | "failed" | "pending" | "rejected";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedChangeRequestList"];
+                };
+            };
+        };
+    };
+    staff_change_requests_create: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description once per request */
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AskRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+        };
+    };
+    staff_change_requests_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this change request. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+        };
+    };
+    staff_change_requests_approve_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this change request. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApproveRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+        };
+    };
+    staff_change_requests_execute_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this change request. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+        };
+    };
+    staff_change_requests_reject_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this change request. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CommentRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+        };
+    };
+    staff_connections_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectionCard"][];
+                };
+            };
+        };
+    };
+    staff_connections_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: "erpnext" | "error_tracker" | "google" | "manual" | "msg91" | "razorpay" | "ses" | "shiprocket" | "storage" | "whatsapp";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectionCard"];
+                };
+            };
+        };
+    };
+    staff_connections_calls_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description only the calls that failed */
+                failed?: boolean;
+                operation?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                provider: "erpnext" | "error_tracker" | "google" | "manual" | "msg91" | "razorpay" | "ses" | "shiprocket" | "storage" | "whatsapp";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedCallList"];
+                };
+            };
+        };
+    };
+    staff_connections_circuit_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: "erpnext" | "error_tracker" | "google" | "manual" | "msg91" | "razorpay" | "ses" | "shiprocket" | "storage" | "whatsapp";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CircuitActionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectionCard"];
+                };
+            };
+        };
+    };
+    staff_connections_credentials_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: "erpnext" | "error_tracker" | "google" | "manual" | "msg91" | "razorpay" | "ses" | "shiprocket" | "storage" | "whatsapp";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CredentialsRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestResult"];
+                };
+            };
+        };
+    };
+    staff_connections_events_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /**
+                 * @description * `accepted` - accepted
+                 *     * `duplicate` - duplicate (nothing new)
+                 *     * `rejected` - rejected (wrong or missing token)
+                 *     * `failed` - failed
+                 */
+                state?: "accepted" | "duplicate" | "failed" | "rejected";
+            };
+            header?: never;
+            path: {
+                provider: "erpnext" | "error_tracker" | "google" | "manual" | "msg91" | "razorpay" | "ses" | "shiprocket" | "storage" | "whatsapp";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedInboundEventList"];
+                };
+            };
+        };
+    };
+    staff_connections_events_replay_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                provider: "erpnext" | "error_tracker" | "google" | "manual" | "msg91" | "razorpay" | "ses" | "shiprocket" | "storage" | "whatsapp";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboundEvent"];
+                };
+            };
+        };
+    };
+    staff_connections_events_replay_failed_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: "erpnext" | "error_tracker" | "google" | "manual" | "msg91" | "razorpay" | "ses" | "shiprocket" | "storage" | "whatsapp";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplayFailedRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Replayed"];
+                };
+            };
+        };
+    };
+    staff_connections_failures_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                operation?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /**
+                 * @description * `open` - waiting for staff
+                 *     * `replayed` - replayed
+                 *     * `discarded` - discarded
+                 */
+                state?: "discarded" | "open" | "replayed";
+            };
+            header?: never;
+            path: {
+                provider: "erpnext" | "error_tracker" | "google" | "manual" | "msg91" | "razorpay" | "ses" | "shiprocket" | "storage" | "whatsapp";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedFailureList"];
+                };
+            };
+        };
+    };
+    staff_connections_failures_discard_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                provider: "erpnext" | "error_tracker" | "google" | "manual" | "msg91" | "razorpay" | "ses" | "shiprocket" | "storage" | "whatsapp";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiscardRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Failure"];
+                };
+            };
+        };
+    };
+    staff_connections_failures_replay_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+                provider: "erpnext" | "error_tracker" | "google" | "manual" | "msg91" | "razorpay" | "ses" | "shiprocket" | "storage" | "whatsapp";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Failure"];
+                };
+            };
+        };
+    };
+    staff_connections_mode_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: "erpnext" | "error_tracker" | "google" | "manual" | "msg91" | "razorpay" | "ses" | "shiprocket" | "storage" | "whatsapp";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModeRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectionCard"];
+                };
+            };
+        };
+    };
+    staff_connections_test_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: "erpnext" | "error_tracker" | "google" | "manual" | "msg91" | "razorpay" | "ses" | "shiprocket" | "storage" | "whatsapp";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestResult"];
+                };
+            };
+        };
+    };
+    staff_connections_webhooks_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: "erpnext" | "error_tracker" | "google" | "manual" | "msg91" | "razorpay" | "ses" | "shiprocket" | "storage" | "whatsapp";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookInfo"];
+                };
+            };
+        };
+    };
+    staff_connections_webhooks_rotate_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: "erpnext" | "error_tracker" | "google" | "manual" | "msg91" | "razorpay" | "ses" | "shiprocket" | "storage" | "whatsapp";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConnectionReasonRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Rotated"];
+                };
+            };
+        };
+    };
+    staff_content_books_list: {
+        parameters: {
+            query?: {
+                /** @description ASSEB */
+                board?: string;
+                class_level?: number;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /**
+                 * @description * `print` - printed book
+                 *     * `ebook` - e-book
+                 */
+                format?: "ebook" | "print";
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description its code: PHY */
+                subject?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedContentBookList"];
+                };
+            };
+        };
+    };
+    staff_content_books_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContentBookRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentBookDetail"];
+                };
+            };
+        };
+    };
+    staff_content_books_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this book. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentBookDetail"];
+                };
+            };
+        };
+    };
+    staff_content_books_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this book. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedContentBookRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentBookDetail"];
+                };
+            };
+        };
+    };
+    staff_content_books_history_retrieve: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this book. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentVersionPage"];
+                };
+            };
+        };
+    };
+    staff_content_books_history_restore_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description the version's id */
+                history_id: number;
+                /** @description A unique integer value identifying this book. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    staff_content_errata_list: {
+        parameters: {
+            query?: {
+                /** @description its slug or id */
+                book?: string;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                printing?: string;
+                public?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedContentErratumList"];
+                };
+            };
+        };
+    };
+    staff_content_imports_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedJobList"];
+                };
+            };
+        };
+    };
+    staff_content_legal_deposits_list: {
+        parameters: {
+            query?: {
+                book?: number;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /**
+                 * @description * `national_library` - National Library, Kolkata
+                 *     * `connemara` - Connemara Public Library, Chennai
+                 *     * `asiatic_society` - Central Library (Asiatic Society), Mumbai
+                 *     * `delhi_public_library` - Delhi Public Library, Delhi
+                 */
+                library?: "asiatic_society" | "connemara" | "delhi_public_library" | "national_library";
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedLegalDepositList"];
+                };
+            };
+        };
+    };
+    staff_content_legal_deposits_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LegalDepositRequest"];
+                "multipart/form-data": components["schemas"]["LegalDepositRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["LegalDepositRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalDeposit"];
+                };
+            };
+        };
+    };
+    staff_content_legal_deposits_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this legal deposit. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalDeposit"];
+                };
+            };
+        };
+    };
+    staff_content_legal_deposits_proof_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this legal deposit. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description No response body */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    staff_content_legal_deposits_missing_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MissingDeposit"][];
+                };
+            };
+        };
+    };
+    staff_content_papers_list: {
+        parameters: {
+            query?: {
+                board?: string;
+                book?: number;
+                /** @description true: a draft waits in it */
+                changed?: boolean;
+                class_level?: number;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                is_published?: boolean;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description its code or title */
+                q?: string;
+                /** @description its code: PHY */
+                subject?: string;
+                /**
+                 * @description * `E` - Easy
+                 *     * `M` - Medium
+                 *     * `H` - Hard
+                 */
+                tier?: "E" | "H" | "M";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedContentPaperList"];
+                };
+            };
+        };
+    };
+    staff_content_papers_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this paper. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentPaperDetail"];
+                };
+            };
+        };
+    };
+    staff_content_papers_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this paper. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedContentPaperDetailRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentPaperDetail"];
+                };
+            };
+        };
+    };
+    staff_content_papers_history_retrieve: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this paper. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentVersionPage"];
+                };
+            };
+        };
+    };
+    staff_content_papers_history_restore_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description the version's id */
+                history_id: number;
+                /** @description A unique integer value identifying this paper. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    staff_content_papers_publish_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this paper. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PaperPublishRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentPaperDetail"];
+                };
+            };
+        };
+    };
+    staff_content_papers_qr_retrieve: {
+        parameters: {
+            query?: {
+                /** @description the print run the code goes into (PHY-2027-1): the address carries it, and a mistake reported from that page names it */
+                printing?: string;
+            };
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this paper. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaperQr"];
+                };
+            };
+        };
+    };
+    staff_content_questions_list: {
+        parameters: {
+            query?: {
+                book?: number;
+                /** @description true: a draft waits */
+                changed?: boolean;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                is_published?: boolean;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                paper?: number;
+                /** @description its label */
+                q?: string;
+                /**
+                 * @description * `draft` - draft
+                 *     * `in_review` - in review
+                 *     * `published` - published
+                 */
+                state?: "draft" | "in_review" | "published";
+                /** @description its code: PHY */
+                subject?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedContentQuestionList"];
+                };
+            };
+        };
+    };
+    staff_content_questions_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this question. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentQuestionDetail"];
+                };
+            };
+        };
+    };
+    staff_content_questions_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this question. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedQuestionUpdateRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentQuestionDetail"];
+                };
+            };
+        };
+    };
+    staff_content_questions_discard_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this question. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentQuestionDetail"];
+                };
+            };
+        };
+    };
+    staff_content_questions_history_retrieve: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this question. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentVersionPage"];
+                };
+            };
+        };
+    };
+    staff_content_questions_history_restore_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description the version's id */
+                history_id: number;
+                /** @description A unique integer value identifying this question. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    staff_content_questions_rollback_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this question. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentQuestionDetail"];
+                };
+            };
+        };
+    };
+    staff_content_questions_submit_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this question. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ContentSubmitRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentOpenReview"];
+                };
+            };
+        };
+    };
+    staff_content_reports_list: {
+        parameters: {
+            query?: {
+                book?: number;
+                /**
+                 * @description * `wrong_answer` - a wrong answer or step
+                 *     * `typo` - a typing or spelling mistake
+                 *     * `marks` - the marks or the marking scheme
+                 *     * `unclear` - hard to follow
+                 *     * `display` - maths or a picture does not show
+                 *     * `other` - something else
+                 *     * `item_analysis` - flagged by the item analysis
+                 */
+                category?: "display" | "item_analysis" | "marks" | "other" | "typo" | "unclear" | "wrong_answer";
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                paper?: number;
+                printing?: string;
+                /**
+                 * @description none: the open ones (reported, confirmed)
+                 *
+                 *     * `reported` - reported
+                 *     * `confirmed` - confirmed
+                 *     * `rejected` - rejected
+                 *     * `fixed_online` - fixed online
+                 *     * `fixed_in_printing` - fixed in printing
+                 */
+                state?: "confirmed" | "fixed_in_printing" | "fixed_online" | "rejected" | "reported";
+                /** @description its code: PHY */
+                subject?: string;
+                /** @description true: from verified teachers */
+                teacher?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedContentReportList"];
+                };
+            };
+        };
+    };
+    staff_content_reports_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this error report. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentReportDetail"];
+                };
+            };
+        };
+    };
+    staff_content_reports_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this error report. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedContentReportUpdateRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentReportDetail"];
+                };
+            };
+        };
+    };
+    staff_content_reports_confirm_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this error report. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ContentTransitionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentReportDetail"];
+                };
+            };
+        };
+    };
+    staff_content_reports_fix_in_printing_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this error report. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ContentTransitionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentReportDetail"];
+                };
+            };
+        };
+    };
+    staff_content_reports_fix_online_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this error report. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ContentTransitionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentReportDetail"];
+                };
+            };
+        };
+    };
+    staff_content_reports_reject_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this error report. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ContentTransitionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentReportDetail"];
+                };
+            };
+        };
+    };
+    staff_content_reports_reopen_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this error report. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ContentTransitionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentReportDetail"];
+                };
+            };
+        };
+    };
+    staff_content_reports_tell_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this error report. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentReportDetail"];
+                };
+            };
+        };
+    };
+    staff_content_reviews_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description true: waiting for me (open, for me or nobody, not my own edit) */
+                mine?: boolean;
+                /** @description true: in progress, or approved and not live */
+                open?: boolean;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                paper?: number;
+                /**
+                 * @description * `check` - a second person checks it
+                 *     * `publish` - approved: to publish
+                 */
+                stage?: "check" | "publish";
+                /**
+                 * @description * `in_progress` - in progress
+                 *     * `approved` - approved
+                 *     * `needs_changes` - needs changes
+                 *     * `cancelled` - cancelled
+                 */
+                state?: "approved" | "cancelled" | "in_progress" | "needs_changes";
+                /** @description its code: PHY */
+                subject?: string;
+                /** @description true: the ones I submitted */
+                submitted?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedContentReviewList"];
+                };
+            };
+        };
+    };
+    staff_content_reviews_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this review task. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentReviewDetail"];
+                };
+            };
+        };
+    };
+    staff_content_reviews_approve_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this review task. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ContentDecisionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentReviewDetail"];
+                };
+            };
+        };
+    };
+    staff_content_reviews_needs_changes_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this review task. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NeedsChangesRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentReviewDetail"];
+                };
+            };
+        };
+    };
+    staff_content_reviews_publish_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this review task. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ContentDecisionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentReviewDetail"];
+                };
+            };
+        };
+    };
+    staff_content_solutions_list: {
+        parameters: {
+            query?: {
+                book?: number;
+                /** @description true: a draft waits */
+                changed?: boolean;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                paper?: number;
+                /**
+                 * @description * `draft` - draft
+                 *     * `in_review` - in review
+                 *     * `published` - published
+                 */
+                state?: "draft" | "in_review" | "published";
+                /** @description its code: PHY */
+                subject?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedContentSolutionList"];
+                };
+            };
+        };
+    };
+    staff_content_solutions_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this solution. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentSolutionDetail"];
+                };
+            };
+        };
+    };
+    staff_content_solutions_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this solution. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedSolutionUpdateRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentSolutionDetail"];
+                };
+            };
+        };
+    };
+    staff_content_solutions_discard_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this solution. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentSolutionDetail"];
+                };
+            };
+        };
+    };
+    staff_content_solutions_history_retrieve: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this solution. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentVersionPage"];
+                };
+            };
+        };
+    };
+    staff_content_solutions_history_restore_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description the version's id */
+                history_id: number;
+                /** @description A unique integer value identifying this solution. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    staff_content_solutions_rollback_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this solution. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentSolutionDetail"];
+                };
+            };
+        };
+    };
+    staff_content_solutions_submit_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this solution. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ContentSubmitRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentOpenReview"];
+                };
+            };
+        };
+    };
+    staff_content_summary_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentSummary"];
+                };
+            };
+        };
+    };
+    staff_data_requests_list: {
+        parameters: {
+            query?: {
+                assignee?: number;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /**
+                 * @description * `access` - access (a copy of the data)
+                 *     * `correction` - correction
+                 *     * `erasure` - erasure
+                 *     * `nomination` - nomination (death or incapacity)
+                 *     * `grievance` - grievance
+                 *     * `complaint` - complaint
+                 */
+                kind?: "access" | "complaint" | "correction" | "erasure" | "grievance" | "nomination";
+                /** @description true: past its answer-by time */
+                overdue?: boolean;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /**
+                 * @description * `new` - received
+                 *     * `acknowledged` - acknowledged
+                 *     * `closed` - closed
+                 */
+                status?: "acknowledged" | "closed" | "new";
+                user?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedDataRequestListList"];
+                };
+            };
+        };
+    };
+    staff_data_requests_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DataRequestRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataRequest"];
+                };
+            };
+        };
+    };
+    staff_data_requests_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this data request. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataRequest"];
+                };
+            };
+        };
+    };
+    staff_data_requests_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this data request. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedDataRequestRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataRequest"];
+                };
+            };
+        };
+    };
+    staff_data_requests_acknowledge_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this data request. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataRequest"];
+                };
+            };
+        };
+    };
+    staff_data_requests_close_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this data request. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CloseRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataRequest"];
+                };
+            };
+        };
+    };
+    staff_data_requests_erase_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this data request. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonRequest"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErasureReport"];
+                };
+            };
+        };
+    };
+    staff_data_requests_erasure_report_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this data request. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErasureReport"];
+                };
+            };
+        };
+    };
+    staff_data_requests_export_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this data request. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Detail"];
+                };
+            };
+        };
+    };
+    staff_data_requests_response_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this data request. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResponseText"];
+                };
+            };
+        };
+    };
+    staff_data_requests_verify_identity_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this data request. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyIdentityRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataRequest"];
+                };
+            };
+        };
+    };
+    staff_erp_cursors_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedErpCursorList"];
+                };
+            };
+        };
+    };
+    staff_erp_dead_letters_list: {
+        parameters: {
+            query?: {
+                aggregate_id?: string;
+                aggregate_type?: string;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                event?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedErpOutboxList"];
+                };
+            };
+        };
+    };
+    staff_erp_dead_letters_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this outbox row. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErpOutbox"];
+                };
+            };
+        };
+    };
+    staff_erp_dead_letters_discard_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this outbox row. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ErpDiscardRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErpOutbox"];
+                };
+            };
+        };
+    };
+    staff_erp_dead_letters_replay_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this outbox row. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErpOutbox"];
+                };
+            };
+        };
+    };
+    staff_erp_differences_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /**
+                 * @description * `invoices` - invoices
+                 *     * `credit_notes` - credit notes
+                 *     * `payments` - payments and refunds
+                 *     * `settlements` - settlements
+                 *     * `deliveries` - delivery notes
+                 *     * `stock` - stock invariant
+                 *     * `missing` - document not in ERPNext
+                 */
+                kind?: "credit_notes" | "deliveries" | "invoices" | "missing" | "payments" | "settlements" | "stock";
+                /** @description not resolved yet */
+                open?: boolean;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                run?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedErpDifferenceList"];
+                };
+            };
+        };
+    };
+    staff_erp_differences_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this reconciliation difference. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErpDifference"];
+                };
+            };
+        };
+    };
+    staff_erp_differences_resolve_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this reconciliation difference. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ErpResolveRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErpDifference"];
+                };
+            };
+        };
+    };
+    staff_erp_outbox_list: {
+        parameters: {
+            query?: {
+                aggregate_id?: string;
+                aggregate_type?: string;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                event?: string;
+                examleaf_ref?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /**
+                 * @description * `pending` - pending
+                 *     * `sending` - sending
+                 *     * `sent` - sent
+                 *     * `failed` - failed, to be tried again
+                 *     * `dead` - dead letter (its aggregate waits)
+                 *     * `discarded` - discarded by staff
+                 */
+                state?: "dead" | "discarded" | "failed" | "pending" | "sending" | "sent";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedErpOutboxList"];
+                };
+            };
+        };
+    };
+    staff_erp_outbox_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this outbox row. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErpOutbox"];
+                };
+            };
+        };
+    };
+    staff_erp_reconciliations_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                date?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /**
+                 * @description * `running` - running
+                 *     * `done` - done
+                 *     * `failed` - failed
+                 */
+                state?: "done" | "failed" | "running";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedErpRunList"];
+                };
+            };
+        };
+    };
+    staff_erp_reconciliations_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this reconciliation run. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErpRunDetail"];
+                };
+            };
+        };
+    };
+    staff_erp_status_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErpStatus"];
+                };
+            };
+        };
+    };
+    staff_flags_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Flag"][];
+                };
+            };
+        };
+    };
+    staff_flag_history: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SwitchRow"][];
+                };
+            };
+        };
+    };
+    staff_flags_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SwitchChangeRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SwitchRow"];
+                };
+            };
+        };
+    };
+    staff_flags_history_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SwitchRow"][];
+                };
+            };
+        };
+    };
+    staff_inbox_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description true: the items done */
+                done?: boolean;
+                /**
+                 * @description * `approval` - approval
+                 *     * `teacher_request` - teacher access request
+                 *     * `deletion_request` - account deletion
+                 *     * `data_request` - data request
+                 *     * `incident` - incident
+                 *     * `failed_job` - failed job
+                 *     * `failed_webhook` - failed webhook
+                 *     * `sync_failed` - ERPNext refused a document (a dead letter)
+                 *     * `reconciliation` - ERPNext reconciliation differences
+                 *     * `shipping_exception` - parcel exception
+                 *     * `dead_letter` - integration task given up
+                 *     * `failed_event` - provider event not processed
+                 *     * `integration_down` - integration unavailable
+                 *     * `tax_threshold` - a tax threshold crossed
+                 *     * `credit_note_missing` - a refund without its credit note
+                 *     * `processor_task` - a processor to tell: erase, or stop
+                 *     * `compliance` - a compliance duty: a self-audit, a held erasure
+                 *     * `order_hold` - order on hold
+                 *     * `return_request` - return asked for
+                 *     * `bank_refund` - refund to transfer by bank or UPI
+                 *     * `role_expired` - a temporary role ended
+                 *     * `offboarding` - offboarding: accounts to close by hand
+                 *     * `webhook_silent` - a provider's webhooks fell silent
+                 *     * `template_idle` - a message template unused for months
+                 *     * `template_certify` - a message template's yearly self-certification
+                 *     * `backup_stale` - no recent backup
+                 *     * `dependencies_stale` - the dependency report is old
+                 *     * `scripts_changed` - the checkout's or console's scripts changed
+                 *     * `review` - content review
+                 *     * `error_report` - reported mistake
+                 *     * `legal_deposit` - legal deposit due
+                 *     * `ticket_due` - a ticket's legal clock three quarters gone
+                 *     * `ticket_breach` - a ticket past its legal clock
+                 *     * `ticket_mention` - named in a ticket's note
+                 */
+                kind?: "approval" | "backup_stale" | "bank_refund" | "compliance" | "credit_note_missing" | "data_request" | "dead_letter" | "deletion_request" | "dependencies_stale" | "error_report" | "failed_event" | "failed_job" | "failed_webhook" | "incident" | "integration_down" | "legal_deposit" | "offboarding" | "order_hold" | "processor_task" | "reconciliation" | "return_request" | "review" | "role_expired" | "scripts_changed" | "shipping_exception" | "sync_failed" | "tax_threshold" | "teacher_request" | "template_certify" | "template_idle" | "ticket_breach" | "ticket_due" | "ticket_mention" | "webhook_silent";
+                /** @description true: assigned to me */
+                mine?: boolean;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description true: the snoozed ones too */
+                snoozed?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedInboxItemList"];
+                };
+            };
+        };
+    };
+    staff_inbox_assign_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this inbox item. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxItem"];
+                };
+            };
+        };
+    };
+    staff_inbox_done_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this inbox item. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxItem"];
+                };
+            };
+        };
+    };
+    staff_inbox_snooze_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this inbox item. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SnoozeRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxItem"];
+                };
+            };
+        };
+    };
+    staff_inbox_count_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InboxCount"];
+                };
+            };
+        };
+    };
+    staff_incidents_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /**
+                 * @description * `data_breach` - data breach
+                 *     * `data_leak` - data leak
+                 *     * `unauthorised_access` - unauthorised access to systems or data
+                 *     * `malicious_code` - ransomware or other malicious code
+                 *     * `application_attack` - attack on the website, the app or the API
+                 *     * `denial_of_service` - denial of service
+                 *     * `loss_of_access` - loss of access to personal data (outage, deletion)
+                 *     * `other` - other
+                 */
+                kind?: "application_attack" | "data_breach" | "data_leak" | "denial_of_service" | "loss_of_access" | "malicious_code" | "other" | "unauthorised_access";
+                /** @description true: not closed */
+                open?: boolean;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedIncidentList"];
+                };
+            };
+        };
+    };
+    staff_incidents_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IncidentRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Incident"];
+                };
+            };
+        };
+    };
+    staff_incidents_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this incident. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Incident"];
+                };
+            };
+        };
+    };
+    staff_incidents_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this incident. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedIncidentRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Incident"];
+                };
+            };
+        };
+    };
+    staff_incidents_close_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this incident. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Incident"];
+                };
+            };
+        };
+    };
+    staff_invites_accept_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Detail"];
+                };
+            };
+        };
+    };
+    staff_jobs_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /**
+                 * @description * `audit_export` - audit log export
+                 *     * `bulk_action` - bulk action
+                 *     * `erp_initial_load` - ERPNext initial load
+                 *     * `gstr1_export` - GSTR-1 export
+                 *     * `orders_pack` - orders marked packed
+                 *     * `orders_print` - order documents printed
+                 *     * `orders_cancel` - orders cancelled
+                 *     * `orders_export` - order export
+                 *     * `content_import` - import from the books repository
+                 *     * `grievance_export` - grievance register export
+                 */
+                kind?: "audit_export" | "bulk_action" | "content_import" | "erp_initial_load" | "grievance_export" | "gstr1_export" | "orders_cancel" | "orders_export" | "orders_pack" | "orders_print";
+                /** @description true: the jobs I started */
+                mine?: boolean;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /**
+                 * @description * `queued` - queued
+                 *     * `running` - running
+                 *     * `done` - done
+                 *     * `failed` - failed
+                 *     * `cancelled` - cancelled
+                 */
+                state?: "cancelled" | "done" | "failed" | "queued" | "running";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedJobList"];
+                };
+            };
+        };
+    };
+    staff_jobs_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobStartRequest"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+        };
+    };
+    staff_jobs_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this job. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+        };
+    };
+    staff_jobs_cancel_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this job. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+        };
+    };
+    staff_jobs_result_retrieve: {
+        parameters: {
+            query?: {
+                /** @description from result_url */
+                token?: string;
+            };
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this job. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description No response body */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    staff_notes_list: {
+        parameters: {
+            query: {
+                /** @description its id */
+                target_id: string;
+                /** @description app_label.model, e.g. shop.order */
+                target_type: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Note"][];
+                };
+            };
+        };
+    };
+    staff_notes_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoteRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Note"];
+                };
+            };
+        };
+    };
+    staff_orders_list: {
+        parameters: {
+            query?: {
+                /** @description a courier's name, as on its parcels */
+                courier?: string;
+                /** @description a day (India time), from it on */
+                created_from?: string;
+                /** @description a day (India time), up to its end */
+                created_to?: string;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                hold?: boolean;
+                /** @description default: the live site's own (test orders only when asked) */
+                livemode?: boolean;
+                /**
+                 * @description * `razorpay` - online (UPI, card, net banking)
+                 *     * `cod` - cash on delivery
+                 *     * `offline` - bank transfer or UPI to our account
+                 */
+                method?: "cod" | "offline" | "razorpay";
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description a number, name, email, phone digits, AWB, document, code */
+                q?: string;
+                /**
+                 * @description * `low` - low
+                 *     * `medium` - medium
+                 *     * `high` - high
+                 */
+                risk?: "high" | "low" | "medium";
+                /** @description a parcel status, or none (no parcel) */
+                shipping?: string;
+                /**
+                 * @description * `pending` - awaiting payment
+                 *     * `paid` - paid
+                 *     * `packed` - packed
+                 *     * `shipped` - shipped
+                 *     * `delivered` - delivered
+                 *     * `cancelled` - cancelled
+                 *     * `refunded` - refunded
+                 */
+                status?: "cancelled" | "delivered" | "packed" | "paid" | "pending" | "refunded" | "shipped";
+                /**
+                 * @description the panel's tabs
+                 *
+                 *     * `to_pack` - paid, or placed to pay on delivery, not packed, not on hold
+                 *     * `shipped` - on their way
+                 *     * `returns` - a parcel coming back or back, or a return asked for
+                 *     * `cancelled` - cancelled
+                 *     * `drafts` - made by staff and waiting for their payment
+                 */
+                tab?: "cancelled" | "drafts" | "returns" | "shipped" | "to_pack";
+                tag?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedOrderRowList"];
+                };
+            };
+        };
+    };
+    staff_orders_create: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description once per request */
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffOrderRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+        };
+    };
+    staff_orders_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDetail"];
+                };
+            };
+        };
+    };
+    staff_orders_cancel_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderCancelRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderRow"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+        };
+    };
+    staff_orders_credit_notes_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                note: number;
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+        };
+    };
+    staff_orders_deliver_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderRow"];
+                };
+            };
+        };
+    };
+    staff_orders_documents_label_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+        };
+    };
+    staff_orders_documents_packing_slip_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+        };
+    };
+    staff_orders_hold_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderHoldReasonRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderRow"];
+                };
+            };
+        };
+    };
+    staff_orders_invoice_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+        };
+    };
+    staff_orders_invoice_regenerate_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderDocumentsQueued"];
+                };
+            };
+        };
+    };
+    staff_orders_invoice_resend_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderInvoiceSent"];
+                };
+            };
+        };
+    };
+    staff_orders_notify_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderNotifyRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderNotified"];
+                };
+            };
+        };
+    };
+    staff_orders_offline_payment_create: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description once per request */
+                "Idempotency-Key"?: string;
+            };
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderOfflinePaymentRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+        };
+    };
+    staff_orders_pack_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderRow"];
+                };
+            };
+        };
+    };
+    staff_orders_payment_link_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["OrderPaymentLinkRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderPaymentLinkSent"];
+                };
+            };
+        };
+    };
+    staff_orders_refunds_create: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description once per request */
+                "Idempotency-Key"?: string;
+            };
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderRefundAskRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderRefundAsked"];
+                };
+            };
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderRefundAsked"];
+                };
+            };
+        };
+    };
+    staff_orders_release_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderRow"];
+                };
+            };
+        };
+    };
+    staff_orders_returns_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReturnAskRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReturnDetail"];
+                };
+            };
+        };
+    };
+    staff_orders_ship_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderShipRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderRow"];
+                };
+            };
+        };
+    };
+    staff_orders_tags_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["OrderTagsRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderRow"];
+                };
+            };
+        };
+    };
+    staff_orders_packing_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedPackingRowList"];
+                };
+            };
+        };
+    };
+    staff_orders_pick_list_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PickListRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+        };
+    };
+    staff_orders_preview_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffOrderPreviewAskRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffOrderPreview"];
+                };
+            };
+        };
+    };
+    staff_orders_products_list: {
+        parameters: {
+            query?: {
+                /** @description a title, slug or ISBN: 2 characters or more */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductPick"][];
+                };
+            };
+        };
+    };
+    staff_orders_quotes_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /**
+                 * @description * `new` - new
+                 *     * `quoted` - quotation made
+                 *     * `ordered` - ordered
+                 *     * `closed` - closed
+                 */
+                status?: "closed" | "new" | "ordered" | "quoted";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedQuoteRowList"];
+                };
+            };
+        };
+    };
+    staff_orders_quotes_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this quote request. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuoteDetail"];
+                };
+            };
+        };
+    };
+    staff_orders_quotes_convert_create: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description once per request */
+                "Idempotency-Key"?: string;
+            };
+            path: {
+                /** @description A unique integer value identifying this quote request. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuoteConvertRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+        };
+    };
+    staff_orders_quotes_quotation_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this quote request. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+        };
+    };
+    staff_orders_refunds_mark_paid_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this refund. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefundMarkPaidRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrderRefund"];
+                };
+            };
+        };
+    };
+    staff_orders_refunds_payee_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this refund. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefundPayeeReasonRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RefundPayee"];
+                };
+            };
+        };
+    };
+    staff_orders_returns_list: {
+        parameters: {
+            query?: {
+                by_customer?: boolean;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description true: not decided, received or inspected yet */
+                open?: boolean;
+                order?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /**
+                 * @description * `damaged` - damaged in transit
+                 *     * `misprint` - misprinted or pages missing
+                 *     * `wrong_item` - not the book ordered
+                 *     * `late` - delivered late
+                 *     * `not_as_described` - not as described
+                 *     * `other` - another reason
+                 */
+                reason?: "damaged" | "late" | "misprint" | "not_as_described" | "other" | "wrong_item";
+                /**
+                 * @description * `requested` - requested
+                 *     * `approved` - approved: send it back
+                 *     * `declined` - declined
+                 *     * `label_sent` - return label sent
+                 *     * `received` - received
+                 *     * `restocked` - inspected: back in stock
+                 *     * `damaged` - inspected: damaged
+                 *     * `refunded` - refunded
+                 */
+                status?: "approved" | "damaged" | "declined" | "label_sent" | "received" | "refunded" | "requested" | "restocked";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedReturnRowList"];
+                };
+            };
+        };
+    };
+    staff_orders_returns_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this return request. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReturnDetail"];
+                };
+            };
+        };
+    };
+    staff_orders_returns_approve_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this return request. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReturnDetail"];
+                };
+            };
+        };
+    };
+    staff_orders_returns_decline_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this return request. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReturnDeclineRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReturnDetail"];
+                };
+            };
+        };
+    };
+    staff_orders_returns_inspect_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this return request. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReturnInspectRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReturnDetail"];
+                };
+            };
+        };
+    };
+    staff_orders_returns_label_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this return request. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReturnLabelRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReturnDetail"];
+                };
+            };
+        };
+    };
+    staff_orders_returns_photos_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this return request. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ReturnPhotoRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReturnDetail"];
+                };
+            };
+        };
+    };
+    staff_orders_returns_photos_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this return request. */
+                id: number;
+                index: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/*": string;
+                };
+            };
+        };
+    };
+    staff_orders_returns_receive_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this return request. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReturnDetail"];
+                };
+            };
+        };
+    };
+    staff_people_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedPersonList"];
+                };
+            };
+        };
+    };
+    staff_people_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Person"];
+                };
+            };
+        };
+    };
+    staff_people_access_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Access"];
+                };
+            };
+        };
+    };
+    staff_people_end_sessions_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ended"];
+                };
+            };
+        };
+    };
+    staff_people_erp_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErpMirror"];
+                };
+            };
+        };
+    };
+    staff_people_offboard_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Offboarded"];
+                };
+            };
+        };
+    };
+    staff_people_offboarding_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Offboarding"];
+                };
+            };
+        };
+    };
+    staff_people_offboarding_tick_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OffboardingTickRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Offboarding"];
+                };
+            };
+        };
+    };
+    staff_people_reset_mfa_create: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description once per request */
+                "Idempotency-Key"?: string;
+            };
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonRequest"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+        };
+    };
+    staff_people_roles_create: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description once per request */
+                "Idempotency-Key"?: string;
+            };
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrantRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Person"];
+                };
+            };
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+        };
+    };
+    staff_people_roles_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+                role: "ADMIN" | "AUDITOR" | "CONTENT_EDITOR" | "FINANCE" | "MARKETING" | "OWNER" | "PACKER" | "REVIEWER" | "SALES" | "SALES_REP" | "SUPPORT";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Person"];
+                };
+            };
+        };
+    };
+    staff_people_roles_preview_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RolePreviewRequestRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RolePreview"];
+                };
+            };
+        };
+    };
+    staff_people_scopes_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScopeAddRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Scope"];
+                };
+            };
+        };
+    };
+    staff_people_scopes_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+                scope: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    staff_people_invite_create: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description once per request */
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffInvite"];
+                };
+            };
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+        };
+    };
+    staff_people_invites_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedStaffInviteList"];
+                };
+            };
+        };
+    };
+    staff_people_invites_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invite: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    staff_people_me_sessions_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnSession"][];
+                };
+            };
+        };
+    };
+    staff_people_me_sessions_end_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    staff_people_me_sessions_end_others_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnSessionsEnded"];
+                };
+            };
+        };
+    };
+    staff_people_roles_list: {
+        parameters: {
+            query?: {
+                /** @description the role cards' language */
+                language?: "as" | "bn" | "en";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleCatalogue"][];
+                };
+            };
+        };
+    };
+    staff_policies_ack_list: {
+        parameters: {
+            query?: {
+                /** @description someone else's (staff.view_staff) */
+                user?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyAcknowledgement"][];
+                };
+            };
+        };
+    };
+    staff_policies_ack_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PolicyAcknowledgementRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyAcknowledgement"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyAcknowledgement"];
+                };
+            };
+        };
+    };
+    staff_privacy_cockpit_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Cockpit"];
+                };
+            };
+        };
+    };
+    staff_privacy_dark_pattern_audits_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedDarkPatternAuditList"];
+                };
+            };
+        };
+    };
+    staff_privacy_dark_pattern_audits_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DarkPatternAuditRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DarkPatternAudit"];
+                };
+            };
+        };
+    };
+    staff_privacy_dark_pattern_audits_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this dark pattern audit. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DarkPatternAudit"];
+                };
+            };
+        };
+    };
+    staff_privacy_dark_pattern_audits_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this dark pattern audit. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedDarkPatternAuditRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DarkPatternAudit"];
+                };
+            };
+        };
+    };
+    staff_privacy_dark_pattern_audits_complete_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this dark pattern audit. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CompleteRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DarkPatternAudit"];
+                };
+            };
+        };
+    };
+    staff_privacy_dark_pattern_audits_file_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this dark pattern audit. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+        };
+    };
+    staff_privacy_dark_pattern_audits_file_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this dark pattern audit. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["CertificateFileRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DarkPatternAudit"];
+                };
+            };
+        };
+    };
+    staff_privacy_deletions_parent_confirmation_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ParentConfirmationRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrivacyDeletionConfirmed"];
+                };
+            };
+        };
+    };
+    staff_privacy_disclosures_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Disclosures"];
+                };
+            };
+        };
+    };
+    staff_privacy_disclosures_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DisclosuresChangeRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Disclosures"];
+                };
+            };
+        };
+    };
+    staff_privacy_holds_list: {
+        parameters: {
+            query?: {
+                /** @description true: in force now */
+                active?: boolean;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /**
+                 * @description * `dispute` - a dispute
+                 *     * `chargeback` - a chargeback
+                 *     * `claim` - a legal claim
+                 *     * `investigation` - an investigation
+                 *     * `other` - another reason (in the note)
+                 */
+                reason?: "chargeback" | "claim" | "dispute" | "investigation" | "other";
+                /**
+                 * @description * `shop.creditnote` - shop.creditnote
+                 *     * `shop.invoice` - shop.invoice
+                 *     * `shop.order` - shop.order
+                 *     * `shop.payment` - shop.payment
+                 *     * `shop.refund` - shop.refund
+                 *     * `staff.datarequest` - staff.datarequest
+                 */
+                target_type?: "shop.creditnote" | "shop.invoice" | "shop.order" | "shop.payment" | "shop.refund" | "staff.datarequest";
+                user?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedLegalHoldList"];
+                };
+            };
+        };
+    };
+    staff_privacy_holds_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HoldCreateRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalHold"];
+                };
+            };
+        };
+    };
+    staff_privacy_holds_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this legal hold. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalHold"];
+                };
+            };
+        };
+    };
+    staff_privacy_holds_release_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this legal hold. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReleaseRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalHold"];
+                };
+            };
+        };
+    };
+    staff_privacy_nominees_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountNominee"];
+                };
+            };
+        };
+    };
+    staff_privacy_nominees_reveal_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevealReasonRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrivacyNomineeContact"];
+                };
+            };
+        };
+    };
+    staff_privacy_policies_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Policy"][];
+                };
+            };
+        };
+    };
+    staff_privacy_policies_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: "privacy" | "terms" | "refunds" | "shipping" | "contact";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyDetail"];
+                };
+            };
+        };
+    };
+    staff_privacy_policies_cancel_scheduled_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: "privacy" | "terms" | "refunds" | "shipping" | "contact";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReleaseRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyDetail"];
+                };
+            };
+        };
+    };
+    staff_privacy_policies_publish_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: "privacy" | "terms" | "refunds" | "shipping" | "contact";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyDetail"];
+                };
+            };
+        };
+    };
+    staff_privacy_policies_versions_diff_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+                slug: "privacy" | "terms" | "refunds" | "shipping" | "contact";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyDiff"];
+                };
+            };
+        };
+    };
+    staff_privacy_retention_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetentionRule"][];
+                };
+            };
+        };
+    };
+    staff_processors_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedProcessorList"];
+                };
+            };
+        };
+    };
+    staff_processors_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProcessorRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Processor"];
+                };
+            };
+        };
+    };
+    staff_processors_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this processor record. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Processor"];
+                };
+            };
+        };
+    };
+    staff_processors_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this processor record. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProcessorRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Processor"];
+                };
+            };
+        };
+    };
+    staff_processors_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this processor record. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    staff_processors_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this processor record. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedProcessorRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Processor"];
+                };
+            };
+        };
+    };
+    staff_saved_views_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                list_key?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedSavedViewList"];
+                };
+            };
+        };
+    };
+    staff_saved_views_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedViewRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedView"];
+                };
+            };
+        };
+    };
+    staff_saved_views_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this saved view. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedView"];
+                };
+            };
+        };
+    };
+    staff_saved_views_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this saved view. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedViewRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedView"];
+                };
+            };
+        };
+    };
+    staff_saved_views_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this saved view. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    staff_saved_views_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this saved view. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedSavedViewRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedView"];
+                };
+            };
+        };
+    };
+    staff_session_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffManifest"];
+                };
+            };
+        };
+    };
+    staff_session_reason_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BreakGlassReasonRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffBreakGlass"];
+                };
+            };
+        };
+    };
+    staff_settings_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Setting"][];
+                };
+            };
+        };
+    };
+    staff_setting_history: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SwitchRow"][];
+                };
+            };
+        };
+    };
+    staff_settings_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SwitchChangeRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Setting"];
+                };
+            };
+        };
+    };
+    staff_settings_history_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SwitchRow"][];
+                };
+            };
+        };
+    };
+    staff_support_agents_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Agent"][];
+                };
+            };
+        };
+    };
+    staff_support_saved_replies_list: {
+        parameters: {
+            query?: {
+                /** @description true: the deleted ones (30 days) */
+                bin?: boolean;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /**
+                 * @description * `as` - Assamese
+                 *     * `bn` - Bengali
+                 *     * `en` - English
+                 */
+                language?: "as" | "bn" | "en";
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedSavedReplyList"];
+                };
+            };
+        };
+    };
+    staff_support_saved_replies_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedReplyRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedReply"];
+                };
+            };
+        };
+    };
+    staff_support_saved_replies_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this saved reply. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedReply"];
+                };
+            };
+        };
+    };
+    staff_support_saved_replies_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this saved reply. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedReplyRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedReply"];
+                };
+            };
+        };
+    };
+    staff_support_saved_replies_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this saved reply. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    staff_support_saved_replies_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this saved reply. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedSavedReplyRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedReply"];
+                };
+            };
+        };
+    };
+    staff_support_saved_replies_restore_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this saved reply. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedReply"];
+                };
+            };
+        };
+    };
+    staff_support_summary_retrieve: {
+        parameters: {
+            query?: {
+                /** @description the period: 1 to 366 days to today (30) */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportSummary"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_list: {
+        parameters: {
+            query?: {
+                assignee?: number;
+                /**
+                 * @description Empty: not sorted.
+                 *
+                 *     * `order` - order
+                 *     * `payment` - payment or refund
+                 *     * `book_code` - book code
+                 *     * `qr_solutions` - QR solutions
+                 *     * `content_error` - a mistake in the content
+                 *     * `school_order` - school order
+                 *     * `privacy_request` - privacy request
+                 *     * `grievance` - grievance
+                 */
+                category?: "book_code" | "content_error" | "grievance" | "order" | "payment" | "privacy_request" | "qr_solutions" | "school_order";
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /**
+                 * @description * `as` - Assamese
+                 *     * `bn` - Bengali
+                 *     * `en` - English
+                 */
+                language?: "as" | "bn" | "en";
+                /** @description true: given to me */
+                mine?: boolean;
+                /** @description true: new, open or waiting (its clocks run) */
+                open?: boolean;
+                /** @description true: a running clock past its time */
+                overdue?: boolean;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /**
+                 * @description * `low` - low
+                 *     * `medium` - medium
+                 *     * `high` - high
+                 *     * `urgent` - urgent
+                 */
+                priority?: "high" | "low" | "medium" | "urgent";
+                /** @description a ticket's number, an order's, an email address or a mobile number (logged) */
+                q?: string;
+                /**
+                 * @description * `form` - the website (the contact form, My requests)
+                 *     * `email` - email
+                 *     * `phone` - phone
+                 *     * `whatsapp` - WhatsApp
+                 *     * `nch` - the National Consumer Helpline
+                 */
+                source?: "email" | "form" | "nch" | "phone" | "whatsapp";
+                /**
+                 * @description one or more; spam only so
+                 *
+                 *     * `new` - new
+                 *     * `open` - open
+                 *     * `waiting_customer` - waiting on the customer
+                 *     * `waiting_third_party` - waiting on a third party
+                 *     * `resolved` - resolved
+                 *     * `closed` - closed
+                 *     * `spam` - spam (quarantined)
+                 */
+                status?: ("closed" | "new" | "open" | "resolved" | "spam" | "waiting_customer" | "waiting_third_party")[];
+                /** @description true: the tickets about a test order only (left out otherwise on a live site) */
+                test?: boolean;
+                /** @description true: given to nobody */
+                unassigned?: boolean;
+                /** @description true: waiting on the customer or others */
+                waiting?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedTicketList"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TicketCreateRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketDetail"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketRecord"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedTicketChangeRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketDetail"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_acknowledge_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["AcknowledgeRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ticket"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_assign_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TicketAssignRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ticket"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_attachments_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attachment: number;
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description No response body */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    staff_support_tickets_book_code_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookCodeLookupRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodeAnswer"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_cancel_create: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description once per request */
+                "Idempotency-Key"?: string;
+            };
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TicketCancelRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketOrderCancelled"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_claim_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ticket"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_data_request_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DataRequestStartRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataRequest"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_extend_access_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtendRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessExtended"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_messages_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MessageCreateRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_refund_create: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description once per request */
+                "Idempotency-Key"?: string;
+            };
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefundRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_reopen_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ticket"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_resend_confirmation_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["OrderActionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Detail"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_resend_invoice_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["OrderActionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Detail"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_reveal_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TicketRevealRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketRevealed"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_status_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatusRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ticket"];
+                };
+            };
+        };
+    };
+    staff_system_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffSystem"];
+                };
+            };
+        };
+    };
+    staff_system_backups_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Backups"];
+                };
+            };
+        };
+    };
+    staff_system_backups_drills_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestoreDrill"];
+                };
+            };
+        };
+    };
+    staff_system_backups_drills_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestoreDrillRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestoreDrill"];
+                };
+            };
+        };
+    };
+    staff_system_dependencies_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Dependencies"];
+                };
+            };
+        };
+    };
+    staff_system_hardening_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HardeningRow"][];
+                };
+            };
+        };
+    };
+    staff_system_logs_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Logs"];
+                };
+            };
+        };
+    };
+    staff_system_reconcile_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReconcileRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Reconciled"];
+                };
+            };
+        };
+    };
+    staff_system_scripts_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Scripts"];
+                };
+            };
+        };
+    };
+    staff_system_sync_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Sync"];
+                };
+            };
+        };
+    };
+    staff_system_sync_links_list: {
+        parameters: {
+            query?: {
+                /** @description a reference, an ERPNext name or an object's id */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErpLink"][];
+                };
+            };
+        };
+    };
+    staff_tax_calendar_retrieve: {
+        parameters: {
+            query?: {
+                /** @description YYYY-MM: this month by default */
+                month?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaxCalendar"];
+                };
+            };
+        };
+    };
+    staff_tax_documents_list: {
+        parameters: {
+            query?: {
+                cancelled?: boolean;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                document_type?: "bill_of_supply" | "invoice_cum_bill_of_supply" | "tax_invoice";
+                /** @description 2026-27 */
+                financial_year?: string;
+                /** @description invoices (by default) or credit notes */
+                kind?: "credit_note" | "invoice";
+                /** @description YYYY-MM: the documents dated in it */
+                month?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description a number's beginning, or an order's number */
+                search?: string;
+                /** @description a prefix: EL, CN, TI … */
+                series?: string;
+                /** @description the test series instead of the real one */
+                test?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedTaxDocumentList"];
+                };
+            };
+        };
+    };
+    staff_tax_documents_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaxDocumentDetail"];
+                };
+            };
+        };
+    };
+    staff_tax_documents_cancel_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaxDocument"];
+                };
+            };
+        };
+    };
+    staff_tax_documents_pdf_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+        };
+    };
+    staff_tax_gstr1_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Gstr1Request"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+        };
+    };
+    staff_tax_hsn_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /**
+                 * @description * `hsn` - HSN (goods)
+                 *     * `sac` - SAC (services)
+                 */
+                kind?: "hsn" | "sac";
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description a code's first digits, or words of its description */
+                q?: string;
+                /**
+                 * @description taxability today
+                 *
+                 *     * `taxable` - taxable
+                 *     * `nil` - nil-rated
+                 *     * `exempt` - exempt
+                 *     * `non_gst` - non-GST
+                 */
+                taxability?: "exempt" | "nil" | "non_gst" | "taxable";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedHsnCodeList"];
+                };
+            };
+        };
+    };
+    staff_tax_hsn_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewHsnCodeRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HsnCodeDetail"];
+                };
+            };
+        };
+    };
+    staff_tax_hsn_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique value identifying this HSN or SAC code. */
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HsnCodeDetail"];
+                };
+            };
+        };
+    };
+    staff_tax_hsn_rates_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique value identifying this HSN or SAC code. */
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewHsnRateRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HsnCodeDetail"];
+                };
+            };
+        };
+    };
+    staff_tax_problems_list: {
+        parameters: {
+            query?: {
+                /** @description also the products off sale */
+                all?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaxProblem"][];
+                };
+            };
+        };
+    };
+    staff_tax_series_retrieve: {
+        parameters: {
+            query?: {
+                /** @description 2026-27: this year's by default */
+                financial_year?: string;
+                /** @description YYYY-MM: one month of it */
+                month?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeriesRegister"];
+                };
+            };
+        };
+    };
+    staff_tax_thresholds_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ThresholdCard"];
+                };
+            };
+        };
+    };
+    staff_templates_list: {
+        parameters: {
+            query?: {
+                /**
+                 * @description * `draft` - draft
+                 *     * `submitted` - submitted for approval
+                 *     * `approved` - approved
+                 *     * `rejected` - rejected
+                 *     * `paused` - paused
+                 *     * `deactivated` - deactivated
+                 */
+                approval_state?: "approved" | "deactivated" | "draft" | "paused" | "rejected" | "submitted";
+                /**
+                 * @description * `transactional` - transactional (one-time codes)
+                 *     * `service` - service (about something bought)
+                 *     * `promotional` - promotional
+                 *     * `utility` - utility (WhatsApp)
+                 *     * `authentication` - authentication (WhatsApp)
+                 */
+                category?: "authentication" | "promotional" | "service" | "transactional" | "utility";
+                /**
+                 * @description * `email` - email
+                 *     * `sms` - SMS
+                 *     * `whatsapp` - WhatsApp
+                 */
+                channel?: "email" | "sms" | "whatsapp";
+                event?: string;
+                /**
+                 * @description * `en` - English
+                 *     * `as` - Assamese
+                 *     * `bn` - Bengali
+                 */
+                language?: "as" | "bn" | "en";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Template"][];
+                };
+            };
+        };
+    };
+    staff_templates_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TemplateRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Template"];
+                };
+            };
+        };
+    };
+    staff_templates_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this message template. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Template"];
+                };
+            };
+        };
+    };
+    staff_templates_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this message template. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedTemplateRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Template"];
+                };
+            };
+        };
+    };
+    staff_templates_test_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this message template. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TestSendRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestSent"];
+                };
+            };
+        };
+    };
+    staff_users_list: {
+        parameters: {
+            query?: {
+                board?: number;
+                /**
+                 * @description * `10` - Class 10
+                 *     * `12` - Class 12
+                 */
+                class_level?: 10 | 12 | null;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                is_active?: boolean;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description an email address, a mobile number, or 3+ letters of a name */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedCustomerList"];
+                };
+            };
+        };
+    };
+    staff_users_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerDetail"];
+                };
+            };
+        };
+    };
+    staff_users_end_sessions_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionsEnded"];
+                };
+            };
+        };
+    };
+    staff_users_impersonate_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImpersonateRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Impersonation"];
+                };
+            };
+        };
+    };
+    staff_users_impersonate_end_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TokenRequest"];
+            };
+        };
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    staff_users_password_reset_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Detail"];
+                };
+            };
+        };
+    };
+    staff_users_resend_verification_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Detail"];
+                };
+            };
+        };
+    };
+    staff_users_reset_mfa_create: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description once per request */
+                "Idempotency-Key"?: string;
+            };
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonRequest"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+        };
+    };
+    staff_users_reveal_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevealRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Revealed"];
+                };
+            };
+        };
+    };
+    staff_users_suspend_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Customer"];
+                };
+            };
+        };
+    };
+    staff_users_unlock_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Unlocked"];
+                };
+            };
+        };
+    };
+    staff_users_unsuspend_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this user. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Customer"];
                 };
             };
         };

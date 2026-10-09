@@ -942,7 +942,7 @@ SPECTACULAR_SETTINGS["ENUM_NAME_OVERRIDES"].update(  # noqa: F405  the new model
     RestoreDrillEngineEnum="staff.models.RestoreDrill.Engine",
     RestoreDrillResultEnum="staff.models.RestoreDrill.Result",
     ScriptPageEnum="staff.models.ScriptInventory.Page",
-    TemplateLanguageEnum="ops.models.MessageTemplate.Language",
+    LanguageEnum="ops.models.MessageTemplate.Language",  # (and a ticket's: the same three)
     TemplateCategoryEnum="ops.models.MessageTemplate.Category",
     TemplateApprovalEnum="ops.models.MessageTemplate.Approval",
     InboundEventStateEnum="integrations.models.InboundEvent.State",
@@ -1001,6 +1001,49 @@ CELERY_BEAT_SCHEDULE |= {
     "content-flag-items": {"task": "content.tasks.flag_items", "schedule": crontab(hour=2, minute=20)},
     "content-purge-spam": {"task": "content.tasks.purge_spam", "schedule": crontab(hour=4, minute=10)},
     "content-legal-deposits": {"task": "content.tasks.check_legal_deposits", "schedule": crontab(hour=7, minute=0)},
+}
+# Support (support/README.md; DEPLOYMENT.md "Support"): tickets with a number the customer can track (SR-2026-000123)
+# and the legal clocks (support/clocks.py), every 15 minutes watched (support-watch: 75 % warnings, breaches, resolved
+# tickets closed after 4 days), spam purged after 30 days (support-purge). The contact form makes a ticket; with
+# SUPPORT_COPY_TO_EMAIL the support address also gets a copy (off: the panel is the inbox). From
+# SUPPORT_COMPLAINT_COPY_FROM the acknowledgement carries a copy of the complaint as recorded (the E-Commerce Rules as
+# amended in 2026). SUPPORT_INTERMEDIARY_RULES adds the IT Rules' 24-hour and 15-day clocks to grievances (off until
+# counsel says reviews make ExamLeaf an intermediary; also a panel setting, which wins). The support address is
+# forwarded to /api/hooks/support-mail/ with the webhook token of the "support_mail" integration account, a message of
+# SUPPORT_MAIL_MAX_BYTES at most. An acknowledgement goes by SMS (DLT template MSG91_TEMPLATE_TICKET_ACK) only when no
+# email address is known. The requesters' contact details are encrypted with INTEGRATION_KEYS (support.E001).
+INSTALLED_APPS += ["support"]
+SUPPORT_COPY_TO_EMAIL = env.bool("SUPPORT_COPY_TO_EMAIL", default=False)
+SUPPORT_COMPLAINT_COPY_FROM = date.fromisoformat(env("SUPPORT_COMPLAINT_COPY_FROM", default="2027-01-01"))
+SUPPORT_INTERMEDIARY_RULES = env.bool("SUPPORT_INTERMEDIARY_RULES", default=False)
+SUPPORT_MAIL_MAX_BYTES = env.int("SUPPORT_MAIL_MAX_BYTES", default=10 * 1024 * 1024)
+SMS_KINDS.append("ticket_ack")
+MSG91_TEMPLATES["ticket_ack"] = env("MSG91_TEMPLATE_TICKET_ACK", default="")
+REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"].update(  # noqa: F405
+    support_mail=env("API_THROTTLE_SUPPORT_MAIL", default="120/minute"),  # the mailbox's hook, per client address
+    support_request=env("API_THROTTLE_SUPPORT_REQUEST", default="10/hour"),  # My requests' new request, per account
+)
+_SUPPORT_TAG = {
+    "name": "support (staff)",
+    "description": "Tickets, their legal clocks and actions; saved replies (API.md).",
+}
+if _SUPPORT_TAG not in SPECTACULAR_SETTINGS["TAGS"]:  # noqa: F405  (once: tests reload this module, the dict is shared)
+    SPECTACULAR_SETTINGS["TAGS"].append(_SUPPORT_TAG)  # noqa: F405
+SPECTACULAR_SETTINGS["ENUM_NAME_OVERRIDES"].update(  # noqa: F405  the ticket's "status", "source", "category" …
+    TicketStatusEnum="support.models.Ticket.Status",
+    TicketSourceEnum="support.models.Ticket.Source",
+    TicketCategoryEnum="support.models.Ticket.Category",
+    TicketPriorityEnum="support.models.Ticket.Priority",
+    TicketDirectionEnum="support.models.TicketMessage.Direction",
+    TicketChannelEnum="support.models.TicketMessage.Channel",
+    TicketContactEnum="support.serializers.LOGGED_SOURCES",  # how a ticket is logged; a reply's channel too
+    TicketRevealFieldEnum="support.serializers.REVEAL_FIELDS",
+    ChannelEnum="staff.models.DataRequest.Channel",  # a data request's, named as before the tickets' channels came
+    ShowEnum="staff.serializers.REVEALABLE",  # a customer's details to reveal: as named before a ticket's "show" came
+)
+CELERY_BEAT_SCHEDULE |= {
+    "support-watch": {"task": "support.tasks.watch_clocks", "schedule": crontab(minute="*/15")},
+    "support-purge": {"task": "support.tasks.purge", "schedule": crontab(hour=3, minute=45)},
 }
 
 # ---- Resilience (RESILIENCE.md: each knob below, its default and when to change it) --------------------------------

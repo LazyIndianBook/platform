@@ -35,6 +35,7 @@ const SIGNED_IN = [
   "/account/privacy/",
   "/account/teacher/",
   "/account/learning/",
+  "/account/requests/",
 ];
 
 const stamp = Date.now();

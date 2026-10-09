@@ -17,7 +17,8 @@ print runs, item analysis, cohorts, fraud signals). Code: `api/` (`auth.py`, `vi
 [Shop](#shop) · [Revision course](#revision-course) · [Site](#site-configuration-and-legal-pages) ·
 [Insights (staff)](#insights-staff) · [ERPNext sync (staff)](#erpnext-sync-staff) · [Orders (staff)](#orders-staff) ·
 [Tax (staff)](#tax-staff) · [Legal and privacy (staff)](#legal-and-privacy-staff) · [Content (staff)](#content-staff) ·
-[Connections (staff)](#connections-staff) · [Templates (staff)](#templates-staff) · [Lists](#lists) ·
+[Support (staff)](#support-staff) · [Connections (staff)](#connections-staff) · [Templates (staff)](#templates-staff) ·
+[Lists](#lists) ·
 [Staff API](#staff-api) · [Errors](#errors) ·
 [Rate limits](#rate-limits) · [CORS](#cors) ·
 [Versioning](#versioning) · [Operations](#operations)
@@ -72,6 +73,7 @@ it, on the panel's session (or an API key), on the admin host only. **Shop open*
 | POST | `me/parent-consent/` | signed in | the parent's link to confirm, again (while `consent_pending`) |
 | GET PUT DELETE | `me/nominee/` | signed in | the person's nominee (DPDP s.14): who acts for them after death or incapacity |
 | POST | `me/consent/withdraw/` | signed in | withdraw a marketing consent (`purpose`, `channel`); its processors are told to stop |
+| GET POST | `me/tickets/` | signed in; POST confirmed | My requests: the customer's support tickets (number, status, dates); POST asks a new one ([Support (staff)](#support-staff)) |
 | POST DELETE | `account/impersonate/` | anyone with the panel's token | a member of staff logged in as the customer: open the session (`{"token"}`), end it ([Profile and data rights](#profile-and-data-rights)) |
 | GET | `me/record/` (`?subject=&tier=`) | confirmed | My record in figures: averages per tier and subject, each paper's best and latest attempt |
 | GET | `me/learning/` | confirmed | the learning dashboard: what is open, progress per subject and chapter, the clip to continue with, revise-again counts, the plan's next three days, the streak |
@@ -128,6 +130,7 @@ it, on the panel's session (or an API key), on the admin host only. **Shop open*
 | GET | `pages/`, `pages/<slug>/` | anyone | the legal pages: Markdown, the website's HTML, version, last change |
 | GET | `pages/<slug>/versions/` | anyone | a legal page's versions: number, in force from, what changed, the one waiting for its day |
 | POST | `contact/` | anyone | the contact form: a message emailed to the support address |
+| POST | `contact/` | anyone | the contact form: a support ticket, its number emailed to the sender |
 | GET | `insights/forecasts/`, `insights/print-runs/`, `insights/backtests/` | `staff.view_insights` | the newest demand forecast (`?product=<slug>`, `?district=all` or a district), print-run advice, backtest |
 | GET | `insights/item-stats/` (`?chapter=`), `insights/chapter-stats/`, `insights/cohorts/`, `insights/code-activation/` | `staff.view_insights` | the quiz's item analysis, chapter accuracy, cohorts, book codes per batch and district: aggregates only |
 | GET | `insights/delivery/`, `insights/fraud-signals/` (`?open=1`), `insights/offers/` | `staff.view_insights` | days in transit per courier and district, fraud signals, what coupons and offers did |
@@ -145,6 +148,7 @@ it, on the panel's session (or an API key), on the admin host only. **Shop open*
 | GET | `/api/schema/`, `/api/docs/`, `/api/redoc/` | anyone | the OpenAPI schema, Swagger UI, Redoc |
 | any | `/_allauth/app/v1/…`, `/_allauth/browser/v1/…` | anyone; the account and authenticator endpoints need the signed-in session | allauth.headless: log-in, sign-up, codes, passkeys, Google, second step, email, phone, password, re-authentication, signed-in devices (`auth/sessions`); its OpenAPI file `/_allauth/openapi.json` (and `.yaml`) |
 | POST | `/api/hooks/parcel-events/` | the courier, with its token in `x-api-key` | Shiprocket's tracking webhook ([Shipping (staff)](#shipping-staff)); not in the OpenAPI schema |
+| POST | `/api/hooks/support-mail/` | the forwarder, with its token in `X-Support-Mail-Token` | an email to the support address ([Support (staff)](#support-staff)); not in the OpenAPI schema |
 | any | `staff/…` | staff only (the panel's session, or an API key), on the admin host | the Admin Control Panel: [Staff API](#staff-api) |
 
 ## Authentication from the app
@@ -1050,8 +1054,9 @@ marked `<mark class="placeholder">`) and `web_url`; `number` (the version in for
 "upcoming"}]`: one published for a later day comes first, `upcoming`, and is in force from its day.
 
 `contact/` (anyone) is the website's contact form: `name` (80 characters at most), `email` (we reply to it), `message`
-(2,000 at most) and `turnstile` while the bot check is on. The message is emailed to the support address with
-`Reply-To` the sender; nothing is stored. `200 {"detail": "Thank you: your message is on its way to us. We reply by
+(2,000 at most) and `turnstile` while the bot check is on. The message becomes a support ticket (its number in
+the acknowledgement emailed to the sender: [Support (staff)](#support-staff)), linked to the account whose
+confirmed address sent it; with `SUPPORT_COPY_TO_EMAIL` the support address also gets it, `Reply-To` the sender. `200 {"detail": "Thank you: your message is on its way to us. We reply by
 email."}`; 400 with the fields' errors; 429 after 5 an hour per client address, the website's form included (and while
 the count cannot be read); `503 {"detail": "The contact form is not set up yet: please write to us by email."}` while
 the support address is still a `[placeholder]` (`support.email` of `config/` is null then: show no form). `website` is
@@ -1493,6 +1498,88 @@ into reports of category `item_analysis`, once per item and not again within 30 
 `content.tasks.purge_spam` (04:10) deletes spam reports after 30 days; `content.tasks.check_legal_deposits` (07:00)
 keeps one inbox item per published book whose deposits are not all made, due `CONTENT_LEGAL_DEPOSIT_DAYS` after its
 publication.
+## Support (staff)
+
+`/api/v1/staff/support/…` (code: `support/api.py`; the app: [support/README.md](support/README.md)) is the Support
+module's API: the tickets with their legal clocks, the conversation, the actions on the customer's orders and course,
+the saved replies and the module's numbers. It keeps every rule of the [Staff API](#staff-api): the admin host only, a
+member of staff with a second factor (an API key reads only), each action's catalogued permission (area "Support"),
+every refusal an `authz_fail` event, cursor pages, `Cache-Control: no-store`; the schema tags it `support (staff)`.
+The tickets reach each person through their scope: a SALES member's are the order, payment and school-order tickets, a
+content editor's the content errors (`ticket_category`). Opening a ticket, revealing its requester's details,
+downloading a file and looking a person up by email or phone are `sensitive_read` events (the lookup's keyed hash,
+never the query); every change is an audit event (`support.ticket_logged`, `support.changed` with the masked fields,
+`support.replied`, `support.noted`, `support.assigned`, `support.status`, `support.reopened`, `support.acknowledged`,
+`support.action` with the action's name, `support.clock_breached`, `support.saved_reply_*`), naming the ticket by its
+number and never its requester.
+
+| Method | Path (under `/api/v1/staff/support/`) | Permission | What |
+|---|---|---|---|
+| GET | `tickets/` (`?status=&open=&waiting=&mine=&unassigned=&overdue=&category=&priority=&source=&language=&assignee=&test=&q=`) | `support.view_ticket` | the queue, the next legal deadline first (`next_due_at`); `q`: a ticket's or an order's number, an email address or a mobile number; spam only with `status=spam`; on a live site a test order's tickets only with `test=true` |
+| POST | `tickets/` (`source`, `nch_docket`, `name`, `email`, `phone`, `category`, `priority`, `subject`, `message`, `received_at`, `order`) | `staff.handle_ticket` | log a call, a WhatsApp message, an NCH complaint (its docket) or an email (201, the ticket); its clocks run from `received_at` (never ahead, within a year) |
+| GET | `tickets/<number>/` (or its id) | `support.view_ticket` | the ticket with `clocks`, `closing_fields`, `transitions`, `messages`, the `sidebar` (each part by the reader's permissions, null otherwise) and the `saved_replies` filled for it, its language first |
+| PATCH | `tickets/<number>/` | `staff.handle_ticket` | sort and correct it: category, priority, language, subject, source and NCH docket, `order` (a number), `record` (a paper's code), the requester's `name`, `email`, `phone`; a new category or source sets the clocks again from when it came |
+| POST | `tickets/<number>/messages/` (`direction`: `out` or `note`, `body`, `channel`, `mentions`) | a reply `staff.handle_ticket`; a note `support.note_ticket` | a reply (`channel` `email`: sent in the customer's thread; `phone`, `whatsapp`, `nch`: recorded), or an internal note naming colleagues (each an inbox item) |
+| POST | `tickets/<number>/assign/` (`assignee`, null: nobody), `…/claim/` | `staff.handle_ticket` | given to someone who handles tickets and may see this one; to yourself |
+| POST | `tickets/<number>/status/` (`status`, `resolution`, `order`, `record`) | `staff.handle_ticket` | moved on as `transitions` allows; resolving or closing asks for the category's `closing_fields` (field errors otherwise) |
+| POST | `tickets/<number>/reopen/` | `staff.handle_ticket` | a resolved or closed ticket back to open (counted) |
+| POST | `tickets/<number>/acknowledge/` (`note`) | `staff.handle_ticket` | the acknowledgement sent again; with `note`, recorded as given another way |
+| POST | `tickets/<number>/reveal/` (`show`: `email`, `phone`; `reason`) | `staff.reveal_contact` (re-authenticated; 30 an hour) | the requester's details, logged |
+| GET | `tickets/<number>/attachments/<id>/` | `support.view_ticket` | a file of the conversation: the file, or 302 to the private bucket's link signed for 5 minutes |
+| POST | `tickets/<number>/refund/` (`order`, `amount` or `lines` `[{item, quantity}]`, `reason`; `Idempotency-Key`) | `staff.refund_order` | through `order.refund`: 201 run within your `refund_inr`, 202 waiting for FINANCE above it, 400 when it failed |
+| POST | `tickets/<number>/cancel/` (`order`, `reason`; `Idempotency-Key`) | `shop.change_order` | cancel an order: one paid online through its refund (as above), another at once (200 `{order, status}`) |
+| POST | `tickets/<number>/resend-invoice/`, `…/resend-confirmation/` (`order`) | `staff.handle_ticket` | the shop's own email again, to the order's address |
+| POST | `tickets/<number>/extend-access/` (`entitlement`, `days` 1 to 365, `reason`) | `learn.change_entitlement` | course access extended from its end (or today) |
+| POST | `tickets/<number>/book-code/` (`code`) | `learn.view_bookcode` | a book code looked up by its digest (never kept): `{found, batch, subject, redeemed, by_requester, line}` |
+| POST | `tickets/<number>/data-request/` (`kind`, `summary`) | `staff.handle_data_request` | a data request from a grievance or privacy ticket (201, the request), received when the ticket was |
+| GET POST PUT PATCH DELETE | `saved-replies/` (`?language=&bin=`), `saved-replies/<id>/`, `saved-replies/<id>/restore/` | `support.view_savedreply`; `add_`, `change_`, `delete_savedreply` | the saved replies (`variables`: those its text uses); a delete puts one in the bin for 30 days, restore/ takes it out |
+| GET | `summary/` (`?days=` 1 to 366, 30) | `support.view_ticket` | the period's volume by category and source, the median first response and resolution (hours), the breaches; the backlog and the overdue now (spam and test orders left out) |
+| GET | `agents/` | `support.view_ticket` | who a ticket may be given to or a note may name: `{id, name, handles}` |
+
+The grievance register is a staff job: `POST /api/v1/staff/jobs/` `{"kind": "grievance_export", "params": {"from":
+"2026-10-01", "until": "2026-10-31"}}` (`staff.export_grievances`, high; above your `export_rows` it waits for an
+approver), its file a dated CSV with no personal data beyond the ticket's number and category.
+
+```sh
+curl "https://admin.examleaf.in/api/v1/staff/support/tickets/?open=true" -b "sessionid=..."
+# 200 {"next": null, "previous": null, "results": [{"id": 4103, "number": "SR-2026-000103", "subject": "Books arrived
+#      damaged", "source": "email", "category": "order", "status": "open", "requester": {"name": "Riya Das",
+#      "email": "ri•••@example.com", "phone": "••••••2210", "user": 7101}, "next_due_at": "2026-10-05T14:00:00+05:30",
+#      "clock": "due", "overdue": true, "due_breached": true, ...}, ...]}
+curl -X POST https://admin.examleaf.in/api/v1/staff/support/tickets/SR-2026-000103/messages/ \
+  -b "sessionid=...; csrftoken=..." -H "X-CSRFToken: ..." -H "Content-Type: application/json" \
+  -d '{"direction": "out", "body": "We have refunded the two books.", "channel": "email"}'
+# 201 {"id": 7012, "direction": "out", "channel": "email", "author": 9003, "author_name": "Rahul Saikia", ...}
+curl -X POST https://admin.examleaf.in/api/v1/staff/support/tickets/SR-2026-000103/status/ \
+  -b "sessionid=...; csrftoken=..." -H "X-CSRFToken: ..." -H "Content-Type: application/json" \
+  -d '{"status": "resolved"}'
+# 400 {"resolution": ["Say what was done."]}
+```
+
+**My requests** (the customer's side, API v1): `GET /api/v1/me/tickets/` (signed in) lists the account's tickets and
+those sent from one of its confirmed email addresses before, newest first, 50 a page: `number`, `subject`,
+`category` and `category_label`, `status` and `status_label` (the customer's words: received, being looked at,
+waiting for your reply …), `order`, `received_at`, `acknowledged_at`, `answer_by` (the latest we answer by),
+`resolved_at`, `closed_at`; never staff's notes nor who works on it. `POST` (a confirmed email address; 10 an hour)
+`{"category": "payment", "subject": "...", "message": "...", "order": "EL-2026-000123"}` (the order one of the
+account's, optional) makes one: 201 with it, acknowledged by email with its number. The contact form (`contact/`)
+makes one too, for anyone.
+
+```sh
+curl https://examleaf.in/api/v1/me/tickets/ -H "Authorization: Bearer eyJ..."
+# 200 {"count": 1, "next": null, "previous": null, "results": [{"number": "SR-2026-000114", "subject": "Refund not
+#      received", "category": "payment", "category_label": "payment or refund", "status": "open",
+#      "status_label": "being looked at", "order": "EL-2026-000131", "received_at": "...", "answer_by": "...", ...}]}
+```
+
+**The support mailbox's hook** `POST /api/hooks/support-mail/` is the forwarder's, not the API's (an SES receipt
+rule's Lambda, or Cloudflare's Email Routing worker): the raw message (`message/rfc822`) or SES's receipt notification,
+with the `support_mail` integration account's webhook token in `X-Support-Mail-Token` (constant time; the previous
+token too for 24 hours after a rotation). A missing or wrong token, or no enabled account: `403 {"detail": "Unknown
+or missing token."}`, kept without its body; more than `SUPPORT_MAIL_MAX_BYTES` (10 MB): 413. Otherwise `200
+{"detail": "Received."}` at once: the body is kept once per SHA-256 and read by a task, which drops our own mail,
+auto-replies, bounces and lists, and threads the rest by the thread id in its headers, a known Message-ID, or the
+`[SR-…]` number from the requester's own address. 120 a minute per client address (`API_THROTTLE_SUPPORT_MAIL`).
 
 ## Lists
 
@@ -1993,6 +2080,34 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 | GET | `staff/settings/{key}/` | `staff.view_sitesetting` (by the key or the body: see the table above) |  |  | 200 `[SwitchRow]` |
 | PUT | `staff/settings/{key}/` | `staff.manage_settings` (by the key or the body: see the table above) |  | `SwitchChangeRequest` | 200 `Setting` |
 | GET | `staff/settings/{key}/history/` | `staff.view_sitesetting` |  |  | 200 `[SwitchRow]` |
+| GET | `staff/support/agents/` | `support.view_ticket` |  |  | 200 `[Agent]` |
+| GET | `staff/support/saved-replies/` | `support.view_savedreply` | `bin`, `cursor`, `language`, `page_size` |  | 200 `PaginatedSavedReplyList` |
+| POST | `staff/support/saved-replies/` | `support.add_savedreply` |  | `SavedReplyRequest` | 201 `SavedReply` |
+| GET | `staff/support/saved-replies/{id}/` | `support.view_savedreply` |  |  | 200 `SavedReply` |
+| PUT | `staff/support/saved-replies/{id}/` | `support.change_savedreply` |  | `SavedReplyRequest` | 200 `SavedReply` |
+| PATCH | `staff/support/saved-replies/{id}/` | `support.change_savedreply` |  | `PatchedSavedReplyRequest` | 200 `SavedReply` |
+| DELETE | `staff/support/saved-replies/{id}/` | `support.delete_savedreply` |  |  | 204 |
+| POST | `staff/support/saved-replies/{id}/restore/` | `support.delete_savedreply` |  |  | 200 `SavedReply` |
+| GET | `staff/support/summary/` | `support.view_ticket` | `days` |  | 200 `SupportSummary` |
+| GET | `staff/support/tickets/` | `support.view_ticket` | `assignee`, `category`, `cursor`, `language`, `mine`, `open`, `overdue`, `page_size`, `priority`, `q`, `source`, `status`, `test`, `unassigned`, `waiting` |  | 200 `PaginatedTicketList` |
+| POST | `staff/support/tickets/` | `staff.handle_ticket` |  | `TicketCreateRequest` | 201 `TicketDetail` |
+| GET | `staff/support/tickets/{number}/` | `support.view_ticket` |  |  | 200 `TicketRecord` |
+| PATCH | `staff/support/tickets/{number}/` | `staff.handle_ticket` |  | `PatchedTicketChangeRequest` | 200 `TicketDetail` |
+| POST | `staff/support/tickets/{number}/acknowledge/` | `staff.handle_ticket` |  | `AcknowledgeRequest` | 200 `Ticket` |
+| POST | `staff/support/tickets/{number}/assign/` | `staff.handle_ticket` |  | `TicketAssignRequest` | 200 `Ticket` |
+| GET | `staff/support/tickets/{number}/attachments/{attachment}/` | `support.view_ticket` |  |  | 200 `application/octet-stream`; 302 |
+| POST | `staff/support/tickets/{number}/book-code/` | `learn.view_bookcode` |  | `BookCodeLookupRequest` | 200 `CodeAnswer` |
+| POST | `staff/support/tickets/{number}/cancel/` | `shop.change_order` (by the key or the body: see the table above) |  | `TicketCancelRequest` | 200 `TicketOrderCancelled`; 201 `ChangeRequest`; 202 `ChangeRequest`; 400 `ChangeRequest` |
+| POST | `staff/support/tickets/{number}/claim/` | `staff.handle_ticket` |  |  | 200 `Ticket` |
+| POST | `staff/support/tickets/{number}/data-request/` | `staff.handle_data_request` |  | `DataRequestStartRequest` | 201 `DataRequest` |
+| POST | `staff/support/tickets/{number}/extend-access/` | `learn.change_entitlement` |  | `ExtendRequest` | 200 `AccessExtended` |
+| POST | `staff/support/tickets/{number}/messages/` | `staff.handle_ticket` (by the key or the body: see the table above) |  | `MessageCreateRequest` | 201 `Message` |
+| POST | `staff/support/tickets/{number}/refund/` | `staff.refund_order` |  | `RefundRequest` | 200 `ChangeRequest`; 201 `ChangeRequest`; 202 `ChangeRequest`; 400 `ChangeRequest` |
+| POST | `staff/support/tickets/{number}/reopen/` | `staff.handle_ticket` |  |  | 200 `Ticket` |
+| POST | `staff/support/tickets/{number}/resend-confirmation/` | `staff.handle_ticket` |  | `OrderActionRequest` | 200 `Detail` |
+| POST | `staff/support/tickets/{number}/resend-invoice/` | `staff.handle_ticket` |  | `OrderActionRequest` | 200 `Detail` |
+| POST | `staff/support/tickets/{number}/reveal/` | `staff.reveal_contact` |  | `TicketRevealRequest` | 200 `TicketRevealed` |
+| POST | `staff/support/tickets/{number}/status/` | `staff.handle_ticket` |  | `StatusRequest` | 200 `Ticket` |
 | GET | `staff/system/` | `staff.view_system` |  |  | 200 `StaffSystem` |
 | GET | `staff/system/backups/` | `staff.view_system` |  |  | 200 `Backups` |
 | GET | `staff/system/backups/drills/` | `staff.view_restoredrill` |  |  | 200 `RestoreDrill` |
@@ -2037,6 +2152,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 
 - **AcceptRequest**: `token` string (required); `full_name` string; `password` string
 - **Access**: `id` integer (required); `email` email (required); `full_name` string (required); `is_active` boolean (required); `is_superuser` boolean (required); `last_login` date-time (required, null); `roles` [AccessRole] (required); `scopes` [AccessScope] (required); `role_scopes` object (required); `limits` object (required); `idle_timeout_s` integer (required); `permissions` integer (required); `capabilities` [CapabilityArea] (required); `pending` [AccessPending] (required); `second_factors` SecondFactors (required); `passkey_required` boolean (required); `erp_profiles` [string] (required)
+- **AccessExtended**: `entitlement` integer (required); `valid_until` date (required)
 - **AccessPending**: `id` integer (required); `action` string (required); `status` ChangeRequestStatusEnum (required); `target_label` string (required); `about_them` boolean (required); `by_them` boolean (required); `created` date-time (required); `expires_at` date-time (required)
 - **AccessRole**: `name` RoleEnum (required); `source` AccessRoleSourceEnum (required); `granted_by` integer (required, null); `granted_at` date-time (required, null); `expires_at` date-time (required, null); `reason` string (required)
 - **AccessRoleSourceEnum**: one of `panel`, `admin`
@@ -2044,9 +2160,11 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **AccessScope**: `id` integer (required); `kind` ScopeKindEnum (required); `value` string (required); `granted_by` integer (required, null); `created` date-time (required); `expires_at` date-time (required, null)
 - **AccountNominee**: `user` integer (required); `nominee` PrivacyNominee (required, null)
 - **AccountRow**: `id` integer (required); `mode` IntegrationModeEnum (required); `enabled` boolean (required); `label` string (required); `held` object (required); `unreadable` boolean (required); `credentials_updated_at` date-time (required, null); `credentials_updated_by` integer (required, null); `rotate_by` date (required, null); `rotate_in_days` integer (required, null); `token_expires_at` date-time (required, null); `token_in_hours` double (required, null); `webhook_token` string (required); `webhook_rotated_at` date-time (required, null)
+- **AcknowledgeRequest**: `note` string
 - **Actions**: `test` boolean (required); `credentials` boolean (required); `mode` boolean (required); `circuit` boolean (required); `webhooks` boolean (required)
 - **ActorTypeEnum**: one of `staff`, `user`, `service`, `system`, `anonymous`
 - **Advisory**: `id` string (required); `ecosystem` string (required); `project` string (required); `package` string (required); `version` string (required); `severity` SeverityEnum (required); `title` string (required); `url` string (required); `fixed_in` string (required); `first_seen` date (required); `due` date (required, null); `overdue` boolean (required)
+- **Agent**: `id` integer (required); `name` string (required); `handles` boolean (required)
 - **ApiKey**: `id` integer (required, read-only); `name` string (required); `prefix` string (required, read-only); `key` string (required, null, read-only); `scopes` any; `sponsor` integer; `created_by` integer (required, null, read-only); `created` date-time (required, read-only); `expires_at` date-time; `allowed_ips` any; `last_used_at` date-time (required, null, read-only); `last_used_ip` string (required, null, read-only); `revoked_at` date-time (required, null, read-only); `revoked_by` integer (required, null, read-only)
 - **ApiKeyRequest**: `name` string (required); `scopes` any; `sponsor` integer; `expires_at` date-time; `allowed_ips` any
 - **Approval**: `user` integer (required); `decision` DecisionEnum (required); `comment` string; `created` date-time
@@ -2054,6 +2172,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **AskActionEnum**: one of `order.refund`, `order.offline_payment`, `product.price`, `coupon.create`
 - **AskRequest**: `action` AskActionEnum (required); `target` string (required); `payload` object (required); `reason` string (required)
 - **AssignRequest**: `assignee` integer (required, null)
+- **Attachment**: `id` integer (required, read-only); `name` string (required, read-only); `content_type` string (required, read-only); `size` integer (required, read-only)
 - **AuditEvent**: `id` integer (required, read-only); `chain` ChainEnum; `ts` date-time (required); `actor_id` integer (null); `actor_type` ActorTypeEnum (required); `actor_roles` any; `on_behalf_of` integer (null); `break_glass` boolean; `action` string (required); `permission` string; `target_type` string; `target_id` string; `target_label` string; `outcome` AuditOutcomeEnum; `reason` string; `change_request_id` integer (null); `request_id` string; `ip` string (null); `user_agent` string; `session_hash` string; `changes` any; `details` any; `prev_hash` string (required); `hash` string (required)
 - **AuditOutcomeEnum**: one of `success`, `denied`, `failed`
 - **AuditRow**: `pattern` PatternEnum (required); `label` string (required, read-only); `finding` string (required); `fix` string (required)
@@ -2065,6 +2184,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **BeforeAfterProfiles**: `before` [string] (required); `after` [string] (required)
 - **BeforeAfterSeconds**: `before` integer (required); `after` integer (required)
 - **BlankEnum**: null
+- **BookCodeLookupRequest**: `code` string (required)
 - **BookFormatEnum**: one of `print`, `ebook`
 - **BookRequest**: `order` string (required, null); `courier_company_id` integer; `courier_name` string; `quoted_rate` decimal (null); `weight_g` integer; `length_cm` integer; `breadth_cm` integer; `height_cm` integer; `pickup_location` integer (null); `courier` CourierEnum; `tracking_number` string; `tracking_url` any
 - **BreakGlassReasonRequest**: `reason` string (required)
@@ -2095,6 +2215,8 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **CodRemittance**: `id` integer (required, read-only); `shipment` integer (required, read-only); `order` string (required, read-only); `expected_amount` decimal (required, read-only); `expected_on` date (required, read-only); `remitted_amount` decimal (required, null, read-only); `utr` string (required, read-only); `remitted_at` date (required, null, read-only); `state` CodRemittanceStateEnum (required, read-only); `checked_at` date-time (required, null, read-only)
 - **CodRemittanceStateEnum**: one of `expected`, `overdue`, `remitted`, `mismatch`, `not_expected`
 - **CodeActivation**: `batch` string (required); `district` string (null); `printed` integer (null); `redeemed` integer (required); `redeemed_7d` integer (required); `n` integer (required, read-only)
+- **CodeAnswer**: `found` boolean (required); `batch` string; `subject` string; `redeemed` boolean; `by_requester` boolean; `line` string (required)
+- **CodeRow**: `batch` string (required); `subject` string (required); `redeemed_at` date-time (required)
 - **CohortStat**: `cohort_month` date (required); `source` EntitlementSourceEnum (required); `week_index` integer (required); `active_share` double (null); `churned_share` double (null); `n` integer (required)
 - **CommentRequest**: `comment` string
 - **CompleteRequest**: `effective_from` date
@@ -2106,6 +2228,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ConnectionReasonRequest**: `reason` string (required)
 - **ConnectionSourceEnum**: one of `panel`, `environment`, `none`
 - **ConnectionStatusEnum**: one of `connected`, `degraded`, `expired`, `disabled`, `not_configured`
+- **ConsentRow**: `event` string (required); `method` string (required); `by_parent` boolean (required); `verified_at` date-time (required, null); `notice_version` string (required); `created` date-time (required)
 - **Contact**: `contact` string (required); `source` ContactSourceEnum (required); `placeholder` boolean (required)
 - **ContactSourceEnum**: one of `panel`, `environment`
 - **ContentBook**: `id` integer (required, read-only); `title` string (required); `subject` integer (required); `subject_code` string (required, read-only); `edition` string; `slug` string (required); `cover` string; `isbn` string; `format` BookFormatEnum; `published_on` date (null); `deposit_due_on` date (required, null, read-only); `papers` integer (required, read-only)
@@ -2151,12 +2274,14 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **DataRequestList**: `id` integer (required, read-only); `kind` DataRequestKindEnum (required); `channel` ChannelEnum (required); `user` integer (null); `requester` string (required, read-only); `summary` string (required); `identity_verified` boolean (required, read-only); `identity_note` string (required, read-only); `verified_by` integer (required, null, read-only); `verified_at` date-time (required, null, read-only); `received_at` date-time; `ack_due_at` date-time (required, read-only); `acknowledged_at` date-time (required, null, read-only); `ack_overdue` boolean (required, read-only); `due_at` date-time (required, read-only); `overdue` boolean (required, read-only); `status` DataRequestStatusEnum (required, read-only); `assignee` integer (null); `notes` string; `details` any; `outcome` DataRequestOutcomeEnum (required, read-only); `response` string (required, read-only); `closed_at` date-time (required, null, read-only); `closed_by` integer (required, null, read-only); `created_by` integer (required, null, read-only)
 - **DataRequestOutcomeEnum**: one of `done`, `refused`, `withdrawn`
 - **DataRequestRequest**: `kind` DataRequestKindEnum (required); `channel` ChannelEnum (required); `user` integer (null); `requester` string (required); `summary` string (required); `received_at` date-time; `assignee` integer (null); `notes` string; `details` any
+- **DataRequestStartRequest**: `kind` DataRequestKindEnum (required); `summary` string
 - **DataRequestStatusEnum**: one of `new`, `acknowledged`, `closed`
 - **DeadLetterStateEnum**: one of `open`, `replayed`, `discarded`
 - **DecisionEnum**: one of `approve`, `reject`
 - **DeliveryStat**: `courier` string (required); `district` string (null); `median_days` double (required); `p90_days` double (required); `n` integer (required)
 - **Dependencies**: `available` boolean (required); `path` string (required); `generated_at` date-time (required, null); `age_days` integer (required, null); `stale` boolean (required); `commit` string (required); `counts` object (required); `advisories` [Advisory] (required); `versions` object (required); `error` string (required)
 - **Detail**: `detail` string (required)
+- **DeviceRow**: `kind` string (required); `label` string (required); `ip` string (required); `last_seen` date-time (required, null)
 - **DiscardRequest**: `reason` string (required)
 - **DisclosureHistory**: `key` string (required); `value` any (required); `effective_from` date-time (required); `changed_by` integer (required, null); `reason` string (required); `created` date-time (required)
 - **DisclosureSetting**: `key` string (required); `label` string (required); `kind` any (required); `max_length` integer (required); `public` boolean (required); `value` any (required); `environment` any (required); `source` SettingSourceEnum (required); `effective_from` date-time (required, null); `changed_by` integer (required, null); `reason` string (required)
@@ -2165,6 +2290,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **EmailFigures**: `rates` EmailRates (required); `suppressed` integer (required); `suppressions_synced` date-time (required, null); `topic_restricted` boolean (required); `webhook_secret_set` boolean (required)
 - **EmailRates**: `sent` integer (required); `delivered` integer (required); `bounced` integer (required); `complained` integer (required); `bounce_rate` double (required, null); `complaint_rate` double (required, null); `bounce_limit` double (required); `complaint_limit` double (required)
 - **Ended**: `sessions` integer (required); `tokens` integer (required)
+- **EntitlementRow**: `id` integer (required); `subject` string (required); `source` string (required); `reference` string (required); `valid_until` date (required, null); `active` boolean (required)
 - **EntitlementSourceEnum**: one of `book_code`, `purchase`, `grant`
 - **ErasureErase**: `part` string (required); `what` string (required); `count` integer (required)
 - **ErasureKeep**: `kind` ErasureKeepKindEnum (required); `part` string (required); `what` string (required); `count` integer (required); `why` string (required); `until` date (required, null); `line` string (required)
@@ -2192,6 +2318,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ErrorReportStateEnum**: one of `reported`, `confirmed`, `rejected`, `fixed_online`, `fixed_in_printing`
 - **ErrorsFigures**: `host` string (required)
 - **ExportRequest**: `filters` object
+- **ExtendRequest**: `entitlement` integer (required); `days` integer (required); `reason` string (required)
 - **Extra**: `webhook` RazorpayHealth; `sms` SmsFigures; `email` EmailFigures; `storage` StorageFigures; `google` GoogleFigures; `errors` ErrorsFigures; `erp` ErpHealth; `phase` string
 - **Failure**: `id` integer (required, read-only); `account` integer (required, null, read-only); `operation` string (required, read-only); `task_name` string (required, read-only); `args` any (required, read-only); `attempts` integer (required, read-only); `last_error` string (required, read-only); `state` DeadLetterStateEnum (required, read-only); `discard_reason` string (required, read-only); `resolved_at` date-time (required, null, read-only); `resolved_by` integer (required, null, read-only); `created` date-time (required, read-only); `erp_outbox` integer (required, null, read-only)
 - **Flag**: `key` string (required); `value` any (required); `effective_from` date-time (required, null); `changed_by` integer (required, null); `reason` string (required); `label` string (required); `group` string (required); `environment` any (required, null); `source` SettingSourceEnum (required)
@@ -2216,7 +2343,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **InboundEventStateEnum**: one of `accepted`, `duplicate`, `rejected`, `failed`
 - **InboxCount**: `open` integer (required); `overdue` integer (required)
 - **InboxItem**: `id` integer (required, read-only); `kind` InboxKindEnum (required); `title` string (required); `target_type` string; `target_id` string; `permission` string (required); `assignee` integer (null); `due_at` date-time (null); `overdue` boolean (required, read-only); `snoozed_until` date-time (null); `done_at` date-time (null); `done_by` integer (null); `data` any; `created` date-time
-- **InboxKindEnum**: one of `approval`, `teacher_request`, `deletion_request`, `data_request`, `incident`, `failed_job`, `failed_webhook`, `sync_failed`, `reconciliation`, `shipping_exception`, `dead_letter`, `failed_event`, `integration_down`, `tax_threshold`, `credit_note_missing`, `processor_task`, `compliance`, `order_hold`, `return_request`, `bank_refund`, `role_expired`, `offboarding`, `webhook_silent`, `template_idle`, `template_certify`, `backup_stale`, `dependencies_stale`, `scripts_changed`, `review`, `error_report`, `legal_deposit`
+- **InboxKindEnum**: one of `approval`, `teacher_request`, `deletion_request`, `data_request`, `incident`, `failed_job`, `failed_webhook`, `sync_failed`, `reconciliation`, `shipping_exception`, `dead_letter`, `failed_event`, `integration_down`, `tax_threshold`, `credit_note_missing`, `processor_task`, `compliance`, `order_hold`, `return_request`, `bank_refund`, `role_expired`, `offboarding`, `webhook_silent`, `template_idle`, `template_certify`, `backup_stale`, `dependencies_stale`, `scripts_changed`, `review`, `error_report`, `legal_deposit`, `ticket_due`, `ticket_breach`, `ticket_mention`
 - **Incident**: `id` integer (required, read-only); `title` string (required); `kind` IncidentKindEnum (required); `detected_at` date-time; `noticed_by` integer (required, null, read-only); `description` string; `systems` string; `data_categories` string; `people_affected` integer (null); `children_affected` boolean; `cert_in_due` date-time (required, read-only); `cert_in_overdue` boolean (required, read-only); `cert_in_reported_at` date-time (null); `cert_in_reference` string; `board_due` date-time (required, read-only); `board_overdue` boolean (required, read-only); `board_notified_at` date-time (null); `board_report_at` date-time (null); `board_reference` string; `notice_text` string; `notices_sent` integer; `notices_sent_at` date-time (null); `actions` string; `root_cause` string; `closed_at` date-time (required, null, read-only); `closed_by` integer (required, null, read-only); `created` date-time (required, read-only)
 - **IncidentKindEnum**: one of `data_breach`, `data_leak`, `unauthorised_access`, `malicious_code`, `application_attack`, `denial_of_service`, `loss_of_access`, `other`
 - **IncidentRequest**: `title` string (required); `kind` IncidentKindEnum (required); `detected_at` date-time; `description` string; `systems` string; `data_categories` string; `people_affected` integer (null); `children_affected` boolean; `cert_in_reported_at` date-time (null); `cert_in_reference` string; `board_notified_at` date-time (null); `board_report_at` date-time (null); `board_reference` string; `notice_text` string; `notices_sent` integer; `notices_sent_at` date-time (null); `actions` string; `root_cause` string
@@ -2225,9 +2352,10 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ItemStat**: `item` integer (required); `chapter` integer (required, read-only); `kind` string (required, read-only); `text` string (required, read-only); `n` integer (required); `p` double (null); `discrimination` double (null); `flags` any
 - **Job**: `id` integer (required, read-only); `kind` JobKindEnum (required, read-only); `state` JobStateEnum (required, read-only); `dry_run` boolean (required, read-only); `params` any (required, read-only); `done` integer (required, read-only); `total` integer (required, read-only); `errors` [JobError] (required, read-only); `result` any (required, read-only); `result_url` string (required, null, read-only); `change_request_id` integer (required, null, read-only); `cancel_requested` boolean (required, read-only); `started_by` integer (required, null, read-only); `created` date-time (required, read-only); `started_at` date-time (required, null, read-only); `finished_at` date-time (required, null, read-only)
 - **JobError**: `id` any (required, null); `label` string (required); `message` string (required)
-- **JobKindEnum**: one of `audit_export`, `bulk_action`, `erp_initial_load`, `gstr1_export`, `orders_pack`, `orders_print`, `orders_cancel`, `orders_export`, `content_import`
+- **JobKindEnum**: one of `audit_export`, `bulk_action`, `erp_initial_load`, `gstr1_export`, `orders_pack`, `orders_print`, `orders_cancel`, `orders_export`, `content_import`, `grievance_export`
 - **JobStartRequest**: `kind` JobKindEnum (required); `params` object; `dry_run` boolean
 - **JobStateEnum**: one of `queued`, `running`, `done`, `failed`, `cancelled`
+- **LanguageEnum**: one of `as`, `bn`, `en`
 - **LastTest**: `at` date-time (required, null); `ok` boolean (required, null); `message` string (required)
 - **LegalDeposit**: `id` integer (required, read-only); `book` integer (required); `book_title` string (required, read-only); `edition` string; `library` LegalDepositLibraryEnum (required); `sent_on` date (required); `proof` string (required); `has_file` boolean (required, read-only); `erp_delivery_note` string; `created_by` integer (required, null, read-only); `created` date-time (required, read-only)
 - **LegalDepositLibraryEnum**: one of `national_library`, `connemara`, `asiatic_society`, `delhi_public_library`
@@ -2240,7 +2368,11 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **Logs**: `retention_days` integer (required); `rule` string (required); `dpdp_from` date (required); `inventory` [LogRow] (required); `time` SystemClock (required); `cert_in` Contact (required)
 - **Manifest**: `url` uri (required)
 - **ManifestRequestRequest**: `shipments` [integer] (required)
+- **Message**: `id` integer (required, read-only); `direction` TicketDirectionEnum (required, read-only); `channel` TicketChannelEnum (required, read-only); `author` integer (required, null, read-only); `author_name` string (required, read-only); `automatic` boolean (required, read-only); `body` string (required, read-only); `sent_at` date-time (required, read-only); `mentions` [integer] (required, read-only); `attachments` [Attachment] (required, read-only); `other_sender` boolean (required, read-only); `dropped` [string] (required, read-only)
 - **MessageChannelEnum**: one of `email`, `sms`, `whatsapp`
+- **MessageCreateChannelEnum**: one of `email`, `phone`, `whatsapp`, `nch`
+- **MessageCreateDirectionEnum**: one of `out`, `note`
+- **MessageCreateRequest**: `direction` MessageCreateDirectionEnum (required); `body` string (required); `channel` any; `mentions` [integer]
 - **MissingDeposit**: `book` integer (required); `title` string (required); `edition` string (required); `subject` string (required); `published_on` date (required); `due_on` date (required); `overdue` boolean (required); `missing` [LegalDepositLibraryEnum] (required)
 - **ModeRequest**: `reason` string (required); `mode` ConnectionModeEnum (required)
 - **MonthsEnum**: one of `1`, `3`
@@ -2260,6 +2392,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **OffboardingTickRequest**: `step` string (required); `state` OffboardingStepStateEnum (required); `note` string
 - **OfferStat**: `coupon` string (required, read-only); `offer` string (required, read-only); `period_start` date (required); `period_end` date (required); `orders` integer (required); `revenue` decimal (required); `discount_cost` decimal (required); `period_orders` integer (required); `baseline_orders` integer (required); `baseline_revenue` decimal (required); `interval_low` double (null); `interval_high` double (null); `note` string (required); `n` integer (required, read-only)
 - **OrderAction**: `name` string (required); `permission` string (required); `primary` boolean (required)
+- **OrderActionRequest**: `order` string
 - **OrderAddress**: `name` string (required); `phone` string (required); `line1` string (required); `line2` string (required); `city` string (required); `district` string (required); `state` string (required); `pin` string (required)
 - **OrderCancelRequest**: `reason` string (required); `customer_requested` boolean; `restock` boolean
 - **OrderCourier**: `name` string (required); `tracking_number` string (required)
@@ -2295,6 +2428,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **OrderRow**: `id` integer (required, read-only); `number` string (required, null, read-only); `created` date-time (required, read-only); `placed_at` date-time (required, null, read-only); `status` OrderStatusEnum (required, read-only); `status_label` string (required, read-only); `payment_method` PaymentMethodEnum (required, read-only); `total` decimal (required, read-only); `items` [string] (required, read-only); `customer` OrderCustomer (required, read-only); `courier` OrderCourier (required, null, read-only); `parcel` string (required, null, read-only); `tags` [string] (required, read-only); `held` boolean (required, read-only); `hold_reason` string (required, read-only); `risk_bucket` any (required, read-only); `is_test` boolean (required, read-only); `is_cod` boolean (required, read-only); `has_returns` boolean (required, read-only); `staff_order` boolean (required, read-only); `livemode` boolean (required, read-only)
 - **OrderSaving**: `label` string (required); `amount` decimal (required)
 - **OrderShipRequest**: `courier` CourierEnum (required); `tracking_number` string (required); `tracking_url` any
+- **OrderShipment**: `courier` string (required); `tracking_number` string (required); `tracking_url` string (required); `shipped_at` date-time (required); `delivered_at` date-time (required, null)
 - **OrderStatusEnum**: one of `pending`, `paid`, `packed`, `shipped`, `delivered`, `cancelled`, `refunded`
 - **OrderTagsRequest**: `add` [string]; `remove` [string]
 - **OrderTimelineEntry**: `at` date-time (required); `kind` string (required); `label` string (required); `actor` string (required); `details` object (required)
@@ -2346,11 +2480,13 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **PaginatedProcessorList**: `next` uri (null); `previous` uri (null); `results` [Processor] (required)
 - **PaginatedQuoteRowList**: `next` uri (null); `previous` uri (null); `results` [QuoteRow] (required)
 - **PaginatedReturnRowList**: `next` uri (null); `previous` uri (null); `results` [ReturnRow] (required)
+- **PaginatedSavedReplyList**: `next` uri (null); `previous` uri (null); `results` [SavedReply] (required)
 - **PaginatedSavedViewList**: `next` uri (null); `previous` uri (null); `results` [SavedView] (required)
 - **PaginatedShipmentChargeList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [ShipmentCharge] (required)
 - **PaginatedShippingExceptionList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [ShippingException] (required)
 - **PaginatedStaffInviteList**: `next` uri (null); `previous` uri (null); `results` [StaffInvite] (required)
 - **PaginatedTaxDocumentList**: `next` uri (null); `previous` uri (null); `results` [TaxDocument] (required)
+- **PaginatedTicketList**: `next` uri (null); `previous` uri (null); `results` [Ticket] (required)
 - **PaperPublishRequest**: `is_published` boolean; `is_sample` boolean
 - **PaperQr**: `url` uri (required); `png` string (required)
 - **Parcel**: `id` integer (required, read-only); `order` string (required, read-only); `courier` CourierEnum (required, read-only); `tracking_number` string (required, read-only); `tracking_url` uri (required, read-only); `shipped_at` date-time (required, read-only); `delivered_at` date-time (required, null, read-only); `detail` ParcelDetail (required, null, read-only)
@@ -2358,6 +2494,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ParcelHistory**: `id` integer (required, read-only); `order` string (required, read-only); `courier` CourierEnum (required, read-only); `tracking_number` string (required, read-only); `tracking_url` uri (required, read-only); `shipped_at` date-time (required, read-only); `delivered_at` date-time (required, null, read-only); `detail` ParcelDetail (required, null, read-only); `events` [ShipmentEvent] (required, read-only); `exceptions` [ShippingException] (required, read-only); `charges` [ShipmentCharge] (required, read-only); `cod_remittance` CodRemittance (required, null, read-only)
 - **ParcelStatusEnum**: one of `booked`, `pickup_problem`, `in_transit`, `out_for_delivery`, `delivered`, `delivery_failed`, `returning`, `returned`, `lost_or_damaged`, `cancelled`, `partial`
 - **ParentConfirmationRequest**: `evidence_ref` string (required)
+- **PastTicket**: `number` string (required); `subject` string (required); `category` string (required); `status` string (required); `received_at` date-time (required)
 - **PatchedContentBookRequest**: `title` string; `subject` integer; `edition` string; `slug` string; `cover` string; `isbn` string; `format` BookFormatEnum; `published_on` date (null)
 - **PatchedContentPaperDetailRequest**: `title` string; `tier` TierEnum; `number` integer; `full_marks` integer; `pass_marks` integer; `time_text` string; `header_json` ContentHeaderRequest
 - **PatchedContentReportUpdateRequest**: `staff_note` string; `public` boolean; `printing` any; `step` integer (null)
@@ -2367,9 +2504,11 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **PatchedPickupLocationRequest**: `nickname` string; `address` string; `city` string; `state` string; `pin_code` string; `phone` string; `is_default` boolean; `active` boolean
 - **PatchedProcessorRequest**: `name` string; `purpose` string; `data_categories` string; `country` string; `contract_signed_on` date (null); `contract_ends_on` date (null); `active` boolean; `notes` string; `holds_personal_data` boolean; `holds_marketing_data` boolean; `erasure_action` string
 - **PatchedQuestionUpdateRequest**: `text_md` string; `table_md` string; `options_json` [string]; `marks_text` string; `group_label` string; `part_label` string; `is_alternative` boolean; `order` integer; `label` string; `tags` [string]
+- **PatchedSavedReplyRequest**: `title` string; `language` LanguageEnum; `body` string
 - **PatchedSavedViewRequest**: `role` string; `list_key` string; `name` string; `filters` any; `columns` any; `sort` any
 - **PatchedSolutionUpdateRequest**: `body_md` string
-- **PatchedTemplateRequest**: `event` string; `channel` MessageChannelEnum; `language` TemplateLanguageEnum; `text` string; `subject` string; `variables` [VariableRequest]; `dlt_template_id` string; `pe_id` string; `header` string; `header_suffix` any; `msg91_id` string; `whatsapp_name` string; `category` TemplateCategoryEnum; `approval_state` TemplateApprovalEnum; `self_certified_on` date (null); `notes` string
+- **PatchedTemplateRequest**: `event` string; `channel` MessageChannelEnum; `language` LanguageEnum; `text` string; `subject` string; `variables` [VariableRequest]; `dlt_template_id` string; `pe_id` string; `header` string; `header_suffix` any; `msg91_id` string; `whatsapp_name` string; `category` TemplateCategoryEnum; `approval_state` TemplateApprovalEnum; `self_certified_on` date (null); `notes` string
+- **PatchedTicketChangeRequest**: `category` any; `priority` TicketPriorityEnum; `language` LanguageEnum; `source` TicketSourceEnum; `nch_docket` string; `subject` string; `name` string; `email` any; `phone` string; `order` string; `record` string
 - **PatternEnum**: one of `false_urgency`, `basket_sneaking`, `confirm_shaming`, `forced_action`, `subscription_trap`, `interface_interference`, `bait_and_switch`, `drip_pricing`, `disguised_advertisement`, `nagging`, `trick_question`, `saas_billing`, `rogue_malware`
 - **PaymentMethodEnum**: one of `razorpay`, `cod`, `offline`
 - **Person**: `id` integer (required, read-only); `email` email (required); `full_name` string (required); `is_active` boolean; `is_superuser` boolean; `roles` [string] (required, read-only); `grants` [object] (required, read-only); `scopes` [Scope] (required, read-only); `mfa` boolean (required, read-only); `last_login` date-time (null); `created` date-time (required, read-only)
@@ -2416,16 +2555,19 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ReconcileRequest**: `order` string (required)
 - **Reconciled**: `order` string (required); `paid` boolean (required, null)
 - **ReconciliationLine**: `date` date (required); `state` string (required); `differences` integer (required)
+- **RefundLineRequest**: `item` integer (required); `quantity` integer (required)
 - **RefundMarkPaidRequest**: `utr` string (required)
 - **RefundPayee**: `upi` string; `account` string; `ifsc` string; `name` string
 - **RefundPayeeReasonRequest**: `reason` string (required)
 - **RefundPayeeRequest**: `upi` string; `account` string; `ifsc` string; `name` string
+- **RefundRequest**: `order` string; `amount` decimal (null); `lines` [RefundLineRequest]; `reason` string (required)
 - **RefundSpeedEnum**: one of `normal`, `optimum`
 - **RefundStatusEnum**: one of `pending`, `processed`, `failed`
 - **ReleaseRequest**: `reason` string (required)
 - **ReplayFailedRequest**: `since` date-time (required)
 - **Replayed**: `replayed` integer (required); `more` boolean (required)
 - **ReportsOpen**: `total` integer (required); `by_category` object (required)
+- **Requester**: `name` string (required); `email` string (required); `phone` string (required); `user` integer (required, null)
 - **ResolveRequest**: `resolution` string (required); `dismiss` boolean
 - **ResponseText**: `subject` string (required); `body` string (required)
 - **RestoreDrill**: `id` integer (required, read-only); `performed_on` date (required); `engine` RestoreDrillEngineEnum (required); `backup` string (required); `result` RestoreDrillResultEnum (required); `duration_minutes` integer (required); `notes` string; `recorded_by` integer (required, null, read-only); `created` date-time (required, read-only)
@@ -2458,11 +2600,14 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **RolePreviewRequestRequest**: `role` RoleEnum (required); `action` RoleChangeActionEnum
 - **RoleScopeChange**: `role` RoleEnum (required); `scopes` object (required); `added` boolean (required)
 - **Rotated**: `token` string (required); `webhooks` WebhookInfo (required)
+- **SavedReply**: `id` integer (required, read-only); `title` string (required); `language` LanguageEnum; `body` string (required); `variables` [string] (required, read-only); `created_by` integer (required, null, read-only); `created` date-time (required, read-only); `modified` date-time (required, read-only); `deleted_at` date-time (required, null, read-only)
+- **SavedReplyRequest**: `title` string (required); `language` LanguageEnum; `body` string (required)
+- **SavedReplyText**: `id` integer (required); `title` string (required); `language` string (required); `text` string (required)
 - **SavedView**: `id` integer (required, read-only); `owner` integer (required, read-only); `role` string; `list_key` string (required); `name` string (required); `filters` any; `columns` any; `sort` any; `created` date-time (required, read-only); `modified` date-time (required, read-only)
 - **SavedViewRequest**: `role` string; `list_key` string (required); `name` string (required); `filters` any; `columns` any; `sort` any
 - **Scope**: `id` integer (required, read-only); `kind` ScopeKindEnum (required); `value` string (required); `granted_by` integer (required, null, read-only); `created` date-time (required, read-only); `expires_at` date-time (null)
 - **ScopeAddRequest**: `kind` ScopeKindEnum (required); `value` string (required); `expires_at` date-time (null)
-- **ScopeKindEnum**: one of `subject`, `board_class`, `order_status`, `warehouse`, `school`, `ticket_queue`
+- **ScopeKindEnum**: one of `subject`, `board_class`, `order_status`, `warehouse`, `school`, `ticket_queue`, `ticket_category`
 - **ScriptPageEnum**: one of `checkout`, `console`
 - **ScriptRow**: `id` integer (required, read-only); `page` ScriptPageEnum (required); `src` any; `sha256` string (required); `first_seen` date-time; `last_seen` date-time; `current` boolean (required, read-only)
 - **ScriptRun**: `page` ScriptPageEnum (required); `url` string (required); `at` date-time (required, null); `ok` boolean (required, null); `error` string (required); `added` integer (required); `removed` integer (required)
@@ -2484,6 +2629,11 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ShippingExceptionKindEnum**: one of `pickup_problem`, `ndr`, `rto`, `lost`, `partial`, `weight_dispute`, `cod_overdue`, `no_movement`
 - **ShippingExceptionStateEnum**: one of `open`, `resolved`, `dismissed`
 - **ShowEnum**: one of `email`, `phone`, `login_phone`, `parent_contact`, `parent_name`, `date_of_birth`
+- **Sidebar**: `account` Customer (required, null); `orders` [SidebarOrder] (required, null); `entitlements` [EntitlementRow] (required, null); `codes` [CodeRow] (required, null); `devices` [DeviceRow] (required, null); `tickets` [PastTicket] (required, null); `consents` [ConsentRow] (required, null)
+- **SidebarLine**: `id` integer (required); `title` string (required); `quantity` integer (required); `unit_price` string (required); `discount` string (required, null)
+- **SidebarOrder**: `number` string (required); `status` string (required); `status_label` string (required); `total` string (required); `payment_method` string (required); `created` date-time (required); `placed_at` date-time (required, null); `is_test` boolean (required); `refund_mode` string (required); `refund_warning` string (required); `linked` boolean (required); `payments` [SidebarPayment] (required); `refunds` [SidebarRefund] (required); `shipments` [OrderShipment] (required); `invoice` string (required, null); `credit_notes` [string] (required); `items` [SidebarLine] (required)
+- **SidebarPayment**: `method` string (required); `paid_with` string (required); `status` string (required); `amount` string (required); `razorpay_order_id` string (required, null); `razorpay_payment_id` string (required, null); `created` date-time (required)
+- **SidebarRefund**: `amount` string (required); `status` string (required); `razorpay_refund_id` string (required, null); `created` date-time (required)
 - **SmsFigures**: `sent_today` integer (required); `capped_today` integer (required); `capped_7_days` integer (required); `delivery_7_days` object (required); `daily_cap` integer (required); `templates` integer (required)
 - **SnoozeRequest**: `until` date-time (required)
 - **StaffBreakGlass**: `reason_required` boolean (required); `reason` string (required, null); `ends_at` date-time (required)
@@ -2500,8 +2650,10 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **StaffSystem**: `health` any (required); `celery` any (required); `webhooks` any (required); `email` any (required); `sms` any (required); `backups` any (required); `maintenance` any (required); `audit` any (required); `status` [SystemStatus] (required)
 - **StaffUser**: `id` integer (required); `email` email (required); `full_name` string (required); `is_superuser` boolean (required)
 - **StateEnum**: one of `KA`, `AP`, `KL`, `TN`, `MH`, `UP`, `GA`, `GJ`, `RJ`, `HP`, `TG`, `AR`, `AS`, `BR`, `CT`, `HR`, `JH`, `MP`, `MN`, `ML`, `MZ`, `NL`, `OR`, `PB`, `SK`, `TR`, `UT`, `WB`, `AN`, `CH`, `DH`, `DL`, `JK`, `LD`, `LA`, `PY`
+- **StatusRequest**: `status` TicketStatusEnum (required); `resolution` string; `order` string; `record` string
 - **StepsEnum**: one of `passkey_required`
 - **StorageFigures**: `buckets` [Bucket] (required); `public_domain` string (required)
+- **SupportSummary**: `since` date (required); `until` date (required); `received` integer (required); `by_category` object (required); `by_source` object (required); `first_response_hours` double (required, null); `resolution_hours` double (required, null); `backlog` object (required); `overdue` integer (required); `breaches` object (required)
 - **SwitchChangeRequest**: `value` any (required, null); `reason` string (required); `effective_from` date-time
 - **SwitchRow**: `key` string (required); `value` any (required); `effective_from` date-time (required); `changed_by` integer (required, null); `reason` string (required); `created` date-time (required)
 - **Sync**: `status` any (required); `flows` [SyncFlow] (required); `dead_letters` [SyncDead] (required); `dead_count` integer (required); `inbound` SyncInbound (required); `reconciliations` [SyncRun] (required)
@@ -2525,16 +2677,33 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **TaxThresholdLineEnum**: one of `gstr9`, `warning`, `e_invoice`, `irp_30_days`, `b2c_large`, `eway_bill`
 - **TaxTreatmentEnum**: one of `split`, `composite`, `mixed`
 - **TaxabilityEnum**: one of `taxable`, `nil`, `exempt`, `non_gst`
-- **Template**: `id` integer (required, read-only); `event` string (required); `channel` MessageChannelEnum (required); `language` TemplateLanguageEnum; `text` string; `subject` string; `variables` [Variable]; `dlt_template_id` string; `pe_id` string; `header` string; `header_suffix` any; `msg91_id` string; `whatsapp_name` string; `category` TemplateCategoryEnum (required); `approval_state` TemplateApprovalEnum; `last_used_at` date-time (required, null, read-only); `self_certified_on` date (null); `notes` string; `created` date-time (required, read-only); `modified` date-time (required, read-only); `days_unused` integer (required, read-only); `warnings` [string] (required, read-only)
+- **Template**: `id` integer (required, read-only); `event` string (required); `channel` MessageChannelEnum (required); `language` LanguageEnum; `text` string; `subject` string; `variables` [Variable]; `dlt_template_id` string; `pe_id` string; `header` string; `header_suffix` any; `msg91_id` string; `whatsapp_name` string; `category` TemplateCategoryEnum (required); `approval_state` TemplateApprovalEnum; `last_used_at` date-time (required, null, read-only); `self_certified_on` date (null); `notes` string; `created` date-time (required, read-only); `modified` date-time (required, read-only); `days_unused` integer (required, read-only); `warnings` [string] (required, read-only)
 - **TemplateApprovalEnum**: one of `draft`, `submitted`, `approved`, `rejected`, `paused`, `deactivated`
 - **TemplateCategoryEnum**: one of `transactional`, `service`, `promotional`, `utility`, `authentication`
-- **TemplateLanguageEnum**: one of `en`, `as`, `bn`
-- **TemplateRequest**: `event` string (required); `channel` MessageChannelEnum (required); `language` TemplateLanguageEnum; `text` string; `subject` string; `variables` [VariableRequest]; `dlt_template_id` string; `pe_id` string; `header` string; `header_suffix` any; `msg91_id` string; `whatsapp_name` string; `category` TemplateCategoryEnum (required); `approval_state` TemplateApprovalEnum; `self_certified_on` date (null); `notes` string
+- **TemplateRequest**: `event` string (required); `channel` MessageChannelEnum (required); `language` LanguageEnum; `text` string; `subject` string; `variables` [VariableRequest]; `dlt_template_id` string; `pe_id` string; `header` string; `header_suffix` any; `msg91_id` string; `whatsapp_name` string; `category` TemplateCategoryEnum (required); `approval_state` TemplateApprovalEnum; `self_certified_on` date (null); `notes` string
 - **TestResult**: `ok` boolean (required, null); `message` string (required); `card` ConnectionCard (required)
 - **TestSendRequest**: `variables` object
 - **TestSent**: `sent` boolean (required); `to` string (required); `detail` string (required)
 - **ThresholdCard**: `as_of` date (required, null); `financial_year` string (required); `previous_year` string (required); `previous_turnover` decimal (required); `qrmp` boolean (required); `hsn_digits` integer (required); `basis` string (required); `rows` [ThresholdRow] (required)
 - **ThresholdRow**: `line` TaxThresholdLineEnum (required, read-only); `label` string (required); `value` decimal (required, read-only); `limit` decimal (required, read-only); `crossed` boolean (required, read-only); `count` boolean (required, read-only); `detail` any (required, read-only); `date` date (required, read-only); `financial_year` string (required, read-only)
+- **Ticket**: `id` integer (required, read-only); `number` string (required, read-only); `subject` string (required, read-only); `source` TicketSourceEnum (required, read-only); `nch_docket` string (required, read-only); `category` any (required, read-only); `priority` TicketPriorityEnum (required, read-only); `status` TicketStatusEnum (required, read-only); `language` LanguageEnum (required, read-only); `requester` Requester (required, read-only); `assignee` integer (required, null, read-only); `order` string (required, null, read-only); `received_at` date-time (required, read-only); `acknowledged_at` date-time (required, null, read-only); `first_response_at` date-time (required, null, read-only); `resolved_at` date-time (required, null, read-only); `closed_at` date-time (required, null, read-only); `ack_due_at` date-time (required, read-only); `due_at` date-time (required, read-only); `next_due_at` date-time (required, read-only); `ack_breached` boolean (required, read-only); `due_breached` boolean (required, read-only); `overdue` boolean (required, read-only); `clock` string (required, null, read-only); `is_test` boolean (required, read-only); `reopened_count` integer (required, read-only); `message_count` integer (required, read-only); `last_message_at` date-time (required, null, read-only)
+- **TicketAssignRequest**: `assignee` integer (required, null)
+- **TicketCancelRequest**: `order` string; `reason` string (required)
+- **TicketCategoryEnum**: one of `order`, `payment`, `book_code`, `qr_solutions`, `content_error`, `school_order`, `privacy_request`, `grievance`
+- **TicketChannelEnum**: one of `web`, `email`, `phone`, `whatsapp`, `sms`, `nch`, `panel`
+- **TicketClock**: `name` string (required); `kind` string (required); `due` date-time (required); `rule` string (required); `stopped_at` date-time (required, null); `breached` boolean (required)
+- **TicketContactEnum**: one of `phone`, `whatsapp`, `nch`, `email`
+- **TicketCreateRequest**: `source` TicketContactEnum (required); `nch_docket` string; `name` string; `email` any; `phone` string; `category` any; `priority` TicketPriorityEnum; `subject` string (required); `message` string (required); `received_at` date-time; `order` string
+- **TicketDetail**: `id` integer (required, read-only); `number` string (required, read-only); `subject` string (required, read-only); `source` TicketSourceEnum (required, read-only); `nch_docket` string (required, read-only); `category` any (required, read-only); `priority` TicketPriorityEnum (required, read-only); `status` TicketStatusEnum (required, read-only); `language` LanguageEnum (required, read-only); `requester` Requester (required, read-only); `assignee` integer (required, null, read-only); `order` string (required, null, read-only); `received_at` date-time (required, read-only); `acknowledged_at` date-time (required, null, read-only); `first_response_at` date-time (required, null, read-only); `resolved_at` date-time (required, null, read-only); `closed_at` date-time (required, null, read-only); `ack_due_at` date-time (required, read-only); `due_at` date-time (required, read-only); `next_due_at` date-time (required, read-only); `ack_breached` boolean (required, read-only); `due_breached` boolean (required, read-only); `overdue` boolean (required, read-only); `clock` string (required, null, read-only); `is_test` boolean (required, read-only); `reopened_count` integer (required, read-only); `message_count` integer (required, read-only); `last_message_at` date-time (required, null, read-only); `data_request` integer (required, null, read-only); `record` string (required, null, read-only); `resolution` string (required, read-only); `complaint_copy_sent_at` date-time (required, null, read-only); `ack_held` boolean (required, read-only); `redress_due_at` date-time (required, null, read-only); `nch_due_at` date-time (required, null, read-only); `dpdp_due_at` date-time (required, null, read-only); `it_due_at` date-time (required, null, read-only); `clocks` [TicketClock] (required, read-only); `closing_fields` [string] (required, read-only); `transitions` [string] (required, read-only); `messages` [Message] (required, read-only)
+- **TicketDirectionEnum**: one of `in`, `out`, `note`
+- **TicketOrderCancelled**: `order` string (required); `status` string (required)
+- **TicketPriorityEnum**: one of `low`, `medium`, `high`, `urgent`
+- **TicketRecord**: `id` integer (required, read-only); `number` string (required, read-only); `subject` string (required, read-only); `source` TicketSourceEnum (required, read-only); `nch_docket` string (required, read-only); `category` any (required, read-only); `priority` TicketPriorityEnum (required, read-only); `status` TicketStatusEnum (required, read-only); `language` LanguageEnum (required, read-only); `requester` Requester (required, read-only); `assignee` integer (required, null, read-only); `order` string (required, null, read-only); `received_at` date-time (required, read-only); `acknowledged_at` date-time (required, null, read-only); `first_response_at` date-time (required, null, read-only); `resolved_at` date-time (required, null, read-only); `closed_at` date-time (required, null, read-only); `ack_due_at` date-time (required, read-only); `due_at` date-time (required, read-only); `next_due_at` date-time (required, read-only); `ack_breached` boolean (required, read-only); `due_breached` boolean (required, read-only); `overdue` boolean (required, read-only); `clock` string (required, null, read-only); `is_test` boolean (required, read-only); `reopened_count` integer (required, read-only); `message_count` integer (required, read-only); `last_message_at` date-time (required, null, read-only); `data_request` integer (required, null, read-only); `record` string (required, null, read-only); `resolution` string (required, read-only); `complaint_copy_sent_at` date-time (required, null, read-only); `ack_held` boolean (required, read-only); `redress_due_at` date-time (required, null, read-only); `nch_due_at` date-time (required, null, read-only); `dpdp_due_at` date-time (required, null, read-only); `it_due_at` date-time (required, null, read-only); `clocks` [TicketClock] (required, read-only); `closing_fields` [string] (required, read-only); `transitions` [string] (required, read-only); `messages` [Message] (required, read-only); `sidebar` Sidebar (required, read-only); `saved_replies` [SavedReplyText] (required, read-only)
+- **TicketRevealFieldEnum**: one of `email`, `phone`
+- **TicketRevealRequest**: `show` [TicketRevealFieldEnum] (required); `reason` string (required)
+- **TicketRevealed**: `email` string (required, null); `phone` string (required, null)
+- **TicketSourceEnum**: one of `form`, `email`, `phone`, `whatsapp`, `nch`
+- **TicketStatusEnum**: one of `new`, `open`, `waiting_customer`, `waiting_third_party`, `resolved`, `closed`, `spam`
 - **TierEnum**: one of `E`, `M`, `H`
 - **TokenRequest**: `token` string (required)
 - **Unlocked**: `attempts_cleared` integer (required)
@@ -2592,6 +2761,13 @@ Counted in the cache (Redis in production), per client address for anonymous req
 | bulk actions started (`staff/jobs/` of kind `bulk_action`) | 20 an hour | `STAFF_THROTTLE_BULK` |
 | a template sent to oneself (`staff/templates/<id>/test/`) | 10 an hour | `STAFF_THROTTLE_TEST_SEND` |
 | money actions and approvals (`staff/change-requests/` asked, approved, run; role grants, invitations, offboarding) | 120 an hour | `STAFF_THROTTLE_MONEY` |
+| the support mailbox's hook (`POST /api/hooks/support-mail/`), per client address | 120 a minute | `API_THROTTLE_SUPPORT_MAIL` |
+| new requests from My requests (`POST me/tickets/`), per account | 10 an hour | `API_THROTTLE_SUPPORT_REQUEST` |
+| the staff API (`staff/…`), per member of staff or API key | 600 a minute | `STAFF_THROTTLE` |
+| customer searches (`GET staff/users/`), the support queue and its book-code lookups | 60 a minute | `STAFF_THROTTLE_SEARCH` |
+| reveals of a customer's details, and impersonation tokens (`staff/users/<id>/reveal/`, `…/impersonate/`, `staff/support/tickets/<number>/reveal/`) | 30 an hour | `STAFF_THROTTLE_REVEAL` |
+| audit-log exports (`staff/audit/export/`) | 10 an hour | `STAFF_THROTTLE_EXPORT` |
+| money actions and approvals (`staff/change-requests/` asked, approved, run; role grants, invitations, offboarding; a ticket's refund and cancel) | 120 an hour | `STAFF_THROTTLE_MONEY` |
 | staff invitations accepted (`staff/invites/accept/`), per client address | 10 an hour | `STAFF_THROTTLE_INVITE` |
 | a member of staff logged in as a customer, opened or ended (`account/impersonate/`), per client address | 20 an hour | `API_THROTTLE_IMPERSONATE` |
 

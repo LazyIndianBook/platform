@@ -50,7 +50,10 @@ change requests in every state (pending, approved, rejected, expired, executed, 
 running, done, failed and cancelled, orders in every state (paid and to pack, held, cash on delivery with a high risk,
 sent, delivered with returns, cancelled, a staff order waiting for its payment, a bank refund to mark paid, a test
 order; `src/mocks/staff/orders.ts`), an overdue inbox, a data request near its clock, an incident's 6-hour clock, a
-scheduled setting, revoked API keys, a person who left. Signing in stays real: each mock request asks the Django
+scheduled setting, revoked API keys, a person who left, and support tickets in every state (new, nearly due, overdue
+with its deadline missed, an acknowledgement missed, waiting, an NCH complaint, a privacy request, a content error,
+resolved, closed, spam) with saved replies in three languages (`src/mocks/staff/support-fixtures.ts` and
+`support-handler.ts`, called from the two files). Signing in stays real: each mock request asks the Django
 backend whose session cookie it carries who is signed in (`GET /api/v1/me/`: 401 signed out, 403 `mfa_setup_required`
 for staff without two-step sign-in, the role groups otherwise), "confirm it's you" reads allauth's own record of the
 last authentication, the CSRF token is checked as Django checks it, actions write audit events, and the backend's
@@ -177,6 +180,11 @@ shape), and `<html lang>` with the `:lang` rule and Hind Siliguri in every font 
   diff beside the preview, approve, ask for changes, publish with five seconds to undo), `/content/reports/` and
   `<id>/` (the triage, Tell the reporter), `/content/errata/`, `/content/imports/` (a dry run's counts and labels,
   then Apply) and `/content/legal-deposits/`.
+- Support: `/support/` (the queue by the next legal deadline, its tabs due soonest, mine, unassigned, overdue,
+  waiting and all as `?tab=`, the module's numbers), `/support/tickets/<number>/` (the conversation and the reply box,
+  the deadlines, the status, the actions, the customer and the audit trail beside it), `/support/new/` (a call, a
+  WhatsApp message, an NCH complaint or an email logged), `/support/replies/` and `/support/export/` (the grievance
+  register).
 - In ERPNext (links out, in a new tab, said in words and marked with the external-link icon; drawn only when
   `NEXT_PUBLIC_ERP_URL` is set and the manifest has one of the sync's `erp.*` permissions): Finance `/app/accounting`,
   GST returns `/app/gst-india`, Inventory `/app/stock`, Purchases `/app/buying`, CRM `/app/crm`.
@@ -219,8 +227,9 @@ nothing animates with reduced motion.
   file), ⌘K; legal and privacy (the cockpit, a child's deletion confirmed for the parent with the evidence, a legal
   hold that the erasure's dry run then names, the disclosures saved with a reason, both found in the audit trail); the
   Orders module (SUPPORT's refund of two books above their limit answered with its change request; the packing queue's
-  mark packed undone, then sent); the idle sign-out; and a break-glass session's reason and a policy acknowledged
-  before anything else.
+  mark packed undone, then sent); the support queue (a ticket opened, a saved reply put in with Alt 1 and sent, the
+  status moved on, an NCH complaint logged); the idle sign-out; and a break-glass session's reason and a policy
+  acknowledged before anything else.
 - **Against the real backend** an OWNER, a SUPPORT, a SALES and a FINANCE member are made for the run, with an adult
   customer, an order of ₹1,500 paid online, the customer's erasure request and an incident: SUPPORT reads the manifest
   and the inbox and asks for a refund above their ₹1,000 (a 202 and a change request, which the maker cannot approve:
@@ -228,7 +237,9 @@ nothing animates with reduced motion.
   role waits for another person, never the maker); searches for the customer and reveals their address with a reason
   (audited); acknowledges the data request; changes a setting with a reason; signs in to the website as the customer
   with the real token and ends it (both audited); puts a legal hold on the customer, which the erasure's dry run then
-  names; and the idle sign-out comes at SUPPORT's 30 minutes, after which the API answers 401. Then the Orders module,
+  names; SUPPORT answers the customer's ticket (seeded through the support app's own service), its first reply is
+  recorded and the OWNER finds the reply in the ticket's audit trail; and the idle sign-out comes at SUPPORT's 30
+  minutes, after which the API answers 401. Then the Orders module,
   on three books and an order of one of each paid online and sent: SALES makes a staff order (the rule's answer shown
   before saving; made at once within 20%), FINANCE finds it by the customer's email, and SUPPORT asks for a refund of
   two of its books, ₹1,900: the 202 and its change request.
@@ -355,3 +366,14 @@ cursor pagination `{next, previous, results}` (the `cursor` of the links, `page_
   `{kind: "content_import", params: {subject, commit, fixtures?, dry_run_job?}, dry_run}` (`staff.import_content`, a
   fresh authentication); `GET`/`POST content/legal-deposits/` (multipart with a scan),
   `GET content/legal-deposits/missing/`, `content/legal-deposits/{id}/proof/` (the scan, opened from this origin).
+- **Support**: `GET support/tickets/` (`?tab`'s filters: `open`, `mine`, `unassigned`, `overdue`, `waiting`; and
+  `q`, `category`, `priority`, `source`, `status`, `test`), `GET support/tickets/{number}/` (opening it is audited;
+  its `sidebar` and `saved_replies` come with it), `POST support/tickets/` (log one), `PATCH support/tickets/{number}/`,
+  `POST …/messages/` (`direction` `out` with its `channel`, or `note` with its `mentions`), `…/assign/`, `…/claim/`,
+  `…/status/` (with the `closing_fields` it asks for), `…/reopen/`, `…/acknowledge/`, `…/reveal/` (`{show: ["email"],
+reason}`), `…/refund/` and `…/cancel/` (with an `Idempotency-Key`; 202 a change request above the limit),
+  `…/resend-invoice/`, `…/resend-confirmation/`, `…/extend-access/`, `…/book-code/`, `…/data-request/`;
+  `GET support/tickets/{number}/attachments/{id}/` (a file, opened as a link); `GET support/summary/?days=30`,
+  `GET support/agents/`; `GET POST support/saved-replies/` (`?bin=true`), `PATCH DELETE …/{id}/`, `POST …/{id}/restore/`;
+  the grievance register as `POST jobs/` `{kind: "grievance_export", params: {from, until}}` and `GET
+jobs/?kind=grievance_export&mine=true`.

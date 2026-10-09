@@ -352,7 +352,7 @@ def test_the_cockpit_has_every_clock_with_the_record_behind_it(settings):
     assert kinds["dark_pattern_audit"]["target_label"].startswith("Self-audit 202")
     assert answer["clocks"][0]["overdue"]  # the overdue first
     assert answer["counts"]["data_request_ack"] == {"open": 1, "overdue": 1}
-    assert answer["support"] == {"installed": False, "error": ""}  # the support app is read when it is there
+    assert answer["support"] == {"installed": True, "error": ""}  # the support app is there and its fields match
     assert answer["consents"][0]["given"] == 1 and answer["consents"][0]["number"] == 1
     assert answer["consents"][0]["in_force"] is True
     titles = [item["title"] for item in answer["calendar"]]

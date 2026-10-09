@@ -15,7 +15,7 @@ RISKS = [LOW, MEDIUM, HIGH, CRITICAL]
 ORDERS, PAYMENTS, CUSTOMERS, CONTENT, COURSE = "Orders", "Payments & refunds", "Customers", "Content", "Course"
 CATALOGUE, MARKETING, STAFF, AUDIT = "Catalogue", "Marketing", "Staff & roles", "Audit"
 PRIVACY, SETTINGS, OPERATIONS, ERP_SYNC = "Privacy", "Settings", "Operations", "ERP sync"
-SHIPPING, REPORTS, TAX = "Shipping", "Reports", "Tax"
+SHIPPING, REPORTS, TAX, SUPPORT = "Shipping", "Reports", "Tax", "Support"
 
 
 @dataclass(frozen=True)
@@ -133,6 +133,9 @@ STAFF_ACTIONS = [
     # Content (Phase B): the triage of reported mistakes and the import from the books repository (content/README.md)
     ("triage_report", "Triage reported mistakes: confirm, reject, mark fixed, tell the reporter", CONTENT, MEDIUM),
     ("import_content", "Import papers and solutions from the books repository (a dry run first)", CONTENT, HIGH),
+    # support (support/README.md): tickets and the grievance register
+    ("handle_ticket", "Handle support tickets: reply, assign, change, move on, close, acknowledge", SUPPORT, MEDIUM),
+    ("export_grievances", "Export the grievance register (a dated CSV, no personal data)", SUPPORT, HIGH, True),
 ]
 STAFF_MODELS = [
     ("view_changerequest", "See the approvals you take part in", STAFF, LOW),
@@ -183,6 +186,8 @@ OTHERS = {
             ("export_order", "Export orders", ORDERS, HIGH),
         ],
     ),
+    # Support (support/README.md): notes only, a content editor's on content-error tickets
+    **_entries("support", [("note_ticket", "Write internal notes on the tickets you can see", SUPPORT, LOW)]),
     # The ERPNext sync (erp/README.md): its outbox, dead letters, reconciliation and initial load
     **_entries(
         "erp",
@@ -225,6 +230,7 @@ APP_AREAS = {
     "shipping": SHIPPING,
     "insights": REPORTS,
     "integrations": SETTINGS,
+    "support": SUPPORT,
 }
 SHOP_AREAS = {
     **dict.fromkeys(["payment", "refund", "invoice", "creditnote"], PAYMENTS),

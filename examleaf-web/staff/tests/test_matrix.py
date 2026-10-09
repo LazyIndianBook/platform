@@ -44,6 +44,8 @@ from staff.models import (
     StaffScope,
 )
 from staff.permissions import ANY_STAFF
+from support import services as support_services
+from support.models import SavedReply
 
 from .conftest import STAFF, make_staff, signed_in
 
@@ -298,6 +300,34 @@ ENDPOINTS = [
     ("get", "content/legal-deposits/missing/", "content.view_legaldeposit"),
     ("get", "content/legal-deposits/{deposit}/", "content.view_legaldeposit"),
     ("get", "content/legal-deposits/{deposit}/proof/", "content.view_legaldeposit"),  # 404 without a scan
+    # support (support/api.py): tickets, their actions (each its own permission), saved replies, the numbers
+    ("get", "support/tickets/", "support.view_ticket"),
+    ("post", "support/tickets/", "staff.handle_ticket"),
+    ("get", "support/tickets/{ticket}/", "support.view_ticket"),
+    ("patch", "support/tickets/{ticket}/", "staff.handle_ticket"),
+    ("post", "support/tickets/{ticket}/messages/", "staff.handle_ticket"),  # a note: support.note_ticket
+    ("post", "support/tickets/{ticket}/assign/", "staff.handle_ticket"),
+    ("post", "support/tickets/{ticket}/claim/", "staff.handle_ticket"),
+    ("post", "support/tickets/{ticket}/status/", "staff.handle_ticket"),
+    ("post", "support/tickets/{ticket}/reopen/", "staff.handle_ticket"),
+    ("post", "support/tickets/{ticket}/acknowledge/", "staff.handle_ticket"),
+    ("post", "support/tickets/{ticket}/reveal/", "staff.reveal_contact"),
+    ("get", "support/tickets/{ticket}/attachments/{attachment}/", "support.view_ticket"),
+    ("post", "support/tickets/{ticket}/refund/", "staff.refund_order"),
+    ("post", "support/tickets/{ticket}/cancel/", "shop.change_order"),
+    ("post", "support/tickets/{ticket}/resend-invoice/", "staff.handle_ticket"),
+    ("post", "support/tickets/{ticket}/resend-confirmation/", "staff.handle_ticket"),
+    ("post", "support/tickets/{ticket}/extend-access/", "learn.change_entitlement"),
+    ("post", "support/tickets/{ticket}/book-code/", "learn.view_bookcode"),
+    ("post", "support/tickets/{ticket}/data-request/", "staff.handle_data_request"),
+    ("get", "support/saved-replies/", "support.view_savedreply"),
+    ("post", "support/saved-replies/", "support.add_savedreply"),
+    ("get", "support/saved-replies/{reply}/", "support.view_savedreply"),
+    ("patch", "support/saved-replies/{reply}/", "support.change_savedreply"),
+    ("delete", "support/saved-replies/{reply}/", "support.delete_savedreply"),
+    ("post", "support/saved-replies/{reply}/restore/", "support.delete_savedreply"),
+    ("get", "support/summary/", "support.view_ticket"),
+    ("get", "support/agents/", "support.view_ticket"),
     ("post", "people/{person}/offboard/", "staff.assign_role"),  # last: the person goes
 ]
 
@@ -343,6 +373,12 @@ def objects():
     quote = QuoteRequest.objects.create(school="Cotton Collegiate", contact_name="Anita Das", email="o@example.com",
                                         phone="+919864012345", delivery_pin="781001",
                                         items=[{"product": "x", "title": "X", "quantity": 1}])  # fmt: skip
+    ticket = support_services.create_ticket(
+        source="email", channel="email", subject="Late parcel", body="Where is it?", email="a@example.com",
+        category="order",
+    )  # fmt: skip
+    message = ticket.messages.get()
+    support_services.save_attachments(message, [("photo.png", "image/png", b"\x89PNG")])
     return {
         "document": document.number.replace("/", "-"),
         "order": order.number,
@@ -381,6 +417,9 @@ def objects():
         "hold": LegalHold.objects.create(user=customer, reason="dispute").pk,
         "deletion": DeletionRequest.objects.create(user=customer).pk,
         "audit": DarkPatternAudit.objects.create(year=2027).pk,
+        "ticket": ticket.number,
+        "attachment": message.attachments.get().pk,
+        "reply": SavedReply.objects.create(title="Hello", body="Hello {name|there}").pk,
         **phase_b_objects(person),
     }
 

@@ -30,6 +30,9 @@ const PAGES: Record<string, (id: string) => string> = {
   "content.errorreport": (id) => `/content/reports/${id}/`,
   "content.book": (id) => `/content/books/${id}/`,
   "content.paper": (id) => `/content/papers/${id}/`,
+  "support.ticket": (id) => `/support/tickets/${id}/`,
+  // a mention's inbox item names "ticket id:person id"; it opens the ticket
+  "support.mention": (id) => `/support/tickets/${encodeURIComponent(decodeURIComponent(id).split(":")[0])}/`,
 };
 
 export function targetHref(type: string | null | undefined, id: string | null | undefined, action = ""): string | null {

@@ -14,6 +14,7 @@ import type { Note, Schemas } from "@/lib/api/staff";
 import { createTaxWorld, monthBefore, type TaxWorld } from "./tax";
 import { type OrdersWorld, ordersWorld } from "./orders";
 import { type ContentWorld, createContent } from "./content";
+import { createSupportWorld, type SupportWorld } from "./support-fixtures";
 
 export type Me = { id: number; email: string; name: string; roles: string[] };
 
@@ -79,6 +80,8 @@ export type World = {
   orders: OrdersWorld;
   /** The content module's records (content.ts). */
   content: ContentWorld;
+  /** The support module's tickets, saved replies and the requesters' sidebar (support-fixtures.ts). */
+  support: SupportWorld;
 };
 
 /** The payload's SHA-256 over its canonical JSON (keys sorted, no spaces), as staff/approvals.py `digest` makes it. */
@@ -1917,5 +1920,6 @@ export function createWorld(me: Me, now = Date.now()): World {
     consentsByVersion,
     orders: ordersWorld(at),
     content: content.world,
+    support: createSupportWorld(me, now),
   };
 }

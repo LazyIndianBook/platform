@@ -14,6 +14,7 @@ const LINKS = [
   { href: "/account/record/", label: "My record" },
   { href: "/account/learning/", label: "Learning" },
   { href: "/account/orders/", label: "My orders" },
+  { href: "/account/requests/", label: "My requests" },
   { href: "/account/details/", label: "Details" },
   { href: "/account/addresses/", label: "Addresses" },
   { href: "/account/security/", label: "Log-in and security", also: "/account/2fa/" },

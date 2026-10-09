@@ -18,6 +18,7 @@ BOARD_CLASS = StaffScope.Kind.BOARD_CLASS
 ORDER_STATUS = StaffScope.Kind.ORDER_STATUS
 SCHOOL = StaffScope.Kind.SCHOOL
 TICKET_QUEUE = StaffScope.Kind.TICKET_QUEUE
+TICKET_CATEGORY = StaffScope.Kind.TICKET_CATEGORY
 # StaffScope.Kind.WAREHOUSE applies to no model yet: stock and warehouses live in ERPNext (the plan's 3.1); the panel's
 # stock views will name their field here.
 
@@ -63,6 +64,7 @@ MODEL_SCOPES = {
     "content.errorreport": _content("subject__"),
     "content.legaldeposit": _content("book__subject__"),
     "staff.inboxitem": {TICKET_QUEUE: "kind", SUBJECT: "data__subject?"},
+    "support.ticket": {TICKET_CATEGORY: "category"},  # support/README.md: SALES's and CONTENT_EDITOR's tickets
 }
 
 

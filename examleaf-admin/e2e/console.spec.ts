@@ -96,6 +96,13 @@ const PAGES = [
   "/content/imports/",
   "/content/legal-deposits/",
   "/users/99999/",
+  "/support/",
+  "/support/?tab=all",
+  "/support/tickets/SR-2026-000103/",
+  "/support/tickets/SR-2026-000108/",
+  "/support/new/",
+  "/support/replies/",
+  "/support/export/",
 ];
 
 const stamp = Date.now();
@@ -479,6 +486,57 @@ for (const width of [1280, 390]) {
         await expect(
           page.getByRole("complementary", { name: "Notes and audit trail" }).getByText("tax.document_cancelled"),
         ).toBeVisible();
+      });
+
+      await test.step("support: the queue, a ticket, a saved reply put in and sent, the status moved on", async () => {
+        await page.goto("/support/");
+        await expect(page.getByRole("heading", { level: 1, name: "Support" })).toBeVisible();
+        await expect(page.getByRole("link", { name: "Due soonest" })).toHaveAttribute("aria-current", "page");
+        const queue = page.getByRole("region", { name: "Support, a table" });
+        // the next deadline first: the ticket whose month has run out, then the call not acknowledged in 48 hours
+        await expect(queue.getByRole("row").nth(1)).toContainText("SR-2026-000103");
+        await expect(queue.getByRole("row").nth(1)).toContainText(/overdue by/);
+        await expect(queue.getByRole("row").nth(2)).toContainText("SR-2026-000104");
+        await queue.getByRole("link", { name: /SR-2026-000101/ }).click();
+        await expect(page.getByRole("heading", { level: 1, name: "Where is my order?" })).toBeVisible();
+        await expect(page.getByText("Opening a ticket is recorded in the audit trail.")).toBeVisible();
+        // the customer beside it, without a click: their order and its payment
+        const side = page.getByRole("complementary", { name: "The customer and the audit trail" });
+        await expect(side.getByText("EL-2026-000130").first()).toBeVisible();
+        await expect(side.getByText("pay_Nq81b2")).toBeVisible();
+
+        const reply = page.getByLabel("Your reply");
+        await reply.click();
+        // the saved replies in the ticket's language come first, by title: Alt 2 is "Refund timeline", filled for it
+        await page.keyboard.press("Alt+Digit2");
+        await expect(reply).toHaveValue(/Razorpay usually takes 2 to 7 working days/);
+        await expect(reply).toHaveValue(/Dear Bikash,/);
+        await page.getByRole("button", { name: "Send the reply" }).click();
+        await expect(toast(page, "Reply sent")).toBeVisible();
+        const conversation = page.getByRole("region", { name: "Conversation" });
+        await expect(conversation.getByText(/The refund for order EL-2026-000130 has been started/)).toBeVisible();
+        await expect(page.locator("main [data-slot=badge]").first()).toHaveText("Open");
+
+        await page.getByLabel("New status").selectOption("waiting_customer");
+        await page.getByRole("button", { name: "Change the status" }).click();
+        await expect(toast(page, "Status changed")).toBeVisible();
+        await expect(page.locator("main [data-slot=badge]").first()).toHaveText("Waiting on the customer");
+      });
+
+      await test.step("support: a complaint from the National Consumer Helpline, logged with its docket", async () => {
+        await page.goto("/support/new/");
+        await page.getByLabel("How it came").selectOption("nch");
+        await page.getByLabel("NCH docket").fill("NCH/2026/7654321");
+        await page.getByLabel(/^Mobile number/).fill("98640 12345");
+        await page.getByLabel("Subject").fill("The solutions will not open");
+        await page.getByLabel("What they said or wrote").fill("Forwarded by NCH: the paid solutions do not open.");
+        await page.getByRole("button", { name: "Log it" }).click();
+        await expect(page).toHaveURL(/\/support\/tickets\/SR-2026-000113\/$/);
+        await expect(page.getByRole("heading", { level: 1, name: "The solutions will not open" })).toBeVisible();
+        await expect(page.getByText("National Consumer Helpline · NCH docket NCH/2026/7654321")).toBeVisible();
+        const deadlines = page.getByRole("region", { name: "Deadlines" });
+        await expect(deadlines.getByText("National Consumer Helpline: 30 days")).toBeVisible();
+        await page.goto("/account/"); // back where the day's next steps start (a page without forms)
       });
 
       await test.step("⌘K jumps to a customer", async () => {

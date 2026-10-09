@@ -39,6 +39,7 @@ LIMITS = {
     Job.Kind.ERP_INITIAL_LOAD: "bulk_rows",
     Job.Kind.GSTR1_EXPORT: "export_rows",
     **order_jobs.LIMITS,  # the Orders module's (shop/order_jobs.py)
+    Job.Kind.GRIEVANCE_EXPORT: "export_rows",
 }
 
 
@@ -64,6 +65,8 @@ def permission(kind, params):
         return "staff.run_gstr1"
     if kind == Job.Kind.CONTENT_IMPORT:
         return "staff.import_content"
+    if kind == Job.Kind.GRIEVANCE_EXPORT:
+        return "staff.export_grievances"
     return order_jobs.PERMISSIONS.get(kind)
 
 
@@ -101,6 +104,10 @@ def start(kind, params, *, user, dry_run=False, request=None):
         total = order_jobs.size(kind, user, params)
     elif kind == Job.Kind.CONTENT_IMPORT:
         total = 0  # the source's papers, counted as it runs; no approver: its own dry run comes first
+    elif kind == Job.Kind.GRIEVANCE_EXPORT:
+        from support.register import tickets
+
+        total = tickets(params).count()
     else:
         total = len(params["targets"])
     with transaction.atomic():
@@ -266,6 +273,13 @@ def content_import(job, progress):
     return run_job(job, progress)
 
 
+def grievance_export(job, progress):
+    """The grievance register as CSV (support.register.export)."""
+    from support.register import export
+
+    return export(job, progress)
+
+
 RUNNERS = {
     Job.Kind.AUDIT_EXPORT: export_audit,
     Job.Kind.BULK_ACTION: bulk_action,
@@ -273,6 +287,7 @@ RUNNERS = {
     Job.Kind.GSTR1_EXPORT: gstr1_export,
     **order_jobs.RUNNERS,
     Job.Kind.CONTENT_IMPORT: content_import,
+    Job.Kind.GRIEVANCE_EXPORT: grievance_export,
 }
 
 

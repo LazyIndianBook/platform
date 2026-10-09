@@ -9,6 +9,7 @@ kinds, their variables and the DLT templates registered for them are in RUNBOOK.
     order_arriving   {"var1": order number, "var2": the cash to keep ready, "638.00"} (out for delivery, COD only)
     order_not_delivered  {"var1": order number, "var2": the order link's token} (the courier's attempt failed)
     parent_consent   {"var1": the student's first name, or "a student", "var2": the consent link's token}
+    ticket_ack       {"var1": the support ticket's number, SR-2026-000123} (support: when only a phone is known)
 
 A DLT variable holds at most 30 characters."""
 
@@ -39,7 +40,7 @@ KEEP = timedelta(days=retention.rule("sms_log").keep_days)  # SmsLog rows (the n
 # cannot use up the log-in codes' share, nor the codes theirs. SMS_DAILY_CAP stays the last line (send_sms).
 PER_NUMBER = [(timedelta(hours=1), 5, "an hour"), (timedelta(days=1), 10, "a day")]
 PER_ACCOUNT_DAY = 20
-SHARES = {"otp": 0.7, "parent_consent": 0.1, "order": 0.3}
+SHARES = {"otp": 0.7, "parent_consent": 0.1, "order": 0.3, "ticket_ack": 0.1}
 
 
 def purpose(kind):

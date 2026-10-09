@@ -70,6 +70,10 @@ SETTINGS = {
     "SHOP_COD_HIGH_RISK_HOLD": Spec(
         bool, "A cash-on-delivery order scored high risk waits on hold for a check", group="shop"
     ),
+    # Phase B: support (support/clocks.py): on once counsel says reviews make ExamLeaf an intermediary
+    "SUPPORT_INTERMEDIARY_RULES": Spec(
+        bool, "The IT Rules' grievance clocks (24 hours, 15 days) on grievance tickets", group="support"
+    ),
 }
 
 # Legal and privacy (Phase B): the e-commerce disclosures and the privacy contacts (E-Commerce Rules r.4(1), (2), (4)

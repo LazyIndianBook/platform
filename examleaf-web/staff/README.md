@@ -42,8 +42,9 @@ A request is allowed only if all of these hold (research 1.1); anything else is 
    (`StaffAppView`, their own pages and filters).
 3. **The object in scope** (`backends.py`): `scoped()` narrows every staff queryset, `ScopeBackend` answers
    `has_perm(perm, obj)` the same way. A person's `StaffScope` rows of a kind (subject, board and class, order status,
-   warehouse, school, work queue) narrow them to those values; without any, a permission held only through scoped
-   roles is narrowed to the roles' values (`ROLE_SCOPES`: a PACKER sees paid, packed and shipped orders); otherwise
+   warehouse, school, work queue, ticket category) narrow them to those values; without any, a permission held only
+   through scoped roles is narrowed to the roles' values (`ROLE_SCOPES`: a PACKER sees paid, packed and shipped
+   orders; SALES the order, payment and school-order tickets; a content editor the content-error tickets); otherwise
    nothing narrows. Break-glass accounts (superusers) and API keys are not narrowed.
 4. **The limits** (`ROLE_LIMITS`, the highest of a person's roles, `None` for none): above them the action becomes a
    `ChangeRequest` that waits for a second person.
@@ -130,7 +131,7 @@ than do something else. Each step is an audit event `<action>.requested|approved
 | `staff.grant_role`, `staff.invite` | `staff.assign_role` | `staff.approve_role_change` | a privileged role, or a role for yourself |
 | `user.reset_mfa` | `staff.reset_user_mfa` | the same (a customer's), `staff.approve_role_change` (staff) | always |
 | `user.erase` (`DeletionRequest.complete`) | `staff.handle_data_request` | `staff.approve_erasure` | always (staff started it) |
-| `job.run` (a job above its starter's limit: `jobs.start`) | `staff.view_job` (the job's own permission is checked first) | `staff.approve_export` | an export above `export_rows`, a bulk action above `bulk_rows` |
+| `job.run` (a job above its starter's limit: `jobs.start`) | `staff.view_job` (the job's own permission is checked first) | `staff.approve_export` | above the kind's own limit (`jobs.LIMITS`): an export's `export_rows` (the grievance register's too), a bulk action's `bulk_rows` |
 
 The checkers' permissions: `approve_refund`, `approve_payment` and `approve_discount` are FINANCE's (and the owners');
 `approve_role_change`, `approve_erasure` and `approve_export` ADMIN's (and the owners'). `approvals.bulk_rule(maker,
@@ -275,6 +276,12 @@ The content module (`content/README.md`) adds the kind `content_import`
 (`staff.import_content`, high; no row limit and no approver: its own dry run comes first, and an apply names it) and
 three kinds of inbox item, each narrowed to its subject (`data.subject`): `review` (a draft waiting for a reviewer),
 `error_report` (a reported mistake to triage) and `legal_deposit` (a book's copies due at the libraries).
+Support (`support/README.md`) adds the kind `grievance_export`
+(`staff.export_grievances`, high; the `export_rows` limit; params `from` and `until`, the days received), the scope
+kind `ticket_category`, three kinds of inbox item (`ticket_due`: a ticket's legal clock three quarters gone,
+`ticket_breach`: past it, both for `staff.handle_ticket` and given to the ticket's assignee; `ticket_mention`: a
+colleague named in a note, assigned to them and done once they open the ticket) and the permissions
+`staff.handle_ticket` (medium) and `support.note_ticket`.
 
 ## Data protection
 

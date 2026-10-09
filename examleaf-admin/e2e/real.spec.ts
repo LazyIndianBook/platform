@@ -11,7 +11,8 @@
 // Orders module: SALES makes a staff order (the discount's rule shown before saving, made at once within their limit),
 // FINANCE finds it by the customer's email (a lookup the API records by its hash), and SUPPORT asks for a refund of two
 // books of three, above their ₹1,000: the 202 and its change request. Content: a CONTENT_EDITOR drafts a solution and
-// submits it, a REVIEWER publishes it from the inbox, and the OWNER's audit trail shows both.
+// submits it, a REVIEWER publishes it from the inbox, and the OWNER's audit trail shows both. Support: SUPPORT answers
+// the customer's ticket, its first reply is recorded, and the OWNER finds the reply in the ticket's audit trail.
 import { type Browser, expect, type Page, test } from "@playwright/test";
 
 import { checkPages, type Codes, csrf, settle, signIn, toast } from "./console";
@@ -24,10 +25,12 @@ import {
   deleteStaff,
   newSecret,
   type OrdersWorld,
+  type RealTicket,
   type RealWorld,
   seedOrdersWorld,
   seedContent,
   seedRealWorld,
+  seedTicket,
   type Staff,
 } from "./django";
 
@@ -53,6 +56,7 @@ const reviewer = staffFor("REVIEWER");
 const editorCodes: Codes = { last: null };
 const reviewerCodes: Codes = { last: null };
 let content: ContentWorld;
+let ticket: RealTicket;
 let supportId: number;
 let editorId: number;
 let reviewerId: number;
@@ -70,6 +74,7 @@ test.beforeAll(() => {
   editorId = createStaff(editor, "CONTENT_EDITOR");
   reviewerId = createStaff(reviewer, "REVIEWER");
   content = seedContent(stamp);
+  ticket = seedTicket(world);
 });
 
 test.afterAll(() => {
@@ -352,6 +357,36 @@ test("content: an editor drafts a solution, a reviewer publishes it, and the aud
   await third.context().close();
 });
 
+test("SUPPORT answers the customer's ticket; the first reply is recorded and the OWNER finds it in the audit trail", async ({
+  browser,
+}) => {
+  const page = await open(browser);
+  await signIn(page, support, `/support/tickets/${ticket.number}/`, supportCodes);
+  await expect(page.getByRole("heading", { level: 1, name: "The parcel has not come (e2e)" })).toBeVisible();
+  const facts = page.getByRole("region", { name: "About it" });
+  const firstReply = facts.locator("dt", { hasText: "First reply" }).locator("+ dd");
+  await expect(firstReply).toHaveText("Not yet");
+  await expect(facts.getByText(world.order)).toBeVisible();
+  await page.getByLabel("Your reply").fill("We have asked the courier; you will hear from us tomorrow (e2e).");
+  await page.getByRole("button", { name: "Send the reply" }).click();
+  await expect(toast(page, "Reply sent")).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Conversation" }).getByText("We have asked the courier; you will hear from us"),
+  ).toBeVisible();
+  await expect(firstReply).toHaveText(/\d{4}, \d\d:\d\d$/);
+  await page.context().close();
+
+  const ownerPage = await open(browser);
+  await signIn(ownerPage, owner, `/support/tickets/${ticket.number}/`, ownerCodes);
+  const trail = ownerPage.getByRole("complementary", { name: "The customer and the audit trail" });
+  await expect(trail.getByText("support.replied")).toBeVisible();
+  await ownerPage.goto(`/audit/?target_type=support.ticket&target_id=${ticket.id}`);
+  await expect(
+    ownerPage.getByRole("region", { name: "Audit trail, a table" }).getByText("support.replied"),
+  ).toBeVisible();
+  await ownerPage.context().close();
+});
+
 for (const width of [1280, 390]) {
   test(`every page passes axe and fits the window at ${width} px (320 px too)`, async ({ browser }) => {
     const page = await open(browser, width);
@@ -410,6 +445,11 @@ for (const width of [1280, 390]) {
         "/system/dependencies/",
         "/system/hardening/",
         "/system/scripts/",
+        "/support/",
+        `/support/tickets/${ticket.number}/`,
+        "/support/new/",
+        "/support/replies/",
+        "/support/export/",
       ],
       width,
     );
