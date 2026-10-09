@@ -14,6 +14,77 @@ The plan is `docs/examleaf-admin-control-panel-plan.md`; the research behind it 
   and the media queue each have one (`examleaf.health.WorkerPing`, `CELERY_HEALTH_QUEUES`). Before, `limit=1` took the
   first worker's answer, and when that was the media worker the check reported the default queue as unserved. Found by
   the Kubernetes packaging's smoke test (`deploy/kubernetes/TESTING.md`).
+
+## The Admin Control Panel's backend (9 October 2026)
+
+The foundation of the staff console (`../docs/examleaf-admin-control-panel-plan.md` sections 3.5, 3.6, 4, 6, 7.1 and
+9.1; the research in `../docs/research/2026-10-09-admin-control-panel/research-rbac-security.md`): a new app `staff/`
+(`staff/README.md`) and its API under `/api/v1/staff/` (API.md "Staff API", with every endpoint and field generated
+from the schema). No business rule of the shop, the content or the course changed: the panel's actions call
+`shop.services` and the accounts' own functions. 831 backend tests
+pass on SQLite (8 skipped, 1,025 subtests; 627 and 7 skipped before), 838 on PostgreSQL (1 skipped; 626 passed
+and 7 failed there before, faults of the tests themselves, fixed here).
+
+- **Roles.** OWNER (the founder's: every catalogued permission; the superuser flag is left to one or two sealed
+  break-glass accounts, whose log-in alerts the owners and every audit event of whose sessions is marked
+  `break_glass`), FINANCE, PACKER (the packing queue only), REVIEWER, MARKETING, AUDITOR and SALES_REP join the six.
+  CONTENT_EDITOR, SALES and SUPPORT keep their permissions and gain the panel's, except that SALES no longer packs,
+  ships or refunds in the admin: packing is `staff.pack_order` (PACKER's, and ADMIN's in the admin), and SALES asks for
+  refunds in the panel. ADMIN keeps everything but the owners' own (`OWNER_ONLY`: giving roles, API keys, the override,
+  the audit log) and money's approvals (`MONEY_APPROVALS`): FINANCE approves money, ADMIN roles and exports, REVIEWER
+  content. `ROLE_LIMITS` (refund, offline payment, discount, export and bulk thresholds: placeholders for the owner),
+  `ROLE_SCOPES` and `SOD_CONFLICTS` sit beside `ROLES`. The roles are synced after every `migrate` by a post_migrate
+  receiver (no role migration), which warns about anyone holding two roles kept apart. The panel's roles do not open
+  the Django admin (its lists are not scoped). 33 action permissions (`staff.refund_order` … `staff.view_inbox`) in a
+  catalogue with a label, an area and a risk that decides re-authentication, approval and alerts.
+- **Scopes.** `StaffScope` (subject, board and class, order status, warehouse, school, work queue), `scoped()` in every
+  staff queryset and `staff.backends.ScopeBackend` for `has_perm(perm, obj)`; a PACKER sees the orders to pack and on
+  their way only.
+- **The audit log.** `AuditEvent`, written by `staff.audit.record` in the caller's transaction: who (id, type, roles),
+  for whom, whether by a break-glass account, what, which permission, on what, the outcome and reason, the request ID,
+  address, browser and session hash, `{field: [before, after]}` with personal data masked; two hash chains (money
+  apart, kept 8 financial years; the rest 2 years) under one lock; a PostgreSQL trigger refuses UPDATE, DELETE and
+  TRUNCATE; verified nightly (`verify_audit_chain`, an alert on a break), copied daily as JSON lines with the chains'
+  heads to the backups' bucket, purged by `purge_audit` as the table's owner. Fed by staff log-ins (each emails the
+  person), log-outs, failed log-ins and lock-outs, role changes from anywhere, admin exports, refunds and offline
+  payments, impersonation, every refusal of the staff API and every reveal of personal data. Read by AUDITOR and OWNER
+  only, each read logged.
+- **Approvals.** `ChangeRequest` (django-fsm-2: pending, approved or rejected or expired, executed or failed) with the
+  payload's SHA-256, which the approver sends back and the executor checks before it runs the stored payload once; the
+  approver is never the maker nor the person the change is about, unless an owner overrides with a reason (alerted,
+  marked break-glass). Refunds above the maker's cap (then `shop.services.refund_order`, which calls `start_refund`),
+  offline payments above a value or of ₹0, prices and coupons beyond the discount limit, privileged roles and roles
+  for oneself, invitations to them, second factor resets, erasures and jobs above the export or bulk limit wait for a
+  second person; within the limits they run at once. Idempotency keys on every request.
+- **Jobs.** `Job`: an audit-log export or a bulk action (an action of `change-requests/` on many targets, each run as
+  its own request) in the background, with its progress, each row's error, a dry run, its approval above the limit,
+  cancelling by its starter, and its file behind a link signed for 5 minutes (kept a week). `audit/export/` answers 202
+  with a job above 5,000 rows, and refuses unknown filters.
+- **Work and settings.** `InboxItem` from approvals, teachers' requests, deletions, data requests, incidents, failed
+  clips, tasks, refunds and webhooks; `SavedView`; `SiteSetting` (`SHOP_OPEN`, `SHOP_COD_ENABLED`,
+  `PARENTAL_CONSENT_MODE`, `WEB_COURSE`, maintenance mode and its banner: the environment's value unless the panel set
+  one, from now or a time to come, with their history; `config/` and the server's own checks read them; `config/` gains
+  `maintenance`); `FeatureFlag`; `ApiKey` (hashed, shown once, view permissions only, expiry, address allowlist, its own
+  authentication); `StaffInvite` (7 days); `RoleGrant` (who, why, until when; expired roles and scopes go nightly); the
+  access review with the action permissions unused for 90 days.
+- **Data protection.** `DataRequest` with its clocks (48 hours to acknowledge; a month, then 90 days for the DPDP rights
+  from 13 May 2027), the answer's contact block, the erasure's dry run (holds, blocks, a child's parent) and its
+  approval, an access request's data emailed to the account's own address; `Incident`, the breach register with its 6-
+  and 72-hour clocks; `ProcessorRecord`; masked customers with logged openings and rate-limited, re-authenticated
+  reveals; impersonation tokens of 15 minutes (never staff or a child) and a guard for when the website accepts them.
+- **Sessions and the API's edges.** Staff sessions end after 15 minutes without a request for OWNER, ADMIN, FINANCE and
+  PACKER, 30 for the others (`STAFF_IDLE_TIMEOUT`, `STAFF_IDLE_TIMEOUTS`), and 8 hours after the log-in. The staff API
+  answers 404 on any host but `ADMIN_HOSTS`; its manifest carries the person's idle limit, `impersonating` and
+  `flags.test_mode`; every error answer has a `code` beside its `detail`, a step-up its allauth `flows`.
+- **New settings** (DEPLOYMENT.md sections 13 "Staff" and 23): `ADMIN_HOSTS`, `STAFF_IDLE_TIMEOUT`, `STAFF_TEST_MODE`,
+  `STAFF_PANEL_URL`, `STAFF_ALERT_EMAILS`, `STAFF_CHANGE_REQUEST_HOURS`, `STAFF_DORMANT_DAYS`,
+  `STAFF_AUDIT_RETENTION_DAYS`, `STAFF_AUDIT_MONEY_RETENTION_FY`, `STAFF_DATA_REQUEST_ACK_HOURS`,
+  `STAFF_DPDP_RULES_FROM`, `STAFF_DPDP_RESPONSE_DAYS`, `DATA_PROTECTION_OFFICER`, `CERT_IN_POINT_OF_CONTACT` and the
+  `STAFF_THROTTLE*` rates. Migrations: `staff` 0001 and 0002. RUNBOOK.md has a "Break-glass accounts" section.
+- **Outside the app.** The shop admin's pack, ship and deliver actions need `staff.pack_order`; the root conftest runs
+  the transactional tests that restore the database's snapshot before the other transactional ones, and an insights
+  test no longer counts on a run's id (both failed on PostgreSQL).
+
 ## Insights: the Admin Control Panel's predictive jobs (9 October 2026)
 
 A new app, `insights/` (its README: every job's inputs, method, output and how to read it), built from

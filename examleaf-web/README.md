@@ -40,8 +40,12 @@ and the security reviews, [SECURITY_REVIEW.md](SECURITY_REVIEW.md) (phases 1 to 
   are sent), a passkey, or Google (when its keys are set). Parental consent for students under 18: a ticked box, or,
   with `PARENTAL_CONSENT_MODE=verified`, a link emailed or texted to the parent. Download my data, Delete my account
   (seven days to change one's mind), an address book, teacher access requests.
-- **Staff.** Roles (content editor, sales, support, admin), the branded admin with a dashboard and edit histories, and a
-  second factor for every member of staff: an authenticator app with recovery codes, or a passkey.
+- **Staff.** Roles (content editor, sales, support, admin, and the Admin Control Panel's owner, finance, packer,
+  reviewer, marketing, auditor and sales rep), the branded admin with a dashboard and edit histories, and a second
+  factor for every member of staff: an authenticator app with recovery codes, or a passkey. The Admin Control Panel's
+  backend (`staff/`, API.md "Staff API"): scopes, limits and separation of duties, an append-only hash-chained audit
+  log, approvals by a second person, an inbox, the site's switches and feature flags, API keys, staff invitations and
+  offboarding, the data requests queue, the breach register and the processor register.
 - **The shop.** The printed books sold across India: cart, coupons, checkout with Razorpay (UPI, cards, net banking) or,
   when `SHOP_COD_ENABLED` is on (it is off by default), cash on delivery, stock under row locks, shipping rates by
   state, PIN code autofill from India Post's directory, order emails (and SMS), courier tracking links, GST invoices and
@@ -339,24 +343,36 @@ QR codes point at `/s/<CODE>/` either way, so the switch needs no reprint.
 ## Roles and permissions
 
 Roles are Django groups; `accounts/roles.py` lists each group's model permissions and is the only place to change them.
-Migration `accounts.0004_roles` creates the groups, and `manage.py bootstrap_roles` (idempotent; `make migrate`, the
-docker web container and DEPLOYMENT.md run it after every `migrate`) sets every group to exactly its permissions,
-including those of apps migrated later.
+Migration `accounts.0004_roles` creates the groups; after every `migrate` the staff app sets every group to exactly
+its permissions, including those of apps migrated later (a post_migrate receiver, `staff/apps.py`), and
+`manage.py bootstrap_roles` (idempotent; `make migrate`, the docker web container and DEPLOYMENT.md still run it)
+does the same by hand.
 
 | Group | Who | Permissions now |
 |---|---|---|
 | STUDENT | every registration (added at sign-up) | none: uses the site, not the admin |
 | TEACHER | teachers whose `TeacherProfile` staff verified | none yet |
 | CONTENT_EDITOR | prepares papers, pages, the catalogue and the course | view/add/change books, papers, questions, solutions; view boards, classes, subjects; view/change legal pages; view/add/change products; view/add/change/delete categories, collections and their items, product types, attributes and their values, product images and bundle items; view slug history; view/add/change/delete the course's chapters, revisions, clips, flash cards and quiz items |
-| SALES | runs the shop | view books; view/add/change products, coupons, shipping rates, shipments, orders (staff orders; the pack, ship, deliver, cancel and payment link actions), order notes; view/add/change/delete product images, bundle items and offers; view/add refunds (the refund action) and payments (a payment received offline); view/change reviews and quotation requests; view order items, discounts, invoices, credit notes, stock alerts, addresses and the catalogue structure |
+| SALES | runs the shop | view books; view/add/change products, coupons, shipping rates, orders (staff orders; the cancel and payment link actions), order notes; view/add/change/delete product images, bundle items and offers; view/add payments (a payment received offline); view/change reviews and quotation requests; view shipments, refunds, order items, discounts, invoices, credit notes, stock alerts, addresses and the catalogue structure. It does not pack, ship or refund in the admin: refunds it asks for in the panel (FINANCE approves those above its limit), packing is PACKER's |
 | SUPPORT | helps students and customers | view users, email addresses, attempts, consent records, deletion requests, the SMS log; view/change teacher profiles (verifies teachers); view/delete email suppressions; view orders and everything on them (items, discounts, notes, payments, shipments, refunds, invoices, credit notes), products, addresses, reviews, quotation requests, stock alerts; view/add/change course entitlements; view book codes |
-| ADMIN | runs the site | every permission, except that periodic tasks, task results, groups and permissions, second factors and the Google sign-in apps are the superusers' (ADMIN may view them); imports and exports are ADMIN only |
+| ADMIN | runs the site | every permission, except that periodic tasks, task results, groups and permissions, second factors and the Google sign-in apps are the superusers' (ADMIN may view them), the owners' own (giving roles and making API keys, which ADMIN sees; the override; the audit log) and money's approvals (FINANCE's); approves roles, staff second factors, erasures and exports; packs and ships in the admin (`staff.pack_order`); imports and exports are ADMIN only |
+| OWNER | the founder; the superuser flag is only on the sealed break-glass accounts | every catalogued permission: all but the changes to periodic tasks, groups, second factors and the Google sign-in apps, which stay the superusers' |
+| FINANCE, PACKER, REVIEWER, MARKETING, AUDITOR, SALES_REP | the Admin Control Panel's roles | money and tax documents, approving refunds, offline payments, prices and coupons above the limits; the packing queue only; publishing content; coupons and reviews; everything read-only with the audit log; school orders and quotations: `accounts/roles.py`, `staff/README.md` |
 
-`user.is_student`, `is_teacher`, `is_editor`, `is_sales`, `is_support`, `is_admin` (ADMIN or superuser) and
-`user.has_role(name)` read the groups. In the admin, Users has actions "Give role …" and "Take away role …" (only for
-those who may change groups); giving CONTENT_EDITOR, SALES, SUPPORT or ADMIN also sets `is_staff`, and taking away the
-last of them clears it. Teacher profiles have "Verify" (adds TEACHER, records who and when) and "Revoke". Only a
-superuser changes a superuser's account or gives roles.
+The roles of the panel (`staff/`, the plan's 4.1) come with limits (`ROLE_LIMITS`: a refund, an offline payment, a
+discount or an export above them waits for a second person), scopes (`ROLE_SCOPES`, `StaffScope`: a subject, an order
+status, a school …) and separation of duties (`SOD_CONFLICTS`); every permission is labelled in
+`staff/catalogue.py`. CONTENT_EDITOR, SALES and SUPPORT keep their permissions and gain the panel's (SUPPORT reveals
+masked contacts, unlocks accounts, handles data requests …). The newer roles do not open the Django admin: they work
+through the staff API, whose lists are scoped.
+
+`user.is_student`, `is_teacher`, `is_editor`, `is_sales`, `is_support`, `is_admin` (ADMIN or superuser), `is_owner`
+(OWNER or superuser) and `user.has_role(name)` read the groups. In the admin, Users has actions "Give role …" and
+"Take away role …" (only for those who may change groups); giving a staff role also sets `is_staff`, and taking away
+the last of them clears it. Teacher profiles have "Verify" (adds TEACHER, records who and when) and "Revoke". Only a
+superuser changes a superuser's account or gives roles in the admin; in the panel (`people/`) an owner gives them, a
+privileged one with a second person's approval, with an audit trail. A superuser is a break-glass account: its log-in
+alerts the owners and each of its audit events is marked (`staff/README.md`, RUNBOOK.md "Break-glass accounts").
 
 ## Personal data (DPDP Act)
 
@@ -695,7 +711,7 @@ library beyond Python's own; no row points to an account, and learner numbers co
 ## Tests
 
 ```sh
-make test                                 # pytest: 439 tests (imports all four subjects once)
+make test                                 # pytest: 831 tests (imports all four subjects once)
 make cov                                  # the same with a coverage report
 make lint                                 # ruff, as in CI
 make check                                # manage.py check and missing migrations
@@ -776,6 +792,16 @@ What the test modules cover:
   order's link through the API; `test_offer_limits.py` offer limits with several pending orders; `test_review_lows.py`
   attribute filters, the PIN lookup's caching, staff orders for a student awaiting a parent, category imports, email
   subjects from forms.
+- **staff/tests/** (the Admin Control Panel's backend; helpers in `staff/tests/conftest.py`): `test_matrix.py` every
+  role against every staff endpoint and method (a 403 and an `authz_fail` event without the permission, never a 403
+  with it), every endpoint naming a catalogued permission; `test_catalogue.py`; `test_scopes.py` each scope kind;
+  `test_audit.py` an event's fields and masks, the chains, the PostgreSQL trigger, the daily copy, retention, the
+  nightly check, the flows that feed it, who reads it; `test_approvals.py` maker-checker and the refund flow;
+  `test_people.py` roles, SSD, invitations, offboarding, the access review; `test_users.py` customers, reveals,
+  impersonation; `test_privacy.py` data requests' clocks, erasure, incidents, processors; `test_settings.py` the panel's
+  switches over the environment's; `test_api_keys.py`; `test_session.py` the manifest, the idle limits by role, the
+  absolute limit, the admin host; `test_inbox.py` the inbox and the system page; `test_jobs.py` the background
+  jobs (exports, bulk actions, their approval, cancelling, the result's link).
 
 ## Production
 
@@ -882,6 +908,10 @@ Running without surprises:
   time, code version, status) with its `Forecast`, `Backtest` and `PrintRunAdvice` rows, `ItemStat`, `ChapterStat`,
   `CohortStat`, `CodeActivationStat`, `DeliveryStat`, `OfferStat`, `FraudSignal`, `RedemptionAttempt` (book codes
   tried, as hashes) and `AccountScore` (schools and distributors; no rows yet). None points to an account.
+- `staff` — the Admin Control Panel's: `StaffScope`, `RoleGrant`, `AuditEvent` (append-only, hash-chained) and
+  `AuditHead`, `ChangeRequest` and `Approval`, `Job`, `InboxItem`, `SavedView`, `SiteSetting`, `FeatureFlag`, `ApiKey`,
+  `StaffInvite`, `DataRequest`, `Incident`, `ProcessorRecord`; `StaffPermissions` holds the action permissions
+  (`staff/README.md`).
 
 - `integrations` — `IntegrationAccount` (a provider in a mode: encrypted credentials and tokens, the circuit breaker),
   `IntegrationCall` (the redacted call log), `IntegrationFailure` (the dead-letter list), `InboundEvent` (webhooks as

@@ -7,7 +7,7 @@ Commands run in `/srv/examleaf/examleaf-web` on the server. `dj` below stands fo
 
 - [Backups and restore](#backups-and-restore)
 - [Secrets and key rotation](#secrets-and-key-rotation)
-- [Staff accounts](#staff-accounts)
+- [Staff accounts](#staff-accounts): break-glass accounts
 - [Data requests and privacy](#data-requests-and-privacy): a data request under the DPDP Act, purging old orders
 - [Email](#email): when email fails, bounces and complaints
 - [SMS, phone numbers, passkeys and parental consent](#sms-phone-numbers-passkeys-and-parental-consent)
@@ -104,8 +104,9 @@ Change the value in `.env`, then `docker compose up -d` (it recreates the contai
 Every member of staff logs in with a password and a second factor: a code from an authenticator app, or a passkey
 (SECURITY_REVIEW.md, H2). A session lasts 8 hours from the log-in.
 
-1. **New member of staff.** A superuser makes the account (admin → Users → Add, or the person registers on the site)
-   and gives the role (Users → action "Give role …"; only superusers can).
+1. **New member of staff.** An owner (the OWNER role) invites them with their role through the staff API
+   (`people/invite/`, API.md "Staff API"); or a superuser makes the account (admin → Users → Add, or the person
+   registers on the site) and gives the role (Users → action "Give role …"; only superusers can).
 2. **First log-in** at `/admin/` (it opens the website's log-in): email and password, then the code emailed to them the
    first time, which confirms the address. The admin then sends them to the website's `/account/2fa/` before anything
    else opens: scan the QR code with Google Authenticator, Microsoft Authenticator, Aegis or 2FAS, type the 6-digit
@@ -120,10 +121,26 @@ Every member of staff logs in with a password and a second factor: a code from a
    person's authenticator (admin → MFA → Authenticators); the next log-in asks for a new one. A superuser locked out
    alike:
    `dj shell -c "from allauth.mfa.models import Authenticator as A; A.objects.filter(user__email='x@example.com').delete()"`.
-6. **Leaving:** untick Active (the sessions stop working at once) and take the roles away.
+6. **Leaving:** an owner offboards them in one step (`people/<id>/offboard/`: deactivated, roles and scopes gone,
+   sessions and API keys ended); in the admin, untick Active (the sessions stop working at once) and take the roles
+   away.
 
 To make everyone log in again, with the second factor:
 `dj shell -c "from django.contrib.sessions.models import Session; Session.objects.all().delete()"`.
+
+### Break-glass accounts
+
+The superuser flag is only on one or two break-glass accounts, outside Google sign-in, each with a security key and a
+backup key kept offline; the founder's daily account holds the OWNER role instead (DEPLOYMENT.md section 23). Use one
+only when nothing else works (Google sign-in down, every owner locked out of their account):
+
+1. Log in with it as any member of staff does. The owners are emailed at once ("Break-glass account #… signed in"),
+   and every audit event of the session carries `break_glass`. Its session ends after 15 idle minutes.
+2. Do what the emergency needs, nothing more, and log out.
+3. Within 24 hours an owner or the auditor reads what it did: `GET /api/v1/staff/audit/?break_glass=true` (the staff
+   API, as an AUDITOR or OWNER), and notes why in the incident or the access review.
+4. Every quarter: log in with each one once (the keys still work), log out, review that event, and check who can
+   reach the keys.
 
 ## Data requests and privacy
 
@@ -434,6 +451,9 @@ number). Orders of accounts are not found there: their owners log in. Never send
 than the order's.
 
 ### Shipping with tracking links
+
+Packing, shipping and delivery need `staff.pack_order`: ADMIN's in the admin, PACKER's in the panel's packing queue
+once it is built (SALES no longer has them).
 
 Orders → select the packed orders → "Mark shipped": choose the courier, type the tracking number (AWB) and leave the
 link empty. The site fills it in: Delhivery, Blue Dart and Ekart open their own tracking page; India Post (its page

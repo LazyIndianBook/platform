@@ -10,7 +10,7 @@ India, as the Privacy Policy draft says ("servers in [India]": fill in what you 
 Sections 1 to 12 are the first deployment, in order. After them: 13 every setting, 14 security, 15 the accounts to open
 (with the steps for each), 16 what the sign-in, SMS and email settings switch on, 17 storage, pictures and the web app,
 18 the revision course, 19 the store, 20 the frontends' sign-in (allauth.headless) and API contract, 21 the insights
-(the predictive jobs).
+(the predictive jobs), 22 shipping and the integration keys, 23 the staff and the audit log.
 
 ## 1. Accounts you need
 
@@ -458,6 +458,24 @@ Read by `scripts/backup.sh` (which takes `BACKUP_KEEP_DAYS` and `BACKUP_AGE_RECI
 | `BACKUP_KEEP_DAYS` | `30` | no | days of local dumps kept (match the Privacy Policy) |
 | `BACKUP_AGE_RECIPIENT` | none | recommended with a bucket | an age public key (`age1…`, from `age-keygen`; keep the private key off the server): the uploaded dumps are encrypted to it (section 9) |
 
+### Staff (the Admin Control Panel's backend)
+
+`staff/README.md`; section 23 for the audit log's database role, its copy and its retention.
+
+| Variable | Default | Required | What it does; where to get the value |
+|---|---|---|---|
+| `ADMIN_HOSTS` | none: every host | with the panel | the hosts the staff API answers on (`admin.examleaf.in`), comma separated; on any other it answers 404. Each must be in `ALLOWED_HOSTS` too, and its `https://` origin in `CSRF_TRUSTED_ORIGINS` (the panel's session sends the CSRF token) |
+| `STAFF_IDLE_TIMEOUT` | `1800` | no | seconds without a request after which a staff session ends (website, panel and admin) for the roles without a limit of their own; OWNER, ADMIN, FINANCE and PACKER have 15 minutes (`STAFF_IDLE_TIMEOUTS` in settings.py); a staff session also ends 8 hours after its log-in |
+| `STAFF_ALERT_EMAILS` | every active member of OWNER | recommended | who gets the owners' alerts at once (a break-glass log-in, a privileged role given, an override, an API key, an impersonation, maintenance on, an incident, a staff lock-out or offboarding, a broken audit chain or a failed export), comma separated |
+| `STAFF_PANEL_URL` | `SITE_URL` | with the panel | the panel's address (`https://admin.examleaf.in`): staff invitations link to its `/invite/<token>/` page |
+| `STAFF_CHANGE_REQUEST_HOURS`, `STAFF_DORMANT_DAYS` | `24`, `45` | no | how long a change request waits before it expires; after how many days without a log-in the access review flags a member of staff |
+| `STAFF_TEST_MODE` | `DEBUG`'s | on staging | `1` on any deployment that is not the production site: the panel shows its TEST band (the manifest's `flags.test_mode`) |
+| `STAFF_AUDIT_RETENTION_DAYS`, `STAFF_AUDIT_MONEY_RETENTION_FY` | `730`, `8` | no | the audit log's retention (`manage.py purge_audit`): days of the general chain (365 at least), financial years of the money chain (8 at least); the site refuses to start below |
+| `STAFF_DATA_REQUEST_ACK_HOURS`, `STAFF_DPDP_RULES_FROM`, `STAFF_DPDP_RESPONSE_DAYS` | `48`, `2027-05-13`, `90` | no | a data request's clocks: acknowledged within the hours; answered within a month until the date (the DPDP Rules' rights), within the days after it; move the date if MeitY brings it forward |
+| `DATA_PROTECTION_OFFICER` | a `[placeholder]` | before going live | the Grievance Officer's name, email and phone, quoted in every answer to a data request (DPDP Rules r.9) |
+| `CERT_IN_POINT_OF_CONTACT` | a `[placeholder]` | before going live | the point of contact registered with CERT-In (Annexure II of its Directions), quoted in every incident alert |
+| `STAFF_THROTTLE`, `STAFF_THROTTLE_SEARCH`, `STAFF_THROTTLE_REVEAL`, `STAFF_THROTTLE_EXPORT`, `STAFF_THROTTLE_MONEY`, `STAFF_THROTTLE_INVITE` | `600/minute`, `60/minute`, `30/hour`, `10/hour`, `120/hour`, `10/hour` | no | the staff API's limits per member of staff or API key (API.md "Rate limits") |
+
 ## 14. Security settings
 
 **Health checks.** From the internet Caddy answers `/health/`, `/health/web/` and `/health/integrations/` (section
@@ -478,10 +496,13 @@ Without it in Caddy's environment nobody gets through, the monitor included. The
 **Staff accounts.** The admin's log-in is allauth's: its limit of failed log-ins per account applies, and every member
 of staff must set up an authenticator app (TOTP, with ten recovery codes) or a passkey before anything else opens. They
 log in with the password and then the app or a passkey, never with a passkey alone, and the API gives them no tokens for
-a password or an SMS code (they log in through allauth.headless). Their sessions end 8 hours after the log-in.
-RUNBOOK.md, "Staff accounts", has the steps for a new member of staff and for a lost phone. Periodic tasks, task
-results, groups, permissions, second factors and the Google sign-in apps and accounts can be changed by superusers only
-(the ADMIN role sees them), and only a superuser changes a superuser's account or gives roles.
+a password or an SMS code (they log in through allauth.headless). Their sessions end 8 hours after the log-in, and
+after 15 minutes without a request for OWNER, ADMIN, FINANCE and PACKER, 30 for the others (`STAFF_IDLE_TIMEOUT`);
+each log-in emails the person the time, the address and the browser. RUNBOOK.md, "Staff accounts", has the steps for
+a new member of staff and for a lost phone; the Admin Control Panel's staff API does the same with an audit trail
+(section 23). Periodic tasks, task results, groups, permissions, second factors and the Google sign-in apps and
+accounts can be changed by superusers only (the ADMIN and OWNER roles see them), and only a superuser changes a
+superuser's account or gives roles in the admin. Superusers are the sealed break-glass accounts only (section 23).
 
 **Parental consent (before May 2027).** The DPDP Rules, 2025 ask for verifiable consent of a parent before a child's
 data is processed, from May 2027 (18 months after the Rules were notified in November 2025). Until then the site runs
@@ -942,3 +963,69 @@ and `shipping/photos/`; MEDIA_ROOT without a bucket), behind links signed for 5 
 runs the shipping tasks by itself (settings.py `CELERY_BEAT_SCHEDULE`, written into the beat tables at start-up):
 tracking every two hours, the statement 05:00, COD remittances 05:15, weight disputes 05:30, the token 05:45, the PIN
 survey on Sundays at 06:00, the SMS held through the night at 08:00, and the integrations' clean-up at 04:45.
+
+## 23. Staff and the audit log
+
+The Admin Control Panel's backend (`staff/`, `staff/README.md`; its API: API.md "Staff API") runs in the same
+containers and needs nothing new to start: `migrate` creates its tables and the append-only trigger, and after every
+`migrate` the staff app syncs the roles, the new ones too (OWNER, FINANCE, PACKER, REVIEWER, MARKETING, AUDITOR,
+SALES_REP), with every app's permissions (`bootstrap_roles` does the same by hand); beat runs its jobs
+(`staff/README.md` "The jobs"). Before staff use it:
+
+1. **Who is told.** Set `STAFF_ALERT_EMAILS` to the owners' addresses (otherwise every active member of OWNER gets
+   the alerts), and `DATA_PROTECTION_OFFICER` and `CERT_IN_POINT_OF_CONTACT` (section 13, "Staff").
+2. **The roles.** The founder's own account holds the OWNER role (every catalogued permission), not the superuser
+   flag. Superusers (`createsuperuser`) are one or two break-glass accounts only: outside Google sign-in, each with a
+   security key and a backup key kept offline, used when nothing else works. Their log-in alerts the owners, every
+   audit event of their sessions is marked `break_glass` (review them within 24 hours), and they are tested every
+   quarter (RUNBOOK.md, "Break-glass"). To start, a break-glass account gives the founder OWNER in the admin; then
+   give the others their roles through the panel (`people/`, an owner's), where giving a privileged one (ADMIN,
+   FINANCE, AUDITOR, OWNER) waits for a second person (ADMIN or another owner) and
+   two roles that separation of duties keeps apart are refused; the admin's "Give role" actions still work and do not
+   check that (`bootstrap_roles` logs a warning for anyone who holds such a pair). The thresholds that send an action for
+   approval (`ROLE_LIMITS` in `accounts/roles.py`: refund caps, the offline payment value, the discount %, export and
+   bulk rows) are placeholders: set yours there.
+3. **The audit table's owner role.** On PostgreSQL a trigger refuses UPDATE, DELETE and TRUNCATE on
+   `staff_auditevent`; the hash chain and the off-site copy show anything that got past it. A database role can always
+   remove a trigger from a table it owns, and today the stack runs as one role, the database's owner (`POSTGRES_USER`
+   of docker-compose.yml, a superuser in the postgres image). To take that away from the running site, keep that role
+   for migrations and the retention purge only and give the containers a role of their own:
+
+   ```sql
+   -- as the owner: docker compose exec db psql -U examleaf examleaf
+   CREATE ROLE examleaf_app LOGIN PASSWORD '<a new password>';
+   GRANT CONNECT ON DATABASE examleaf TO examleaf_app;
+   GRANT USAGE ON SCHEMA public TO examleaf_app;
+   GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO examleaf_app;
+   GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO examleaf_app;
+   REVOKE UPDATE, DELETE, TRUNCATE ON staff_auditevent FROM examleaf_app;  -- the audit log: read and append only
+   ALTER DEFAULT PRIVILEGES FOR ROLE examleaf IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO examleaf_app;
+   ALTER DEFAULT PRIVILEGES FOR ROLE examleaf IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO examleaf_app;
+   ```
+
+   Then point `DATABASE_URL` of `web`, `worker`, `beat` and `media-worker` at `examleaf_app`, and run `migrate` (and
+   `bootstrap_roles`, which only changes the role tables) as the owner instead of in the web container's start command:
+   `docker compose run --rm -e DATABASE_URL=postgres://examleaf:…@db:5432/examleaf web python manage.py migrate`.
+   After a migration that adds a table, `GRANT` it to `examleaf_app` if the default privileges did not; and if
+   `staff_auditevent` is ever made again (`migrate staff zero`), run the `REVOKE` again: the default privileges give a
+   new table every right.
+4. **The off-site copy.** With `BACKUP_BUCKET` set, the audit log goes there daily as `audit/YYYY/MM/YYYY-MM-DD.jsonl`
+   (06:00). Give the bucket's `audit/` prefix an object lock (Cloudflare R2: a bucket lock rule; S3: Object Lock in
+   compliance mode) as long as the money events are kept, eight years (a day's file holds both chains), keep the
+   bucket's keys only on this server, and let a lifecycle rule delete `audit/` objects when the lock lets go. The files
+   hold ids, client addresses and browsers, the audit's own minimum, and no other personal data.
+5. **Retention.** Monthly, as the owner role (on the host's crontab, beside `scripts/backup.sh`):
+   `docker compose exec -T -e DATABASE_URL=postgres://examleaf:…@db:5432/examleaf web python manage.py purge_audit`
+   deletes what is past `STAFF_AUDIT_RETENTION_DAYS` (two years) and, for refunds, payments and prices,
+   `STAFF_AUDIT_MONEY_RETENTION_FY` (eight financial years). `--dry-run` says what would go. The nightly
+   `verify_audit_chain` keeps checking what stays.
+6. **Clocks.** CERT-In's Directions ask every ICT system's clock to follow NIC's or NPL's NTP servers (samay1.nic.in,
+   samay2.nic.in, time.nplindia.org) or a source traceable to them; a cloud provider's own time is accepted (CERT-In's
+   FAQ, questions 40 to 43). The audit log's times, the 6-hour incident clock and the data requests' clocks depend on
+   it. On the server: `timedatectl` must say "System clock synchronized: yes"; to use NPL's servers, set
+   `NTP=samay1.nic.in samay2.nic.in time.nplindia.org` in `/etc/systemd/timesyncd.conf` and
+   `sudo systemctl restart systemd-timesyncd`. The containers use the host's clock.
+7. **The admin host** (with the panel): serve the panel and `/api/v1/staff/` from `admin.examleaf.in`, and set
+   `ADMIN_HOSTS=admin.examleaf.in` (the staff API then answers 404 on every other host), `STAFF_PANEL_URL` to
+   `https://admin.examleaf.in`, and add the host to `ALLOWED_HOSTS` and `https://admin.examleaf.in` to
+   `CSRF_TRUSTED_ORIGINS`, or Django refuses its requests (400) and the panel's changes (403, CSRF).
