@@ -28,7 +28,7 @@ from integrations.models import IntegrationAccount
 from shop import services as shop
 from shop.models import Order, OrderNote, PinCode, Product, Shipment
 
-from . import messages
+from . import messages, signals
 from .carriers import ManualCarrier, Parcel, carrier_for
 from .carriers.shiprocket import decimal, parse_time  # the statement's rows are in Shiprocket's shape
 from .models import (
@@ -502,6 +502,8 @@ def apply_events(shipment, scans, source):
         detail.change(status=status, last_event_at=max(latest, detail.last_event_at or latest))
         if status != before:
             effects(parcel(shipment), before, status)
+        if before not in LEFT and status in LEFT:  # a first parcel or a re-shipment: the erp app's delivery note
+            signals.parcel_left.send(sender=ShipmentDetail, shipment=shipment)
     return new
 
 
@@ -718,7 +720,8 @@ def check_cod(today=None):
             data = {"expected": str(remittance.expected_amount), "expected_on": remittance.expected_on.isoformat()}
             open_exception(remittance.shipment, Kind.COD_OVERDUE, data=data, reference=f"cod-overdue-{remittance.pk}")
         remittance.checked_at = timezone.now()
-        remittance.save()
+        with transaction.atomic():  # with what its post_save receivers write (the erp app's settlement)
+            remittance.save()
         counts[remittance.state] += 1
     return dict(counts)
 

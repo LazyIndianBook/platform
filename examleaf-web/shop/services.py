@@ -22,7 +22,7 @@ from accounts.roles import SALES
 from ops.tasks import queue_email, queue_text_email
 from staff.config import site_setting
 
-from . import invoices, tasks
+from . import invoices, signals, tasks
 from .cart import price
 from .cart import totals as cart_totals
 from .models import (
@@ -552,6 +552,7 @@ def shipped(order, shipment, sms=True, email=True):
         notify(order, "shipped", sms=sms, shipment=shipment)
     if order.is_cod:  # the bill travels with the parcel
         transaction.on_commit(lambda: tasks.generate_invoice.delay(order.pk), robust=True)
+    signals.order_shipped.send(sender=Order, order=order, shipment=shipment)  # the erp app's delivery note
 
 
 def deliver_order(order, sms=True):

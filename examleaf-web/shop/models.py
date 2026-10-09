@@ -1163,10 +1163,12 @@ class Invoice(TimeStampedModel):
 
     @classmethod
     def for_order(cls, order):
-        """The order's invoice, numbered now if it has none."""
+        """The order's invoice, numbered now if it has none (in one transaction with what its post_save receivers
+        write: the erp app's outbox row)."""
         if invoice := cls.objects.filter(order=order).first():
             return invoice
-        return cls.objects.create(order=order, **next_number(cls, "EL", "T", live=order.livemode))
+        with transaction.atomic():
+            return cls.objects.create(order=order, **next_number(cls, "EL", "T", live=order.livemode))
 
 
 class CreditNote(TimeStampedModel):
@@ -1193,10 +1195,13 @@ class CreditNote(TimeStampedModel):
 
     @classmethod
     def for_refund(cls, refund, invoice):
+        """The refund's credit note, numbered now if it has none (in one transaction with what its post_save receivers
+        write: the erp app's outbox row)."""
         if note := cls.objects.filter(refund=refund).first():
             return note
         live = not invoice.is_test  # the note follows its invoice's series
-        return cls.objects.create(refund=refund, invoice=invoice, **next_number(cls, "CN", "TC", live=live))
+        with transaction.atomic():
+            return cls.objects.create(refund=refund, invoice=invoice, **next_number(cls, "CN", "TC", live=live))
 
 
 class StockAlert(models.Model):
