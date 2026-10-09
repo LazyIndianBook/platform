@@ -1,3 +1,4 @@
+import logging
 import re
 import unicodedata
 
@@ -7,7 +8,7 @@ from django.conf import settings
 from django.core import signing
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
+from django.db import DatabaseError, IntegrityError, transaction
 from django.utils import timezone
 from django.utils.crypto import salted_hmac
 from django.utils.formats import date_format
@@ -18,7 +19,9 @@ from ops.sms import queue_sms
 from ops.tasks import queue_text_email
 
 from .forms import parent_link_contact
-from .models import ConsentRecord, DeletionRequest, Nominee, TeacherProfile
+from .models import ConsentRecord, DeletionRequest, Nominee, ParentLinkSend, TeacherProfile
+
+logger = logging.getLogger(__name__)
 
 PROFILE_FIELDS = [
     "email",
@@ -286,18 +289,32 @@ def parent_link_allowed(contact):
         return True
 
 
-def send_parent_link(user):
+def record_parent_link(user, channel, by=None):
+    """The link just sent is on record (ParentLinkSend: the panel's consent-pending list tells a link's expiry and how
+    many went from it), never at the cost of the send itself: a database error here is logged, not raised."""
+    try:
+        with transaction.atomic():  # a savepoint: a failed insert must not poison the caller's transaction
+            ParentLinkSend.objects.create(user=user, channel=channel, sent_by=by)
+    except DatabaseError:
+        logger.exception("A parent's link to account #%s was sent but could not be recorded", user.pk)
+
+
+def send_parent_link(user, by=None):
     """PARENTAL_CONSENT_MODE "verified" (M9): the parent gets a signed link to confirm, valid PARENT_LINK_DAYS days, by
     email, or by SMS when the contact is a mobile number. Who receives it is not proof of parenthood (DPDP rules: the
     SMS, like the email, only reaches the contact the student gave; RUNBOOK.md "Parental consent"). Sent once the
     student has confirmed their own address (accounts.models), then on My account; fixed text with the student's
-    name only as shown_name allows (M3). Returns whether it went (a limit may stop it: M2, M3)."""
+    name only as shown_name allows (M3). Returns whether it went (a limit may stop it: M2, M3). Each link that went is
+    a ParentLinkSend row (`by`: the member of staff who sent it again, else empty)."""
     if not parent_link_allowed(user.parent_contact):
         return False
     token, name = parent_signer(user.parent_contact).sign(int_to_base36(user.pk)), shown_name(user.full_name)
     if "@" not in user.parent_contact:
         variables = {"var1": A_STUDENT if name == A_STUDENT else name.split()[0][:30], "var2": token}
-        return queue_sms("parent_consent", user.parent_contact, variables, user=user)
+        sent = queue_sms("parent_consent", user.parent_contact, variables, user=user)
+        if sent:
+            record_parent_link(user, ParentLinkSend.Channel.SMS, by)
+        return sent
     queue_text_email(
         user.parent_contact,
         "Please confirm your child's account",
@@ -308,6 +325,7 @@ def send_parent_link(user):
         f"If you do not agree, do nothing: the account cannot save marks or order books. To have it deleted, write "
         f"to us: {settings.SITE_URL}/contact/",
     )
+    record_parent_link(user, ParentLinkSend.Channel.EMAIL, by)
     return True
 
 
