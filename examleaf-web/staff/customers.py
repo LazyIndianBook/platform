@@ -732,7 +732,9 @@ DAILY_LINKS = PARENT_LINKS_PER_DAY  # a parent's address or number gets this man
 
 # ---- A parent's consent recorded by hand ----
 
-PHONE_LIKE = re.compile(r"(?:\+?91[\s-]?)?[6-9]\d{4}[\s-]?\d{5}")
+PHONE_LIKE = re.compile(
+    r"(?<!\d)(?:\+?91[\s-]?)?[6-9]\d{4}[\s-]?\d{5}(?!\d)"
+)  # a number, not ten digits of a longer one
 
 
 def evidence_problem(reference):

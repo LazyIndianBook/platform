@@ -645,9 +645,30 @@ def test_a_second_recording_a_mobile_contact_and_every_refusal(settings):
         refused = verify(client, waiting, **bad)
         assert refused.status_code == 400 and field in refused.json(), bad
     assert not ConsentRecord.objects.filter(user=waiting, verified_by__isnull=False).exists()
+    for fine in ("SR-2026-000042", "Ticket T-1791581713651", "the courier's AWB 1490817263 and letter of 3 October"):
+        assert verify(client, child(15, email=f"ok{len(fine)}@example.com"), evidence_ref=fine).status_code == 201, fine
     stale = verify(signed_in(make_staff(roles.SUPPORT), reauth=False), waiting)
     assert (stale.status_code, stale.json()["code"]) == (403, "reauthentication_required")  # high risk: confirm it
     assert signed_in(make_staff(roles.SALES)).post(f"{USERS}{waiting.pk}/consent/verify/", {}).status_code == 403
+
+
+def test_an_erased_account_reads_without_error_and_says_nothing_of_who_it_was(settings):
+    from accounts.models import forget_registration
+
+    settings.PARENTAL_CONSENT_MODE = "verified"
+    gone = child(15, full_name="Rahul Das")
+    forget_registration(gone)
+    gone.save()
+    client = signed_in(make_staff(roles.ADMIN))
+    [row] = [each for each in rows(client) if each["id"] == gone.pk]
+    assert (row["status"], row["age_band"], row["full_name"]) == ("erased", "unknown", "Deleted account")
+    assert client.get(f"{USERS}{gone.pk}/").status_code == 200
+    timeline = client.get(f"{USERS}{gone.pk}/timeline/")
+    assert timeline.status_code == 200 and timeline.json()["child"] is False
+    commerce = client.get(f"{USERS}{gone.pk}/commerce/")
+    assert commerce.status_code == 200 and commerce.json()["orders"] == 0
+    assert gone.pk not in [each["id"] for each in client.get(USERS + "consent-pending/").json()["results"]]
+    assert client.get(f"{USERS}{gone.pk}/").json()["parent_link"] is None  # no parent contact is kept, so no link
 
 
 # ---- Bulk account actions ----
