@@ -15,6 +15,8 @@
 // the customer's ticket, its first reply is recorded, and the OWNER finds the reply in the ticket's audit trail.
 import { type Browser, expect, type Page, test } from "@playwright/test";
 
+import { readFileSync } from "node:fs";
+
 import { checkPages, type Codes, csrf, settle, signIn, toast } from "./console";
 import {
   type ContentWorld,
@@ -27,6 +29,9 @@ import {
   type OrdersWorld,
   type RealTicket,
   type RealWorld,
+  type ReportsWorld,
+  deleteReportsWorld,
+  seedReportsWorld,
   seedOrdersWorld,
   seedContent,
   seedRealWorld,
@@ -56,6 +61,7 @@ const reviewer = staffFor("REVIEWER");
 const editorCodes: Codes = { last: null };
 const reviewerCodes: Codes = { last: null };
 let content: ContentWorld;
+let reports: ReportsWorld;
 let ticket: RealTicket;
 let supportId: number;
 let editorId: number;
@@ -75,12 +81,14 @@ test.beforeAll(() => {
   reviewerId = createStaff(reviewer, "REVIEWER");
   content = seedContent(stamp);
   ticket = seedTicket(world);
+  reports = seedReportsWorld(stamp);
 });
 
 test.afterAll(() => {
   if (world) deleteRealWorld(world);
   if (shop) deleteOrdersWorld(shop);
   if (content) deleteContent(content);
+  if (reports) deleteReportsWorld(reports);
   deleteStaff([owner.email, support.email, sales.email, finance.email, editor.email, reviewer.email]);
 });
 
@@ -571,4 +579,64 @@ test("Orders: SALES makes a staff order, FINANCE finds it, SUPPORT's refund of t
     await expect(dialog.getByText("staff.approve_refund", { exact: true })).toBeVisible();
     await page.context().close();
   });
+});
+
+test("Home and reports: the OWNER's Home counts the paid order once and leaves the test order out; the report agrees", async ({
+  browser,
+}) => {
+  const page = await open(browser);
+  await signIn(page, owner, "/", ownerCodes);
+  const numbers = page.getByRole("region", { name: "The numbers" });
+
+  await test.step("Home: the money card shows the live order once, the test order's ₹999 in no number", async () => {
+    await expect(numbers.getByRole("link", { name: /Net revenue/ })).toContainText("₹1,234");
+    await expect(numbers.getByRole("link", { name: /^Orders\s*1$/ })).toBeVisible();
+    await expect(numbers.getByText(/test orders? (is|are) left out of these numbers\./)).toBeVisible();
+    await expect(numbers.getByRole("link", { name: /Orders to pack/ })).toHaveAttribute("href", "/orders/?tab=to_pack");
+  });
+
+  await test.step("the card opens the sales report of the same days, which counts the order once too", async () => {
+    await numbers.getByRole("link", { name: /Net revenue/ }).click();
+    await expect(page).toHaveURL(/\/reports\/sales\/\?from=\d{4}-\d\d-\d\d&to=\d{4}-\d\d-\d\d$/);
+    const table = page.getByRole("region", { name: "Sales, a table" });
+    const row = table.getByRole("row", { name: new RegExp(reports.title) });
+    await expect(row).toContainText("₹1,234.00");
+    await expect(row).not.toContainText("2,233"); // the test order's ₹999 would make it ₹2,233
+    await expect(table.getByRole("row", { name: /Whole period/ })).toContainText("₹1,234.00");
+  });
+
+  await test.step("the report as a file: the live order and who made it, at the end", async () => {
+    await page.getByRole("button", { name: "Export as a file" }).click();
+    await settle(page, toast(page, "Export started"), owner, ownerCodes);
+    const download = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Download the file" }).click();
+    const file = await download;
+    expect(file.suggestedFilename()).toMatch(/^report-sales-\d{4}-\d\d-\d\d-to-\d{4}-\d\d-\d\d-made-\d{8}\.csv$/);
+    const text = readFileSync((await file.path())!, "utf8");
+    expect(text).toContain(reports.title);
+    expect(text).toContain("1234.00");
+    expect(text).not.toContain("999.00");
+    expect(text).not.toContain("@"); // no email address, no person, in the file
+    expect(text.trim().split("\n").pop()).toMatch(/^Report,Sales,made .+ by staff member #\d+,"?filters: /);
+  });
+
+  await test.step("the reports index, and every report passes axe and fits at 1280 and 390 px", async () => {
+    await page.goto("/reports/");
+    await expect(page.getByRole("heading", { level: 1, name: "Reports" })).toBeVisible();
+    await checkPages(
+      page,
+      [
+        "/",
+        "/reports/",
+        "/reports/sales/",
+        "/reports/place/",
+        "/reports/cod/",
+        "/reports/settlements/",
+        "/reports/cohorts/",
+        "/reports/forecasts/",
+      ],
+      1280,
+    );
+  });
+  await page.context().close();
 });
