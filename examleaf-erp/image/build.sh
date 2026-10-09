@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds the production image ghcr.io/examleaf/erp:16.50.0-<sha> (UPGRADE.md, README "The image").
+# Builds the production image ghcr.io/lazyindianbook/examleaf-erp:16.50.0-<sha> (UPGRADE.md, README "The image").
 #
 #   image/build.sh            build locally (the Helm chart runs this tag with installApps from README)
 #   PUSH=1 image/build.sh     also push both images (CI on a tag; needs `docker login ghcr.io`)
@@ -21,7 +21,7 @@ set -euo pipefail
 FRAPPE_DOCKER_REF=v4.0.0
 FRAPPE_BRANCH=v16.50.0
 ERP_VERSION=16.50.0
-REGISTRY=${REGISTRY:-ghcr.io/examleaf}
+REGISTRY=${REGISTRY:-ghcr.io/lazyindianbook}
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/.." && pwd)   # examleaf-erp/, the build context of stage 2
 WORK="$HERE/.build"            # gitignored
@@ -64,8 +64,8 @@ PY
   EXTRA=$(git ls-remote "$APP_GIT_URL" "refs/tags/$APP_GIT_REF" | cut -f1)
 fi
 CACHE_BUST=$(printf '%s %s %s' "$(sha <"$HERE/apps.json")" "$OFFSITE" "$EXTRA" | sha)
-BASE="$REGISTRY/erp-base:$ERP_VERSION-$CACHE_BUST"
-TAG="$REGISTRY/erp:$ERP_VERSION-$GIT_SHA"
+BASE="$REGISTRY/examleaf-erp-base:$ERP_VERSION-$CACHE_BUST"
+TAG="$REGISTRY/examleaf-erp:$ERP_VERSION-$GIT_SHA"
 
 echo "Stage 1: $BASE (offsite_backups version-16 at ${OFFSITE:0:12})"
 docker build \

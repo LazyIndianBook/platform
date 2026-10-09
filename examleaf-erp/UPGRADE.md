@@ -37,7 +37,7 @@ git commit -am "ERPNext v16.x.y, India Compliance v16.x.y: <what the release not
 git tag erp-v16.x.y-1 && git push --tags       # CI: lint, tests on MariaDB 11.8, build, Trivy, push
 ```
 
-The image is `ghcr.io/examleaf/erp:<erpnext version>-<commit>`, the tag `image/build.sh` prints.
+The image is `ghcr.io/lazyindianbook/examleaf-erp:<erpnext version>-<commit>`, the tag `image/build.sh` prints.
 
 ## 3. Roll out (the Helm chart, research 3.3)
 

@@ -114,4 +114,4 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/erp-v')
         run: |
           docker push "${{ steps.build.outputs.tag }}"
-          docker images --format '{{.Repository}}:{{.Tag}}' | grep '/erp-base:' | xargs -r -n1 docker push
+          docker images --format '{{.Repository}}:{{.Tag}}' | grep '/examleaf-erp-base:' | xargs -r -n1 docker push

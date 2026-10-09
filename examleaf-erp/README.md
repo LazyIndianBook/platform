@@ -38,8 +38,8 @@ payments by mode, shipped copies); differences open a task for staff.
 
 ## For the Kubernetes chart (`deploy/`)
 
-- **Image**: `ghcr.io/examleaf/erp:16.50.0-<commit>`, the tag `image/build.sh` prints (CI pushes it on an `erp-v*`
-  tag). Set `image.repository: ghcr.io/examleaf/erp` and `image.tag`; the same image runs every component.
+- **Image**: `ghcr.io/lazyindianbook/examleaf-erp:16.50.0-<commit>`, the tag `image/build.sh` prints (CI pushes it on an `erp-v*`
+  tag). Set `image.repository: ghcr.io/lazyindianbook/examleaf-erp` and `image.tag`; the same image runs every component.
 - **createSite Job**: `installApps: [erpnext, india_compliance, hrms, offsite_backups, examleaf_erp]`, `dbType:
   mariadb` (MariaDB 11.8).
 - **Then, once** (a `custom` Job, or `kubectl exec` into a worker pod, not the gunicorn one): the site config keys
