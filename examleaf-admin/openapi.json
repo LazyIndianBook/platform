@@ -13282,6 +13282,50 @@
                 }
             }
         },
+        "/api/v1/staff/home/": {
+            "get": {
+                "operationId": "staff_home_retrieve",
+                "description": "Home's cards for the person who asks: the totals over `?period=` (today, week or month; week by default), the\nqueues as they stand now.",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "period",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "month",
+                                "today",
+                                "week"
+                            ]
+                        },
+                        "description": "the totals' period (week)"
+                    }
+                ],
+                "tags": [
+                    "home (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Home"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
         "/api/v1/staff/inbox/": {
             "get": {
                 "operationId": "staff_inbox_list",
@@ -13873,10 +13917,11 @@
                                 "orders_cancel",
                                 "orders_export",
                                 "orders_pack",
-                                "orders_print"
+                                "orders_print",
+                                "report_export"
                             ]
                         },
-                        "description": "* `audit_export` - audit log export\n* `bulk_action` - bulk action\n* `erp_initial_load` - ERPNext initial load\n* `gstr1_export` - GSTR-1 export\n* `orders_pack` - orders marked packed\n* `orders_print` - order documents printed\n* `orders_cancel` - orders cancelled\n* `orders_export` - order export\n* `content_import` - import from the books repository\n* `grievance_export` - grievance register export"
+                        "description": "* `audit_export` - audit log export\n* `bulk_action` - bulk action\n* `erp_initial_load` - ERPNext initial load\n* `gstr1_export` - GSTR-1 export\n* `orders_pack` - orders marked packed\n* `orders_print` - order documents printed\n* `orders_cancel` - orders cancelled\n* `orders_export` - order export\n* `content_import` - import from the books repository\n* `grievance_export` - grievance register export\n* `report_export` - report export"
                     },
                     {
                         "in": "query",
@@ -18616,6 +18661,410 @@
                 "responses": {
                     "204": {
                         "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/reports/": {
+            "get": {
+                "operationId": "staff_reports_retrieve",
+                "description": "The reports the person may open, each with the permissions it needs, and whether its source is set up.",
+                "tags": [
+                    "reports (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ReportIndex"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/reports/cod/": {
+            "get": {
+                "operationId": "staff_reports_cod_retrieve",
+                "description": "A report: its filters in the query, its answer from reports.py through its serializer.",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "from",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "the first day, YYYY-MM-DD (30 days before the last by default)"
+                    },
+                    {
+                        "in": "query",
+                        "name": "to",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "the last day, YYYY-MM-DD (today); at most 13 months from the first"
+                    }
+                ],
+                "tags": [
+                    "reports (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ReportCod"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/reports/codes/": {
+            "get": {
+                "operationId": "staff_reports_codes_retrieve",
+                "description": "A report: its filters in the query, its answer from reports.py through its serializer.",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "batch",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "one batch's districts"
+                    }
+                ],
+                "tags": [
+                    "reports (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ReportCodes"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/reports/course-health/": {
+            "get": {
+                "operationId": "staff_reports_course_health_retrieve",
+                "description": "A report: its filters in the query, its answer from reports.py through its serializer.",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "chapter",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "a chapter's id"
+                    },
+                    {
+                        "in": "query",
+                        "name": "grain",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "day",
+                                "month",
+                                "week"
+                            ]
+                        },
+                        "description": "the series' periods (week)"
+                    },
+                    {
+                        "in": "query",
+                        "name": "subject",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "a subject's id (the whole course by default)"
+                    }
+                ],
+                "tags": [
+                    "reports (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ReportHealth"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/reports/print-run/": {
+            "post": {
+                "operationId": "staff_reports_print_run_create",
+                "description": "The newsvendor's sum for a title with the inputs typed: nothing is stored and nothing is changed.",
+                "tags": [
+                    "reports (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ReportPrintRunRequestRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ReportPrintRun"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/reports/sales/": {
+            "get": {
+                "operationId": "staff_reports_sales_retrieve",
+                "description": "A report: its filters in the query, its answer from reports.py through its serializer.",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "by",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "board",
+                                "class",
+                                "edition",
+                                "none",
+                                "product",
+                                "subject"
+                            ]
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "from",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "the first day, YYYY-MM-DD (30 days before the last by default)"
+                    },
+                    {
+                        "in": "query",
+                        "name": "grain",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "day",
+                                "month",
+                                "none",
+                                "week"
+                            ]
+                        },
+                        "description": "a row per period too"
+                    },
+                    {
+                        "in": "query",
+                        "name": "to",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "the last day, YYYY-MM-DD (today); at most 13 months from the first"
+                    }
+                ],
+                "tags": [
+                    "reports (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ReportSales"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/reports/sales-by-place/": {
+            "get": {
+                "operationId": "staff_reports_sales_by_place_retrieve",
+                "description": "A report: its filters in the query, its answer from reports.py through its serializer.",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "from",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "the first day, YYYY-MM-DD (30 days before the last by default)"
+                    },
+                    {
+                        "in": "query",
+                        "name": "level",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "district",
+                                "pin",
+                                "state"
+                            ]
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "state",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "a state's code (AS): the districts and PIN codes of it"
+                    },
+                    {
+                        "in": "query",
+                        "name": "to",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "the last day, YYYY-MM-DD (today); at most 13 months from the first"
+                    }
+                ],
+                "tags": [
+                    "reports (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ReportPlace"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/reports/settlements/": {
+            "get": {
+                "operationId": "staff_reports_settlements_retrieve",
+                "description": "A report: its filters in the query, its answer from reports.py through its serializer.",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "from",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "the first day, YYYY-MM-DD (30 days before the last by default)"
+                    },
+                    {
+                        "in": "query",
+                        "name": "to",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "the last day, YYYY-MM-DD (today); at most 13 months from the first"
+                    }
+                ],
+                "tags": [
+                    "reports (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ReportSettlements"
+                                }
+                            }
+                        },
+                        "description": ""
                     }
                 }
             }
@@ -25833,6 +26282,7 @@
             },
             "CodeActivation": {
                 "type": "object",
+                "description": "A batch's redemptions, in all (`district` null) and by district. A district under INSIGHTS_MIN_CELL redemptions\nis `hidden`: no counts.",
                 "properties": {
                     "batch": {
                         "type": "string",
@@ -25867,13 +26317,26 @@
                     "n": {
                         "type": "integer",
                         "readOnly": true
+                    },
+                    "hidden": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "true: too few redemptions to show the counts (see `under`)"
+                    },
+                    "under": {
+                        "type": "integer",
+                        "nullable": true,
+                        "readOnly": true,
+                        "description": "the minimum cell a hidden row is under; null when shown"
                     }
                 },
                 "required": [
                     "batch",
+                    "hidden",
                     "n",
                     "redeemed",
-                    "redeemed_7d"
+                    "redeemed_7d",
+                    "under"
                 ]
             },
             "CodeAnswer": {
@@ -25939,6 +26402,7 @@
             },
             "CohortStat": {
                 "type": "object",
+                "description": "A cohort's week. A week of fewer than INSIGHTS_MIN_CELL learners shows its size and no shares (`hidden`).",
                 "properties": {
                     "cohort_month": {
                         "type": "string",
@@ -25973,12 +26437,25 @@
                         "minimum": 0,
                         "format": "int64",
                         "description": "Learners counted that week (their exam still ahead)."
+                    },
+                    "hidden": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "true: too few learners to show the shares (see `under`)"
+                    },
+                    "under": {
+                        "type": "integer",
+                        "nullable": true,
+                        "readOnly": true,
+                        "description": "the minimum cell a hidden row is under; null when shown"
                     }
                 },
                 "required": [
                     "cohort_month",
+                    "hidden",
                     "n",
                     "source",
+                    "under",
                     "week_index"
                 ]
             },
@@ -31643,6 +32120,201 @@
                     "reason"
                 ]
             },
+            "Home": {
+                "type": "object",
+                "properties": {
+                    "as_of": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "period": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/HomePeriod"
+                            }
+                        ],
+                        "description": "the period of the totals"
+                    },
+                    "test_mode": {
+                        "type": "boolean",
+                        "description": "the site runs on test keys: every number is of test-mode rows"
+                    },
+                    "test_orders_left_out": {
+                        "type": "integer",
+                        "description": "orders placed in the periods shown that were made with test keys on the live site, left out"
+                    },
+                    "cards": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/HomeCard"
+                        }
+                    }
+                },
+                "required": [
+                    "as_of",
+                    "cards",
+                    "period",
+                    "test_mode",
+                    "test_orders_left_out"
+                ]
+            },
+            "HomeCard": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "group": {
+                        "type": "string",
+                        "description": "measure (a total) or queue (what waits for a person)"
+                    },
+                    "unit": {
+                        "type": "string",
+                        "description": "inr (rupees, two places) or count"
+                    },
+                    "value": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "a decimal string for rupees, a whole number else; null with an error"
+                    },
+                    "definition": {
+                        "type": "string",
+                        "description": "how it is counted, in words (shown on hover and in 'How this is counted')"
+                    },
+                    "as_of": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "when it was worked out"
+                    },
+                    "period": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/HomeSpan"
+                            }
+                        ],
+                        "nullable": true,
+                        "description": "the days a total covers; null for a queue"
+                    },
+                    "href": {
+                        "type": "string",
+                        "description": "the console's list or report it counts, already filtered"
+                    },
+                    "test_mode": {
+                        "type": "boolean",
+                        "description": "made of test-mode rows (the site runs on test keys)"
+                    },
+                    "comparison": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/HomeComparison"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "error": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "as_of",
+                    "comparison",
+                    "definition",
+                    "error",
+                    "group",
+                    "href",
+                    "key",
+                    "label",
+                    "period",
+                    "test_mode",
+                    "unit",
+                    "value"
+                ]
+            },
+            "HomeComparison": {
+                "type": "object",
+                "properties": {
+                    "previous": {
+                        "type": "string",
+                        "description": "the same figure for the period before, of the same length"
+                    },
+                    "difference": {
+                        "type": "string",
+                        "description": "this period's less the previous one's, signed"
+                    },
+                    "percent": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "the difference as a signed percent of the previous; null from 0"
+                    },
+                    "period": {
+                        "$ref": "#/components/schemas/HomeSpan"
+                    }
+                },
+                "required": [
+                    "difference",
+                    "percent",
+                    "period",
+                    "previous"
+                ]
+            },
+            "HomePeriod": {
+                "type": "object",
+                "properties": {
+                    "start": {
+                        "type": "string",
+                        "format": "date",
+                        "description": "the first day (India's calendar)"
+                    },
+                    "end": {
+                        "type": "string",
+                        "format": "date",
+                        "description": "the last day, included"
+                    },
+                    "days": {
+                        "type": "integer"
+                    },
+                    "key": {
+                        "type": "string",
+                        "description": "today, week or month"
+                    },
+                    "label": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "days",
+                    "end",
+                    "key",
+                    "label",
+                    "start"
+                ]
+            },
+            "HomeSpan": {
+                "type": "object",
+                "properties": {
+                    "start": {
+                        "type": "string",
+                        "format": "date",
+                        "description": "the first day (India's calendar)"
+                    },
+                    "end": {
+                        "type": "string",
+                        "format": "date",
+                        "description": "the last day, included"
+                    },
+                    "days": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "days",
+                    "end",
+                    "start"
+                ]
+            },
             "HsnCode": {
                 "type": "object",
                 "properties": {
@@ -32725,10 +33397,11 @@
                     "orders_cancel",
                     "orders_export",
                     "content_import",
-                    "grievance_export"
+                    "grievance_export",
+                    "report_export"
                 ],
                 "type": "string",
-                "description": "* `audit_export` - audit log export\n* `bulk_action` - bulk action\n* `erp_initial_load` - ERPNext initial load\n* `gstr1_export` - GSTR-1 export\n* `orders_pack` - orders marked packed\n* `orders_print` - order documents printed\n* `orders_cancel` - orders cancelled\n* `orders_export` - order export\n* `content_import` - import from the books repository\n* `grievance_export` - grievance register export"
+                "description": "* `audit_export` - audit log export\n* `bulk_action` - bulk action\n* `erp_initial_load` - ERPNext initial load\n* `gstr1_export` - GSTR-1 export\n* `orders_pack` - orders marked packed\n* `orders_print` - order documents printed\n* `orders_cancel` - orders cancelled\n* `orders_export` - order export\n* `content_import` - import from the books repository\n* `grievance_export` - grievance register export\n* `report_export` - report export"
             },
             "JobStartRequest": {
                 "type": "object",
@@ -32739,7 +33412,7 @@
                     "params": {
                         "type": "object",
                         "additionalProperties": {},
-                        "description": "audit_export: {\"filters\": {…}} (the audit list's); bulk_action: {\"action\": \"order.refund\", \"targets\": [order numbers, slugs or ids], \"payload\": {…} (each target's, as for change-requests/), \"reason\"}; erp_initial_load: {\"invoices_from\": \"YYYY-MM-DD\"} (optional: without it, the catalogue only); gstr1_export: {\"month\": \"YYYY-MM\", \"months\": 1 or 3} (a month, or the quarter ending with it); orders_pack, orders_print ({\"document\": packing_slip, label or invoices}) and orders_cancel ({\"reason\", \"customer_requested\"}, 250 at most): {\"targets\": [order numbers]}; orders_export: {\"filters\": {…}} (the order list's); content_import: {\"subject\": \"physics\", \"commit\": \"\" or a commit, \"dry_run_job\": the dry run's id (to apply)}; grievance_export: {\"from\": \"YYYY-MM-DD\", \"until\": \"YYYY-MM-DD\"} (the days received, both optional)"
+                        "description": "audit_export: {\"filters\": {…}} (the audit list's); bulk_action: {\"action\": \"order.refund\", \"targets\": [order numbers, slugs or ids], \"payload\": {…} (each target's, as for change-requests/), \"reason\"}; erp_initial_load: {\"invoices_from\": \"YYYY-MM-DD\"} (optional: without it, the catalogue only); gstr1_export: {\"month\": \"YYYY-MM\", \"months\": 1 or 3} (a month, or the quarter ending with it); orders_pack, orders_print ({\"document\": packing_slip, label or invoices}) and orders_cancel ({\"reason\", \"customer_requested\"}, 250 at most): {\"targets\": [order numbers]}; orders_export: {\"filters\": {…}} (the order list's); content_import: {\"subject\": \"physics\", \"commit\": \"\" or a commit, \"dry_run_job\": the dry run's id (to apply)}; grievance_export: {\"from\": \"YYYY-MM-DD\", \"until\": \"YYYY-MM-DD\"} (the days received, both optional); report_export: {\"report\": \"sales\", \"filters\": {...}} (the report's own filters: reports/)"
                     },
                     "dry_run": {
                         "type": "boolean",
@@ -43488,6 +44161,1344 @@
                     "replayed"
                 ]
             },
+            "ReportBacktest": {
+                "type": "object",
+                "properties": {
+                    "horizon_weeks": {
+                        "type": "integer"
+                    },
+                    "wape": {
+                        "type": "number",
+                        "format": "double",
+                        "nullable": true
+                    },
+                    "mase_vs_seasonal_naive": {
+                        "type": "number",
+                        "format": "double",
+                        "nullable": true
+                    },
+                    "shown": {
+                        "type": "boolean"
+                    },
+                    "n_weeks": {
+                        "type": "integer"
+                    },
+                    "data_as_of": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "data_as_of",
+                    "horizon_weeks",
+                    "mase_vs_seasonal_naive",
+                    "n_weeks",
+                    "shown",
+                    "wape"
+                ]
+            },
+            "ReportCod": {
+                "type": "object",
+                "properties": {
+                    "report": {
+                        "type": "string"
+                    },
+                    "definition": {
+                        "type": "string",
+                        "description": "what the report counts and how, in words"
+                    },
+                    "columns": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ReportColumn"
+                        }
+                    },
+                    "as_of": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "when it was worked out"
+                    },
+                    "test_mode": {
+                        "type": "boolean",
+                        "description": "the site runs on test keys: every number is of test-mode rows"
+                    },
+                    "period": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ReportPeriod"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "as_of_day": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "remitted": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ReportCodRemitted"
+                            }
+                        ],
+                        "description": "remitted in the period"
+                    },
+                    "by_courier": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ReportCodCourier"
+                        }
+                    },
+                    "rows": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ReportCodRow"
+                        },
+                        "description": "what is outstanding, by how late"
+                    }
+                },
+                "required": [
+                    "as_of",
+                    "as_of_day",
+                    "by_courier",
+                    "columns",
+                    "definition",
+                    "period",
+                    "remitted",
+                    "report",
+                    "rows",
+                    "test_mode"
+                ]
+            },
+            "ReportCodCourier": {
+                "type": "object",
+                "properties": {
+                    "courier": {
+                        "type": "string"
+                    },
+                    "count": {
+                        "type": "integer"
+                    },
+                    "expected": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,12}(?:\\.\\d{0,2})?$"
+                    },
+                    "overdue": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "count",
+                    "courier",
+                    "expected",
+                    "overdue"
+                ]
+            },
+            "ReportCodRemitted": {
+                "type": "object",
+                "properties": {
+                    "count": {
+                        "type": "integer"
+                    },
+                    "expected": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,12}(?:\\.\\d{0,2})?$"
+                    },
+                    "received": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,12}(?:\\.\\d{0,2})?$"
+                    },
+                    "difference": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,12}(?:\\.\\d{0,2})?$",
+                        "description": "received less expected"
+                    }
+                },
+                "required": [
+                    "count",
+                    "difference",
+                    "expected",
+                    "received"
+                ]
+            },
+            "ReportCodRow": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "count": {
+                        "type": "integer"
+                    },
+                    "expected": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,12}(?:\\.\\d{0,2})?$"
+                    },
+                    "oldest_expected_on": {
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "count",
+                    "expected",
+                    "key",
+                    "label",
+                    "oldest_expected_on"
+                ]
+            },
+            "ReportCodes": {
+                "type": "object",
+                "properties": {
+                    "report": {
+                        "type": "string"
+                    },
+                    "definition": {
+                        "type": "string",
+                        "description": "what the report counts and how, in words"
+                    },
+                    "columns": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ReportColumn"
+                        }
+                    },
+                    "as_of": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "when it was worked out"
+                    },
+                    "test_mode": {
+                        "type": "boolean",
+                        "description": "the site runs on test keys: every number is of test-mode rows"
+                    },
+                    "period": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ReportPeriod"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "batch": {
+                        "type": "string"
+                    },
+                    "minimum": {
+                        "type": "integer"
+                    },
+                    "districts_computed_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "districts": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ReportCodesDistrict"
+                        }
+                    },
+                    "rows": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ReportCodesRow"
+                        }
+                    }
+                },
+                "required": [
+                    "as_of",
+                    "batch",
+                    "columns",
+                    "definition",
+                    "districts",
+                    "districts_computed_at",
+                    "minimum",
+                    "period",
+                    "report",
+                    "rows",
+                    "test_mode"
+                ]
+            },
+            "ReportCodesDistrict": {
+                "type": "object",
+                "properties": {
+                    "hidden": {
+                        "type": "boolean",
+                        "description": "too few to show: the numbers are null (see `under`)"
+                    },
+                    "under": {
+                        "type": "integer",
+                        "nullable": true,
+                        "description": "the minimum cell the row is under; null when shown"
+                    },
+                    "district": {
+                        "type": "string"
+                    },
+                    "redeemed": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "redeemed_7d": {
+                        "type": "integer",
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "district",
+                    "hidden",
+                    "redeemed",
+                    "redeemed_7d",
+                    "under"
+                ]
+            },
+            "ReportCodesRow": {
+                "type": "object",
+                "properties": {
+                    "batch": {
+                        "type": "string"
+                    },
+                    "printed": {
+                        "type": "integer"
+                    },
+                    "sold": {
+                        "type": "integer",
+                        "nullable": true,
+                        "description": "null until the course module records a batch's book"
+                    },
+                    "activated": {
+                        "type": "integer"
+                    },
+                    "activated_7d": {
+                        "type": "integer"
+                    },
+                    "revoked": {
+                        "type": "integer",
+                        "nullable": true,
+                        "description": "null until the course module can void codes"
+                    },
+                    "activation_rate": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,2}(?:\\.\\d{0,4})?$",
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "activated",
+                    "activated_7d",
+                    "activation_rate",
+                    "batch",
+                    "printed",
+                    "revoked",
+                    "sold"
+                ]
+            },
+            "ReportColumn": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "definition": {
+                        "type": "string",
+                        "description": "how the column's numbers are counted"
+                    }
+                },
+                "required": [
+                    "definition",
+                    "key",
+                    "label"
+                ]
+            },
+            "ReportDemandRange": {
+                "type": "object",
+                "properties": {
+                    "p10": {
+                        "type": "integer",
+                        "description": "copies from now to the exam: a season in ten sells less"
+                    },
+                    "p50": {
+                        "type": "integer"
+                    },
+                    "p90": {
+                        "type": "integer",
+                        "description": "a season in ten sells more"
+                    },
+                    "weeks": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "p10",
+                    "p50",
+                    "p90",
+                    "weeks"
+                ]
+            },
+            "ReportHealth": {
+                "type": "object",
+                "properties": {
+                    "report": {
+                        "type": "string"
+                    },
+                    "definition": {
+                        "type": "string",
+                        "description": "what the report counts and how, in words"
+                    },
+                    "columns": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ReportColumn"
+                        }
+                    },
+                    "as_of": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "when it was worked out"
+                    },
+                    "test_mode": {
+                        "type": "boolean",
+                        "description": "the site runs on test keys: every number is of test-mode rows"
+                    },
+                    "period": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ReportPeriod"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "grain": {
+                        "type": "string"
+                    },
+                    "computed_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true,
+                        "description": "null: the nightly job has not run yet"
+                    },
+                    "minimum": {
+                        "type": "integer",
+                        "description": "a cell of fewer learners is hidden"
+                    },
+                    "subject": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "chapter": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "subjects": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ReportHealthSubject"
+                        },
+                        "description": "the subjects the person looks after"
+                    },
+                    "whole_course": {
+                        "type": "boolean",
+                        "description": "the series is of the whole course"
+                    },
+                    "series": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ReportHealthPoint"
+                        },
+                        "description": "active learners and the rest, one point per period"
+                    },
+                    "codes_by_week": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ReportHealthWeek"
+                        }
+                    },
+                    "rows": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ReportHealthChapter"
+                        },
+                        "description": "the chapters over the last 28 days"
+                    }
+                },
+                "required": [
+                    "as_of",
+                    "chapter",
+                    "codes_by_week",
+                    "columns",
+                    "computed_at",
+                    "definition",
+                    "grain",
+                    "minimum",
+                    "period",
+                    "report",
+                    "rows",
+                    "series",
+                    "subject",
+                    "subjects",
+                    "test_mode",
+                    "whole_course"
+                ]
+            },
+            "ReportHealthChapter": {
+                "type": "object",
+                "properties": {
+                    "hidden": {
+                        "type": "boolean",
+                        "description": "too few to show: the numbers are null (see `under`)"
+                    },
+                    "under": {
+                        "type": "integer",
+                        "nullable": true,
+                        "description": "the minimum cell the row is under; null when shown"
+                    },
+                    "subject": {
+                        "type": "integer"
+                    },
+                    "chapter": {
+                        "type": "integer"
+                    },
+                    "number": {
+                        "type": "integer"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "active_7d": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "active_28d": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "clips_started": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "clips_completed": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "completion_rate": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,2}(?:\\.\\d{0,4})?$",
+                        "nullable": true
+                    },
+                    "quiz_answers": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "quiz_accuracy": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,2}(?:\\.\\d{0,4})?$",
+                        "nullable": true
+                    },
+                    "card_reviews": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "card_lapses": {
+                        "type": "integer",
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "active_28d",
+                    "active_7d",
+                    "card_lapses",
+                    "card_reviews",
+                    "chapter",
+                    "clips_completed",
+                    "clips_started",
+                    "completion_rate",
+                    "hidden",
+                    "label",
+                    "number",
+                    "quiz_accuracy",
+                    "quiz_answers",
+                    "subject",
+                    "title",
+                    "under"
+                ]
+            },
+            "ReportHealthPoint": {
+                "type": "object",
+                "properties": {
+                    "hidden": {
+                        "type": "boolean",
+                        "description": "too few to show: the numbers are null (see `under`)"
+                    },
+                    "under": {
+                        "type": "integer",
+                        "nullable": true,
+                        "description": "the minimum cell the row is under; null when shown"
+                    },
+                    "period_start": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "active_learners": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "clips_completed": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "quiz_answers": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "quiz_accuracy": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,2}(?:\\.\\d{0,4})?$",
+                        "nullable": true
+                    },
+                    "card_reviews": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "card_lapses": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "smoothed_7": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,7}(?:\\.\\d{0,1})?$",
+                        "nullable": true,
+                        "description": "daily series only"
+                    },
+                    "smoothed_28": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,7}(?:\\.\\d{0,1})?$",
+                        "nullable": true,
+                        "description": "daily series only"
+                    }
+                },
+                "required": [
+                    "active_learners",
+                    "card_lapses",
+                    "card_reviews",
+                    "clips_completed",
+                    "hidden",
+                    "period_start",
+                    "quiz_accuracy",
+                    "quiz_answers",
+                    "smoothed_28",
+                    "smoothed_7",
+                    "under"
+                ]
+            },
+            "ReportHealthSubject": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "id",
+                    "name"
+                ]
+            },
+            "ReportHealthWeek": {
+                "type": "object",
+                "properties": {
+                    "hidden": {
+                        "type": "boolean",
+                        "description": "too few to show: the numbers are null (see `under`)"
+                    },
+                    "under": {
+                        "type": "integer",
+                        "nullable": true,
+                        "description": "the minimum cell the row is under; null when shown"
+                    },
+                    "week_start": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "redeemed": {
+                        "type": "integer",
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "hidden",
+                    "redeemed",
+                    "under",
+                    "week_start"
+                ]
+            },
+            "ReportIndex": {
+                "type": "object",
+                "properties": {
+                    "test_mode": {
+                        "type": "boolean"
+                    },
+                    "reports": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ReportIndexItem"
+                        }
+                    }
+                },
+                "required": [
+                    "reports",
+                    "test_mode"
+                ]
+            },
+            "ReportIndexItem": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "summary": {
+                        "type": "string"
+                    },
+                    "page": {
+                        "type": "string",
+                        "description": "the console's page"
+                    },
+                    "api": {
+                        "type": "string",
+                        "description": "where the numbers are"
+                    },
+                    "needs": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "the permissions that open it"
+                    },
+                    "available": {
+                        "type": "boolean",
+                        "description": "the person holds them all"
+                    },
+                    "configured": {
+                        "type": "boolean",
+                        "description": "false: its source is not set up yet"
+                    }
+                },
+                "required": [
+                    "api",
+                    "available",
+                    "configured",
+                    "key",
+                    "label",
+                    "needs",
+                    "page",
+                    "summary"
+                ]
+            },
+            "ReportPeriod": {
+                "type": "object",
+                "properties": {
+                    "start": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "end": {
+                        "type": "string",
+                        "format": "date",
+                        "description": "the last day, included"
+                    },
+                    "days": {
+                        "type": "integer"
+                    }
+                },
+                "required": [
+                    "days",
+                    "end",
+                    "start"
+                ]
+            },
+            "ReportPlace": {
+                "type": "object",
+                "properties": {
+                    "report": {
+                        "type": "string"
+                    },
+                    "definition": {
+                        "type": "string",
+                        "description": "what the report counts and how, in words"
+                    },
+                    "columns": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ReportColumn"
+                        }
+                    },
+                    "as_of": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "when it was worked out"
+                    },
+                    "test_mode": {
+                        "type": "boolean",
+                        "description": "the site runs on test keys: every number is of test-mode rows"
+                    },
+                    "period": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ReportPeriod"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "level": {
+                        "type": "string"
+                    },
+                    "state": {
+                        "type": "string"
+                    },
+                    "minimum": {
+                        "type": "integer",
+                        "description": "a place with fewer orders is hidden"
+                    },
+                    "hidden_rows": {
+                        "type": "integer"
+                    },
+                    "totals_shown": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ReportPlaceTotals"
+                            }
+                        ],
+                        "description": "the rows shown only: the places hidden are not in it"
+                    },
+                    "rows": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ReportPlaceRow"
+                        }
+                    }
+                },
+                "required": [
+                    "as_of",
+                    "columns",
+                    "definition",
+                    "hidden_rows",
+                    "level",
+                    "minimum",
+                    "period",
+                    "report",
+                    "rows",
+                    "state",
+                    "test_mode",
+                    "totals_shown"
+                ]
+            },
+            "ReportPlaceRow": {
+                "type": "object",
+                "properties": {
+                    "hidden": {
+                        "type": "boolean",
+                        "description": "too few to show: the numbers are null (see `under`)"
+                    },
+                    "under": {
+                        "type": "integer",
+                        "nullable": true,
+                        "description": "the minimum cell the row is under; null when shown"
+                    },
+                    "level": {
+                        "type": "string"
+                    },
+                    "state": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "a state's code"
+                    },
+                    "state_name": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "district": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "pin": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "orders": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "units": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "net": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,12}(?:\\.\\d{0,2})?$",
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "district",
+                    "hidden",
+                    "label",
+                    "level",
+                    "net",
+                    "orders",
+                    "pin",
+                    "state",
+                    "state_name",
+                    "under",
+                    "units"
+                ]
+            },
+            "ReportPlaceTotals": {
+                "type": "object",
+                "properties": {
+                    "orders": {
+                        "type": "integer"
+                    },
+                    "units": {
+                        "type": "integer"
+                    },
+                    "net": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,12}(?:\\.\\d{0,2})?$"
+                    }
+                },
+                "required": [
+                    "net",
+                    "orders",
+                    "units"
+                ]
+            },
+            "ReportPrintRun": {
+                "type": "object",
+                "properties": {
+                    "product": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "net_price": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,12}(?:\\.\\d{0,2})?$"
+                    },
+                    "unit_cost": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,12}(?:\\.\\d{0,2})?$"
+                    },
+                    "salvage": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,12}(?:\\.\\d{0,2})?$"
+                    },
+                    "critical_ratio": {
+                        "type": "number",
+                        "format": "double",
+                        "description": "(net price - cost) / (net price - salvage): the quantile to print"
+                    },
+                    "percentile": {
+                        "type": "integer",
+                        "description": "the critical ratio in percent: print the Pn of the demand"
+                    },
+                    "target_quantity": {
+                        "type": "integer",
+                        "nullable": true,
+                        "description": "the season's demand at that percentile"
+                    },
+                    "supply": {
+                        "type": "integer",
+                        "description": "copies in stock and on order"
+                    },
+                    "recommended_quantity": {
+                        "type": "integer",
+                        "nullable": true,
+                        "description": "copies to print now; null: no forecast"
+                    },
+                    "range": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ReportDemandRange"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "method": {
+                        "type": "string"
+                    },
+                    "data_as_of": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "backtest": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ReportBacktest"
+                            }
+                        ],
+                        "nullable": true,
+                        "description": "the last backtest of every title, 4 weeks ahead"
+                    },
+                    "shown": {
+                        "type": "boolean",
+                        "description": "false: the forecast has not beaten the seasonal naive in a backtest"
+                    },
+                    "note": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "backtest",
+                    "critical_ratio",
+                    "data_as_of",
+                    "method",
+                    "net_price",
+                    "note",
+                    "percentile",
+                    "product",
+                    "range",
+                    "recommended_quantity",
+                    "salvage",
+                    "shown",
+                    "supply",
+                    "target_quantity",
+                    "title",
+                    "unit_cost"
+                ]
+            },
+            "ReportPrintRunRequestRequest": {
+                "type": "object",
+                "properties": {
+                    "product": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "the title's slug",
+                        "pattern": "^[-a-zA-Z0-9_]+$"
+                    },
+                    "net_price": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,6}(?:\\.\\d{0,2})?$",
+                        "description": "what a copy sells for after discounts"
+                    },
+                    "unit_cost": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,6}(?:\\.\\d{0,2})?$",
+                        "description": "print cost per copy"
+                    },
+                    "salvage": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,6}(?:\\.\\d{0,2})?$",
+                        "default": "0.00",
+                        "description": "what a copy left after the exams fetches"
+                    }
+                },
+                "required": [
+                    "net_price",
+                    "product",
+                    "unit_cost"
+                ]
+            },
+            "ReportSales": {
+                "type": "object",
+                "properties": {
+                    "report": {
+                        "type": "string"
+                    },
+                    "definition": {
+                        "type": "string",
+                        "description": "what the report counts and how, in words"
+                    },
+                    "columns": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ReportColumn"
+                        }
+                    },
+                    "as_of": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "when it was worked out"
+                    },
+                    "test_mode": {
+                        "type": "boolean",
+                        "description": "the site runs on test keys: every number is of test-mode rows"
+                    },
+                    "period": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ReportPeriod"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "by": {
+                        "type": "string"
+                    },
+                    "grain": {
+                        "type": "string"
+                    },
+                    "totals": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ReportSalesTotals"
+                            }
+                        ],
+                        "description": "the whole period, whatever the grouping"
+                    },
+                    "rows": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ReportSalesRow"
+                        }
+                    }
+                },
+                "required": [
+                    "as_of",
+                    "by",
+                    "columns",
+                    "definition",
+                    "grain",
+                    "period",
+                    "report",
+                    "rows",
+                    "test_mode",
+                    "totals"
+                ]
+            },
+            "ReportSalesRow": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "period_start": {
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true
+                    },
+                    "orders": {
+                        "type": "integer"
+                    },
+                    "units": {
+                        "type": "integer"
+                    },
+                    "gross": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,12}(?:\\.\\d{0,2})?$"
+                    },
+                    "discount": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,12}(?:\\.\\d{0,2})?$"
+                    },
+                    "net": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,12}(?:\\.\\d{0,2})?$"
+                    }
+                },
+                "required": [
+                    "discount",
+                    "gross",
+                    "key",
+                    "label",
+                    "net",
+                    "orders",
+                    "period_start",
+                    "units"
+                ]
+            },
+            "ReportSalesTotals": {
+                "type": "object",
+                "properties": {
+                    "orders": {
+                        "type": "integer"
+                    },
+                    "units": {
+                        "type": "integer"
+                    },
+                    "gross": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,12}(?:\\.\\d{0,2})?$"
+                    },
+                    "discount": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,12}(?:\\.\\d{0,2})?$"
+                    },
+                    "net": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,12}(?:\\.\\d{0,2})?$"
+                    }
+                },
+                "required": [
+                    "discount",
+                    "gross",
+                    "net",
+                    "orders",
+                    "units"
+                ]
+            },
+            "ReportSettlementRow": {
+                "type": "object",
+                "properties": {
+                    "reference": {
+                        "type": "string"
+                    },
+                    "date": {
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true
+                    },
+                    "gross": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,12}(?:\\.\\d{0,2})?$",
+                        "nullable": true
+                    },
+                    "fees": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,12}(?:\\.\\d{0,2})?$",
+                        "nullable": true
+                    },
+                    "tax": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,12}(?:\\.\\d{0,2})?$",
+                        "nullable": true
+                    },
+                    "refunds": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,12}(?:\\.\\d{0,2})?$",
+                        "nullable": true
+                    },
+                    "net": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,12}(?:\\.\\d{0,2})?$",
+                        "nullable": true
+                    },
+                    "utr": {
+                        "type": "string"
+                    },
+                    "state": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "date",
+                    "fees",
+                    "gross",
+                    "net",
+                    "reference",
+                    "refunds",
+                    "state",
+                    "tax",
+                    "utr"
+                ]
+            },
+            "ReportSettlements": {
+                "type": "object",
+                "properties": {
+                    "report": {
+                        "type": "string"
+                    },
+                    "definition": {
+                        "type": "string",
+                        "description": "what the report counts and how, in words"
+                    },
+                    "columns": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ReportColumn"
+                        }
+                    },
+                    "as_of": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "when it was worked out"
+                    },
+                    "test_mode": {
+                        "type": "boolean",
+                        "description": "the site runs on test keys: every number is of test-mode rows"
+                    },
+                    "period": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ReportPeriod"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "configured": {
+                        "type": "boolean",
+                        "description": "false: the Finance module has not set up the settlements"
+                    },
+                    "note": {
+                        "type": "string"
+                    },
+                    "rows": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ReportSettlementRow"
+                        }
+                    }
+                },
+                "required": [
+                    "as_of",
+                    "columns",
+                    "configured",
+                    "definition",
+                    "note",
+                    "period",
+                    "report",
+                    "rows",
+                    "test_mode"
+                ]
+            },
             "ReportTargetEnum": {
                 "enum": [
                     "solution",
@@ -49766,6 +51777,14 @@
         {
             "name": "support (staff)",
             "description": "Tickets, their legal clocks and actions; saved replies (API.md)."
+        },
+        {
+            "name": "home (staff)",
+            "description": "The panel's Home: the cards of the person's role, each one number with its definition (API.md)."
+        },
+        {
+            "name": "reports (staff)",
+            "description": "Sales, places, codes, course health, COD, settlements and the print-run sum (API.md)."
         }
     ]
 }

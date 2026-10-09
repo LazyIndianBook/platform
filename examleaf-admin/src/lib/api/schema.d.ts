@@ -4311,6 +4311,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/staff/home/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Home's cards for the person who asks: the totals over `?period=` (today, week or month; week by default), the
+         *     queues as they stand now.
+         */
+        get: operations["staff_home_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/staff/inbox/": {
         parameters: {
             query?: never;
@@ -6204,6 +6224,142 @@ export interface paths {
         head?: never;
         /** @description The processor register: who handles personal data for ExamLeaf, for what, where, under which contract. */
         patch: operations["staff_processors_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/reports/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The reports the person may open, each with the permissions it needs, and whether its source is set up. */
+        get: operations["staff_reports_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/reports/cod/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A report: its filters in the query, its answer from reports.py through its serializer. */
+        get: operations["staff_reports_cod_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/reports/codes/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A report: its filters in the query, its answer from reports.py through its serializer. */
+        get: operations["staff_reports_codes_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/reports/course-health/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A report: its filters in the query, its answer from reports.py through its serializer. */
+        get: operations["staff_reports_course_health_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/reports/print-run/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The newsvendor's sum for a title with the inputs typed: nothing is stored and nothing is changed. */
+        post: operations["staff_reports_print_run_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/reports/sales/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A report: its filters in the query, its answer from reports.py through its serializer. */
+        get: operations["staff_reports_sales_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/reports/sales-by-place/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A report: its filters in the query, its answer from reports.py through its serializer. */
+        get: operations["staff_reports_sales_by_place_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/reports/settlements/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A report: its filters in the query, its answer from reports.py through its serializer. */
+        get: operations["staff_reports_settlements_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/staff/saved-views/": {
@@ -8765,6 +8921,10 @@ export interface components {
          * @enum {string}
          */
         CodRemittanceStateEnum: "expected" | "overdue" | "remitted" | "mismatch" | "not_expected";
+        /**
+         * @description A batch's redemptions, in all (`district` null) and by district. A district under INSIGHTS_MIN_CELL redemptions
+         *     is `hidden`: no counts.
+         */
         CodeActivation: {
             batch: string;
             district?: string | null;
@@ -8781,6 +8941,10 @@ export interface components {
              */
             redeemed_7d: number;
             readonly n: number;
+            /** @description true: too few redemptions to show the counts (see `under`) */
+            readonly hidden: boolean;
+            /** @description the minimum cell a hidden row is under; null when shown */
+            readonly under: number | null;
         };
         CodeAnswer: {
             found: boolean;
@@ -8800,6 +8964,7 @@ export interface components {
             /** Format: date-time */
             redeemed_at: string;
         };
+        /** @description A cohort's week. A week of fewer than INSIGHTS_MIN_CELL learners shows its size and no shares (`hidden`). */
         CohortStat: {
             /**
              * Format: date
@@ -8827,6 +8992,10 @@ export interface components {
              * @description Learners counted that week (their exam still ahead).
              */
             n: number;
+            /** @description true: too few learners to show the shares (see `under`) */
+            readonly hidden: boolean;
+            /** @description the minimum cell a hidden row is under; null when shown */
+            readonly under: number | null;
         };
         Collection: {
             slug: string;
@@ -10638,6 +10807,80 @@ export interface components {
              */
             until?: string | null;
         };
+        Home: {
+            /** Format: date-time */
+            as_of: string;
+            /** @description the period of the totals */
+            period: components["schemas"]["HomePeriod"];
+            /** @description the site runs on test keys: every number is of test-mode rows */
+            test_mode: boolean;
+            /** @description orders placed in the periods shown that were made with test keys on the live site, left out */
+            test_orders_left_out: number;
+            cards: components["schemas"]["HomeCard"][];
+        };
+        HomeCard: {
+            key: string;
+            label: string;
+            /** @description measure (a total) or queue (what waits for a person) */
+            group: string;
+            /** @description inr (rupees, two places) or count */
+            unit: string;
+            /** @description a decimal string for rupees, a whole number else; null with an error */
+            value: string | null;
+            /** @description how it is counted, in words (shown on hover and in 'How this is counted') */
+            definition: string;
+            /**
+             * Format: date-time
+             * @description when it was worked out
+             */
+            as_of: string;
+            /** @description the days a total covers; null for a queue */
+            period: components["schemas"]["HomeSpan"] | null;
+            /** @description the console's list or report it counts, already filtered */
+            href: string;
+            /** @description made of test-mode rows (the site runs on test keys) */
+            test_mode: boolean;
+            comparison: components["schemas"]["HomeComparison"] | null;
+            error: string;
+        };
+        HomeComparison: {
+            /** @description the same figure for the period before, of the same length */
+            previous: string;
+            /** @description this period's less the previous one's, signed */
+            difference: string;
+            /** @description the difference as a signed percent of the previous; null from 0 */
+            percent: string | null;
+            period: components["schemas"]["HomeSpan"];
+        };
+        HomePeriod: {
+            /**
+             * Format: date
+             * @description the first day (India's calendar)
+             */
+            start: string;
+            /**
+             * Format: date
+             * @description the last day, included
+             */
+            end: string;
+            days: number;
+            /** @description today, week or month */
+            key: string;
+            label: string;
+        };
+        HomeSpan: {
+            /**
+             * Format: date
+             * @description the first day (India's calendar)
+             */
+            start: string;
+            /**
+             * Format: date
+             * @description the last day, included
+             */
+            end: string;
+            days: number;
+        };
         HsnCode: {
             readonly code: string;
             readonly kind: components["schemas"]["HsnKindEnum"];
@@ -11040,12 +11283,13 @@ export interface components {
          *     * `orders_export` - order export
          *     * `content_import` - import from the books repository
          *     * `grievance_export` - grievance register export
+         *     * `report_export` - report export
          * @enum {string}
          */
-        JobKindEnum: "audit_export" | "bulk_action" | "erp_initial_load" | "gstr1_export" | "orders_pack" | "orders_print" | "orders_cancel" | "orders_export" | "content_import" | "grievance_export";
+        JobKindEnum: "audit_export" | "bulk_action" | "erp_initial_load" | "gstr1_export" | "orders_pack" | "orders_print" | "orders_cancel" | "orders_export" | "content_import" | "grievance_export" | "report_export";
         JobStartRequest: {
             kind: components["schemas"]["JobKindEnum"];
-            /** @description audit_export: {"filters": {…}} (the audit list's); bulk_action: {"action": "order.refund", "targets": [order numbers, slugs or ids], "payload": {…} (each target's, as for change-requests/), "reason"}; erp_initial_load: {"invoices_from": "YYYY-MM-DD"} (optional: without it, the catalogue only); gstr1_export: {"month": "YYYY-MM", "months": 1 or 3} (a month, or the quarter ending with it); orders_pack, orders_print ({"document": packing_slip, label or invoices}) and orders_cancel ({"reason", "customer_requested"}, 250 at most): {"targets": [order numbers]}; orders_export: {"filters": {…}} (the order list's); content_import: {"subject": "physics", "commit": "" or a commit, "dry_run_job": the dry run's id (to apply)}; grievance_export: {"from": "YYYY-MM-DD", "until": "YYYY-MM-DD"} (the days received, both optional) */
+            /** @description audit_export: {"filters": {…}} (the audit list's); bulk_action: {"action": "order.refund", "targets": [order numbers, slugs or ids], "payload": {…} (each target's, as for change-requests/), "reason"}; erp_initial_load: {"invoices_from": "YYYY-MM-DD"} (optional: without it, the catalogue only); gstr1_export: {"month": "YYYY-MM", "months": 1 or 3} (a month, or the quarter ending with it); orders_pack, orders_print ({"document": packing_slip, label or invoices}) and orders_cancel ({"reason", "customer_requested"}, 250 at most): {"targets": [order numbers]}; orders_export: {"filters": {…}} (the order list's); content_import: {"subject": "physics", "commit": "" or a commit, "dry_run_job": the dry run's id (to apply)}; grievance_export: {"from": "YYYY-MM-DD", "until": "YYYY-MM-DD"} (the days received, both optional); report_export: {"report": "sales", "filters": {...}} (the report's own filters: reports/) */
             params?: {
                 [key: string]: unknown;
             };
@@ -14994,6 +15238,418 @@ export interface components {
             replayed: number;
             /** @description more failed events wait: replay again */
             more: boolean;
+        };
+        ReportBacktest: {
+            horizon_weeks: number;
+            /** Format: double */
+            wape: number | null;
+            /** Format: double */
+            mase_vs_seasonal_naive: number | null;
+            shown: boolean;
+            n_weeks: number;
+            /** Format: date-time */
+            data_as_of: string;
+        };
+        ReportCod: {
+            report: string;
+            /** @description what the report counts and how, in words */
+            definition: string;
+            columns: components["schemas"]["ReportColumn"][];
+            /**
+             * Format: date-time
+             * @description when it was worked out
+             */
+            as_of: string;
+            /** @description the site runs on test keys: every number is of test-mode rows */
+            test_mode: boolean;
+            period: components["schemas"]["ReportPeriod"] | null;
+            /** Format: date */
+            as_of_day: string;
+            /** @description remitted in the period */
+            remitted: components["schemas"]["ReportCodRemitted"];
+            by_courier: components["schemas"]["ReportCodCourier"][];
+            /** @description what is outstanding, by how late */
+            rows: components["schemas"]["ReportCodRow"][];
+        };
+        ReportCodCourier: {
+            courier: string;
+            count: number;
+            /** Format: decimal */
+            expected: string;
+            overdue: number;
+        };
+        ReportCodRemitted: {
+            count: number;
+            /** Format: decimal */
+            expected: string;
+            /** Format: decimal */
+            received: string;
+            /**
+             * Format: decimal
+             * @description received less expected
+             */
+            difference: string;
+        };
+        ReportCodRow: {
+            key: string;
+            label: string;
+            count: number;
+            /** Format: decimal */
+            expected: string;
+            /** Format: date */
+            oldest_expected_on: string | null;
+        };
+        ReportCodes: {
+            report: string;
+            /** @description what the report counts and how, in words */
+            definition: string;
+            columns: components["schemas"]["ReportColumn"][];
+            /**
+             * Format: date-time
+             * @description when it was worked out
+             */
+            as_of: string;
+            /** @description the site runs on test keys: every number is of test-mode rows */
+            test_mode: boolean;
+            period: components["schemas"]["ReportPeriod"] | null;
+            batch: string;
+            minimum: number;
+            /** Format: date-time */
+            districts_computed_at: string | null;
+            districts: components["schemas"]["ReportCodesDistrict"][];
+            rows: components["schemas"]["ReportCodesRow"][];
+        };
+        ReportCodesDistrict: {
+            /** @description too few to show: the numbers are null (see `under`) */
+            hidden: boolean;
+            /** @description the minimum cell the row is under; null when shown */
+            under: number | null;
+            district: string;
+            redeemed: number | null;
+            redeemed_7d: number | null;
+        };
+        ReportCodesRow: {
+            batch: string;
+            printed: number;
+            /** @description null until the course module records a batch's book */
+            sold: number | null;
+            activated: number;
+            activated_7d: number;
+            /** @description null until the course module can void codes */
+            revoked: number | null;
+            /** Format: decimal */
+            activation_rate: string | null;
+        };
+        ReportColumn: {
+            key: string;
+            label: string;
+            /** @description how the column's numbers are counted */
+            definition: string;
+        };
+        ReportDemandRange: {
+            /** @description copies from now to the exam: a season in ten sells less */
+            p10: number;
+            p50: number;
+            /** @description a season in ten sells more */
+            p90: number;
+            weeks: number;
+        };
+        ReportHealth: {
+            report: string;
+            /** @description what the report counts and how, in words */
+            definition: string;
+            columns: components["schemas"]["ReportColumn"][];
+            /**
+             * Format: date-time
+             * @description when it was worked out
+             */
+            as_of: string;
+            /** @description the site runs on test keys: every number is of test-mode rows */
+            test_mode: boolean;
+            period: components["schemas"]["ReportPeriod"] | null;
+            grain: string;
+            /**
+             * Format: date-time
+             * @description null: the nightly job has not run yet
+             */
+            computed_at: string | null;
+            /** @description a cell of fewer learners is hidden */
+            minimum: number;
+            subject: number | null;
+            chapter: number | null;
+            /** @description the subjects the person looks after */
+            subjects: components["schemas"]["ReportHealthSubject"][];
+            /** @description the series is of the whole course */
+            whole_course: boolean;
+            /** @description active learners and the rest, one point per period */
+            series: components["schemas"]["ReportHealthPoint"][];
+            codes_by_week: components["schemas"]["ReportHealthWeek"][];
+            /** @description the chapters over the last 28 days */
+            rows: components["schemas"]["ReportHealthChapter"][];
+        };
+        ReportHealthChapter: {
+            /** @description too few to show: the numbers are null (see `under`) */
+            hidden: boolean;
+            /** @description the minimum cell the row is under; null when shown */
+            under: number | null;
+            subject: number;
+            chapter: number;
+            number: number;
+            title: string;
+            label: string;
+            active_7d: number | null;
+            active_28d: number | null;
+            clips_started: number | null;
+            clips_completed: number | null;
+            /** Format: decimal */
+            completion_rate: string | null;
+            quiz_answers: number | null;
+            /** Format: decimal */
+            quiz_accuracy: string | null;
+            card_reviews: number | null;
+            card_lapses: number | null;
+        };
+        ReportHealthPoint: {
+            /** @description too few to show: the numbers are null (see `under`) */
+            hidden: boolean;
+            /** @description the minimum cell the row is under; null when shown */
+            under: number | null;
+            /** Format: date */
+            period_start: string;
+            active_learners: number | null;
+            clips_completed: number | null;
+            quiz_answers: number | null;
+            /** Format: decimal */
+            quiz_accuracy: string | null;
+            card_reviews: number | null;
+            card_lapses: number | null;
+            /**
+             * Format: decimal
+             * @description daily series only
+             */
+            smoothed_7: string | null;
+            /**
+             * Format: decimal
+             * @description daily series only
+             */
+            smoothed_28: string | null;
+        };
+        ReportHealthSubject: {
+            id: number;
+            name: string;
+        };
+        ReportHealthWeek: {
+            /** @description too few to show: the numbers are null (see `under`) */
+            hidden: boolean;
+            /** @description the minimum cell the row is under; null when shown */
+            under: number | null;
+            /** Format: date */
+            week_start: string;
+            redeemed: number | null;
+        };
+        ReportIndex: {
+            test_mode: boolean;
+            reports: components["schemas"]["ReportIndexItem"][];
+        };
+        ReportIndexItem: {
+            key: string;
+            label: string;
+            summary: string;
+            /** @description the console's page */
+            page: string;
+            /** @description where the numbers are */
+            api: string;
+            /** @description the permissions that open it */
+            needs: string[];
+            /** @description the person holds them all */
+            available: boolean;
+            /** @description false: its source is not set up yet */
+            configured: boolean;
+        };
+        ReportPeriod: {
+            /** Format: date */
+            start: string;
+            /**
+             * Format: date
+             * @description the last day, included
+             */
+            end: string;
+            days: number;
+        };
+        ReportPlace: {
+            report: string;
+            /** @description what the report counts and how, in words */
+            definition: string;
+            columns: components["schemas"]["ReportColumn"][];
+            /**
+             * Format: date-time
+             * @description when it was worked out
+             */
+            as_of: string;
+            /** @description the site runs on test keys: every number is of test-mode rows */
+            test_mode: boolean;
+            period: components["schemas"]["ReportPeriod"] | null;
+            level: string;
+            state: string;
+            /** @description a place with fewer orders is hidden */
+            minimum: number;
+            hidden_rows: number;
+            /** @description the rows shown only: the places hidden are not in it */
+            totals_shown: components["schemas"]["ReportPlaceTotals"];
+            rows: components["schemas"]["ReportPlaceRow"][];
+        };
+        ReportPlaceRow: {
+            /** @description too few to show: the numbers are null (see `under`) */
+            hidden: boolean;
+            /** @description the minimum cell the row is under; null when shown */
+            under: number | null;
+            level: string;
+            /** @description a state's code */
+            state: string | null;
+            state_name: string | null;
+            district: string | null;
+            pin: string | null;
+            label: string;
+            orders: number | null;
+            units: number | null;
+            /** Format: decimal */
+            net: string | null;
+        };
+        ReportPlaceTotals: {
+            orders: number;
+            units: number;
+            /** Format: decimal */
+            net: string;
+        };
+        ReportPrintRun: {
+            product: string;
+            title: string;
+            /** Format: decimal */
+            net_price: string;
+            /** Format: decimal */
+            unit_cost: string;
+            /** Format: decimal */
+            salvage: string;
+            /**
+             * Format: double
+             * @description (net price - cost) / (net price - salvage): the quantile to print
+             */
+            critical_ratio: number;
+            /** @description the critical ratio in percent: print the Pn of the demand */
+            percentile: number;
+            /** @description the season's demand at that percentile */
+            target_quantity: number | null;
+            /** @description copies in stock and on order */
+            supply: number;
+            /** @description copies to print now; null: no forecast */
+            recommended_quantity: number | null;
+            range: components["schemas"]["ReportDemandRange"] | null;
+            method: string;
+            /** Format: date-time */
+            data_as_of: string | null;
+            /** @description the last backtest of every title, 4 weeks ahead */
+            backtest: components["schemas"]["ReportBacktest"] | null;
+            /** @description false: the forecast has not beaten the seasonal naive in a backtest */
+            shown: boolean;
+            note: string;
+        };
+        ReportPrintRunRequestRequest: {
+            /** @description the title's slug */
+            product: string;
+            /**
+             * Format: decimal
+             * @description what a copy sells for after discounts
+             */
+            net_price: string;
+            /**
+             * Format: decimal
+             * @description print cost per copy
+             */
+            unit_cost: string;
+            /**
+             * Format: decimal
+             * @description what a copy left after the exams fetches
+             * @default 0.00
+             */
+            salvage: string;
+        };
+        ReportSales: {
+            report: string;
+            /** @description what the report counts and how, in words */
+            definition: string;
+            columns: components["schemas"]["ReportColumn"][];
+            /**
+             * Format: date-time
+             * @description when it was worked out
+             */
+            as_of: string;
+            /** @description the site runs on test keys: every number is of test-mode rows */
+            test_mode: boolean;
+            period: components["schemas"]["ReportPeriod"] | null;
+            by: string;
+            grain: string;
+            /** @description the whole period, whatever the grouping */
+            totals: components["schemas"]["ReportSalesTotals"];
+            rows: components["schemas"]["ReportSalesRow"][];
+        };
+        ReportSalesRow: {
+            key: string;
+            label: string;
+            /** Format: date */
+            period_start: string | null;
+            orders: number;
+            units: number;
+            /** Format: decimal */
+            gross: string;
+            /** Format: decimal */
+            discount: string;
+            /** Format: decimal */
+            net: string;
+        };
+        ReportSalesTotals: {
+            orders: number;
+            units: number;
+            /** Format: decimal */
+            gross: string;
+            /** Format: decimal */
+            discount: string;
+            /** Format: decimal */
+            net: string;
+        };
+        ReportSettlementRow: {
+            reference: string;
+            /** Format: date */
+            date: string | null;
+            /** Format: decimal */
+            gross: string | null;
+            /** Format: decimal */
+            fees: string | null;
+            /** Format: decimal */
+            tax: string | null;
+            /** Format: decimal */
+            refunds: string | null;
+            /** Format: decimal */
+            net: string | null;
+            utr: string;
+            state: string;
+        };
+        ReportSettlements: {
+            report: string;
+            /** @description what the report counts and how, in words */
+            definition: string;
+            columns: components["schemas"]["ReportColumn"][];
+            /**
+             * Format: date-time
+             * @description when it was worked out
+             */
+            as_of: string;
+            /** @description the site runs on test keys: every number is of test-mode rows */
+            test_mode: boolean;
+            period: components["schemas"]["ReportPeriod"] | null;
+            /** @description false: the Finance module has not set up the settlements */
+            configured: boolean;
+            note: string;
+            rows: components["schemas"]["ReportSettlementRow"][];
         };
         /**
          * @description * `solution` - solution
@@ -23826,6 +24482,28 @@ export interface operations {
             };
         };
     };
+    staff_home_retrieve: {
+        parameters: {
+            query?: {
+                /** @description the totals' period (week) */
+                period?: "month" | "today" | "week";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Home"];
+                };
+            };
+        };
+    };
     staff_inbox_list: {
         parameters: {
             query?: {
@@ -24155,8 +24833,9 @@ export interface operations {
                  *     * `orders_export` - order export
                  *     * `content_import` - import from the books repository
                  *     * `grievance_export` - grievance register export
+                 *     * `report_export` - report export
                  */
-                kind?: "audit_export" | "bulk_action" | "content_import" | "erp_initial_load" | "grievance_export" | "gstr1_export" | "orders_cancel" | "orders_export" | "orders_pack" | "orders_print";
+                kind?: "audit_export" | "bulk_action" | "content_import" | "erp_initial_load" | "grievance_export" | "gstr1_export" | "orders_cancel" | "orders_export" | "orders_pack" | "orders_print" | "report_export";
                 /** @description true: the jobs I started */
                 mine?: boolean;
                 /** @description Number of results to return per page. */
@@ -26652,6 +27331,198 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Processor"];
+                };
+            };
+        };
+    };
+    staff_reports_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportIndex"];
+                };
+            };
+        };
+    };
+    staff_reports_cod_retrieve: {
+        parameters: {
+            query?: {
+                /** @description the first day, YYYY-MM-DD (30 days before the last by default) */
+                from?: string;
+                /** @description the last day, YYYY-MM-DD (today); at most 13 months from the first */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportCod"];
+                };
+            };
+        };
+    };
+    staff_reports_codes_retrieve: {
+        parameters: {
+            query?: {
+                /** @description one batch's districts */
+                batch?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportCodes"];
+                };
+            };
+        };
+    };
+    staff_reports_course_health_retrieve: {
+        parameters: {
+            query?: {
+                /** @description a chapter's id */
+                chapter?: number;
+                /** @description the series' periods (week) */
+                grain?: "day" | "month" | "week";
+                /** @description a subject's id (the whole course by default) */
+                subject?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportHealth"];
+                };
+            };
+        };
+    };
+    staff_reports_print_run_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportPrintRunRequestRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportPrintRun"];
+                };
+            };
+        };
+    };
+    staff_reports_sales_retrieve: {
+        parameters: {
+            query?: {
+                by?: "board" | "class" | "edition" | "none" | "product" | "subject";
+                /** @description the first day, YYYY-MM-DD (30 days before the last by default) */
+                from?: string;
+                /** @description a row per period too */
+                grain?: "day" | "month" | "none" | "week";
+                /** @description the last day, YYYY-MM-DD (today); at most 13 months from the first */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportSales"];
+                };
+            };
+        };
+    };
+    staff_reports_sales_by_place_retrieve: {
+        parameters: {
+            query?: {
+                /** @description the first day, YYYY-MM-DD (30 days before the last by default) */
+                from?: string;
+                level?: "district" | "pin" | "state";
+                /** @description a state's code (AS): the districts and PIN codes of it */
+                state?: string;
+                /** @description the last day, YYYY-MM-DD (today); at most 13 months from the first */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportPlace"];
+                };
+            };
+        };
+    };
+    staff_reports_settlements_retrieve: {
+        parameters: {
+            query?: {
+                /** @description the first day, YYYY-MM-DD (30 days before the last by default) */
+                from?: string;
+                /** @description the last day, YYYY-MM-DD (today); at most 13 months from the first */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportSettlements"];
                 };
             };
         };
