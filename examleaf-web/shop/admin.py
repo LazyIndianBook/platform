@@ -612,12 +612,26 @@ class OrderAdmin(LoggedExportMixin, SimpleHistoryAdmin):  # export: shop.export_
     def mark_delivered(self, request, queryset):
         self._each(request, queryset, services.deliver_order, "Delivered (customer emailed)")
 
-    @admin.action(description="Cancel (stock back; online payments refunded)", permissions=["change"])
+    @admin.action(
+        description="Cancel (stock back; an online payment refunded within your limit, FINANCE approves above it)",
+        permissions=["change"],
+    )
     def cancel(self, request, queryset):
+        """An order paid online is cancelled by its refund, as in the panel (staff.approvals' "order.refund": the
+        refund cancels what is not shipped): the maker's limit applies, and above it the cancellation waits for
+        FINANCE. Any other order is cancelled at once."""
+        from staff.approvals import Refund as PanelRefund
+
+        reason, unpaid = "Cancelled by ExamLeaf.", []
+        for order in queryset:
+            if PanelRefund._paid(order) is None:  # nothing paid online to give back
+                unpaid.append(order)
+            else:
+                self._ask_refund(request, order, reason)
         self._each(
             request,
-            queryset,
-            lambda o: services.cancel_order(o, "Cancelled by ExamLeaf.", by=request.user),
+            unpaid,
+            lambda o: services.cancel_order(o, reason, by=request.user),
             "Cancelled (customer emailed)",
         )
 
@@ -648,28 +662,46 @@ class OrderAdmin(LoggedExportMixin, SimpleHistoryAdmin):  # export: shop.export_
             request, queryset, "mark_shipped", "Mark shipped", zip(formset.forms, orders, strict=False), formset
         )
 
-    @admin.action(description="Refund in full through Razorpay (cancels what is not shipped)", permissions=["refund"])
+    @admin.action(
+        description="Refund through Razorpay, within your limit (above it FINANCE approves; cancels if not shipped)",
+        permissions=["refund"],
+    )
     def refund(self, request, queryset):
         form = RefundForm(request.POST if "apply" in request.POST else None)
         if form.is_valid():
-            reason, started, nothing = form.cleaned_data["reason"], [], []
             for order in queryset:
-                try:
-                    refund = services.refund_order(order, reason, by=request.user, amount=form.cleaned_data["amount"])
-                except TransitionNotAllowed:
-                    refund = None
-                (started if refund else nothing).append(str(order))
-            if started:
-                self.message_user(request, f"Refund requested: {', '.join(started)}.", messages.SUCCESS)
-            if nothing:
-                self.message_user(
-                    request,
-                    f"Nothing refunded for {', '.join(nothing)} (not paid online, or a refund is under way; "
-                    "cash on delivery is refunded by bank transfer).",
-                    messages.WARNING,
-                )
+                self._ask_refund(request, order, form.cleaned_data["reason"], form.cleaned_data["amount"])
             return None
-        return self._form_page(request, queryset, "refund", "Refund in full", [(form, None)], None)
+        return self._form_page(request, queryset, "refund", "Refund", [(form, None)], None)
+
+    def _ask_refund(self, request, order, reason, amount=None):
+        """The panel's refund, not one of its own (staff.approvals' "order.refund", staff/README.md "Approvals"): within
+        the maker's refund limit (accounts.roles.ROLE_LIMITS) it runs at once; above it, it waits as a change request
+        for FINANCE's approval in the panel. Each step is in the audit log."""
+        from rest_framework.exceptions import APIException
+
+        from staff import approvals
+
+        payload = {"amount": None if amount is None else str(amount)}
+        try:
+            change, _ = approvals.ask(
+                "order.refund", maker=request.user, target=order.number, payload=payload, reason=reason, request=request
+            )
+        except APIException as error:  # refused: nothing paid online, a refund under way, not the maker's to ask
+            detail = error.detail
+            while isinstance(detail, dict | list):
+                detail = next(iter(detail.values() if isinstance(detail, dict) else detail), "")
+            self.message_user(request, f"Nothing refunded for {order} ({detail})", messages.WARNING)
+            return
+        if change.status == change.Status.EXECUTED:
+            self.message_user(request, f"Refund requested from Razorpay: {order}.", messages.SUCCESS)
+        elif change.status == change.Status.PENDING:
+            text = f"{order}: {change.rule} It waits for FINANCE's approval in the panel (change request #{change.pk})."
+            self.message_user(request, text, messages.WARNING)
+        else:
+            self.message_user(
+                request, f"Nothing refunded for {order} ({change.result.get('error', '')})", messages.ERROR
+            )
 
     def add_view(self, request, form_url="", extra_context=None):
         """ "Add order": a phone or school order at today's prices (services.create_staff_order), then its payment

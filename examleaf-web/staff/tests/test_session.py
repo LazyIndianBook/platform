@@ -200,3 +200,21 @@ def test_the_staff_api_answers_404_on_any_host_but_the_admin_host(settings):
     assert not events("authz_fail", actor_id=admin.pk).exists()
     settings.ADMIN_HOSTS = []  # development: every host
     assert client.get(SESSION, HTTP_HOST="examleaf.in").status_code == 200
+
+
+def test_the_django_admin_answers_on_the_admin_host_only_and_signs_in_through_the_console(settings, client):
+    settings.ALLOWED_HOSTS = ["examleaf.in", "admin.examleaf.in", "testserver"]
+    settings.ADMIN_HOSTS = ["admin.examleaf.in"]
+    settings.STAFF_PANEL_URL = "https://admin.examleaf.in"
+    client.force_login(make_staff(roles.ADMIN))
+    assert client.get("/admin/", HTTP_HOST="examleaf.in").status_code == 404  # an HTML page, as any other 404
+    assert client.get("/admin/shop/order/", HTTP_HOST="examleaf.in").status_code == 404
+    assert client.get("/admin/", HTTP_HOST="admin.examleaf.in").status_code == 200
+    client.logout()
+    signed_out = client.get("/admin/", HTTP_HOST="admin.examleaf.in", follow=True)
+    assert (
+        signed_out.redirect_chain[-1][0] == "https://admin.examleaf.in/sign-in/"
+    )  # the console's: cookies are per host
+    assert client.get("/admin/login/", HTTP_HOST="examleaf.in").status_code == 404
+    settings.ADMIN_HOSTS = []  # development: every host, and the website's log-in
+    assert "/account/login/" in client.get("/admin/", HTTP_HOST="examleaf.in", follow=True).redirect_chain[-1][0]

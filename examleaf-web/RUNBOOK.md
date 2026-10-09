@@ -360,12 +360,15 @@ page. If it did not:
    refund ID (`rfnd_…`) and the date (banks take 5–7 working days; UPI is often quicker). *requested*: the task is
    waiting (Razorpay was unreachable: it retries for up to about three hours and the daily clean-up queues it again).
    *failed*: Razorpay refused it, the reason is in the Refund's error (a payment too old to refund, a balance too low
-   ...): fix the cause, then use the order's action "Refund in full through Razorpay" again (a failed refund does not
-   block a new one; on a paid or packed order that action cancels the order).
+   ...): fix the cause, then use the order's action "Refund through Razorpay" again (a failed refund does not block a
+   new one; on a paid or packed order that action cancels the order). The admin's refund is the panel's: within your
+   refund limit (`ROLE_LIMITS`: ADMIN ₹10,000) it runs at once; above it the message names a change request that
+   FINANCE (or an owner) approves in the panel, and nothing is refunded until then. "Cancel" on an order paid online is
+   the same refund.
 2. Cash-on-delivery orders, and payments recorded offline, are refunded by bank transfer or UPI, outside the site: pay it
    from the business account and note it in your support mailbox (or on the order's internal notes). The refund action
-   refunds nothing for them (on an order not yet shipped it still cancels the order, which puts its copies back and
-   emails the customer).
+   refunds nothing for them and changes nothing; cancel an order not yet shipped with "Cancel" (its copies go back and
+   the customer is emailed).
 3. A refused parcel is refunded less the shipping: the same action with an amount (shipped or delivered orders only; an
    order not yet shipped is cancelled and refunded in full whatever amount is typed). A part-refunded order then reads
    "refunded".
@@ -387,8 +390,8 @@ is a second payment for order EL-…; refunding it", the order lists a second pa
 second payment is refunded."), and the customer gets the refund email. The order stays paid by the first payment.
 Nothing to do, except to check in the Dashboard (Refunds) that the refund went through, and to reply to the customer
 with the `rfnd_…` ID if they ask. If the refund failed (admin → Refunds, *failed*): refund that payment in the Razorpay
-Dashboard (its webhook records it); do not use "Refund in full" on a paid or packed order for it, which cancels the
-order.
+Dashboard (its webhook records it); do not use "Refund through Razorpay" on a paid or packed order for it, which
+cancels the order.
 
 ### Test mode and live mode
 
@@ -422,8 +425,8 @@ real payments before it, mark those live by hand, with the first live order's nu
 3. Per order, paid online means captured; the settlement is what was captured, less the refunds, less Razorpay's fee and
    the GST on the fee (the fees are not in the site). The admin index shows revenue net of refunds.
 4. Differences to look at: a captured payment whose order is cancelled and has no refund (it should not happen: see
-   Payments and Refunds in the admin; refund it with the order's "Refund in full" action, which refunds a cancelled
-   order without changing it, or in the Dashboard); a refund at Razorpay that the site does not know (the webhook was
+   Payments and Refunds in the admin; refund it with the order's "Refund through Razorpay" action, which refunds a
+   cancelled order without changing it, or in the Dashboard); a refund at Razorpay that the site does not know (the webhook was
    lost: resend it from the Dashboard); disputes and chargebacks (Dashboard → Disputes: answer with the invoice, the
    tracking number and the delivery date from the order page; the site does not record chargebacks).
 5. Invoices and credit notes are numbered one after the other in each financial year (`EL/2026-27/00001`,

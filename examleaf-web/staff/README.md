@@ -197,10 +197,17 @@ The manifest also carries `impersonating` (`{user_id, email (masked), until}` wh
 token lasts, else null: the panel's banner) and `flags.test_mode` (true off production: `STAFF_TEST_MODE`, `DEBUG`'s
 by default; absent on production: the panel's TEST band).
 
-**The admin host.** With `ADMIN_HOSTS` set (the panel's host, `admin.examleaf.in`), everything under `/api/v1/staff/`
-answers 404 on any other host, signed in or not, before any other check (`middleware.py`); empty, as in development,
-it answers on every host. The admin host must also be in `ALLOWED_HOSTS`, and its `https://` origin in
-`CSRF_TRUSTED_ORIGINS`.
+**The admin host.** With `ADMIN_HOSTS` set (the panel's host, `admin.examleaf.in`), everything under `/api/v1/staff/`,
+the shipping app's staff endpoints (`/api/v1/shipping/shipments/` …, not the checkout's `shipping/` and
+`shipping/quote/`), `/api/v1/insights/` and the Django admin (`/admin/`) answer 404 on any other host, signed in or
+not, before any other check (`middleware.py`); empty, as in development, they answer on every host. Signed out, the
+admin then sends to the console's `/sign-in/` (its session is the admin's: cookies are per host), not to the
+website's. The admin host must also be in `ALLOWED_HOSTS`, and its `https://` origin in `CSRF_TRUSTED_ORIGINS`.
+
+**The admin's refunds are the panel's.** The order's "Refund through Razorpay" action, and "Cancel" on an order paid
+online (which is its refund), ask `approvals.ask("order.refund", …)`: within the maker's `refund_inr` they run at once,
+above it a change request waits for FINANCE in the panel; each step is audited. Packing, shipping and delivery in the
+admin need `staff.pack_order` (`shop/admin.py`).
 
 ## Jobs
 

@@ -11,6 +11,7 @@ from allauth.headless.account.views import (
 from allauth.headless.constants import Client
 from django.conf import settings
 from django.contrib import admin
+from django.shortcuts import redirect
 from django.urls import include, path
 
 from accounts import views as accounts
@@ -50,8 +51,18 @@ INTEGRATION_CHECKS = ["integrations.health.Integrations"]
 
 
 # The admin's login is the website's (allauth, through headless: H2): its per-account limit, email confirmation and
-# the second factor apply. Signed out, /admin/ sends to LOGIN_URL with ?next=.
-admin.site.login = secure_admin_login(admin.site.login)
+# the second factor apply. Signed out, /admin/ sends to LOGIN_URL with ?next=; on the admin host (ADMIN_HOSTS, the only
+# host the admin answers on then) to the console's sign-in, whose session the admin shares (cookies are per host).
+_admin_login = secure_admin_login(admin.site.login)
+
+
+def admin_login(request, *args, **kwargs):
+    if settings.ADMIN_HOSTS and not request.user.is_authenticated:
+        return redirect(f"{settings.STAFF_PANEL_URL}/sign-in/")
+    return _admin_login(request, *args, **kwargs)
+
+
+admin.site.login = admin_login
 
 handler400 = "examleaf.views.bad_request"  # plain pages, and JSON under /api/
 handler500 = "examleaf.views.server_error"  # 403, 404 and CSRF failures use templates/403.html, 404.html, 403_csrf.html

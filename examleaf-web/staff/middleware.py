@@ -1,16 +1,16 @@
 """Two guards on every request and two watches on every response. The staff's endpoints (the staff API, the shipping
-app's and the insights') answer only on the admin host (ADMIN_HOSTS): on any other they are 404 to everyone, signed in
-or not (plan 9.1). A session that is a member of staff logged in as a customer (`staff:impersonating`, set by the
-website's account area when it accepts a token) is refused payments, passwords, email, second factors, consent,
-addresses and deletion (research 2.7). A 403 from the staff's endpoints to someone signed in is an `authz_fail` event
-(research 3.1: every authorization failure; anonymous probes stay in Caddy's log). A Razorpay webhook refused for its
-signature counts on the day's inbox item for the system's watchers."""
+app's and the insights') and the Django admin answer only on the admin host (ADMIN_HOSTS): on any other they are 404
+to everyone, signed in or not (plan 9.1). A session that is a member of staff logged in as a customer
+(`staff:impersonating`, set by the website's account area when it accepts a token) is refused payments, passwords,
+email, second factors, consent, addresses and deletion (research 2.7). A 403 from the staff's endpoints to someone
+signed in is an `authz_fail` event (research 3.1: every authorization failure; anonymous probes stay in Caddy's log).
+A Razorpay webhook refused for its signature counts on the day's inbox item for the system's watchers."""
 
 import logging
 import re
 
 from django.conf import settings
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.http.request import split_domain_port, validate_host
 from django.utils import timezone
 
@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 STAFF_APIS = re.compile(
     r"^/api/v1/(?:staff|insights|shipping/(?:shipments|exceptions|cod|charges|pickup-locations|orders|manifest))/"
 )
+ADMIN = "/admin/"
 WEBHOOKS = {"/shop/webhooks/razorpay/": "Razorpay"}
 IMPERSONATING = "staff:impersonating"
 WHILE_IMPERSONATING = re.compile(
@@ -43,6 +44,8 @@ class StaffAuditMiddleware:
     def __call__(self, request):
         if STAFF_APIS.match(request.path) and not on_admin_host(request):
             return JsonResponse({"detail": "Not found."}, status=404)
+        if request.path.startswith(ADMIN) and not on_admin_host(request):  # the Django admin: the same rule
+            raise Http404
         if request.method not in SAFE and WHILE_IMPERSONATING.match(request.path):
             if request.session.get(IMPERSONATING):
                 detail = "Not while a member of staff is logged in as the customer."

@@ -15,6 +15,7 @@ from shop import services
 from shop.admin import OrderResource
 from shop.factories import ProductFactory, captured, make_order
 from shop.models import BundleItem, Coupon, Invoice, Order, Product, Refund, Shipment, ShippingRate
+from staff.models import AuditEvent, ChangeRequest
 
 pytestmark = pytest.mark.django_db
 CHANGELIST = reverse("admin:shop_order_changelist")
@@ -116,6 +117,58 @@ def test_partial_refund_of_a_refused_parcel(client, paid, rzp, commit):
     paid.refresh_from_db()
     assert paid.refunds.get().amount.amount == 259 and rzp.payment.refund.call_args.args[1]["amount"] == 25900
     assert paid.status == Order.Status.REFUNDED
+
+
+def dear(rzp):
+    """A paid order of ₹12,000: above ADMIN's refund limit (₹10,000) and SALES' (₹2,000)."""
+    order = make_order((ProductFactory(stock=5, mrp=12_000, price=12_000), 1))
+    services.record_capture(captured(order))
+    return order
+
+
+def test_a_refund_above_the_makers_limit_waits_for_finance_as_in_the_panel(client, rzp, commit):
+    order = dear(rzp)
+    admin = staff(roles.ADMIN)
+    client.force_login(admin)
+    with commit():
+        page = act(client, "refund", [order], apply="1", reason="Damaged in transit.").content.decode()
+    change = ChangeRequest.objects.get()
+    assert (change.action, change.status, change.maker, change.amount) == ("order.refund", "pending", admin, 12_000)
+    assert f"change request #{change.pk}" in page and "above the limit of ₹10,000" in page
+    order.refresh_from_db()
+    assert order.status == Order.Status.PAID and not Refund.objects.exists() and not rzp.payment.refund.called
+    assert AuditEvent.objects.filter(action="order.refund.requested", actor_id=admin.pk).exists()
+
+
+def test_cancelling_an_order_paid_online_is_its_refund_with_the_makers_limit(client, rzp, paid, commit):
+    order = dear(rzp)
+    sales = staff(roles.SALES)  # cancels and asks for refunds; ₹2,000 at once
+    client.force_login(sales)
+    with commit():
+        act(client, "cancel", [paid, order])
+    paid.refresh_from_db()
+    order.refresh_from_db()
+    assert paid.status == Order.Status.REFUNDED and paid.refunds.get().created_by == sales  # within the limit
+    assert (
+        order.status == Order.Status.PAID and ChangeRequest.objects.get(status="pending").target_label == order.number
+    )
+    unpaid = make_order((ProductFactory(stock=5), 1))  # nothing paid online: cancelled at once, as before
+    act(client, "cancel", [unpaid])
+    unpaid.refresh_from_db()
+    assert unpaid.status == Order.Status.CANCELLED
+
+
+def test_packing_shipping_and_delivery_are_offered_only_with_the_packing_permission(client, paid):
+    names = ["mark_packed", "mark_shipped", "mark_delivered"]
+    for role in (roles.SALES, roles.SUPPORT):  # SALES changes orders but does not pack them (plan 4.1)
+        client.force_login(staff(role))
+        assert not any(f'value="{name}"' in client.get(CHANGELIST).content.decode() for name in names), role
+        for name in names:
+            act(client, name, [paid])
+        paid.refresh_from_db()
+        assert paid.status == Order.Status.PAID, role
+    client.force_login(staff(roles.ADMIN))  # staff.pack_order: ADMIN's in the admin (PACKER's in the panel)
+    assert all(f'value="{name}"' in client.get(CHANGELIST).content.decode() for name in names)
 
 
 def test_export_has_one_row_per_order_with_the_address_for_the_admin_role_only(client, paid):
