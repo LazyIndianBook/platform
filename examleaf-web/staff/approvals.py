@@ -14,6 +14,7 @@ the row limits. Each step's audit event names the person who took it, also when 
 
 import hashlib
 import json
+import logging
 import re
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
@@ -34,6 +35,7 @@ from .backends import scoped
 from .models import Approval, ChangeRequest
 
 Status = ChangeRequest.Status
+logger = logging.getLogger(__name__)
 
 
 class Refused(Exception):
@@ -99,25 +101,58 @@ def _order(maker, number):
     return order
 
 
+UPI = re.compile(r"[a-z0-9.\-_]{2,256}@[a-z]{2,64}")
+IFSC = re.compile(r"[A-Z]{4}0[A-Z0-9]{6}")
+
+
+def payee_of(value):
+    """The customer's bank account or UPI ID for a refund by bank (the customer's choice: RBI's PA guidelines 12.4):
+    (its details, their masked words). Raises ValidationError."""
+    value = value if isinstance(value, dict) else {}
+    if value.get("upi"):
+        upi = str(value["upi"]).strip().lower()
+        if not UPI.fullmatch(upi):
+            raise serializers.ValidationError({"payee": {"upi": ["A UPI ID: name@bank."]}})
+        name, _, bank = upi.partition("@")
+        return {"upi": upi}, f"UPI {name[:2]}•••@{bank}"
+    account, ifsc = re.sub(r"\s", "", str(value.get("account", ""))), str(value.get("ifsc", "")).strip().upper()
+    holder = " ".join(str(value.get("name", "")).split())
+    errors = {}
+    if not re.fullmatch(r"\d{9,18}", account):
+        errors["account"] = ["The account number: 9 to 18 digits."]
+    if not IFSC.fullmatch(ifsc):
+        errors["ifsc"] = ["The IFSC: 11 characters, such as SBIN0001234."]
+    if not 2 <= len(holder) <= 120:
+        errors["name"] = ["The account holder's name."]
+    if errors or not value:
+        raise serializers.ValidationError({"payee": errors or {"upi": ["The customer's UPI ID, or a bank account."]}})
+    return {"account": account, "ifsc": ifsc, "name": holder}, f"Account ••••{account[-4:]} at {ifsc}"
+
+
 class Refund(Action):
-    """A Razorpay refund through shop.services.refund_order (start_refund): an order not yet shipped is cancelled
-    (stock back) and refunded in full; a shipped one by the amount (at most what was paid)."""
+    """A refund. Asked with an amount only (the bulk action's, the Django admin's), a Razorpay refund through
+    shop.services.refund_order (start_refund): an order not yet shipped is cancelled (stock back) and refunded in full;
+    a shipped one by the amount (at most what is left of the payment). Asked with its details (the panel's refund
+    dialog: shop/staff_orders.py), the refund of chosen lines with quantities (their invoiced values) and shipping, to
+    the way it was paid (Razorpay, normal or optimum) or by bank or UPI to the account the customer gave (cash on
+    delivery and transfers; an online payment only if the customer agrees), the copies back into stock if asked, or a
+    return's refund once it is inspected (shop.services.refund_with_details); the payee's details travel encrypted."""
 
     name, label, maker, checker = "order.refund", "Refund an order", "staff.refund_order", "staff.approve_refund"
+    DETAILS = {"lines", "shipping", "method", "speed", "restock", "payee", "return", "customer_agreed"}
 
     @staticmethod
     def _paid(order):
-        from shop.models import Order, Payment
-        from shop.models import Refund as RefundRow
+        from shop.services import online_payment
 
-        return (
-            order.payments.filter(method=Order.Method.RAZORPAY, status=Payment.Status.CAPTURED)
-            .exclude(refunds__status__in=[RefundRow.Status.PENDING, RefundRow.Status.PROCESSED])
-            .first()
-        )
+        return online_payment(order)
 
     def validate(self, maker, target, payload):
+        from shop.services import refundable
+
         order = _order(maker, target)
+        if self.DETAILS & set(payload):
+            return self._detailed(order, payload)
         paid = self._paid(order)
         if paid is None:
             raise serializers.ValidationError(
@@ -128,12 +163,89 @@ class Refund(Action):
                     ]
                 }
             )
-        cancel = can_proceed(order.cancel)
+        cancel, left = can_proceed(order.cancel), refundable(paid)
         asked = payload.get("amount")
-        amount = paid.amount.amount if cancel or asked in (None, "") else min(rupees(asked), paid.amount.amount)
+        amount = left if cancel or asked in (None, "") else min(rupees(asked), left)
         if amount <= 0:
             raise serializers.ValidationError({"amount": ["More than ₹0."]})
         return order, {"order": order.number, "amount": str(amount), "cancel": cancel}, amount
+
+    def _detailed(self, order, payload):
+        from integrations.crypto import encrypt
+        from shop import services as shop
+        from shop.models import Order, ReturnRequest
+        from shop.models import Refund as RefundRow
+
+        payment = shop.refundable_payment(order)
+        if payment is None:
+            raise serializers.ValidationError(
+                {"target": ["Nothing to refund: not paid yet (cash on delivery is paid on delivery), or refunded."]}
+            )
+        online = payment.method == Order.Method.RAZORPAY
+        method = payload.get("method") or (RefundRow.Method.SOURCE if online else RefundRow.Method.BANK)
+        if method not in (RefundRow.Method.SOURCE, RefundRow.Method.BANK):
+            raise serializers.ValidationError({"method": ["source or bank."]})
+        if method == RefundRow.Method.SOURCE and not online:
+            raise serializers.ValidationError(
+                {"method": ["Paid on delivery or by transfer: refunded by bank or UPI to the customer's account."]}
+            )
+        if method == RefundRow.Method.BANK and online and payload.get("customer_agreed") is not True:
+            raise serializers.ValidationError(
+                {"customer_agreed": ["Paid online: refunded the same way unless the customer agrees to another (RBI)."]}
+            )
+        back = None
+        if payload.get("return") not in (None, ""):
+            pk = str(payload["return"]).strip()
+            back = ReturnRequest.objects.filter(pk=pk, order=order).first() if pk.isdigit() else None
+            if back is None:
+                raise serializers.ValidationError({"return": ["No such return of this order."]})
+            if back.status not in ReturnRequest.INSPECTED or back.refund_id:
+                status = back.get_status_display()
+                raise serializers.ValidationError({"return": [f"Return {back.number} is {status}: not to refund now."]})
+        left, cancel = shop.refundable(payment), can_proceed(order.cancel)
+        if cancel:
+            if payload.get("lines") or rupees(payload.get("shipping") or 0, "shipping") or back:
+                raise serializers.ValidationError(
+                    {"lines": ["Not sent yet: the order is cancelled and refunded in full instead."]}
+                )
+            lines, shipping, amount = [], Decimal("0.00"), left
+        else:
+            try:
+                lines = shop.price_lines(order, payload.get("lines") or (back.lines if back else []))
+            except shop.ShopError as error:
+                raise serializers.ValidationError({"lines": [str(error)]}) from error
+            shipping = rupees(payload.get("shipping") or 0, "shipping")
+            if shipping > (most := shop.shipping_left(order)):
+                raise serializers.ValidationError({"shipping": [f"At most ₹{most} of the shipping is left to refund."]})
+            amount = sum((Decimal(line["amount"]) for line in lines), Decimal("0.00")) + shipping
+            if amount <= 0:
+                raise serializers.ValidationError(
+                    {"lines": ["Choose the copies to refund (quantities start at 0), or the shipping."]}
+                )
+            if amount > left:
+                raise serializers.ValidationError({"lines": [f"₹{amount} is more than the ₹{left} left to refund."]})
+        speed = payload.get("speed") or RefundRow.Speed.NORMAL
+        if speed not in RefundRow.Speed.values:
+            raise serializers.ValidationError({"speed": ["normal or optimum."]})
+        clean = {
+            "order": order.number,
+            "amount": str(amount),
+            "cancel": cancel,
+            "method": method,
+            "lines": lines,
+            "shipping": str(shipping),
+            "restock": bool(payload.get("restock")) and bool(lines) and back is None,  # a return's: its inspection
+        }
+        if method == RefundRow.Method.SOURCE:
+            clean["speed"] = speed
+        else:
+            details, masked = payee_of(payload.get("payee"))
+            clean |= {"payee": encrypt(json.dumps(details, sort_keys=True)), "payee_masked": masked}
+            if online:
+                clean["customer_agreed"] = True
+        if back is not None:
+            clean["return"] = back.pk
+        return order, clean, amount
 
     def rule(self, maker, change_request):
         return over(
@@ -150,8 +262,10 @@ class Refund(Action):
         order = Order.objects.get(number=payload["order"])
         if can_proceed(order.cancel) != payload["cancel"]:
             raise Refused("The order changed since the request (packed, shipped or cancelled): ask again.")
+        if "method" in payload:
+            return self._run_detailed(change_request, order)
         paid = self._paid(order)
-        if paid is None or Decimal(payload["amount"]) > paid.amount.amount:
+        if paid is None or Decimal(payload["amount"]) > shop.refundable(paid):
             raise Refused("Nothing left to refund online: a refund is under way or done.")
         try:
             refund = shop.refund_order(
@@ -162,6 +276,61 @@ class Refund(Action):
         if refund is None:
             raise Refused("Nothing was refunded: the payment is not captured, or a refund is under way.")
         return {"refund": refund.pk, "amount": str(refund.amount.amount), "status": refund.status}
+
+    def _run_detailed(self, change_request, order):
+        from shop import services as shop
+        from shop.models import Order, ReturnRequest
+        from shop.models import Refund as RefundRow
+
+        payload, amount = change_request.payload, Decimal(change_request.payload["amount"])
+        payment = shop.refundable_payment(order)
+        if payment is None or amount > shop.refundable(payment):
+            raise Refused("Nothing left to refund of the payment: a refund is under way or done.")
+        if (payment.method == Order.Method.RAZORPAY) != (payload["method"] == RefundRow.Method.SOURCE) and not (
+            payload["method"] == RefundRow.Method.BANK and payload.get("customer_agreed")
+        ):
+            raise Refused("The order's payment changed since the request: ask again.")
+        lines = payload["lines"]
+        try:
+            again = shop.price_lines(order, [{"item": line["item"], "quantity": line["quantity"]} for line in lines])
+        except shop.ShopError as error:
+            raise Refused(f"{error} Ask again.") from error
+        if again != lines or Decimal(payload["shipping"]) > shop.shipping_left(order):
+            raise Refused("The order's refunds changed since the request: ask again.")
+        back = None
+        if payload.get("return"):
+            back = ReturnRequest.objects.get(pk=payload["return"])
+            if back.status not in ReturnRequest.INSPECTED or back.refund_id:
+                raise Refused(f"Return {back.number} changed since the request: ask again.")
+        try:
+            refund = shop.refund_with_details(
+                order,
+                payment,
+                amount=amount,
+                reason=change_request.reason[:200],
+                method=payload["method"],
+                by=change_request.maker,
+                cancel=payload["cancel"],
+                lines=lines,
+                shipping=Decimal(payload["shipping"]),
+                restock=payload["restock"],
+                speed=payload.get("speed"),
+                payee=payload.get("payee", ""),
+                payee_masked=payload.get("payee_masked", ""),
+                change_request=change_request,
+                key=change_request.idempotency_key,
+                back=back,
+            )
+        except TransitionNotAllowed as error:
+            raise Refused("The order cannot be cancelled now: ask again.") from error
+        except shop.ShopError as error:
+            raise Refused(str(error)) from error
+        return {
+            "refund": refund.pk,
+            "amount": str(refund.amount.amount),
+            "status": refund.status,
+            "method": refund.method,
+        }
 
 
 class OfflinePayment(Action):
@@ -203,6 +372,118 @@ class OfflinePayment(Action):
         except shop.ShopError as error:
             raise Refused(str(error)) from error
         return {"order": order.number, "paid": True}
+
+
+class StaffOrder(Action):
+    """A phone, WhatsApp or school order made by staff (POST orders/: shop/staff_orders.py), with a discount: within
+    the maker's `discount_percent` of the books (after the offers) it is made at once; beyond it, or for a ₹0 total,
+    it waits for a second person, and the order does not exist until approved (plan 5.3, inventory I6: one person must
+    not give goods away). The customer's email, address and the note travel encrypted in the payload: the approvals
+    list names no one. What runs is priced again; a price or an offer changed meanwhile fails it."""
+
+    name, label = "order.staff_discount", "Make a staff order"
+    maker, checker = "shop.add_order", "staff.approve_discount"
+    generic = False
+
+    @staticmethod
+    def _price(payload, customer, user):
+        from shop.cart import Line, price
+        from shop.models import Product
+
+        products = Product.objects.in_bulk([line["product"] for line in payload["lines"]], field_name="slug")
+        if missing := [line["product"] for line in payload["lines"] if line["product"] not in products]:
+            raise serializers.ValidationError({"lines": [f"Not a product: {', '.join(missing)}."]})
+        lines = [Line(products[line["product"]], int(line["quantity"])) for line in payload["lines"]]
+        state, email = customer["address"]["state"], customer["email"]
+        result = price(lines, state=state, user=user, email=email, staff_discount=Decimal(payload["discount"]))
+        if payload.get("shipping") not in (None, ""):
+            result.shipping = Decimal(payload["shipping"])
+        staff = [saving.amount for saving in result.savings if saving.offer is None and saving.label == "Discount"]
+        staff = staff[0] if staff else Decimal("0.00")
+        base = result.subtotal - (result.discount - staff)  # the books after the offers
+        percent = (staff * 100 / base).quantize(Decimal("0.01")) if base else Decimal(100)
+        return lines, result, staff, percent
+
+    def validate(self, maker, target, payload):
+        from integrations.crypto import encrypt
+
+        customer = payload["customer"]
+        user = get_user_model().objects.filter(pk=payload.get("user")).first() if payload.get("user") else None
+        _lines, result, staff, percent = self._price(payload, customer, user)
+        copies = sum(int(line["quantity"]) for line in payload["lines"])
+        clean = {
+            "channel": payload["channel"],
+            "lines": [{"product": line["product"], "quantity": int(line["quantity"])} for line in payload["lines"]],
+            "discount": str(staff),
+            "shipping": None if payload.get("shipping") in (None, "") else str(Decimal(payload["shipping"])),
+            "subtotal": str(result.subtotal),
+            "offers": str(result.discount - staff),
+            "total": str(result.total),
+            "percent": str(percent),
+            "state": customer["address"]["state"],
+            "pin": customer["address"]["pin"],
+            "user": user.pk if user else None,
+            "send_link": bool(payload.get("send_link")),
+            "quote": payload.get("quote"),
+            "customer": encrypt(json.dumps(customer, sort_keys=True)),
+        }
+        label = f"Staff order: {copies} copies, ₹{result.total}"
+        return ("shop.order", "", label[:200]), clean, staff
+
+    def rule(self, maker, change_request):
+        payload = change_request.payload
+        if Decimal(payload["total"]) == 0:
+            return "A ₹0 order gives the books away: a second person approves it."
+        return over(
+            Decimal(payload["percent"]),
+            limit_of(maker, "discount_percent"),
+            "{amount}% off is beyond the limit of {limit}%.",
+        )
+
+    def run(self, change_request, by):
+        from integrations.crypto import decrypt
+        from shop import payments
+        from shop import services as shop
+        from shop.models import QuoteRequest
+
+        from .models import Note
+
+        payload = change_request.payload
+        customer = json.loads(decrypt(payload["customer"]))
+        user = get_user_model().objects.filter(pk=payload["user"]).first() if payload["user"] else None
+        quote = None
+        if payload.get("quote"):
+            quote = QuoteRequest.objects.select_for_update().get(pk=payload["quote"])
+            if quote.order_id:
+                raise Refused(f"Quotation {quote.number} became order {quote.order} meanwhile.")
+        lines, result, staff, _percent = self._price(payload, customer, user)
+        if str(result.total) != payload["total"] or str(staff) != payload["discount"]:
+            raise Refused("The prices or the offers changed since the request: ask again.")
+        shipping = None if payload["shipping"] is None else Decimal(payload["shipping"])
+        try:
+            order = shop.create_staff_order(
+                lines, by=change_request.maker, email=customer["email"], address=customer["address"], user=user,
+                discount=staff, shipping=shipping,
+            )  # fmt: skip
+        except shop.ShopError as error:
+            raise Refused(str(error)) from error
+        if note := customer.get("note"):
+            Note.objects.create(
+                target_type="shop.order", target_id=str(order.pk), author=change_request.maker, body=note
+            )
+        if quote is not None:
+            quote.order, quote.status = order, QuoteRequest.Status.ORDERED
+            quote.save(update_fields=["order", "status", "modified"])
+        if payload["send_link"]:
+
+            def send_link():
+                try:
+                    payments.send_payment_link(order)
+                except payments.Unavailable:
+                    logger.warning("Order %s: its payment link was not sent (Razorpay unavailable)", order.number)
+
+            transaction.on_commit(send_link, robust=True)  # Razorpay asked once this transaction has committed
+        return {"order": order.number, "total": str(order.total.amount), "link": payload["send_link"]}
 
 
 def discount_percent(full, price):
@@ -479,8 +760,10 @@ class RunJob(Action):
         return job, {"job": job.pk, "kind": job.kind, "total": job.total, "params": job.params}, None
 
     def rule(self, maker, change_request):
+        from .jobs import LIMITS
+
         payload = change_request.payload
-        limit = "export_rows" if payload["kind"] == "audit_export" else "bulk_rows"
+        limit = LIMITS.get(payload["kind"], "bulk_rows")  # an export's: export_rows; a bulk action's: bulk_rows
         return over(payload["total"], limit_of(maker, limit), "{amount} rows are above the limit of {limit}.")
 
     def run(self, change_request, by):
@@ -499,6 +782,7 @@ ACTIONS = {
     for action in [
         Refund(),
         OfflinePayment(),
+        StaffOrder(),
         Price(),
         Coupon(),
         GrantRole(),

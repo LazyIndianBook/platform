@@ -46,6 +46,8 @@ SETTINGS = {
         bool, "Maintenance mode: the frontends show the banner", "staff.toggle_maintenance", False
     ),
     "MAINTENANCE_BANNER": Spec(str, "The maintenance banner's text", "staff.toggle_maintenance", ""),
+    # Orders (shop.services.assess_risk)
+    "SHOP_COD_HIGH_RISK_HOLD": Spec(bool, "A cash-on-delivery order scored high risk waits on hold for a check"),
 }
 
 

@@ -34,7 +34,7 @@ def test_the_manifest_says_what_the_panel_may_draw_and_is_never_kept():
     assert data["roles"][0]["expires_at"] and data["roles"][1]["expires_at"] is None
     assert data["permissions"] == sorted(data["permissions"]) and "staff.reveal_contact" in data["permissions"]
     assert data["scopes"] == {"ticket_queue": ["data_request"]}
-    assert data["role_scopes"] == {roles.PACKER: {"order_status": ["paid", "packed", "shipped"]}}
+    assert data["role_scopes"] == {roles.PACKER: {"order_status": ["paid", "packed", "shipped", "placed"]}}
     assert data["limits"]["refund_inr"] == 1_000 and data["flags"] == {"ERP_SYNC_ORDERS": True}
     assert data["impersonating"] is None
     assert data["idle_timeout_s"] == 900 and data["reauth_valid_until"]  # PACKER: 15 minutes, the shorter
@@ -67,7 +67,7 @@ def test_the_catalogue_endpoint_lists_permissions_and_roles():
     owner = next(row for row in data["roles"] if row["name"] == roles.OWNER)
     assert owner["permissions"] == "everything"
     packer = next(row for row in data["roles"] if row["name"] == roles.PACKER)
-    assert packer["scopes"] == {"order_status": ["paid", "packed", "shipped"]}
+    assert packer["scopes"] == {"order_status": ["paid", "packed", "shipped", "placed"]}
 
 
 def test_the_idle_limit_is_the_shortest_of_the_persons_roles(settings):

@@ -101,6 +101,14 @@ STAFF_ACTIONS = [
     ("manage_pickup_locations", "Add and change the pickup addresses", SHIPPING, MEDIUM),
     ("view_insights", "See the insights: forecasts, print runs, item analysis, cohorts, fraud signals", REPORTS, LOW),
     ("acknowledge_signal", "Acknowledge fraud signals (looked at and handled)", REPORTS, LOW),
+    # Orders (shop/staff_orders.py): returns, asked for and decided apart from the parcel's receipt and inspection
+    (
+        "handle_return",
+        "Handle returns: ask for one for a customer, approve or decline it, send its label",
+        ORDERS,
+        MEDIUM,
+    ),
+    ("receive_return", "Receive returned parcels and inspect them: back into stock, or damaged", ORDERS, MEDIUM),
 ]
 STAFF_MODELS = [
     ("view_changerequest", "See the approvals you take part in", STAFF, LOW),
