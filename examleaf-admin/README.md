@@ -169,8 +169,20 @@ shape), and `<html lang>` with the `:lang` rule and Hind Siliguri in every font 
   its books, money, documents, parcels, the customer masked, risk, hold and tags, the timeline; Danger: cancel, the
   refund dialog, a return), `/orders/packing/` (packer mode), `/orders/returns/` and `<id>/`, `/orders/new/` (a staff
   order, the discount rule's answer before saving) and `/orders/quotes/` and `<id>/` (made into an order once).
-  `/shipping/`, `/catalogue/`, `/marketing/`, `/course/`, `/partners/` (distributors, schools, teachers) and
-  `/insights/` say they come in the next phase and where that work is done today.
+  `/shipping/`, `/marketing/`, `/course/`, `/partners/` (distributors, schools, teachers) and `/insights/` say they
+  come in the next phase and where that work is done today.
+- Catalogue (`src/app/(panel)/catalogue/`, `src/components/modules/catalogue/`, its own tabs): `/catalogue/` (what
+  waits: products the courier cannot be quoted for, GST disagreeing with the master, low and empty stock,
+  back-in-stock requests, approvals; the prior-price rule's day), `/catalogue/products/` (the chips, the filters
+  `incomplete`, `tax_problem`, `stock`, `published`, `kind`, saved views) and `/catalogue/products/new/`,
+  `/catalogue/products/<slug or id>/` (by section, each behind its own save bar and sending only what changed: the
+  prices with the website's prior price shown before saving and the change request when it waits, the page, the
+  courier's data, the tax with today's rate and the next change, the stock set with the count read, a bundle's books
+  one a line, pictures, the search engines' words with their lengths, the barcode, the versions), `/catalogue/stock/`,
+  `/catalogue/coupons/`, `new/` and `<code>/` (its terms, a change with its reason, the single-use codes and a
+  school's batch as a job with its file), `/catalogue/offers/`, `new/` and `<id>/`, `/catalogue/shipping-rates/` and
+  `<id>/`, `/catalogue/categories/` (the tree, each shelf changed or moved), `/catalogue/collections/` and
+  `/catalogue/import/` (the import's dry run then its apply, the export, each with its progress).
 - Content (`src/app/(panel)/content/`, `src/components/modules/content/`): `/content/` (what waits: mistakes by kind,
   reviews for me, drafts, books missing legal deposits, the last import), `/content/books/` and `<id>/` (a book's ISBN,
   format, edition and publication day, its history), `/content/papers/` and `<id>/` (the questions and solutions as a
@@ -377,3 +389,19 @@ reason}`), `…/refund/` and `…/cancel/` (with an `Idempotency-Key`; 202 a cha
   `GET support/agents/`; `GET POST support/saved-replies/` (`?bin=true`), `PATCH DELETE …/{id}/`, `POST …/{id}/restore/`;
   the grievance register as `POST jobs/` `{kind: "grievance_export", params: {from, until}}` and `GET
 jobs/?kind=grievance_export&mine=true`.
+- **Catalogue** (API.md "Catalogue (staff)"): `GET catalogue/summary/`, `GET catalogue/options/` (the forms' choices;
+  `hsn_codes` null for whoever may not read the master); `GET catalogue/products/` (`q`, `kind`, `published`,
+  `stock`, `tax_problem`, `incomplete`, `category`, `collection`), `POST catalogue/products/` (201
+  `{product, price_change}`), `GET`/`PATCH catalogue/products/{slug}/` (a slug or an id; a PATCH sends the changed
+  fields alone, each part checked against its own permission; 200 the product, or 202 `{price_change, slug}` when the
+  price waits, which the console reads from the answer, not as an error), `GET …/history/`, `GET …/prior-price/?price=`,
+  `GET …/barcode.svg/` (an image on this origin), `PUT …/bundle/` (`{lines}`), `POST …/stock/`
+  (`{stock, reason, expected}`), `POST …/pictures/` (multipart), `PATCH`/`DELETE …/pictures/{id}/`;
+  `GET catalogue/stock/`, `GET catalogue/stock-alerts/`; `GET`/`POST catalogue/coupons/`, `GET`/`PATCH …/{code}/`
+  (an `Idempotency-Key`; the change request: 201 or 200 when it ran, 202 `approval_required` when it waits),
+  `GET …/{code}/codes/` (`used`), `GET …/{code}/history/`; the same for `catalogue/offers/` by id;
+  `GET`/`POST catalogue/shipping-rates/`, `GET`/`PATCH …/{id}/`, `GET …/{id}/history/`; `GET`/`POST
+catalogue/categories/` (the tree, not paged), `PATCH …/{slug}/`, `POST …/{slug}/move/` (`{target, position}`);
+  `GET`/`POST catalogue/collections/`, `PATCH …/{slug}/`; `POST catalogue/import/` (multipart: 202 the dry run's job)
+  and `POST jobs/` with `{kind: "product_import", params: {file, dry_run_job}}`, `{kind: "product_export", params:
+{filters}}` or `{kind: "coupon_codes", params: {coupon, count, prefix, note}}`, each followed through `jobs/`.

@@ -126,8 +126,11 @@ than do something else. Each step is an audit event `<action>.requested|approved
 | `order.refund` (`shop.services.refund_order`; with lines, shipping, restock, a method or a return: `refund_with_details`) | `staff.refund_order` | `staff.approve_refund` | above the maker's `refund_inr` |
 | `order.offline_payment` (`record_offline_payment`) | `staff.record_offline_payment` | `staff.approve_payment` | above `offline_inr`, or a ₹0 order |
 | `order.staff_discount` (a staff order: `shop.services.create_staff_order`, the order made only when it runs) | `shop.add_order` | `staff.approve_discount` | more off the books (after the offers) than `discount_percent`, or a ₹0 total |
-| `product.price` | `shop.change_product` | `staff.approve_discount` | more off the MRP than `discount_percent` |
+| `product.price` (a selling price, and the MRP with it when given; a new product's price below its MRP) | `staff.change_price` (Phase B: SALES; was `shop.change_product`) | `staff.approve_discount` | more off the MRP than `discount_percent`, whichever of the two moved |
 | `coupon.create` | `shop.add_coupon` | `staff.approve_discount` | beyond `discount_percent` (a fixed one: of its minimum order) |
+| `coupon.change` (its terms, never its code) | `shop.change_coupon` | `staff.approve_discount` | the discount made deeper (or the coupon switched back on) beyond `discount_percent` |
+| `offer.create` | `shop.add_offer` | `staff.approve_discount` | beyond `discount_percent` |
+| `offer.change` | `shop.change_offer` | `staff.approve_discount` | the discount made deeper (or the offer switched back on) beyond `discount_percent` |
 | `staff.grant_role`, `staff.invite` | `staff.assign_role` | `staff.approve_role_change` | a privileged role, or a role for yourself |
 | `user.reset_mfa` | `staff.reset_user_mfa` | the same (a customer's), `staff.approve_role_change` (staff) | always |
 | `user.erase` (`DeletionRequest.complete`) | `staff.handle_data_request` | `staff.approve_erasure` | always (staff started it) |
@@ -282,6 +285,12 @@ kind `ticket_category`, three kinds of inbox item (`ticket_due`: a ticket's lega
 `ticket_breach`: past it, both for `staff.handle_ticket` and given to the ticket's assignee; `ticket_mention`: a
 colleague named in a note, assigned to them and done once they open the ticket) and the permissions
 `staff.handle_ticket` (medium) and `support.note_ticket`.
+The Catalogue module (`shop/catalogue_jobs.py`, `shop/README.md` "Catalogue") adds the kinds `coupon_codes`
+(`shop.add_couponcode`, the `bulk_rows` limit; `{"coupon", "count", "prefix", "note"}`, its file the school's CSV),
+`product_import` (`shop.import_product`, high; no row limit: its dry run comes first, started by
+`catalogue/import/`, and its apply names it, the same bytes within 24 hours) and `product_export`
+(`shop.export_product`, the `export_rows` limit; the list's `filters`), and the permissions `staff.change_price`,
+`staff.set_stock` and `staff.change_product_tax` (each medium): a product's prices, stock and tax each their own.
 
 ## Data protection
 
