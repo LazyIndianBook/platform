@@ -131,6 +131,8 @@ ENDPOINTS = [
     # Orders (shop/staff_orders.py)
     ("get", "orders/", "shop.view_order"),
     ("post", "orders/", "shop.add_order"),
+    ("post", "orders/preview/", "shop.add_order"),
+    ("get", "orders/products/", "shop.view_product"),
     ("get", "orders/packing/", "shop.view_order"),
     ("post", "orders/pick-list/", "staff.pack_order"),
     ("get", "orders/{order}/", "shop.view_order"),

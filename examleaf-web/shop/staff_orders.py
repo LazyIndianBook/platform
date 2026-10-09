@@ -15,6 +15,7 @@ own (shop.services, its state machine): a refusal is its words, `400 {"non_field
 import re
 from datetime import datetime, time, timedelta
 from decimal import Decimal
+from types import SimpleNamespace
 
 import django_filters
 from django.conf import settings
@@ -125,6 +126,9 @@ class OrderRowSerializer(serializers.ModelSerializer):
     parcel = serializers.SerializerMethodField(help_text="the latest parcel's status (the shipping app's), or null")
     tags = serializers.SerializerMethodField()
     held = serializers.SerializerMethodField()
+    risk_bucket = serializers.ChoiceField(
+        choices=Order.Risk.choices, allow_blank=True, read_only=True, help_text="a COD order's; blank: not scored"
+    )
     is_test = serializers.BooleanField(read_only=True, help_text="made with test keys on the live site: TEST")
     is_cod = serializers.BooleanField(read_only=True)
     has_returns = serializers.BooleanField(read_only=True, default=False)
@@ -133,7 +137,7 @@ class OrderRowSerializer(serializers.ModelSerializer):
     class Meta:
         model = Order
         fields = [
-            *["number", "created", "placed_at", "status", "status_label", "payment_method", "total", "items"],
+            *["id", "number", "created", "placed_at", "status", "status_label", "payment_method", "total", "items"],
             *["customer", "courier", "parcel", "tags", "held", "hold_reason", "risk_bucket", "is_test", "is_cod"],
             *["has_returns", "staff_order", "livemode"],
         ]
@@ -152,7 +156,11 @@ class OrderRowSerializer(serializers.ModelSerializer):
         return shipments[0] if shipments else None
 
     @extend_schema_field(
-        inline_serializer("OrderCourier", {"name": serializers.CharField(), "tracking_number": serializers.CharField()})
+        inline_serializer(
+            "OrderCourier",
+            {"name": serializers.CharField(), "tracking_number": serializers.CharField()},
+            allow_null=True,
+        )
     )
     def get_courier(self, order):
         latest = self._latest(order)
@@ -298,7 +306,7 @@ class ReturnRowSerializer(serializers.ModelSerializer):
     reason_label = serializers.CharField(source="get_reason_display", read_only=True)
     status_label = serializers.CharField(source="get_status_display", read_only=True)
     lines = serializers.SerializerMethodField()
-    refund = serializers.PrimaryKeyRelatedField(read_only=True)
+    refund = serializers.PrimaryKeyRelatedField(read_only=True, allow_null=True, help_text="its refund, once asked")
     photos = serializers.SerializerMethodField(help_text="how many: GET photos/{index}/ each")
 
     class Meta:
@@ -848,6 +856,55 @@ class StaffOrderSerializer(serializers.Serializer):
         return [{"product": slug, "quantity": quantity} for slug, quantity in copies.items()]
 
 
+class StaffOrderPreviewAskSerializer(serializers.Serializer):
+    lines = StaffOrderLineSerializer(many=True, allow_empty=False)
+    state = serializers.CharField(max_length=2, help_text="the delivery address's state code: the shipping rate's")
+    email = serializers.EmailField(required=False, allow_blank=True, help_text="the customer's: offers once a person")
+    discount = serializers.DecimalField(
+        max_digits=10, decimal_places=2, min_value=Decimal(0), required=False, default=Decimal(0)
+    )
+    shipping = serializers.DecimalField(
+        max_digits=10, decimal_places=2, min_value=Decimal(0), required=False, allow_null=True, default=None
+    )
+
+    validate_lines = StaffOrderSerializer.validate_lines
+
+
+class StaffOrderPreviewLineSerializer(serializers.Serializer):
+    product = serializers.CharField()
+    title = serializers.CharField()
+    unit_price = serializers.DecimalField(max_digits=12, decimal_places=2)
+    quantity = serializers.IntegerField()
+    line_total = serializers.DecimalField(max_digits=12, decimal_places=2)
+    available = serializers.IntegerField(help_text="copies that can be sold now")
+
+
+class StaffOrderPreviewSerializer(serializers.Serializer):
+    """What the staff order would be: priced as the checkout prices it, and the approval rule's answer."""
+
+    lines = StaffOrderPreviewLineSerializer(many=True)
+    subtotal = serializers.DecimalField(max_digits=12, decimal_places=2)
+    offers = serializers.DecimalField(max_digits=12, decimal_places=2, help_text="the automatic offers' rupees")
+    discount = serializers.DecimalField(max_digits=12, decimal_places=2, help_text="yours, at most the books' value")
+    percent = serializers.DecimalField(max_digits=6, decimal_places=2, help_text="of the books after the offers")
+    shipping = serializers.DecimalField(max_digits=12, decimal_places=2, allow_null=True)
+    total = serializers.DecimalField(max_digits=12, decimal_places=2)
+    limit = serializers.DecimalField(max_digits=6, decimal_places=2, allow_null=True, help_text="yours; null: none")
+    approval = serializers.CharField(allow_null=True, help_text="why a second person approves it; null: made at once")
+    problems = serializers.ListField(child=serializers.CharField(), help_text="what stops it: off sale, sold out")
+
+
+class ProductPickSerializer(serializers.ModelSerializer):
+    price = money("price.amount")
+    mrp = money("mrp.amount")
+    available = serializers.IntegerField(read_only=True, help_text="copies that can be sold now")
+
+    class Meta:
+        model = Product
+        fields = ["slug", "title", "kind", "isbn", "price", "mrp", "available"]
+        read_only_fields = fields
+
+
 class QuoteConvertSerializer(serializers.Serializer):
     address = ShippingAddressSerializer(help_text="where the books go (the quote has only its PIN code)")
     email = serializers.EmailField(required=False, help_text="default: the quote's")
@@ -1051,6 +1108,8 @@ class OrderViewSet(OrdersView, mixins.ListModelMixin, mixins.RetrieveModelMixin,
         "retrieve": VIEW,
         "packing": VIEW,
         "create": "shop.add_order",
+        "preview": "shop.add_order",
+        "products": "shop.view_product",
         "pick_list": "staff.pack_order",
         "packing_slip": "staff.pack_order",
         "label": "staff.pack_order",
@@ -1099,6 +1158,18 @@ class OrderViewSet(OrdersView, mixins.ListModelMixin, mixins.RetrieveModelMixin,
     def order(self):
         return self.get_object()
 
+    def filter_queryset(self, queryset):
+        """The list's filters, its default to live orders among them, are the list's: a record (and every move on one)
+        opens whatever its mode, so a test order found with ?livemode=false opens too."""
+        return super().filter_queryset(queryset) if self.action == "list" else queryset
+
+    def get_object(self):
+        """By its number, or by its id (the inbox's and the audit trail's links name an order by its id)."""
+        value = str(self.kwargs.get(self.lookup_field, ""))
+        if value.isdigit():
+            self.lookup_field, self.kwargs = "pk", {"pk": value}
+        return super().get_object()
+
     def retrieve(self, request, *args, **kwargs):
         """The record; opening a child's order (its account under 18) is a logged read, as the child's record is."""
         order = self.get_object()
@@ -1130,6 +1201,60 @@ class OrderViewSet(OrdersView, mixins.ListModelMixin, mixins.RetrieveModelMixin,
         data = StaffOrderSerializer(data=request.data)
         data.is_valid(raise_exception=True)
         return ask_staff_order(self, request, data.validated_data)
+
+    @extend_schema(request=StaffOrderPreviewAskSerializer, responses=StaffOrderPreviewSerializer)
+    @action(detail=False, methods=["post"], filter_backends=[])
+    def preview(self, request, *args, **kwargs):
+        """What a staff order would cost before it is asked for: today's prices with the offers, your discount's share
+        of the books after them, the shipping, and whether it would wait for a second person (`approval`: the rule's
+        words) or be made at once (null). Nothing is stored."""
+        data = StaffOrderPreviewAskSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        values, maker = data.validated_data, self.human()
+        shipping = values["shipping"]
+        payload = {"lines": values["lines"], "discount": str(values["discount"]), "shipping": shipping}
+        customer = {"email": (values.get("email") or "").lower(), "address": {"state": values["state"].upper()}}
+        lines, result, staff, percent = approvals.StaffOrder._price(payload, customer, None)
+        priced = {"total": str(result.total), "percent": str(percent)}
+        rule = approvals.StaffOrder().rule(maker, SimpleNamespace(payload=priced))
+        preview = {
+            "lines": [
+                {
+                    "product": line.product.slug,
+                    "title": line.product.title,
+                    "unit_price": line.product.price.amount,
+                    "quantity": line.quantity,
+                    "line_total": line.total,
+                    "available": line.product.available,
+                }
+                for line in lines
+            ],
+            "subtotal": result.subtotal,
+            "offers": result.discount - staff,
+            "discount": staff,
+            "percent": percent,
+            "shipping": result.shipping,
+            "total": result.total,
+            "limit": approvals.limit_of(maker, "discount_percent"),
+            "approval": rule,
+            "problems": result.problems(),
+        }
+        return Response(StaffOrderPreviewSerializer(preview).data)
+
+    @extend_schema(
+        parameters=[OpenApiParameter("q", str, description="a title, slug or ISBN: 2 characters or more")],
+        responses=ProductPickSerializer(many=True),
+    )
+    @action(detail=False, filter_backends=[], pagination_class=None)
+    def products(self, request, *args, **kwargs):
+        """Books on sale for a staff order's lines: 20 at most, matched by title, slug or ISBN."""
+        query = " ".join(request.query_params.get("q", "").split())[:100]
+        if len(query) < 2:
+            return Response([])
+        found = Q(title__icontains=query) | Q(slug__icontains=query) | Q(isbn__icontains=query.replace("-", ""))
+        found |= Q(isbn__icontains=query)
+        rows = Product.objects.filter(found, is_active=True).order_by("title", "pk")[:20]
+        return Response(ProductPickSerializer(rows, many=True).data)
 
     # The packing room
 

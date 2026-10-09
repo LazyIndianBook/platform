@@ -832,6 +832,7 @@ SPECTACULAR_SETTINGS["ENUM_NAME_OVERRIDES"].update(  # noqa: F405  the orders mo
     ReturnReasonEnum="shop.models.ReturnRequest.Reason",
     RefundSpeedEnum="shop.models.Refund.Speed",
     OrderRiskEnum="shop.models.Order.Risk",
+    ProductKindEnum="shop.models.Product.Kind",
 )
 
 # ---- Resilience (RESILIENCE.md: each knob below, its default and when to change it) --------------------------------

@@ -966,7 +966,7 @@ def refund_with_details(order, payment, *, amount, reason, method, by=None, requ
             )
             due = timezone.now() + timedelta(days=settings.SHOP_BANK_REFUND_DAYS)
             title = f"Refund #{refund.pk} of {order.number}: transfer it by bank or UPI"
-            open_item(InboxItem.Kind.BANK_REFUND, refund, title, "staff.approve_refund", due)
+            open_item(InboxItem.Kind.BANK_REFUND, order, title, "staff.approve_refund", due)  # one per order
         if fields["restock"] and lines:
             restock_lines(order, lines, f"Refund #{refund.pk}: {reason}", by, request)
         if back is not None:
@@ -999,7 +999,9 @@ def mark_bank_refund_paid(refund, utr, by=None, request=None):
         refund.utr, refund.paid_by = utr, by
         refund.save(update_fields=["utr", "paid_by", "modified"])
         refund_processed(refund.pk)
-        close_items(refund, InboxItem.Kind.BANK_REFUND)
+        waiting = Refund.objects.filter(order=refund.order_id, method=Refund.Method.BANK, status=Refund.Status.PENDING)
+        if not waiting.exists():  # another transfer still due keeps the order's item open
+            close_items(refund.order, InboxItem.Kind.BANK_REFUND)
         details = {"refund": refund.pk, "amount": refund.amount.amount, "utr": utr}
         record("refund.paid", refund.order, request, by, details=details)
     return Refund.objects.get(pk=refund.pk)

@@ -312,6 +312,28 @@ def test_a_staff_discount_above_the_cap_makes_no_order_until_approved(commit):
     assert Note.objects.get(target_type="shop.order", target_id=str(order.pk)).body == "Promised by Friday"
 
 
+def test_the_form_previews_the_price_and_the_rule_before_anything_is_asked():
+    book = ProductFactory(title="Physics Sample Papers", price=Decimal("299"), mrp=Decimal("349"), stock=10)
+    rep = signed_in(make_staff(roles.SALES_REP))
+    found = rep.get(ORDERS + "products/", {"q": "physics"}).json()
+    assert [(row["slug"], row["price"], row["available"]) for row in found] == [(book.slug, "299.00", 10)]
+    assert rep.get(ORDERS + "products/", {"q": "p"}).json() == []
+    body = {"lines": [{"product": book.slug, "quantity": 2}], "state": "AS", "discount": "200.00"}
+    above = rep.post(ORDERS + "preview/", body, format="json").json()
+    assert (above["subtotal"], above["discount"], above["percent"], above["limit"]) == (
+        "598.00",
+        "200.00",
+        "33.44",
+        "10.00",
+    )
+    assert above["approval"] == "33.44% off is beyond the limit of 10%." and above["problems"] == []
+    within = rep.post(ORDERS + "preview/", {**body, "discount": "50.00"}, format="json").json()
+    assert within["approval"] is None and within["total"] == str(Decimal("548.00") + Decimal(within["shipping"]))
+    short = rep.post(ORDERS + "preview/", {**body, "lines": [{"product": book.slug, "quantity": 11}]}, format="json")
+    assert short.json()["problems"] == [f"Only 10 copies of {book} left."]
+    assert Order.objects.count() == 0 and not AuditEvent.objects.filter(action__startswith="order.").exists()
+
+
 def test_a_free_order_always_waits_and_a_small_discount_runs_at_once(commit):
     book = ProductFactory(price=Decimal("299"), mrp=Decimal("349"), stock=10)
     sales = make_staff(roles.SALES)
@@ -587,6 +609,9 @@ def test_test_orders_stay_out_of_the_default_list_and_the_queue(settings, rzp):
     assert [row["number"] for row in client.get(ORDERS).json()["results"]] == [live.number]
     shown = client.get(ORDERS + "?livemode=false").json()["results"]
     assert [row["number"] for row in shown] == [test_order.number] and shown[0]["is_test"] is True
+    record = client.get(f"{ORDERS}{test_order.number}/")  # found with ?livemode=false, its record opens
+    assert record.status_code == 200 and record.json()["is_test"] is True
+    assert client.get(f"{ORDERS}{test_order.pk}/").json()["number"] == test_order.number  # the inbox's link: its id
     assert [row["number"] for row in client.get(ORDERS + "packing/").json()["results"]] == [live.number]
 
 
