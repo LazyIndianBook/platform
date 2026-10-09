@@ -14,7 +14,8 @@ const keys = (permissions: string[], erp = "") => visibleModules(manifestWith(pe
 
 describe("P", () => {
   it("names only the backend's codenames (app_label.codename)", () => {
-    for (const perm of Object.values(P)) expect(perm).toMatch(/^(staff|accounts|shipping|insights|erp)\.[a-z_]+$/);
+    for (const perm of Object.values(P))
+      expect(perm).toMatch(/^(staff|accounts|shipping|insights|erp|shop)\.[a-z0-9_]+$/);
   });
 });
 
@@ -48,6 +49,13 @@ describe("visibleModules", () => {
       "processors",
     ]);
     expect(keys(support, "https://erp.example.invalid")).toEqual(keys(support));
+  });
+
+  it("opens Tax for the master's or the documents' readers, under Shop after the catalogue", () => {
+    expect(keys([P.taxHsnView])).toEqual(["home", "tax"]);
+    expect(keys([P.taxDocumentsView])).toEqual(["home", "tax"]);
+    expect(keys([P.taxThresholdsView, P.taxCancel, P.taxGstr1])).toEqual(["home"]);
+    expect(keys(["shop.view_product", P.taxHsnView])).toEqual(["home", "catalogue", "tax"]);
   });
 
   it("opens the audit trail to its readers only, and shipping and the insights by their apps' permissions", () => {

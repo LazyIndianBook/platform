@@ -143,12 +143,19 @@ shape), and `<html lang>` with the `:lang` rule and Hind Siliguri in every font 
 - The panel (`src/app/(panel)/`): `/` Home, `/inbox/`, `/audit/`, `/approvals/` and `/approvals/<id>/`, `/people/`,
   `/people/<id>/`, `/people/access-review/`, `/users/` and `/users/<id>/`, `/privacy/requests/` and `<id>/`,
   `/privacy/incidents/` and `<id>/`, `/privacy/processors/`, `/settings/`, `/settings/api-keys/`, `/system/`,
-  `/account/` (the session's limits and the person's jobs). Every record page has its notes and its audit trail beside
-  it. `/orders/`, `/shipping/`, `/catalogue/`, `/marketing/`, `/content/`, `/course/`, `/partners/` (distributors,
-  schools, teachers) and `/insights/` say they come in the next phase and where that work is done today.
+  `/account/` (the session's limits and the person's jobs). Tax (`src/components/modules/tax/`, its own tabs): `/tax/`
+  (the month's due dates with Previous and Next month, the threshold card, this year's table 13), `/tax/hsn/` (the HSN
+  and SAC master, the products that disagree with it, a new code at `#new`) and `/tax/hsn/<code>/` (its rate history,
+  its products, a new dated rate behind the save bar), `/tax/documents/` (invoices or credit notes by series, type,
+  month, cancelled, the test series apart) and `/tax/documents/<number with dashes>/` (its lines, Rule 46's checks, the
+  PDF, cancelling it with its number typed), `/tax/series/` (table 13 of a year or a month), `/tax/gstr1/` (the
+  month's or the quarter's export as a job, and the person's exports with their files). Every record page has its
+  notes and its audit trail beside it. `/orders/`, `/shipping/`, `/catalogue/`, `/marketing/`, `/content/`,
+  `/course/`, `/partners/` (distributors, schools, teachers) and `/insights/` say they come in the next phase and where
+  that work is done today.
 - In ERPNext (links out, in a new tab, said in words and marked with the external-link icon; drawn only when
   `NEXT_PUBLIC_ERP_URL` is set and the manifest has one of the sync's `erp.*` permissions): Finance `/app/accounting`,
-  Tax `/app/gst-india`, Inventory `/app/stock`, Purchases `/app/buying`, CRM `/app/crm`.
+  GST returns `/app/gst-india`, Inventory `/app/stock`, Purchases `/app/buying`, CRM `/app/crm`.
 
 ## Add a module
 
@@ -251,3 +258,13 @@ cursor pagination `{next, previous, results}` (the `cursor` of the links, `page_
 - **Notes**: `GET`/`POST notes/?target_type=&target_id=` (a record's notes, not paged; only on records the reader may
   see).
 - **The system**: `GET system/`, `POST system/reconcile/` (an order's payment checked with Razorpay again).
+- **Tax** (the backend's `shop/staff_tax.py`): `GET tax/hsn/` (`q`, `kind`, `taxability`: the rate today, and
+  `next_change`), `GET tax/hsn/{code}/` (`rates` oldest first with `until`, `linked` products with their `problem`),
+  `POST tax/hsn/` (`{code, kind, description, uqc, first_rate}`: a nested rate's errors come as `first_rate.rate`),
+  `POST tax/hsn/{code}/rates/` (a rate starts after the latest: the history is never rewritten); `GET tax/problems/`;
+  `GET tax/documents/` (`kind` invoice or credit_note, `series`, `document_type`, `month`, `financial_year`,
+  `cancelled`, `test`, `search`), `GET tax/documents/{number}/` (the number with dashes for its slashes, the row's
+  `key`), `GET …/pdf/` (audited: it names the buyer), `POST …/cancel/` (`{reason}`, re-authenticated; refused for a
+  document cancelled already and for an invoice whose credit notes stand); `GET tax/series/` (`financial_year`,
+  `month`), `GET tax/thresholds/`, `GET tax/calendar/` (`month`); `POST tax/gstr1/` (`{month, months, dry_run}`,
+  `months` 1 or 3: 202 with a `gstr1_export` job, followed through `jobs/`).

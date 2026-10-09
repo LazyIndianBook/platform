@@ -59,6 +59,13 @@ export const P = {
   pickupLocations: "staff.manage_pickup_locations",
   insightsView: "staff.view_insights",
   signalsAcknowledge: "staff.acknowledge_signal",
+  // tax (the backend's shop/staff_tax.py): the HSN and SAC master, documents and series, thresholds, GSTR-1
+  taxHsnView: "shop.view_hsncode",
+  taxHsnChange: "shop.change_hsncode",
+  taxDocumentsView: "shop.view_documentseries",
+  taxThresholdsView: "shop.view_taxthreshold",
+  taxCancel: "staff.cancel_document",
+  taxGstr1: "staff.run_gstr1",
   // the ERPNext sync (the backend's erp app): no page of its own here yet; they open the ERPNext links
   erpView: "erp.view_sync",
   erpReplay: "erp.replay_sync",
@@ -101,6 +108,7 @@ export const MODULES: readonly Module[] = [
   { key: "orders", href: "/orders/", group: "shop", any: ["shop.view_order"], soon: true },
   { key: "shipping", href: "/shipping/", group: "shop", any: SHIPPING, soon: true },
   { key: "catalogue", href: "/catalogue/", group: "shop", any: ["shop.view_product"], soon: true },
+  { key: "tax", href: "/tax/", group: "shop", any: [P.taxHsnView, P.taxDocumentsView] },
   { key: "marketing", href: "/marketing/", group: "shop", any: ["shop.view_coupon", "shop.view_offer"], soon: true },
   {
     key: "content",
@@ -122,7 +130,7 @@ export const MODULES: readonly Module[] = [
   { key: "settings", href: "/settings/", group: "system", any: [P.settingsView, P.flagsView] },
   { key: "system", href: "/system/", group: "system", any: [P.systemView] },
   { key: "finance", href: "/app/accounting", group: "erp", any: ERP, erp: "/app/accounting" },
-  { key: "tax", href: "/app/gst-india", group: "erp", any: ERP, erp: "/app/gst-india" },
+  { key: "gstReturns", href: "/app/gst-india", group: "erp", any: ERP, erp: "/app/gst-india" },
   { key: "inventory", href: "/app/stock", group: "erp", any: ERP, erp: "/app/stock" },
   { key: "purchases", href: "/app/buying", group: "erp", any: ERP, erp: "/app/buying" },
   { key: "crm", href: "/app/crm", group: "erp", any: ERP, erp: "/app/crm" },

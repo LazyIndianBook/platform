@@ -640,3 +640,62 @@ export const getSystem = async (transport?: Transport) =>
 /** Ask Razorpay what became of an online order's payment (a lost webhook). */
 export const reconcileOrder = (order: string) =>
   send(undefined, (o) => api.POST("/api/v1/staff/system/reconcile/", { ...o, body: { order } }));
+
+// ---- Tax ----
+
+export type HsnCode = Schemas["HsnCode"];
+export type HsnCodeDetail = Schemas["HsnCodeDetail"];
+export type HsnRate = Schemas["HsnRate"];
+export type TaxProblem = Schemas["TaxProblem"];
+export type TaxDocument = Schemas["TaxDocument"];
+export type TaxDocumentDetail = Schemas["TaxDocumentDetail"];
+export type SeriesRegister = Schemas["SeriesRegister"];
+export type ThresholdCard = Schemas["ThresholdCard"];
+export type ThresholdRow = Schemas["ThresholdRow"];
+export type TaxCalendar = Schemas["TaxCalendar"];
+export type Taxability = Schemas["TaxabilityEnum"];
+
+/** The HSN and SAC master by code, with today's rate and a change to come. */
+export const listHsnCodes = (filters: Filters<"/api/v1/staff/tax/hsn/">, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/tax/hsn/", { ...o, params: { query: query(filters) } })).then(paged);
+/** One code with its rates (oldest first, each with `until`) and its products. */
+export const getHsnCode = (code: string, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/tax/hsn/{code}/", { ...o, params: { path: { code } } }));
+/** A code new to the master, with its first rate. */
+export const addHsnCode = (body: Schemas["NewHsnCodeRequest"]) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/tax/hsn/", { ...o, body }));
+/** A new dated rate of a code: after its latest start (the history is never rewritten). */
+export const addHsnRate = (code: string, body: Schemas["NewHsnRateRequest"]) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/tax/hsn/{code}/rates/", { ...o, params: { path: { code } }, body }));
+/** The products whose GST disagrees with the master today, with why (the catalogue's red chip). */
+export const listTaxProblems = (transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/tax/problems/", o));
+
+/** Invoices (by default) or credit notes, newest first. */
+export const listTaxDocuments = (filters: Filters<"/api/v1/staff/tax/documents/">, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/tax/documents/", { ...o, params: { query: query(filters) } })).then(
+    paged,
+  );
+/** A document by its key (its number with dashes for its slashes): its lines, charges and Rule 46 checks. */
+export const getTaxDocument = (number: string, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/tax/documents/{number}/", { ...o, params: { path: { number } } }));
+/** Cancel a document with a reason (re-authenticated): it keeps its number. */
+export const cancelTaxDocument = (number: string, reason: string) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/tax/documents/{number}/cancel/", { ...o, params: { path: { number } }, body: { reason } }),
+  );
+/** A document's PDF on this origin (a look at the buyer's details: the server records it). */
+export const taxDocumentPdfHref = (number: string) => `/api/v1/staff/tax/documents/${encodeURIComponent(number)}/pdf/`;
+
+/** Table 13: each series of a year (or a month of it). */
+export const getSeriesRegister = (filters: Filters<"/api/v1/staff/tax/series/">, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/tax/series/", { ...o, params: { query: query(filters) } }));
+/** The threshold card: the latest night's lines. */
+export const getTaxThresholds = (transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/tax/thresholds/", o));
+/** What is due in a month ("2026-10"; this month without one). */
+export const getTaxCalendar = (month: string, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/tax/calendar/", { ...o, params: { query: query({ month }) } }));
+/** The GSTR-1 export as a job (202 with the job; above the export limit it waits for an approver first). */
+export const startGstr1 = (body: Schemas["Gstr1Request"]) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/tax/gstr1/", { ...o, body })) as Promise<Job>;

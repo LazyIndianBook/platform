@@ -6,6 +6,8 @@ const PAGES: Record<string, (id: string) => string> = {
   "staff.datarequest": (id) => `/privacy/requests/${id}/`,
   "staff.incident": (id) => `/privacy/incidents/${id}/`,
   "accounts.user": (id) => `/users/${id}/`,
+  "shop.hsncode": (id) => `/tax/hsn/${id}/`,
+  "shop.taxthreshold": () => "/tax/",
 };
 
 export function targetHref(type: string | null | undefined, id: string | null | undefined, action = ""): string | null {
