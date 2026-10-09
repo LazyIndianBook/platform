@@ -620,7 +620,7 @@ test("Home and reports: the OWNER's Home counts the paid order once and leaves t
     expect(text.trim().split("\n").pop()).toMatch(/^Report,Sales,made .+ by staff member #\d+,"?filters: /);
   });
 
-  await test.step("the reports index, and every report passes axe and fits at 1280 and 390 px", async () => {
+  await test.step("the reports index, and every report passes axe and fits the window", async () => {
     await page.goto("/reports/");
     await expect(page.getByRole("heading", { level: 1, name: "Reports" })).toBeVisible();
     await checkPages(

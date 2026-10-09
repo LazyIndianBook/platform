@@ -212,142 +212,6 @@ for (const width of [1280, 390]) {
       await page.context().clearCookies({ name: "staff_mock_role" });
     });
 
-    test("home and reports: the OWNER's cards, the PACKER's one, a report and its export as a job", async ({
-      page,
-    }) => {
-      await signIn(page, staff, "/", codes);
-      const site = new URL("/", page.url()).href;
-      const as = (role: string) => page.context().addCookies([{ name: "staff_mock_role", value: role, url: site }]);
-      const numbers = page.getByRole("region", { name: "The numbers" });
-
-      await test.step("the OWNER's Home: the money and the queues, each a link with its definition", async () => {
-        const revenue = numbers.getByRole("link", { name: /Net revenue/ });
-        await expect(revenue).toContainText("₹1,84,250");
-        await expect(revenue).toHaveAttribute("href", /^\/reports\/sales\/\?from=\d{4}-\d\d-\d\d&to=\d{4}-\d\d-\d\d$/);
-        await expect(revenue).toHaveAttribute("title", /Money received less money returned/);
-        await expect(numbers.getByText("Up ₹32,350 (21.3%) on the 7 days before (₹1,51,900)")).toBeVisible();
-        await expect(numbers.getByText("The same as the 7 days before (1,260)")).toBeVisible();
-        await expect(numbers.getByText("3 test orders are left out of these numbers.")).toBeVisible();
-        await expect(numbers.getByRole("link", { name: /Orders to pack/ })).toHaveAttribute(
-          "href",
-          "/orders/?tab=to_pack",
-        );
-        await expect(numbers.getByRole("link", { name: /Tickets breached/ })).toHaveAttribute(
-          "href",
-          "/support/?tab=overdue",
-        );
-        // the definition for a keyboard and a phone: the disclosure under the card
-        const first = numbers.getByRole("listitem").first();
-        await first.getByText("How this is counted").click();
-        await expect(first.getByText(/Test-mode payments are left out/)).toBeVisible();
-      });
-
-      await test.step("the period of the totals is a choice in the address", async () => {
-        await numbers.getByRole("link", { name: "30 days" }).click();
-        await expect(page).toHaveURL(/\/\?period=month$/);
-        await expect(numbers.getByRole("link", { name: /Net revenue/ })).toContainText("₹7,92,275");
-        await expect(numbers.getByRole("link", { name: "30 days" })).toHaveAttribute("aria-current", "true");
-      });
-
-      await test.step("the PACKER's Home: the orders to pack, and nothing of the money", async () => {
-        await as("PACKER");
-        await page.goto("/");
-        await expect(numbers.getByRole("link", { name: /Orders to pack/ })).toBeVisible();
-        await expect(numbers.getByRole("listitem")).toHaveCount(1);
-        await expect(numbers.getByRole("heading", { name: "Totals" })).toHaveCount(0);
-        await expect(page.getByText("Net revenue")).toHaveCount(0);
-        await numbers.getByRole("link", { name: /Orders to pack/ }).click();
-        await expect(page).toHaveURL(/\/orders\/\?tab=to_pack$/);
-        await expect(page.getByRole("heading", { level: 1, name: "Orders" })).toBeVisible();
-        await page.context().clearCookies({ name: "staff_mock_role" });
-      });
-
-      await test.step("a card that could not be worked out says so and still links to its list", async () => {
-        await page.context().addCookies([{ name: "staff_mock_card_error", value: "orders_placed", url: site }]);
-        await page.goto("/");
-        await expect(numbers.getByText("This number could not be worked out just now.")).toBeVisible();
-        await expect(numbers.getByRole("link", { name: /Net revenue/ })).toContainText("₹1,84,250"); // the others stand
-        await page.context().clearCookies({ name: "staff_mock_card_error" });
-      });
-
-      await test.step("sales: grouped by subject, with how it is counted", async () => {
-        await page.goto("/reports/");
-        await expect(page.getByRole("heading", { level: 1, name: "Reports" })).toBeVisible();
-        await page
-          .getByRole("navigation", { name: "The reports" })
-          .getByRole("link", { name: "Sales", exact: true })
-          .click();
-        await expect(page).toHaveURL(/\/reports\/sales\/$/);
-        const table = page.getByRole("region", { name: "Sales, a table" });
-        await expect(table.getByRole("columnheader", { name: "Title" })).toBeVisible();
-        await page.getByLabel("Group by").selectOption("subject");
-        await page.getByRole("button", { name: "Show" }).click();
-        await expect(page).toHaveURL(/by=subject/);
-        await expect(table.getByRole("columnheader", { name: "Subject" })).toBeVisible();
-        await expect(table.getByRole("row", { name: /Physics/ })).toBeVisible();
-        await expect(table.getByRole("row", { name: /Whole period/ })).toBeVisible();
-        await page.getByText("How this is counted").click();
-        await expect(page.getByText(/Sales of the orders placed in the period/)).toBeVisible();
-      });
-
-      await test.step("the report as a file: a job, its progress, and the file with who made it", async () => {
-        await page.getByRole("button", { name: "Export as a file" }).click();
-        await settle(page, toast(page, "Export started"), staff, codes);
-        const download = page.waitForEvent("download");
-        await page.getByRole("button", { name: "Download the file" }).click();
-        const file = await download;
-        expect(file.suggestedFilename()).toMatch(/^report-sales-\d{4}-\d\d-\d\d-to-\d{4}-\d\d-\d\d-made-\d{8}\.csv$/);
-        const text = readFileSync((await file.path())!, "utf8");
-        expect(text).toContain("Physics");
-        expect(text.trim().split("\n").pop()).toMatch(/^Report,Sales,made .+ by staff member #\d+,"?filters: /);
-      });
-
-      await test.step("a group too small to show says 'fewer than 10', and a source not set up says so", async () => {
-        await page.goto("/reports/place/");
-        await expect(page.getByRole("row", { name: /Sikkim/ }).getByText("fewer than 10")).toBeVisible();
-        await expect(
-          page.getByText("1 place has fewer than 10 orders, so it is not shown and in no total below."),
-        ).toBeVisible();
-        await page.getByRole("link", { name: /Assam/ }).click();
-        await expect(page).toHaveURL(/level=district&state=AS/);
-        await expect(page.getByRole("row", { name: /Dhemaji/ }).getByText("fewer than 10")).toBeVisible();
-        await page.goto("/reports/course-health/");
-        await expect(page.getByRole("cell", { name: "fewer than 5" }).first()).toBeVisible();
-        await page.context().addCookies([{ name: "staff_mock_settlements", value: "off", url: site }]);
-        await page.goto("/reports/settlements/");
-        await expect(page.getByRole("heading", { name: "Razorpay's settlements are not set up" })).toBeVisible();
-        await page.context().clearCookies({ name: "staff_mock_settlements" });
-      });
-
-      await test.step("the print run is worked out again with the inputs typed", async () => {
-        await page.goto("/reports/forecasts/");
-        const result = page.getByRole("status", { name: "The print run worked out" });
-        await expect(
-          result.getByText("Critical ratio 0.7105: print for the 71st percentile of the season's demand."),
-        ).toBeVisible();
-        await page.getByLabel("Print cost (₹)").fill("90");
-        await page.getByRole("button", { name: "Work it out" }).click();
-        await expect(
-          result.getByText("Critical ratio 0.5526: print for the 55th percentile of the season's demand."),
-        ).toBeVisible();
-        // an input that is not rupees goes nowhere
-        await page.getByLabel("Print cost (₹)").fill("9o");
-        await page.getByRole("button", { name: "Work it out" }).click();
-        await expect(page.getByText("Rupees with up to two decimals, such as 195 or 60.50.")).toBeVisible();
-      });
-
-      await test.step("the FINANCE member's reports are theirs: no book codes, the money and cash on delivery", async () => {
-        await as("FINANCE");
-        await page.goto("/reports/");
-        const tabs = page.getByRole("navigation", { name: "The reports" });
-        await expect(tabs.getByRole("link", { name: "Cash on delivery" })).toBeVisible();
-        await expect(tabs.getByRole("link", { name: "Book codes" })).toHaveCount(0);
-        await page.goto("/reports/codes/");
-        await expect(page.getByRole("heading", { name: "Not found, or not yours to see" })).toBeVisible();
-        await page.context().clearCookies({ name: "staff_mock_role" });
-      });
-    });
-
     test("a day's work, then the idle sign-out", async ({ page }) => {
       await page.clock.install();
       await signIn(page, staff, "/", codes);
@@ -864,6 +728,144 @@ for (const width of [1280, 390]) {
         await expect(page.locator("dt", { hasText: "Changed" }).first()).toBeVisible(); // what it found, counted
         await apply.click();
         await settle(page, toast(page, "Import applied"), staff, codes);
+      });
+    });
+
+    // last of the width's journeys: it leaves a done export job with a file in this member of staff's world, which the
+    // jobs step of "a day's work" (the first file in the list is the audit export) must not meet
+    test("home and reports: the OWNER's cards, the PACKER's one, a report and its export as a job", async ({
+      page,
+    }) => {
+      await signIn(page, staff, "/", codes);
+      const site = new URL("/", page.url()).href;
+      const as = (role: string) => page.context().addCookies([{ name: "staff_mock_role", value: role, url: site }]);
+      const numbers = page.getByRole("region", { name: "The numbers" });
+
+      await test.step("the OWNER's Home: the money and the queues, each a link with its definition", async () => {
+        const revenue = numbers.getByRole("link", { name: /Net revenue/ });
+        await expect(revenue).toContainText("₹1,84,250");
+        await expect(revenue).toHaveAttribute("href", /^\/reports\/sales\/\?from=\d{4}-\d\d-\d\d&to=\d{4}-\d\d-\d\d$/);
+        await expect(revenue).toHaveAttribute("title", /Money received less money returned/);
+        await expect(numbers.getByText("Up ₹32,350 (21.3%) on the 7 days before (₹1,51,900)")).toBeVisible();
+        await expect(numbers.getByText("The same as the 7 days before (1,260)")).toBeVisible();
+        await expect(numbers.getByText("3 test orders are left out of these numbers.")).toBeVisible();
+        await expect(numbers.getByRole("link", { name: /Orders to pack/ })).toHaveAttribute(
+          "href",
+          "/orders/?tab=to_pack",
+        );
+        await expect(numbers.getByRole("link", { name: /Tickets breached/ })).toHaveAttribute(
+          "href",
+          "/support/?tab=overdue",
+        );
+        // the definition for a keyboard and a phone: the disclosure under the card
+        const first = numbers.getByRole("listitem").first();
+        await first.getByText("How this is counted").click();
+        await expect(first.getByText(/Test-mode payments are left out/)).toBeVisible();
+      });
+
+      await test.step("the period of the totals is a choice in the address", async () => {
+        await numbers.getByRole("link", { name: "30 days" }).click();
+        await expect(page).toHaveURL(/\/\?period=month$/);
+        await expect(numbers.getByRole("link", { name: /Net revenue/ })).toContainText("₹7,92,275");
+        await expect(numbers.getByRole("link", { name: "30 days" })).toHaveAttribute("aria-current", "true");
+      });
+
+      await test.step("the PACKER's Home: the orders to pack, and nothing of the money", async () => {
+        await as("PACKER");
+        await page.goto("/");
+        await expect(numbers.getByRole("link", { name: /Orders to pack/ })).toBeVisible();
+        await expect(numbers.getByRole("listitem")).toHaveCount(1);
+        await expect(numbers.getByRole("heading", { name: "Totals" })).toHaveCount(0);
+        await expect(page.getByText("Net revenue")).toHaveCount(0);
+        await numbers.getByRole("link", { name: /Orders to pack/ }).click();
+        await expect(page).toHaveURL(/\/orders\/\?tab=to_pack$/);
+        await expect(page.getByRole("heading", { level: 1, name: "Orders" })).toBeVisible();
+        await page.context().clearCookies({ name: "staff_mock_role" });
+      });
+
+      await test.step("a card that could not be worked out says so and still links to its list", async () => {
+        await page.context().addCookies([{ name: "staff_mock_card_error", value: "orders_placed", url: site }]);
+        await page.goto("/");
+        await expect(numbers.getByText("This number could not be worked out just now.")).toBeVisible();
+        await expect(numbers.getByRole("link", { name: /Net revenue/ })).toContainText("₹1,84,250"); // the others stand
+        await page.context().clearCookies({ name: "staff_mock_card_error" });
+      });
+
+      await test.step("sales: grouped by subject, with how it is counted", async () => {
+        await page.goto("/reports/");
+        await expect(page.getByRole("heading", { level: 1, name: "Reports" })).toBeVisible();
+        await page
+          .getByRole("navigation", { name: "The reports" })
+          .getByRole("link", { name: "Sales", exact: true })
+          .click();
+        await expect(page).toHaveURL(/\/reports\/sales\/$/);
+        const table = page.getByRole("region", { name: "Sales, a table" });
+        await expect(table.getByRole("columnheader", { name: "Title" })).toBeVisible();
+        await page.getByLabel("Group by").selectOption("subject");
+        await page.getByRole("button", { name: "Show" }).click();
+        await expect(page).toHaveURL(/by=subject/);
+        await expect(table.getByRole("columnheader", { name: "Subject" })).toBeVisible();
+        await expect(table.getByRole("row", { name: /Physics/ })).toBeVisible();
+        await expect(table.getByRole("row", { name: /Whole period/ })).toBeVisible();
+        await page.getByText("How this is counted").click();
+        await expect(page.getByText(/Sales of the orders placed in the period/)).toBeVisible();
+      });
+
+      await test.step("the report as a file: a job, its progress, and the file with who made it", async () => {
+        await page.getByRole("button", { name: "Export as a file" }).click();
+        await settle(page, toast(page, "Export started"), staff, codes);
+        const download = page.waitForEvent("download");
+        await page.getByRole("button", { name: "Download the file" }).click();
+        const file = await download;
+        expect(file.suggestedFilename()).toMatch(/^report-sales-\d{4}-\d\d-\d\d-to-\d{4}-\d\d-\d\d-made-\d{8}\.csv$/);
+        const text = readFileSync((await file.path())!, "utf8");
+        expect(text).toContain("Physics");
+        expect(text.trim().split("\n").pop()).toMatch(/^Report,Sales,made .+ by staff member #\d+,"?filters: /);
+      });
+
+      await test.step("a group too small to show says 'fewer than 10', and a source not set up says so", async () => {
+        await page.goto("/reports/place/");
+        await expect(page.getByRole("row", { name: /Sikkim/ }).getByText("fewer than 10")).toBeVisible();
+        await expect(
+          page.getByText("1 place has fewer than 10 orders, so it is not shown and in no total below."),
+        ).toBeVisible();
+        await page.getByRole("link", { name: /Assam/ }).click();
+        await expect(page).toHaveURL(/level=district&state=AS/);
+        await expect(page.getByRole("row", { name: /Dhemaji/ }).getByText("fewer than 10")).toBeVisible();
+        await page.goto("/reports/course-health/");
+        await expect(page.getByRole("cell", { name: "fewer than 5" }).first()).toBeVisible();
+        await page.context().addCookies([{ name: "staff_mock_settlements", value: "off", url: site }]);
+        await page.goto("/reports/settlements/");
+        await expect(page.getByRole("heading", { name: "Razorpay's settlements are not set up" })).toBeVisible();
+        await page.context().clearCookies({ name: "staff_mock_settlements" });
+      });
+
+      await test.step("the print run is worked out again with the inputs typed", async () => {
+        await page.goto("/reports/forecasts/");
+        const result = page.getByRole("status", { name: "The print run worked out" });
+        await expect(
+          result.getByText("Critical ratio 0.7105: print for the 71st percentile of the season's demand."),
+        ).toBeVisible();
+        await page.getByLabel("Print cost (₹)").fill("90");
+        await page.getByRole("button", { name: "Work it out" }).click();
+        await expect(
+          result.getByText("Critical ratio 0.5526: print for the 55th percentile of the season's demand."),
+        ).toBeVisible();
+        // an input that is not rupees goes nowhere
+        await page.getByLabel("Print cost (₹)").fill("9o");
+        await page.getByRole("button", { name: "Work it out" }).click();
+        await expect(page.getByText("Rupees with up to two decimals, such as 195 or 60.50.")).toBeVisible();
+      });
+
+      await test.step("the FINANCE member's reports are theirs: no book codes, the money and cash on delivery", async () => {
+        await as("FINANCE");
+        await page.goto("/reports/");
+        const tabs = page.getByRole("navigation", { name: "The reports" });
+        await expect(tabs.getByRole("link", { name: "Cash on delivery" })).toBeVisible();
+        await expect(tabs.getByRole("link", { name: "Book codes" })).toHaveCount(0);
+        await page.goto("/reports/codes/");
+        await expect(page.getByRole("heading", { name: "Not found, or not yours to see" })).toBeVisible();
+        await page.context().clearCookies({ name: "staff_mock_role" });
       });
     });
   });
