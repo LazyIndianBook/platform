@@ -2,10 +2,22 @@ import socket
 
 import pytest
 from django.core.cache import cache
+from django.db.backends.signals import connection_created
 from pwned_passwords_django import api as pwned_passwords
 
 from examleaf.celery import app as celery_app
 from examleaf.views import HealthView
+
+
+def audit_maintenance(sender, connection, **kwargs):
+    """PostgreSQL: the audit log refuses DELETE and TRUNCATE (staff migration 0002) unless this is on, and the tests
+    that use threads end by truncating every table. staff/tests/test_audit.py switches it off to test the trigger."""
+    if connection.vendor == "postgresql":
+        with connection.cursor() as cursor:
+            cursor.execute("SET examleaf.audit_maintenance = 'on'")
+
+
+connection_created.connect(audit_maintenance)
 
 
 @pytest.hookimpl(trylast=True)  # after pytest-django's order: the transactional tests last

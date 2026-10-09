@@ -2,7 +2,7 @@
 
 import base64
 import sys
-from datetime import timedelta
+from datetime import date, timedelta
 from importlib.util import find_spec
 from pathlib import Path
 
@@ -80,6 +80,7 @@ INSTALLED_APPS = [
     "pictures",  # django-pictures: AVIF and WebP sizes of the product pictures (PICTURES below)
     "shop",  # after ops: its admin index template extends the ops dashboard
     "learn",  # the revision course (Phase 6 D): LEARN_* below
+    "staff",  # the Admin Control Panel's backend: roles' scopes, the audit log, approvals (STAFF_* below)
 ]
 
 MIDDLEWARE = [
@@ -149,6 +150,7 @@ AUTHENTICATION_BACKENDS = [
     "axes.backends.AxesStandaloneBackend",
     "django.contrib.auth.backends.ModelBackend",
     "allauth.account.auth_backends.AuthenticationBackend",
+    "staff.backends.ScopeBackend",  # user.has_perm(perm, obj): the permission and the object in the person's scope
 ]
 AUTH_PASSWORD_VALIDATORS = [  # L11: at least 10 characters, and none found in data breaches
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
@@ -695,3 +697,33 @@ CELERY_BEAT_SCHEDULE.update(
         "shipping-held-messages": {"task": "shipping.tasks.send_held_messages", "schedule": crontab(hour=8, minute=0)},
     }
 )
+
+# The Admin Control Panel's backend (staff/, staff/README.md; API.md "Staff API"; DEPLOYMENT.md "Staff and the audit
+# log"). The staff API answers on ADMIN_HOSTS only (404 on any other host; each must be in ALLOWED_HOSTS, and its
+# https:// origin in CSRF_TRUSTED_ORIGINS); empty, as in development, it answers on every host.
+ADMIN_HOSTS = env.list("ADMIN_HOSTS", default=[])
+# A staff session ends 8 hours after its log-in (accounts.models.STAFF_SESSION) and after its idle limit without a
+# request: the shortest of the person's roles' (seconds; a break-glass account gets the shortest), STAFF_IDLE_TIMEOUT
+# for a role not listed (plan 3.5).
+STAFF_IDLE_TIMEOUT = env.int("STAFF_IDLE_TIMEOUT", default=30 * 60)
+STAFF_IDLE_TIMEOUTS = dict.fromkeys(["OWNER", "ADMIN", "FINANCE", "PACKER"], 15 * 60)
+STAFF_PANEL_URL = env("STAFF_PANEL_URL", default=SITE_URL).rstrip("/")  # the panel's address: invitations link there
+STAFF_ALERT_EMAILS = env.list("STAFF_ALERT_EMAILS", default=[])  # the owners' alerts; empty: OWNER's members
+STAFF_CHANGE_REQUEST_HOURS = env.int("STAFF_CHANGE_REQUEST_HOURS", default=24)  # a change request's life
+STAFF_DORMANT_DAYS = env.int("STAFF_DORMANT_DAYS", default=45)  # the access review flags staff not logged in since
+# The panel's TEST band (the manifest's flags.test_mode): on wherever this is not the production site.
+STAFF_TEST_MODE = env.bool("STAFF_TEST_MODE", default=DEBUG)
+# The audit log's retention (staff.audit.purge, run as the table's owner): 2 years, money events 8 financial years.
+# Never under a year: CERT-In keeps ICT logs 180 days, the DPDP Rules 1 year (r.6(1)(e), from May 2027).
+STAFF_AUDIT_RETENTION_DAYS = env.int("STAFF_AUDIT_RETENTION_DAYS", default=730)
+STAFF_AUDIT_MONEY_RETENTION_FY = env.int("STAFF_AUDIT_MONEY_RETENTION_FY", default=8)
+if STAFF_AUDIT_RETENTION_DAYS < 365 or STAFF_AUDIT_MONEY_RETENTION_FY < 8:
+    raise SystemExit("STAFF_AUDIT_RETENTION_DAYS is at least 365 and STAFF_AUDIT_MONEY_RETENTION_FY at least 8.")
+# Data requests' clocks (staff.privacy.clocks): acknowledged within 48 hours; answered within a month until the DPDP
+# Rules' rights take effect, then within 90 days (a grievance or complaint keeps the E-Commerce Rules' month).
+STAFF_DATA_REQUEST_ACK_HOURS = env.int("STAFF_DATA_REQUEST_ACK_HOURS", default=48)
+STAFF_DPDP_RULES_FROM = date.fromisoformat(env("STAFF_DPDP_RULES_FROM", default="2027-05-13"))
+STAFF_DPDP_RESPONSE_DAYS = env.int("STAFF_DPDP_RESPONSE_DAYS", default=90)
+# Quoted in every answer to a data request (DPDP r.9) and in the incident alerts (CERT-In Annexure II).
+DATA_PROTECTION_OFFICER = env("DATA_PROTECTION_OFFICER", default="[the Grievance Officer's name, email and phone]")
+CERT_IN_POINT_OF_CONTACT = env("CERT_IN_POINT_OF_CONTACT", default="[name, email and phone registered with CERT-In]")

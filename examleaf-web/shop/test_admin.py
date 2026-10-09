@@ -1,4 +1,5 @@
-"""Staff side: SALES and SUPPORT permissions, the order actions, the export, the dashboard and seed_shop."""
+"""Staff side: SALES and SUPPORT permissions, the order actions (packing and shipping: staff.pack_order, ADMIN's in
+the admin; refunds there: ADMIN's), the export, the dashboard and seed_shop."""
 
 from io import StringIO
 
@@ -51,8 +52,12 @@ def test_support_sees_orders_but_cannot_change_them(client, paid):
     assert client.get(pdf).status_code == 403  # staff who may not view invoices
 
 
-def test_sales_packs_ships_and_delivers(client, paid, commit):
-    client.force_login(staff(roles.SALES))
+def test_packing_shipping_and_delivery_need_the_packing_permission(client, paid, commit):
+    client.force_login(staff(roles.SALES))  # SALES does not pack or ship (plan 4.1): PACKER's, and ADMIN's here
+    act(client, "mark_packed", [paid])
+    paid.refresh_from_db()
+    assert paid.status == Order.Status.PAID
+    client.force_login(staff(roles.ADMIN))
     act(client, "mark_packed", [paid])
     page = act(client, "mark_shipped", [paid]).content.decode()  # first the courier form
     assert "Tracking number" in page and paid.number in page
@@ -85,21 +90,25 @@ def test_sales_packs_ships_and_delivers(client, paid, commit):
 
 
 def test_refund_action_needs_a_reason_and_refunds_through_razorpay(client, paid, rzp, commit):
-    sales = staff(roles.SALES)
-    client.force_login(sales)
+    client.force_login(staff(roles.SALES))  # SALES asks for refunds in the panel, where FINANCE approves (plan 4.1)
+    with commit():
+        act(client, "refund", [paid], apply="1", reason="Damaged in transit.")
+    assert not Refund.objects.exists()
+    admin = staff(roles.ADMIN)
+    client.force_login(admin)
     assert "Reason" in act(client, "refund", [paid]).content.decode()
     with commit():
         act(client, "refund", [paid], apply="1", reason="Damaged in transit.")
     refund = Refund.objects.get()
     paid.refresh_from_db()
-    assert refund.created_by == sales and refund.reason == "Damaged in transit."
+    assert refund.created_by == admin and refund.reason == "Damaged in transit."
     assert paid.status == Order.Status.REFUNDED and rzp.payment.refund.called  # paid, not shipped: cancelled too
     response = act(client, "refund", [paid], apply="1", reason="again")
     assert "Nothing refunded for" in response.content.decode() and Refund.objects.count() == 1
 
 
 def test_partial_refund_of_a_refused_parcel(client, paid, rzp, commit):
-    client.force_login(staff(roles.SALES))
+    client.force_login(staff(roles.ADMIN))
     with commit():
         services.pack_order(paid)
         services.ship_order(paid, "India Post", "EA1IN")

@@ -35,20 +35,24 @@ def test_each_role_has_its_permissions_and_nothing_more():
         ]
     )
     assert not support.has_perm("accounts.change_user") and not support.has_perm("content.change_question")
-    assert sales.has_perms(["content.view_book", "shop.change_order", "shop.add_refund", "shop.change_product"])
+    assert sales.has_perms(["content.view_book", "shop.change_order", "shop.add_payment", "shop.change_product"])
     assert not sales.has_perm("accounts.view_user") and not sales.has_perm("shop.delete_order")
     assert support.has_perm("shop.view_order") and not support.has_perm("shop.change_order")
     assert not member(roles.STUDENT).get_all_permissions() and not member(roles.TEACHER).get_all_permissions()
 
 
-def test_admin_gets_every_permission_once_bootstrap_roles_has_run():
-    # The migration can only give the permissions of the apps migrated before it; deploys run bootstrap_roles.
-    call_command("bootstrap_roles", stdout=open("/dev/null", "w"))
+def test_owner_and_admin_get_every_permission_but_their_exceptions_after_every_migrate():
+    # The staff app's post_migrate receiver synced the roles when the test database was migrated (bootstrap_roles
+    # does the same by hand); every app's permissions existed by then.
     superusers_only = Permission.objects.filter(content_type__app_label__in=roles.SUPERUSER_ONLY).exclude(
         codename__startswith="view_"
     )
-    expected = Permission.objects.count() - superusers_only.count()
-    assert Group.objects.get(name=roles.ADMIN).permissions.count() == expected
+    beyond_admin = [perm.split(".")[1] for perm in [*roles.OWNER_ONLY, *roles.MONEY_APPROVALS]]
+    owners = Permission.objects.filter(content_type__app_label="staff", codename__in=beyond_admin)
+    assert owners.count() == len(beyond_admin)  # roles and keys, the override, the audit log, money's approvals
+    everything = Permission.objects.count() - superusers_only.count()  # every catalogued permission
+    assert Group.objects.get(name=roles.OWNER).permissions.count() == everything
+    assert Group.objects.get(name=roles.ADMIN).permissions.count() == everything - owners.count()
 
 
 def test_bootstrap_roles_is_idempotent_and_undoes_changes_made_elsewhere():
@@ -135,3 +139,80 @@ def test_teacher_asks_for_access_and_staff_verify_it(client):
     client.force_login(teacher)
     assert client.get("/api/v1/me/teacher/").json()["verified"] is True  # "You are a verified teacher"
     assert teacher.__class__.objects.get(pk=teacher.pk).is_teacher
+
+
+def test_the_panels_roles_have_their_permissions_and_nothing_more():
+    call_command("bootstrap_roles", stdout=open("/dev/null", "w"))
+    finance, packer, reviewer = member(roles.FINANCE), member(roles.PACKER), member(roles.REVIEWER)
+    marketing, auditor, rep = member(roles.MARKETING), member(roles.AUDITOR), member(roles.SALES_REP)
+    assert finance.has_perms(["staff.approve_refund", "staff.record_offline_payment", "shop.view_invoice"])
+    assert not finance.has_perm("shop.change_order") and not finance.has_perm("staff.assign_role")
+    assert packer.has_perms(["shop.view_order", "shop.view_shipment", "staff.pack_order"])  # its scope's orders
+    assert not packer.has_perm("accounts.view_user") and not packer.has_perm("shop.view_payment")  # no email, money
+    assert not packer.has_perm("staff.view_changerequest") and not packer.has_perm("staff.refund_order")  # nothing else
+    assert reviewer.has_perms(["staff.publish_paper", "content.view_paper"]) and not reviewer.has_perm(
+        "content.change_paper"
+    )
+    assert marketing.has_perms(["shop.add_coupon", "shop.change_review"]) and not marketing.has_perm(
+        "staff.approve_discount"
+    )
+    assert rep.has_perms(["shop.add_order", "shop.change_quoterequest"])
+    assert not rep.has_perm("shop.add_refund") and not rep.has_perm("staff.refund_order")  # no refunds, no shipping
+    assert not rep.has_perm("shop.add_shipment")
+    views = Permission.objects.filter(codename__startswith="view_").count()
+    assert auditor.get_all_permissions() >= {"staff.view_auditlog", "staff.export_auditlog", "accounts.view_user"}
+    writes = {perm for perm in auditor.get_all_permissions() if not perm.split(".")[1].startswith("view_")}
+    assert writes == {"staff.export_auditlog"} and len(auditor.get_all_permissions()) == views + 1
+    assert not auditor.has_perm("staff.reveal_contact")  # no personal data revealed
+    for perm in roles.OWNER_ONLY:  # the owners' own, beyond ADMIN's everything
+        assert member(roles.OWNER).has_perm(perm) and not member(roles.ADMIN).has_perm(perm), perm
+    for perm in roles.MONEY_APPROVALS:  # FINANCE approves money (and the owners), not ADMIN
+        assert finance.has_perm(perm) and member(roles.OWNER).has_perm(perm) and not member(roles.ADMIN).has_perm(perm)
+    admin = member(roles.ADMIN)  # ADMIN approves roles and exports; REVIEWER content
+    assert admin.has_perms(["staff.approve_role_change", "staff.approve_export", "staff.view_staff"])
+    assert admin.has_perms(["staff.view_apikey", "staff.pack_order"]) and not admin.has_perm("staff.assign_role")
+    assert member(roles.OWNER).is_owner and not member(roles.ADMIN).is_owner and not member(roles.OWNER).is_superuser
+    assert UserFactory(is_superuser=True).is_owner  # a break-glass account passes for one
+
+
+def test_the_old_roles_keep_their_permissions_and_gain_the_panels():
+    support, sales, editor = member(roles.SUPPORT), member(roles.SALES), member(roles.CONTENT_EDITOR)
+    assert support.has_perms(["staff.reveal_contact", "staff.unlock_user", "staff.handle_data_request"])
+    assert support.has_perms(["staff.refund_order", "staff.view_inbox", "learn.add_entitlement"])
+    assert not support.has_perm("staff.approve_refund") and not support.has_perm("accounts.change_user")
+    assert sales.has_perms(["shop.add_payment", "staff.refund_order", "staff.record_offline_payment"])
+    # SALES does not pack, ship or approve refunds (plan 4.1): PACKER packs, FINANCE approves, SALES asks in the panel
+    assert not sales.has_perm("staff.pack_order") and not sales.has_perm("shop.change_shipment")
+    assert not sales.has_perm("shop.add_refund") and not sales.has_perm("staff.approve_refund")
+    assert editor.has_perms(["content.change_question", "staff.view_inbox"]) and not editor.has_perm(
+        "staff.view_system"
+    )
+
+
+def test_limits_take_the_highest_of_a_persons_roles():
+    assert roles.limit({roles.SUPPORT}, "refund_inr") == 1_000
+    assert roles.limit({roles.SUPPORT, roles.SALES}, "refund_inr") == 2_000
+    assert roles.limit({roles.SALES, roles.OWNER}, "refund_inr") is None  # no limit
+    assert roles.limit({roles.CONTENT_EDITOR}, "refund_inr") == 0 and roles.limit(set(), "export_rows") == 0
+    assert set(roles.ROLE_LIMITS) <= roles.STAFF_ROLES
+    assert all(set(limits) == set(roles.LIMITS) for limits in roles.ROLE_LIMITS.values())
+
+
+def test_separation_of_duties_is_warned_about_at_sync(caplog):
+    assert roles.conflicts({roles.FINANCE, roles.PACKER}) == [(roles.FINANCE, roles.PACKER)]
+    assert roles.conflicts({roles.AUDITOR, roles.SUPPORT}) == [(roles.AUDITOR, roles.SUPPORT)]
+    assert not roles.conflicts({roles.SALES, roles.PACKER, roles.SUPPORT})
+    both = member(roles.FINANCE, roles.PACKER)
+    with caplog.at_level("WARNING", logger="accounts.roles"):
+        call_command("bootstrap_roles", stdout=open("/dev/null", "w"))
+    assert f"user #{both.pk} holds both FINANCE and PACKER" in caplog.text
+
+
+def test_the_admin_stays_closed_to_staff_with_only_the_panels_roles(client):
+    for user, status in [
+        (member(roles.PACKER, roles.FINANCE, is_staff=True), 302),  # the staff API only: its lists are scoped
+        (member(roles.PACKER, roles.SALES, is_staff=True), 200),  # SALES opens it, as before
+        (UserFactory(is_staff=True), 200),  # staff without a role see an empty admin, as before
+    ]:
+        client.force_login(user)
+        assert client.get(reverse("admin:index")).status_code == status, user.role_names

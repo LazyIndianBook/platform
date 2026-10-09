@@ -130,6 +130,7 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedModel):
     is_sales = property(lambda self: self.has_role(roles.SALES))
     is_support = property(lambda self: self.has_role(roles.SUPPORT))
     is_admin = property(lambda self: self.is_superuser or self.has_role(roles.ADMIN))
+    is_owner = property(lambda self: self.is_superuser or self.has_role(roles.OWNER))  # the panel's last resort
 
     @cached_property
     def consent_pending(self):

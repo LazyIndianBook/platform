@@ -538,6 +538,9 @@ class OrderAdmin(LoggedExportMixin, SimpleHistoryAdmin):  # export: shop.export_
     def has_record_payment_permission(self, request):
         return request.user.has_perm("shop.add_payment")
 
+    def has_pack_permission(self, request):  # packing and shipping are PACKER's (and ADMIN's), not SALES' (plan 4.1)
+        return request.user.has_perm("staff.pack_order")
+
     def get_urls(self):
         customer = self.admin_site.admin_view(self.customer_view)
         return [path("customer/<int:user_id>/", customer, name="shop_customer"), *super().get_urls()]
@@ -601,11 +604,11 @@ class OrderAdmin(LoggedExportMixin, SimpleHistoryAdmin):  # export: shop.export_
         if refused:
             self.message_user(request, f"Not possible for {', '.join(refused)}.", messages.WARNING)
 
-    @admin.action(description="Mark packed", permissions=["change"])
+    @admin.action(description="Mark packed", permissions=["pack"])
     def mark_packed(self, request, queryset):
         self._each(request, queryset, services.pack_order, "Packed")
 
-    @admin.action(description="Mark delivered", permissions=["change"])
+    @admin.action(description="Mark delivered", permissions=["pack"])
     def mark_delivered(self, request, queryset):
         self._each(request, queryset, services.deliver_order, "Delivered (customer emailed)")
 
@@ -618,7 +621,7 @@ class OrderAdmin(LoggedExportMixin, SimpleHistoryAdmin):  # export: shop.export_
             "Cancelled (customer emailed)",
         )
 
-    @admin.action(description="Mark shipped (courier and tracking number)", permissions=["change"])
+    @admin.action(description="Mark shipped (courier and tracking number)", permissions=["pack"])
     def mark_shipped(self, request, queryset):
         orders = list(queryset.filter(status=Order.Status.PACKED))
         if not orders:
