@@ -26,6 +26,8 @@ describe("proxy", () => {
     expect(csp).toMatch(/script-src 'self' 'nonce-[^']+' 'strict-dynamic'/);
     expect(csp).toContain("frame-ancestors 'none'");
     expect(page.headers.get("Cache-Control")).toBe("private, no-cache, no-store, max-age=0, must-revalidate");
+    // the moment the proxy took the request: the start of its one deadline for Django (lib/api/server.ts)
+    expect(Number(page.headers.get("x-middleware-request-x-request-start"))).toBeGreaterThan(0);
     expect(django).toHaveBeenCalledWith(
       expect.stringMatching(/\/health\/web\/$/),
       expect.objectContaining({ headers: expect.objectContaining(FORWARDED_HEADERS) }),

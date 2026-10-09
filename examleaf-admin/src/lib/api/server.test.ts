@@ -28,6 +28,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
+  vi.restoreAllMocks();
 });
 
 describe("a Django that never answers", () => {
@@ -46,13 +47,19 @@ describe("a Django that never answers", () => {
     expect(Date.now() - started).toBeLessThan(2000);
   });
 
-  it("keeps the caller's own signal beside the deadline: a cancelled call is still an AbortError", async () => {
+  it("clears each call's timer once its answer is read: nothing of a call outlives it", async () => {
     vi.stubEnv("API_INTERNAL_TIMEOUT_MS", "60000");
-    const { staffTransport } = await import("./server");
-    const transport = await staffTransport();
-    const controller = new AbortController();
-    const call = transport.fetch!(new Request("http://web:8000/api/v1/staff/session/", { signal: controller.signal }));
-    controller.abort();
-    await expect(call).rejects.toMatchObject({ name: "AbortError" });
+    vi.stubGlobal(
+      "fetch",
+      async () => new Response('{"ok": true}', { headers: { "Content-Type": "application/json" } }),
+    );
+    const set = vi.spyOn(globalThis, "setTimeout");
+    const clear = vi.spyOn(globalThis, "clearTimeout");
+    const { djangoFetch } = await import("./server");
+    const answer = await djangoFetch("http://web:8000/api/v1/staff/session/");
+    expect(await answer.json()).toEqual({ ok: true }); // the body, read under the deadline, comes with it
+    const timer = set.mock.results.find((result) => result.type === "return")?.value;
+    expect(clear).toHaveBeenCalledWith(timer);
+    expect(set.mock.calls[0][1]).toBeGreaterThan(59_000); // the request's deadline, not a fixed delay
   });
 });
