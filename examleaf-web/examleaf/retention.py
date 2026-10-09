@@ -71,7 +71,7 @@ SCHEDULE = (
         "processing_records",
         "Records of each processing: an order's, a payment's and a parcel's events, and the audit log's events "
         "about a person",
-        (Minimum(DPDP_RULES, 365, "one year from the processing"),),
+        (Minimum(None, None, "none before the DPDP Rules"), Minimum(DPDP_RULES, 365, "one year from the processing")),
         "DPDP Rules r.8(3) from 13 May 2027",
         "With the order and the parcel, as long as the books; the audit log two years. An erasure keeps them with "
         "the account's number only.",

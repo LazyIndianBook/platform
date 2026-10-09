@@ -144,11 +144,17 @@ def test_orders_past_their_books_lose_the_customers_details_but_a_held_one_stays
     assert purge_books(today=date(2034, 4, 1)) == 0  # again: nothing more
 
 
-def test_the_retention_page_says_each_minimum_and_when_it_changes():
-    rows = signed_in(make_staff(roles.AUDITOR)).get(PRIVACY + "retention/").json()
-    sms = next(row for row in rows if row["key"] == "sms_log")
+def test_the_retention_page_says_each_minimum_and_when_it_changes(monkeypatch):
+    monkeypatch.setattr(timezone, "localdate", lambda *args: date(2026, 10, 9))
+    rows = {row["key"]: row for row in signed_in(make_staff(roles.AUDITOR)).get(PRIVACY + "retention/").json()}
+    sms, processing = rows["sms_log"], rows["processing_records"]
     assert sms["keep_days"] == 365 and sms["trim_days"] == 90
     assert (sms["minimum"], sms["changes_on"], sms["next_minimum"]) == ("180 days", "2027-05-13", "one year")
+    assert (processing["minimum_days"], processing["changes_on"]) == (None, "2027-05-13")  # nothing before the Rules
+    monkeypatch.setattr(timezone, "localdate", lambda *args: date(2027, 5, 13))
+    rows = {row["key"]: row for row in signed_in(make_staff(roles.AUDITOR)).get(PRIVACY + "retention/").json()}
+    assert (rows["sms_log"]["minimum"], rows["sms_log"]["changes_on"]) == ("one year", None)
+    assert rows["processing_records"]["minimum_days"] == 365
     assert signed_in(make_staff(roles.PACKER)).get(PRIVACY + "retention/").status_code == 403
 
 
