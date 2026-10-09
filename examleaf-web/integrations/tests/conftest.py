@@ -4,6 +4,8 @@ from cryptography.fernet import Fernet
 
 from integrations.client import Client
 from integrations.models import IntegrationAccount
+from shop.conftest import commit, no_network, rzp  # noqa: F401  (fixtures: the commit's callbacks, Razorpay's SDK)
+from staff.tests.conftest import quick_passwords  # noqa: F401  (the connections page's members of staff)
 
 
 @pytest.fixture

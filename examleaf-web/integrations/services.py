@@ -41,10 +41,10 @@ def test_connection(account):
 test_connection.__test__ = False  # pytest: not a test, when a test module imports it
 
 
-def receive_event(provider, body, headers, account=None, rejected=False):
+def receive_event(provider, body, headers, account=None, rejected=False, event_id=""):
     """Keep a webhook as it came and queue its processing (InboundEvent.process_later). A body already received from
-    this provider is not kept again: None. A rejected one (wrong or missing token) is kept without its body, and never
-    processed."""
+    this provider is not kept again: None; nor one whose `event_id` (the provider's own id of what it reports) was
+    received. A rejected one (wrong or missing token) is kept without its body, and never processed."""
     digest = hashlib.sha256(body).hexdigest()
     kept = {name: str(headers[name])[:200] for name in KEPT_HEADERS if name in headers}
     if rejected:
@@ -54,12 +54,65 @@ def receive_event(provider, body, headers, account=None, rejected=False):
     try:
         with transaction.atomic():
             event = InboundEvent.objects.create(
-                provider=provider, account=account, body=body.decode("utf-8", "replace"), sha256=digest, headers=kept
+                provider=provider,
+                account=account,
+                body=body.decode("utf-8", "replace"),
+                sha256=digest,
+                headers=kept,
+                event_id=event_id[:100],
             )
     except IntegrityError:
         return None
     event.process_later()
     return event
+
+
+# Phase B: the panel's keys of a provider whose environment keys give way to them (README.md "Precedence")
+
+PANEL_MANAGED = ("razorpay", "msg91")  # the environment's keys stay in force until the panel holds some (credentials/)
+
+
+def panel_keys(provider):
+    """The keys the panel holds for `provider` (one of PANEL_MANAGED), read through the shared cache (ciphertexts only:
+    decrypted here), forgotten at every change of one of its accounts (models.forget_panel_keys):
+    - None while no account of the provider holds credentials: the environment's keys apply (RAZORPAY_*, MSG91_*);
+    - {} once one does, while none of them is enabled: the provider is switched off in the panel;
+    - else {"mode", "credentials", "webhook_secrets"} of the enabled account (the webhook's current secret and, for 24
+      hours after a rotation, the previous one)."""
+    from django.core.cache import cache
+
+    from . import crypto
+    from .models import PANEL_KEYS, PREVIOUS_WEBHOOK_TOKEN, IntegrationAccount
+
+    key = PANEL_KEYS.format(provider=provider)
+    state = cache.get(key)
+    if state is None:
+        accounts = IntegrationAccount.objects.filter(provider=provider).exclude(credentials="")
+        enabled = accounts.filter(enabled=True).first()
+        state = {"managed": accounts.exists(), "account": None}
+        if enabled is not None:
+            state["account"] = {
+                "mode": enabled.mode,
+                "credentials": enabled.credentials,
+                "webhook_token": enabled.webhook_token,
+                "previous_webhook_token": enabled.previous_webhook_token,
+                "rotated_at": enabled.webhook_rotated_at,
+            }
+        cache.set(key, state, 60)
+    if not state["managed"]:
+        return None
+    account = state["account"]
+    if account is None:
+        return {}
+    secrets = [crypto.decrypt(account["webhook_token"])] if account["webhook_token"] else []
+    recent = account["rotated_at"] and timezone.now() - account["rotated_at"] < PREVIOUS_WEBHOOK_TOKEN
+    if account["previous_webhook_token"] and recent:
+        secrets.append(crypto.decrypt(account["previous_webhook_token"]))
+    return {
+        "mode": account["mode"],
+        "credentials": json.loads(crypto.decrypt(account["credentials"])),
+        "webhook_secrets": secrets,
+    }
 
 
 def dead_letter(task_name, task_id, error, args, kwargs, attempts=1, operation=None):
