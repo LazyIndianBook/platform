@@ -12,7 +12,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 import { buildCsp } from "@/lib/security/csp";
-import { DJANGO_PREFIXES, isPersonalPage, SITE_URL } from "@/lib/site";
+import { DJANGO_PREFIXES, FORWARDED_HEADERS, isPersonalPage, SITE_URL } from "@/lib/site";
 import { statusPage } from "@/lib/status-page";
 
 const API_INTERNAL_BASE = (process.env.API_INTERNAL_BASE ?? "http://localhost:8100").replace(/\/$/, "");
@@ -25,7 +25,8 @@ let checking: Promise<boolean> | null = null;
 function djangoAnswers(): boolean | Promise<boolean> {
   if (Date.now() - health.at < 5000) return health.up;
   checking ??= fetch(`${API_INTERNAL_BASE}/health/web/`, {
-    headers: { Accept: "application/json" },
+    // the public host and https, as every server-side call names them: with DEBUG=0 Django refuses web:8000 (400)
+    headers: { ...FORWARDED_HEADERS, Accept: "application/json" },
     cache: "no-store",
     signal: AbortSignal.timeout(2000),
   })

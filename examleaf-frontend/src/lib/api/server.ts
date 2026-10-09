@@ -14,19 +14,14 @@ import { cookies, headers } from "next/headers";
 import createClient from "openapi-fetch";
 import { cache } from "react";
 
-import { SITE_URL } from "@/lib/site";
+import { FORWARDED_HEADERS } from "@/lib/site";
 
 import type { paths } from "./schema";
 
 export const API_INTERNAL_BASE = (process.env.API_INTERNAL_BASE ?? "http://localhost:8100").replace(/\/$/, "");
 
-// Django builds absolute URLs (covers, links) and checks ALLOWED_HOSTS with the public host, as when Caddy forwards
-// a request: it trusts X-Forwarded-Host (USE_X_FORWARDED_HOST=1) and, behind a proxy, X-Forwarded-Proto.
-const site = new URL(SITE_URL);
-export const FORWARDED_HEADERS = {
-  "X-Forwarded-Host": site.host,
-  "X-Forwarded-Proto": site.protocol.replace(":", ""),
-};
+// the public host and scheme for Django (src/lib/site.ts), shared with src/proxy.ts's health check
+export { FORWARDED_HEADERS };
 
 export const serverApi = createClient<paths>({ baseUrl: API_INTERNAL_BASE, headers: FORWARDED_HEADERS });
 

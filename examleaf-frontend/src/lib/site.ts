@@ -4,6 +4,16 @@
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
 export const SITE_NAME = "ExamLeaf";
 
+/** Sent with every server-side call to Django, which builds absolute URLs (covers, links) and checks ALLOWED_HOSTS
+ *  with the public host, as when Caddy forwards a request: it trusts X-Forwarded-Host (USE_X_FORWARDED_HOST=1) and,
+ *  behind a proxy, X-Forwarded-Proto. Without them it sees the internal host (web:8000), refuses it (400) and, with
+ *  DEBUG=0, would redirect plain http to https first. */
+const site = new URL(SITE_URL);
+export const FORWARDED_HEADERS = {
+  "X-Forwarded-Host": site.host,
+  "X-Forwarded-Proto": site.protocol.replace(":", ""),
+};
+
 /** Paths Django answers (Caddyfile sends them to web:8000; src/proxy.ts proxies them in development and CI). */
 export const DJANGO_PREFIXES = [
   "/api/v1/",

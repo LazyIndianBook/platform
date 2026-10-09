@@ -77,5 +77,11 @@ describe("the proxy during an outage", () => {
     const account = await proxy(new NextRequest("http://localhost:3005/account/"));
     expect(account.headers.get("x-middleware-next")).toBe("1");
     expect(account.headers.get("Content-Security-Policy")).toContain("'strict-dynamic'");
+    // asked as the site, as every server-side call is: with DEBUG=0 Django refuses its internal host (web:8000)
+    const { FORWARDED_HEADERS } = await import("./site");
+    expect(django).toHaveBeenCalledWith(
+      expect.stringMatching(/\/health\/web\/$/),
+      expect.objectContaining({ headers: expect.objectContaining(FORWARDED_HEADERS) }),
+    );
   });
 });
