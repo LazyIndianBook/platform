@@ -86,7 +86,9 @@ def person(user):
     return {"id": user.pk, "name": user.full_name or user.email} if user else None
 
 
-PERSON = inline_serializer("CoursePerson", {"id": serializers.IntegerField(), "name": serializers.CharField()})
+PERSON = inline_serializer(
+    "CoursePerson", {"id": serializers.IntegerField(), "name": serializers.CharField()}, allow_null=True
+)
 
 
 def django_errors(error):

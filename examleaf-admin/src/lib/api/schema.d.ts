@@ -10373,7 +10373,7 @@ export interface components {
              * @description Empty while its job makes the codes.
              */
             readonly generated_at: string | null;
-            readonly generated_by: components["schemas"]["CoursePerson"];
+            readonly generated_by: components["schemas"]["CoursePerson"] | null;
             /**
              * Format: date-time
              * @description The books left: redemptions start here.
@@ -10427,7 +10427,7 @@ export interface components {
              * @description Empty while its job makes the codes.
              */
             readonly generated_at: string | null;
-            readonly generated_by: components["schemas"]["CoursePerson"];
+            readonly generated_by: components["schemas"]["CoursePerson"] | null;
             /**
              * Format: date-time
              * @description The books left: redemptions start here.
@@ -11112,10 +11112,10 @@ export interface components {
             target_minutes?: number;
             readonly status: components["schemas"]["CourseRevisionStatusEnum"];
             readonly status_label: string;
-            readonly submitted_by: components["schemas"]["CoursePerson"];
+            readonly submitted_by: components["schemas"]["CoursePerson"] | null;
             /** Format: date-time */
             readonly submitted_at: string | null;
-            readonly reviewer: components["schemas"]["CoursePerson"];
+            readonly reviewer: components["schemas"]["CoursePerson"] | null;
             /**
              * Format: date-time
              * @description Approved: published by the task at this time.

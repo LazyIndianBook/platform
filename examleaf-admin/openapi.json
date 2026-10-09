@@ -30689,6 +30689,7 @@
                                 "$ref": "#/components/schemas/CoursePerson"
                             }
                         ],
+                        "nullable": true,
                         "readOnly": true
                     },
                     "dispatched_at": {
@@ -30862,6 +30863,7 @@
                                 "$ref": "#/components/schemas/CoursePerson"
                             }
                         ],
+                        "nullable": true,
                         "readOnly": true
                     },
                     "dispatched_at": {
@@ -33074,6 +33076,7 @@
                                 "$ref": "#/components/schemas/CoursePerson"
                             }
                         ],
+                        "nullable": true,
                         "readOnly": true
                     },
                     "submitted_at": {
@@ -33088,6 +33091,7 @@
                                 "$ref": "#/components/schemas/CoursePerson"
                             }
                         ],
+                        "nullable": true,
                         "readOnly": true
                     },
                     "publish_at": {
