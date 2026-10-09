@@ -108,7 +108,14 @@ class TestSetup(IntegrationTestCase):
             self.assertFalse(frappe.has_permission("GL Entry", "read"))
 
     def test_the_webhooks_are_off_until_configured(self):
+        from frappe.integrations.doctype.webhook.webhook import get_webhook_data
+
         self.assertEqual(frappe.get_all("Webhook", filters={"name": ["like", "EL %"], "enabled": 1}), [])
+        for name in frappe.get_all("Webhook", filters={"name": ["like", "EL %"]}, pluck="name"):
+            hook = frappe.get_doc("Webhook", name)  # the body API.md promises, also for doctypes without examleaf_ref
+            body = get_webhook_data(frappe.new_doc(hook.webhook_doctype), hook)
+            self.assertEqual(sorted(body), ["doctype", "event", "examleaf_ref", "modified", "name"])
+            self.assertEqual((body["doctype"], body["event"]), (hook.webhook_doctype, hook.webhook_docevent))
         conf = frappe.local.conf
         try:
             conf.examleaf_webhook_base, conf.examleaf_webhook_secret = "https://platform.example/erp/hooks/", "s3cret"
