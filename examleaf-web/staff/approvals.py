@@ -8,9 +8,10 @@ else can, an owner overrides with a reason, the owners are told and the event is
 and exports, and the owners anything.
 
 The rules (research 1.5's table) are the actions below: a refund above the maker's cap, an offline payment above a
-value (or of a ₹0 order), a price or a coupon beyond the discount limit, an erasure started by staff, a privileged
-role (or one for yourself), a staff invitation to one, a second factor reset, a job (an export, a bulk action) above
-the row limits. Each step's audit event names the person who took it, also when a job runs it (no request then)."""
+value (or of a ₹0 order), a price, a coupon or an offer beyond the discount limit, an erasure started by staff, a
+privileged role (or one for yourself), a staff invitation to one, a second factor reset, a job (an export, a bulk
+action) above the row limits. Each step's audit event names the person who took it, also when a job runs it (no
+request then)."""
 
 import hashlib
 import json
@@ -66,6 +67,15 @@ def over(amount, limit, text):
     if limit is not None and amount > limit:
         return text.format(amount=f"{amount:,}", limit=f"{limit:,}")
     return None
+
+
+def flat(detail):
+    """A validation error's messages as one line."""
+    if isinstance(detail, dict):
+        return " ".join(flat(value) for value in detail.values())
+    if isinstance(detail, list):
+        return " ".join(flat(item) for item in detail)
+    return str(detail)
 
 
 class Action:
@@ -491,27 +501,38 @@ def discount_percent(full, price):
 
 
 class Price(Action):
-    """A product's selling price; more off the MRP than the maker's `discount_percent` needs approval."""
+    """A product's selling price, and its MRP with it when given (Phase B: catalogue): more off the MRP than the
+    maker's `discount_percent` needs approval, whichever of the two moved (a higher MRP shows a deeper saving as a
+    lower price does). Its maker holds staff.change_price (SALES; CONTENT_EDITOR keeps the pages, not the prices).
+    Run, the product keeps a version naming the request (its prior price is read from those: shop/pricing.py)."""
 
-    name, label, maker, checker = "product.price", "Change a price", "shop.change_product", "staff.approve_discount"
+    name, label, maker, checker = "product.price", "Change a price", "staff.change_price", "staff.approve_discount"
 
     def validate(self, maker, target, payload):
         from shop.models import Product
 
-        product = scoped(Product.objects.all(), maker, "shop.change_product").filter(slug=str(target)).first()
+        product = scoped(Product.objects.all(), maker, self.maker).filter(slug=str(target)).first()
         if product is None:
             raise serializers.ValidationError({"target": ["No such product."]})
-        price = rupees(payload.get("price"), "price")
-        if not 0 < price <= product.mrp.amount:
-            raise serializers.ValidationError({"price": [f"Above ₹0 and at most the MRP, ₹{product.mrp.amount}."]})
-        payload = {"product": product.slug, "from": str(product.price.amount), "price": str(price)}
-        return product, payload, price
+        price = rupees(payload.get("price", product.price.amount), "price")
+        mrp = rupees(payload["mrp"], "mrp") if payload.get("mrp") not in (None, "") else product.mrp.amount
+        if mrp <= 0:
+            raise serializers.ValidationError({"mrp": ["Above ₹0: the price printed on it."]})
+        if not 0 < price <= mrp:
+            raise serializers.ValidationError({"price": [f"Above ₹0 and at most the MRP, ₹{mrp}."]})
+        clean = {"product": product.slug, "from": str(product.price.amount), "price": str(price)}
+        if mrp != product.mrp.amount:
+            clean |= {"mrp_from": str(product.mrp.amount), "mrp": str(mrp)}
+        elif price == product.price.amount:
+            raise serializers.ValidationError({"price": ["It is the price already."]})
+        return product, clean, price
 
     def rule(self, maker, change_request):
         from shop.models import Product
 
-        product = Product.objects.get(slug=change_request.payload["product"])
-        off = discount_percent(product.mrp.amount, Decimal(change_request.payload["price"]))
+        payload = change_request.payload
+        mrp = Decimal(payload["mrp"]) if "mrp" in payload else Product.objects.get(slug=payload["product"]).mrp.amount
+        off = discount_percent(mrp, Decimal(payload["price"]))
         return over(off, limit_of(maker, "discount_percent"), "{amount}% off is beyond the limit of {limit}%.")
 
     def run(self, change_request, by):
@@ -521,80 +542,213 @@ class Price(Action):
         product = Product.objects.select_for_update().get(slug=payload["product"])
         if product.price.amount != Decimal(payload["from"]):
             raise Refused("The price changed since the request: ask again.")
+        if "mrp" in payload and product.mrp.amount != Decimal(payload["mrp_from"]):
+            raise Refused("The MRP changed since the request: ask again.")
         product.price = Decimal(payload["price"])
-        product.save(update_fields=["price", "modified"])
-        return {"product": product.slug, "price": payload["price"]}
+        fields = ["price", "modified"]
+        if "mrp" in payload:
+            product.mrp = Decimal(payload["mrp"])
+            fields.append("mrp")
+        product._history_user = change_request.maker  # the version names who asked, and the request
+        product._change_reason = f"Change request #{change_request.pk}"
+        product.save(update_fields=fields)
+        return {
+            "product": product.slug,
+            "price": payload["price"],
+            **({"mrp": payload["mrp"]} if "mrp" in payload else {}),
+        }
 
 
 COUPON_CODE = re.compile(r"[A-Z0-9][A-Z0-9-]{2,29}")
 
 
+def discount_rule(maker, before, after):
+    """A coupon's or an offer's approval rule: deeper than the maker's `discount_percent` (a fixed amount: its share
+    of the smallest order it applies to), when the change makes it deeper than it was (`before`: None for a new one;
+    a discount switched off or ended counts as none)."""
+    from shop.catalogue import depth
+
+    deep = depth(after)
+    if before is not None and deep <= depth(before):
+        return None
+    return over(deep, limit_of(maker, "discount_percent"), "{amount}% off is beyond the limit of {limit}%.")
+
+
 class Coupon(Action):
-    """A new coupon; a percentage (or a fixed amount as a share of its minimum order) beyond the maker's
-    `discount_percent` needs approval."""
+    """A new coupon (Phase B: every rule of shop.catalogue.coupon_fields: products and categories in or out, the
+    first order, stacking, single-use codes; its description checked for dark patterns); a percentage (or a fixed
+    amount as a share of its minimum order) beyond the maker's `discount_percent` needs approval."""
 
     name, label, maker, checker = "coupon.create", "Make a coupon", "shop.add_coupon", "staff.approve_discount"
 
     def validate(self, maker, target, payload):
+        from shop.catalogue import COUPON_DEFAULTS, coupon_fields
         from shop.models import Coupon as CouponRow
+        from shop.models import CouponCode
 
         code = str(target or "").strip().upper()
         if not COUPON_CODE.fullmatch(code):
             raise serializers.ValidationError({"target": ["The code: 3 to 30 capitals, digits and hyphens."]})
-        if CouponRow.objects.filter(code=code).exists():
+        if CouponRow.objects.filter(code=code).exists() or CouponCode.objects.filter(code=code).exists():
             raise serializers.ValidationError({"target": ["This code exists."]})
-        kind = payload.get("kind", CouponRow.Kind.PERCENT)
-        if kind not in CouponRow.Kind.values:
-            raise serializers.ValidationError({"kind": ["percent or fixed."]})
-        value, min_order = rupees(payload.get("value"), "value"), rupees(payload.get("min_order") or 0, "min_order")
-        if kind == CouponRow.Kind.PERCENT and not 0 < value <= 100:
-            raise serializers.ValidationError({"value": ["Above 0 and at most 100 per cent."]})
-        uses = payload.get("max_uses")
-        if uses is not None and (not isinstance(uses, int) or uses < 1):
-            raise serializers.ValidationError({"max_uses": ["A whole number from 1, or null."]})
-        until = payload.get("valid_until")
-        if until is not None and parse_datetime(str(until)) is None:
-            raise serializers.ValidationError({"valid_until": ["A date and time (ISO 8601), or null."]})
-        clean = {
-            "code": code,
-            "kind": kind,
-            "value": str(value),
-            "min_order": str(min_order),
-            "max_uses": uses,
-            "valid_until": until,
-        }
+        clean = {**COUPON_DEFAULTS, **coupon_fields(dict(payload)), "code": code}
         return ("shop.coupon", code, code), clean, None
 
     def rule(self, maker, change_request):
-        payload = change_request.payload
-        value, min_order = Decimal(payload["value"]), Decimal(payload["min_order"])
-        if payload["kind"] == "percent":
-            off = value
-        else:  # rupees off: as a share of the smallest order it applies to (no minimum: all of a cheap book)
-            off = Decimal(100) if not min_order else min(Decimal(100), value * 100 / min_order)
-        return over(
-            off.quantize(Decimal("0.01")),
-            limit_of(maker, "discount_percent"),
-            "{amount}% off is beyond the limit of {limit}%.",
-        )
+        return discount_rule(maker, None, change_request.payload)
 
     def run(self, change_request, by):
+        from shop.catalogue import COUPON_LISTS, apply_fields
         from shop.models import Coupon as CouponRow
 
-        payload = change_request.payload
+        payload = dict(change_request.payload)
         try:
             with transaction.atomic():
-                coupon = CouponRow.objects.create(
-                    code=payload["code"],
-                    kind=payload["kind"],
-                    value=Decimal(payload["value"]),
-                    min_order=Decimal(payload["min_order"]),
-                    max_uses=payload["max_uses"],
-                    valid_until=parse_datetime(payload["valid_until"]) if payload["valid_until"] else None,
-                )
+                coupon = CouponRow(code=payload.pop("code"))
+                apply_fields(coupon, payload, COUPON_LISTS, by=change_request.maker, reason=change_request.reason)
         except IntegrityError as error:
             raise Refused("This code was taken meanwhile.") from error
         return {"coupon": coupon.code}
+
+
+class Change(Action):
+    """A change of a coupon or an offer (Phase B: catalogue): the fields that differ, each with what it was and what it
+    becomes; run at once unless it makes the discount deeper and beyond the maker's `discount_percent`. It fails
+    rather than overwrite a field that changed meanwhile."""
+
+    checker = "staff.approve_discount"
+    model = defaults = lists = None
+
+    def find(self, maker, target):
+        raise NotImplementedError
+
+    def fields(self, payload, before):
+        raise NotImplementedError
+
+    def validate(self, maker, target, payload):
+        from shop.catalogue import current
+
+        obj = self.find(maker, target)
+        changes = self.fields(dict(payload), obj)
+        if not changes:
+            raise serializers.ValidationError({"non_field_errors": ["Nothing changes."]})
+        moves = {name: [current(obj, name, self.lists), value] for name, value in changes.items()}
+        return obj, {"id": obj.pk, "changes": moves}, None
+
+    def rule(self, maker, change_request):
+        from shop.catalogue import state_of
+
+        obj = self.model.objects.get(pk=change_request.payload["id"])
+        before = state_of(obj, self.defaults, self.lists)
+        after = {**before, **{name: move[1] for name, move in change_request.payload["changes"].items()}}
+        return discount_rule(maker, before, after)
+
+    def run(self, change_request, by):
+        from shop.catalogue import apply_fields, changed_since
+
+        obj = self.model.objects.select_for_update().get(pk=change_request.payload["id"])
+        changes = change_request.payload["changes"]
+        if moved := changed_since(obj, changes, self.defaults, self.lists):
+            raise Refused(f"Changed since the request ({', '.join(moved)}): ask again.")
+        values = {name: move[1] for name, move in changes.items()}
+        try:
+            self.fields(dict(values), obj)  # its rules again, on it as it is now (a product gone, a countdown shown)
+        except serializers.ValidationError as error:
+            raise Refused(f"{flat(error.detail)} Ask again.") from error
+        apply_fields(obj, values, self.lists, by=change_request.maker, reason=change_request.reason)
+        return {"id": obj.pk, "changed": sorted(changes)}
+
+
+class CouponChange(Change):
+    name, label, maker = "coupon.change", "Change a coupon", "shop.change_coupon"
+
+    @property
+    def model(self):
+        from shop.models import Coupon as CouponRow
+
+        return CouponRow
+
+    @property
+    def defaults(self):
+        from shop.catalogue import COUPON_DEFAULTS
+
+        return COUPON_DEFAULTS
+
+    @property
+    def lists(self):
+        from shop.catalogue import COUPON_LISTS
+
+        return COUPON_LISTS
+
+    def find(self, maker, target):
+        coupon = scoped(self.model.objects.all(), maker, self.maker).filter(code=str(target).strip().upper()).first()
+        if coupon is None:
+            raise serializers.ValidationError({"target": ["No such coupon."]})
+        return coupon
+
+    def fields(self, payload, before):
+        from shop.catalogue import coupon_fields
+
+        return coupon_fields(payload, before)
+
+
+class OfferCreate(Action):
+    """A new automatic offer (Phase B: catalogue; shop.catalogue.offer_fields: the dark-pattern guardrails as
+    validation); beyond the maker's `discount_percent` (a fixed amount: its share of the offer's minimum value) a
+    second person approves it, as a coupon's."""
+
+    name, label, maker, checker = "offer.create", "Make an offer", "shop.add_offer", "staff.approve_discount"
+
+    def validate(self, maker, target, payload):
+        from shop.catalogue import OFFER_DEFAULTS, offer_fields
+
+        clean = {**OFFER_DEFAULTS, **offer_fields(dict(payload))}
+        return ("shop.offer", "", f"New offer: {clean['name']}"[:200]), clean, None
+
+    def rule(self, maker, change_request):
+        return discount_rule(maker, None, change_request.payload)
+
+    def run(self, change_request, by):
+        from shop.catalogue import OFFER_LISTS, apply_fields
+        from shop.models import Offer
+
+        offer = apply_fields(Offer(), dict(change_request.payload), OFFER_LISTS, by=change_request.maker,
+                             reason=change_request.reason)  # fmt: skip
+        return {"offer": offer.pk, "name": offer.name}
+
+
+class OfferChange(Change):
+    name, label, maker = "offer.change", "Change an offer", "shop.change_offer"
+
+    @property
+    def model(self):
+        from shop.models import Offer
+
+        return Offer
+
+    @property
+    def defaults(self):
+        from shop.catalogue import OFFER_DEFAULTS
+
+        return OFFER_DEFAULTS
+
+    @property
+    def lists(self):
+        from shop.catalogue import OFFER_LISTS
+
+        return OFFER_LISTS
+
+    def find(self, maker, target):
+        offer = scoped(self.model.objects.all(), maker, self.maker)
+        offer = offer.filter(pk=int(target)).first() if str(target).isdigit() else None
+        if offer is None:
+            raise serializers.ValidationError({"target": ["No such offer."]})
+        return offer
+
+    def fields(self, payload, before):
+        from shop.catalogue import offer_fields
+
+        return offer_fields(payload, before)
 
 
 def _user(pk):
@@ -796,6 +950,10 @@ ACTIONS = {
         ResetMfa(),
         Erase(),
         RunJob(),
+        # Phase B: catalogue (shop/catalogue.py has their rules)
+        CouponChange(),
+        OfferCreate(),
+        OfferChange(),
     ]
 }
 

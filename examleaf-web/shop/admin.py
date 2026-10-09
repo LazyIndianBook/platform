@@ -157,6 +157,7 @@ class ProductResource(resources.ModelResource):
             *["slug", "title", "kind", "is_active", "subject", "book", "mrp", "price", "stock", "gst_rate"],
             *["hsn_code", "isbn", "pages", "weight_grams", "description", "seo_title", "seo_description"],
             *["product_type", "categories"],
+            *["length_cm", "width_cm", "height_cm", "packaging"],  # Phase B: catalogue (the courier's data)
         ]
 
 

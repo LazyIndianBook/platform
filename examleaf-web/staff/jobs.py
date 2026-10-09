@@ -23,7 +23,7 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework import exceptions, serializers
 
-from shop import order_jobs
+from shop import catalogue_jobs, order_jobs
 
 from . import approvals, audit
 from .backends import scoped
@@ -40,6 +40,7 @@ LIMITS = {
     Job.Kind.GSTR1_EXPORT: "export_rows",
     **order_jobs.LIMITS,  # the Orders module's (shop/order_jobs.py)
     Job.Kind.GRIEVANCE_EXPORT: "export_rows",
+    **catalogue_jobs.LIMITS,  # the Catalogue module's (shop/catalogue_jobs.py)
 }
 
 
@@ -67,7 +68,7 @@ def permission(kind, params):
         return "staff.import_content"
     if kind == Job.Kind.GRIEVANCE_EXPORT:
         return "staff.export_grievances"
-    return order_jobs.PERMISSIONS.get(kind)
+    return order_jobs.PERMISSIONS.get(kind) or catalogue_jobs.PERMISSIONS.get(kind)
 
 
 def audit_events(user, filters):
@@ -108,6 +109,8 @@ def start(kind, params, *, user, dry_run=False, request=None):
         from support.register import tickets
 
         total = tickets(params).count()
+    elif kind in catalogue_jobs.PERMISSIONS:
+        total = catalogue_jobs.size(kind, user, params)
     else:
         total = len(params["targets"])
     with transaction.atomic():
@@ -288,6 +291,7 @@ RUNNERS = {
     **order_jobs.RUNNERS,
     Job.Kind.CONTENT_IMPORT: content_import,
     Job.Kind.GRIEVANCE_EXPORT: grievance_export,
+    **catalogue_jobs.RUNNERS,
 }
 
 
