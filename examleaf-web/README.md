@@ -54,6 +54,12 @@ and the security reviews, [SECURITY_REVIEW.md](SECURITY_REVIEW.md) (phases 1 to 
 - **Store features.** A category tree and collections, product types with attributes, digital products (the course),
   automatic offers, staff orders for phone and school buyers with Razorpay payment links or offline payments, order
   notes, a customer page, import and export of products and categories, and the roles that run it.
+- **Orders for staff** (the Admin Control Panel's Orders module, [shop/README.md](shop/README.md)): the list with its
+  tabs and searches (a search for a person audited by its hash), an order's record with its next step and timeline,
+  refunds by line or by bank transfer with their approval above the maker's limit, returns asked for on the website or
+  by staff, staff orders with the discount rule's answer shown before saving, quotes made into orders, the packing
+  queue with its slips, 4×6 labels and pick list, bulk jobs (pack, print, cancel, export), the cash-on-delivery risk
+  hold, status messages held overnight, and the owners' weekly email of what staff gave away.
 - **The revision course** for the mobile app, through the REST API: per chapter a revision of a target length (12
   minutes by default) in short clips (ffmpeg makes HLS for low-end phones), one-mark quiz items, flash cards, a
   day-by-day pass plan, book codes printed in the books, entitlements, and a daily reminder through Firebase Cloud
@@ -508,6 +514,8 @@ endpoint, request and answer examples, the error format, rate limits and the ver
 The printed books, sold online across India, and the store around them: `shop/` (models; `services.py`, every flow;
 `payments.py`, Razorpay; `cart.py`; `tasks.py`; `invoices.py`), its API in `api/shop.py`; templates only for the
 emails (`templates/shop/email/`), the PDFs (`templates/shop/invoice.html` …) and the admin (`templates/shop/admin/`).
+The staff side, the Admin Control Panel's Orders module (`staff_orders.py`, `order_jobs.py`), is described in
+[shop/README.md](shop/README.md).
 
 ### Set up
 

@@ -120,8 +120,9 @@ than do something else. Each step is an audit event `<action>.requested|approved
 
 | Action | Maker | Checker | Waits when |
 |---|---|---|---|
-| `order.refund` (`shop.services.refund_order`, which calls `start_refund`) | `staff.refund_order` | `staff.approve_refund` | above the maker's `refund_inr` |
+| `order.refund` (`shop.services.refund_order`; with lines, shipping, restock, a method or a return: `refund_with_details`) | `staff.refund_order` | `staff.approve_refund` | above the maker's `refund_inr` |
 | `order.offline_payment` (`record_offline_payment`) | `staff.record_offline_payment` | `staff.approve_payment` | above `offline_inr`, or a ₹0 order |
+| `order.staff_discount` (a staff order: `shop.services.create_staff_order`, the order made only when it runs) | `shop.add_order` | `staff.approve_discount` | more off the books (after the offers) than `discount_percent`, or a ₹0 total |
 | `product.price` | `shop.change_product` | `staff.approve_discount` | more off the MRP than `discount_percent` |
 | `coupon.create` | `shop.add_coupon` | `staff.approve_discount` | beyond `discount_percent` (a fixed one: of its minimum order) |
 | `staff.grant_role`, `staff.invite` | `staff.assign_role` | `staff.approve_role_change` | a privileged role, or a role for yourself |
@@ -258,7 +259,12 @@ by `result_url` (signed for 5 minutes; a bucket's own signed link behind it) and
 `jobs.permission`, its limit in `jobs.LIMITS`, its runner in `jobs.RUNNERS` and its params in
 `serializers.JobStartSerializer`. The ERPNext sync (`erp/README.md`) adds the kind `erp_initial_load`
 (`erp.run_initial_load`, the `bulk_rows` limit) and two kinds of inbox item: `sync_failed` (a dead letter) and
-`reconciliation` (a night's differences).
+`reconciliation` (a night's differences). The Orders module (`shop/order_jobs.py`, `shop/README.md`) adds
+`orders_pack` and `orders_print` (`staff.pack_order`), `orders_cancel` (`shop.change_order`, 250 orders at most) and
+`orders_export` (`shop.export_order`, the `export_rows` limit; the others `bulk_rows`), with `targets` (order numbers)
+or `filters` (the list's, never a search) as their params, and three kinds of inbox item: `order_hold` (an order held:
+`shop.change_order`), `return_request` (due in 48 hours: `staff.handle_return`) and `bank_refund` (a transfer to make,
+due in `SHOP_BANK_REFUND_DAYS`: `staff.approve_refund`).
 
 ## Data protection
 

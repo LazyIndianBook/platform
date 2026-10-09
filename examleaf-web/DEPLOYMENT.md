@@ -392,6 +392,10 @@ list any variable its clip task comes to need. After a change: `docker compose u
 | `SHOP_OPEN` | `1` | no | 0: only staff use the cart, checkout and payment ("Shop opens soon"), for Razorpay's review on test keys |
 | `SHOP_COD_ENABLED` | `0` | no | 1: offer cash on delivery (accounts with a confirmed email address, two orders on their way each) |
 | `SHOP_COD_MAX_VALUE` | `1500` | no | the largest cash-on-delivery order, in rupees, shipping included |
+| `SHOP_RETURN_DAYS` | `15` | no | days after delivery a customer may ask to send books back (the website's return form); staff may file one later for them |
+| `SHOP_COD_HIGH_VALUE_INR` | `1000` | no | a cash-on-delivery order worth this many rupees or more counts towards its risk score (insights/jobs/risk.py) |
+| `SHOP_COD_HIGH_RISK_HOLD` | `1` | no | 1: a cash-on-delivery order scored high waits on hold ("payment check") until staff release it; the panel may switch it (`PUT staff/settings/SHOP_COD_HIGH_RISK_HOLD/`) |
+| `SHOP_BANK_REFUND_DAYS` | `3` | no | the days FINANCE has to transfer a refund by bank or UPI (its inbox item's due time) |
 | `SHOP_LOW_STOCK` | `5` | no | each morning at 8 the SALES role is emailed the books with fewer copies (RUNBOOK.md "Stock, stock alerts and the low-stock email"); also the dashboard's "running out" |
 | `SELLER_LEGAL_NAME`, `SELLER_ADDRESS`, `SELLER_GSTIN`, `SELLER_STATE`, `SELLER_STATE_CODE`, `SELLER_EMAIL`, `SELLER_PHONE` | `ExamLeaf LLP`, `[address], [city], Assam [PIN]`, empty, `AS`, `18`, `[email]`, `[phone]` | required before the shop opens | the seller printed on every invoice (the LLP's registered details; GSTIN empty: "not registered"); no invoice of the real series is numbered while a `[placeholder]` is left |
 
