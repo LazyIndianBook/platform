@@ -28,7 +28,7 @@ function QrCard({ eyebrow, title, facts, headingLevel = 1, compact, stamp = true
       <p className={cn("m-0 label-mono uppercase", stamp && "pr-[140px] max-nav:pr-[88px]")}>{eyebrow}</p>
       <Title
         className={cn(
-          "m-0 font-head leading-none font-semibold tracking-[-0.02em] text-balance text-foreground",
+          "m-0 font-display leading-none font-semibold tracking-[-0.02em] text-balance text-foreground",
           stamp && "pr-[140px] max-nav:pr-[88px]",
           compact ? "text-[32px]" : "text-[clamp(36px,5vw,60px)]",
         )}

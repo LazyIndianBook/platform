@@ -121,9 +121,12 @@ screen; `scripts/design-shot.mjs` screenshots one artboard headlessly; the imple
 ~112 px column on the right (`Sheet`, `MarkedRow`, `Marks` in `src/components/ui/band.tsx`; `.sheet`, `.marked-row`,
 `.label-mono` in `globals.css`); under 900 px the margin collapses to the rule at the left edge. Source Serif 4 sets
 headings, questions, solutions and prices, Public Sans the interface, IBM Plex Mono codes and marks; Hind Siliguri stays
-in every stack for Assamese and Bangla (`src/app/fonts.ts`: the three families come through `next/font/google`, which
-downloads them at build time and serves them from this origin, so `font-src 'self'` holds). Navy is the only action
-colour; red ink is for marks, ticks, the margin, the stamp and one emphasis per screen, never for errors.
+in every stack for Assamese and Bangla (`src/app/fonts.ts`: every family is self-hosted from `src/app/fonts/`, with its
+OFL licence beside it, so a build needs nothing from the network and `font-src 'self'` holds; the files are subsets
+made with fontTools from the official variable fonts: Latin, the rupee sign, arrows, ticks and superscripts, the serif
+and the sans keeping their weight axis from 400 to 700, the serif in a text cut for reading and a display cut, its
+optical size 60, for h1, h2 and the display sizes). Navy is the only action colour; red ink is for marks, ticks, the
+margin, the stamp and one emphasis per screen, never for errors.
 
 Tokens in `src/app/globals.css` (mapped into Tailwind's theme: `bg-primary`, `text-muted-foreground`, `font-head`,
 `font-mono`, `rounded-btn`, the `nav:` / `max-nav:` 900 px breakpoint), components in `src/components/ui/` (Button,
