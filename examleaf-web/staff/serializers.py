@@ -191,7 +191,7 @@ class JobStartSerializer(serializers.Serializer):
         'content_import: {"subject": "physics", "commit": "" or a commit, "dry_run_job": the dry run\'s id (to '
         "apply)}; "
         'grievance_export: {"from": "YYYY-MM-DD", "until": "YYYY-MM-DD"} (the days received, both optional); '
-        'settlement_fetch: {"day": "YYYY-MM-DD"} (a day of Razorpay\'s settlements, yesterday at the latest)',
+        'settlement_fetch: {"day": "YYYY-MM-DD"} (a day of Razorpay\'s settlements, India, from 2020 to today)',
     )
     dry_run = serializers.BooleanField(required=False, default=False, help_text="check every row, change nothing")
 
