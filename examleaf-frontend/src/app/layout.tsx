@@ -70,7 +70,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <main id="main" tabIndex={-1} className="flex flex-col">
               {children}
             </main>
-            <SiteFooter books={books} signedIn={Boolean(user)} />
+            <SiteFooter books={books} signedIn={Boolean(user)} legal={config} />
           </ImpersonationProvider>
           <Toaster />
         </ConfigProvider>
