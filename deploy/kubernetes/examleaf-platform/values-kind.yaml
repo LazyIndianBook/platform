@@ -91,3 +91,7 @@ cronJobs:
   healthCheck:
     enabled: true
     schedule: "*/5 * * * *"
+
+# ERPNext stays off on a laptop: it wants 6 to 8 GiB of its own (TESTING.md section 7 checks its part without it)
+erpnext:
+  enabled: false
