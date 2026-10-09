@@ -332,7 +332,8 @@ class QuizViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         given.is_valid(raise_exception=True)
         correct = item.is_right(given.validated_data["answer"])
         within_a_day(request.user.quiz_attempts)
-        QuizAttempt.objects.create(user=request.user, item=item, correct=correct)
+        chosen = given.validated_data["answer"] if item.kind == QuizItem.Kind.MCQ else None  # insights: distractors
+        QuizAttempt.objects.create(user=request.user, item=item, correct=correct, chosen=chosen)
         if item.kind == QuizItem.Kind.MCQ:
             right = item.options[int(item.answer) - 1]
         else:
