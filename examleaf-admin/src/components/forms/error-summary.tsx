@@ -16,9 +16,8 @@ import { useEffect, useRef } from "react";
 import { ApprovalNotice } from "@/components/data/approval-notice";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import type { ApiError } from "@/lib/api/errors";
+import { type ApiError, errorText } from "@/lib/api/errors";
 import { copy } from "@/lib/copy";
-import { formatTime } from "@/lib/format";
 
 export function ErrorSummary({
   error,
@@ -54,10 +53,9 @@ export function ErrorSummary({
   }
 
   if (error.status === 429) {
-    const until = error.retryAt === null ? null : formatTime(error.retryAt);
     return frame(
       <Alert variant="error" role="alert" title={copy.problem.throttledTitle}>
-        <p>{until ? copy.errors.throttledUntil(until) : copy.errors.throttled}</p>
+        <p>{errorText(error)}</p>
       </Alert>,
     );
   }

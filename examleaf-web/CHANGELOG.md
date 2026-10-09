@@ -29,6 +29,55 @@ against this backend (`E2E_STAFF_API=real`); website: Vitest 188.
   two-step, consent and deletion actions are drawn disabled with the reason. Its README's "Impersonation"; its
   Playwright spec (`e2e/impersonation.spec.ts`) skips on a backend without the endpoint.
 
+## Resilience: nothing waits without a limit (9 October 2026)
+
+The backend audited for hangs, crashes and state kept in a process, then measured under load (RESILIENCE.md: the
+checklist item by item, the load test, every knob, what the Kubernetes chart must change, what is deferred). Each fix
+left a test that fails without it where one could. 1,028 backend tests pass on SQLite (11 skipped, 1,637 subtests) and
+1,038 on PostgreSQL (1 skipped), 36 of them new. Two fail, as they do on design/answer-script itself (84a3e8d: COD
+reconciliation made medium risk), untouched here:
+`shipping/tests/test_money.py::test_finance_reconciles_a_remittance_with_the_banks_credit` and
+`staff/tests/test_impersonation.py::test_while_it_lasts_money_passwords_and_the_account_are_refused_and_each_request_is_audited`.
+
+- **Timeouts on every outbound call.** Razorpay 3 s to connect and 10 s per read (was 10 s for both); MSG91 the same;
+  the buckets and SES through boto3 3 s and 20 s (SES 10 s) with three tries in standard mode (were boto3's 60 s, 60 s
+  and five legacy tries); anymail's HTTP backends (3, 10); Firebase 20 s (was 120 s); PostgreSQL 5 s to connect. A
+  statement may run 15 s in gunicorn and 600 s in Celery (none in `manage.py`), a transaction sit idle 60 s and 600 s
+  (`DB_*`).
+- **A slow provider no longer stalls the site.** Razorpay's and MSG91's calls share half of a gunicorn process's threads
+  (`examleaf/bulkhead.py`); beyond that a call answers at once with the provider's "could not be reached". Under load
+  with Razorpay and MSG91 answering after 10 s, the fast endpoints' slowest 1% fell from 8 s (13 s on kept-alive
+  connections) to about 2 s.
+- **gunicorn from one config file** (`gunicorn.conf.py`) in the image, compose and the chart: workers and threads from
+  the environment, its timeouts, recycling after 5000 requests with a jitter of 2500 (1000 and 100 restarted every
+  process at once under load), the site imported once in the master (`preload_app`: a recycled process serves at
+  once), `/dev/shm`, JSON logs, a stuck process's thread stacks. Compose stops web in 40 s and the workers in 5 minutes
+  (was Docker's 10 s).
+- **Celery**: tasks acknowledged once run and put back when their process dies (with every task checked for a second
+  run: an SMS or an email is not sent twice, the reminder and the data export stay acknowledged early), one that kills
+  its process every time failing after three runs (`examleaf.celery.Task`); one task at a time per process;
+  processes replaced after 200 tasks or 300 MB; time limits by kind (270/300 s, PDFs 60/90, the long jobs 1500/1800);
+  Redis's visibility timeout two hours; the broker retried at start-up. The periodic jobs that send or alert take a
+  lock for their run (`single_run`), and the stock alerts and held SMS claim each message: overlapping runs sent them
+  twice. The quotation PDF is made by the worker, not in the admin's request. The staff and erp apps' tasks follow the
+  same rules.
+- **Health**: `/health/live/` for liveness (no database, no Redis); `/health/web/`, readiness, is the database and the
+  migrations (`examleaf.health.Migrations`): a cache or bucket outage no longer takes every pod out of traffic, and a web
+  container starts without its cache; `/health/` keeps everything for the monitor. Compose's container check is the
+  liveness one.
+- **The cache's Redis silent**: after a failed call a process asks it nothing for five seconds (a request makes 4 to 14
+  cache calls, each was a second).
+- **In-cluster webhooks**: ERPNext's (`/api/hooks/erp-events/`, HMAC-signed) are no longer redirected to https when
+  they come to web's Service over plain http; through PgBouncer (values-ha.yaml) no startup options are sent.
+- **Checkout**: one checkout of a cart at a time, so the same cash-on-delivery checkout sent twice at once places one
+  order (two before). `refund_payment` locks its refund alone and skips one another worker holds.
+- **Bounds**: a search of five words of 50 characters; a product's newest 200 reviews; tests that every collection is
+  paginated at 200 and that the storefront's hot paths run no query per row; `export_gstr1` streams.
+- **Logs**: one JSON line per request (URL pattern, status, milliseconds, account id; never the address's secrets), a
+  warning past `SLOW_REQUEST_SECONDS`, the task's id and name inside Celery tasks; RUNBOOK.md "Reading the logs".
+- **The chart** must move its liveness probe to `/health/live/` (RESILIENCE.md "What the Kubernetes chart must
+  change", with the new variables and the database's connections).
+
 ## The Admin Control Panel's backend, the rest of Phase A (9 October 2026)
 
 The apps that came before the staff app now follow its rules, and the plan's last staff pieces are in

@@ -19,6 +19,8 @@ export function LogoutButton() {
         setBusy(true);
         try {
           await auth.logout();
+        } catch {
+          // no answer: home all the same; the session ends at its own limits
         } finally {
           // a full load: the header, the cart and every layout read the ended session
           // eslint-disable-next-line @next/next/no-location-assign-relative-destination

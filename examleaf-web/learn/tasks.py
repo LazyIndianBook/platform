@@ -6,6 +6,8 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
+from examleaf.celery import LONG_TASK, single_run
+
 from . import media
 from .models import Clip, Device
 
@@ -46,6 +48,9 @@ def process_clip(self, clip_id):
         media.delete_files(old)
 
 
+FCM_TIMEOUT = 20  # seconds per call to Firebase (firebase-admin's default: 120), its own retries after it
+
+
 def firebase():
     """The Firebase app made from FCM_SERVICE_ACCOUNT_JSON (the JSON itself, or the path of the file)."""
     import firebase_admin
@@ -56,7 +61,8 @@ def firebase():
     except ValueError:
         account = settings.FCM_SERVICE_ACCOUNT_JSON
         info = json.loads(account) if account.lstrip().startswith("{") else account
-        return firebase_admin.initialize_app(credentials.Certificate(info), name="examleaf")
+        options = {"httpTimeout": FCM_TIMEOUT}
+        return firebase_admin.initialize_app(credentials.Certificate(info), options=options, name="examleaf")
 
 
 def reminder(learner, today):
@@ -65,7 +71,8 @@ def reminder(learner, today):
     return "Today's revision is ready: a few minutes, a few more marks."
 
 
-@shared_task
+@shared_task(acks_late=False, **LONG_TASK)  # run again after a lost worker, it would remind everybody twice
+@single_run(LONG_TASK["time_limit"])
 def send_reminders():
     """Daily (celery beat): the revision reminder, through Firebase Cloud Messaging (HTTP v1, firebase-admin), to the
     devices of students who turned it on in the app, 500 at a time by id (never all of them in memory: L8). Nothing

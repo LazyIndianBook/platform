@@ -1,10 +1,13 @@
+import signal
 import socket
+import threading
 
 import pytest
 from django.core.cache import cache
 from django.db.backends.signals import connection_created
 from pwned_passwords_django import api as pwned_passwords
 
+from examleaf.cache import SoftRedisCache
 from examleaf.celery import app as celery_app
 from examleaf.views import HealthView
 
@@ -44,6 +47,7 @@ def pytest_collection_modifyitems(items):
 def fresh_cache():
     cache.clear()  # allauth's rate limits and axes live in the cache
     HealthView.results_by_path.clear()  # the health checks' results, kept 20 s in the process
+    SoftRedisCache.down_until = 0.0  # a test's Redis outage is not the next one's
 
 
 @pytest.fixture(autouse=True)
@@ -77,3 +81,57 @@ def closed_port():
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
         return probe.getsockname()[1]
+
+
+@pytest.fixture
+def half_open_port():
+    """A local port whose server takes every connection and never says a word (a dependency that hangs): only a
+    client's own timeout gets it out."""
+    server = socket.socket()
+    server.bind(("127.0.0.1", 0))
+    server.listen(50)
+    held = []
+
+    def accept():
+        try:
+            while True:
+                held.append(server.accept()[0])
+        except OSError:  # closed at the end of the test
+            pass
+
+    threading.Thread(target=accept, daemon=True).start()
+    yield server.getsockname()[1]
+    server.close()
+    for connection in held:
+        connection.close()
+
+
+class Hung(BaseException):  # not an Exception: no `except Exception` in the code under test can swallow it
+    pass
+
+
+@pytest.fixture
+def within():
+    """within(seconds, call): whether `call` returned or raised within `seconds`; a hang fails the test instead of
+    hanging the run (a timer signal interrupts it, in this thread: the test's database connection stays usable).
+    The call's exception, if any, is in within.error."""
+
+    def alarm(signum, frame):
+        raise Hung
+
+    def run(seconds, call):
+        run.error = None
+        previous = signal.signal(signal.SIGALRM, alarm)
+        signal.setitimer(signal.ITIMER_REAL, seconds)
+        try:
+            call()
+        except Hung:
+            return False
+        except Exception as error:  # kept for the test to look at
+            run.error = error
+        finally:
+            signal.setitimer(signal.ITIMER_REAL, 0)
+            signal.signal(signal.SIGALRM, previous)
+        return True
+
+    return run

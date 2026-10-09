@@ -53,6 +53,23 @@ def test_a_held_message_goes_only_if_still_true(parcel, texts):
     assert send_held_messages() == 0 and texts == []
 
 
+def test_two_overlapping_morning_runs_send_a_held_message_once(parcel, monkeypatch):
+    ShipmentDetail.objects.filter(shipment=parcel).update(status=Status.IN_TRANSIT, sms_held="shipped")
+    unlocked = send_held_messages.run.__wrapped__  # the job without its lock, as while Redis is down
+    sent = []
+
+    def send(order, kind):
+        sent.append(kind)
+        if len(sent) == 1:
+            unlocked()  # a second run starts while the first sends
+
+    monkeypatch.setattr(messages, "send_order_sms", send)
+    reads = [[ShipmentDetail.objects.get(shipment=parcel)] for _ in range(2)]  # each run read the row as held
+    monkeypatch.setattr(ShipmentDetail.objects, "exclude", lambda **kw: reads.pop(0))
+    unlocked()
+    assert sent == ["shipped"]
+
+
 def test_sms_only_to_those_who_asked_for_them_and_out_for_delivery_only_for_cash_on_delivery(
     parcel, texts, prepaid, account, django_capture_on_commit_callbacks
 ):

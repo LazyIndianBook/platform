@@ -91,8 +91,9 @@ export function PayButton({
       router.replace(token ? `/checkout/t/${token}/done/` : `/checkout/${number}/done/`);
       router.refresh(); // the cart was emptied: the header's count
     } catch (caught) {
+      // no answer (none in 30 s included): what happens to the money, not "try again"
       setProblem(
-        caught instanceof ApiError
+        caught instanceof ApiError && !caught.unavailable
           ? caught.message
           : "We could not reach ExamLeaf to confirm this payment. If money was taken from your account, we confirm the order or refund it by ourselves within a few minutes.",
       );
@@ -112,15 +113,21 @@ export function PayButton({
       setPaying(false);
       return;
     }
-    openRazorpay(Razorpay, state.options, {
-      success: (response) => void confirm(response),
-      failure: (message) => {
-        setProblem(message);
-        setDeclined(true);
-        setPaying(false);
-      },
-      dismiss: () => setPaying(false),
-    });
+    try {
+      openRazorpay(Razorpay, state.options, {
+        success: (response) => void confirm(response),
+        failure: (message) => {
+          setProblem(message);
+          setDeclined(true);
+          setPaying(false);
+        },
+        dismiss: () => setPaying(false),
+      });
+    } catch {
+      // checkout.js loaded but its window would not open: said as a load failure, Pay ready again
+      setScriptFailed(true);
+      setPaying(false);
+    }
   }
 
   if (state.kind === "refused") {

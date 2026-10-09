@@ -1,11 +1,29 @@
-"""The Celery part of /health/: a ping that waits for every worker, then a check that each queue the platform uses has a
-consumer."""
+"""The checks of our own in /health/ and /health/web/: the migrations, and a Celery ping that waits for every worker,
+then checks that each queue the platform uses has a consumer."""
 
 import dataclasses
 
 from django.conf import settings
+from django.db import connections
+from django.db.migrations.executor import MigrationExecutor
+from health_check.base import HealthCheck
 from health_check.contrib.celery import Ping
 from health_check.exceptions import ServiceUnavailable
+
+
+@dataclasses.dataclass
+class Migrations(HealthCheck):
+    """Readiness: no migration of this code is waiting. A pod of a new release whose `migrate` has not run (or a
+    database restored from an older backup) would fail on every request that reads a new column: it takes no traffic
+    until it is migrated. A database ahead of the code (the old pods of a rolling update) is fine."""
+
+    def run(self):
+        connection = connections["default"]  # this thread's: the checks run in a worker thread
+        with connection.temporary_connection():  # opened and closed here when the thread had none
+            executor = MigrationExecutor(connection)
+            waiting = executor.migration_plan(executor.loader.graph.leaf_nodes())
+        if waiting:
+            raise ServiceUnavailable(f"{len(waiting)} migrations not applied")
 
 
 @dataclasses.dataclass

@@ -237,6 +237,8 @@ function AddressForm({
       () => null,
     );
     const element = form.current;
+    const now = (element?.elements.namedItem("pin") as HTMLInputElement | null)?.value.replace(/\s/g, "");
+    if (now !== code) return; // the box changed while this was asked: its own answer decides
     if (!found || !element) return setPin(null);
     if (!found.states.length) {
       return setPin({ text: `We don't know PIN ${code}. Type the town and state yourself.`, found: false });

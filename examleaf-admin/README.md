@@ -69,6 +69,9 @@ throws and the import sits behind the same check).
 | `NEXT_PUBLIC_ERP_URL`     | build   | ERPNext's desk, for the business modules' links; empty: none are drawn                     |
 | `API_INTERNAL_BASE`       | runtime | Django for server components (`http://web:8000` in compose)                                |
 | `INTERNAL_API_TOKEN`      | runtime | the secret shared with Django: Django then counts each person's address, not this server's |
+| `API_INTERNAL_TIMEOUT_MS` | runtime | how long a request may wait on Django in all (default 10000), then "can't be reached"      |
+| `NODE_OPTIONS`            | runtime | the image gives `--max-old-space-size=384` for a 512 MiB memory limit (RESILIENCE.md)      |
+| `KEEP_ALIVE_TIMEOUT`      | runtime | the image gives 125000 ms: longer than a proxy keeps an idle connection                    |
 | `STAFF_API_MOCK`          | dev     | `1`: the staff API from fixtures (`next dev` only)                                         |
 
 No `NEXT_PUBLIC_` value is a secret. Sign-in methods come from `GET /api/v1/config/` (Google), never hard-coded.
@@ -195,7 +198,7 @@ nothing animates with reduced motion.
 ## Deploy
 
 `Dockerfile`: multi-stage, standalone output, the unprivileged `node` user, a health check on `/api/health/` (the
-process only). `../examleaf-web/docker-compose.yml` builds it as the `admin` service of the `admin` profile
+process only; 503 from SIGTERM on). Timeouts, memory, shutdown, the load proof and the knobs: `RESILIENCE.md`. `../examleaf-web/docker-compose.yml` builds it as the `admin` service of the `admin` profile
 (`docker compose --profile admin up -d`), and the Caddyfile's second site `admin.{$DOMAIN}` sends Django's paths to
 `web:8000` and everything else to `admin:3000`, with the same limits, health rule and logging as the public site.
 Caddy also drops the `X-Middleware-Subrequest` request header before anything reaches the console (Next.js's own

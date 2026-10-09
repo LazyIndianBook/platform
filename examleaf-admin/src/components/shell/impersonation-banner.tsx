@@ -12,6 +12,7 @@ import { useNow } from "@/components/data/clock";
 import { useAction } from "@/components/forms/use-action";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toaster";
+import { errorText } from "@/lib/api/errors";
 import { endImpersonation, impersonationToken, type Manifest } from "@/lib/api/staff";
 import { copy } from "@/lib/copy";
 import { formatTime } from "@/lib/format";
@@ -47,7 +48,7 @@ export function ImpersonationBanner({
       </p>
       {token ? (
         <div className="flex items-center gap-3">
-          {error ? <p className="m-0 text-sm font-semibold text-destructive">{error.message}</p> : null}
+          {error ? <p className="m-0 text-sm font-semibold text-destructive">{errorText(error)}</p> : null}
           <Button
             size="sm"
             variant="secondary"

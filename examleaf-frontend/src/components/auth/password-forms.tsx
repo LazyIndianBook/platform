@@ -103,7 +103,10 @@ export function PasswordResetKeyForm({ resetKey, next }: { resetKey: string; nex
     auth
       .checkResetKey(resetKey)
       .then(() => setState("valid"))
-      .catch((caught) => setState(caught instanceof ApiError && caught.unavailable ? "valid" : "invalid"));
+      // no answer or too many tries is not a dead link: the form, whose submit then says so in words
+      .catch((caught) =>
+        setState(caught instanceof ApiError && (caught.unavailable || caught.status === 429) ? "valid" : "invalid"),
+      );
   }, [resetKey]);
 
   if (state === "invalid") {

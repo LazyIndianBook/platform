@@ -2,8 +2,8 @@
 // every sign-in flow the website has (API.md, "Frontend integration guide", Flows 1 to 6).
 // An answer is 200 (signed in), or 401 with the flows still to do (one is_pending), or an ApiError (400 with the
 // fields' errors, 409, 410, 429). nextRoute() turns an answer into the page that comes next.
-import { ensureCsrfCookie, readCookie } from "@/lib/api/client";
-import { toApiError } from "@/lib/api/errors";
+import { ensureCsrfCookie, readCookie, withTimeout } from "@/lib/api/client";
+import { noAnswer, toApiError } from "@/lib/api/errors";
 
 import { safeNext, withNext } from "./next-url";
 import { getCredential } from "./webauthn";
@@ -64,9 +64,10 @@ export async function call(method: string, path: string, body?: unknown, headers
         ...headers,
       },
       body: body === undefined ? undefined : JSON.stringify(body),
+      signal: withTimeout(), // no answer in 30 s: status 0, the busy button released
     });
-  } catch {
-    throw toApiError(0, null);
+  } catch (error) {
+    throw noAnswer(method, error);
   }
   const json = (await response.json().catch(() => null)) as {
     data?: Record<string, unknown>;

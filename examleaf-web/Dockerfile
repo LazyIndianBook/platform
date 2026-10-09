@@ -25,7 +25,11 @@ RUN SECRET_KEY=build-time-dummy-for-collectstatic-only-not-used-at-run-time pyth
     && useradd --system --uid 1000 --no-create-home examleaf \
     && mkdir -p media && chown examleaf media
 USER examleaf
+# Fontconfig keeps WeasyPrint's font cache in /tmp (the user has no home folder; the chart's root is read-only), not
+# nowhere: without it every invoice printed "No writable cache directories".
+ENV XDG_CACHE_HOME=/tmp/.cache
 
 EXPOSE 8000
-# WEB_CONCURRENCY sets the number of gunicorn workers (default 1).
-CMD ["gunicorn", "examleaf.wsgi", "--bind", "0.0.0.0:8000", "--max-requests", "1000", "--max-requests-jitter", "100"]
+# gunicorn.conf.py: processes (WEB_CONCURRENCY, default 2) of 8 threads, the timeouts, recycling and JSON logs, each
+# from the environment (RESILIENCE.md).
+CMD ["gunicorn", "--config", "gunicorn.conf.py", "examleaf.wsgi"]

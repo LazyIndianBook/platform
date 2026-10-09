@@ -100,7 +100,7 @@ def test_an_authorized_payment_is_captured_on_return(client, rzp, commit):
         return_from_checkout(client, order)
     amount = order.payments.get().amount
     rzp.payment.capture.assert_called_once_with(
-        f"pay_{order.pk}", int(amount.amount * 100), {"currency": "INR"}, timeout=10
+        f"pay_{order.pk}", int(amount.amount * 100), {"currency": "INR"}, timeout=payments.TIMEOUT
     )
     order.refresh_from_db()
     assert order.status == Order.Status.PAID

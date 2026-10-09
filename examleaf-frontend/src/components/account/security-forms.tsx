@@ -559,6 +559,7 @@ export function Devices({ sessions }: { sessions: Session[] }) {
   const others = sessions.filter((session) => !session.is_current).map((session) => session.id);
   const when = (seconds: number) => formatDate(new Date(seconds * 1000).toISOString());
   const end = async (ids: number[], one: number | null) => {
+    if (busy) return; // one at a time: the other button's answer would land on this one's spinner
     setEnding(one);
     if (await run(() => account.endSessions(ids))) {
       toast.success(ids.length === 1 ? "That device is logged out." : "The other devices are logged out.");

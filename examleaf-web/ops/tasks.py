@@ -3,6 +3,7 @@ import re
 
 from celery import shared_task
 from django.conf import settings
+from django.core.cache import cache
 from django.core.mail import EmailMessage, EmailMultiAlternatives
 from django.core.management import call_command
 from django.template.loader import render_to_string
@@ -12,15 +13,22 @@ from django.utils.safestring import mark_safe
 logger = logging.getLogger(__name__)
 
 
-@shared_task(autoretry_for=(Exception,), retry_backoff=60, max_retries=5)
-def send_email(message):
-    """Send one email rendered in the web process (`message` is the dict made by queue_email)."""
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=60, max_retries=5)
+def send_email(self, message):
+    """Send one email rendered in the web process (`message` is the dict made by queue_email). A task delivered again
+    after its worker died (acks_late) finds the mark its sending left and sends nothing: the mark is the task's id in
+    the cache for a day (Redis down: the email may go twice, as it always could)."""
+    sent = f"email-sent:{self.request.id}" if self.request.id else None  # None: run here, the queue down
+    if sent and cache.get(sent):
+        return
     msg = EmailMultiAlternatives(
         message["subject"], message["body"], message["from_email"], message["to"], headers=message["headers"]
     )
     for content, mimetype in message["alternatives"]:
         msg.attach_alternative(content, mimetype)
     msg.send()
+    if sent:
+        cache.set(sent, True, 24 * 3600)
 
 
 CODE, LINK = re.compile(r"[A-Z0-9-]{4,12}"), re.compile(r"https?://\S+")

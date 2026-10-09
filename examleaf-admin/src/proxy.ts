@@ -4,8 +4,9 @@
 //    requests only arrive here in development and CI. With STAFF_API_MOCK=1 (next dev only) /api/v1/staff/ goes to
 //    the fixtures' route instead (src/app/api/mock/staff/).
 // 2. Every other path gets its trailing slash (trailingSlash: true; allauth's paths have none).
-// 3. Every page gets a fresh nonce and its Content-Security-Policy (src/lib/security/csp.ts), and the path it was
-//    asked for (x-pathname: a page's "sign in, then back here").
+// 3. Every page gets a fresh nonce and its Content-Security-Policy (src/lib/security/csp.ts), the path it was
+//    asked for (x-pathname: a page's "sign in, then back here"), and every request the moment it was taken
+//    (x-request-start): the start of its one deadline for Django (src/lib/api/server.ts).
 // 4. Every page is the person's own: private, no-store (nothing keeps it, not even the browser's back button).
 // 5. While Django's health check fails, pages answer 503 with a Retry-After and a self-contained page: an outage is
 //    never a sign-out, nor a 200.
@@ -50,6 +51,7 @@ const UNREACHABLE = statusPage({
 });
 
 export async function proxy(request: NextRequest) {
+  const start = Date.now();
   const { pathname, search } = request.nextUrl;
 
   // STAFF_API_MOCK=1 (next dev only: every build compiles it to ""): the staff API from the fixtures' route instead
@@ -83,6 +85,7 @@ export async function proxy(request: NextRequest) {
   const csp = buildCsp({ nonce, dev: process.env.NODE_ENV === "development", https: SITE_URL.startsWith("https://") });
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("x-request-start", String(start));
   requestHeaders.set("x-pathname", `${pathname}${search}`);
   requestHeaders.set("Content-Security-Policy", csp);
   const response = NextResponse.next({ request: { headers: requestHeaders } });

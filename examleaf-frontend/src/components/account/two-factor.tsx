@@ -218,11 +218,14 @@ export function AuthenticatorApp({ active }: { active: boolean }) {
         noValidate
         onSubmit={async (event) => {
           event.preventDefault();
-          const ok = await run(() => account.activateTotp(code));
+          let made: string[] = [];
+          const ok = await run(async () => {
+            await account.activateTotp(code);
+            // the first second step makes the recovery codes: shown now, as the board (Turn on busy until then)
+            made = (await account.recoveryCodes().catch(() => null))?.unused_codes ?? [];
+          });
           if (!ok) return;
-          // the first second step makes the recovery codes: shown now, as the board
-          const made = await account.recoveryCodes().catch(() => null);
-          if (made?.unused_codes?.length) setCodes(made.unused_codes);
+          if (made.length) setCodes(made);
           else toast.success("The authenticator app is on. Keep your recovery codes somewhere safe.");
           router.refresh(); // the page behind the board (its recovery codes' count) reads it as on
         }}

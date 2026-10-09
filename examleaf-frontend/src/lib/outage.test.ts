@@ -1,6 +1,8 @@
 // @vitest-environment node
 // An outage is not a log-out, and never a 200 (security review S5): the session's three answers, the thrown
-// "cannot be reached" error, and the proxy's 503 for the visitor's own pages while Django's health check fails.
+// "cannot be reached" error, and the proxy's 503 for the visitor's own pages while Django's health check fails. Nor a
+// hang (RESILIENCE.md): a Django that never answers costs a page the request's deadline, and a failed or hung health
+// check never wedges the proxy's 5-second cache.
 import { redirect } from "next/navigation";
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -13,10 +15,17 @@ vi.mock("next/headers", () => ({
   headers: async () => new Headers(),
   cookies: async () => ({ toString: () => "sessionid=s1", has: (name: string) => name === "sessionid" }),
 }));
+// Next's data cache, empty: every public answer is asked for
+vi.mock("next/cache", () => ({ unstable_cache: (ask: () => Promise<unknown>) => ask }));
 
-const answers: (Response | Error)[] = [];
-const django = vi.fn(async () => {
+// "hang": Django takes the call and never answers, until the call's signal gives up
+const answers: (Response | Error | "hang")[] = [];
+const django = vi.fn(async (_url: string, init?: RequestInit) => {
   const next = answers.shift() ?? new Response("{}");
+  if (next === "hang")
+    return new Promise<Response>((_, reject) =>
+      init?.signal?.addEventListener("abort", () => reject(init.signal?.reason)),
+    );
   if (next instanceof Error) throw next;
   return next;
 });
@@ -26,7 +35,12 @@ beforeEach(() => {
   vi.resetModules();
   vi.stubGlobal("fetch", django);
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+  vi.restoreAllMocks();
+  vi.useRealTimers();
+});
 
 const user = { display: "Rahul", has_usable_password: false };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
@@ -53,6 +67,18 @@ describe("the session during an outage", () => {
   it("a whole page that cannot be shown is a thrown server error, not a 200 page", () => {
     expect(() => Unavailable({ what: "The shop" })).toThrow(expect.objectContaining({ digest: UNAVAILABLE_DIGEST }));
   });
+
+  it("a page whose calls Django never answers renders the unavailable state at the request's deadline", async () => {
+    vi.stubEnv("API_INTERNAL_TIMEOUT_MS", "40");
+    answers.push("hang", "hang", "hang");
+    const { default: HomePage } = await import("@/app/(public)/page");
+    const site = await import("@/components/site/unavailable"); // the page's own copy (modules were reset)
+    const started = Date.now();
+    const page = (await HomePage()) as React.ReactElement<{ what: string }>;
+    expect(Date.now() - started).toBeLessThan(2000);
+    expect(page.type).toBe(site.Unavailable); // which throws: error.tsx's "can't be reached" in a 500
+    expect(() => site.Unavailable(page.props)).toThrow(expect.objectContaining({ digest: UNAVAILABLE_DIGEST }));
+  });
 });
 
 describe("the proxy during an outage", () => {
@@ -71,12 +97,41 @@ describe("the proxy during an outage", () => {
     expect(shop.headers.get("x-middleware-next")).toBe("1");
   });
 
+  it("never wedges: a failed check and a hung one (given up after 2 s) are each asked again 5 s later", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const probe = new AbortController(); // the probe's AbortSignal.timeout(2000), fired by hand
+    const timeout = vi.spyOn(AbortSignal, "timeout").mockReturnValue(probe.signal);
+    const { proxy } = await import("../proxy");
+    const account = () => proxy(new NextRequest("http://localhost:3005/account/"));
+
+    answers.push(new TypeError("fetch failed"));
+    expect((await account()).status).toBe(503); // the rejected check
+
+    vi.setSystemTime(Date.now() + 5001);
+    answers.push("hang");
+    const hanging = account();
+    await vi.waitFor(() => expect(django).toHaveBeenCalledTimes(2)); // asked again: `checking` was cleared
+    expect(timeout).toHaveBeenLastCalledWith(2000);
+    probe.abort(new DOMException("The operation timed out.", "TimeoutError"));
+    expect((await hanging).status).toBe(503); // the hung check, given up
+
+    vi.setSystemTime(Date.now() + 5001);
+    answers.push(json({ status: "ok" }));
+    expect((await account()).headers.get("x-middleware-next")).toBe("1"); // Django is back: the page renders
+    expect(django).toHaveBeenCalledTimes(3);
+  });
+
   it("lets the visitor's own pages render while Django answers", async () => {
     answers.push(json({ status: "ok" }));
     const { proxy } = await import("../proxy");
-    const account = await proxy(new NextRequest("http://localhost:3005/account/"));
+    const before = Date.now();
+    const account = await proxy(
+      // a visitor's own x-request-start is replaced by the moment the proxy took the request (the deadline's start)
+      new NextRequest("http://localhost:3005/account/", { headers: { "x-request-start": "0" } }),
+    );
     expect(account.headers.get("x-middleware-next")).toBe("1");
     expect(account.headers.get("Content-Security-Policy")).toContain("'strict-dynamic'");
+    expect(Number(account.headers.get("x-middleware-request-x-request-start"))).toBeGreaterThanOrEqual(before);
     // asked as the site, as every server-side call is: with DEBUG=0 Django refuses its internal host (web:8000)
     const { FORWARDED_HEADERS } = await import("./site");
     expect(django).toHaveBeenCalledWith(

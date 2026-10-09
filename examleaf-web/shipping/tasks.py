@@ -7,6 +7,7 @@ import logging
 from celery import shared_task
 from django.utils import timezone
 
+from examleaf.celery import LONG_TASK, single_run
 from integrations.models import InboundEvent, IntegrationAccount
 from integrations.tasks import InboundEventTask, IntegrationTask
 from shop.models import Shipment
@@ -51,7 +52,8 @@ def process_inbound_event(self, event_id):
     event.save(update_fields=["processed_at", "state", "error"])
 
 
-@shared_task
+@shared_task(**LONG_TASK)
+@single_run(LONG_TASK["time_limit"])
 def poll_tracking():
     """Every two hours: the tracking of the parcels silent for 6 hours (services.poll)."""
     return services.poll()
@@ -87,13 +89,15 @@ def renew_token(self):
     return renewed
 
 
-@shared_task
+@shared_task(**LONG_TASK)
+@single_run(LONG_TASK["time_limit"])
 def survey_pins():
     """Weekly: the North-East's PINs, a batch at a time (services.survey_pins)."""
     return {account.pk: services.survey_pins(account) for account in courier_accounts()}
 
 
 @shared_task
+@single_run(300)
 def send_held_messages():
     """At 08:00 (India time): the SMS held through the night, if still true."""
     return sum(messages.send_held(detail) for detail in ShipmentDetail.objects.exclude(sms_held=""))

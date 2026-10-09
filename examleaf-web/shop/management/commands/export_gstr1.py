@@ -60,7 +60,7 @@ class Command(BaseCommand):
         dated = {"created__date__range": (start, end)}  # in India's time (TIME_ZONE)
         b2c, hsn, notes = defaultdict(Counter), defaultdict(Counter), []
         documents = Invoice.objects.filter(**dated).exclude(financial_year__startswith="T").select_related("order")
-        for invoice in documents.order_by("financial_year", "serial"):
+        for invoice in documents.order_by("financial_year", "serial").iterator(chunk_size=500):
             data = invoices.context(invoice)
             where = place_of_supply(invoice)
             for line in data["lines"]:
@@ -71,7 +71,8 @@ class Command(BaseCommand):
                 )
             b2c[where, top_rate(data["lines"])].update({"invoices": 1, "shipping": invoice.order.shipping_fee.amount})
         credit_notes = CreditNote.objects.filter(**dated).exclude(financial_year__startswith="T")
-        for note in credit_notes.select_related("invoice__order", "refund").order_by("financial_year", "serial"):
+        notes_in_order = credit_notes.select_related("invoice__order", "refund").order_by("financial_year", "serial")
+        for note in notes_in_order.iterator(chunk_size=500):
             data = invoices.credit_note_context(note)
             top = top_rate(data["lines"])
             for rate in sorted({line["item"].gst_rate for line in data["lines"]}):

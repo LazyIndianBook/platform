@@ -24,14 +24,11 @@ pytestmark = pytest.mark.django_db
 
 
 def test_health_checks_database_cache_and_storage(client):
-    for name in ["health", "health_web"]:  # the same three while tasks run inline (no worker to ping)
+    ready = {"Database(alias='default')": "OK", "Migrations()": "OK"}
+    everything = {**ready, "Cache(alias='default')": "OK", "Storage(alias='default')": "OK"}  # no worker inline
+    for name, checks in [("health", everything), ("health_web", ready)]:
         response = client.get(reverse(name), HTTP_ACCEPT="application/json")
-        assert response.status_code == 200
-        assert response.json() == {
-            "Database(alias='default')": "OK",
-            "Cache(alias='default')": "OK",
-            "Storage(alias='default')": "OK",
-        }
+        assert response.status_code == 200 and response.json() == checks
         assert "no-cache" in response["Cache-Control"]
     with pytest.raises(SystemExit) as gate:  # the web container's readiness check before gunicorn starts
         call_command("health_check", "health_web", "--no-http", stdout=StringIO())
@@ -63,10 +60,13 @@ def test_the_site_keeps_working_while_redis_is_down(client, settings, monkeypatc
     reset = client.post(f"{auth}/password/request", {"email": user.email}, "application/json")
     assert reset.status_code == 200
     assert client.post(f"{auth}/signup", {"email": "x"}, "application/json").status_code == 400  # errors, not a 429
-    assert client.get(reverse("health_web"), HTTP_ACCEPT="application/json").status_code == 500  # the monitor knows
-    with pytest.raises(SystemExit) as gate:  # and a new web container waits for Redis
+    assert client.get(reverse("health"), HTTP_ACCEPT="application/json").status_code == 500  # the monitor knows
+    # but every pod stays ready (an outage of what they all share must not take them all out of traffic), and a new
+    # web container starts without its cache, as the site runs without it (RESILIENCE.md "Health and probes")
+    assert client.get(reverse("health_web"), HTTP_ACCEPT="application/json").status_code == 200
+    with pytest.raises(SystemExit) as gate:
         call_command("health_check", "health_web", "--no-http", stdout=StringIO())
-    assert gate.value.code == 1
+    assert gate.value.code == 0
     broker(f"redis://127.0.0.1:{closed_port}/0")  # a real queue, as in production: nobody there
     tasks.queue_email(EmailMessage("Your code", "ABCD-EFGH", to=["a@example.com"]))
     assert mail.outbox[-1].subject == "Your code"  # sent from the web process instead (after the reset email above)

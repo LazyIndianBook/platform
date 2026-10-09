@@ -1,4 +1,6 @@
 import ipaddress
+import logging
+import re
 import time
 from datetime import UTC, datetime
 
@@ -12,6 +14,46 @@ from django.utils.cache import add_never_cache_headers
 from django.utils.crypto import constant_time_compare
 
 from accounts.models import staff_session_limit
+
+requests_log = logging.getLogger("examleaf.requests")
+ROUTE_PARTS = re.compile(r"\(\?P<(\w+)>[^)]*\)|[\^$]")  # a regex route's groups, as <name>; its anchors dropped
+
+
+class RequestLogMiddleware:
+    """One log line per request, the site's access log (gunicorn writes none): the method, the URL pattern that
+    answered (not the address itself, which can hold an order link's or a consent link's secret; an address that
+    matched none is logged as it is), the status, the milliseconds and the account's id, never its email or name; the
+    request id comes with every line (django-guid). A warning when slower than SLOW_REQUEST_SECONDS. The probes'
+    successful calls are left out. Just inside django-guid's middleware (settings.py, the resilience block)."""
+
+    QUIET = ("/health/live/", "/health/web/")
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        started = time.monotonic()
+        response = self.get_response(request)
+        seconds = time.monotonic() - started
+        if response.status_code == 200 and request.path in self.QUIET:
+            return response
+        match, user = request.resolver_match, getattr(request, "user", None)
+        try:
+            user_id = user.pk if user is not None and user.is_authenticated else None
+        except Exception:  # the session could not be read (the database down): the answer goes on all the same
+            user_id = None
+        route = "/" + ROUTE_PARTS.sub(lambda part: f"<{part[1]}>" if part[1] else "", match.route) if match else ""
+        fields = {
+            "method": request.method,
+            "route": route or request.path[:200],
+            "status": response.status_code,
+            "duration_ms": round(seconds * 1000),
+            "user_id": user_id,
+        }
+        level = logging.WARNING if seconds >= settings.SLOW_REQUEST_SECONDS else logging.INFO
+        message = "%(method)s %(route)s %(status)s in %(duration_ms)s ms"
+        requests_log.log(level, message + (" (slow)" if level == logging.WARNING else ""), fields, extra=fields)
+        return response
 
 
 class FrontendClientMiddleware:

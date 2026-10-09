@@ -1,5 +1,7 @@
 # ExamLeaf platform
 
+**Resuming the work:** `docs/HANDOVER.md` says where everything stands, what was in flight, how to verify each component and what to do next.
+
 The website, API and revision course of ExamLeaf LLP (published by Bhaben Bhuyan): free worked solutions behind the QR code printed on every sample paper, student accounts, the book shop with Razorpay and cash on delivery, GST invoices, the app-based revision course, the staff admin, and the REST API for the mobile app. The books themselves (questions, solutions, printed PDFs) live in the companion repository `LazyIndianBook/Class-12-Assam`; the website imports their papers.
 
 | Path | What it holds |

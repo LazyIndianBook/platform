@@ -193,6 +193,7 @@ def test_shipping_and_the_insights_go_to_the_roles_that_do_them():
     grants = {  # plan 5.7 and 5.16
         roles.PACKER: {"staff.view_parcels", "staff.book_parcel"},
         roles.SALES: {"staff.view_parcels", "staff.act_on_exception", "staff.view_cod"},
+        roles.SUPPORT: {"staff.view_parcels"},  # "where is my parcel?"
         roles.FINANCE: {"staff.view_cod", "staff.reconcile_cod", "staff.view_insights"},
         roles.MARKETING: {"staff.view_insights"},
         roles.AUDITOR: {"staff.view_parcels", "staff.view_cod", "staff.view_insights"},  # the views

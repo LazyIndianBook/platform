@@ -1,12 +1,14 @@
 from celery import shared_task
 from django.utils import timezone
 
+from examleaf.celery import single_run
 from ops.tasks import queue_text_email
 
 from .models import DeletionRequest
 
 
 @shared_task
+@single_run(300)
 def purge_due_deletions():
     """Daily (celery beat): carry out the account deletions whose waiting period is over."""
     due = list(

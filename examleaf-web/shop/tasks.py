@@ -11,6 +11,7 @@ from django.utils import timezone
 from PIL import Image
 from razorpay.errors import BadRequestError, GatewayError, ServerError
 
+from examleaf.celery import LONG_TASK, PDF_TASK, single_run
 from examleaf.images import og_image
 from ops.tasks import queue_text_email
 
@@ -22,6 +23,7 @@ from .models import (
     Order,
     Payment,
     Product,
+    QuoteRequest,
     Refund,
     StockAlert,
     WebhookEvent,
@@ -38,13 +40,15 @@ from .models import (
 )
 def refund_payment(refund_id):
     """Ask Razorpay to refund a payment in full. Razorpay unreachable or failing: retried for about four hours.
-    Refused (a bad request): the refund is marked failed for staff (admin, Refunds). The row stays locked during the
-    call, so a task queued twice cannot refund twice. Each try first asks Razorpay for the payment's refunds and adopts
-    the one that carries this refund's id in its notes: a refund made by a try whose answer was lost (a timeout) is
-    never sent again."""
+    Refused (a bad request): the refund is marked failed for staff (admin, Refunds). The refund's row stays locked
+    during the call, so a task queued twice cannot refund twice; a second one finds it locked and leaves it to the
+    first at once (skip_locked), rather than wait for its Razorpay calls. Each try first asks Razorpay for the
+    payment's refunds and adopts the one that carries this refund's id in its notes: a refund made by a try whose
+    answer was lost (a timeout) is never sent again."""
     with transaction.atomic():
-        refund = Refund.objects.select_for_update().select_related("payment", "order").get(pk=refund_id)
-        if refund.status != Refund.Status.PENDING or refund.razorpay_refund_id:
+        mine = Refund.objects.select_for_update(skip_locked=True, of=("self",)).select_related("payment", "order")
+        refund = mine.filter(pk=refund_id).first()  # None: another worker has it (or it is gone)
+        if refund is None or refund.status != Refund.Status.PENDING or refund.razorpay_refund_id:
             return
         client, payment_id, ours = payments.client(), refund.payment.razorpay_payment_id, str(refund.pk)
         made = client.payment.fetch_multiple_refund(payment_id, timeout=payments.TIMEOUT).get("items", [])
@@ -70,7 +74,7 @@ def refund_payment(refund_id):
         services.refund_processed(refund_id)
 
 
-@shared_task(autoretry_for=(Exception,), retry_backoff=60, max_retries=6)
+@shared_task(autoretry_for=(Exception,), retry_backoff=60, max_retries=6, **PDF_TASK)
 def generate_invoice(order_id):
     """The order's invoice: numbered on the first try, the PDF made with WeasyPrint. A failure is retried; the order
     page shows the invoice link once the file exists."""
@@ -84,7 +88,7 @@ def generate_invoice(order_id):
         generate_credit_note.delay(pk)
 
 
-@shared_task(autoretry_for=(Exception,), retry_backoff=60, max_retries=6)
+@shared_task(autoretry_for=(Exception,), retry_backoff=60, max_retries=6, **PDF_TASK)
 def generate_credit_note(refund_id):
     """The credit note of a processed refund of an invoiced order (none before the invoice exists: generate_invoice
     comes back here once it does). Numbered on the first try, the PDF made with WeasyPrint; a failure is retried."""
@@ -98,7 +102,15 @@ def generate_credit_note(refund_id):
         note.pdf.save(f"{note.number.replace('/', '-')}.pdf", ContentFile(invoices.render_pdf(note)))
 
 
-@shared_task
+@shared_task(autoretry_for=(Exception,), retry_backoff=60, max_retries=3, **PDF_TASK)
+def make_quotation(quote_id):
+    """The quotation PDF staff asked for in the admin (services.make_quotation), made here rather than in their
+    request: WeasyPrint's work, and the upload to the private storage, belong to a worker."""
+    services.make_quotation(QuoteRequest.objects.get(pk=quote_id))
+
+
+@shared_task(**LONG_TASK)
+@single_run(LONG_TASK["time_limit"])
 def clean_up():
     """Daily (celery beat): cancel orders left unpaid (after asking Razorpay if they were paid after all); queue again
     the refunds, invoices and credit notes whose task was lost (broker down when queued, retries used up); delete guest
@@ -150,20 +162,21 @@ def make_og_image(product_id):
 
 
 @shared_task
+@single_run(300)
 def send_stock_alerts():
     """Hourly (celery beat): each address waiting for a product that has copies again gets one email, and its alert
-    is deleted."""
+    is deleted, before the email goes: a run that overlaps this one (or this one run again) finds it gone."""
     for product in Product.objects.filter(is_active=True, stock_alerts__isnull=False).distinct():
         if product.available < 1:
             continue
-        alerts = list(product.stock_alerts.all())
         body = render_to_string("shop/email/back_in_stock.txt", {"product": product, "site_url": settings.SITE_URL})
-        for alert in alerts:
-            queue_text_email(alert.email, f"{product} is back in stock", body)
-        StockAlert.objects.filter(pk__in=[alert.pk for alert in alerts]).delete()
+        for alert in product.stock_alerts.all():
+            if StockAlert.objects.filter(pk=alert.pk).delete()[0]:  # taken by this run
+                queue_text_email(alert.email, f"{product} is back in stock", body)
 
 
 @shared_task
+@single_run(300)
 def low_stock_report():
     """Daily (celery beat): the SALES role is emailed the books on sale with fewer than SHOP_LOW_STOCK copies (bundles
     have none of their own)."""

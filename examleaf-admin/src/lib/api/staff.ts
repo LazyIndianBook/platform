@@ -1,8 +1,8 @@
 // The staff API (/api/v1/staff/, examleaf-web's staff app): every call the console makes for staff data, typed from
 // the backend's own OpenAPI schema (openapi.json, `npm run api:types` → schema.d.ts) through openapi-fetch. A path, a
 // query parameter, a body or a field the backend renames is a type error here and in every page that reads it: the
-// types are the contract, never written by hand (but the few endpoints the backend has not published yet, `Pending`
-// below, until the schema has them).
+// types are the contract, never written by hand (but the manifest's `policies_due`, which the schema types as a map).
+// No call waits without a limit: the browser's 30 s (client.ts), the server's request deadline (server.ts).
 //
 // One function, two places. In a server component pass the server's transport (`await staffTransport()`, server.ts):
 // Django over the internal network with the person's cookies. In the browser leave it out: same origin, the CSRF token,
@@ -18,8 +18,8 @@ import createClient from "openapi-fetch";
 import type { Flow } from "@/lib/auth/headless";
 import { copy } from "@/lib/copy";
 
-import { endedBy, ensureCsrfCookie, manifestStale, reauth, readCookie, sessionEnded } from "./client";
-import { ApiError, toApiError } from "./errors";
+import { endedBy, ensureCsrfCookie, manifestStale, reauth, readCookie, sessionEnded, withTimeout } from "./client";
+import { ApiError, noAnswer, toApiError } from "./errors";
 import type { components, paths } from "./schema";
 
 export type Schemas = components["schemas"];
@@ -62,14 +62,34 @@ async function browserFetch(request: Request): Promise<Response> {
   return fetch(request, { cache: "no-store" });
 }
 
+/** The answer read whole, under the call's own limit (the browser's 30 s, client.ts; the server's request deadline,
+ *  server.ts): a call, or a body the limit cut off, that ends without an answer is status 0 (noAnswer: a change the
+ *  browser stopped waiting for may have gone through), and the page's own cancel stays an AbortError. */
+const answered =
+  (send: (request: Request) => Promise<Response>) =>
+  async (request: Request): Promise<Response> => {
+    try {
+      const response = await send(request);
+      const body = response.status === 204 ? null : await response.arrayBuffer();
+      return new Response(body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+      });
+    } catch (error) {
+      throw error instanceof DOMException && error.name === "AbortError" ? error : noAnswer(request.method, error);
+    }
+  };
+
 function init(transport: Transport | undefined, signal?: AbortSignal): Init {
   const headers = { Accept: "application/json", ...transport?.headers };
-  if (transport) return { baseUrl: transport.base, headers, fetch: transport.fetch ?? fetch, signal };
+  if (transport) return { baseUrl: transport.base, headers, fetch: answered(transport.fetch ?? fetch), signal };
   return {
     baseUrl: typeof window === "undefined" ? "" : window.location.origin,
     headers,
-    fetch: browserFetch,
-    signal,
+    fetch: answered(browserFetch),
+    // the browser gives up after 30 s; the server's transport keeps its request's deadline itself
+    signal: withTimeout(signal),
   };
 }
 
@@ -97,7 +117,7 @@ async function send<A extends Answer>(
   try {
     answer = await ask(init(transport, signal));
   } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") throw error;
+    if (error instanceof ApiError || (error instanceof DOMException && error.name === "AbortError")) throw error;
     throw new ApiError(0, "unavailable", copy.errors.unavailable);
   }
   const { response } = answer;
@@ -112,8 +132,9 @@ async function send<A extends Answer>(
       if (error.status === 401) sessionEnded(endedBy(error.code));
       if (error.code === "reauth_required" && !retried && (await reauth.request(flowsOf(body))))
         return send(transport, ask, signal, true);
-      // a refusal by permission, or a break-glass session that owes its reason: the manifest, read again, says which
-      if (error.code === "permission_denied" || error.code === "break_glass_reason_required") manifestStale();
+      // a refusal by permission or scope, or a break-glass session that owes its reason: the manifest, read again,
+      // says which
+      if (["permission_denied", "scope_denied", "break_glass_reason_required"].includes(error.code)) manifestStale();
     }
     throw error;
   }
@@ -362,8 +383,10 @@ export type AccessRow = Schemas["AccessRow"];
 export type Role = Schemas["RoleEnum"];
 export type ScopeKind = Schemas["ScopeKindEnum"];
 
-export const listPeople = (filters: Filters<"/api/v1/staff/people/">, transport?: Transport) =>
-  send(transport, (o) => api.GET("/api/v1/staff/people/", { ...o, params: { query: query(filters) } })).then(paged);
+export const listPeople = (filters: Filters<"/api/v1/staff/people/">, transport?: Transport, signal?: AbortSignal) =>
+  send(transport, (o) => api.GET("/api/v1/staff/people/", { ...o, params: { query: query(filters) } }), signal).then(
+    paged,
+  );
 export const getPerson = (id: number, transport?: Transport) =>
   send(transport, (o) => api.GET("/api/v1/staff/people/{id}/", { ...o, params: { path: { id } } }));
 export const listInvites = (transport?: Transport) =>
@@ -423,8 +446,10 @@ export type Customer = Schemas["Customer"];
 export type CustomerDetail = Schemas["CustomerDetail"];
 export type Revealable = Schemas["ShowEnum"];
 
-export const listUsers = (filters: Filters<"/api/v1/staff/users/">, transport?: Transport) =>
-  send(transport, (o) => api.GET("/api/v1/staff/users/", { ...o, params: { query: query(filters) } })).then(paged);
+export const listUsers = (filters: Filters<"/api/v1/staff/users/">, transport?: Transport, signal?: AbortSignal) =>
+  send(transport, (o) => api.GET("/api/v1/staff/users/", { ...o, params: { query: query(filters) } }), signal).then(
+    paged,
+  );
 /** The full record; the server records the read (a child's as such). */
 export const getUser = (id: number, transport?: Transport) =>
   send(transport, (o) => api.GET("/api/v1/staff/users/{id}/", { ...o, params: { path: { id } } }));

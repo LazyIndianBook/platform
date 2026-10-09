@@ -5,7 +5,9 @@
 // the rows that failed are listed with the API's reason, a job waiting for an approval says which change request, and
 // its starter may cancel it while it waits or runs (POST jobs/{id}/cancel/). Its file is fetched through a fresh link
 // each time (the job read again: its result_url's token lasts 5 minutes). Screen readers hear the start and the end
-// (a polite region), not each tick.
+// (a polite region), not each tick. No answer, a server error or too many asks: said (a 429 with when), and asked
+// again 10 s later or after the wait given, as the job runs on regardless; any other refusal ends the asking, and
+// onDone hears null.
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
@@ -13,9 +15,11 @@ import { useAction } from "@/components/forms/use-action";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, errorText } from "@/lib/api/errors";
 import { cancelJob, FINAL_JOB_STATES, getJob, type Job, jobFileHref } from "@/lib/api/staff";
 import { copy } from "@/lib/copy";
+
+const AGAIN_S = 10;
 
 /** Its file: a fresh link from the job, opened on this origin (the browser downloads it). */
 export function DownloadJobFile({ job }: { job: Pick<Job, "id"> }) {
@@ -38,7 +42,7 @@ export function DownloadJobFile({ job }: { job: Pick<Job, "id"> }) {
         {copy.jobs.download}
       </Button>
       {gone ? <span className="text-sm text-muted-foreground">{copy.jobs.gone}</span> : null}
-      {error ? <span className="text-sm font-semibold text-destructive">{error.message}</span> : null}
+      {error ? <span className="text-sm font-semibold text-destructive">{errorText(error)}</span> : null}
     </span>
   );
 }
@@ -53,7 +57,7 @@ export function jobWords(job: Job): string {
   return copy.jobs.progress(job.done, job.total);
 }
 
-export function JobProgress({ job: first, onDone }: { job: Job; onDone?: (job: Job) => void }) {
+export function JobProgress({ job: first, onDone }: { job: Job; onDone?: (job: Job | null) => void }) {
   const [job, setJob] = useState<Job>(first);
   const [problem, setProblem] = useState<string | null>(null);
   const cancelling = useAction();
@@ -72,13 +76,18 @@ export function JobProgress({ job: first, onDone }: { job: Job; onDone?: (job: J
         try {
           const answer = await getJob(id, controller.signal);
           setJob(answer);
+          setProblem(null);
           if (FINAL_JOB_STATES.has(answer.state)) {
             finished.current?.(answer);
             return;
           }
         } catch (error) {
           if (controller.signal.aborted) return;
-          setProblem(error instanceof ApiError ? error.message : copy.errors.unavailable);
+          const problem = error instanceof ApiError ? error : new ApiError(0, "unavailable", copy.errors.unavailable);
+          setProblem(errorText(problem));
+          if (problem.unavailable || problem.status === 429)
+            timer = setTimeout(ask, Math.max(problem.retryAfter ?? 0, AGAIN_S) * 1000);
+          else finished.current?.(null); // refused for good (the job is gone, or not this person's)
           return;
         }
       }
@@ -139,7 +148,7 @@ export function JobProgress({ job: first, onDone }: { job: Job; onDone?: (job: J
           </Button>
         ) : null}
         {cancelling.error ? (
-          <span className="text-sm font-semibold text-destructive">{cancelling.error.message}</span>
+          <span className="text-sm font-semibold text-destructive">{errorText(cancelling.error)}</span>
         ) : null}
       </div>
     </div>

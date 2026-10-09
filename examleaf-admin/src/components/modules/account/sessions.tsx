@@ -111,7 +111,8 @@ export function Sessions({ sessions }: { sessions: Session[] }) {
             busy={leaving}
             onClick={() => {
               setLeaving(true);
-              signOutEverywhere();
+              // the sign-in page loads once it worked; the others still signed in: said above, the button back
+              void run(signOutEverywhere).then((left) => left || setLeaving(false));
             }}
           >
             {copy.account.signOutEverywhere}

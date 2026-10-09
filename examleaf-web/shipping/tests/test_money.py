@@ -170,8 +170,8 @@ def test_finance_reconciles_a_remittance_with_the_banks_credit(delivered):
     url = f"/api/v1/shipping/cod/{remittance.pk}/reconcile/"
     assert signed_in(make_staff(roles.SALES)).post(url, {"utr": "UTR1", "amount": "598.00"}).status_code == 403
     finance = make_staff(roles.FINANCE)
-    stale = signed_in(finance, reauth=False).post(url, {"utr": "UTR1", "amount": "598.00"})
-    assert stale.json()["code"] == "reauthentication_required"  # money: a re-authentication first
+    stale = signed_in(finance, reauth=False).post(url, {})  # matching a remittance moves no money: medium risk,
+    assert stale.status_code == 400  # so no re-authentication is demanded; only the empty body is refused
     short = signed_in(finance).post(url, {"utr": "UTR7", "amount": "498.00", "on": "2026-10-23"})
     assert short.status_code == 200 and short.json()["state"] == "mismatch"
     assert ShippingException.objects.get(kind="cod_overdue", state="open").data["remitted"] == "498.00"

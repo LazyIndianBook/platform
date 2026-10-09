@@ -198,7 +198,8 @@ docker-compose stack):
 Django's and the libraries' own commands that the documents rely on: `migrate`, `createsuperuser`,
 `check` (`--deploy`), `makemigrations --check --dry-run`, `sendtestemail`, `collectstatic` (at image build),
 `shell`, `clearsessions` and `axes_reset` (what the daily tasks call), `axes_reset_username <email>` (lift a lock-out),
-`health_check health_web --no-http` (django-health-check: the web container's readiness check),
+`health_check health_web --no-http` (django-health-check: the web container's readiness check, the database and the
+migrations),
 `flushexpiredtokens` (simplejwt), and `spectacular --validate --fail-on-warn --file schema.yml` (checks the OpenAPI
 schema).
 
@@ -816,11 +817,13 @@ What the test modules cover:
 ## Production
 
 See [DEPLOYMENT.md](DEPLOYMENT.md). Settings come from the environment (`.env.example` documents each one but
-`GUNICORN_CMD_ARGS`; DEPLOYMENT.md section 13 lists them all).
+`GUNICORN_CMD_ARGS`; DEPLOYMENT.md section 13 lists them all). [RESILIENCE.md](RESILIENCE.md) is what keeps a slow or
+failed dependency from hanging a request or a worker: every timeout and limit, the load test, the operators' knobs.
 
 - **The stack.** docker-compose.yml runs PostgreSQL 17, two Redis 7 (`redis`, the Celery queue, which never evicts;
-  `redis-cache`, the cache, 256 MB with the least used keys evicted), the site (gunicorn with 8 threads per worker and a
-  60 second timeout, WhiteNoise for static files, non-root), the Celery worker, a second worker for the clips
+  `redis-cache`, the cache, 256 MB with the least used keys evicted), the site (gunicorn from `gunicorn.conf.py`:
+  `WEB_CONCURRENCY` processes of 8 threads, WhiteNoise for static files, non-root), the Celery worker, a second worker
+  for the clips
   (`media-worker`: queue `media`, one video at a time; it gets only the database, the queue, the buckets and
   `SECRET_KEY` from `.env`, has no Razorpay, SMS, email, Google, Sentry or Firebase secret, and drops all Linux
   capabilities), beat, the website (`frontend`, the Next.js server of `../examleaf-frontend/`), and Caddy (https with
@@ -836,13 +839,17 @@ See [DEPLOYMENT.md](DEPLOYMENT.md). Settings come from the environment (`.env.ex
   address only on the staff player and the clip admin pages (the video, the direct upload); in development it is
   report-only. django-axes keeps only failed log-ins (address and browser, for the 15-minute lock-out), and beat clears
   them daily.
-- **Health checks.** `/health/` checks the database, the cache, file storage and, when a broker is set, that a Celery
-  worker answers; it returns 500 if one fails (for an uptime monitor). `/health/web/` leaves Celery out: it is the web
-  container's own health check, which the worker waits for. Caddy answers both with 404 unless the request carries the
-  `X-Health-Token` header with `HEALTH_CHECK_TOKEN` (the uptime monitor), and each process keeps the results for 20
-  seconds.
+- **Health checks.** `/health/` checks the database, the migrations, the cache, file storage and, when a broker is set,
+  that a Celery worker answers for each queue; it returns 500 if one fails (for an uptime monitor). `/health/web/` is
+  readiness: the database answers and no migration is waiting (the cache and the buckets left out: the site runs
+  without them, and their outage must not take every pod out of traffic). `/health/live/` is liveness: the process
+  answers, neither the database nor Redis asked (docker-compose.yml's container check). Caddy answers them with 404
+  unless the request carries the `X-Health-Token` header with `HEALTH_CHECK_TOKEN` (the uptime monitor), and each
+  process keeps the first two's results for 20 seconds.
 - **Logs and errors.** JSON lines on stdout with `request_id` (from Caddy's `X-Request-ID`, also sent back in the
-  response). Errors go to Sentry when `SENTRY_DSN` is set (scrubbed: see "Personal data").
+  response): one per request (`examleaf.requests`: the URL pattern, status, milliseconds, the account's id; a warning
+  past 2 s), `task_id` inside Celery tasks, gunicorn's own lines; RUNBOOK.md "Reading the logs". Errors go to Sentry
+  when `SENTRY_DSN` is set (scrubbed: see "Personal data").
 - **Files.** Uploaded files (invoices, credit notes, quotations, answer-sheet photos, the clips' videos) go to `media/`,
   never served publicly, or to the private bucket with `MEDIA_BUCKET`; an upload view must check the file's size when it
   is built.
@@ -850,10 +857,15 @@ See [DEPLOYMENT.md](DEPLOYMENT.md). Settings come from the environment (`.env.ex
 Running without surprises:
 
 - **Readiness**: the image build collects the static files (hashed, compressed); the web container migrates, brings the
-  roles up to date and runs django-health-check's `manage.py health_check health_web --no-http` (database, cache, a
-  write to the media volume) before gunicorn starts; if it fails the container stops and Docker restarts it.
+  roles up to date and runs django-health-check's `manage.py health_check health_web --no-http` (the database, no
+  migration waiting) before gunicorn starts; if it fails the container stops and Docker restarts it.
+- **Timeouts**: every call to another service has a connect and a read timeout and a bounded retry (Razorpay 3 s and
+  10 s, MSG91 the same, the buckets and SES through boto3 3 s and 20 s with three tries, Firebase 20 s, the integrations
+  client 5 s and 20 s), PostgreSQL 5 s to connect and a statement 15 s in the web, 600 s in Celery; Razorpay and MSG91
+  share at most half of a web process's threads (a bulkhead). RESILIENCE.md has them all.
 - **Redis down**: the cache fails soft (django-redis with one-second timeouts and `IGNORE_EXCEPTIONS`: every call counts
-  as a miss and is logged), so pages keep working while rate limits and throttles let requests through (sessions and
+  as a miss, and after a call that failed a process asks Redis nothing for five seconds), so pages keep working while
+  rate limits and throttles let requests through (sessions and
   axes are in the database); log-in, sign-up and password reset keep working too (allauth takes `cache.add` answering
   nothing for a lock held by somebody else, and would answer 429 to all of them, so `examleaf.cache.SoftRedisCache` says
   "stored" instead); emails and SMS are sent from the web process when the broker cannot be reached (at once when it
@@ -868,7 +880,10 @@ Running without surprises:
   (`DATA_UPLOAD_MAX_MEMORY_SIZE`; the API answers 413 in its JSON format) and more than 10 files in one request.
 - **Database connections** persist between requests (`CONN_MAX_AGE`, default 60 s, health-checked before reuse) rather
   than in a pool: each gunicorn thread serves one request at a time (3 workers × 8 threads), so a pool would hold as
-  many connections.
+  many connections. PostgreSQL's `max_connections` must hold every thread and Celery process (RESILIENCE.md).
+- **Celery** acknowledges a task once it has run (a worker that dies with it leaves it to another), takes one at a time
+  per process, replaces a process after 200 tasks or 300 MB, gives each kind of task its time limits, and the periodic
+  jobs that send take a lock for their run (RESILIENCE.md "Celery, task by task").
 - **Transactions** are explicit, with row locks (`shop/services.py`): checkout (the order and the address saved with
   it), payment, refunds, each webhook together with its record; `ATOMIC_REQUESTS` stays off.
 - **Static files** are collected into the image at build time (hashed and compressed, WhiteNoise); the CI's

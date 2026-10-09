@@ -3,7 +3,9 @@
 // the link style. Press moves 1 px; focus ring 2 + 2 px (globals.css). Busy keeps the button's colour, draws a 14 px
 // ring before the label, sets aria-busy and aria-disabled (not disabled, so focus is not thrown to the top of the
 // page: accessibility review F1) and swallows presses, so a form can't be sent twice. Disabled (or aria-disabled while
-// not busy) is the board's flat grey of each variant: the `live` and `off` variants of globals.css. API unchanged.
+// not busy) is the board's flat grey of each variant: the `live` and `off` variants of globals.css. Only a
+// type="submit" button sends its form: the type is "button" unless said (HTML's default, submit, made every Cancel in a
+// dialog's form send it).
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "cn";
 import { Slot } from "radix-ui";
@@ -80,6 +82,7 @@ function Button({
   busy = false,
   disabled,
   onClick,
+  type = "button",
   ...props
 }: ButtonProps) {
   const Comp = asChild ? Slot.Root : "button";
@@ -90,6 +93,7 @@ function Button({
       aria-busy={busy || undefined}
       aria-disabled={(busy && !disabled) || undefined}
       disabled={asChild ? undefined : disabled}
+      type={asChild ? undefined : type}
       onClick={busy ? (event: React.MouseEvent<HTMLButtonElement>) => event.preventDefault() : onClick}
       {...props}
     />

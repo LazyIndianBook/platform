@@ -95,6 +95,7 @@ def test_an_old_token_or_one_from_a_panel_session_that_ended_opens_nothing(custo
 def test_while_it_lasts_money_passwords_and_the_account_are_refused_and_each_request_is_audited(customer, support):
     _, browser = opened(customer, support)
     for url in ["/api/v1/orders/", "/api/v1/auth/password/change/", "/api/v1/me/deletion/", "/api/v1/addresses/",
+                "/api/v1/products/physics/reviews/",  # a review in the customer's name would be a forged public word
                 "/_allauth/browser/v1/account/password/change", "/_allauth/browser/v1/account/email",
                 "/_allauth/browser/v1/account/authenticators/totp"]:  # fmt: skip
         response = browser.post(url, {}, format="json")
@@ -102,7 +103,7 @@ def test_while_it_lasts_money_passwords_and_the_account_are_refused_and_each_req
     assert browser.get("/api/v1/me/").status_code == 200  # reading is the point
     assert browser.get("/api/v1/orders/").status_code == 200
     requests = events("impersonation.request")
-    assert requests.count() == 9 and requests.filter(outcome="denied").count() == 7
+    assert requests.count() == 10 and requests.filter(outcome="denied").count() == 8
     assert {(event.actor_id, event.on_behalf_of, event.target_id) for event in requests} == {
         (support.pk, customer.pk, str(customer.pk))}  # fmt: skip
     assert requests.last().details == {"method": "GET", "path": "/api/v1/orders/", "status": 200}

@@ -29,7 +29,7 @@ from treebeard.forms import movenodeform_factory
 
 from ops.admin import LoggedExportMixin
 
-from . import payments, services
+from . import payments, services, tasks
 from .cart import Line
 from .forms import AddressForm, OfflinePaymentForm, RefundForm, ShipForm, StaffOrderForm, StaffOrderLineForm
 from .models import (
@@ -969,8 +969,16 @@ class QuoteRequestAdmin(admin.ModelAdmin):
 
     @admin.action(description="Make the quotation PDF (today's prices, valid 15 days)", permissions=["change"])
     def make_quotation(self, request, queryset):
-        quotes = [services.make_quotation(quote) for quote in queryset]
-        self.message_user(request, f"Quotation made: {', '.join(q.number for q in quotes)}.", messages.SUCCESS)
+        """Each PDF is made by the worker (tasks.make_quotation), or here while the queue cannot be reached."""
+        numbers = []
+        for quote in queryset:
+            try:
+                tasks.make_quotation.delay(quote.pk)
+            except tasks.make_quotation.OperationalError:
+                services.make_quotation(quote)
+            numbers.append(quote.number)
+        made = f"Quotation being made: {', '.join(numbers)}. Its link appears here within a minute (reload the page)."
+        self.message_user(request, made, messages.SUCCESS)
 
 
 @admin.register(StockAlert)

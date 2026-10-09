@@ -124,6 +124,7 @@ ROLES = {
             ["view"],
         ),
         *crud("shop", ["orderdiscount", "ordernote", "review", "quoterequest", "stockalert"], ["view"]),
+        "staff.view_parcels",  # "where is my parcel?": the parcel's timeline and its exceptions (the plan, 5.7)
         *crud("learn", ["entitlement"]),  # a course opened by hand (a lost book code, a school's pupils)
         "learn.view_bookcode",
         # the panel: masked contacts revealed with a reason (logged), the account actions, data requests, refunds

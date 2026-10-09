@@ -1,11 +1,13 @@
 // A background job as the API answers it: waiting for an approval (its change request linked), running, done with its
 // file fetched through a fresh link (the job read again: result_url's token lasts 5 minutes), cancelled, and its
 // starter's Cancel.
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ApiError } from "@/lib/api/errors";
 import { cancelJob, getJob, type Job, jobFileHref } from "@/lib/api/staff";
+import { copy } from "@/lib/copy";
 
 import { JobProgress } from "./job-progress";
 
@@ -84,5 +86,45 @@ describe("JobProgress", () => {
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuetext", "Done: 1, 1 row failed");
     expect(screen.getByText("EL-NOPE")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Cancel the job" })).toBeNull();
+  });
+});
+
+// the job runs on whatever its progress hears: no answer, a server error and a 429 are said and asked again (10 s
+// later, or after the wait given); any other refusal stops the asking and tells onDone
+describe("JobProgress when the API does not answer", () => {
+  const later = async (ms: number) => act(async () => void (await vi.advanceTimersByTimeAsync(ms)));
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("asks again after no answer and after a 429's wait, then shows the job", async () => {
+    const done = job({ state: "done", done: 120 });
+    vi.mocked(getJob)
+      .mockRejectedValueOnce(new ApiError(503, "server", copy.errors.unavailable))
+      .mockRejectedValueOnce(new ApiError(429, "throttled", "Request was throttled.", {}, null, 30))
+      .mockResolvedValueOnce(done);
+    const onDone = vi.fn();
+    render(<JobProgress job={job({ state: "running", done: 3 })} onDone={onDone} />);
+    await later(1_000);
+    expect(screen.getByRole("alert")).toHaveTextContent(copy.errors.unavailable);
+
+    await later(10_000); // asked again: a 429 this time, with when
+    expect(getJob).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("alert")).toHaveTextContent(/You can try again after/);
+    await later(29_000);
+    expect(getJob).toHaveBeenCalledTimes(2); // the wait it was given, not sooner
+    await later(1_000);
+    expect(getJob).toHaveBeenCalledTimes(3);
+    expect(onDone).toHaveBeenCalledWith(done);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("stops for good on a refusal, and onDone hears null", async () => {
+    vi.mocked(getJob).mockRejectedValueOnce(new ApiError(404, "not_found", "We could not find that."));
+    const onDone = vi.fn();
+    render(<JobProgress job={job({ state: "running" })} onDone={onDone} />);
+    await later(1_000);
+    expect(onDone).toHaveBeenCalledWith(null);
+    await later(60_000);
+    expect(getJob).toHaveBeenCalledTimes(1);
   });
 });

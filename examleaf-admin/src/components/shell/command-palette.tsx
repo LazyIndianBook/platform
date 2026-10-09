@@ -11,6 +11,7 @@ import { useEffect, useId, useState } from "react";
 import { useManifest } from "@/components/shell/manifest";
 import { signOut } from "@/components/shell/sign-out";
 import { Dialog, DialogContent, DialogDescription, DialogHeader } from "@/components/ui/dialog";
+import { ApiError, errorText } from "@/lib/api/errors";
 import { listPeople, listUsers } from "@/lib/api/staff";
 import { copy } from "@/lib/copy";
 import { has, moduleHref, P, visibleModules } from "@/lib/modules";
@@ -61,8 +62,13 @@ export function CommandPalette({
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const [found, setFound] = useState<{ query: string; customers: PaletteItem[]; people: PaletteItem[] } | null>(null);
-  const [state, setState] = useState<"idle" | "searching" | "failed">("idle");
+  // what the search says while it runs or after it failed ("" otherwise), shown for a query of two letters or more only
+  const [said, setSaid] = useState("");
   const q = query.trim();
+  // the permissions themselves, not the manifest: a refusal reads the manifest again (a new object), which would search
+  // again, be refused again, and so on
+  const canUsers = has(manifest, P.usersView);
+  const canPeople = has(manifest, P.peopleView);
   // read when it opens (closed on the server and at hydration, so no storage is read there)
   const recent = open ? readRecent() : [];
 
@@ -70,15 +76,22 @@ export function CommandPalette({
     if (q.length < 2) return;
     const controller = new AbortController();
     const timer = setTimeout(async () => {
-      setState("searching");
+      setSaid(copy.palette.searching);
       // customers through the API's search; the staff (a short list, people/ has no search) filtered here
       const [customers, people] = await Promise.allSettled([
-        has(manifest, P.usersView) ? listUsers({ q }) : Promise.resolve(null),
-        has(manifest, P.peopleView) ? listPeople({ page_size: 200 }) : Promise.resolve(null),
+        canUsers ? listUsers({ q }, undefined, controller.signal) : Promise.resolve(null),
+        canPeople ? listPeople({ page_size: 200 }, undefined, controller.signal) : Promise.resolve(null),
       ]);
       if (controller.signal.aborted) return;
-      const failed = [customers, people].some((answer) => answer.status === "rejected");
-      setState(failed ? "failed" : "idle");
+      const refused = [customers, people].find((answer) => answer.status === "rejected")?.reason;
+      // too many searches: when to try again; anything else: the search could not reach the server
+      setSaid(
+        refused === undefined
+          ? ""
+          : refused instanceof ApiError && refused.status === 429
+            ? errorText(refused)
+            : copy.palette.failed,
+      );
       setFound({
         query: q,
         customers:
@@ -108,7 +121,7 @@ export function CommandPalette({
       controller.abort();
       clearTimeout(timer);
     };
-  }, [q, manifest]);
+  }, [q, canUsers, canPeople]);
 
   const pages = visibleModules(manifest, ERP_URL)
     .map((module) => ({
@@ -149,7 +162,7 @@ export function CommandPalette({
     setQuery("");
     setActive(0);
     setFound(null);
-    setState("idle");
+    setSaid("");
     onOpenChange(false);
   };
 
@@ -162,14 +175,7 @@ export function CommandPalette({
     else router.push(item.href);
   };
 
-  const status =
-    state === "searching"
-      ? copy.palette.searching
-      : state === "failed"
-        ? copy.palette.failed
-        : flat.length
-          ? ""
-          : copy.palette.nothing;
+  const status = (q.length >= 2 && said) || (flat.length ? "" : copy.palette.nothing);
 
   let index = -1;
   return (

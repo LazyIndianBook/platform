@@ -25,23 +25,30 @@ from accounts.forms import (
 )
 from content import views as content
 
-from .views import HealthView
+from .views import HealthView, live
 
-# /health/web/: what the web container needs (database, cache, file storage); docker-compose.yml's health check.
-# /health/: that plus the Celery workers when a broker is in use (with eager tasks there is no worker to ask); for an
-# uptime monitor. The container check leaves Celery out: the worker starts only once the web container is healthy.
-# From the internet Caddy answers 404 to both unless the X-Health-Token header matches (Caddyfile); results are kept
-# for 20 seconds (examleaf.views.HealthView).
-WEB_CHECKS = ["health_check.checks.Database", "health_check.checks.Cache", "health_check.checks.Storage"]
+# Three answers, for three askers (RESILIENCE.md "Health and probes"):
+# /health/live/: liveness, the process answers; no database, no Redis (examleaf.views.live). docker-compose.yml's
+#   container check and the Kubernetes liveness probe.
+# /health/web/: readiness, this pod can serve: the database answers and no migration is waiting. Not the cache, the
+#   buckets or the workers: the site runs on without them (the cache fails soft), and an outage of what every pod
+#   shares must not take every pod out of traffic at once. The Kubernetes readiness probe; before gunicorn starts in
+#   docker-compose.yml.
+# /health/: everything, for an uptime monitor: readiness, the cache, file storage and, when a broker is in use, the
+#   Celery workers of each queue (with eager tasks there is no worker to ask).
+# From the internet Caddy answers 404 to all three unless the X-Health-Token header matches (Caddyfile); /health/web/
+# and /health/ keep their results for 20 seconds (examleaf.views.HealthView).
+READY_CHECKS = ["health_check.checks.Database", "examleaf.health.Migrations"]
+MONITOR_CHECKS = [*READY_CHECKS, "health_check.checks.Cache", "health_check.checks.Storage"]
 
 
 def health_checks(eager):
-    """The checks of /health/: the web ones, plus a ping of the Celery workers when a broker is in use. The ping waits
-    two seconds for every worker and then checks that the default and the media queue each have one
+    """The checks of /health/: the monitor's, plus a ping of the Celery workers when a broker is in use. The ping
+    waits two seconds for every worker and then checks that the default and the media queue each have one
     (examleaf.health.WorkerPing); HealthView keeps the result for 20 seconds, so the wait costs little."""
     if eager:
-        return WEB_CHECKS
-    return [*WEB_CHECKS, ("examleaf.health.WorkerPing", {"timeout": timedelta(seconds=2)})]
+        return MONITOR_CHECKS
+    return [*MONITOR_CHECKS, ("examleaf.health.WorkerPing", {"timeout": timedelta(seconds=2)})]
 
 
 ALL_CHECKS = health_checks(settings.CELERY_TASK_ALWAYS_EAGER)
@@ -89,7 +96,8 @@ urlpatterns = [
     ],
     path("_allauth/", include("allauth.headless.urls")),
     path("health/", HealthView.as_view(checks=ALL_CHECKS), name="health"),
-    path("health/web/", HealthView.as_view(checks=WEB_CHECKS), name="health_web"),
+    path("health/live/", live, name="health_live"),
+    path("health/web/", HealthView.as_view(checks=READY_CHECKS), name="health_web"),
     path("health/integrations/", HealthView.as_view(checks=INTEGRATION_CHECKS), name="health_integrations"),
     path("api/", include("examleaf.api_urls")),  # REST API: api/, examleaf/api_urls.py
     path("learn/", include("learn.urls")),  # revision course: clip files behind signed links, staff preview

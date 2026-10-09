@@ -80,7 +80,7 @@ def test_msg91_otp_and_flow_requests_and_a_refusal_in_a_200(msg91, monkeypatch):
     otp, flow = calls
     assert otp["url"].endswith("/api/v5/otp") and otp["headers"] == {"authkey": "test-authkey"}
     assert otp["params"] == {"template_id": "tpl-otp", "mobile": "919864012345", "otp": "483920"}
-    assert otp["timeout"] == 10 and flow["url"].endswith("/api/v5/flow")
+    assert otp["timeout"] == sms.TIMEOUT and flow["url"].endswith("/api/v5/flow")
     assert flow["json"] == {
         "template_id": "tpl-order_placed",
         "short_url": "0",

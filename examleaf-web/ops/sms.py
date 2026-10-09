@@ -22,10 +22,16 @@ from django.conf import settings
 from django.utils import timezone
 from django.utils.crypto import salted_hmac
 
+from examleaf.bulkhead import Bulkhead
+
 from .models import SmsLog
 
 logger = logging.getLogger(__name__)
 MSG91 = "https://control.msg91.com/api/v5/"
+TIMEOUT = httpx.Timeout(10, connect=3)  # seconds: 3 to connect, 10 for each read or write (retries: send_sms)
+# MSG91's calls (made in a request only while the queue is down) share the providers' half of a process's threads
+# (examleaf/bulkhead.py): over it, a call fails at once, as MSG91 unreachable.
+CALLS = Bulkhead(httpx.ConnectError, "Half of this process's threads are waiting on providers already")
 KEEP = timedelta(days=90)  # SmsLog rows
 # Limits before SMS_DAILY_CAP (M2), every kind together: per number over the last hour and day, per account over the
 # last day. Then each purpose's share of the day's cap (since midnight, India), so that consent links or order updates
@@ -77,12 +83,13 @@ def msg91(kind, phone, variables):
     refusal too."""
     headers, mobile = {"authkey": settings.MSG91_AUTHKEY}, phone.removeprefix("+")
     template = settings.MSG91_TEMPLATES[kind]
-    if kind == "otp":
-        params = {"template_id": template, "mobile": mobile, "otp": variables["otp"]}
-        response = httpx.post(MSG91 + "otp", params=params, json={}, headers=headers, timeout=10)
-    else:
-        body = {"template_id": template, "short_url": "0", "recipients": [{"mobiles": mobile, **variables}]}
-        response = httpx.post(MSG91 + "flow", json=body, headers=headers, timeout=10)
+    with CALLS:
+        if kind == "otp":
+            params = {"template_id": template, "mobile": mobile, "otp": variables["otp"]}
+            response = httpx.post(MSG91 + "otp", params=params, json={}, headers=headers, timeout=TIMEOUT)
+        else:
+            body = {"template_id": template, "short_url": "0", "recipients": [{"mobiles": mobile, **variables}]}
+            response = httpx.post(MSG91 + "flow", json=body, headers=headers, timeout=TIMEOUT)
     try:
         data = response.json()
     except ValueError:
@@ -99,11 +106,15 @@ BACKENDS = {"console": console, "msg91": msg91}
 def send_sms(kind, phone, variables, log_id=None):
     """Send one SMS (its SmsLog row made by queue_sms), unless SMS_DAILY_CAP were sent since midnight (India) already:
     the last line, whatever the other limits let through (SMS cost money). A network failure is tried again 3 times; a
-    refusal is logged as an error (Sentry), not retried. Returns nothing: Celery logs return values."""
+    refusal is logged as an error (Sentry), not retried. Its row says whether it went: run again (the task given to
+    another worker after one died), an SMS sent or refused already is not sent again. Returns nothing: Celery logs
+    return values."""
     now = timezone.now()
     log = SmsLog.objects.filter(pk=log_id).first() or SmsLog(
         kind=kind, phone_hash=phone_hash(phone), phone_last4=phone[-4:]
     )
+    if log.status in (SmsLog.Status.SENT, SmsLog.Status.FAILED):
+        return
     if SmsLog.objects.filter(created__gte=midnight(now), status=SmsLog.Status.SENT).count() >= settings.SMS_DAILY_CAP:
         log.status = SmsLog.Status.CAPPED
         logger.error("SMS_DAILY_CAP reached: an SMS (%s) was not sent", kind)

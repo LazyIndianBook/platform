@@ -369,6 +369,9 @@ class ProductReviewSerializer(serializers.ModelSerializer):
         read_only_fields = ["status", "created"]
 
 
+REVIEWS_SHOWN = 200  # the newest of a product's reviews in its answer; the average and the count are of them all
+
+
 class ProductReviewsSerializer(serializers.Serializer):
     average = serializers.DecimalField(max_digits=2, decimal_places=1, allow_null=True, help_text="of the approved")
     count = serializers.IntegerField()
@@ -440,7 +443,7 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
         if request.method == "GET":
             approved = product.reviews.filter(status=Review.Status.APPROVED)
             data = approved.aggregate(average=Avg("rating"), count=Count("pk"))
-            data.update(can_review=Review.can_review(request.user, product), results=approved)
+            data.update(can_review=Review.can_review(request.user, product), results=approved[:REVIEWS_SHOWN])
             return Response(ProductReviewsSerializer(data).data)
         if not VerifiedEmail().has_permission(request, self):
             self.permission_denied(request, message=VerifiedEmail.message)
@@ -1220,20 +1223,29 @@ class OrderViewSet(Private, mixins.ListModelMixin, mixins.RetrieveModelMixin, vi
             data.is_valid(raise_exception=True)
             email, address = data.validated_data["email"], data.validated_data["shipping_address"]
             address = Address(**address).snapshot()
-        cart = caller_cart(request)
+        cart, not_placed = caller_cart(request), None
         try:
-            order = services.create_order(
-                cart, user=user, email=email, address=address, method=data.validated_data["payment_method"]
-            )
-            if order.is_cod:
-                try:
-                    order = services.place_cod(order)
-                except services.ShopError as error:  # sold out, or the coupon's last use went, meanwhile
-                    services.cancel_order(order, f"Not placed: {error}", email=False)
-                    raise
-                cart.delete()
+            # One checkout of a cart at a time, under its row's lock: the same checkout sent twice at once (a double
+            # tap, an app retrying after a timeout) waits for the first, then finds a cash-on-delivery cart emptied
+            # by it ("Your cart is empty."), never a second order placed. An online order empties nothing until paid.
+            with transaction.atomic():
+                if cart is not None and not Cart.objects.select_for_update().filter(pk=cart.pk).exists():
+                    cart = None  # emptied by the checkout that held the lock
+                order = services.create_order(
+                    cart, user=user, email=email, address=address, method=data.validated_data["payment_method"]
+                )
+                if order.is_cod:
+                    try:
+                        order = services.place_cod(order)
+                    except services.ShopError as error:  # sold out, or the coupon's last use went, meanwhile
+                        services.cancel_order(order, f"Not placed: {error}", email=False)
+                        not_placed = error  # the cancelled order is kept; the answer says why
+                    else:
+                        cart.delete()
         except services.ShopError as error:
             raise refuse(str(error)) from error
+        if not_placed:
+            raise refuse(str(not_placed)) from not_placed
         if user is None:
             guest = GuestOrderSerializer(order, context=self.get_serializer_context())
             return Response(guest.data, status=status.HTTP_201_CREATED)
