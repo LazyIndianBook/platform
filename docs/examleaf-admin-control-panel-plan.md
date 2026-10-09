@@ -100,7 +100,7 @@ effective dates, settlements and accounting exports, DPDP requests, staff manage
 | Products' storefront presentation (slug, cover, description, SEO) | platform | ERPNext Item (code, HSN, GST template, price lists) | outbox events |
 | Stock on hand per warehouse, purchase orders, print runs, goods receipts | ERPNext | the platform's `available` stock as a projection | ERPNext webhooks (Stock Ledger Entry) + nightly reconciliation |
 | Checkout reservation while a payment is in flight | platform | not synced (released or sold within minutes) | existing `select_for_update` reservation |
-| Orders, payments, refunds, shipments | platform (the storefront's state machine) | ERPNext Sales Order, Sales Invoice (the tax document), Payment Entry, Delivery Note, Credit Note | outbox events, idempotent by order number |
+| Orders, payments, refunds, shipments (courier booking, tracking, NDR, COD remittance) | platform (the storefront's state machine; the `shipping` app drives the couriers) | ERPNext Sales Order, Sales Invoice (the tax document), Payment Entry, Delivery Note (when the parcel is booked), Credit Note | outbox events, idempotent by order number |
 | GST invoice and credit note numbers and PDFs, e-invoice IRN, GSTR returns | ERPNext (India Compliance) after cut-over | the platform stores the number and the PDF for the customer's page | ERPNext webhook on submit |
 | Quotes for schools and distributors | ERPNext (Quotation → Sales Order) | the platform shows the quote's status | webhook |
 | Schools, distributors, territories, price lists, credit limits, statements | ERPNext | the platform's partner portals read them | REST, cached |
@@ -138,8 +138,11 @@ series, the custom DocTypes (Book Title, Print Run, Book Code Batch, School, Sch
 Agreement), custom fields on Customer, Item, Sales Order and Sales Invoice (district, subject, print run, the
 platform's ids), workflows (quotation approval, credit limit override, print-run approval), print formats (the GST
 invoice, credit note, delivery challan, quotation, statement of account in the Answer Script look), Role Profiles
-mirroring the panel's roles, webhooks to the platform, server scripts for validations, the Shiprocket connector
-(courier accounts, AWB, labels, tracking webhooks, NDR, COD remittance) and Insights dashboards.
+mirroring the panel's roles, webhooks to the platform, server scripts for validations, and Insights dashboards. The
+courier integration (Shiprocket, and the manual flow that covers India Post) lives in the platform's `shipping` app,
+not in ERPNext: the storefront owns the order's state machine, the parcel's timeline and the customer's messages, and
+the sync books the Delivery Note in ERPNext when a parcel leaves so that stock moves there (research:
+`research-integrations.md`, section 3).
 
 ### 3.4 Kubernetes packaging
 
