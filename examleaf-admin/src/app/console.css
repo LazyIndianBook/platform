@@ -52,6 +52,7 @@
         "main";
     }
     .console-top {
+      gap: 8px;
       padding: 8px 16px;
     }
     .console-side {

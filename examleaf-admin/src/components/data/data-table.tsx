@@ -39,6 +39,9 @@ export type Column<T> = {
   /** Not shown until chosen. */
   hidden?: boolean;
   numeric?: boolean;
+  /** Let the cell's text wrap (long words: a record's name, a reason); the others keep to one line and the table
+   *  scrolls sideways in its box instead. The first column always wraps. */
+  wrap?: boolean;
   className?: string;
 };
 
@@ -460,7 +463,14 @@ export function DataTable<T>({
                       </td>
                     ) : null}
                     {shown.map((column, columnIndex) => (
-                      <td key={column.key} className={cn(column.numeric && "num", column.className)}>
+                      <td
+                        key={column.key}
+                        className={cn(
+                          column.numeric && "num",
+                          columnIndex === 0 ? "min-w-48" : !column.wrap && "whitespace-nowrap",
+                          column.className,
+                        )}
+                      >
                         {columnIndex === 0 && href ? (
                           <Link href={href} data-row-link="" className="font-semibold">
                             {column.render(row)}

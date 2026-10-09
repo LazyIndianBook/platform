@@ -27,12 +27,13 @@ type ClockProps = {
   due: string | null;
   /** When it was done (acknowledged, reported): the clock stops. */
   doneAt?: string | null;
-  doneLabel?: (when: string) => string;
+  /** How the done time reads (props cross from server components, so a word, not a function). */
+  doneAs?: "acknowledged" | "reported";
   now: number;
   compact?: boolean;
 };
 
-export function Clock({ label, start, due, doneAt, doneLabel, now: initial, compact = false }: ClockProps) {
+export function Clock({ label, start, due, doneAt, doneAs = "reported", now: initial, compact = false }: ClockProps) {
   const now = useNow(initial);
   if (doneAt) {
     return (
@@ -42,7 +43,7 @@ export function Clock({ label, start, due, doneAt, doneLabel, now: initial, comp
         ) : (
           <span className="text-sm text-muted-foreground">{label}</span>
         )}
-        <span className="text-sm">{(doneLabel ?? copy.privacy.reported)(formatDateTime(doneAt))}</span>
+        <span className="text-sm">{copy.privacy[doneAs](formatDateTime(doneAt))}</span>
       </span>
     );
   }

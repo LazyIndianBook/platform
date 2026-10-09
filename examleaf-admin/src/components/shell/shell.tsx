@@ -84,7 +84,7 @@ export function Shell({ inbox, now, children }: { inbox: InboxCounts | null; now
             {menuOpen ? <X aria-hidden="true" className="size-5" /> : <Menu aria-hidden="true" className="size-5" />}
             <span className="max-[399px]:sr-only">{menuOpen ? copy.shell.closeMenu : copy.shell.menu}</span>
           </button>
-          <Brand className="nav:hidden" wordmarkClassName="max-[479px]:hidden" />
+          <Brand className="max-[399px]:hidden nav:hidden" wordmarkClassName="max-[479px]:sr-only" />
           <button
             type="button"
             onClick={() => setPalette(true)}
@@ -99,18 +99,19 @@ export function Shell({ inbox, now, children }: { inbox: InboxCounts | null; now
             {has(manifest, P.inboxView) ? (
               <Link
                 href="/inbox/"
-                aria-label={inbox ? copy.shell.inboxCount(inbox.total, inbox.more) : copy.shell.inbox}
                 className="inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-btn px-2 text-[15px] font-semibold text-foreground no-underline hover:bg-secondary hover:no-underline"
               >
+                {/* its name is what it shows, "Inbox 6", then "open" for screen readers (WCAG 2.5.3) */}
                 <InboxIcon aria-hidden="true" className="size-5 shrink-0 min-[1100px]:hidden" />
-                <span className="max-[1099px]:hidden">{copy.shell.inbox}</span>
+                <span className="max-[1099px]:sr-only">{copy.shell.inbox}</span>
                 {inbox && inbox.total > 0 ? (
-                  <span
-                    aria-hidden="true"
-                    className="inline-flex min-w-6 items-center justify-center rounded-full bg-primary px-1.5 font-mono text-xs font-semibold text-primary-foreground"
-                  >
-                    {inbox.more ? `${inbox.total}+` : inbox.total}
-                  </span>
+                  <>
+                    {" "}
+                    <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-primary px-1.5 font-mono text-xs font-semibold text-primary-foreground">
+                      {inbox.more ? `${inbox.total}+` : inbox.total}
+                    </span>{" "}
+                    <span className="sr-only">{copy.shell.inboxOpen}</span>
+                  </>
                 ) : null}
               </Link>
             ) : null}

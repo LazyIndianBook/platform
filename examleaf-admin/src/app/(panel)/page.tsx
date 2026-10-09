@@ -250,7 +250,12 @@ export default async function HomePage() {
                     {...(module.erp ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                   >
                     {copy.nav.modules[module.key]}
-                    {module.erp ? <span className="sr-only"> ({copy.shell.erpOpens})</span> : null}
+                    {module.erp ? (
+                      <>
+                        {" "}
+                        <span className="sr-only">({copy.shell.erpOpens})</span>
+                      </>
+                    ) : null}
                   </Link>
                 </li>
               ))}

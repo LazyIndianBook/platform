@@ -22,8 +22,7 @@ export default function SetUpTwoStepPage() {
         rel="noopener noreferrer"
         className={buttonVariants({ variant: "primary", size: "lg", block: true })}
       >
-        {copy.auth.setupLink}
-        <span className="sr-only"> {copy.common.opensElsewhere}</span>
+        {copy.auth.setupLink} <span className="sr-only">{copy.common.opensElsewhere}</span>
       </a>
       <p className="text-[15px] text-muted-foreground">{copy.auth.setupThen}</p>
       <SignOutButton variant="secondary" />

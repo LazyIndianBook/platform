@@ -1,6 +1,6 @@
 // The wordmark (the public site's components/site/brand.tsx: the leaf on its navy square, "Exam" + "Leaf" in the
 // serif) with ADMIN in the mono label voice: the console says which house it is at a glance. A logo, not words to
-// translate; its name for screen readers comes from the copy. `wordmarkClassName` hides the words on a narrow phone.
+// translate. Its words are its name (WCAG 2.5.3); `wordmarkClassName` hides them from sight on a narrow phone.
 import { cn } from "cn";
 import Link from "next/link";
 
@@ -20,18 +20,18 @@ export function Brand({ className, wordmarkClassName }: { className?: string; wo
   return (
     <Link
       href="/"
-      aria-label={copy.app.name}
       className={cn(
         "inline-flex min-h-11 min-w-11 shrink-0 items-center gap-2 font-head text-[20px] leading-none font-bold tracking-[-0.01em] text-foreground no-underline hover:text-foreground hover:no-underline",
         className,
       )}
     >
       <BrandMark />
-      <span aria-hidden="true" className={cn("inline-flex items-baseline gap-2", wordmarkClassName)}>
+      {/* the words name the link: "ExamLeaf Admin" */}
+      <span className={cn("inline-flex items-baseline", wordmarkClassName)}>
         <span>
           Exam<span className="text-leaf">Leaf</span>
-        </span>
-        <span className="label-mono text-[11px] font-semibold uppercase">{copy.app.short}</span>
+        </span>{" "}
+        <span className="ml-2 label-mono text-[11px] font-semibold uppercase">{copy.app.short}</span>
       </span>
     </Link>
   );

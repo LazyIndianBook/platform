@@ -34,19 +34,26 @@ type MaskedValueProps = {
 export function MaskedValue({ masked, what, reveal }: MaskedValueProps) {
   const id = useId();
   const [open, setOpen] = useState(false);
-  const [value, setValue] = useState<string | null>(null);
-  const [left, setLeft] = useState(0);
+  // the value and the moment it hides again: counted from a deadline, so a tab asleep in the background (or a clock
+  // that jumps) never shows it longer than 60 seconds
+  const [revealed, setRevealed] = useState<{ value: string; until: number; now: number } | null>(null);
   const { run, busy, error, setError } = useAction();
-  const shown = value !== null;
+  const shown = revealed !== null;
+  const value = revealed?.value ?? null;
+  const left = revealed ? Math.max(0, Math.ceil((revealed.until - revealed.now) / 1000)) : 0;
 
   useEffect(() => {
     if (!shown) return;
-    const timer = setTimeout(() => {
-      if (left <= 1) setValue(null);
-      else setLeft(left - 1);
+    const timer = setInterval(() => {
+      const now = Date.now();
+      setRevealed((current) => (current && now < current.until ? { ...current, now } : null));
     }, 1000);
-    return () => clearTimeout(timer);
-  }, [shown, left]);
+    return () => clearInterval(timer);
+  }, [shown]);
+  const setValue = (next: string | null) => {
+    const now = Date.now();
+    setRevealed(next === null ? null : { value: next, until: now + REVEAL_SECONDS * 1000, now });
+  };
 
   if (!masked) return <span className="text-muted-foreground">{copy.masked.none}</span>;
 
@@ -62,8 +69,7 @@ export function MaskedValue({ masked, what, reveal }: MaskedValueProps) {
           size="sm"
           onClick={() => (shown ? setValue(null) : setOpen(true))}
         >
-          {shown ? copy.masked.hide : copy.masked.reveal}
-          <span className="sr-only"> {what}</span>
+          {shown ? copy.masked.hide : copy.masked.reveal} <span className="sr-only">{what}</span>
         </Button>
       ) : null}
       {reveal ? (
@@ -88,7 +94,6 @@ export function MaskedValue({ masked, what, reveal }: MaskedValueProps) {
                 });
                 if (!ok) return;
                 setValue(answer);
-                setLeft(REVEAL_SECONDS);
                 setOpen(false);
               }}
             >

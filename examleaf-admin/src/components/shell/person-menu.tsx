@@ -2,7 +2,7 @@
 
 // The person's menu in the top bar: who is signed in and with which roles (and until when), their account and
 // sessions, the keyboard shortcuts (and the switch for single-key ones, WCAG 2.1.4), Sign out and Sign out everywhere.
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -21,27 +21,22 @@ export function PersonMenu({ onShortcuts }: { onShortcuts: () => void }) {
   const shortcuts = useShortcutsEnabled();
   const [leaving, setLeaving] = useState(false);
   const name = manifest.user.name || manifest.user.email;
-  const initials = name
-    .split(/[\s@.]+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("");
 
   return (
     <Popover
-      label={copy.shell.personMenu(name)}
-      buttonClassName="gap-2 border-transparent px-2 hover:bg-secondary"
+      buttonClassName="min-w-11 justify-center gap-1.5 border-transparent px-2 hover:bg-secondary"
       button={
         <>
           <span
             aria-hidden="true"
-            className="inline-flex size-8 items-center justify-center rounded-full bg-primary font-mono text-[13px] font-semibold text-primary-foreground"
+            className="inline-flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground"
           >
-            {initials}
+            <UserRound className="size-[18px]" />
           </span>
-          <span className="hidden max-w-40 truncate min-[1100px]:inline">{name}</span>
-          <ChevronDown aria-hidden="true" className="size-4" />
+          {/* the name names the button (visible from 1100 px), then what it opens */}
+          <span className="max-w-40 truncate max-[1099px]:sr-only">{name}</span>
+          <span className="sr-only">{copy.shell.yourAccount}</span>
+          <ChevronDown aria-hidden="true" className="size-4 max-[399px]:hidden" />
         </>
       }
       panelClassName="w-72"
