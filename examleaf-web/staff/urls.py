@@ -38,7 +38,9 @@ urlpatterns = [
     # Phase B: the modules' own files, one line each, in the order of their paths
     path("connections/", include("integrations.api")),
     path("content/", include("content.staff_api")),
+    path("home/", include("insights.staff_home")),
     path("orders/", include("shop.staff_orders")),
+    path("reports/", include("insights.staff_api")),
     path("support/", include("support.api")),
     path("system/", include("staff.system_api")),
     path("tax/", include("shop.staff_tax")),
