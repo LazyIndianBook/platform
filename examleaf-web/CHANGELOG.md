@@ -5,6 +5,59 @@ commits are in `git log` (phase 4: abffe6f and e5abda5; phase 5 A and B with the
 and E: 4e30e59; the redesign's stage 2 so far: ba0b9dd). Details of each feature are in README.md; the numbers of the
 tests are those of `pytest` at the end of the phase.
 
+## Phase B, Course (9 October 2026)
+
+The revision course was run from the Django admin and the shell: clips reordered by their numbers, a revision
+published with no second pair of eyes, deletions for good, book codes made with `make_book_codes` and handed over as a
+file on the server, access granted by a row in Entitlements, and no way for support to see a learner's course without
+the database. Plan 5.11 (every row marked must), 7.8, 5.16's codes report and 10.1's limits on learner data ask for
+the panel's Course module; it is built here (`learn/README.md` has the rules and what each role's pages do, API.md
+"Course (staff)" the endpoints). 1,596 backend tests pass on SQLite (13 skipped, 4,504 subtests), 35 of them new in
+`learn/test_staff_course.py`, `learn/test_staff_access.py`, `learn/test_codes.py` and `insights/tests/test_fraud.py`;
+the authorization matrix covers the module's 46 endpoints.
+
+- **The outline and its moves** (`learn/course.py`): a subject's chapters, revisions, clips, cards and quiz items in
+  one answer with their states and reasons; every row moved first, last, or before or after a sibling in one
+  transaction that numbers the siblings again (`POST course/{kind}/{id}/move/`): the console's drag and its "Move to…"
+  send the same request.
+- **Review and scheduled publish**: `Revision` gains in review and approved, `submitted_by`, `reviewer` and
+  `publish_at`; an editor submits (an inbox item for the subject's reviewers), a reviewer who did not submit it
+  approves, sends back, or publishes now or at a time (`staff.publish_course`, new, medium); `learn.tasks.publish_due`
+  every 5 minutes publishes what is due once, and one without a ready clip waits with an inbox item. The admin's
+  publish needs the same permission.
+- **The 30-day bin**: `Clip`, `FlashCard` and `QuizItem` gain `deleted_at` and a default manager that hides them; the
+  app's and the website's API, the dashboard, the plan, the item analysis and the joins all leave binned rows out;
+  restore within 30 days at the old place; `purge_bin` (04:30) then deletes the row and a clip's video and HLS files.
+  The admin's delete goes to the bin too.
+- **Clips**: the failure in words (ffmpeg's and the storage's messages mapped to what to do) with Retry beside it,
+  the poster and the staff player once ready.
+- **The quiz bank**: `QuizItem` gains `order`, `topic`, `marks`, `difficulty`, `bloom` and its history (initial rows
+  by the migration); the bank lists every item with the nightly item analysis (N/A under 30 learners) and every filter,
+  an item changed alone or the metadata of many as a bulk job (`item_metadata`, a dry run first), and "needs
+  checking" files one report of category `item_analysis` in the content triage while one is open.
+- **Access**: entitlements granted with a reason, extended, revoked (`revoked_at`, its history kept), alone or as
+  bulk jobs (`entitlement.grant`, `.extend`, `.revoke`) with a dry run; searched by an account's whole email (a
+  `customer.lookup` by its hash). A student's progress is never touched: revoked and granted again, it is all there.
+- **Book codes** (`learn/codes.py`): a print run is a `CodeBatch` (the migration made one per existing label, counted
+  as dispatched); its codes are made by a staff job (`code_batch`; `staff.make_book_codes`, new, high, the owners
+  alerted) that keeps digests only and writes the codes once into the printer's file, its starter's for 24 hours
+  then deleted; dispatched once; voided (`staff.void_book_codes`, new, critical) with every unused code, which the app
+  then refuses; one code voided alone; the lookup answering in one line, audited by the code's keyed hash and
+  throttled (`STAFF_THROTTLE_CODE_LOOKUP`, 120 an hour); `make_book_codes` records its print run too. The codes report
+  gives per run the codes printed, the book's copies sold online, activated, revoked and void, the activation rate and
+  the districts, those under 10 hidden.
+- **Fraud rules** (`insights/jobs/fraud.py`): failed codes per device (the app sends its token, kept as a hash), a run
+  redeemed before it was dispatched (a leak), each signal an inbox item (`fraud_signal`, new) closed by its
+  acknowledgement, the book codes' rules hourly with an email within the hour for a spike or a leak.
+- **The learner page** (`GET course/learners/{user}/`, SUPPORT): access, codes, phones (each signed out), progress,
+  quiz accuracy and cards per chapter, tickets; every view a `sensitive_read`, and a learner under 18 or of unknown
+  age a summary of counts and the week last active, never times. No endpoint lists learners or ranks them.
+- **The console's Course module** (`/course/`): the outline with its row actions and drag, a revision's review and
+  publish, a clip with Retry, the bin, the quiz bank, access with its bulk jobs, book codes with the lookup box and a
+  print run's page, the codes report, the learner's page (opened from a ticket's sidebar, never prefetched, logged).
+  Console: Vitest 223 (33 new in 6 files), Playwright 15 in mock mode (the course journey at both widths, every
+  course page checked with axe at 1280, 390 and 320 px) and the course's journey against this backend
+  (`E2E_STAFF_API=real`).
 ## Phase B, Tax (9 October 2026)
 
 The storefront's GST was a rate typed on each product, its documents numbered by looking for the last serial in one
