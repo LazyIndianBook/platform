@@ -9,6 +9,8 @@ breaker's count with the caller's changes. Claim the row instead (shipping's Shi
 
 import logging
 import time
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from urllib.parse import urlsplit
 
 import httpx
@@ -21,11 +23,12 @@ logger = logging.getLogger(__name__)
 
 
 class IntegrationError(Exception):
-    """A call to a provider that did not succeed; `account`, `status_code` and the decoded answer (`data`) say more."""
+    """A call to a provider that did not succeed; `account`, `status_code` and the decoded answer (`data`) say more,
+    and `retry_after` the seconds a 429 or 503 asked us to wait (its Retry-After header), when it said."""
 
-    def __init__(self, message, *, account=None, status_code=None, data=None):
+    def __init__(self, message, *, account=None, status_code=None, data=None, retry_after=None):
         super().__init__(message)
-        self.account, self.status_code, self.data = account, status_code, data
+        self.account, self.status_code, self.data, self.retry_after = account, status_code, data, retry_after
 
 
 class IntegrationUnavailable(IntegrationError):
@@ -42,6 +45,19 @@ class IntegrationRejected(IntegrationError):
 
 class IntegrationAuthFailed(IntegrationError):
     """The provider refused the credentials or the token (401, 403)."""
+
+
+def retry_after(response):
+    """The seconds a provider asks us to wait (Retry-After: a number of seconds or an HTTP date), or None."""
+    value = response.headers.get("Retry-After", "").strip()
+    if value.isdigit():
+        return int(value)
+    try:
+        when = parsedate_to_datetime(value)
+    except TypeError, ValueError:
+        return None
+    when = when if when.tzinfo else when.replace(tzinfo=UTC)
+    return max(0, int((when - datetime.now(UTC)).total_seconds()))
 
 
 def describe(data):
@@ -131,7 +147,9 @@ class Client:
             self.account.record_success(answered_only=True)
             self.account.record_error(problem)
         logger.warning("%s %s failed: %s", self.account, operation, problem)
-        raise error_class(f"{self.account} {operation}: {problem}", account=self.account, status_code=status, data=data)
+        wait = retry_after(response) if status in (429, 503) else None
+        message = f"{self.account} {operation}: {problem}"
+        raise error_class(message, account=self.account, status_code=status, data=data, retry_after=wait)
 
     def timeout(self):
         return httpx.Timeout(settings.INTEGRATIONS_READ_TIMEOUT, connect=settings.INTEGRATIONS_CONNECT_TIMEOUT)

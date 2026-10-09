@@ -153,17 +153,28 @@ class IntegrationAccount(TimeStampedModel):
         self.save(update_fields=["webhook_token", "previous_webhook_token", "webhook_rotated_at", "modified"])
         return token
 
-    def webhook_token_matches(self, given, now=None):
-        """Whether `given` (the header the provider sent) is the current token or, within PREVIOUS_WEBHOOK_TOKEN of a
-        rotation, the previous one. Constant time; False when no token is set (deny by default)."""
-        if not given or not self.webhook_token:
-            return False
-        given = given.encode("utf-8", "replace")
-        matches = hmac.compare_digest(given, crypto.decrypt(self.webhook_token).encode())
+    def webhook_secrets(self, now=None):
+        """The webhook tokens that count now: the current one and, within PREVIOUS_WEBHOOK_TOKEN of a rotation, the
+        previous one; none when no token is set (deny by default). Also the secret of a provider that signs its
+        webhooks with it instead of sending it (ERPNext's HMAC: erp/webhooks.py)."""
+        if not self.webhook_token:
+            return []
+        found = [crypto.decrypt(self.webhook_token)]
         now = now or timezone.now()
         recent = self.webhook_rotated_at and now - self.webhook_rotated_at < PREVIOUS_WEBHOOK_TOKEN
         if self.previous_webhook_token and recent:
-            matches |= hmac.compare_digest(given, crypto.decrypt(self.previous_webhook_token).encode())
+            found.append(crypto.decrypt(self.previous_webhook_token))
+        return found
+
+    def webhook_token_matches(self, given, now=None):
+        """Whether `given` (the header the provider sent) is the current token or, within PREVIOUS_WEBHOOK_TOKEN of a
+        rotation, the previous one. Constant time; False when no token is set (deny by default)."""
+        if not given:
+            return False
+        given = given.encode("utf-8", "replace")
+        matches = False
+        for token in self.webhook_secrets(now):
+            matches |= hmac.compare_digest(given, token.encode())
         return matches
 
     def masked(self):

@@ -62,15 +62,16 @@ def receive_event(provider, body, headers, account=None, rejected=False):
     return event
 
 
-def dead_letter(task_name, task_id, error, args, kwargs, attempts=1):
+def dead_letter(task_name, task_id, error, args, kwargs, attempts=1, operation=None):
     """A task that gave up, in the dead-letter list (once per task run) with its arguments redacted; the staff inbox is
-    told (dead_letter_created)."""
+    told (dead_letter_created). `operation`: what it was doing, when the task's own name does not say it (the erp
+    app's replay task, for the ERPNext method a dead outbox row was for)."""
     arguments = json.loads(json.dumps({"args": list(args or []), "kwargs": dict(kwargs or {})}, default=str))
     failure, created = IntegrationFailure.objects.get_or_create(
         task_id=task_id or None,
         defaults={
             "account": getattr(error, "account", None),
-            "operation": task_name.rsplit(".", 1)[-1][:60],
+            "operation": (operation or task_name.rsplit(".", 1)[-1])[:60],
             "task_name": task_name,
             "args": redact(arguments),
             "attempts": attempts,

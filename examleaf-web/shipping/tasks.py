@@ -8,7 +8,7 @@ from celery import shared_task
 from django.utils import timezone
 
 from integrations.models import InboundEvent, IntegrationAccount
-from integrations.tasks import IntegrationTask
+from integrations.tasks import InboundEventTask, IntegrationTask
 from shop.models import Shipment
 
 from . import messages, services
@@ -33,15 +33,6 @@ def book_shipment(self, shipment_id, courier_company_id=None):
 def fetch_label(self, shipment_id):
     """The label's PDF, kept with us once (services.fetch_label)."""
     services.fetch_label(Shipment.objects.get(pk=shipment_id))
-
-
-class InboundEventTask(IntegrationTask):
-    """An inbound event that cannot be processed is marked failed (and replayable, InboundEvent.replay) rather than
-    written to the dead-letter list: the event is its own record."""
-
-    def on_failure(self, exc, task_id, args, kwargs, einfo):
-        if event := InboundEvent.objects.filter(pk=(args or [kwargs.get("event_id")])[0]).first():
-            event.fail(f"{type(exc).__name__}: {exc}")
 
 
 @shared_task(base=InboundEventTask, bind=True)

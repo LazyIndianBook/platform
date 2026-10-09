@@ -44,6 +44,15 @@ class IntegrationTask(Task):
         dead_letter(self.name, task_id, exc, args, kwargs, attempts=self.request.retries + 1)
 
 
+class InboundEventTask(IntegrationTask):
+    """The processing of an InboundEvent (its id the first argument): one that cannot be processed is marked failed
+    (and replayable, InboundEvent.replay) rather than written to the dead-letter list: the event is its own record."""
+
+    def on_failure(self, exc, task_id, args, kwargs, einfo):
+        if event := InboundEvent.objects.filter(pk=(args or [kwargs.get("event_id")])[0]).first():
+            event.fail(f"{type(exc).__name__}: {exc}")
+
+
 @shared_task
 def purge_old_records():
     """Daily (celery beat): the call log, the inbound events and the dead letters dealt with, older than
