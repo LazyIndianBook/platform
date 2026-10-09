@@ -3,7 +3,7 @@ shipping app's and the insights') and the Django admin answer only on the admin 
 are 404 to everyone, signed in or not (plan 9.1). A session in which a member of staff is logged in as a customer
 (IMPERSONATING, set by the account API's account/impersonate/: staff.services.accept_impersonation) ends once it is
 over (its time, its end by either side, the panel's session gone: 401 `impersonation_ended` under /api/ and
-/_allauth/), is refused payments, passwords, email, second factors, consent, addresses and deletion (403
+/_allauth/), is refused payments, passwords, email, second factors, consent, addresses, reviews and deletion (403
 `impersonating`, research 2.7), and each of its requests is an audit event by the member of staff on behalf of the
 customer. A 403 from the staff's endpoints to someone signed in is an `authz_fail` event (research 3.1: every
 authorization failure; anonymous probes stay in Caddy's log). A Razorpay webhook refused for its signature counts on
@@ -31,7 +31,7 @@ WEBHOOKS = {"/shop/webhooks/razorpay/": "Razorpay"}
 IMPERSONATING, IMPERSONATION_UNTIL = "impersonating_staff_id", "impersonation_until"
 IMPERSONATION_REASON, IMPERSONATION_ID = "impersonation_reason", "impersonation_id"
 WHILE_IMPERSONATING = re.compile(
-    r"^/(?:api/v1/(?:orders/|auth/password/|me/(?:export|deletion|parent-consent)/|addresses/)"
+    r"^/(?:api/v1/(?:orders/|auth/password/|me/(?:export|deletion|parent-consent)/|addresses/|products/[^/]+/reviews/)"
     r"|_allauth/[^/]+/v1/(?:account/|auth/(?:password|2fa|webauthn|reauthenticate)))"
 )
 SAFE = {"GET", "HEAD", "OPTIONS"}
