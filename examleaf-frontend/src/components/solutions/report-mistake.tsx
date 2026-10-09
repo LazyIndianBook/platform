@@ -22,6 +22,8 @@ import { Select } from "@/components/ui/native-select";
 import { api, ApiError, unwrap } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
 
+import { printingOf } from "./printing";
+
 type Category = components["schemas"]["ReaderCategoryEnum"];
 
 /** What a report is about: a question and its solution on a paper (by their codes), or a clip of the course. */
@@ -36,7 +38,6 @@ const KINDS: { value: Category; label: string; clip?: string }[] = [
   { value: "display", label: "Maths or a picture does not show" },
   { value: "other", label: "Something else" },
 ];
-const PRINTING = /^[A-Za-z0-9][A-Za-z0-9-]{0,39}$/; // the print run's label, as the server checks it
 const CHOOSE = "Choose what is wrong.";
 
 const slug = (text: string) =>
@@ -44,12 +45,6 @@ const slug = (text: string) =>
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
-
-/** The print run a printed QR code carried (?printing=PHY-2027-1), or "" when it is missing or not a label. */
-export function printingOf(value: string | string[] | undefined): string {
-  const text = (Array.isArray(value) ? value[0] : value)?.trim() ?? "";
-  return PRINTING.test(text) ? text : "";
-}
 
 export function ReportMistake({ target, printing = "" }: { target: MistakeTarget; printing?: string }) {
   const [opened, setOpened] = useState(false);
@@ -118,7 +113,7 @@ function MistakeForm({ target, printing }: { target: MistakeTarget; printing: st
 
   if (sent)
     return (
-      <Alert variant="success" title="Thank you" className="mt-2 max-w-[34rem]">
+      <Alert variant="success" title="Report sent" className="mt-2 max-w-[34rem]">
         <p>{sent}</p>
       </Alert>
     );

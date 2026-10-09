@@ -8,7 +8,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ConfigProvider } from "@/components/providers/config-provider";
 import { api } from "@/lib/api/client";
 
-import { type MistakeTarget, printingOf, ReportMistake } from "./report-mistake";
+import { printingOf } from "./printing";
+import { type MistakeTarget, ReportMistake } from "./report-mistake";
 
 const widget = vi.hoisted(() => ({ onToken: (() => undefined) as (token: string) => void }));
 vi.mock("@/components/auth/turnstile-widget", () => ({

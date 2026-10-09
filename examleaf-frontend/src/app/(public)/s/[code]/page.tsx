@@ -21,7 +21,8 @@ import { Fragment } from "react";
 
 import { MarksForm } from "@/components/account/marks-form";
 import { MarkdownBlock, MarkdownInline, splitGroup, stepCount } from "@/components/solutions/markdown";
-import { printingOf, ReportMistake } from "@/components/solutions/report-mistake";
+import { printingOf } from "@/components/solutions/printing";
+import { ReportMistake } from "@/components/solutions/report-mistake";
 import { Unavailable } from "@/components/site/unavailable";
 import { Accordion } from "@/components/ui/accordion";
 import { Alert } from "@/components/ui/alert";
