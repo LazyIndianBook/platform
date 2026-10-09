@@ -22,7 +22,7 @@ podSelector:
   (dict "name" "frontend" "selector" (dict "app.kubernetes.io/component" "frontend") "port" 3000 "from" (list $controller))
   (dict "name" "admin" "selector" (dict "app.kubernetes.io/component" "admin") "port" 3000 "from" (list $controller))
   (dict "name" "redis-queue" "selector" (dict "app.kubernetes.io/component" "redis-queue") "port" 6379
-        "from" (list (include "examleaf.from" (dict "ctx" . "components" (list "web" "worker" "beat" "media-worker" "shop-clean-up")) | fromYaml)))
+        "from" (list (include "examleaf.from" (dict "ctx" . "components" (list "web" "worker" "beat" "media-worker" "shop-clean-up" "health-check")) | fromYaml)))
   (dict "name" "redis-cache" "selector" (dict "app.kubernetes.io/component" "redis-cache") "port" 6379
         "from" (list (include "examleaf.from" (dict "ctx" . "components" (list "web" "worker" "beat" "shop-clean-up")) | fromYaml)))
   (dict "name" "acme-solver" "selector" (dict "acme.cert-manager.io/http01-solver" "true") "port" 8089 "from" (list $controller))

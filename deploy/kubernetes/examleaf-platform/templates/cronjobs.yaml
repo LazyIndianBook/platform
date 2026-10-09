@@ -47,10 +47,13 @@ spec:
 
 {{- if .Values.cronJobs.healthCheck.enabled }}
 ---
-{{- /* /health/ as the uptime monitor gets it, over the web Service (no basic auth inside the cluster): the command
-       sends X-Forwarded-Host (ALLOWED_HOSTS' first) and X-Forwarded-Proto https, and exits 1 when a check fails */}}
+{{- /* /health/web/ over the web Service (database, cache, storage; the command sends X-Forwarded-Host and https, no
+       basic auth inside the cluster), then the queues the workers consume. Not /health/'s Celery ping: it stops at the
+       first answer (limit=1), and when that is the media worker's it says the default queue has no worker, which on
+       the kind run happened in four asks of six (DEPLOYMENT.md section 7: "look again"). */}}
+{{- $queues := concat (list "celery") (.Values.mediaWorker.enabled | ternary (list "media") (list)) }}
 {{ include "examleaf.cronJob" (dict "ctx" . "component" "health-check" "schedule" .Values.cronJobs.healthCheck.schedule
-      "command" (list "python" "manage.py" "health_check" "health" (printf "%s-web:8000" (include "examleaf.fullname" .)))) }}
+      "command" (list "sh" "-c" (printf `python manage.py health_check health_web %s-web:8000 && celery -A examleaf inspect active_queues --timeout 10 --json | python -c 'import json, sys; served = {q["name"] for qs in json.load(sys.stdin).values() for q in qs}; print("queues with a worker:", sorted(served)); sys.exit(not %s <= served)'` (include "examleaf.fullname" .) (toJson $queues | replace "[" "{" | replace "]" "}")))) }}
 {{- end }}
 {{- if not .Values.beat.enabled }}
 ---
