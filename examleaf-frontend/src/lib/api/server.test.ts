@@ -124,6 +124,23 @@ describe("the server's API calls", () => {
     expect(kept.size).toBe(0); // nothing kept from a call that failed
   });
 
+  it("share one call to Django among the requests that ask for the same public answer meanwhile", async () => {
+    let answer: (response: Response) => void = () => undefined;
+    const ok = () => new Response('{"ok":true}', { headers: { "Content-Type": "application/json" } });
+    const slow = vi.fn(async () => ok()); // the later calls answer at once
+    slow.mockImplementationOnce(() => new Promise<Response>((resolve) => (answer = resolve)));
+    vi.stubGlobal("fetch", slow);
+    const { publicFetch } = await load();
+    const asks = [1, 2, 3].map(() => publicFetch("books").fetch(new Request("http://web:8000/api/v1/books/")));
+    await vi.waitFor(() => expect(slow).toHaveBeenCalledTimes(1));
+    answer(ok());
+    for (const reply of await Promise.all(asks)) expect(await reply.json()).toEqual({ ok: true });
+    expect(slow).toHaveBeenCalledTimes(1); // three requests, one call
+    kept.clear(); // and once it settled, the next request asks again
+    await publicFetch("books").fetch(new Request("http://web:8000/api/v1/books/"));
+    expect(slow).toHaveBeenCalledTimes(2);
+  });
+
   it("count the deadline from the moment the proxy took the request, never from a later one", async () => {
     vi.stubEnv("API_INTERNAL_TIMEOUT_MS", "10000");
     hung.mockClear();

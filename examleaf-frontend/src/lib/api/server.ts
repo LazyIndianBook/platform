@@ -89,22 +89,41 @@ class NotKept {
   constructor(readonly answer: Answer) {}
 }
 
+// ponytail: one call per public URL in flight per process, shared by every request that needs it meanwhile. Without
+// it a cold or stale data cache sent Django one call per page view and per answer: with Django hung, the load test's
+// process held 3,500 connections to it and nearly its whole memory, and Django would have met them all on its return.
+// Only the calls in flight, each gone once it settles.
+const asking = new Map<string, Promise<Answer>>();
+
 /** A public answer, the same for everyone: kept 60 s in Next's data cache by URL alone (tagged: revalidateTag(tag)
  *  refreshes it early), so the visitor's headers on a miss do not split the cache. Only a 200 is kept; React's cache
- *  shares one call between the layout and the page of a request. */
+ *  shares one call between the layout and the page of a request, `asking` between requests. */
 const keptAnswer = cache(async (url: string, redirect: RequestRedirect, tags: string): Promise<Answer> => {
   // both read here: inside unstable_cache's callback Next refuses headers(), and the call would get a deadline of its own
   const [visitor, by] = await Promise.all([visitorHeaders(), deadline()]);
-  const ask = async (): Promise<Answer> => {
-    // a refresh of a stale answer in the background runs in this request too, and keeps its deadline
-    const response = await djangoFetch(
-      url,
-      { redirect, headers: { ...FORWARDED_HEADERS, ...visitor, Accept: "application/json" }, cache: "no-store" },
-      by,
-    );
-    const answer = { status: response.status, type: response.headers.get("Content-Type"), body: await response.text() };
-    if (response.status !== 200) throw new NotKept(answer);
-    return answer;
+  const ask = (): Promise<Answer> => {
+    const key = `${redirect} ${url}`;
+    let call = asking.get(key);
+    if (!call) {
+      // a refresh of a stale answer in the background runs in this request too, and keeps its deadline
+      call = djangoFetch(
+        url,
+        { redirect, headers: { ...FORWARDED_HEADERS, ...visitor, Accept: "application/json" }, cache: "no-store" },
+        by,
+      )
+        .then(async (response) => {
+          const answer = {
+            status: response.status,
+            type: response.headers.get("Content-Type"),
+            body: await response.text(),
+          };
+          if (response.status !== 200) throw new NotKept(answer);
+          return answer;
+        })
+        .finally(() => asking.delete(key));
+      asking.set(key, call);
+    }
+    return call;
   };
   try {
     return await unstable_cache(ask, [url, redirect], { revalidate: REVALIDATE_SECONDS, tags: tags.split(" ") })();
