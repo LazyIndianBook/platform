@@ -140,6 +140,25 @@ const PAGES = [
   "/reports/settlements/",
   "/reports/cohorts/",
   "/reports/forecasts/",
+  // the Catalogue module
+  "/catalogue/",
+  "/catalogue/products/",
+  "/catalogue/products/?incomplete=true",
+  "/catalogue/products/physics-sample-papers-2027/",
+  "/catalogue/products/class-12-science-set/",
+  "/catalogue/products/new/",
+  "/catalogue/stock/",
+  "/catalogue/coupons/",
+  "/catalogue/coupons/CCHS2027/",
+  "/catalogue/coupons/new/",
+  "/catalogue/offers/",
+  "/catalogue/offers/501/",
+  "/catalogue/offers/new/",
+  "/catalogue/shipping-rates/",
+  "/catalogue/shipping-rates/61/",
+  "/catalogue/categories/",
+  "/catalogue/collections/",
+  "/catalogue/import/",
 ];
 
 const stamp = Date.now();
@@ -163,6 +182,7 @@ for (const width of [1280, 390]) {
     test.afterAll(() => deleteStaff([staff.email]));
 
     test("signs in, and every page passes axe and fits the window", async ({ page }) => {
+      test.setTimeout(600_000); // every module's pages under next dev, axe on each: more than five minutes when busy
       for (const path of ["/sign-in/", "/inactive/", "/no-access/", "/set-up-two-step/"]) {
         await page.goto(path);
         expect.soft((await axe(page)).violations, `axe on ${path}`).toEqual([]);
@@ -229,6 +249,53 @@ for (const width of [1280, 390]) {
         await card.getByRole("button", { name: "Mark packed" }).click();
         await expect(toast(page, "Marked packed")).toBeVisible();
         await expect(page.getByRole("heading", { name: "EL-2026-000133" })).toHaveCount(0);
+      });
+      await page.context().clearCookies({ name: "staff_mock_role" });
+    });
+
+    test("catalogue: a price beyond SALES' limit waits after its prior-price note; a school's codes are made", async ({
+      page,
+    }) => {
+      await signIn(page, staff, "/catalogue/", codes);
+      const site = new URL("/", page.url()).href;
+      const as = (role: string) => page.context().addCookies([{ name: "staff_mock_role", value: role, url: site }]);
+
+      await test.step("SALES opens a product and lowers its price: the website's note first, then the change request", async () => {
+        await as("SALES");
+        await page.goto("/catalogue/products/");
+        await page
+          .getByRole("region", { name: "Products, a table" })
+          .getByRole("link", { name: /Physics Sample Papers 2027/ })
+          .click();
+        await expect(page.getByRole("heading", { level: 1, name: "Physics Sample Papers 2027" })).toBeVisible();
+        const prices = page.locator("#prices");
+        await prices.getByLabel("Selling price").fill("249");
+        await expect(prices.getByText(/Lowest price in the 30 days before this reduction: ₹279/)).toBeVisible();
+        await prices.getByLabel("Reason").fill("The board-exam offer (the console's tests).");
+        await prices
+          .getByRole("region", { name: "Unsaved changes" })
+          .getByRole("button", { name: "Save the prices" })
+          .click();
+        await settle(page, prices.getByText("A second person needs to approve this"), staff, codes);
+        await expect(prices.getByText("staff.approve_discount", { exact: true })).toBeVisible();
+        await expect(prices.getByRole("link", { name: /^Open the change request/ })).toBeVisible();
+      });
+
+      await test.step("MARKETING makes a school's single-use codes: a job, then its file", async () => {
+        await as("MARKETING");
+        await page.goto("/catalogue/coupons/");
+        await page.getByRole("region", { name: "Coupons, a table" }).getByRole("link", { name: "CCHS2027" }).click();
+        await expect(page.getByRole("heading", { level: 1, name: "CCHS2027" })).toBeVisible();
+        const codesSection = page.locator("#codes");
+        await codesSection.getByLabel("How many codes").fill("20");
+        await codesSection.getByLabel("Prefix").fill("dbhs");
+        await codesSection.getByLabel("School", { exact: true }).fill("Don Bosco HS");
+        await codesSection.getByRole("button", { name: "Make the codes" }).click();
+        await settle(page, toast(page, "Codes started"), staff, codes);
+        await expect(codesSection.getByText("All done").first()).toBeVisible();
+        const download = page.waitForEvent("download");
+        await codesSection.getByRole("button", { name: "Download the file" }).click();
+        expect((await download).suggestedFilename()).toMatch(/^codes-\d+\.csv$/);
       });
       await page.context().clearCookies({ name: "staff_mock_role" });
     });
@@ -362,7 +429,8 @@ for (const width of [1280, 390]) {
         await page.getByLabel("Add a note").fill("Promised a call back with the courier's number.");
         await page.getByRole("button", { name: "Save the note" }).click();
         await expect(toast(page, "Note saved")).toBeVisible();
-        await expect(page.getByText("Promised a call back with the courier's number.")).toBeVisible();
+        // exact: a colleague's note on the same customer says it too
+        await expect(page.getByText("Promised a call back with the courier's number.", { exact: true })).toBeVisible();
       });
 
       await test.step("sign in to the website as a customer, then end it", async () => {

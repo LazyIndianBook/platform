@@ -18,7 +18,8 @@ print runs, item analysis, cohorts, fraud signals). Code: `api/` (`auth.py`, `vi
 [Insights (staff)](#insights-staff) · [ERPNext sync (staff)](#erpnext-sync-staff) · [Orders (staff)](#orders-staff) ·
 [Finance (staff)](#finance-staff) · [Tax (staff)](#tax-staff) · [Legal and privacy (staff)](#legal-and-privacy-staff) ·
 [Content (staff)](#content-staff) · [Support (staff)](#support-staff) · [Connections (staff)](#connections-staff) ·
-[Templates (staff)](#templates-staff) · [Home and reports (staff)](#home-and-reports-staff) · [Lists](#lists) ·
+[Templates (staff)](#templates-staff) · [Home and reports (staff)](#home-and-reports-staff) ·
+[Catalogue (staff)](#catalogue-staff) · [Lists](#lists) ·
 [Staff API](#staff-api) · [Errors](#errors) ·
 [Rate limits](#rate-limits) · [CORS](#cors) ·
 [Versioning](#versioning) · [Operations](#operations)
@@ -540,7 +541,9 @@ use `alt=""`.
   edition year, language, board), `related` (slugs of the products shown with it), `web_url`, and for the page's
   `<head>`: `meta_title` and `meta_description` (what staff wrote for search engines; `""` when nothing is written:
   the website then uses the title, and its own sentence) and `og_image` (the link preview, 1200×630, the cover with the
-  title; null until the worker has made it). The old slug of a renamed product answers `301` with `Location:
+  title; null until the worker has made it). `prior_price` (from `SHOP_PRIOR_PRICE_FROM`, 1 January 2027: the lowest selling
+  price of the 30 days before the current price was set, when the current one is lower; null otherwise, the
+  website's "Lowest price in the 30 days before this reduction"). The old slug of a renamed product answers `301` with `Location:
   …/api/v1/products/<new slug>/` and `{"redirect_to": "<new slug>"}` for a client that does not follow redirects (the
   website's `/shop/<old slug>/` redirects too); once that product is off sale, 404.
 - **Categories**: `slug`, `name`, `description` (Markdown), `depth` (1 at the top), `parent` (the slug of the category
@@ -589,7 +592,11 @@ products, the cart, addresses and orders can still be read, and an order can sti
 (null unless `?state=AS`, a two-letter state code, is given), `total`, `problems` (books off sale or short of stock,
 which stop the checkout). `savings` is a list of `{"label", "amount"}`: the coupon ("Coupon WELCOME10") and each
 automatic offer by its name ("Board 2027 offer"), and "Discount" on orders made by staff; `discount` is their sum.
-Offers apply by themselves, after the coupon (no code to type), as soon as they apply.
+Offers apply by themselves, after the coupon (no code to type), as soon as they apply. A coupon may cover some
+products or categories only (its minimum order reckoned on them), be for a first order, or not stack (then no offer
+beside it); a school's single-use code (`CCHS-7KQ2MZRX`) is typed as a coupon's code is, `coupon` then the code
+typed, and the order made with it takes it (a second order with it: 400 "This code has been used."; a cancelled
+order frees it).
 
 ```sh
 curl -X POST https://examleaf.in/api/v1/cart/items/ -H "Authorization: Bearer $ACCESS" -H 'Content-Type: application/json' \
@@ -1739,6 +1746,85 @@ curl -X POST https://admin.examleaf.in/api/v1/staff/reports/print-run/ -b "sessi
 #      "recommended_quantity": 700, "range": {"p10": 820, "p50": 1010, "p90": 1380, "weeks": 18}, ...}
 ```
 
+## Catalogue (staff)
+
+`/api/v1/staff/catalogue/…` (code: `shop/staff_catalogue.py`; the rules: `shop/catalogue.py`, `shop/pricing.py`,
+`shop/copy_rules.py`, `shop/barcode.py`, the jobs `shop/catalogue_jobs.py`; [shop/README.md](shop/README.md)
+"Catalogue") is the Catalogue module's API: products by section with their chips, a product's parts each behind its
+own permission, coupons and offers through their approvals with the dark-pattern guardrails, the shipping rates, the
+shelves, stock by hand, versions, the prior price, the EAN-13 barcode, and the import and export as jobs. It keeps
+every rule of the [Staff API](#staff-api): the admin host only, a member of staff with a second factor (an API key
+reads only), each action's catalogued permission (area "Catalogue"), every refusal an `authz_fail` event, cursor
+pages, `Cache-Control: no-store`; the schema tags it `catalogue (staff)` (the bare `catalogue/` stays the permissions'
+catalogue). A product's parts: the page's fields `shop.change_product` (CONTENT_EDITOR, SALES), the MRP and selling
+price `staff.change_price` (SALES) through the approval `product.price` (beyond the maker's `discount_percent` off the
+MRP FINANCE approves), the HSN or SAC code and a bundle's treatment `staff.change_product_tax` (FINANCE), stock
+`staff.set_stock` (SALES). Coupons and offers are MARKETING's and SALES's (`coupon.create`, `coupon.change`,
+`offer.create`, `offer.change`: a deeper discount beyond the maker's limit waits for FINANCE). Every change is an
+audit event (`catalogue.product_created`, `catalogue.product_changed` with the fields, `catalogue.stock_set`,
+`catalogue.bundle_changed`, `catalogue.picture_*`, `catalogue.cover_changed`, `catalogue.rate_*`,
+`catalogue.category_*`, `catalogue.collection_*`, `catalogue.type_*`, `catalogue.attribute_*`, `catalogue.import_uploaded`, `catalogue.imported`,
+`catalogue.exported`, `coupon.codes_made`) and a version in the record's history (products, coupons, offers and
+shipping rates: who, when, the change request's reason). Money is in rupees as decimal strings; a refusal is `400
+{"field": ["…"]}` or `{"non_field_errors": ["…"]}`.
+
+| Method | Path (under `/api/v1/staff/catalogue/`) | Permission | What |
+|---|---|---|---|
+| GET | `products/` (`?q=&kind=&category=&collection=&published=&stock=out\|low\|in_stock&tax_problem=&incomplete=`) | `shop.view_product` | the list with its chips: `tax_problem` (`""` when the GST agrees with the master today), `courier_problem` (`""` when the courier can be quoted), `stock_state`, `available`; `q` finds a title's words, a slug or an ISBN's digits |
+| GET | `products/<slug>/` | `shop.view_product` | by section: identity, `prices` (with the `prior_price` the website shows), `tax` (the master's rate today, `next_change`, the chip's words), physical (`weight_grams`, `length_cm`, `width_cm`, `height_cm`, `packaging`, `courier_problem`), `stock_info` (`stock`, `available`, `state`, `low_stock`, `reserved`, `awaiting_payment`, `alerts`), `cover` and `images`, `bundle_items`, SEO, `old_slugs`, `barcode`, `waiting` (its price changes waiting for approval) |
+| POST | `products/` | `shop.add_product` (a price below the MRP: `staff.change_price` too) | a new product: `title`, `slug`, `kind`, `mrp` at least; something to post needs `weight_grams` above 0 and `packaging` (a flyer by default) or its dimensions; made at its MRP and off sale unless `is_active`; a `price` below the MRP follows through `product.price`: 201 `{"product", "price_change"}` |
+| PATCH | `products/<slug>/` | the parts given: `shop.change_product`, `staff.change_price` (`mrp`, `price`, with `reason`), `staff.change_product_tax` (`hsn`, `tax_treatment`, `tax_note`, `tax_note_date`) | the page's fields save at once (200 the product); a price within your limit too; beyond it 202 `{"price_change", "slug"}` with the rest saved; `stock` is refused here (`stock/`); a renamed slug keeps the old one (`old_slugs`: the shop redirects it); the kind is fixed once sold; an ISBN once per kind |
+| POST | `products/<slug>/pictures/` (multipart `image`, `alt`, `position`, `as_cover`) | `shop.add_productimage` (`as_cover`: `shop.change_product`) | a picture (JPEG, PNG or WebP, 2 MB and 4096 px at most), its sizes made by the worker; 201 the product |
+| PATCH DELETE | `products/<slug>/pictures/<id>/` (`alt`, `position`) | `shop.change_productimage`, `shop.delete_productimage` | its description and place; or taken off |
+| PUT | `products/<slug>/bundle/` `{"lines": [{"product": "<slug>", "quantity": 1}]}` | `shop.change_product` | a bundle's books all at once (1 to 50, each once, no bundle in a bundle); refused once orders have taken its copies from stock (a return gives back the books it holds) |
+| POST | `products/<slug>/stock/` `{"stock", "reason", "expected"}` | `staff.set_stock` | a book's copies set by hand (audited); `expected`, the count you read: 400 when orders changed it meanwhile; a bundle's and a course's: 400 |
+| GET | `products/<slug>/history/` | `shop.view_product` | its versions, newest first: `changes` (`field`, `before`, `after`), `by`, `by_name`, `at`, `reason` |
+| GET | `products/<slug>/prior-price/?price=` | `shop.view_product` | what that selling price would show if set now: `lowest_in_30_days`, `prior_price` (null when not lower, or before `applies_from`), `window_from`, `applies`; nothing changes |
+| GET | `products/<slug>/barcode.svg/` | `shop.view_product` | its ISBN as an EAN-13 barcode (SVG, 37.29 mm wide), for the printer and the packing slip; 404 without a valid ISBN-13 |
+| GET | `stock/` (`?q=&state=&published=`), `stock-alerts/` | `shop.view_product`; `shop.view_stockalert` | the books' copies, the fewest first, with `reserved` (orders placed, not yet shipped) and `awaiting_payment` (orders not yet paid), test orders left out on a live site; the back-in-stock requests by product (`requests`, `last_asked`: never who) |
+| GET POST | `coupons/` (`?q=&state=live\|scheduled\|ended\|inactive&kind=&single_use=`) | `shop.view_coupon`; `shop.add_coupon` | the coupons with their `state`, `uses`, codes; a new one `{"code", "value", …, "reason"}`: the change request, 201 executed within your limit, 202 waiting beyond it |
+| GET PATCH | `coupons/<code>/` | `shop.view_coupon`; `shop.change_coupon` | one coupon; the fields that change and `reason`: 200, or 202 when the discount gets deeper beyond your limit; the code never changes |
+| GET | `coupons/<code>/codes/` (`?used=&job=`), `coupons/<code>/history/` | `shop.view_couponcode`; `shop.view_coupon` | its single-use codes (used, `order`'s number, never who); its versions |
+| GET POST | `offers/` (`?q=&state=&scope=&combinable=`) | `shop.view_offer`; `shop.add_offer` | the automatic offers; a new one `{"name", "value", …, "reason"}` (201, or 202 beyond your limit) |
+| GET PATCH | `offers/<id>/`, `offers/<id>/history/` | `shop.view_offer`; `shop.change_offer` | one offer and its versions (its scope's products, categories and collections among the changes); a change as for coupons |
+| GET POST | `shipping-rates/` | `shop.view_shippingrate`; `shop.add_shippingrate` | the delivery rates; a new one `{"name", "states", "fee", "free_above", "is_active", "reason"}`: no state in two active rates, one rate at most for every other state |
+| GET PATCH | `shipping-rates/<id>/`, `shipping-rates/<id>/history/` | `shop.view_shippingrate`; `shop.change_shippingrate` | one rate and its versions; a change applies to carts at once |
+| GET POST | `categories/` | `shop.view_category`; `shop.add_category` | the tree in tree order (`depth`, `parent`, `products`); a new one under `parent` (or at the top) |
+| GET PATCH | `categories/<slug>/` | `shop.view_category`; `shop.change_category` | its name, address and description |
+| POST | `categories/<slug>/move/` `{"target": "<slug>" or null, "position": "first-child\|last-child\|left\|right"}` | `shop.change_category` | it moves with what is under it (never under itself); the whole tree back |
+| GET POST PATCH | `collections/`, `collections/<slug>/` | `shop.view_collection`; `add_`, `change_collection` | hand-picked lists: name, description, `is_active`, `position`, `products` (slugs, in order) |
+| GET POST PATCH | `product-types/`, `product-types/<id>/`; `product-types/<id>/attributes/`, `…/attributes/<id>/` | `shop.view_producttype`; `add_`, `change_producttype`; `add_`, `change_attribute` | the types and their attributes; an attribute's code fixed once products have values for it, its kind changed only when every value fits |
+| GET | `summary/`, `options/` | `shop.view_product` | the module's home (`incomplete`, `tax_problems`, `low_stock`, `out_of_stock`, `stock_alerts`, `approvals`, `prior_price_applies`); the forms' choices |
+| POST | `import/` (multipart `file`, a CSV in the admin's export format, 2 MB and 2,000 rows at most) | `shop.import_product` (ADMIN) | the file kept and its dry run started: 202 the job (`product_import`, `dry_run`), whose `result` counts `created`, `updated`, `unchanged`, `errors`, `prices_waiting` and lists each row that changes something |
+
+The import's apply is `POST jobs/` `{"kind": "product_import", "params": {"file": "<the dry run's file>",
+"dry_run_job": <its id>}}`: the same person's finished dry run of the same bytes, within 24 hours, once. Each row goes
+through the rules above in its own transaction (a price through `product.price`, a new product made at its MRP);
+stock and the GST rate are never imported. The export is `POST jobs/` `{"kind": "product_export", "params":
+{"filters": {…the list's…}}}` (`shop.export_product`; above your `export_rows` an approver first), cells that would
+start a formula escaped. A school's single-use codes are `POST jobs/` `{"kind": "coupon_codes", "params": {"coupon":
+"<code>", "count": 300, "prefix": "CCHS", "note": "<the school's name>"}}` (`shop.add_couponcode`; the coupon
+single-use first; above your `bulk_rows` an approver first): `PREFIX-XXXXXXXX` codes (no 0, O, 1, I or L), and a CSV of
+them for the school through the job's `result_url`.
+
+```sh
+curl "https://admin.examleaf.in/api/v1/staff/catalogue/products/?incomplete=1" -b "sessionid=..."
+# 200 {"next": null, "previous": null, "results": [{"slug": "physics-sample-papers-2027", "title": "...", "kind":
+#      "sample-papers", "mrp": "349.00", "price": "299.00", "stock": 40, "available": 40, "stock_state": "in_stock",
+#      "tax_problem": "", "courier_problem": "No weight: weigh one copy, in grams.", ...}]}
+curl "https://admin.examleaf.in/api/v1/staff/catalogue/products/physics-sample-papers-2027/prior-price/?price=249" \
+  -b "sessionid=..."
+# 200 {"price": "249.00", "lowest_in_30_days": "279.00", "prior_price": "279.00", "window_from": "2027-01-04T10:00:00+05:30",
+#      "applies": true, "applies_from": "2027-01-01"}
+curl -X PATCH https://admin.examleaf.in/api/v1/staff/catalogue/products/physics-sample-papers-2027/ \
+  -b "sessionid=...; csrftoken=..." -H "X-CSRFToken: ..." -H "Content-Type: application/json" \
+  -d '{"price": "199.00", "weight_grams": 320, "reason": "The board-exam offer"}'
+# 202 {"price_change": {"id": 812, "action": "product.price", "status": "pending", ...}, "slug": "physics-..."}
+```
+
+The storefront's product (`GET /api/v1/products/…`, [Store catalogue](#store-catalogue)) gains `prior_price`; the
+cart's coupon (`POST cart/coupon/`) takes a school's single-use code as it takes a coupon's code.
+
 ## Lists
 
 Lists are paginated: `{"count": 120, "next": "<url>", "previous": null, "results": [...]}`, 50 a page, `?page=2`,
@@ -1811,7 +1897,7 @@ minutes.
 | POST | `jobs/<id>/cancel/` | `staff.view_job`, your own job | stop it: at once while queued (its approval withdrawn), at its next row while running |
 | GET | `jobs/<id>/result/?token=` | `staff.view_job`, your own job | its file (`result_url`, a link signed for 5 minutes): 200 the file, or 302 to the private bucket's own signed link |
 | GET | `change-requests/` (`?status=&action=&mine=&awaiting=`), `change-requests/<id>/` | `staff.view_changerequest` | approvals: payload, its SHA-256, rule, approvals, result |
-| POST | `change-requests/` (`action`, `target`, `payload`, `reason`) | `staff.add_changerequest` and the action's own | ask: `order.refund`, `order.offline_payment`, `product.price`, `coupon.create` |
+| POST | `change-requests/` (`action`, `target`, `payload`, `reason`) | `staff.add_changerequest` and the action's own | ask: `order.refund`, `order.offline_payment`, `product.price`, `coupon.create`, `coupon.change`, `offer.create`, `offer.change` |
 | POST | `change-requests/<id>/approve/` (`payload_sha256`, `comment`, `override`), `…/reject/` (`comment`) | the action's checker (re-authenticated): FINANCE for money, ADMIN for roles, staff second factors, erasures and exports, the owners for any | approve the payload you read (its hash); reject, or withdraw your own |
 | POST | `change-requests/<id>/execute/` | its maker or a checker (re-authenticated) | run the stored payload, once |
 | GET POST PATCH DELETE | `saved-views/` (`?list_key=`), `saved-views/<id>/` | `staff.view_savedview`, `add_`, `change_`, `delete_` | your saved lists' filters, columns and sort; `role` shares one with a role you hold |
@@ -2016,6 +2102,54 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 | POST | `staff/audit/export/` | `staff.export_auditlog` |  | `ExportRequest` | 200 `application/x-ndjson`; 202 `Job` |
 | GET | `staff/audit/{id}/` | `staff.view_auditlog` |  |  | 200 `AuditEvent` |
 | GET | `staff/catalogue/` | any member of staff |  |  | 200 `StaffCatalogue` |
+| GET | `staff/catalogue/categories/` | `shop.view_category` |  |  | 200 `[CatalogueCategory]` |
+| POST | `staff/catalogue/categories/` | `shop.add_category` |  | `CatalogueCategoryWriteRequest` | 201 `CatalogueCategory` |
+| GET | `staff/catalogue/categories/{slug}/` | `shop.view_category` |  |  | 200 `CatalogueCategory` |
+| PATCH | `staff/catalogue/categories/{slug}/` | `shop.change_category` |  | `PatchedCatalogueCategoryWriteRequest` | 200 `CatalogueCategory` |
+| POST | `staff/catalogue/categories/{slug}/move/` | `shop.change_category` |  | `CatalogueCategoryMoveRequest` | 200 `[CatalogueCategory]` |
+| GET | `staff/catalogue/collections/` | `shop.view_collection` | `cursor`, `page_size` |  | 200 `PaginatedCatalogueCollectionList` |
+| POST | `staff/catalogue/collections/` | `shop.add_collection` |  | `CatalogueCollectionWriteRequest` | 201 `CatalogueCollection` |
+| GET | `staff/catalogue/collections/{slug}/` | `shop.view_collection` |  |  | 200 `CatalogueCollection` |
+| PATCH | `staff/catalogue/collections/{slug}/` | `shop.change_collection` |  | `PatchedCatalogueCollectionWriteRequest` | 200 `CatalogueCollection` |
+| GET | `staff/catalogue/coupons/` | `shop.view_coupon` | `cursor`, `kind`, `page_size`, `q`, `single_use`, `state` |  | 200 `PaginatedCatalogueCouponList` |
+| POST | `staff/catalogue/coupons/` | `shop.add_coupon` |  | `CatalogueCouponWriteRequest` | 201 `ChangeRequest`; 202 `ChangeRequest` |
+| GET | `staff/catalogue/coupons/{code}/` | `shop.view_coupon` |  |  | 200 `CatalogueCoupon` |
+| PATCH | `staff/catalogue/coupons/{code}/` | `shop.change_coupon` |  | `PatchedCatalogueCouponWriteRequest` | 200 `ChangeRequest`; 202 `ChangeRequest` |
+| GET | `staff/catalogue/coupons/{code}/codes/` | `shop.view_couponcode` | `cursor`, `job`, `used` |  | 200 `CatalogueCodePage` |
+| GET | `staff/catalogue/coupons/{code}/history/` | `shop.view_coupon` | `cursor`, `page_size` |  | 200 `CatalogueVersionPage` |
+| POST | `staff/catalogue/import/` | `shop.import_product` |  | `CatalogueImportUploadRequest` | 202 `Job` |
+| GET | `staff/catalogue/offers/` | `shop.view_offer` | `combinable`, `cursor`, `page_size`, `q`, `scope`, `state` |  | 200 `PaginatedCatalogueOfferList` |
+| POST | `staff/catalogue/offers/` | `shop.add_offer` |  | `CatalogueOfferWriteRequest` | 201 `ChangeRequest`; 202 `ChangeRequest` |
+| GET | `staff/catalogue/offers/{id}/` | `shop.view_offer` |  |  | 200 `CatalogueOffer` |
+| PATCH | `staff/catalogue/offers/{id}/` | `shop.change_offer` |  | `PatchedCatalogueOfferWriteRequest` | 200 `ChangeRequest`; 202 `ChangeRequest` |
+| GET | `staff/catalogue/offers/{id}/history/` | `shop.view_offer` | `cursor`, `page_size` |  | 200 `CatalogueVersionPage` |
+| GET | `staff/catalogue/options/` | `shop.view_product` |  |  | 200 `CatalogueOptions` |
+| GET | `staff/catalogue/product-types/` | `shop.view_producttype` |  |  | 200 `[CatalogueProductType]` |
+| POST | `staff/catalogue/product-types/` | `shop.add_producttype` |  | `CatalogueTypeNameRequest` | 201 `CatalogueProductType` |
+| GET | `staff/catalogue/product-types/{id}/` | `shop.view_producttype` |  |  | 200 `CatalogueProductType` |
+| PATCH | `staff/catalogue/product-types/{id}/` | `shop.change_producttype` |  | `PatchedCatalogueTypeRenameRequest` | 200 `CatalogueProductType` |
+| POST | `staff/catalogue/product-types/{id}/attributes/` | `shop.add_attribute` |  | `CatalogueAttributeDefRequest` | 201 `CatalogueProductType` |
+| PATCH | `staff/catalogue/product-types/{id}/attributes/{attribute}/` | `shop.change_attribute` |  | `PatchedCatalogueAttributeDefRequest` | 200 `CatalogueProductType` |
+| GET | `staff/catalogue/products/` | `shop.view_product` | `category`, `collection`, `cursor`, `incomplete`, `kind`, `page_size`, `published`, `q`, `stock`, `tax_problem` |  | 200 `PaginatedCatalogueProductRowList` |
+| POST | `staff/catalogue/products/` | `shop.add_product` |  | `CatalogueProductWriteRequest` | 201 `CatalogueProductMade` |
+| GET | `staff/catalogue/products/{slug}/` | `shop.view_product` |  |  | 200 `CatalogueProduct` |
+| PATCH | `staff/catalogue/products/{slug}/` | `shop.change_product` (by the key or the body: see the table above) |  | `PatchedCatalogueProductWriteRequest` | 200 `CatalogueProduct`; 202 `CatalogueProductPriceWaiting` |
+| GET | `staff/catalogue/products/{slug}/barcode.svg/` | `shop.view_product` |  |  | 200 `image/svg+xml` |
+| PUT | `staff/catalogue/products/{slug}/bundle/` | `shop.change_product` |  | `CatalogueBundleLinesRequest` | 200 `CatalogueProduct` |
+| GET | `staff/catalogue/products/{slug}/history/` | `shop.view_product` | `cursor`, `page_size` |  | 200 `CatalogueVersionPage` |
+| POST | `staff/catalogue/products/{slug}/pictures/` | `shop.add_productimage` |  | `CataloguePictureUploadRequest` | 201 `CatalogueProduct` |
+| PATCH | `staff/catalogue/products/{slug}/pictures/{picture}/` | `shop.change_productimage` (by the key or the body: see the table above) |  | `PatchedCataloguePictureChangeRequest` | 200 `CatalogueProduct`; 204 |
+| DELETE | `staff/catalogue/products/{slug}/pictures/{picture}/` | `shop.delete_productimage` (by the key or the body: see the table above) |  |  | 200 `CatalogueProduct`; 204 |
+| GET | `staff/catalogue/products/{slug}/prior-price/` | `shop.view_product` | `price` |  | 200 `CataloguePriorPrice` |
+| POST | `staff/catalogue/products/{slug}/stock/` | `staff.set_stock` |  | `CatalogueStockSetRequest` | 200 `CatalogueProduct` |
+| GET | `staff/catalogue/shipping-rates/` | `shop.view_shippingrate` | `cursor`, `page_size` |  | 200 `PaginatedCatalogueShippingRateList` |
+| POST | `staff/catalogue/shipping-rates/` | `shop.add_shippingrate` |  | `CatalogueShippingRateWriteRequest` | 201 `CatalogueShippingRate` |
+| GET | `staff/catalogue/shipping-rates/{id}/` | `shop.view_shippingrate` |  |  | 200 `CatalogueShippingRate` |
+| PATCH | `staff/catalogue/shipping-rates/{id}/` | `shop.change_shippingrate` |  | `PatchedCatalogueShippingRateWriteRequest` | 200 `CatalogueShippingRate` |
+| GET | `staff/catalogue/shipping-rates/{id}/history/` | `shop.view_shippingrate` | `cursor`, `page_size` |  | 200 `CatalogueVersionPage` |
+| GET | `staff/catalogue/stock-alerts/` | `shop.view_stockalert` | `cursor`, `page_size` |  | 200 `PaginatedCatalogueAlertRowList` |
+| GET | `staff/catalogue/stock/` | `shop.view_product` | `cursor`, `page_size`, `published`, `q`, `state` |  | 200 `PaginatedCatalogueStockRowList` |
+| GET | `staff/catalogue/summary/` | `shop.view_product` |  |  | 200 `CatalogueSummary` |
 | GET | `staff/change-requests/` | `staff.view_changerequest` | `action`, `awaiting`, `cursor`, `mine`, `page_size`, `status` |  | 200 `PaginatedChangeRequestList` |
 | POST | `staff/change-requests/` | `staff.add_changerequest` |  | `AskRequest` | 200 `ChangeRequest`; 201 `ChangeRequest`; 202 `ChangeRequest` |
 | GET | `staff/change-requests/{id}/` | `staff.view_changerequest` |  |  | 200 `ChangeRequest` |
@@ -2352,10 +2486,11 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ApiKeyRequest**: `name` string (required); `scopes` any; `sponsor` integer; `expires_at` date-time; `allowed_ips` any
 - **Approval**: `user` integer (required); `decision` DecisionEnum (required); `comment` string; `created` date-time
 - **ApproveRequest**: `payload_sha256` string (required); `comment` string; `override` boolean
-- **AskActionEnum**: one of `order.refund`, `order.offline_payment`, `product.price`, `coupon.create`
+- **AskActionEnum**: one of `order.refund`, `order.offline_payment`, `product.price`, `coupon.create`, `coupon.change`, `offer.create`, `offer.change`
 - **AskRequest**: `action` AskActionEnum (required); `target` string (required); `payload` object (required); `reason` string (required)
 - **AssignRequest**: `assignee` integer (required, null)
 - **Attachment**: `id` integer (required, read-only); `name` string (required, read-only); `content_type` string (required, read-only); `size` integer (required, read-only)
+- **AttributeKindEnum**: one of `text`, `number`, `choice`, `boolean`
 - **AuditEvent**: `id` integer (required, read-only); `chain` ChainEnum; `ts` date-time (required); `actor_id` integer (null); `actor_type` ActorTypeEnum (required); `actor_roles` any; `on_behalf_of` integer (null); `break_glass` boolean; `action` string (required); `permission` string; `target_type` string; `target_id` string; `target_label` string; `outcome` AuditOutcomeEnum; `reason` string; `change_request_id` integer (null); `request_id` string; `ip` string (null); `user_agent` string; `session_hash` string; `changes` any; `details` any; `prev_hash` string (required); `hash` string (required)
 - **AuditOutcomeEnum**: one of `success`, `denied`, `failed`
 - **AuditRow**: `pattern` PatternEnum (required); `label` string (required, read-only); `finding` string (required); `fix` string (required)
@@ -2378,6 +2513,61 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **Capability**: `perm` string (required); `label` string (required); `area` string (required); `risk` RiskEnum (required); `reauth` boolean (required); `approval` boolean (required); `alert` boolean (required); `last_used` date-time (null)
 - **CapabilityArea**: `area` string (required); `permissions` [Capability] (required)
 - **CarrierEnum**: one of `manual`, `shiprocket`
+- **CatalogueAlertRow**: `product` string (required); `title` string (required); `requests` integer (required); `last_asked` date-time (required); `available` integer (required)
+- **CatalogueAttribute**: `code` string (required); `name` string (required); `kind` string (required); `choices` [string] (required); `value` string (required, null)
+- **CatalogueAttributeDef**: `id` integer (required, read-only); `name` string (required); `code` string (required); `kind` AttributeKindEnum; `choices` string; `position` integer; `values` integer (required, read-only)
+- **CatalogueAttributeDefRequest**: `name` string (required); `code` string (required); `kind` AttributeKindEnum; `choices` string; `position` integer
+- **CatalogueBookStockEnum**: one of `out`, `low`, `in_stock`
+- **CatalogueBundleLine**: `product` string (required); `title` string (required); `kind` string (required); `quantity` integer (required); `stock` integer (required); `weight_grams` integer (required)
+- **CatalogueBundleLineRequest**: `product` string (required); `quantity` integer (required)
+- **CatalogueBundleLinesRequest**: `lines` [CatalogueBundleLineRequest] (required)
+- **CatalogueCategory**: `id` integer (required, read-only); `slug` string (required); `name` string (required); `description` string; `depth` integer (required, read-only); `parent` string (required, null, read-only); `products` integer (required, read-only)
+- **CatalogueCategoryMoveRequest**: `target` string (required, null); `position` CategoryMoveEnum (required)
+- **CatalogueCategoryWriteRequest**: `name` string (required); `slug` string (required); `description` string; `parent` string (null)
+- **CatalogueChange**: `field` string (required); `before` any (required, null); `after` any (required, null)
+- **CatalogueCode**: `code` string (required); `note` string (required); `job` integer (required, null); `created` date-time (required); `used` boolean (required); `used_at` date-time (required, null); `order` string (required, null)
+- **CatalogueCodeBatch**: `job` integer (required, null); `note` string (required); `made` integer (required); `used` integer (required); `created` date-time (required)
+- **CatalogueCodeCounts**: `made` integer (required); `used` integer (required); `batches` [CatalogueCodeBatch] (required)
+- **CatalogueCodePage**: `next` uri (required, null); `previous` uri (required, null); `results` [CatalogueCode] (required)
+- **CatalogueCollection**: `id` integer (required, read-only); `slug` string (required); `name` string (required); `description` string; `is_active` boolean; `position` integer; `products` [string] (required, read-only); `created` date-time (required, read-only); `modified` date-time (required, read-only)
+- **CatalogueCollectionWriteRequest**: `slug` string (required); `name` string (required); `description` string; `is_active` boolean; `position` integer; `products` [string]
+- **CatalogueCoupon**: `id` integer (required, read-only); `code` string (required, read-only); `kind` DiscountKindEnum (required, read-only); `value` decimal (required, read-only); `min_order` decimal (required, read-only); `valid_from` date-time (required, read-only); `valid_until` date-time (required, null, read-only); `max_uses` integer (required, null, read-only); `max_uses_per_customer` integer (required, null, read-only); `is_active` boolean (required, read-only); `description` string (required, read-only); `note` string (required, read-only); `include_products` [string] (required, read-only); `include_categories` [string] (required, read-only); `exclude_products` [string] (required, read-only); `exclude_categories` [string] (required, read-only); `first_order_only` boolean (required, read-only); `stackable` boolean (required, read-only); `single_use` boolean (required, read-only); `state` CatalogueTermStateEnum (required, read-only); `uses` integer (required, read-only); `codes` CatalogueCodeCounts (required, read-only); `waiting` [CatalogueWaiting] (required, read-only); `created` date-time (required, read-only); `modified` date-time (required, read-only)
+- **CatalogueCouponWriteRequest**: `code` string; `kind` DiscountKindEnum; `value` decimal; `min_order` decimal; `valid_from` date-time (null); `valid_until` date-time (null); `max_uses` integer (null); `max_uses_per_customer` integer (null); `is_active` boolean; `description` string; `note` string; `include_products` [string]; `include_categories` [string]; `exclude_products` [string]; `exclude_categories` [string]; `first_order_only` boolean; `stackable` boolean; `single_use` boolean; `reason` string (required)
+- **CatalogueImage**: `id` integer (required); `src` uri (required); `width` integer (required, null); `height` integer (required, null); `alt` string (required); `position` integer (required)
+- **CatalogueImportUploadRequest**: `file` binary (required)
+- **CatalogueNamed**: `slug` string (required); `name` string (required)
+- **CatalogueOffer**: `id` integer (required, read-only); `name` string (required, read-only); `banner` string (required, read-only); `kind` DiscountKindEnum (required, read-only); `value` decimal (required, read-only); `scope` OfferScopeEnum (required, read-only); `products` [string] (required, read-only); `categories` [string] (required, read-only); `collections` [string] (required, read-only); `min_quantity` integer (required, read-only); `min_value` decimal (required, read-only); `valid_from` date-time (required, read-only); `valid_until` date-time (required, null, read-only); `max_uses` integer (required, null, read-only); `max_uses_per_customer` integer (required, null, read-only); `combinable` boolean (required, read-only); `is_active` boolean (required, read-only); `show_countdown` boolean (required, read-only); `state` CatalogueTermStateEnum (required, read-only); `uses` integer (required, read-only); `waiting` [CatalogueWaiting] (required, read-only); `created` date-time (required, read-only); `modified` date-time (required, read-only)
+- **CatalogueOfferWriteRequest**: `name` string; `banner` string; `kind` DiscountKindEnum; `value` decimal; `scope` OfferScopeEnum; `products` [string]; `categories` [string]; `collections` [string]; `min_quantity` integer; `min_value` decimal; `valid_from` date-time (null); `valid_until` date-time (null); `max_uses` integer (null); `max_uses_per_customer` integer (null); `combinable` boolean; `is_active` boolean; `show_countdown` boolean; `reason` string (required)
+- **CatalogueOption**: `value` string (required); `label` string (required)
+- **CatalogueOptions**: `kinds` [CatalogueOption] (required); `packaging` [CatalogueOption] (required); `tax_treatments` [CatalogueOption] (required); `subjects` [CatalogueOption] (required); `books` [CatalogueOption] (required); `product_types` [CatalogueOption] (required); `categories` [CatalogueOption] (required); `collections` [CatalogueOption] (required); `hsn_codes` [CatalogueOption] (required, null); `states` [CatalogueOption] (required)
+- **CataloguePicture**: `src` uri (required); `width` integer (required, null); `height` integer (required, null)
+- **CataloguePictureUploadRequest**: `image` binary (required); `alt` string; `position` integer; `as_cover` boolean
+- **CataloguePrices**: `mrp` decimal (required); `price` decimal (required); `saving_percent` integer (required); `prior_price` decimal (required, null); `prior_price_applies` boolean (required); `prior_price_from` date (required)
+- **CataloguePriorPrice**: `price` decimal (required); `lowest_in_30_days` decimal (required); `prior_price` decimal (required, null); `window_from` date-time (required); `applies` boolean (required); `applies_from` date (required)
+- **CatalogueProduct**: `id` integer (required, read-only); `slug` string (required, read-only); `title` string (required, read-only); `kind` ProductKindEnum (required, read-only); `is_active` boolean (required, read-only); `subject` CatalogueSubject (required, null, read-only); `book` CatalogueNamed (required, null, read-only); `isbn` string (required, read-only); `pages` integer (required, null, read-only); `description` string (required, read-only); `product_type` CatalogueTypeRef (required, null, read-only); `attributes` [CatalogueAttribute] (required, read-only); `categories` [CatalogueNamed] (required, read-only); `collections` [CatalogueNamed] (required, read-only); `related` [string] (required, read-only); `old_slugs` [string] (required, read-only); `web_url` string (required, read-only); `prices` CataloguePrices (required, read-only); `hsn` string (required, null, read-only); `hsn_code` string (required, read-only); `gst_rate` decimal (required, read-only); `tax_treatment` TaxTreatmentEnum (required, read-only); `tax_note` string (required, read-only); `tax_note_date` date (required, null, read-only); `tax` CatalogueTax (required, read-only); `weight_grams` integer (required, read-only); `length_cm` integer (required, null, read-only); `width_cm` integer (required, null, read-only); `height_cm` integer (required, null, read-only); `packaging` any (required, read-only); `courier_problem` string (required, read-only); `stock_info` CatalogueStock (required, read-only); `cover` CataloguePicture (required, null, read-only); `images` [CatalogueImage] (required, read-only); `bundle_items` [CatalogueBundleLine] (required, read-only); `seo_title` string (required, read-only); `seo_description` string (required, read-only); `barcode` boolean (required, read-only); `waiting` [CatalogueWaiting] (required, read-only); `created` date-time (required, read-only); `modified` date-time (required, read-only)
+- **CatalogueProductMade**: `product` CatalogueProduct (required); `price_change` ChangeRequest (required, null)
+- **CatalogueProductPriceWaiting**: `price_change` ChangeRequest (required); `slug` string (required)
+- **CatalogueProductRow**: `id` integer (required, read-only); `slug` string (required, read-only); `title` string (required, read-only); `kind` ProductKindEnum (required, read-only); `is_active` boolean (required, read-only); `mrp` decimal (required, read-only); `price` decimal (required, read-only); `saving_percent` integer (required, read-only); `stock` integer (required, read-only); `available` integer (required, read-only); `stock_state` CatalogueStockStateEnum (required, read-only); `hsn_code` string (required, read-only); `gst_rate` decimal (required, read-only); `tax_problem` string (required, read-only); `courier_problem` string (required, read-only); `cover` CataloguePicture (required, null, read-only); `categories` [string] (required, read-only); `modified` date-time (required, read-only)
+- **CatalogueProductType**: `id` integer (required, read-only); `name` string (required); `attributes` [CatalogueAttributeDef] (required, read-only); `products` integer (required, read-only)
+- **CatalogueProductWriteRequest**: `title` string (required); `slug` string (required); `kind` ProductKindEnum (required); `is_active` boolean; `subject` integer (null); `book` string (null); `isbn` string; `pages` integer (null); `description` string; `product_type` integer (null); `attributes` object; `categories` [string]; `related` [string]; `weight_grams` integer; `length_cm` integer (null); `width_cm` integer (null); `height_cm` integer (null); `packaging` any; `seo_title` string; `seo_description` string; `hsn` string (null); `tax_treatment` TaxTreatmentEnum; `tax_note` string; `tax_note_date` date (null); `mrp` decimal (required); `price` decimal; `reason` string
+- **CatalogueRate**: `rate` decimal (required); `taxability` string (required); `effective_from` date (required); `notification` string (required)
+- **CatalogueShippingRate**: `id` integer (required, read-only); `name` string (required, read-only); `states` any (required, read-only); `fee` decimal (required, read-only); `free_above` decimal (required, null, read-only); `is_active` boolean (required, read-only)
+- **CatalogueShippingRateWriteRequest**: `name` string (required); `states` [CatalogueStatesEnum]; `fee` decimal (required); `free_above` decimal (null); `is_active` boolean; `reason` string
+- **CatalogueStatesEnum**: one of `AN`, `AP`, `AR`, `AS`, `BR`, `CH`, `CT`, `DH`, `DL`, `GA`, `GJ`, `HP`, `HR`, `JH`, `JK`, `KA`, `KL`, `LA`, `LD`, `MH`, `ML`, `MN`, `MP`, `MZ`, `NL`, `OR`, `PB`, `PY`, `RJ`, `SK`, `TG`, `TN`, `TR`, `UP`, `UT`, `WB`
+- **CatalogueStock**: `stock` integer (required); `available` integer (required); `state` string (required); `low_stock` integer (required); `reserved` integer (required); `awaiting_payment` integer (required); `alerts` integer (required); `last_alert` date-time (required, null)
+- **CatalogueStockRow**: `id` integer (required, read-only); `slug` string (required, read-only); `title` string (required, read-only); `kind` ProductKindEnum (required, read-only); `is_active` boolean (required, read-only); `stock` integer (required, read-only); `reserved` integer (required, read-only); `awaiting_payment` integer (required, read-only); `state` CatalogueBookStockEnum (required, read-only); `alerts` integer (required, read-only)
+- **CatalogueStockSetRequest**: `stock` integer (required); `reason` string (required); `expected` integer
+- **CatalogueStockStateEnum**: one of `none`, `out`, `low`, `in_stock`
+- **CatalogueSubject**: `id` integer (required); `label` string (required)
+- **CatalogueSummary**: `products` integer (required); `incomplete` integer (required); `tax_problems` integer (required); `low_stock` integer (required); `out_of_stock` integer (required); `low_stock_line` integer (required); `stock_alerts` integer (required, null); `approvals` integer (required); `prior_price_applies` boolean (required); `prior_price_from` date (required)
+- **CatalogueTax**: `today` CatalogueRate (required, null); `next_change` CatalogueRate (required, null); `problem` string (required)
+- **CatalogueTermStateEnum**: one of `live`, `scheduled`, `ended`, `inactive`
+- **CatalogueTypeNameRequest**: `name` string (required)
+- **CatalogueTypeRef**: `id` integer (required); `name` string (required)
+- **CatalogueVersion**: `id` integer (required); `at` date-time (required); `by` integer (required, null); `by_name` string (required); `reason` string (required); `type` ContentVersionTypeEnum (required); `changes` [CatalogueChange] (required)
+- **CatalogueVersionPage**: `next` uri (required, null); `previous` uri (required, null); `results` [CatalogueVersion] (required)
+- **CatalogueWaiting**: `id` integer (required); `action` string (required); `status` string (required); `rule` string (required); `payload` any (required); `created` date-time (required)
+- **CategoryMoveEnum**: one of `first-child`, `last-child`, `left`, `right`
 - **CertificateFileRequest**: `file` binary (required)
 - **ChainEnum**: one of `general`, `money`
 - **ChangeRequest**: `id` integer (required, read-only); `action` string (required); `label` string (required, read-only); `target_type` string; `target_id` string; `target_label` string; `payload` any; `payload_sha256` string (required); `amount` decimal (null); `maker` integer (required); `reason` string (required); `rule` string; `status` ChangeRequestStatusEnum; `expires_at` date-time (required); `overridden` boolean; `checker` string (required, read-only); `approvals` [Approval] (required, read-only); `result` any (null); `executed_by` integer (null); `executed_at` date-time (null); `created` date-time (required, read-only); `modified` date-time (required, read-only)
@@ -2470,6 +2660,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **DisclosureSetting**: `key` string (required); `label` string (required); `kind` any (required); `max_length` integer (required); `public` boolean (required); `value` any (required); `environment` any (required); `source` SettingSourceEnum (required); `effective_from` date-time (required, null); `changed_by` integer (required, null); `reason` string (required)
 - **Disclosures**: `settings` [DisclosureSetting] (required); `history` [DisclosureHistory] (required)
 - **DisclosuresChangeRequest**: `values` object (required); `reason` string (required)
+- **DiscountKindEnum**: one of `percent`, `fixed`
 - **EmailFigures**: `rates` EmailRates (required); `suppressed` integer (required); `suppressions_synced` date-time (required, null); `topic_restricted` boolean (required); `webhook_secret_set` boolean (required)
 - **EmailRates**: `sent` integer (required); `delivered` integer (required); `bounced` integer (required); `complained` integer (required); `bounce_rate` double (required, null); `complaint_rate` double (required, null); `bounce_limit` double (required); `complaint_limit` double (required)
 - **Ended**: `sessions` integer (required); `tokens` integer (required)
@@ -2568,7 +2759,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ItemStat**: `item` integer (required); `chapter` integer (required, read-only); `kind` string (required, read-only); `text` string (required, read-only); `n` integer (required); `p` double (null); `discrimination` double (null); `flags` any
 - **Job**: `id` integer (required, read-only); `kind` JobKindEnum (required, read-only); `state` JobStateEnum (required, read-only); `dry_run` boolean (required, read-only); `params` any (required, read-only); `done` integer (required, read-only); `total` integer (required, read-only); `errors` [JobError] (required, read-only); `result` any (required, read-only); `result_url` string (required, null, read-only); `change_request_id` integer (required, null, read-only); `cancel_requested` boolean (required, read-only); `started_by` integer (required, null, read-only); `created` date-time (required, read-only); `started_at` date-time (required, null, read-only); `finished_at` date-time (required, null, read-only)
 - **JobError**: `id` any (required, null); `label` string (required); `message` string (required)
-- **JobKindEnum**: one of `audit_export`, `bulk_action`, `erp_initial_load`, `gstr1_export`, `orders_pack`, `orders_print`, `orders_cancel`, `orders_export`, `content_import`, `grievance_export`, `settlement_fetch`, `report_export`
+- **JobKindEnum**: one of `audit_export`, `bulk_action`, `erp_initial_load`, `gstr1_export`, `orders_pack`, `orders_print`, `orders_cancel`, `orders_export`, `content_import`, `grievance_export`, `settlement_fetch`, `report_export`, `coupon_codes`, `product_import`, `product_export`
 - **JobStartRequest**: `kind` JobKindEnum (required); `params` object; `dry_run` boolean
 - **JobStateEnum**: one of `queued`, `running`, `done`, `failed`, `cancelled`
 - **LanguageEnum**: one of `as`, `bn`, `en`
@@ -2606,6 +2797,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **OffboardingStepKindEnum**: one of `auto`, `manual`
 - **OffboardingStepStateEnum**: one of `done`, `todo`, `not_needed`
 - **OffboardingTickRequest**: `step` string (required); `state` OffboardingStepStateEnum (required); `note` string
+- **OfferScopeEnum**: one of `cart`, `products`, `categories`, `collections`
 - **OfferStat**: `coupon` string (required, read-only); `offer` string (required, read-only); `period_start` date (required); `period_end` date (required); `orders` integer (required); `revenue` decimal (required); `discount_cost` decimal (required); `period_orders` integer (required); `baseline_orders` integer (required); `baseline_revenue` decimal (required); `interval_low` double (null); `interval_high` double (null); `note` string (required); `n` integer (required, read-only)
 - **OrderAction**: `name` string (required); `permission` string (required); `primary` boolean (required)
 - **OrderActionRequest**: `order` string
@@ -2650,11 +2842,19 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **OrderTimelineEntry**: `at` date-time (required); `kind` string (required); `label` string (required); `actor` string (required); `details` object (required)
 - **OwnSession**: `id` integer (required); `browser` string (required); `system` string (required); `place` string (required); `created_at` date-time (required); `last_seen_at` date-time (required); `current` boolean (required)
 - **OwnSessionsEnded**: `sessions` integer (required); `tokens` integer (required)
+- **PackagingEnum**: one of `flyer`, `box`
 - **PackingRow**: `number` string (required); `placed_at` date-time (required); `payment_method` string (required); `is_cod` boolean (required); `total` decimal (required); `risk_bucket` string (required); `tags` [string] (required); `destination` string (required); `weight_g` integer (required, null); `pick` [PickLine] (required)
 - **PaginatedApiKeyList**: `next` uri (null); `previous` uri (null); `results` [ApiKey] (required)
 - **PaginatedAuditEventList**: `next` uri (null); `previous` uri (null); `results` [AuditEvent] (required)
 - **PaginatedBacktestList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [Backtest] (required)
 - **PaginatedCallList**: `next` uri (null); `previous` uri (null); `results` [Call] (required)
+- **PaginatedCatalogueAlertRowList**: `next` uri (null); `previous` uri (null); `results` [CatalogueAlertRow] (required)
+- **PaginatedCatalogueCollectionList**: `next` uri (null); `previous` uri (null); `results` [CatalogueCollection] (required)
+- **PaginatedCatalogueCouponList**: `next` uri (null); `previous` uri (null); `results` [CatalogueCoupon] (required)
+- **PaginatedCatalogueOfferList**: `next` uri (null); `previous` uri (null); `results` [CatalogueOffer] (required)
+- **PaginatedCatalogueProductRowList**: `next` uri (null); `previous` uri (null); `results` [CatalogueProductRow] (required)
+- **PaginatedCatalogueShippingRateList**: `next` uri (null); `previous` uri (null); `results` [CatalogueShippingRate] (required)
+- **PaginatedCatalogueStockRowList**: `next` uri (null); `previous` uri (null); `results` [CatalogueStockRow] (required)
 - **PaginatedChangeRequestList**: `next` uri (null); `previous` uri (null); `results` [ChangeRequest] (required)
 - **PaginatedChapterStatList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [ChapterStat] (required)
 - **PaginatedCodRemittanceList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [CodRemittance] (required)
@@ -2716,6 +2916,15 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ParcelStatusEnum**: one of `booked`, `pickup_problem`, `in_transit`, `out_for_delivery`, `delivered`, `delivery_failed`, `returning`, `returned`, `lost_or_damaged`, `cancelled`, `partial`
 - **ParentConfirmationRequest**: `evidence_ref` string (required)
 - **PastTicket**: `number` string (required); `subject` string (required); `category` string (required); `status` string (required); `received_at` date-time (required)
+- **PatchedCatalogueAttributeDefRequest**: `name` string; `code` string; `kind` AttributeKindEnum; `choices` string; `position` integer
+- **PatchedCatalogueCategoryWriteRequest**: `name` string; `slug` string; `description` string; `parent` string (null)
+- **PatchedCatalogueCollectionWriteRequest**: `slug` string; `name` string; `description` string; `is_active` boolean; `position` integer; `products` [string]
+- **PatchedCatalogueCouponWriteRequest**: `code` string; `kind` DiscountKindEnum; `value` decimal; `min_order` decimal; `valid_from` date-time (null); `valid_until` date-time (null); `max_uses` integer (null); `max_uses_per_customer` integer (null); `is_active` boolean; `description` string; `note` string; `include_products` [string]; `include_categories` [string]; `exclude_products` [string]; `exclude_categories` [string]; `first_order_only` boolean; `stackable` boolean; `single_use` boolean; `reason` string
+- **PatchedCatalogueOfferWriteRequest**: `name` string; `banner` string; `kind` DiscountKindEnum; `value` decimal; `scope` OfferScopeEnum; `products` [string]; `categories` [string]; `collections` [string]; `min_quantity` integer; `min_value` decimal; `valid_from` date-time (null); `valid_until` date-time (null); `max_uses` integer (null); `max_uses_per_customer` integer (null); `combinable` boolean; `is_active` boolean; `show_countdown` boolean; `reason` string
+- **PatchedCataloguePictureChangeRequest**: `alt` string; `position` integer
+- **PatchedCatalogueProductWriteRequest**: `title` string; `slug` string; `kind` ProductKindEnum; `is_active` boolean; `subject` integer (null); `book` string (null); `isbn` string; `pages` integer (null); `description` string; `product_type` integer (null); `attributes` object; `categories` [string]; `related` [string]; `weight_grams` integer; `length_cm` integer (null); `width_cm` integer (null); `height_cm` integer (null); `packaging` any; `seo_title` string; `seo_description` string; `hsn` string (null); `tax_treatment` TaxTreatmentEnum; `tax_note` string; `tax_note_date` date (null); `mrp` decimal; `price` decimal; `reason` string
+- **PatchedCatalogueShippingRateWriteRequest**: `name` string; `states` [CatalogueStatesEnum]; `fee` decimal; `free_above` decimal (null); `is_active` boolean; `reason` string
+- **PatchedCatalogueTypeRenameRequest**: `name` string
 - **PatchedContentBookRequest**: `title` string; `subject` integer; `edition` string; `slug` string; `cover` string; `isbn` string; `format` BookFormatEnum; `published_on` date (null)
 - **PatchedContentPaperDetailRequest**: `title` string; `tier` TierEnum; `number` integer; `full_marks` integer; `pass_marks` integer; `time_text` string; `header_json` ContentHeaderRequest
 - **PatchedContentReportUpdateRequest**: `staff_note` string; `public` boolean; `printing` any; `step` integer (null)

@@ -374,6 +374,10 @@ class Job(models.Model):
         SETTLEMENT_FETCH = "settlement_fetch", "Razorpay settlements fetched"  # shop.settlements.fetch_job
         # Phase B: reports
         REPORT_EXPORT = "report_export", "report export"  # insights.exports
+        # Phase B: catalogue (shop/catalogue_jobs.py)
+        COUPON_CODES = "coupon_codes", "single-use coupon codes"
+        PRODUCT_IMPORT = "product_import", "product import"
+        PRODUCT_EXPORT = "product_export", "product export"
 
     class State(models.TextChoices):
         QUEUED = "queued", "queued"

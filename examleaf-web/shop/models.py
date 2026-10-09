@@ -212,6 +212,29 @@ class Product(TimeStampedModel):
     tax_note = models.TextField("the CA's decision", blank=True, help_text="As written, with whose it is.")
     tax_note_date = models.DateField("date of the CA's decision", null=True, blank=True)
 
+    # Phase B: catalogue
+    class Packaging(models.TextChoices):  # how a parcel of it is packed, for the courier's quote (plan 7.7)
+        FLYER = "flyer", "a flyer (the courier's bag, of the standard size)"
+        BOX = "box", "a box (its length, width and height)"
+
+    length_cm = models.PositiveSmallIntegerField(
+        "length (cm)", null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(200)]
+    )
+    width_cm = models.PositiveSmallIntegerField(
+        "width (cm)", null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(200)]
+    )
+    height_cm = models.PositiveSmallIntegerField(
+        "height (cm)", null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(200)]
+    )
+    packaging = models.CharField(
+        max_length=5,
+        choices=Packaging.choices,
+        blank=True,
+        help_text="A flyer has the standard size (SHIPPING_PARCEL_CM); a box needs its dimensions. Empty: not said.",
+    )
+    # every change kept (the prior price is read from the selling prices it holds: shop/pricing.py)
+    history = HistoricalRecords(excluded_fields=["og_image", "cover_width", "cover_height"])
+
     class Meta:
         ordering = ["subject", "kind", "title"]
         permissions = [("export_product", "Can export products"), ("import_product", "Can import products")]
@@ -516,6 +539,31 @@ class Coupon(TimeStampedModel):
         null=True, blank=True, default=1, help_text="Per account and per email address. Empty: no limit."
     )
     is_active = models.BooleanField(default=True)
+    # Phase B: catalogue (plan 5.5: products and categories in or out, first order, stacking, single-use codes)
+    description = models.CharField(
+        max_length=200, blank=True, help_text="What it is for, in words a customer may read (shop/copy_rules.py)."
+    )
+    note = models.CharField("internal note", max_length=200, blank=True, help_text="For staff: who it is for.")
+    include_products = models.ManyToManyField(Product, blank=True, related_name="+", verbose_name="only these products")
+    include_categories = models.ManyToManyField(
+        "Category", blank=True, related_name="+", verbose_name="only these categories (with their sub-categories)"
+    )
+    exclude_products = models.ManyToManyField(Product, blank=True, related_name="+", verbose_name="not these products")
+    exclude_categories = models.ManyToManyField(
+        "Category", blank=True, related_name="+", verbose_name="not these categories (with their sub-categories)"
+    )
+    first_order_only = models.BooleanField(
+        "first order only", default=False, help_text="For an account or email address with no order placed before."
+    )
+    stackable = models.BooleanField(
+        "with automatic offers", default=True, help_text="Off: no automatic offer applies beside it."
+    )
+    single_use = models.BooleanField(
+        "single-use codes only",
+        default=False,
+        help_text="Used only through its single-use codes (a school's batch); its own code is refused at the cart.",
+    )
+    history = HistoricalRecords(m2m_fields=[include_products, include_categories, exclude_products, exclude_categories])
 
     class Meta:
         ordering = ["-valid_from"]
@@ -535,8 +583,25 @@ class Coupon(TimeStampedModel):
         """The discount on books worth `amount` rupees, never more than the amount."""
         return money_off(self.kind, self.value, amount)
 
+    def covered(self, product_ids):
+        """Which of these products (ids) the coupon applies to (Phase B): those it names, or the products of the
+        categories it names with their sub-categories, or all of them when it names none; less those it leaves out."""
+        included = set(self.include_products.values_list("pk", flat=True))
+        shelves = list(self.include_categories.values_list("path", flat=True))
+        excluded = set(self.exclude_products.values_list("pk", flat=True))
+        left_out = list(self.exclude_categories.values_list("path", flat=True))
+        if not (included or shelves or excluded or left_out):
+            return set(product_ids)
+        products = Product.objects.filter(pk__in=product_ids)
+        if included or shelves:
+            products = products.filter(models.Q(pk__in=included) | on_shelves(shelves))
+        if excluded or left_out:
+            products = products.exclude(models.Q(pk__in=excluded) | on_shelves(left_out))
+        return set(products.values_list("pk", flat=True))
+
     def problem(self, amount, user=None, email=""):
-        """Why the coupon cannot be used on books worth `amount` (a message for the customer), or None."""
+        """Why the coupon cannot be used on books worth `amount` (those it applies to: `covered`; a message for the
+        customer), or None."""
         now = timezone.now()
         if not self.is_active or now < self.valid_from:
             return "This coupon code is not valid."
@@ -547,16 +612,27 @@ class Coupon(TimeStampedModel):
         return self.limit_problem(user, email)
 
     def limit_problem(self, user=None, email=""):
-        """Why the coupon's limits stop this customer (used up, or used before by this account or email address), or
-        None. Checked when the order is made and again, under a lock on the coupon, when it is placed
-        (services.claim_coupon): orders still awaiting payment do not count as uses until then."""
+        """Why the coupon's limits stop this customer (used up, used before by this account or email address, or a
+        first order's coupon after an order), or None. Checked when the order is made and again, under a lock on the
+        coupon, when it is placed (services.claim_coupon): orders still awaiting payment do not count until then."""
         used = self.orders.counted()
         if self.max_uses is not None and used.count() >= self.max_uses:
             return "This coupon has been used up."
         if self.max_uses_per_customer is not None and (user or email):
             if customers_orders(used, user, email).count() >= self.max_uses_per_customer:
                 return "You have already used this coupon."
+        if self.first_order_only and (user or email):
+            if customers_orders(Order.objects.counted(), user, email).exists():
+                return "This coupon is for a first order."
         return None
+
+
+def on_shelves(paths):
+    """Products on these categories or below them (materialised paths): a Q."""
+    shelves = models.Q(pk__in=[])
+    for path in paths:
+        shelves |= models.Q(categories__path__startswith=path)
+    return shelves
 
 
 def money_off(kind, value, amount):
@@ -610,6 +686,16 @@ class Offer(TimeStampedModel):
         "with coupons and other offers", default=True, help_text="Off: it applies alone, never with a coupon."
     )
     is_active = models.BooleanField(default=True)
+    # Phase B: catalogue (the dark-pattern guardrails: shop/copy_rules.py, shop/catalogue.py)
+    show_countdown = models.BooleanField(
+        "a countdown to its end",
+        default=False,
+        help_text="Only with a real end date, which never moves later once a countdown has shown.",
+    )
+    banner = models.CharField(
+        max_length=160, blank=True, help_text="The line the site may show for it, checked as its name is."
+    )
+    history = HistoricalRecords(m2m_fields=[products, categories, collections])
 
     objects = OfferQuerySet.as_manager()
 
@@ -633,10 +719,7 @@ class Offer(TimeStampedModel):
         elif self.scope == self.Scope.COLLECTIONS:
             products = products.filter(collection_items__collection__offers=self)
         else:
-            shelves = models.Q(pk__in=[])
-            for path in self.categories.values_list("path", flat=True):
-                shelves |= models.Q(categories__path__startswith=path)
-            products = products.filter(shelves)
+            products = products.filter(on_shelves(self.categories.values_list("path", flat=True)))
         return set(products.values_list("pk", flat=True))
 
     def limit_problem(self, user=None, email=""):
@@ -663,6 +746,8 @@ class ShippingRate(models.Model):
     fee = money_field("fee", default=0)
     free_above = money_field("free from", null=True, blank=True, help_text="Books worth this much or more ship free.")
     is_active = models.BooleanField(default=True)
+    # Phase B: catalogue
+    history = HistoricalRecords()
 
     class Meta:
         ordering = ["name"]
@@ -781,6 +866,10 @@ class Cart(TimeStampedModel):
     coupon = models.ForeignKey(Coupon, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     token = models.CharField(max_length=64, unique=True, null=True, blank=True, editable=False)  # SHA-256, hex
     token_expires = models.DateTimeField(null=True, blank=True, editable=False)
+    # Phase B: catalogue
+    coupon_code = models.ForeignKey(  # a single-use code typed (its coupon is `coupon`), taken by the order made
+        "CouponCode", on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
 
     def __str__(self):
         return f"Cart #{self.pk}"
@@ -1974,3 +2063,48 @@ class InvoicePaymentLink(TimeStampedModel):
 
     def __str__(self):
         return f"Link for {self.invoice}"
+
+
+# Phase B: catalogue
+
+
+class CouponCode(models.Model):
+    """A single-use code of a coupon (plan 7.7: a school's batch of codes, one per pupil): the coupon's rules and
+    discount, for one order. Made in batches by the panel's job (shop/catalogue_jobs.py), typed at the cart as a
+    coupon's code is (api/shop.py), taken by the order made with it in that order's transaction (services.save_order),
+    and free again once that order is cancelled (release_coupon_codes, below). A used code names its order; the account
+    that used it is kept only for the order's sake (SET_NULL when it goes)."""
+
+    coupon = models.ForeignKey(Coupon, on_delete=models.PROTECT, related_name="codes")
+    code = models.CharField(max_length=30, unique=True, help_text="Capitals and figures, its batch's prefix first.")
+    note = models.CharField(max_length=200, blank=True, help_text="Its batch's: the school's name.")
+    job = models.ForeignKey(
+        "staff.Job", on_delete=models.SET_NULL, null=True, blank=True, related_name="+", help_text="Its batch."
+    )
+    created = models.DateTimeField(default=timezone.now)
+    order = models.ForeignKey(Order, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    used_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["pk"]
+        constraints = [
+            models.UniqueConstraint(fields=["order"], condition=models.Q(order__isnull=False), name="one_code_an_order")
+        ]
+
+    def __str__(self):
+        return self.code
+
+    @property
+    def used(self):
+        return self.order_id is not None
+
+
+@receiver(post_save, sender=Order, dispatch_uid="shop_release_coupon_codes")
+def release_coupon_codes(sender, instance, raw=False, **kwargs):
+    """A cancelled order frees the single-use code it took (never paid and expired, cancelled by anyone, or a parcel
+    back undelivered), in the cancellation's transaction: another order may use it."""
+    if not raw and instance.status == Order.Status.CANCELLED:
+        CouponCode.objects.filter(order=instance).update(order=None, used_by=None, used_at=None)

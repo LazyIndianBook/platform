@@ -23,7 +23,7 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework import exceptions, serializers
 
-from shop import order_jobs
+from shop import catalogue_jobs, order_jobs
 
 from . import approvals, audit
 from .backends import scoped
@@ -41,6 +41,7 @@ LIMITS = {
     **order_jobs.LIMITS,  # the Orders module's (shop/order_jobs.py)
     Job.Kind.GRIEVANCE_EXPORT: "export_rows",
     Job.Kind.REPORT_EXPORT: "export_rows",  # the Reports (insights/exports.py)
+    **catalogue_jobs.LIMITS,  # the Catalogue module's (shop/catalogue_jobs.py)
 }
 
 
@@ -72,7 +73,7 @@ def permission(kind, params):
         return "staff.reconcile_settlements"
     if kind == Job.Kind.REPORT_EXPORT:
         return "staff.export_report"
-    return order_jobs.PERMISSIONS.get(kind)
+    return order_jobs.PERMISSIONS.get(kind) or catalogue_jobs.PERMISSIONS.get(kind)
 
 
 def audit_events(user, filters):
@@ -119,6 +120,8 @@ def start(kind, params, *, user, dry_run=False, request=None):
         from insights.exports import size
 
         total = size(user, params)  # the report as its starter reads it: their permissions, their scope
+    elif kind in catalogue_jobs.PERMISSIONS:
+        total = catalogue_jobs.size(kind, user, params)
     else:
         total = len(params["targets"])
     with transaction.atomic():
@@ -315,6 +318,7 @@ RUNNERS = {
     Job.Kind.GRIEVANCE_EXPORT: grievance_export,
     Job.Kind.SETTLEMENT_FETCH: settlement_fetch,
     Job.Kind.REPORT_EXPORT: report_export,
+    **catalogue_jobs.RUNNERS,
 }
 
 

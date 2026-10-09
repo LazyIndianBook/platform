@@ -30,8 +30,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.reverse import reverse
 
-from shop import payments, services
-from shop.cart import cart_by_token, get_cart, issue_token, merge_carts, set_quantity, totals
+from shop import payments, pricing, services
+from shop.cart import cart_by_token, coupon_lines, get_cart, issue_token, lines_of, merge_carts, set_quantity, totals
 from shop.forms import QuoteRequestForm
 from shop.models import (
     Address,
@@ -44,6 +44,7 @@ from shop.models import (
     Collection,
     CollectionItem,
     Coupon,
+    CouponCode,
     CreditNote,
     Order,
     OrderItem,
@@ -246,7 +247,7 @@ PRODUCT_EXAMPLE = {
     "web_url": "https://examleaf.in/shop/physics-sample-papers-2027/",
     "meta_title": "Physics Sample Papers 2027 for the Assam Board (ASSEB) Class 12",
     "meta_description": "30 Physics sample papers for the ASSEB Class 12 exam, with worked solutions.",
-    "og_image": "https://media.examleaf.in/og/physics-sample-papers-2027.jpg",
+    "og_image": "https://media.examleaf.in/og/physics-sample-papers-2027.jpg", "prior_price": None,
 }  # fmt: skip
 
 
@@ -277,6 +278,7 @@ class ProductSerializer(serializers.ModelSerializer):
         source="seo_description", read_only=True, help_text='the meta description staff wrote; "": none written'
     )
     og_image = serializers.SerializerMethodField()
+    prior_price = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -305,7 +307,22 @@ class ProductSerializer(serializers.ModelSerializer):
             "meta_title",
             "meta_description",
             "og_image",
+            "prior_price",
         ]
+
+    @extend_schema_field(
+        serializers.DecimalField(
+            max_digits=10,
+            decimal_places=2,
+            allow_null=True,
+            help_text="beside a reduced price, from 1 January 2027: the lowest selling price of the 30 days before the "
+            'reduction ("Lowest price in the 30 days before this reduction: ₹250"); null when not reduced',
+        )
+    )
+    def get_prior_price(self, product):
+        prices = self.context.get("prior_prices")
+        value = prices.get(product.pk) if prices is not None else pricing.prior_price(product)
+        return None if value is None else f"{value:.2f}"
 
     @extend_schema_field(PictureSerializer(allow_null=True))
     def get_cover(self, product):
@@ -429,6 +446,15 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
         for code, value in wanted:
             products = products.filter(attribute_match(by_code.get(code, []), value))
         return products.distinct()  # a product on two shelves of one branch is listed once
+
+    def list(self, request, *args, **kwargs):
+        # the page's prior prices read at once (one query of their history), not one product at a time
+        products = self.filter_queryset(self.get_queryset())
+        page = self.paginate_queryset(products)
+        rows = list(products) if page is None else page
+        context = {**self.get_serializer_context(), "prior_prices": pricing.prior_prices(rows)}
+        data = self.get_serializer_class()(rows, many=True, context=context).data
+        return Response(data) if page is None else self.get_paginated_response(data)
 
     @extend_schema(responses={200: ProductSerializer, 301: ProductMovedSerializer})
     def retrieve(self, request, *args, **kwargs):
@@ -588,7 +614,9 @@ class CartSerializer(serializers.Serializer):
 
     def get_coupon(self, result) -> str | None:
         cart = self.context["cart"]
-        return cart.coupon.code if cart and cart.coupon else None
+        if not cart or not cart.coupon:
+            return None
+        return cart.coupon_code.code if cart.coupon_code_id else cart.coupon.code  # a single-use code as typed
 
 
 @extend_schema_serializer(
@@ -709,19 +737,25 @@ class CartViewSet(Private, viewsets.GenericViewSet):
             if over_limit(request, "coupon", 10, 3600):  # shared with the website's cart page
                 raise exceptions.Throttled(wait=3600)
         cart = caller_cart(request, create=True)
-        coupon = Coupon.objects.filter(code__iexact=data.validated_data["code"].strip()).first()
-        if coupon is None or coupon.problem(totals(cart).subtotal, user=user, email=email):
+        typed = data.validated_data["code"].strip()
+        coupon, single = Coupon.objects.filter(code__iexact=typed).first(), None
+        if coupon is None:  # a single-use code of a coupon (a school's batch), kept in capitals
+            single = CouponCode.objects.select_related("coupon").filter(code=typed.upper()).first()
+            coupon = single.coupon if single else None
+        elif coupon.single_use:  # its own code is not for the cart: its single-use codes are
+            coupon = None
+        if coupon is None or coupon_lines(coupon, lines_of(cart), code=single, user=user, email=email)[1]:
             raise serializers.ValidationError({"code": [services.COUPON_REFUSED]})
-        cart.coupon = coupon
-        cart.save(update_fields=["coupon", "modified"])
+        cart.coupon, cart.coupon_code = coupon, single
+        cart.save(update_fields=["coupon", "coupon_code", "modified"])
         return self.answer(cart)
 
     @extend_schema(request=None, responses=CartSerializer, parameters=[STATE])
     def remove_coupon(self, request, **kwargs):
         cart = caller_cart(request)
         if cart and cart.coupon:
-            cart.coupon = None
-            cart.save(update_fields=["coupon", "modified"])
+            cart.coupon, cart.coupon_code = None, None
+            cart.save(update_fields=["coupon", "coupon_code", "modified"])
         return self.answer(cart)
 
 

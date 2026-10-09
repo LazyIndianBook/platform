@@ -36,6 +36,7 @@ urlpatterns = [
     path("invites/accept/", api.InviteAcceptView.as_view(), name="invite-accept"),
     path("policies/ack/", api.PolicyAcknowledgementView.as_view(), name="policy-ack"),
     # Phase B: the modules' own files, one line each, in the order of their paths
+    path("catalogue/", include("shop.staff_catalogue")),  # (catalogue/ itself stays the permissions' catalogue)
     path("connections/", include("integrations.api")),
     path("content/", include("content.staff_api")),
     path("finance/", include("shop.staff_finance")),

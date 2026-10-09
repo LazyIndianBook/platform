@@ -94,9 +94,14 @@ class ChangeRequestSerializer(serializers.ModelSerializer):
 
 class AskSerializer(serializers.Serializer):
     action = serializers.ChoiceField(
-        choices=[], help_text="order.refund, order.offline_payment, product.price, coupon.create"
+        choices=[],
+        help_text="order.refund, order.offline_payment, product.price, coupon.create, coupon.change, "
+        "offer.create, offer.change",
     )
-    target = serializers.CharField(max_length=64, help_text="an order's number, a product's slug, a new coupon's code")
+    target = serializers.CharField(
+        max_length=64,
+        help_text="an order's number, a product's slug, a coupon's code, an offer's id (\"new\" for a new one)",
+    )
     payload = serializers.DictField(help_text="the action's details: amount, reference, price, value …")
     reason = serializers.CharField(max_length=500)
 
@@ -174,6 +179,12 @@ def order_jobs():
     return order_jobs
 
 
+def catalogue_jobs():
+    from shop import catalogue_jobs
+
+    return catalogue_jobs
+
+
 class JobStartSerializer(serializers.Serializer):
     MAX_TARGETS = 10_000
 
@@ -192,7 +203,10 @@ class JobStartSerializer(serializers.Serializer):
         "apply)}; "
         'grievance_export: {"from": "YYYY-MM-DD", "until": "YYYY-MM-DD"} (the days received, both optional); '
         'settlement_fetch: {"day": "YYYY-MM-DD"} (a day of Razorpay\'s settlements, India, from 2020 to today); '
-        'report_export: {"report": "sales", "filters": {...}} (the report\'s own filters: reports/)',
+        'report_export: {"report": "sales", "filters": {...}} (the report\'s own filters: reports/); '
+        'coupon_codes: {"coupon": a single-use coupon\'s code, "count", "prefix", "note": the school\'s name}; '
+        'product_import: {"file": catalogue/import/\'s, "dry_run_job": the dry run\'s id (to apply)}; '
+        'product_export: {"filters": {…}} (the product list\'s)',
     )
     dry_run = serializers.BooleanField(required=False, default=False, help_text="check every row, change nothing")
 
@@ -213,6 +227,9 @@ class JobStartSerializer(serializers.Serializer):
             return data
         if data["kind"] in order_jobs().PERMISSIONS:  # the Orders module's: shop/order_jobs.py
             data["params"] = order_jobs().params_for(data["kind"], params)
+            return data
+        if data["kind"] in catalogue_jobs().PERMISSIONS:  # the Catalogue module's: shop/catalogue_jobs.py
+            data["params"] = catalogue_jobs().params_for(data["kind"], params, data["dry_run"])
             return data
         if data["kind"] == Job.Kind.CONTENT_IMPORT:
             from content.imports import clean_params

@@ -31,6 +31,7 @@ from .cart import totals as cart_totals
 from .models import (
     INR,
     Coupon,
+    CouponCode,
     CreditNote,
     Invoice,
     Offer,
@@ -297,6 +298,7 @@ def save_order(result, billing_state="", **fields):
     today = timezone.localdate()
     taxes = [tax.order_line(line.product, today) for line in result.lines]
     state = tax.billing_state(result.lines, fields.get("shipping_address"), billing_state)
+    code = result.coupon_code  # a single-use code (Phase B: catalogue): the order's alone, from this transaction
     with transaction.atomic():
         order = Order.objects.create(
             subtotal=result.subtotal,
@@ -304,11 +306,15 @@ def save_order(result, billing_state="", **fields):
             shipping_fee=result.shipping,
             total=result.total,
             coupon=result.coupon,
-            coupon_code=result.coupon.code if result.coupon else "",
+            coupon_code=code.code if code else result.coupon.code if result.coupon else "",
             livemode=live_mode(),  # online: set again from the keys that make its Razorpay order (payments)
             billing_state=state,
             **fields,
         )
+        if code is not None:  # one order a code: another that took it meanwhile leaves this one unmade
+            free = CouponCode.objects.filter(pk=code.pk, order=None)  # (a cancelled order frees it: models.py)
+            if not free.update(order=order, used_by=fields.get("user"), used_at=timezone.now()):
+                raise CouponUsedUp("This code has been used. Remove it to go on.")
         OrderItem.objects.bulk_create(
             OrderItem(
                 order=order,

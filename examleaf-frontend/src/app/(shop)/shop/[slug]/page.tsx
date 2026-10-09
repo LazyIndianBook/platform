@@ -13,7 +13,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 
 import { ShopClosed } from "@/components/shop/listing";
 import { AddToCart, type BuyOption, ReviewForm, StockAlert } from "@/components/shop/product-actions";
-import { CardPrice, ProductCover, ProductGrid } from "@/components/shop/product-card";
+import { CardPrice, PriorPrice, ProductCover, ProductGrid } from "@/components/shop/product-card";
 import { formatDate, isDigital, KIND_LABEL } from "@/components/shop/shop";
 import { Unavailable } from "@/components/site/unavailable";
 import { MarkdownBlock } from "@/components/solutions/markdown";
@@ -316,6 +316,11 @@ export default async function ProductPage({ params }: Props) {
                     Out of stock
                   </span>
                 )}
+              </p>
+            ) : null}
+            {product.prior_price ? (
+              <p>
+                <PriorPrice price={product.prior_price} />
               </p>
             ) : null}
             {!open ? (

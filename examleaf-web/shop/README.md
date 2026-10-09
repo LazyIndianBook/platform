@@ -1,4 +1,4 @@
-# shop: the Orders module, the tax desk and Finance of the Admin Control Panel
+# shop: the Orders module, the tax desk, Finance and the Catalogue of the Admin Control Panel
 
 The staff side of the shop's orders (plan 5.3; the research in `../docs/research/2026-10-09-admin-control-panel/`
 `research-commerce-gst.md` 1 and 6, `research-lms-crm-cms.md` 4.5 and 4.6): finding orders, acting on them, refunds by
@@ -82,9 +82,9 @@ The console's pages are `examleaf-admin/src/app/(panel)/orders/` (its README "Ro
 
 ## Not built
 
-Exchanges (a return is refunded and the customer orders again); prices and stock alerts (Catalogue, P4); the customer
-page (P10); couriers' bookings and labels (the shipping app). The payments list and payment links are Finance's (below),
-the invoice and credit-note registers Tax's.
+Exchanges (a return is refunded and the customer orders again); the customer page (P10); couriers' bookings and labels
+(the shipping app). The payments list and payment links are Finance's (below), the invoice and credit-note registers
+Tax's; the HSN master and the series are below ("Tax"), prices and stock ("Catalogue").
 
 ## Tax
 
@@ -308,3 +308,112 @@ What the panel's Finance module (`examleaf-admin`, `/finance/`) does for each ro
   new ones, lines, matched now, orders found paid, each state).
 - Settings: `SHOP_STUCK_PAYMENT_MINUTES` (15). The flows `ERP_SYNC_SETTLEMENTS` and `ERP_PULL_B2B` are ERPNext's
   (`erp/README.md`).
+
+## Catalogue
+
+Products, their prices, tax and stock, coupons and offers, delivery rates and the shelves, as the panel's Catalogue
+module keeps them (plan 5.5; `docs/research/2026-10-09-admin-control-panel/research-commerce-gst.md` 2 and 6,
+`research-lms-crm-cms.md` 0 and 3.5, `inventory.md` 3 and 11.3). The rules are the shop's own (the cart, the checkout,
+the approvals); the API checks each part of a change against its own permission and the panel draws what it answers.
+ERPNext's stock by warehouse and batch, its B2B price lists and pricing rules come in later phases.
+
+| File | What |
+|---|---|
+| `staff_catalogue.py` | `/api/v1/staff/catalogue/` ([API.md](../API.md) "Catalogue (staff)"): products by section, pictures, a bundle's books, stock by hand, versions, the prior price before saving, the barcode; coupons and offers through their approvals; rates, shelves, collections, types; the home and the forms' choices; the import's upload |
+| `catalogue.py` | the courier's rule (`incomplete`, `courier_problem`, `check_physical`), stock (`stock_state`, `held_copies`, `set_stock`), the ISBN once per kind, single-use codes (`make_codes`), the coupon and offer fields with their guardrails, versions in one row each |
+| `catalogue_jobs.py` | the jobs `coupon_codes`, `product_import` (a dry run, then its apply) and `product_export` |
+| `pricing.py` | the prior price: the price changes read from the product's history in one query, `prior_price`, `proposal` |
+| `copy_rules.py` | the dark-pattern phrases (`SHOP_DARK_PATTERN_PHRASES`) refused with the pattern they read as |
+| `barcode.py` | the EAN-13 barcode drawn from the standard's L, G and R patterns (no dependency) |
+| `cart.py`, `services.py` | coupons by products and categories, a first order's coupon, stacking; a single-use code taken by the order made with it |
+| `models.py` (the end) | `CouponCode`; the product's dimensions and packaging, the coupons' scope and rules, the offers' countdown and banner, histories on products, coupons, offers and shipping rates |
+
+### The rules
+
+- **Each part of a product has its people.** The page, the shelves, the courier's data and the search engines' words
+  are `shop.change_product` (CONTENT_EDITOR, SALES); the MRP and the selling price `staff.change_price` (SALES), always
+  through the approval `product.price`: more off the MRP than the maker's `discount_percent` (SALES 20%) waits for
+  FINANCE (202), within it the price saves at once; the HSN or SAC code, a bundle's treatment and the CA's note
+  `staff.change_product_tax` (FINANCE); stock `staff.set_stock` (SALES). A change sends only what it changes, and the
+  first part the person lacks is the one refused (and logged).
+- **New products** are made at their MRP and off sale unless ticked; a lower price follows through its approval. The
+  kind is fixed once sold; an ISBN is a valid ISBN-13, once among the products of a kind (one ISBN for each
+  format); a course needs a SAC code.
+- **The courier's data**: something to post weighs more than 0 g and has a packaging kind (a flyer, the courier's
+  standard bag, by default) or its three dimensions; a box needs its dimensions; a bundle of books weighs, unless each
+  of its books does. The migration packed every product with something to post in a flyer and left the weights as they
+  were: `?incomplete=1` and the home's card list those still at 0 g.
+- **Stock** is set by hand with the reason (audited), refused when orders changed the count since the page read it; a
+  bundle's copies are its books', a course has none. A bundle's books are fixed once orders have taken its copies (a
+  cancellation or a return gives back the books it holds then): make a new bundle. `reserved` counts the copies of
+  orders placed and not yet sent, `awaiting_payment` those of orders not yet paid, test orders left out on a live site.
+- **History and the prior price**: products, coupons, offers and shipping rates keep each version with who and why (a
+  price's change request names itself). From `SHOP_PRIOR_PRICE_FROM` (1 January 2027, the amended E-Commerce Rules) a
+  reduced price shows the lowest selling price of the 30 days before the reduction (`prior_price` on the storefront's
+  product, printed on the website beside the price); before that date, or when the price is not reduced, nothing.
+  Editing a price shows the effect first (`prior-price/?price=`).
+- **Coupons**: per cent or rupees off, a minimum on the books they apply to, dates, limits in all and per customer,
+  products and categories in or out, a first order only, stacking with the automatic offers or not, and single-use
+  codes: a school's batch is a job (`coupon_codes`: how many, a prefix, the school's name), its CSV the school's,
+  `PREFIX-XXXXXXXX` with no 0, O, 1, I or L. A codes-only coupon's own code is refused at the cart; a code is taken by
+  the order made with it, in that order's transaction (one order a code), and a cancelled order frees it. Making a
+  coupon is `coupon.create`, changing one `coupon.change`: a deeper discount (or one switched back on) beyond the
+  maker's limit waits for FINANCE.
+- **Offers** (`offer.create`, `offer.change`): the dark-pattern guardrails are validation, not advice. A countdown needs
+  a real end, and once shown its end never moves later; the names, banners and coupon descriptions are checked against
+  `SHOP_DARK_PATTERN_PHRASES` (only fools, you will regret, don't miss, last chance, hurry, and limited time without a
+  date), refused with the pattern they read as. "Only N left" is the storefront's stock against its low line, never a
+  typed number; the cart adds nothing the customer did not ask for; every fee (delivery; there is no cash-on-delivery
+  fee) is in the cart's breakup before checkout. Tests in `test_catalogue_rules.py` hold each of these.
+- **The 13 dark patterns** of the CCPA's 2023 guidelines, which the yearly self-audit (Legal and privacy) reviews: false
+  urgency, basket sneaking, confirm shaming, forced action, subscription trap, interface interference, bait and
+  switch, drip pricing, disguised advertisement, nagging, trick question, SaaS billing, rogue malware.
+- **No price discrimination between consumers of the same class** (the founder's rule; the Consumer Protection
+  (E-Commerce) Rules, rule 4(11)): different prices only through published channels (the school, distributor and
+  teacher price lists, ERPNext's). No coupon or offer names an account or a list of accounts, and none can: there is
+  no such field, and a test checks the serializers and models for one.
+- **Shipping rates**: no state in two active rates, one rate at most for every other state; a change applies to carts
+  at once and keeps a version; orders keep the shipping they were charged.
+- **The import and export**: the admin's export format with the courier's columns. An import is a dry run first (what
+  each row would make, change or leave, a price that would wait, each row's error), then its apply names that dry run,
+  the same bytes, within 24 hours, once; each row goes through the rules above in its own transaction; stock and the
+  GST rate are never imported. The export takes the list's filters, escapes cells that would start a formula, and
+  waits for an approver above `export_rows`. Both stay ADMIN's (plan 5.5: "ADMIN only"); the admin's own import is a
+  superuser's now, as the admin's price, tax, coupon and offer fields are.
+
+### Permissions and pages
+
+| Permission | Who | What |
+|---|---|---|
+| `shop.view_product` | every shop role, MARKETING, FINANCE | the module: the home, the products, a product, the stock |
+| `shop.add_product`, `shop.change_product` | SALES, CONTENT_EDITOR, ADMIN, OWNER | a new product; the page's fields, the courier's data, pictures, a bundle's books |
+| `staff.change_price` | SALES, ADMIN, OWNER (medium) | the MRP and the selling price, through `product.price` |
+| `staff.set_stock` | SALES, ADMIN, OWNER (medium) | copies set by hand |
+| `staff.change_product_tax` | FINANCE, ADMIN, OWNER (medium) | the HSN or SAC code, a bundle's treatment, the CA's note |
+| `shop.*_coupon`, `shop.*_offer` | MARKETING, SALES, ADMIN, OWNER (FINANCE reads) | coupons and offers through their approvals |
+| `shop.view_couponcode`, `shop.add_couponcode` | MARKETING, SALES, ADMIN, OWNER | a coupon's codes; a school's batch |
+| `shop.*_shippingrate` | SALES, ADMIN, OWNER | the delivery rates |
+| `shop.*_category`, `shop.*_collection`, `shop.*_producttype`, `shop.*_attribute` | CONTENT_EDITOR, ADMIN, OWNER (SALES and MARKETING read the shelves) | the shelves, collections, types |
+| `shop.import_product` (high), `shop.export_product` | ADMIN, OWNER | the import and the export |
+
+What the panel's Catalogue module (`examleaf-admin`, `/catalogue/`) does for each role:
+
+- **SALES** keeps prices and stock: the products with their chips, a product's prices (the website's prior price shown
+  before saving; beyond 20% off FINANCE approves), its copies set with the reason, its courier's data (the incomplete
+  list empties as they weigh), coupons, offers, a school's single-use codes and the delivery rates.
+- **CONTENT_EDITOR** keeps the product pages: words, shelves, attributes, pictures, the search engines' words, a
+  bundle's books, new products, the shelf tree and its moves, collections.
+- **MARKETING** drafts coupons and offers (beyond 20% FINANCE approves) and makes a school's codes; reads the products
+  and the shelves.
+- **FINANCE** sets the HSN or SAC code, a bundle's treatment and the CA's note on a product, approves price, coupon and
+  offer changes beyond the makers' limits (the inbox), and reads the rest.
+- **ADMIN and the owners** do all of it and alone import and export; **AUDITOR** reads.
+
+### Jobs, settings, ERPNext
+
+- Job kinds: `coupon_codes` (`{"coupon", "count", "prefix", "note"}`, above `bulk_rows` approved first; its file the
+  school's CSV), `product_import` (`{"file", "dry_run_job"}`: the apply of a dry run started by `catalogue/import/`),
+  `product_export` (`{"filters"}`, above `export_rows` approved first).
+- Settings: `SHOP_PRIOR_PRICE_FROM`, `SHOP_DARK_PATTERN_PHRASES` (DEPLOYMENT.md).
+- ERPNext: a product saved in the panel enqueues `item.upserted` as the admin's saves do (its weight among the fields the
+  item carries), a bundle's books `bundle.upserted`; stock set by hand does not (ERPNext's stock comes in Phase C).

@@ -429,6 +429,15 @@ and its dated rates live in the database (seeded by the migration, kept from the
 | `SHOP_HSN_DIGITS` | `4` | no | how many figures of an HSN or SAC code the documents and the GSTR-1 HSN summary carry: 4 up to ₹5 crore of turnover in the year before, 6 above (the threshold monitor warns at ₹4 crore); 4, 6 or 8 |
 | `SHOP_GST_QRMP` | `1` | no | the returns are quarterly under QRMP (GSTR-1 quarterly with the IFF, PMT-06 monthly, GSTR-3B on the 24th for Assam): the tax calendar's dates. The panel's Settings switch it (`staff.manage_settings`) |
 
+### Catalogue
+
+The panel's Catalogue module (`shop/staff_catalogue.py`, `shop/README.md` "Catalogue").
+
+| Variable | Default | Required | What it does; where to get the value |
+|---|---|---|---|
+| `SHOP_PRIOR_PRICE_FROM` | `2027-01-01` | no | from this day a reduced price shows the lowest selling price of the 30 days before the reduction (the amended Consumer Protection (E-Commerce) Rules); before it the storefront's `prior_price` is null. A date, `YYYY-MM-DD` |
+| `SHOP_DARK_PATTERN_PHRASES` | `only fools=confirm_shaming,you will regret=confirm_shaming,don't miss=false_urgency,last chance=false_urgency,hurry=false_urgency,limited time=false_urgency` | no | the words refused in offer names, banners and coupon descriptions, each with the pattern it reads as (one of the 13 of `staff.models.DARK_PATTERNS`), as `phrase=pattern` pairs; `limited time` passes with a date beside it. The server refuses to start with an unknown pattern |
+
 ### Integrations and shipping
 
 | Variable | Default | Required | What it does; where to get the value |

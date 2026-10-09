@@ -303,6 +303,30 @@ print(Book.objects.filter(pk=${world.book}).delete())
 `);
 }
 
+export type CatalogueWorld = { slug: string; title: string };
+
+/** For the Catalogue journey: a book on sale packed in a flyer whose weight is missing (0 g), so the courier cannot be
+ *  quoted for it until SALES weighs it. */
+export function seedCatalogue(stamp: number): CatalogueWorld {
+  return lastJson<CatalogueWorld>(
+    shell(`
+import json
+from decimal import Decimal
+from shop.models import Product
+product = Product.objects.create(title=${py(`E2E Unweighed ${stamp}`)}, slug=${py(`e2e-unweighed-${stamp}`)}, kind="sample-papers", mrp=Decimal("349"), price=Decimal("299"), stock=10, weight_grams=0, packaging="flyer")
+print(json.dumps({"slug": product.slug, "title": product.title}))
+`),
+  );
+}
+
+/** Deletes what seedCatalogue made (its versions stay: the history keeps them). */
+export function deleteCatalogue(world: CatalogueWorld) {
+  shell(`
+from shop.models import Product
+print(Product.objects.filter(slug=${py(world.slug)}).delete())
+`);
+}
+
 /** The authenticator app's code for a moment (RFC 6238: HMAC-SHA1, 30 s, 6 digits). */
 export function totp(secret: string, at = Date.now()): string {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";

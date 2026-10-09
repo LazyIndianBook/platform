@@ -17,6 +17,13 @@ const PAGES: Record<string, (id: string) => string> = {
   "shop.order": (id) => `/orders/${id}/`,
   "shop.returnrequest": (id) => `/orders/returns/${id}/`,
   "shop.quoterequest": (id) => `/orders/quotes/${id}/`,
+  // the Catalogue module (a product and a coupon open by their id too)
+  "shop.product": (id) => `/catalogue/products/${id}/`,
+  "shop.coupon": (id) => `/catalogue/coupons/${id}/`,
+  "shop.offer": (id) => `/catalogue/offers/${id}/`,
+  "shop.shippingrate": (id) => `/catalogue/shipping-rates/${id}/`,
+  "shop.category": () => "/catalogue/categories/",
+  "shop.collection": () => "/catalogue/collections/",
   // Phase B: a person's page (a temporary role ended), their offboarding's checklist, a connection, the system's pages
   "staff.person": (id) => `/people/${id}/?tab=access`,
   "staff.offboarding": (id) => `/people/${id}/?tab=offboarding`,

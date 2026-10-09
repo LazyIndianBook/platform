@@ -1090,6 +1090,42 @@ for _name, _description in [
 CELERY_BEAT_SCHEDULE |= {
     "insights-course-health": {"task": "insights.tasks.course_health", "schedule": crontab(hour=3, minute=15)},
 }
+# Phase B: catalogue (shop/staff_catalogue.py, shop/README.md "Catalogue"; API.md "Catalogue (staff)"). From
+# SHOP_PRIOR_PRICE_FROM (the E-Commerce Rules as amended: 1 January 2027) a reduced price shows the lowest selling price
+# of the 30 days before the reduction, read from the products' history (shop/pricing.py). SHOP_DARK_PATTERN_PHRASES are
+# refused in offers' names and banners and coupons' descriptions (shop/copy_rules.py), each as `phrase=pattern`, the
+# pattern one of the CCPA's 13 (staff.models.DARK_PATTERNS); "limited time" passes only beside a date.
+SHOP_PRIOR_PRICE_FROM = date.fromisoformat(env("SHOP_PRIOR_PRICE_FROM", default="2027-01-01"))
+SHOP_DARK_PATTERN_PHRASES = env.dict(
+    "SHOP_DARK_PATTERN_PHRASES",
+    default={
+        "only fools": "confirm_shaming",
+        "you will regret": "confirm_shaming",
+        "don't miss": "false_urgency",
+        "last chance": "false_urgency",
+        "hurry": "false_urgency",
+        "limited time": "false_urgency",
+    },
+)
+_patterns = {"false_urgency", "basket_sneaking", "confirm_shaming", "forced_action", "subscription_trap"}
+_patterns |= {"interface_interference", "bait_and_switch", "drip_pricing", "disguised_advertisement", "nagging"}
+_patterns |= {"trick_question", "saas_billing", "rogue_malware"}  # staff.models.DARK_PATTERNS (not imported here)
+if not all(phrase.strip() and pattern in _patterns for phrase, pattern in SHOP_DARK_PATTERN_PHRASES.items()):
+    raise SystemExit("SHOP_DARK_PATTERN_PHRASES: phrase=pattern pairs, each pattern one of the 13 (DEPLOYMENT.md).")
+_CATALOGUE_TAG = {"name": "catalogue (staff)", "description": "Products, prices, coupons, offers, stock (API.md)."}
+if _CATALOGUE_TAG not in SPECTACULAR_SETTINGS["TAGS"]:  # noqa: F405  (once: tests reload this module, the dict is shared)
+    SPECTACULAR_SETTINGS["TAGS"].append(_CATALOGUE_TAG)  # noqa: F405
+SPECTACULAR_SETTINGS["ENUM_NAME_OVERRIDES"].update(  # noqa: F405  the catalogue's "kind", "state", "scope" …
+    DiscountKindEnum="shop.models.Coupon.Kind",  # a coupon's and an offer's: per cent or rupees off
+    AttributeKindEnum="shop.models.Attribute.Kind",
+    PackagingEnum="shop.models.Product.Packaging",
+    OfferScopeEnum="shop.models.Offer.Scope",
+    CatalogueTermStateEnum=["live", "scheduled", "ended", "inactive"],  # a coupon's or an offer's now
+    CatalogueStockStateEnum=["none", "out", "low", "in_stock"],
+    CatalogueBookStockEnum=["out", "low", "in_stock"],  # a book's (copies of its own)
+    CategoryMoveEnum="shop.staff_catalogue.MOVES",
+    CatalogueStatesEnum="shop.staff_catalogue.STATE_CODES",
+)
 
 # ---- Resilience (RESILIENCE.md: each knob below, its default and when to change it) --------------------------------
 # Nothing waits without a limit: every call to another service has a connect and a read timeout and a bounded retry,

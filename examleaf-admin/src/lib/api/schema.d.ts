@@ -2547,6 +2547,703 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/staff/catalogue/categories/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The shelves as a tree, in tree order (each followed by those under it): a new one under another (or at the
+         *     top), its name, address and description, and a move with what is under it (treebeard's own move). A product's
+         *     shelves are set on the product.
+         */
+        get: operations["staff_catalogue_categories_list"];
+        put?: never;
+        /**
+         * @description The shelves as a tree, in tree order (each followed by those under it): a new one under another (or at the
+         *     top), its name, address and description, and a move with what is under it (treebeard's own move). A product's
+         *     shelves are set on the product.
+         */
+        post: operations["staff_catalogue_categories_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/catalogue/categories/{slug}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The shelves as a tree, in tree order (each followed by those under it): a new one under another (or at the
+         *     top), its name, address and description, and a move with what is under it (treebeard's own move). A product's
+         *     shelves are set on the product.
+         */
+        get: operations["staff_catalogue_categories_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Its name, address (the shop's /shop/category/<slug>/: an old address then answers 404) and description. */
+        patch: operations["staff_catalogue_categories_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/catalogue/categories/{slug}/move/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description It moves, with every shelf under it: under another (first or last), beside one (left or right), or to the
+         *     top level (no target: first or last there); never under itself. Answers the whole tree.
+         */
+        post: operations["staff_catalogue_categories_move_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/catalogue/collections/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Collections: a new one, its words, whether it is shown, its place among them, its products in their order. */
+        get: operations["staff_catalogue_collections_list"];
+        put?: never;
+        /** @description Collections: a new one, its words, whether it is shown, its place among them, its products in their order. */
+        post: operations["staff_catalogue_collections_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/catalogue/collections/{slug}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Collections: a new one, its words, whether it is shown, its place among them, its products in their order. */
+        get: operations["staff_catalogue_collections_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** @description Collections: a new one, its words, whether it is shown, its place among them, its products in their order. */
+        patch: operations["staff_catalogue_collections_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/catalogue/coupons/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Coupons: made and changed through their approvals (coupon.create, coupon.change: beyond your discount limit
+         *     FINANCE approves), their single-use codes (a batch is the job coupon_codes), their versions.
+         */
+        get: operations["staff_catalogue_coupons_list"];
+        put?: never;
+        /**
+         * @description A new coupon (its code, the terms of coupon_fields and the `reason`): 201 made at once within your discount
+         *     limit (its change request executed), 202 waiting for FINANCE beyond it.
+         */
+        post: operations["staff_catalogue_coupons_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/catalogue/coupons/{code}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Coupons: made and changed through their approvals (coupon.create, coupon.change: beyond your discount limit
+         *     FINANCE approves), their single-use codes (a batch is the job coupon_codes), their versions.
+         */
+        get: operations["staff_catalogue_coupons_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description The fields that change and the `reason`: at once (200), or 202 when it makes the discount deeper beyond your
+         *     limit (a coupon switched back on counts). Its code never changes: customers hold it.
+         */
+        patch: operations["staff_catalogue_coupons_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/catalogue/coupons/{code}/codes/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Its single-use codes, newest first (`?used=`, `?job=` a batch): used or not and by which order's number
+         *     (never who: the order has that).
+         */
+        get: operations["staff_catalogue_coupons_codes_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/catalogue/coupons/{code}/history/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Its versions, newest first (what changed, who, when, the change request's reason). */
+        get: operations["staff_catalogue_coupons_history_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/catalogue/import/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A product CSV (the admin's export format, shop/admin.py ProductResource, with the physical columns) uploaded
+         *     and its dry run started (the job product_import): what each row would make, change or leave, and its errors.
+         *     Its apply is the same job without dry_run, naming the dry run (`dry_run_job`), within 24 hours.
+         */
+        post: operations["staff_catalogue_import_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/catalogue/offers/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Automatic offers: made and changed through their approvals (offer.create, offer.change), with the dark-pattern
+         *     guardrails as validation (a countdown only with a real end date that never moves later once shown; no
+         *     guilt-trip or false-urgency words), and their versions.
+         */
+        get: operations["staff_catalogue_offers_list"];
+        put?: never;
+        /** @description A new offer (the terms of offer_fields and the `reason`): 201 made at once, 202 waiting beyond your limit. */
+        post: operations["staff_catalogue_offers_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/catalogue/offers/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Automatic offers: made and changed through their approvals (offer.create, offer.change), with the dark-pattern
+         *     guardrails as validation (a countdown only with a real end date that never moves later once shown; no
+         *     guilt-trip or false-urgency words), and their versions.
+         */
+        get: operations["staff_catalogue_offers_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description The fields that change and the `reason`: at once, or 202 when it makes the discount deeper beyond your
+         *     limit.
+         */
+        patch: operations["staff_catalogue_offers_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/catalogue/offers/{id}/history/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Its versions, newest first (its scope's products, categories and collections among the changes). */
+        get: operations["staff_catalogue_offers_history_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/catalogue/options/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The choices the module's forms offer, in one answer: kinds, packaging, tax treatments, subjects, books,
+         *     product types, shelves, collections, the master's codes (for whoever reads it) and the states.
+         */
+        get: operations["staff_catalogue_options_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/catalogue/product-types/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Product types and the attributes their products have (a printed book: edition year, language …): a new type,
+         *     its name; an attribute added or changed (its code stays once products have values for it: the app filters by
+         *     it; its kind changes only when every value fits the new one).
+         */
+        get: operations["staff_catalogue_product_types_list"];
+        put?: never;
+        /**
+         * @description Product types and the attributes their products have (a printed book: edition year, language …): a new type,
+         *     its name; an attribute added or changed (its code stays once products have values for it: the app filters by
+         *     it; its kind changes only when every value fits the new one).
+         */
+        post: operations["staff_catalogue_product_types_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/catalogue/product-types/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Product types and the attributes their products have (a printed book: edition year, language …): a new type,
+         *     its name; an attribute added or changed (its code stays once products have values for it: the app filters by
+         *     it; its kind changes only when every value fits the new one).
+         */
+        get: operations["staff_catalogue_product_types_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description Product types and the attributes their products have (a printed book: edition year, language …): a new type,
+         *     its name; an attribute added or changed (its code stays once products have values for it: the app filters by
+         *     it; its kind changes only when every value fits the new one).
+         */
+        patch: operations["staff_catalogue_product_types_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/catalogue/product-types/{id}/attributes/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description A new attribute of the type: its name, code (the app's filter ?attr_<code>=), kind and choices. */
+        post: operations["staff_catalogue_product_types_attributes_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/catalogue/product-types/{id}/attributes/{attribute}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description An attribute changed: its name, choices and place; its code only while no product has a value for it; its
+         *     kind only when every value fits the new kind.
+         */
+        patch: operations["staff_catalogue_product_types_attributes_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/catalogue/products/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Products: the list with its chips, a product by section, a new one, a change (its parts by permission: a price
+         *     through its approval), pictures, a bundle's books, stock by hand, its versions, a proposed price's prior price,
+         *     the EAN-13 barcode.
+         */
+        get: operations["staff_catalogue_products_list"];
+        put?: never;
+        /**
+         * @description A new product: made at its MRP, off sale unless said; a selling price below the MRP follows through the
+         *     approval product.price (staff.change_price; beyond your discount limit it waits for FINANCE).
+         */
+        post: operations["staff_catalogue_products_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/catalogue/products/{slug}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Products: the list with its chips, a product by section, a new one, a change (its parts by permission: a price
+         *     through its approval), pictures, a bundle's books, stock by hand, its versions, a proposed price's prior price,
+         *     the EAN-13 barcode.
+         */
+        get: operations["staff_catalogue_products_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description A change: the page's fields save at once; the MRP and selling price go through product.price (with a
+         *     `reason`): within your discount limit at once (200), beyond it 202 with the change request, the rest saved.
+         */
+        patch: operations["staff_catalogue_products_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/catalogue/products/{slug}/barcode.svg/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Its ISBN as an EAN-13 barcode (SVG, sized for print: 37.29 mm wide), for the printer and the packing slip;
+         *     404 without a valid ISBN-13.
+         */
+        get: operations["staff_catalogue_products_barcode.svg_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/catalogue/products/{slug}/bundle/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * @description A bundle's books and copies of each, all at once (1 to 50; no bundle in a bundle, each once): it sells their
+         *     copies (an order takes each book's from stock) and its tax follows its treatment.
+         */
+        put: operations["staff_catalogue_products_bundle_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/catalogue/products/{slug}/history/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Its versions, newest first: what each changed (field, before, after), who, when and why; the prices too
+         *     (the prior price is read from them).
+         */
+        get: operations["staff_catalogue_products_history_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/catalogue/products/{slug}/pictures/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A picture (JPEG, PNG or WebP of 2 MB and 4096 px at most: the admin's rule), kept in the public storage
+         *     with its AVIF and WebP sizes made by the worker; `as_cover` makes it the cover (2:3; shop.change_product).
+         */
+        post: operations["staff_catalogue_products_pictures_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/catalogue/products/{slug}/pictures/{picture}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** @description A picture's description (its alt text) and place among the others; or the picture taken off. */
+        delete: operations["staff_catalogue_products_pictures_destroy"];
+        options?: never;
+        head?: never;
+        /** @description A picture's description (its alt text) and place among the others; or the picture taken off. */
+        patch: operations["staff_catalogue_products_pictures_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/catalogue/products/{slug}/prior-price/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description What a selling price would show if set now: the lowest price of the 30 days before (the prior price the
+         *     website would print beside it, when it is below that), and whether the rule applies today. Nothing changes.
+         */
+        get: operations["staff_catalogue_products_prior_price_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/catalogue/products/{slug}/stock/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A book's copies set by hand, with the reason (audited): refused when orders changed the count since you read
+         *     it (`expected`). A bundle's are its books', a course has none. Back in stock: the hourly email follows.
+         */
+        post: operations["staff_catalogue_products_stock_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/catalogue/shipping-rates/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The delivery rates (no state in two active rates; one rate at most for every other state), with their
+         *     versions. A change applies to carts at once; orders keep the shipping they were charged.
+         */
+        get: operations["staff_catalogue_shipping_rates_list"];
+        put?: never;
+        /**
+         * @description The delivery rates (no state in two active rates; one rate at most for every other state), with their
+         *     versions. A change applies to carts at once; orders keep the shipping they were charged.
+         */
+        post: operations["staff_catalogue_shipping_rates_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/catalogue/shipping-rates/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The delivery rates (no state in two active rates; one rate at most for every other state), with their
+         *     versions. A change applies to carts at once; orders keep the shipping they were charged.
+         */
+        get: operations["staff_catalogue_shipping_rates_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description The delivery rates (no state in two active rates; one rate at most for every other state), with their
+         *     versions. A change applies to carts at once; orders keep the shipping they were charged.
+         */
+        patch: operations["staff_catalogue_shipping_rates_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/catalogue/shipping-rates/{id}/history/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Its versions, newest first. */
+        get: operations["staff_catalogue_shipping_rates_history_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/catalogue/stock/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The books' stock (copies of their own), the fewest first: the low-stock line (SHOP_LOW_STOCK, as the
+         *     morning's email), the copies orders hold, the back-in-stock requests. A copy count is set on a product
+         *     (products/{slug}/stock/); ERPNext's stock by warehouse and batch comes in Phase C.
+         */
+        get: operations["staff_catalogue_stock_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/catalogue/stock-alerts/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Back-in-stock requests ("email me when it is back") by product: how many wait and the latest one's time, never
+         *     who asked. Each address gets one email within the hour once copies are back (shop.tasks.send_stock_alerts).
+         */
+        get: operations["staff_catalogue_stock_alerts_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/catalogue/summary/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The module's home: what waits (products the courier cannot be quoted for, GST disagreeing with the master, low
+         *     and empty stock, back-in-stock requests, approvals waiting) and whether the prior-price rule is in force.
+         */
+        get: operations["staff_catalogue_summary_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/staff/change-requests/": {
         parameters: {
             query?: never;
@@ -8389,20 +9086,26 @@ export interface components {
          *     * `order.offline_payment` - order.offline_payment
          *     * `product.price` - product.price
          *     * `coupon.create` - coupon.create
+         *     * `coupon.change` - coupon.change
+         *     * `offer.create` - offer.create
+         *     * `offer.change` - offer.change
          * @enum {string}
          */
-        AskActionEnum: "order.refund" | "order.offline_payment" | "product.price" | "coupon.create";
+        AskActionEnum: "order.refund" | "order.offline_payment" | "product.price" | "coupon.create" | "coupon.change" | "offer.create" | "offer.change";
         AskRequest: {
             /**
-             * @description order.refund, order.offline_payment, product.price, coupon.create
+             * @description order.refund, order.offline_payment, product.price, coupon.create, coupon.change, offer.create, offer.change
              *
              *     * `order.refund` - order.refund
              *     * `order.offline_payment` - order.offline_payment
              *     * `product.price` - product.price
              *     * `coupon.create` - coupon.create
+             *     * `coupon.change` - coupon.change
+             *     * `offer.create` - offer.create
+             *     * `offer.change` - offer.change
              */
             action: components["schemas"]["AskActionEnum"];
-            /** @description an order's number, a product's slug, a new coupon's code */
+            /** @description an order's number, a product's slug, a coupon's code, an offer's id ("new" for a new one) */
             target: string;
             /** @description the action's details: amount, reference, price, value … */
             payload: {
@@ -8453,6 +9156,14 @@ export interface components {
             /** What to revise */
             notes?: string;
         };
+        /**
+         * @description * `text` - text
+         *     * `number` - number
+         *     * `choice` - one of a list
+         *     * `boolean` - yes or no
+         * @enum {string}
+         */
+        AttributeKindEnum: "text" | "number" | "choice" | "boolean";
         AttributeValue: {
             /** @description the filter: ?attr_<code>= */
             readonly code: string;
@@ -8798,6 +9509,836 @@ export interface components {
             /** @description send it as X-Cart-Token; shown once, valid 30 days */
             token: string;
         };
+        CatalogueAlertRow: {
+            product: string;
+            title: string;
+            requests: number;
+            /** Format: date-time */
+            last_asked: string;
+            /** @description copies to sell now (a bundle: its books') */
+            available: number;
+        };
+        CatalogueAttribute: {
+            code: string;
+            name: string;
+            kind: string;
+            choices: string[];
+            /** @description the product's; null: not given */
+            value: string | null;
+        };
+        CatalogueAttributeDef: {
+            readonly id: number;
+            name: string;
+            /** @description The API's filter: ?attr_<code>=… (e.g. language). */
+            code: string;
+            kind?: components["schemas"]["AttributeKindEnum"];
+            /** @description For “one of a list”: one choice per line. */
+            choices?: string;
+            /** Format: int64 */
+            position?: number;
+            /** @description products with a value for it */
+            readonly values: number;
+        };
+        CatalogueAttributeDefRequest: {
+            name: string;
+            /** @description The API's filter: ?attr_<code>=… (e.g. language). */
+            code: string;
+            kind?: components["schemas"]["AttributeKindEnum"];
+            /** @description For “one of a list”: one choice per line. */
+            choices?: string;
+            /** Format: int64 */
+            position?: number;
+        };
+        /**
+         * @description * `out` - out
+         *     * `low` - low
+         *     * `in_stock` - in_stock
+         * @enum {string}
+         */
+        CatalogueBookStockEnum: "out" | "low" | "in_stock";
+        CatalogueBundleLine: {
+            /** @description its slug */
+            product: string;
+            title: string;
+            kind: string;
+            quantity: number;
+            stock: number;
+            weight_grams: number;
+        };
+        CatalogueBundleLineRequest: {
+            product: string;
+            quantity: number;
+        };
+        CatalogueBundleLinesRequest: {
+            lines: components["schemas"]["CatalogueBundleLineRequest"][];
+        };
+        /** @description A shelf of the tree: `depth` 1 at the top, `parent` the slug above it; its products (on it, not below it). */
+        CatalogueCategory: {
+            readonly id: number;
+            slug: string;
+            name: string;
+            /** @description Markdown, at the top of its page. */
+            description?: string;
+            readonly depth: number;
+            readonly parent: string | null;
+            /** @description on it (not below it) */
+            readonly products: number;
+        };
+        CatalogueCategoryMoveRequest: {
+            /** @description the shelf it moves under or beside; null: the top level */
+            target: string | null;
+            /**
+             * @description under the target (first or last), or beside it (left or right)
+             *
+             *     * `first-child` - first-child
+             *     * `last-child` - last-child
+             *     * `left` - left
+             *     * `right` - right
+             */
+            position: components["schemas"]["CategoryMoveEnum"];
+        };
+        CatalogueCategoryWriteRequest: {
+            name: string;
+            slug: string;
+            description?: string;
+            /** @description a new one's place: under this one */
+            parent?: string | null;
+        };
+        CatalogueChange: {
+            /** @description a field, or a relation (its slugs before and after) */
+            field: string;
+            before: unknown;
+            after: unknown;
+        };
+        CatalogueCode: {
+            code: string;
+            note: string;
+            job: number | null;
+            /** Format: date-time */
+            created: string;
+            used: boolean;
+            /** Format: date-time */
+            used_at: string | null;
+            order: string | null;
+        };
+        CatalogueCodeBatch: {
+            job: number | null;
+            note: string;
+            made: number;
+            used: number;
+            /** Format: date-time */
+            created: string;
+        };
+        CatalogueCodeCounts: {
+            made: number;
+            used: number;
+            batches: components["schemas"]["CatalogueCodeBatch"][];
+        };
+        CatalogueCodePage: {
+            /** Format: uri */
+            next: string | null;
+            /** Format: uri */
+            previous: string | null;
+            results: components["schemas"]["CatalogueCode"][];
+        };
+        /** @description A hand-picked list of products in the order staff give them (`products`, slugs). */
+        CatalogueCollection: {
+            readonly id: number;
+            slug: string;
+            name: string;
+            /** @description Markdown, at the top of its page. */
+            description?: string;
+            /** Shown */
+            is_active?: boolean;
+            /**
+             * Format: int64
+             * @description Collections are listed by this number.
+             */
+            position?: number;
+            readonly products: string[];
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly modified: string;
+        };
+        CatalogueCollectionWriteRequest: {
+            slug: string;
+            name: string;
+            /** @description Markdown, at the top of its page. */
+            description?: string;
+            /** Shown */
+            is_active?: boolean;
+            /**
+             * Format: int64
+             * @description Collections are listed by this number.
+             */
+            position?: number;
+            products?: string[];
+        };
+        /**
+         * @description A coupon: its terms, what it applies to, its single-use codes and its uses (orders placed, test orders out);
+         *     no field names an account, nor could one (plan 10.1: different prices only through published channels).
+         */
+        CatalogueCoupon: {
+            readonly id: number;
+            /** @description Stored in capitals; customers may type any case. */
+            readonly code: string;
+            readonly kind: components["schemas"]["DiscountKindEnum"];
+            /** Format: decimal */
+            readonly value: string;
+            /** Format: decimal */
+            readonly min_order: string;
+            /** Format: date-time */
+            readonly valid_from: string;
+            /** Format: date-time */
+            readonly valid_until: string | null;
+            /** @description All customers together. Empty: no limit. */
+            readonly max_uses: number | null;
+            /** @description Per account and per email address. Empty: no limit. */
+            readonly max_uses_per_customer: number | null;
+            readonly is_active: boolean;
+            /** @description What it is for, in words a customer may read (shop/copy_rules.py). */
+            readonly description: string;
+            /**
+             * Internal note
+             * @description For staff: who it is for.
+             */
+            readonly note: string;
+            readonly include_products: string[];
+            readonly include_categories: string[];
+            readonly exclude_products: string[];
+            readonly exclude_categories: string[];
+            /** @description For an account or email address with no order placed before. */
+            readonly first_order_only: boolean;
+            /**
+             * With automatic offers
+             * @description Off: no automatic offer applies beside it.
+             */
+            readonly stackable: boolean;
+            /**
+             * Single-use codes only
+             * @description Used only through its single-use codes (a school's batch); its own code is refused at the cart.
+             */
+            readonly single_use: boolean;
+            readonly state: components["schemas"]["CatalogueTermStateEnum"];
+            /** @description orders placed with it, not undone (test orders out) */
+            readonly uses: number;
+            readonly codes: components["schemas"]["CatalogueCodeCounts"];
+            readonly waiting: components["schemas"]["CatalogueWaiting"][];
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly modified: string;
+        };
+        /**
+         * @description A coupon's fields as asked (a new one: its `code` and `value` at least; a change: those that change), checked
+         *     by shop.catalogue.coupon_fields (no field names an account), and the `reason` its approval reads.
+         */
+        CatalogueCouponWriteRequest: {
+            /** @description a new one's: 3 to 30 capitals, figures, hyphens */
+            code?: string;
+            kind?: components["schemas"]["DiscountKindEnum"];
+            /**
+             * Format: decimal
+             * @description per cent, or rupees off
+             */
+            value?: string;
+            /**
+             * Format: decimal
+             * @description of the books it covers
+             */
+            min_order?: string;
+            /**
+             * Format: date-time
+             * @description ISO 8601 (a day alone: its start in India)
+             */
+            valid_from?: string | null;
+            /**
+             * Format: date-time
+             * @description ISO 8601 (a day alone: its start in India)
+             */
+            valid_until?: string | null;
+            /** @description orders, all customers together */
+            max_uses?: number | null;
+            /** @description per account and email */
+            max_uses_per_customer?: number | null;
+            is_active?: boolean;
+            /** @description checked for dark patterns */
+            description?: string;
+            /** @description staff's own: who it is for */
+            note?: string;
+            include_products?: string[];
+            include_categories?: string[];
+            exclude_products?: string[];
+            exclude_categories?: string[];
+            first_order_only?: boolean;
+            /** @description with automatic offers */
+            stackable?: boolean;
+            /** @description only through its single-use codes */
+            single_use?: boolean;
+            /** @description why: its approval reads it */
+            reason: string;
+        };
+        CatalogueImage: {
+            id: number;
+            /** Format: uri */
+            src: string;
+            width: number | null;
+            height: number | null;
+            alt: string;
+            position: number;
+        };
+        CatalogueImportUploadRequest: {
+            /** Format: binary */
+            file: string;
+        };
+        CatalogueNamed: {
+            slug: string;
+            name: string;
+        };
+        /** @description An automatic offer: its terms, what it covers, its countdown (only with a real end date), its uses. */
+        CatalogueOffer: {
+            readonly id: number;
+            /** @description Customers see it on the saving's line: “Board 2027 offer”. */
+            readonly name: string;
+            /** @description The line the site may show for it, checked as its name is. */
+            readonly banner: string;
+            readonly kind: components["schemas"]["DiscountKindEnum"];
+            /** Format: decimal */
+            readonly value: string;
+            /** On */
+            readonly scope: components["schemas"]["OfferScopeEnum"];
+            readonly products: string[];
+            readonly categories: string[];
+            readonly collections: string[];
+            /**
+             * Minimum copies
+             * @description Of the products covered.
+             */
+            readonly min_quantity: number;
+            /** Format: decimal */
+            readonly min_value: string;
+            /** Format: date-time */
+            readonly valid_from: string;
+            /** Format: date-time */
+            readonly valid_until: string | null;
+            /** @description Orders, all customers together. Empty: no limit. */
+            readonly max_uses: number | null;
+            /** @description Per account and per email address. Empty: no limit. */
+            readonly max_uses_per_customer: number | null;
+            /**
+             * With coupons and other offers
+             * @description Off: it applies alone, never with a coupon.
+             */
+            readonly combinable: boolean;
+            readonly is_active: boolean;
+            /**
+             * A countdown to its end
+             * @description Only with a real end date, which never moves later once a countdown has shown.
+             */
+            readonly show_countdown: boolean;
+            readonly state: components["schemas"]["CatalogueTermStateEnum"];
+            /** @description orders placed with it, not undone (test orders out) */
+            readonly uses: number;
+            readonly waiting: components["schemas"]["CatalogueWaiting"][];
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly modified: string;
+        };
+        /**
+         * @description An offer's fields as asked (a new one: its `name` and `value` at least; a change: those that change), checked
+         *     by shop.catalogue.offer_fields (the dark-pattern guardrails), and the `reason` its approval reads.
+         */
+        CatalogueOfferWriteRequest: {
+            name?: string;
+            banner?: string;
+            kind?: components["schemas"]["DiscountKindEnum"];
+            /** Format: decimal */
+            value?: string;
+            scope?: components["schemas"]["OfferScopeEnum"];
+            products?: string[];
+            categories?: string[];
+            collections?: string[];
+            min_quantity?: number;
+            /** Format: decimal */
+            min_value?: string;
+            /**
+             * Format: date-time
+             * @description ISO 8601 (a day alone: its start in India)
+             */
+            valid_from?: string | null;
+            /**
+             * Format: date-time
+             * @description ISO 8601 (a day alone: its start in India)
+             */
+            valid_until?: string | null;
+            max_uses?: number | null;
+            max_uses_per_customer?: number | null;
+            /** @description with coupons and other offers */
+            combinable?: boolean;
+            is_active?: boolean;
+            /** @description only with a real end date (valid_until) */
+            show_countdown?: boolean;
+            /** @description why: its approval reads it */
+            reason: string;
+        };
+        CatalogueOption: {
+            value: string;
+            label: string;
+        };
+        CatalogueOptions: {
+            kinds: components["schemas"]["CatalogueOption"][];
+            packaging: components["schemas"]["CatalogueOption"][];
+            tax_treatments: components["schemas"]["CatalogueOption"][];
+            subjects: components["schemas"]["CatalogueOption"][];
+            books: components["schemas"]["CatalogueOption"][];
+            product_types: components["schemas"]["CatalogueOption"][];
+            /** @description in tree order, the label indented by depth */
+            categories: components["schemas"]["CatalogueOption"][];
+            collections: components["schemas"]["CatalogueOption"][];
+            /** @description the master's (null: not yours) */
+            hsn_codes: components["schemas"]["CatalogueOption"][] | null;
+            states: components["schemas"]["CatalogueOption"][];
+        };
+        CataloguePicture: {
+            /** Format: uri */
+            src: string;
+            width: number | null;
+            height: number | null;
+        };
+        CataloguePictureUploadRequest: {
+            /** Format: binary */
+            image: string;
+            alt?: string;
+            position?: number;
+            as_cover?: boolean;
+        };
+        CataloguePrices: {
+            /** Format: decimal */
+            mrp: string;
+            /** Format: decimal */
+            price: string;
+            saving_percent: number;
+            /**
+             * Format: decimal
+             * @description what the website shows beside the price now
+             */
+            prior_price: string | null;
+            /** @description the rule is in force today (SHOP_PRIOR_PRICE_FROM) */
+            prior_price_applies: boolean;
+            /** Format: date */
+            prior_price_from: string;
+        };
+        CataloguePriorPrice: {
+            /** Format: decimal */
+            price: string;
+            /**
+             * Format: decimal
+             * @description the lowest selling price in force in the 30 days before now
+             */
+            lowest_in_30_days: string;
+            /**
+             * Format: decimal
+             * @description what the website would print beside the price
+             */
+            prior_price: string | null;
+            /** Format: date-time */
+            window_from: string;
+            /** @description the rule is in force today */
+            applies: boolean;
+            /** Format: date */
+            applies_from: string;
+        };
+        /**
+         * @description A product, by section: identity (title, slug, kind, on sale, subject, book, ISBN, pages, description, type and
+         *     attributes, shelves, collections, related products, earlier addresses); prices (MRP, selling price, the prior
+         *     price the website shows); tax (the HSN or SAC code from the master, a bundle's treatment and the CA's note, the
+         *     master's rate today and its next change, the red chip's words); physical (weight, dimensions, packaging, what the
+         *     courier lacks); stock; pictures; a bundle's books; SEO; the approvals waiting about it.
+         */
+        CatalogueProduct: {
+            readonly id: number;
+            readonly slug: string;
+            readonly title: string;
+            readonly kind: components["schemas"]["ProductKindEnum"];
+            /** On sale */
+            readonly is_active: boolean;
+            readonly subject: components["schemas"]["CatalogueSubject"] | null;
+            readonly book: components["schemas"]["CatalogueNamed"] | null;
+            readonly isbn: string;
+            readonly pages: number | null;
+            /** @description Markdown. */
+            readonly description: string;
+            readonly product_type: components["schemas"]["CatalogueTypeRef"] | null;
+            readonly attributes: components["schemas"]["CatalogueAttribute"][];
+            readonly categories: components["schemas"]["CatalogueNamed"][];
+            readonly collections: components["schemas"]["CatalogueNamed"][];
+            readonly related: string[];
+            readonly old_slugs: string[];
+            readonly web_url: string;
+            readonly prices: components["schemas"]["CataloguePrices"];
+            /** @description its master code */
+            readonly hsn: string | null;
+            readonly hsn_code: string;
+            /**
+             * GST rate (%)
+             * Format: decimal
+             * @description Printed books are exempt: 0.
+             */
+            readonly gst_rate: string;
+            /**
+             * @description A bundle's GST, as the CA decides: split (recommended), composite or mixed.
+             *
+             *     * `split` - split: each component a line of its own, the price shared by their MRPs
+             *     * `composite` - composite: one line at the principal supply's rate
+             *     * `mixed` - mixed: one line at the highest rate
+             */
+            readonly tax_treatment: components["schemas"]["TaxTreatmentEnum"];
+            /**
+             * The CA's decision
+             * @description As written, with whose it is.
+             */
+            readonly tax_note: string;
+            /**
+             * Date of the CA's decision
+             * Format: date
+             */
+            readonly tax_note_date: string | null;
+            readonly tax: components["schemas"]["CatalogueTax"];
+            /** Weight (g) */
+            readonly weight_grams: number;
+            /** Length (cm) */
+            readonly length_cm: number | null;
+            /** Width (cm) */
+            readonly width_cm: number | null;
+            /** Height (cm) */
+            readonly height_cm: number | null;
+            readonly packaging: components["schemas"]["PackagingEnum"] | components["schemas"]["BlankEnum"];
+            readonly courier_problem: string;
+            readonly stock_info: components["schemas"]["CatalogueStock"];
+            readonly cover: components["schemas"]["CataloguePicture"] | null;
+            readonly images: components["schemas"]["CatalogueImage"][];
+            readonly bundle_items: components["schemas"]["CatalogueBundleLine"][];
+            /** Page title */
+            readonly seo_title: string;
+            /** Meta description */
+            readonly seo_description: string;
+            /** @description its ISBN is a valid EAN-13: barcode.svg draws it */
+            readonly barcode: boolean;
+            /** @description price changes waiting for approval */
+            readonly waiting: components["schemas"]["CatalogueWaiting"][];
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly modified: string;
+        };
+        CatalogueProductMade: {
+            product: components["schemas"]["CatalogueProduct"];
+            price_change: components["schemas"]["ChangeRequest"] | null;
+        };
+        CatalogueProductPriceWaiting: {
+            price_change: components["schemas"]["ChangeRequest"];
+            slug: string;
+        };
+        /**
+         * @description A product in the list, with its chips: the GST that disagrees with the master (red), the courier's data that
+         *     is missing, the stock against the low-stock line. No query per row: the view reads them at once.
+         */
+        CatalogueProductRow: {
+            readonly id: number;
+            readonly slug: string;
+            readonly title: string;
+            readonly kind: components["schemas"]["ProductKindEnum"];
+            /** On sale */
+            readonly is_active: boolean;
+            /** Format: decimal */
+            readonly mrp: string;
+            /** Format: decimal */
+            readonly price: string;
+            readonly saving_percent: number;
+            /** @description Copies in hand. A bundle sells its books' copies. */
+            readonly stock: number;
+            /** @description copies to sell now (a bundle: its books'; a course: 1) */
+            readonly available: number;
+            readonly stock_state: components["schemas"]["CatalogueStockStateEnum"];
+            readonly hsn_code: string;
+            /**
+             * GST rate (%)
+             * Format: decimal
+             * @description Printed books are exempt: 0.
+             */
+            readonly gst_rate: string;
+            /** @description "" when its GST agrees with the master today */
+            readonly tax_problem: string;
+            /** @description "" when the courier can be quoted for it */
+            readonly courier_problem: string;
+            readonly cover: components["schemas"]["CataloguePicture"] | null;
+            readonly categories: string[];
+            /** Format: date-time */
+            readonly modified: string;
+        };
+        CatalogueProductType: {
+            readonly id: number;
+            name: string;
+            readonly attributes: components["schemas"]["CatalogueAttributeDef"][];
+            /** @description products of the type */
+            readonly products: number;
+        };
+        /**
+         * @description A new product's fields, or those a change gives (each part needs its own permission: the page's
+         *     shop.change_product, the prices' staff.change_price, the tax's staff.change_product_tax; stock is never here,
+         *     see stock/). The courier's data is checked whenever it, or the kind, is given, and for a new product.
+         */
+        CatalogueProductWriteRequest: {
+            title: string;
+            slug: string;
+            kind: components["schemas"]["ProductKindEnum"];
+            /** @description on sale */
+            is_active?: boolean;
+            /** @description a subject's id (options/) */
+            subject?: number | null;
+            /** @description a book's slug (options/) */
+            book?: string | null;
+            /** @description ISBN-13 (hyphens may stay) */
+            isbn?: string;
+            pages?: number | null;
+            /** @description Markdown */
+            description?: string;
+            /** @description a product type's id */
+            product_type?: number | null;
+            /** @description {code: value}, "" to remove one */
+            attributes?: {
+                [key: string]: string;
+            };
+            /** @description its shelves' slugs */
+            categories?: string[];
+            /** @description products' slugs */
+            related?: string[];
+            weight_grams?: number;
+            length_cm?: number | null;
+            width_cm?: number | null;
+            height_cm?: number | null;
+            packaging?: components["schemas"]["PackagingEnum"] | components["schemas"]["BlankEnum"];
+            seo_title?: string;
+            seo_description?: string;
+            /** @description a code of the HSN and SAC master */
+            hsn?: string | null;
+            tax_treatment?: components["schemas"]["TaxTreatmentEnum"];
+            tax_note?: string;
+            /** Format: date */
+            tax_note_date?: string | null;
+            /** Format: decimal */
+            mrp: string;
+            /** Format: decimal */
+            price?: string;
+            /** @description why the price changes (its approval) */
+            reason?: string;
+        };
+        CatalogueRate: {
+            /** Format: decimal */
+            rate: string;
+            taxability: string;
+            /** Format: date */
+            effective_from: string;
+            notification: string;
+        };
+        /**
+         * @description A flat fee for a group of states (none: every state no other active rate names), free from a value of books.
+         *     The cart shows it, and the line it ships free from, before checkout.
+         */
+        CatalogueShippingRate: {
+            readonly id: number;
+            readonly name: string;
+            /** @description None ticked: every state no other rate names. */
+            readonly states: unknown;
+            /** Format: decimal */
+            readonly fee: string;
+            /**
+             * Format: decimal
+             * @description books worth this much or more ship free; null: never
+             */
+            readonly free_above: string | null;
+            readonly is_active: boolean;
+        };
+        /**
+         * @description A rate's fields as given (a new one: its name and fee at least), checked against the other active rates: no
+         *     state in two of them, one rate at most for every other state. `reason` goes into its history.
+         */
+        CatalogueShippingRateWriteRequest: {
+            name: string;
+            states?: components["schemas"]["CatalogueStatesEnum"][];
+            /** Format: decimal */
+            fee: string;
+            /** Format: decimal */
+            free_above?: string | null;
+            is_active?: boolean;
+            reason?: string;
+        };
+        /**
+         * @description * `AN` - AN
+         *     * `AP` - AP
+         *     * `AR` - AR
+         *     * `AS` - AS
+         *     * `BR` - BR
+         *     * `CH` - CH
+         *     * `CT` - CT
+         *     * `DH` - DH
+         *     * `DL` - DL
+         *     * `GA` - GA
+         *     * `GJ` - GJ
+         *     * `HP` - HP
+         *     * `HR` - HR
+         *     * `JH` - JH
+         *     * `JK` - JK
+         *     * `KA` - KA
+         *     * `KL` - KL
+         *     * `LA` - LA
+         *     * `LD` - LD
+         *     * `MH` - MH
+         *     * `ML` - ML
+         *     * `MN` - MN
+         *     * `MP` - MP
+         *     * `MZ` - MZ
+         *     * `NL` - NL
+         *     * `OR` - OR
+         *     * `PB` - PB
+         *     * `PY` - PY
+         *     * `RJ` - RJ
+         *     * `SK` - SK
+         *     * `TG` - TG
+         *     * `TN` - TN
+         *     * `TR` - TR
+         *     * `UP` - UP
+         *     * `UT` - UT
+         *     * `WB` - WB
+         * @enum {string}
+         */
+        CatalogueStatesEnum: "AN" | "AP" | "AR" | "AS" | "BR" | "CH" | "CT" | "DH" | "DL" | "GA" | "GJ" | "HP" | "HR" | "JH" | "JK" | "KA" | "KL" | "LA" | "LD" | "MH" | "ML" | "MN" | "MP" | "MZ" | "NL" | "OR" | "PB" | "PY" | "RJ" | "SK" | "TG" | "TN" | "TR" | "UP" | "UT" | "WB";
+        CatalogueStock: {
+            /** @description copies to sell (orders placed have taken theirs) */
+            stock: number;
+            available: number;
+            state: string;
+            /** @description the low-stock line (SHOP_LOW_STOCK) */
+            low_stock: number;
+            /** @description copies orders placed have taken and not yet sent: still on the shelf */
+            reserved: number;
+            /** @description copies in orders waiting for an online payment */
+            awaiting_payment: number;
+            /** @description "email me when it is back" requests waiting */
+            alerts: number;
+            /** Format: date-time */
+            last_alert: string | null;
+        };
+        CatalogueStockRow: {
+            readonly id: number;
+            readonly slug: string;
+            readonly title: string;
+            readonly kind: components["schemas"]["ProductKindEnum"];
+            /** On sale */
+            readonly is_active: boolean;
+            /** @description Copies in hand. A bundle sells its books' copies. */
+            readonly stock: number;
+            /** @description taken by orders placed, not yet sent (still on the shelf) */
+            readonly reserved: number;
+            readonly awaiting_payment: number;
+            readonly state: components["schemas"]["CatalogueBookStockEnum"];
+            /** @description "email me when it is back" requests waiting */
+            readonly alerts: number;
+        };
+        CatalogueStockSetRequest: {
+            /** @description copies in hand, to sell */
+            stock: number;
+            /** @description why: the printer's delivery, a count */
+            reason: string;
+            /** @description the count you read: refused when orders changed it meanwhile */
+            expected?: number;
+        };
+        /**
+         * @description * `none` - none
+         *     * `out` - out
+         *     * `low` - low
+         *     * `in_stock` - in_stock
+         * @enum {string}
+         */
+        CatalogueStockStateEnum: "none" | "out" | "low" | "in_stock";
+        CatalogueSubject: {
+            id: number;
+            label: string;
+        };
+        CatalogueSummary: {
+            /** @description on sale */
+            products: number;
+            /** @description the courier cannot be quoted for them (products/?incomplete=1) */
+            incomplete: number;
+            /** @description their GST disagrees with the master (products/?tax_problem=1) */
+            tax_problems: number;
+            /** @description books on sale below the low-stock line */
+            low_stock: number;
+            /** @description books on sale with no copy */
+            out_of_stock: number;
+            low_stock_line: number;
+            /** @description back-in-stock requests waiting (null: not yours) */
+            stock_alerts: number | null;
+            /** @description price, coupon and offer changes waiting for approval */
+            approvals: number;
+            prior_price_applies: boolean;
+            /** Format: date */
+            prior_price_from: string;
+        };
+        CatalogueTax: {
+            /** @description the master's rate of its code today; null: none */
+            today: components["schemas"]["CatalogueRate"] | null;
+            /** @description a rate of its code that starts later */
+            next_change: components["schemas"]["CatalogueRate"] | null;
+            /** @description why its GST disagrees with the master ("": it agrees): the red chip */
+            problem: string;
+        };
+        /**
+         * @description * `live` - live
+         *     * `scheduled` - scheduled
+         *     * `ended` - ended
+         *     * `inactive` - inactive
+         * @enum {string}
+         */
+        CatalogueTermStateEnum: "live" | "scheduled" | "ended" | "inactive";
+        CatalogueTypeNameRequest: {
+            name: string;
+        };
+        CatalogueTypeRef: {
+            id: number;
+            name: string;
+        };
+        CatalogueVersion: {
+            id: number;
+            /** Format: date-time */
+            at: string;
+            /** @description who: a member of staff's id (null: the site itself) */
+            by: number | null;
+            by_name: string;
+            /** @description why, as given (a change request's number for a price) */
+            reason: string;
+            type: components["schemas"]["ContentVersionTypeEnum"];
+            /** @description what it changed from the version before it */
+            changes: components["schemas"]["CatalogueChange"][];
+        };
+        CatalogueVersionPage: {
+            /** Format: uri */
+            next: string | null;
+            /** Format: uri */
+            previous: string | null;
+            results: components["schemas"]["CatalogueVersion"][];
+        };
+        CatalogueWaiting: {
+            id: number;
+            action: string;
+            status: string;
+            rule: string;
+            payload: unknown;
+            /** Format: date-time */
+            created: string;
+        };
         /** @description A category of the shop's tree: `depth` 1 at the top, `parent` the slug of the one above (null at the top). */
         Category: {
             slug: string;
@@ -8809,6 +10350,14 @@ export interface components {
             readonly parent: string | null;
             readonly web_url: string;
         };
+        /**
+         * @description * `first-child` - first-child
+         *     * `last-child` - last-child
+         *     * `left` - left
+         *     * `right` - right
+         * @enum {string}
+         */
+        CategoryMoveEnum: "first-child" | "last-child" | "left" | "right";
         CertificateFileRequest: {
             /**
              * Format: binary
@@ -10477,6 +12026,12 @@ export interface components {
             /** @description applied or joined on (YYYY-MM-DD) */
             nch_since: string | null;
         };
+        /**
+         * @description * `percent` - per cent off
+         *     * `fixed` - rupees off
+         * @enum {string}
+         */
+        DiscountKindEnum: "percent" | "fixed";
         Document: {
             number: string;
             /** Format: date-time */
@@ -12179,12 +13734,15 @@ export interface components {
          *     * `grievance_export` - grievance register export
          *     * `settlement_fetch` - Razorpay settlements fetched
          *     * `report_export` - report export
+         *     * `coupon_codes` - single-use coupon codes
+         *     * `product_import` - product import
+         *     * `product_export` - product export
          * @enum {string}
          */
-        JobKindEnum: "audit_export" | "bulk_action" | "erp_initial_load" | "gstr1_export" | "orders_pack" | "orders_print" | "orders_cancel" | "orders_export" | "content_import" | "grievance_export" | "settlement_fetch" | "report_export";
+        JobKindEnum: "audit_export" | "bulk_action" | "erp_initial_load" | "gstr1_export" | "orders_pack" | "orders_print" | "orders_cancel" | "orders_export" | "content_import" | "grievance_export" | "settlement_fetch" | "report_export" | "coupon_codes" | "product_import" | "product_export";
         JobStartRequest: {
             kind: components["schemas"]["JobKindEnum"];
-            /** @description audit_export: {"filters": {…}} (the audit list's); bulk_action: {"action": "order.refund", "targets": [order numbers, slugs or ids], "payload": {…} (each target's, as for change-requests/), "reason"}; erp_initial_load: {"invoices_from": "YYYY-MM-DD"} (optional: without it, the catalogue only); gstr1_export: {"month": "YYYY-MM", "months": 1 or 3} (a month, or the quarter ending with it); orders_pack, orders_print ({"document": packing_slip, label or invoices}) and orders_cancel ({"reason", "customer_requested"}, 250 at most): {"targets": [order numbers]}; orders_export: {"filters": {…}} (the order list's); content_import: {"subject": "physics", "commit": "" or a commit, "dry_run_job": the dry run's id (to apply)}; grievance_export: {"from": "YYYY-MM-DD", "until": "YYYY-MM-DD"} (the days received, both optional); settlement_fetch: {"day": "YYYY-MM-DD"} (a day of Razorpay's settlements, India, from 2020 to today); report_export: {"report": "sales", "filters": {...}} (the report's own filters: reports/) */
+            /** @description audit_export: {"filters": {…}} (the audit list's); bulk_action: {"action": "order.refund", "targets": [order numbers, slugs or ids], "payload": {…} (each target's, as for change-requests/), "reason"}; erp_initial_load: {"invoices_from": "YYYY-MM-DD"} (optional: without it, the catalogue only); gstr1_export: {"month": "YYYY-MM", "months": 1 or 3} (a month, or the quarter ending with it); orders_pack, orders_print ({"document": packing_slip, label or invoices}) and orders_cancel ({"reason", "customer_requested"}, 250 at most): {"targets": [order numbers]}; orders_export: {"filters": {…}} (the order list's); content_import: {"subject": "physics", "commit": "" or a commit, "dry_run_job": the dry run's id (to apply)}; grievance_export: {"from": "YYYY-MM-DD", "until": "YYYY-MM-DD"} (the days received, both optional); settlement_fetch: {"day": "YYYY-MM-DD"} (a day of Razorpay's settlements, India, from 2020 to today); report_export: {"report": "sales", "filters": {...}} (the report's own filters: reports/); coupon_codes: {"coupon": a single-use coupon's code, "count", "prefix", "note": the school's name}; product_import: {"file": catalogue/import/'s, "dry_run_job": the dry run's id (to apply)}; product_export: {"filters": {…}} (the product list's) */
             params?: {
                 [key: string]: unknown;
             };
@@ -12782,6 +14340,14 @@ export interface components {
             /** @default  */
             note: string;
         };
+        /**
+         * @description * `cart` - the whole cart
+         *     * `products` - the products chosen below
+         *     * `categories` - the products of the categories below (with their sub-categories)
+         *     * `collections` - the products of the collections below
+         * @enum {string}
+         */
+        OfferScopeEnum: "cart" | "products" | "categories" | "collections";
         OfferStat: {
             /** @description Stored in capitals; customers may type any case. */
             readonly coupon: string;
@@ -13544,6 +15110,12 @@ export interface components {
             /** @description the app's refresh tokens blacklisted */
             tokens: number;
         };
+        /**
+         * @description * `flyer` - a flyer (the courier's bag, of the standard size)
+         *     * `box` - a box (its length, width and height)
+         * @enum {string}
+         */
+        PackagingEnum: "flyer" | "box";
         /** @description An order of the packing queue. */
         PackingRow: {
             number: string;
@@ -13718,6 +15290,97 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["Call"][];
+        };
+        PaginatedCatalogueAlertRowList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["CatalogueAlertRow"][];
+        };
+        PaginatedCatalogueCollectionList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["CatalogueCollection"][];
+        };
+        PaginatedCatalogueCouponList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["CatalogueCoupon"][];
+        };
+        PaginatedCatalogueOfferList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["CatalogueOffer"][];
+        };
+        PaginatedCatalogueProductRowList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["CatalogueProductRow"][];
+        };
+        PaginatedCatalogueShippingRateList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["CatalogueShippingRate"][];
+        };
+        PaginatedCatalogueStockRowList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["CatalogueStockRow"][];
         };
         PaginatedCategoryList: {
             /** @example 123 */
@@ -14958,6 +16621,194 @@ export interface components {
             /** What to revise */
             notes?: string;
         };
+        PatchedCatalogueAttributeDefRequest: {
+            name?: string;
+            /** @description The API's filter: ?attr_<code>=… (e.g. language). */
+            code?: string;
+            kind?: components["schemas"]["AttributeKindEnum"];
+            /** @description For “one of a list”: one choice per line. */
+            choices?: string;
+            /** Format: int64 */
+            position?: number;
+        };
+        PatchedCatalogueCategoryWriteRequest: {
+            name?: string;
+            slug?: string;
+            description?: string;
+            /** @description a new one's place: under this one */
+            parent?: string | null;
+        };
+        PatchedCatalogueCollectionWriteRequest: {
+            slug?: string;
+            name?: string;
+            /** @description Markdown, at the top of its page. */
+            description?: string;
+            /** Shown */
+            is_active?: boolean;
+            /**
+             * Format: int64
+             * @description Collections are listed by this number.
+             */
+            position?: number;
+            products?: string[];
+        };
+        /**
+         * @description A coupon's fields as asked (a new one: its `code` and `value` at least; a change: those that change), checked
+         *     by shop.catalogue.coupon_fields (no field names an account), and the `reason` its approval reads.
+         */
+        PatchedCatalogueCouponWriteRequest: {
+            /** @description a new one's: 3 to 30 capitals, figures, hyphens */
+            code?: string;
+            kind?: components["schemas"]["DiscountKindEnum"];
+            /**
+             * Format: decimal
+             * @description per cent, or rupees off
+             */
+            value?: string;
+            /**
+             * Format: decimal
+             * @description of the books it covers
+             */
+            min_order?: string;
+            /**
+             * Format: date-time
+             * @description ISO 8601 (a day alone: its start in India)
+             */
+            valid_from?: string | null;
+            /**
+             * Format: date-time
+             * @description ISO 8601 (a day alone: its start in India)
+             */
+            valid_until?: string | null;
+            /** @description orders, all customers together */
+            max_uses?: number | null;
+            /** @description per account and email */
+            max_uses_per_customer?: number | null;
+            is_active?: boolean;
+            /** @description checked for dark patterns */
+            description?: string;
+            /** @description staff's own: who it is for */
+            note?: string;
+            include_products?: string[];
+            include_categories?: string[];
+            exclude_products?: string[];
+            exclude_categories?: string[];
+            first_order_only?: boolean;
+            /** @description with automatic offers */
+            stackable?: boolean;
+            /** @description only through its single-use codes */
+            single_use?: boolean;
+            /** @description why: its approval reads it */
+            reason?: string;
+        };
+        /**
+         * @description An offer's fields as asked (a new one: its `name` and `value` at least; a change: those that change), checked
+         *     by shop.catalogue.offer_fields (the dark-pattern guardrails), and the `reason` its approval reads.
+         */
+        PatchedCatalogueOfferWriteRequest: {
+            name?: string;
+            banner?: string;
+            kind?: components["schemas"]["DiscountKindEnum"];
+            /** Format: decimal */
+            value?: string;
+            scope?: components["schemas"]["OfferScopeEnum"];
+            products?: string[];
+            categories?: string[];
+            collections?: string[];
+            min_quantity?: number;
+            /** Format: decimal */
+            min_value?: string;
+            /**
+             * Format: date-time
+             * @description ISO 8601 (a day alone: its start in India)
+             */
+            valid_from?: string | null;
+            /**
+             * Format: date-time
+             * @description ISO 8601 (a day alone: its start in India)
+             */
+            valid_until?: string | null;
+            max_uses?: number | null;
+            max_uses_per_customer?: number | null;
+            /** @description with coupons and other offers */
+            combinable?: boolean;
+            is_active?: boolean;
+            /** @description only with a real end date (valid_until) */
+            show_countdown?: boolean;
+            /** @description why: its approval reads it */
+            reason?: string;
+        };
+        PatchedCataloguePictureChangeRequest: {
+            alt?: string;
+            position?: number;
+        };
+        /**
+         * @description A new product's fields, or those a change gives (each part needs its own permission: the page's
+         *     shop.change_product, the prices' staff.change_price, the tax's staff.change_product_tax; stock is never here,
+         *     see stock/). The courier's data is checked whenever it, or the kind, is given, and for a new product.
+         */
+        PatchedCatalogueProductWriteRequest: {
+            title?: string;
+            slug?: string;
+            kind?: components["schemas"]["ProductKindEnum"];
+            /** @description on sale */
+            is_active?: boolean;
+            /** @description a subject's id (options/) */
+            subject?: number | null;
+            /** @description a book's slug (options/) */
+            book?: string | null;
+            /** @description ISBN-13 (hyphens may stay) */
+            isbn?: string;
+            pages?: number | null;
+            /** @description Markdown */
+            description?: string;
+            /** @description a product type's id */
+            product_type?: number | null;
+            /** @description {code: value}, "" to remove one */
+            attributes?: {
+                [key: string]: string;
+            };
+            /** @description its shelves' slugs */
+            categories?: string[];
+            /** @description products' slugs */
+            related?: string[];
+            weight_grams?: number;
+            length_cm?: number | null;
+            width_cm?: number | null;
+            height_cm?: number | null;
+            packaging?: components["schemas"]["PackagingEnum"] | components["schemas"]["BlankEnum"];
+            seo_title?: string;
+            seo_description?: string;
+            /** @description a code of the HSN and SAC master */
+            hsn?: string | null;
+            tax_treatment?: components["schemas"]["TaxTreatmentEnum"];
+            tax_note?: string;
+            /** Format: date */
+            tax_note_date?: string | null;
+            /** Format: decimal */
+            mrp?: string;
+            /** Format: decimal */
+            price?: string;
+            /** @description why the price changes (its approval) */
+            reason?: string;
+        };
+        /**
+         * @description A rate's fields as given (a new one: its name and fee at least), checked against the other active rates: no
+         *     state in two of them, one rate at most for every other state. `reason` goes into its history.
+         */
+        PatchedCatalogueShippingRateWriteRequest: {
+            name?: string;
+            states?: components["schemas"]["CatalogueStatesEnum"][];
+            /** Format: decimal */
+            fee?: string;
+            /** Format: decimal */
+            free_above?: string | null;
+            is_active?: boolean;
+            reason?: string;
+        };
+        PatchedCatalogueTypeRenameRequest: {
+            name?: string;
+        };
         PatchedContentBookRequest: {
             title?: string;
             subject?: number;
@@ -15701,6 +17552,11 @@ export interface components {
              * @description the link preview (1200×630), once made
              */
             readonly og_image: string | null;
+            /**
+             * Format: decimal
+             * @description beside a reduced price, from 1 January 2027: the lowest selling price of the 30 days before the reduction ("Lowest price in the 30 days before this reduction: ₹250"); null when not reduced
+             */
+            readonly prior_price: string | null;
         };
         /**
          * @description * `sample-papers` - Sample Papers
@@ -22822,6 +24678,1270 @@ export interface operations {
             };
         };
     };
+    staff_catalogue_categories_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueCategory"][];
+                };
+            };
+        };
+    };
+    staff_catalogue_categories_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CatalogueCategoryWriteRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueCategory"];
+                };
+            };
+        };
+    };
+    staff_catalogue_categories_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueCategory"];
+                };
+            };
+        };
+    };
+    staff_catalogue_categories_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedCatalogueCategoryWriteRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueCategory"];
+                };
+            };
+        };
+    };
+    staff_catalogue_categories_move_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CatalogueCategoryMoveRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueCategory"][];
+                };
+            };
+        };
+    };
+    staff_catalogue_collections_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedCatalogueCollectionList"];
+                };
+            };
+        };
+    };
+    staff_catalogue_collections_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CatalogueCollectionWriteRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueCollection"];
+                };
+            };
+        };
+    };
+    staff_catalogue_collections_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueCollection"];
+                };
+            };
+        };
+    };
+    staff_catalogue_collections_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedCatalogueCollectionWriteRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueCollection"];
+                };
+            };
+        };
+    };
+    staff_catalogue_coupons_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /**
+                 * @description * `percent` - per cent off
+                 *     * `fixed` - rupees off
+                 */
+                kind?: "fixed" | "percent";
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description part of its code */
+                q?: string;
+                single_use?: boolean;
+                /**
+                 * @description * `live` - live
+                 *     * `scheduled` - scheduled
+                 *     * `ended` - ended
+                 *     * `inactive` - inactive
+                 */
+                state?: "ended" | "inactive" | "live" | "scheduled";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedCatalogueCouponList"];
+                };
+            };
+        };
+    };
+    staff_catalogue_coupons_create: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description once per request */
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CatalogueCouponWriteRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+        };
+    };
+    staff_catalogue_coupons_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueCoupon"];
+                };
+            };
+        };
+    };
+    staff_catalogue_coupons_partial_update: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description once per request */
+                "Idempotency-Key"?: string;
+            };
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedCatalogueCouponWriteRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+        };
+    };
+    staff_catalogue_coupons_codes_retrieve: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                job?: number;
+                used?: boolean;
+            };
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueCodePage"];
+                };
+            };
+        };
+    };
+    staff_catalogue_coupons_history_retrieve: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueVersionPage"];
+                };
+            };
+        };
+    };
+    staff_catalogue_import_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["CatalogueImportUploadRequest"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+        };
+    };
+    staff_catalogue_offers_list: {
+        parameters: {
+            query?: {
+                combinable?: boolean;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description part of its name */
+                q?: string;
+                /**
+                 * @description * `cart` - the whole cart
+                 *     * `products` - the products chosen below
+                 *     * `categories` - the products of the categories below (with their sub-categories)
+                 *     * `collections` - the products of the collections below
+                 */
+                scope?: "cart" | "categories" | "collections" | "products";
+                /**
+                 * @description * `live` - live
+                 *     * `scheduled` - scheduled
+                 *     * `ended` - ended
+                 *     * `inactive` - inactive
+                 */
+                state?: "ended" | "inactive" | "live" | "scheduled";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedCatalogueOfferList"];
+                };
+            };
+        };
+    };
+    staff_catalogue_offers_create: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description once per request */
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CatalogueOfferWriteRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+        };
+    };
+    staff_catalogue_offers_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this offer. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueOffer"];
+                };
+            };
+        };
+    };
+    staff_catalogue_offers_partial_update: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description once per request */
+                "Idempotency-Key"?: string;
+            };
+            path: {
+                /** @description A unique integer value identifying this offer. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedCatalogueOfferWriteRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+        };
+    };
+    staff_catalogue_offers_history_retrieve: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this offer. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueVersionPage"];
+                };
+            };
+        };
+    };
+    staff_catalogue_options_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueOptions"];
+                };
+            };
+        };
+    };
+    staff_catalogue_product_types_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueProductType"][];
+                };
+            };
+        };
+    };
+    staff_catalogue_product_types_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CatalogueTypeNameRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueProductType"];
+                };
+            };
+        };
+    };
+    staff_catalogue_product_types_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this product type. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueProductType"];
+                };
+            };
+        };
+    };
+    staff_catalogue_product_types_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this product type. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedCatalogueTypeRenameRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueProductType"];
+                };
+            };
+        };
+    };
+    staff_catalogue_product_types_attributes_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this product type. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CatalogueAttributeDefRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueProductType"];
+                };
+            };
+        };
+    };
+    staff_catalogue_product_types_attributes_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attribute: number;
+                /** @description A unique integer value identifying this product type. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedCatalogueAttributeDefRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueProductType"];
+                };
+            };
+        };
+    };
+    staff_catalogue_products_list: {
+        parameters: {
+            query?: {
+                /** @description a category's slug, with its sub-categories */
+                category?: string;
+                collection?: string;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description the courier cannot be quoted for it */
+                incomplete?: boolean;
+                /**
+                 * @description * `sample-papers` - Sample Papers
+                 *     * `solutions` - Solutions
+                 *     * `bundle` - Bundle
+                 *     * `digital` - Digital (in the app)
+                 */
+                kind?: "bundle" | "digital" | "sample-papers" | "solutions";
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description on sale */
+                published?: boolean;
+                /** @description words of its title, its slug, or its ISBN's digits */
+                q?: string;
+                /**
+                 * @description books only
+                 *
+                 *     * `out` - out
+                 *     * `low` - low
+                 *     * `in_stock` - in_stock
+                 */
+                stock?: "in_stock" | "low" | "out";
+                /** @description its GST disagrees with the master today */
+                tax_problem?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedCatalogueProductRowList"];
+                };
+            };
+        };
+    };
+    staff_catalogue_products_create: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description once per request */
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CatalogueProductWriteRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueProductMade"];
+                };
+            };
+        };
+    };
+    staff_catalogue_products_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueProduct"];
+                };
+            };
+        };
+    };
+    staff_catalogue_products_partial_update: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description once per request */
+                "Idempotency-Key"?: string;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedCatalogueProductWriteRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueProduct"];
+                };
+            };
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueProductPriceWaiting"];
+                };
+            };
+        };
+    };
+    "staff_catalogue_products_barcode.svg_retrieve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/svg+xml": string;
+                };
+            };
+        };
+    };
+    staff_catalogue_products_bundle_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CatalogueBundleLinesRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueProduct"];
+                };
+            };
+        };
+    };
+    staff_catalogue_products_history_retrieve: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueVersionPage"];
+                };
+            };
+        };
+    };
+    staff_catalogue_products_pictures_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["CataloguePictureUploadRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueProduct"];
+                };
+            };
+        };
+    };
+    staff_catalogue_products_pictures_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                picture: number;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueProduct"];
+                };
+            };
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    staff_catalogue_products_pictures_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                picture: number;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedCataloguePictureChangeRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueProduct"];
+                };
+            };
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    staff_catalogue_products_prior_price_retrieve: {
+        parameters: {
+            query: {
+                /** @description the price proposed, in rupees */
+                price: string;
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CataloguePriorPrice"];
+                };
+            };
+        };
+    };
+    staff_catalogue_products_stock_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CatalogueStockSetRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueProduct"];
+                };
+            };
+        };
+    };
+    staff_catalogue_shipping_rates_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedCatalogueShippingRateList"];
+                };
+            };
+        };
+    };
+    staff_catalogue_shipping_rates_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CatalogueShippingRateWriteRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueShippingRate"];
+                };
+            };
+        };
+    };
+    staff_catalogue_shipping_rates_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this shipping rate. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueShippingRate"];
+                };
+            };
+        };
+    };
+    staff_catalogue_shipping_rates_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this shipping rate. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedCatalogueShippingRateWriteRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueShippingRate"];
+                };
+            };
+        };
+    };
+    staff_catalogue_shipping_rates_history_retrieve: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this shipping rate. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueVersionPage"];
+                };
+            };
+        };
+    };
+    staff_catalogue_stock_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                published?: boolean;
+                /** @description words of its title, or its slug */
+                q?: string;
+                /**
+                 * @description * `out` - out
+                 *     * `low` - low
+                 *     * `in_stock` - in_stock
+                 */
+                state?: "in_stock" | "low" | "out";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedCatalogueStockRowList"];
+                };
+            };
+        };
+    };
+    staff_catalogue_stock_alerts_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedCatalogueAlertRowList"];
+                };
+            };
+        };
+    };
+    staff_catalogue_summary_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueSummary"];
+                };
+            };
+        };
+    };
     staff_change_requests_list: {
         parameters: {
             query?: {
@@ -26246,8 +29366,11 @@ export interface operations {
                  *     * `grievance_export` - grievance register export
                  *     * `settlement_fetch` - Razorpay settlements fetched
                  *     * `report_export` - report export
+                 *     * `coupon_codes` - single-use coupon codes
+                 *     * `product_import` - product import
+                 *     * `product_export` - product export
                  */
-                kind?: "audit_export" | "bulk_action" | "content_import" | "erp_initial_load" | "grievance_export" | "gstr1_export" | "orders_cancel" | "orders_export" | "orders_pack" | "orders_print" | "report_export" | "settlement_fetch";
+                kind?: "audit_export" | "bulk_action" | "content_import" | "coupon_codes" | "erp_initial_load" | "grievance_export" | "gstr1_export" | "orders_cancel" | "orders_export" | "orders_pack" | "orders_print" | "product_export" | "product_import" | "report_export" | "settlement_fetch";
                 /** @description true: the jobs I started */
                 mine?: boolean;
                 /** @description Number of results to return per page. */

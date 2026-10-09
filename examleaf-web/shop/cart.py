@@ -15,7 +15,7 @@ from django.db import transaction
 from django.dispatch import receiver
 from django.utils import timezone
 
-from .models import Cart, CartItem, Coupon, Offer, Product, ShippingRate, rupees
+from .models import Cart, CartItem, Coupon, CouponCode, Offer, Product, ShippingRate, rupees
 
 SESSION_KEY = "shop_cart"
 TOKEN_DAYS = 30  # a guest cart's token (API clients without cookies); the cart itself goes after 30 days unchanged
@@ -104,6 +104,7 @@ class Totals:
     coupon_problem: str | None = None  # why the cart's coupon may not be used
     savings: list = field(default_factory=list)  # Saving: the coupon's, the offers', the staff discount
     shipping: Decimal | None = None  # None until the delivery state is known
+    coupon_code: CouponCode | None = None  # (Phase B) the single-use code typed, when its coupon may be used
 
     @property
     def subtotal(self):
@@ -158,24 +159,46 @@ class Totals:
         return found
 
 
+def lines_of(cart):
+    """The cart's lines (Line), at today's prices."""
+    return [Line(item.product, item.quantity) for item in cart.items.select_related("product")] if cart else []
+
+
 def totals(cart, state=None, user=None, email=""):
     """The cart's lines and money at today's prices; shipping once `state` (two-letter code) is known."""
     if cart is None:
         return Totals()
-    lines = [Line(item.product, item.quantity) for item in cart.items.select_related("product")]
-    return price(lines, cart.coupon, state=state, user=user, email=email)
+    return price(lines_of(cart), cart.coupon, state=state, user=user, email=email, code=cart.coupon_code)
 
 
-def price(lines, coupon=None, state=None, user=None, email="", staff_discount=0):
-    """The money of these lines (Line) at today's prices: the coupon, the offers, a staff discount in rupees (orders
-    made in the admin), and the shipping once `state` is known."""
-    result, everything = Totals(lines=lines), range(len(lines))
+def coupon_lines(coupon, lines, code=None, user=None, email=""):
+    """(the indexes of the lines the coupon applies to, why it may not be used now or None). A single-use `code` is
+    refused once an order has it; a coupon naming products or categories applies to theirs only, its minimum order
+    reckoned on them (Phase B: catalogue)."""
+    if code is not None and code.used:
+        return [], "This code has been used."
+    covered = coupon.covered([line.product.pk for line in lines]) if lines else set()
+    indexes = [index for index, line in enumerate(lines) if line.product.pk in covered]
+    if lines and not indexes:
+        return [], "This coupon is not for the books in your cart."
+    value = sum((lines[index].total for index in indexes), Decimal("0.00"))
+    return indexes, coupon.problem(value, user=user, email=email)
+
+
+def price(lines, coupon=None, state=None, user=None, email="", staff_discount=0, code=None):
+    """The money of these lines (Line) at today's prices: the coupon (or one of its single-use `code`s), the offers
+    (none beside a coupon that does not stack), a staff discount in rupees (orders made by staff), and the shipping
+    once `state` is known."""
+    result = Totals(lines=lines)
     if coupon:
-        result.coupon_problem = coupon.problem(result.subtotal, user=user, email=email)
+        indexes, result.coupon_problem = coupon_lines(coupon, lines, code=code, user=user, email=email)
         if not result.coupon_problem:
-            result.coupon = coupon
-            result.take(f"Coupon {coupon.code}", coupon.discount_on(result.subtotal), everything)
-    apply_offers(result, user, email)
+            result.coupon, result.coupon_code = coupon, code
+            value = sum((lines[index].total for index in indexes), Decimal("0.00"))
+            result.take(f"Coupon {code.code if code else coupon.code}", coupon.discount_on(value), indexes)
+    if result.coupon is None or result.coupon.stackable:
+        apply_offers(result, user, email)
+    everything = range(len(lines))
     if staff_discount:
         result.take("Discount", min(rupees(staff_discount), result.subtotal - result.discount), everything)
     if state:  # digital products alone ship nothing
@@ -219,8 +242,8 @@ def merge_carts(guest, user):
             for item in guest.items.select_related("product"):
                 set_quantity(cart, item.product, item.quantity, add=True)
             if guest.coupon and not cart.coupon:
-                cart.coupon = guest.coupon
-                cart.save(update_fields=["coupon"])
+                cart.coupon, cart.coupon_code = guest.coupon, guest.coupon_code
+                cart.save(update_fields=["coupon", "coupon_code"])
             guest.delete()
     return cart
 

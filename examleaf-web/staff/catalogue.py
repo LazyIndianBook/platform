@@ -146,6 +146,16 @@ STAFF_ACTIONS = [
     ),
     # Home and Reports (Phase B, insights/exports.py): any report as a file, with the filters it was read with
     ("export_report", "Export a report as a file (above your limit a second person approves)", REPORTS, HIGH, True),
+    # Catalogue (shop/staff_catalogue.py): SALES prices and stock, FINANCE a product's tax (plan 5.5)
+    (
+        "change_price",
+        "Change prices: a product's MRP and selling price (beyond your discount limit a second person approves)",
+        CATALOGUE,
+        MEDIUM,
+        True,
+    ),
+    ("set_stock", "Set a product's stock by hand, with the reason", CATALOGUE, MEDIUM),
+    ("change_product_tax", "Set a product's HSN or SAC code and a bundle's tax treatment", TAX, MEDIUM),
 ]
 STAFF_MODELS = [
     ("view_changerequest", "See the approvals you take part in", STAFF, LOW),
@@ -222,8 +232,9 @@ OTHERS = {
     ),
 }
 EXPLICIT = {**_entries("staff", STAFF_ACTIONS), **_entries("staff", STAFF_MODELS), **OTHERS}
-# Model permissions that start an action which may need approval (staff.approvals: a price, a coupon).
-APPROVAL = {"shop.change_product", "shop.add_coupon"}
+# Model permissions that start an action which may need approval (staff.approvals: a coupon or an offer made or
+# changed; a price is staff.change_price's, whose row says so).
+APPROVAL = {"shop.add_coupon", "shop.change_coupon", "shop.add_offer", "shop.change_offer"}
 
 VERB_RISK = {"view": LOW, "add": MEDIUM, "change": MEDIUM, "delete": HIGH}
 APP_AREAS = {
@@ -244,7 +255,7 @@ APP_AREAS = {
 }
 SHOP_AREAS = {
     **dict.fromkeys(["payment", "refund", "invoice", "creditnote"], PAYMENTS),
-    **dict.fromkeys(["coupon", "offer", "review"], MARKETING),
+    **dict.fromkeys(["coupon", "couponcode", "offer", "review"], MARKETING),
     **dict.fromkeys(
         ["product", "productimage", "bundleitem", "slughistory", "category", "collection", "collectionitem"], CATALOGUE
     ),

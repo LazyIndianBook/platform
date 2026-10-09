@@ -14,6 +14,7 @@
 // submits it, a REVIEWER publishes it from the inbox, and the OWNER's audit trail shows both. Support: SUPPORT answers
 // the customer's ticket, its first reply is recorded, and the OWNER finds the reply in the ticket's audit trail.
 // Finance: FINANCE opens Finance today and, from its refunds to approve, the seeded refund's change request.
+// Catalogue: SALES weighs a product the courier could not be quoted for, and it leaves the incomplete list.
 import { type Browser, expect, type Page, test } from "@playwright/test";
 
 import { readFileSync } from "node:fs";
@@ -35,6 +36,9 @@ import {
   type ReportsWorld,
   deleteReportsWorld,
   seedReportsWorld,
+  type CatalogueWorld,
+  deleteCatalogue,
+  seedCatalogue,
   seedOrdersWorld,
   seedContent,
   seedFinanceWorld,
@@ -72,6 +76,7 @@ let supportId: number;
 let editorId: number;
 let reviewerId: number;
 let changeRequest = "";
+let catalogue: CatalogueWorld;
 
 test.describe.configure({ mode: "serial" });
 
@@ -88,6 +93,7 @@ test.beforeAll(() => {
   ticket = seedTicket(world);
   money = seedFinanceWorld(stamp, support.email);
   reports = seedReportsWorld(stamp);
+  catalogue = seedCatalogue(stamp);
 });
 
 test.afterAll(() => {
@@ -96,6 +102,7 @@ test.afterAll(() => {
   if (content) deleteContent(content);
   if (money) deleteFinanceWorld(money);
   if (reports) deleteReportsWorld(reports);
+  if (catalogue) deleteCatalogue(catalogue);
   deleteStaff([owner.email, support.email, sales.email, finance.email, editor.email, reviewer.email]);
 });
 
@@ -675,5 +682,29 @@ test("Home and reports: the OWNER's Home counts the paid order once and leaves t
       1280,
     );
   });
+});
+
+test("Catalogue: SALES weighs a product the courier could not be quoted for, and it leaves the incomplete list", async ({
+  browser,
+}) => {
+  const page = await open(browser);
+  await signIn(page, sales, "/catalogue/products/?incomplete=true", salesCodes);
+  const row = () =>
+    page.getByRole("region", { name: "Products, a table" }).getByRole("link", { name: new RegExp(catalogue.title) });
+  await expect(row()).toBeVisible();
+  await row().click();
+  await expect(page.getByRole("heading", { level: 1, name: catalogue.title })).toBeVisible();
+  const courier = page.locator("#courier");
+  await expect(courier.getByText("No weight: weigh one copy, in grams.")).toBeVisible();
+  await courier.getByLabel("Weight (g)").fill("320");
+  await courier
+    .getByRole("region", { name: "Unsaved changes" })
+    .getByRole("button", { name: "Save the courier's data" })
+    .click();
+  await settle(page, toast(page, "Saved"), sales, salesCodes);
+  await expect(courier.getByText("No weight: weigh one copy, in grams.")).toHaveCount(0);
+  await page.goto("/catalogue/products/?incomplete=true");
+  await expect(page.getByRole("heading", { level: 1, name: "Products" })).toBeVisible();
+  await expect(row()).toHaveCount(0);
   await page.context().close();
 });

@@ -78,7 +78,24 @@ def test_products_and_categories_go_out_and_come_back_in_a_spreadsheet_for_the_a
             assert client.get(reverse(url)).status_code == 403
     client.force_login(staff(roles.ADMIN))
     assert client.get(reverse("admin:shop_category_export")).status_code == 200
+    assert client.get(reverse("admin:shop_product_import")).status_code == 403  # the panel's import (Phase B)
+    client.force_login(UserFactory(is_staff=True, is_superuser=True))
     assert client.get(reverse("admin:shop_product_import")).status_code == 200
+
+
+def test_prices_tax_coupons_and_offers_change_in_the_panel_and_staff_only_see_them_here(client):
+    """Phase B: catalogue. The admin cannot go round the panel's approvals: a price, the tax, a coupon, an offer."""
+    product = ProductFactory(title="Physics", stock=3)
+    client.force_login(staff(roles.SALES))
+    page = client.get(reverse("admin:shop_product_change", args=[product.pk])).content.decode()
+    assert 'name="price_0"' not in page and 'name="mrp_0"' not in page and 'name="title"' in page
+    assert client.get(reverse("admin:shop_product_add")).status_code == 403
+    for name in ("coupon", "offer"):
+        assert client.get(reverse(f"admin:shop_{name}_changelist")).status_code == 200
+        assert client.get(reverse(f"admin:shop_{name}_add")).status_code == 403
+    client.force_login(UserFactory(is_staff=True, is_superuser=True))
+    page = client.get(reverse("admin:shop_product_change", args=[product.pk])).content.decode()
+    assert 'name="price_0"' in page and client.get(reverse("admin:shop_coupon_add")).status_code == 200
 
 
 def test_the_dashboard_shows_sales_by_day_best_sellers_low_stock_and_what_waits(client, rzp):

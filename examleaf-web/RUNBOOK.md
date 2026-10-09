@@ -443,6 +443,13 @@ SUPPORT sees orders, notes and reviews and opens courses by hand (entitlements);
 superuser-only items, which it can view (periodic tasks, task results, groups and permissions, second factors, Google
 sign-in), imports and exports included.
 
+The catalogue is kept in the panel's Catalogue (`https://admin.<domain>/catalogue/`, shop/README.md "Catalogue"): each
+part of a product by its own people (the page CONTENT_EDITOR and SALES, the prices SALES through their approval, the
+tax FINANCE, the stock SALES), coupons and offers by MARKETING and SALES through theirs (beyond the maker's discount
+limit FINANCE approves from the inbox), delivery rates, shelves and collections. In the Django admin the prices, the
+tax, new products, the product import, coupons and offers are a superuser's alone (a break-glass session's, when the
+panel is down); everyone else reads them there.
+
 ### A stuck payment (the customer paid, the order still says "awaiting payment")
 
 Razorpay's webhook normally completes an order within seconds, even when the customer never comes back from the payment
@@ -664,12 +671,27 @@ All in the panel's **Tax** module (FINANCE; AUDITOR reads):
 
 ### Coupons
 
-A coupon's uses are the paid or placed orders not cancelled or refunded; the Coupons list shows how many. Untick *is
-active* to stop a coupon at once; orders already made keep their discount.
+Catalogue → Coupons in the panel. A coupon's uses are the paid or placed orders not cancelled or refunded; the list
+shows how many. To stop one at once, open it and untick *Switched on*, with the reason (`coupon.change`, made at once;
+switching one back on beyond your discount limit waits for FINANCE); orders already made keep their discount. A
+coupon may cover chosen products or shelves (and leave some out), be for a first order, or not stack with the
+automatic offers. Its code never changes: make a new coupon instead.
+
+**A school's single-use codes**: make the coupon with *Single-use codes* ticked (its own code then no longer works at
+the cart), open it, and under *Single-use codes* give how many, a prefix (the school's short name) and the school's
+name: a job makes them (above your bulk limit an approver passes it first) and *Download the file* gives the school's
+CSV (the link lasts 5 minutes; the file a week). Each code works for one order: the order made with it takes it, and
+a cancelled order frees it for another. "This code has been used" at the cart is that rule.
+
+When the panel is down, a superuser changes a coupon in the admin (Shop → Coupons); its codes are under Shop → Coupon
+codes, read-only.
 
 ### Offers
 
-Shop → Offers: automatic discounts, no code. Per cent or rupees off what the offer covers ("on": the whole cart, chosen
+Catalogue → Offers in the panel (the admin's Shop → Offers is a superuser's): automatic discounts, no code. A
+countdown needs a real end date, and once shown its end can come sooner but never later; names and banners are checked
+for false urgency and guilt-trip words (`SHOP_DARK_PATTERN_PHRASES`): the refusal names the pattern, so say what is
+offered and the day it ends. Per cent or rupees off what the offer covers ("on": the whole cart, chosen
 products, the products of chosen categories with their sub-categories, or of chosen collections), once those reach the
 minimum copies and the minimum value (leave one at 0 to ignore it; after the coupon), between two dates, with limits of
 orders in all and per customer. They apply after the coupon and show as their own line, under the offer's name, in the
@@ -747,12 +769,14 @@ Refunds of such payments go by bank transfer or UPI through the refund dialog ("
 
 ### Categories, collections, attributes
 
-- **Categories** (Shop → Categories) form a tree: "Add category" with its place (first child of a category, or a
-  sibling), or drag a row to move it with its sub-categories. A product is put on its shelves in its own form
+- **Categories** (the panel's Catalogue → Categories; the admin's Shop → Categories too) form a tree: a new shelf
+  under another or at the top, and *Move* (under a shelf, first or last, or just before or after one) takes its
+  sub-categories along; in the admin, drag a row. A product is put on its shelves in its own form
   ("Shelves, type and related products"), several allowed; a category's page (`/shop/category/<slug>/`) shows the
   products of its sub-categories too. The shop's main page lists the top categories.
-- **Collections** are hand-picked lists ("Board 2027 essentials"): add the products in the collection's form; their
-  `position` numbers give the order, the collection's own number the order of the collections. Untick "shown" to hide
+- **Collections** are hand-picked lists ("Board 2027 essentials"), in the panel's Catalogue → Collections (the
+  products' addresses one a line, in their order) or the admin; the collection's own number gives the order of the
+  collections. Untick "shown" to hide
   one (its page then answers 404).
 - **Product types** say which attributes their products have (a printed book: edition year, language, board…). Each
   attribute has a code (the app's filter `?attr_<code>=`; do not change it once the app uses it) and a kind: text,
@@ -764,13 +788,20 @@ Refunds of such payments go by bank transfer or UPI through the refund dialog ("
   The slugs `category`, `collection` and `school-orders` are refused (pages of the shop).
 - **Product pictures** keep their `position` numbers (no drag and drop: django-admin-sortable2 does not support Django
   6.1 yet).
-- **Bulk actions** on Products: "Put on sale", "Take off sale", and "Set stock": type the copies in the box beside the
-  action, tick the books, run it (bundles and digital products have no copies of their own and are skipped).
-- **Spreadsheets (ADMIN):** Products → Export (all, or "Export selected" from the action list) and Import, matched by
-  slug: change titles, prices, texts, categories (slugs separated by `|`) and import; a row whose price is above the MRP
-  is refused, and stock is never imported (sales go on meanwhile: use "Set stock"). Categories → Export/Import: one row
-  per category, a parent before its children (`parent` is its slug); an import adds new categories and renames, it
-  moves none. Every export is written to the admin log.
+- **Bulk actions** on Products in the admin: "Put on sale", "Take off sale", and "Set stock": type the copies in the
+  box beside the action, tick the books, run it (bundles and digital products have no copies of their own and are
+  skipped). The panel sets one product's copies with the reason (below, "Stock").
+- **Spreadsheets (ADMIN):** the panel's Catalogue → Import and export. The import takes the admin's export format (with
+  the courier's columns `length_cm`, `width_cm`, `height_cm`, `packaging`), matched by slug: *Run the dry run* says
+  what each row would make, change or leave and why a row is refused, and *Apply* (within a day, the same file) saves
+  each row through the panel's rules: a price beyond your discount limit waits for FINANCE, stock and the GST rate are
+  never imported. The export takes the list's filters and escapes cells that would start a formula; above your export
+  limit an approver passes it first. The admin's own product import is a superuser's now (its export stays, logged);
+  Categories → Export/Import in the admin: one row per category, a parent before its children (`parent` is its slug);
+  an import adds new categories and renames, it moves none. Every export is written to the admin log.
+- **Weight and size for the courier**: a book or a bundle of books needs its weight (grams, one copy as posted) and a
+  packaging kind (a flyer, the default) or its three dimensions; a box needs its dimensions. The panel's Products
+  with *Courier data missing* (`?incomplete=true`), and the home's card, list those still to weigh.
 
 ### Digital products (the revision course)
 
@@ -905,8 +936,10 @@ your limit FINANCE approves). Exchanges are not built: refund, and the customer 
 ### Stock, stock alerts and the low-stock email
 
 - Stock is taken when an online order is paid (cash on delivery: when it is placed) and given back when the order is
-  cancelled. A stock typed in Products is set as typed; saving a product page for any other reason keeps the copies
-  customers bought meanwhile. Books sold outside the site: lower the stock by hand (Products, or "Set stock").
+  cancelled. Books sold outside the site, or counted: the panel's Catalogue → the product → Stock → *Set the copies*,
+  with the reason (audited); it is refused when orders changed the count since the page was read (read it again). The
+  panel's Stock lists the copies, the fewest first, with what orders hold and what waits for payment. The admin's
+  "Set stock" is the fallback. A bundle's books are fixed once orders have taken its copies: make a new bundle.
 - A product out of stock shows "Email me when it is back" (signed-in accounts only; a visitor is asked to log in; the
   email goes to the account's address). Each address gets one email, within the hour after copies are back (the stock
   raised in Products, or a cancelled order's copies returned), and is then forgotten; alerts never sent are deleted

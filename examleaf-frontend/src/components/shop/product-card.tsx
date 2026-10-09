@@ -85,6 +85,18 @@ export function CardPrice({ price, mrp, className }: { price: string; mrp?: stri
   );
 }
 
+/** The prior price beside a reduced price (the E-Commerce Rules, from 1 January 2027): the lowest selling price of the
+ *  30 days before the reduction, as the API gives it (`prior_price`; null before the rule applies or when the price is
+ *  not reduced, and then nothing is shown). */
+export function PriorPrice({ price, className }: { price: string | null | undefined; className?: string }) {
+  if (!price) return null;
+  return (
+    <span className={cn("text-sm text-muted-foreground tabular-nums", className)}>
+      Lowest price in the 30 days before this reduction: {inrShort(price)}
+    </span>
+  );
+}
+
 export function ProductCard({ product, priority = false }: { product: Product; priority?: boolean }) {
   const best = product.kind === "bundle" && Number(product.mrp) > Number(product.price);
   return (

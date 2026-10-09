@@ -33,6 +33,14 @@ import { contentPermission, contentRoute, startContentImport, type Tools } from 
 import { grievanceFile, type Kit, startGrievanceExport, supportPermission, supportRoute } from "./support-handler";
 import { financePermission, financeRoute, startSettlementFetch } from "./finance";
 import { reportFile, reportsPermission, reportsRoute, type ReportsKit, startReportExport } from "./reports";
+import {
+  type CatalogueKit,
+  catalogueJob,
+  catalogueJobFile,
+  catalogueJobPermission,
+  cataloguePermission,
+  catalogueRoute,
+} from "./catalogue";
 
 type S = MockSchemas;
 
@@ -96,6 +104,7 @@ const FINANCE = [
   // Home and reports (roles.py FINANCE): the money cards, COD, the settlements, the sales lines; a report as a file
   ...["staff.view_insights", "shop.view_orderitem", "shop.view_payment", "shop.view_refund", "staff.view_cod"],
   ...["shop.view_settlement", "staff.export_report"],
+  ...["shop.view_coupon", "shop.view_offer", "staff.change_product_tax"], // the catalogue: the tax fields
 ];
 // the Orders module's roles (accounts/roles.py): SALES runs the orders, SALES_REP makes staff orders and quotes, PACKER
 // packs and receives returns
@@ -108,6 +117,13 @@ const SALES = [
   ...["staff.handle_return", "staff.receive_return", "staff.view_parcels"],
   ...["shop.view_payment", "shop.view_refund"], // Finance's payments, refunds and links (they make the links)
   ...["staff.view_insights", "shop.view_orderitem"], // the sales reports (roles.py SALES)
+  // the catalogue (roles.py SALES): products and their prices and stock, coupons, offers, rates, pictures, a
+  // school's single-use codes; the shelves read
+  ...["shop.add_product", "shop.change_product", "staff.change_price", "staff.set_stock", "shop.view_stockalert"],
+  ...["shop.view_coupon", "shop.add_coupon", "shop.change_coupon", "shop.view_couponcode", "shop.add_couponcode"],
+  ...["shop.view_offer", "shop.add_offer", "shop.change_offer", "shop.view_shippingrate", "shop.add_shippingrate"],
+  ...["shop.change_shippingrate", "shop.view_productimage", "shop.add_productimage", "shop.change_productimage"],
+  ...["shop.delete_productimage", "shop.view_category", "shop.view_collection", "shop.view_hsncode"],
 ];
 const SALES_REP = [
   ...PANEL,
@@ -148,6 +164,8 @@ const EVERYTHING = [
     ...["staff.export_grievances", "shop.change_order"],
     ...["shop.view_orderitem", "learn.view_progress", "staff.view_cod", "staff.export_report"], // Home and reports
     ...["shop.view_payment", "shop.view_refund", "shop.view_settlement"],
+    ...["shop.import_product", "shop.export_product", "shop.add_category", "shop.change_category"],
+    ...["shop.add_collection", "shop.change_collection", "shop.view_couponcode", "shop.add_couponcode"],
   ]),
 ].sort();
 const ROLE_PERMISSIONS: Record<string, string[]> = {
@@ -172,12 +190,24 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     ...CONTENT_PANEL,
     ...["content.add_legaldeposit", "learn.view_chapter", "shop.view_product"],
     ...["support.view_ticket", "support.note_ticket"], // the content errors' tickets (ROLE_SCOPES), noted on
+    // the catalogue (roles.py CONTENT_EDITOR): product pages and their pictures, the shelves and collections
+    ...["shop.add_product", "shop.change_product", "shop.view_productimage", "shop.add_productimage"],
+    ...["shop.change_productimage", "shop.delete_productimage", "shop.view_category", "shop.add_category"],
+    ...["shop.change_category", "shop.view_collection", "shop.add_collection", "shop.change_collection"],
+    "shop.view_hsncode",
   ],
   REVIEWER: [
     ...PANEL,
     ...CONTENT.filter((perm) => perm.includes(".view_")),
     ...CONTENT_PANEL,
     ...["staff.publish_paper", "staff.import_content"],
+  ],
+  // roles.py MARKETING: coupons and offers (FINANCE approves beyond the discount limit), a school's codes
+  MARKETING: [
+    ...PANEL,
+    ...["shop.view_coupon", "shop.add_coupon", "shop.change_coupon", "shop.view_offer", "shop.add_offer"],
+    ...["shop.change_offer", "shop.view_product", "staff.add_changerequest", "shop.view_couponcode"],
+    ...["shop.add_couponcode", "shop.view_category", "shop.view_collection"],
   ],
   AUDITOR: [
     ...EVERYTHING.filter((perm) => perm.split(".")[1].startsWith("view_")),
@@ -194,6 +224,7 @@ const LIMITS: Record<string, Record<string, number | null>> = {
   SALES: { refund_inr: 2000, offline_inr: 5000, discount_percent: 20, export_rows: 500, bulk_rows: 100 },
   SALES_REP: { refund_inr: 0, offline_inr: 0, discount_percent: 10, export_rows: 200, bulk_rows: 50 },
   PACKER: { refund_inr: 0, offline_inr: 0, discount_percent: 0, export_rows: 0, bulk_rows: 100 },
+  MARKETING: { refund_inr: 0, offline_inr: 0, discount_percent: 20, export_rows: 0, bulk_rows: 100 },
 };
 // staff/catalogue.py: the high and critical permissions, which need a recent authentication
 const RISKY = new Set([
@@ -205,6 +236,8 @@ const RISKY = new Set([
   ...["staff.manage_holds", "staff.manage_compliance"],
   ...["staff.record_offline_payment", "shop.export_order"],
   ...["staff.import_content", "staff.export_grievances", "staff.export_report"],
+  ...["staff.import_content", "staff.export_grievances"],
+  ...["shop.import_product", "shop.delete_productimage"], // the catalogue's high ones
 ]);
 // the online-paid orders a refund may name (shop.Order with a captured Razorpay payment), rupees paid
 const PAID_ORDERS: Record<string, { id: number; paid: number; shipped: boolean }> = {
@@ -480,8 +513,9 @@ function permissionFor(context: Context): string | null {
   const [area, a, b, c] = parts;
   const get = method === "GET";
   switch (area) {
+    case "catalogue": // the permissions' catalogue (any member of staff), or the Catalogue module's paths
+      return a ? cataloguePermission(method, parts, context.body, (perm) => context.permissions.includes(perm)) : null;
     case "session":
-    case "catalogue":
     case "policies":
       return null;
     case "inbox":
@@ -498,7 +532,7 @@ function permissionFor(context: Context): string | null {
       if (kind === "grievance_export") return "staff.export_grievances";
       if (kind === "settlement_fetch") return "staff.reconcile_settlements";
       if (kind === "report_export") return "staff.export_report";
-      return ordersJobPermission(kind) ?? "staff.add_job";
+      return ordersJobPermission(kind) ?? catalogueJobPermission(kind) ?? "staff.add_job";
     }
     case "home": // insights/staff_home.py and staff_api.py: any member of staff's Home; the insights' reader's reports
     case "reports":
@@ -623,7 +657,7 @@ async function route(context: Context): Promise<Response> {
     record(context, "policy.acknowledged", { details: { policy: body.policy, version: body.version } });
     return json(201, { policy: body.policy, version: body.version, acknowledged_at: now() });
   }
-  if (area === "catalogue" && method === "GET") return json(200, { permissions: [], roles: [] });
+  if (area === "catalogue" && !a && method === "GET") return json(200, { permissions: [], roles: [] });
 
   // Phase B: a passkey first (but for one's own sessions), then the role catalogue, access, offboarding, history, the
   // connections, the templates and the system's pages (management.ts)
@@ -928,6 +962,8 @@ async function route(context: Context): Promise<Response> {
     case "reports":
     case "insights":
       return reportsRoute(context, REPORTS_KIT);
+    case "catalogue":
+      return catalogueRoute(catalogueKit(context));
 
     case "jobs": {
       if (method === "POST" && !a) {
@@ -940,8 +976,9 @@ async function route(context: Context): Promise<Response> {
           const started = startContentImport(toolsOf(context));
           return started instanceof Response ? started : json(202, visibleJob(context, started));
         }
+        if (catalogueJobPermission(kind)) return catalogueJob(catalogueKit(context), kind, (body.params ?? {}) as Body);
         if (!ordersJobPermission(kind))
-          return invalid({ kind: ["The mock starts the orders' jobs and content imports only."] });
+          return invalid({ kind: ["The mock starts the orders', the catalogue's jobs and content imports only."] });
         return ordersJob(ordersKit(context), kind, (body.params ?? {}) as Body);
       }
       const mine = world.jobs.filter((job) => job.started_by === me || can("staff.view_system"));
@@ -1003,6 +1040,8 @@ async function route(context: Context): Promise<Response> {
         }
         if (job.kind === "grievance_export") return grievanceFile(context, job);
         if (job.kind === "report_export") return reportFile(context, REPORTS_KIT, job);
+        const catalogueFile = catalogueJobFile(job.kind, job.id, job._rows);
+        if (catalogueFile) return catalogueFile;
         const rows = world.audit
           .slice(0, job.total || 20)
           .map((row) => JSON.stringify(row))
@@ -2787,7 +2826,10 @@ function visibleJob(context: Context, job: MockJob): S["Job"] {
   void _ticks;
   void _rows;
   const exported =
-    ["audit_export", "orders_print", "orders_export", "grievance_export", "report_export"].includes(job.kind) ||
+    ["audit_export", "orders_print", "orders_export", "grievance_export", "report_export", "product_export"].includes(
+      job.kind,
+    ) ||
+    (job.kind === "coupon_codes" && !job.dry_run) ||
     (job.kind === "gstr1_export" && !job.dry_run);
   const file = job.state === "done" && exported && job.started_by === context.who.id;
   void _result;
@@ -2840,6 +2882,55 @@ function ordersKit(context: Context): OrdersKit {
     },
     paginate: (rows, size) => paginate(context, rows, size),
     startJob: (kind, params, rows) => visibleJob(context, startJob(context, kind, params, rows)),
+  };
+}
+
+/** What the catalogue area (catalogue.ts) is lent: the request, the person and the mock's ways of answering. */
+function catalogueKit(context: Context): CatalogueKit {
+  const kit = ordersKit(context);
+  return {
+    url: context.url,
+    method: context.method,
+    parts: context.parts,
+    body: context.body,
+    request: context.request,
+    world: context.world.catalogue,
+    me: context.who.id,
+    can: kit.can,
+    limit: kit.limit,
+    nextId: kit.nextId,
+    json,
+    notFound,
+    invalid,
+    record: kit.record,
+    waiting: (row) => {
+      waiting(context, row as Parameters<typeof waiting>[1]);
+      return context.world.changeRequests[0];
+    },
+    executed: kit.executed,
+    paginate: kit.paginate,
+    startJob: (kind, params, rows, options = {}) => {
+      const job = startJob(context, kind, params, rows);
+      job.dry_run = Boolean(options.dryRun);
+      if (options.result) job._result = options.result;
+      if (options.over) {
+        const { total, limit, what } = options.over;
+        waiting(context, {
+          action: "job.run",
+          label: "Run a large job",
+          ...target("staff.job", job.id, `Job #${job.id}`),
+          payload: { job: job.id, kind, total, params },
+          amount: null,
+          reason: `${total} ${what} (job #${job.id})`,
+          rule: `${total} rows are above the limit of ${limit}.`,
+          checker: "staff.approve_export",
+        });
+        job.state = "queued";
+        job.started_at = null;
+        job.change_request_id = context.world.changeRequests[0].id;
+      }
+      return visibleJob(context, job);
+    },
   };
 }
 
