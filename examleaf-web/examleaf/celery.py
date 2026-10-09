@@ -8,10 +8,38 @@ import functools
 import logging
 import os
 
-from celery import Celery
+import celery
+from celery import Celery, states
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "examleaf.settings")
-app = Celery("examleaf")
+
+
+class LostTooOften(Exception):
+    pass
+
+
+class Task(celery.Task):
+    """Every task's base (the app's, and IntegrationTask's). A task whose process died under it (killed for its memory,
+    a crash in a C library) goes back to the queue at once (CELERY_TASK_REJECT_ON_WORKER_LOST), so one that kills its
+    process every time would come back for ever. A run delivered again therefore writes its STARTED state with the
+    count of the runs before it that started and never ended (any end writes another state); after LOST_RUNS of them
+    it fails instead, acknowledged, with its reason in the results and Sentry. A first delivery reads and writes
+    nothing here."""
+
+    LOST_RUNS = 2  # with the first delivery's own, three processes lost: then it fails
+
+    def before_start(self, task_id, args, kwargs):
+        if not (self.request.delivery_info or {}).get("redelivered"):
+            return
+        meta = self.backend.get_task_meta(task_id, cache=False)  # (it keeps a SUCCESS it has read)
+        started = meta["status"] == states.STARTED  # the run before this one started and never ended
+        lost = (meta["result"] or {}).get("lost", 0) + 1 if started else 0
+        if lost >= self.LOST_RUNS:  # not WorkerLostError: that one would be put back in the queue again
+            raise LostTooOften(f"{self.name}: its process died under {lost + 1} runs in a row; not run again")
+        self.update_state(task_id, states.STARTED, {"lost": lost})
+
+
+app = Celery("examleaf", task_cls=Task)
 app.config_from_object("django.conf:settings", namespace="CELERY")
 app.autodiscover_tasks()
 logger = logging.getLogger(__name__)

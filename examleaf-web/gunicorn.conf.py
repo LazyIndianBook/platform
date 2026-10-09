@@ -28,6 +28,11 @@ keepalive = number("GUNICORN_KEEPALIVE", 5)  # seconds an idle connection from t
 # (the load test: the slowest 1% of requests took 6 s), while their memory stayed flat without any restart.
 max_requests = number("GUNICORN_MAX_REQUESTS", 5000)
 max_requests_jitter = number("GUNICORN_MAX_REQUESTS_JITTER", 2500)
+# Django is imported once, in the master, and each process forked from it: a replaced process serves again within
+# milliseconds instead of importing the site for seconds (14 to 20 under load, when the chart's pods recycled their
+# processes together and answered nothing meanwhile). The import opens no connection and starts no thread (a test
+# checks), so the processes share nothing but memory pages; a code change needs a restart (no reload on HUP).
+preload_app = True
 worker_tmp_dir = "/dev/shm" if os.path.isdir("/dev/shm") else None  # the heartbeat file in memory, not on a disk
 control_socket_disable = True  # gunicorn 25.1's gunicornc socket: unused, and $HOME is read-only in the chart
 # One JSON object per line, as Django's own logs (settings.LOGGING): gunicorn's start, stop and worker messages.

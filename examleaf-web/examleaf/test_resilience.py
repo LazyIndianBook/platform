@@ -4,8 +4,11 @@ database's limits by role, Celery's acknowledgements and limits; and the health 
 import importlib
 import json
 import logging
+import os
 import runpy
+import subprocess
 import sys
+import uuid
 from importlib.util import find_spec
 
 import pytest
@@ -23,9 +26,12 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from storages.backends.s3 import S3Storage
 
 from accounts.factories import UserFactory
-from examleaf.celery import TaskIds
+from erp.fake import FAKE
+from examleaf.celery import Task, TaskIds
 from examleaf.health import Migrations
 from examleaf.storage import PublicS3Storage
+from integrations import crypto
+from integrations.models import IntegrationAccount
 from shop.factories import ProductFactory, make_order
 
 postgres_only = pytest.mark.skipif(connection.vendor != "postgresql", reason="PostgreSQL's own limits")
@@ -92,6 +98,16 @@ def test_statements_have_a_time_limit_by_role(program, options, monkeypatch, rel
     assert "statement_timeout" not in reload_settings().DATABASES["default"]["OPTIONS"].get("options", "")
 
 
+def test_through_pgbouncer_in_transaction_mode_no_startup_options_are_sent(monkeypatch, reload_settings):
+    """The chart's pooler URL (templates/_helpers.tpl): PgBouncer would refuse the connection, or drop the options."""
+    url = "postgres://examleaf:secret@examleaf-db-pooler:5432/examleaf?disable_server_side_cursors=True"
+    monkeypatch.setenv("DATABASE_URL", url)
+    run_as(monkeypatch, "gunicorn")
+    database = reload_settings().DATABASES["default"]
+    assert database["DISABLE_SERVER_SIDE_CURSORS"] and "options" not in database["OPTIONS"]
+    assert database["OPTIONS"]["connect_timeout"] == 5  # libpq's own, never sent to the server
+
+
 @postgres_only
 @pytest.mark.django_db
 def test_postgresql_ends_a_statement_over_the_limit(monkeypatch, reload_settings):
@@ -146,13 +162,14 @@ def test_tasks_are_acknowledged_once_run_and_none_outlives_the_brokers_visibilit
         if find_spec(f"{config.name}.tasks"):
             importlib.import_module(f"{config.name}.tasks")
     conf = app.conf
-    assert conf.task_acks_late and not conf.task_reject_on_worker_lost and conf.worker_prefetch_multiplier == 1
+    assert conf.task_acks_late and conf.task_reject_on_worker_lost and conf.worker_prefetch_multiplier == 1
     assert conf.broker_connection_retry_on_startup and conf.result_expires
     assert conf.worker_max_tasks_per_child == 200 and conf.worker_max_memory_per_child == 300 * 1024
     visibility = conf.broker_transport_options["visibility_timeout"]
     ours = [task for name, task in app.tasks.items() if not name.startswith("celery.")]
     assert len(ours) > 30
     for task in ours:  # a task still running (or waiting for its retry) past it would be given to a second worker
+        assert isinstance(task, Task), task.name  # a task that kills its process each time ends (the next test)
         soft, hard = task.soft_time_limit or conf.task_soft_time_limit, task.time_limit or conf.task_time_limit
         assert soft < hard < visibility, task.name
         backoff = getattr(task, "retry_backoff", False)
@@ -160,6 +177,44 @@ def test_tasks_are_acknowledged_once_run_and_none_outlives_the_brokers_visibilit
         assert countdown < visibility, task.name
     assert COOL_OFF.total_seconds() + 60 < visibility  # IntegrationTask's wait while a circuit is open
     assert app.tasks["learn.tasks.send_reminders"].acks_late is False  # run twice, it would remind everybody twice
+
+
+RUNS = []
+
+
+class Died(BaseException):
+    """The process killed under its task: nothing after it in the run happens, no state is written."""
+
+
+@shared_task(bind=True)
+def kills_its_process(self, die=True):
+    RUNS.append(self.request.id)
+    if die:
+        raise Died
+    return "done"
+
+
+@pytest.mark.django_db
+def test_a_task_that_kills_its_process_every_time_fails_after_three_runs_instead_of_coming_back_for_ever(settings):
+    from celery.app.trace import build_tracer
+
+    settings.CELERY_TASK_ALWAYS_EAGER = False  # as in a worker, whose results are stored
+    trace = build_tracer(kills_its_process.name, kills_its_process, app=kills_its_process.app)  # as a worker runs it
+    again = {"delivery_info": {"redelivered": True}}  # put back by reject_on_worker_lost, or by Redis
+    poison, RUNS[:] = str(uuid.uuid4()), []
+    for request in ({}, again, again):  # its first delivery, then twice again: each time its process dies
+        with pytest.raises(Died):
+            trace(poison, [], {}, {**request, "id": poison})
+    trace(poison, [], {}, {**again, "id": poison})  # the fourth delivery: not run, failed (and so acknowledged)
+    result = kills_its_process.AsyncResult(poison)
+    assert RUNS == [poison] * 3 and result.state == "FAILURE" and "died under 3 runs" in str(result.result)
+    cured, RUNS[:] = str(uuid.uuid4()), []
+    for die in (True, False, True, True):  # a run that ends writes its own state: the count starts again after it
+        try:
+            trace(cured, [die], {}, {**again, "id": cured})
+        except Died:
+            pass
+    assert RUNS == [cured] * 4
 
 
 class Untouchable(BaseCache):
@@ -201,6 +256,7 @@ def test_gunicorn_runs_from_one_config_file_wherever_it_runs(settings, monkeypat
     assert (config.worker_class_str, config.threads, config.workers) == ("gthread", 8, 2)
     assert (config.timeout, config.graceful_timeout, config.keepalive) == (60, 30, 5)
     assert (config.max_requests, config.max_requests_jitter, config.control_socket_disable) == (5000, 2500, True)
+    assert config.preload_app  # the processes forked from a master that imported the site: a recycle costs no import
     assert config.logconfig_dict["formatters"]["json"]["()"] == "pythonjsonlogger.json.JsonFormatter"
     root = logging.getLogger()
     kept = root.handlers[:], root.level
@@ -267,3 +323,36 @@ def test_a_tasks_log_lines_name_the_task_and_its_id():
     assert name == "examleaf.test_resilience.task_ids_seen" and len(task_id) == 36
     outside = logging.LogRecord("examleaf.test", logging.INFO, __file__, 1, "outside", None, None)
     assert TaskIds().filter(outside) and not hasattr(outside, "task_id")
+
+
+def test_the_site_opens_no_connection_and_starts_no_thread_while_it_is_imported():
+    """gunicorn imports it once in its master (preload_app) and forks every process from that: a connection made at
+    import would be one socket shared by all of them, a thread would not exist in any of them."""
+    code = (
+        "import threading, examleaf.wsgi; from django.db import connections; "
+        "assert all(c.connection is None for c in connections.all()), 'a database connection'; "
+        "assert threading.active_count() == 1, [thread.name for thread in threading.enumerate()]"
+    )
+    env = {**os.environ, "DEBUG": "0", "SECRET_KEY": "s" * 50, "ALLOWED_HOSTS": "examleaf.in"}
+    run = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, text=True, timeout=60)
+    assert run.returncode == 0, run.stderr
+
+
+@pytest.mark.django_db
+def test_erpnext_webhooks_reach_django_over_plain_http_inside_the_cluster(client, settings):
+    """ERPNext calls web's Service directly (no ingress, no X-Forwarded-Proto): its hook is exempt from the https
+    redirect, its signature being its authentication. The other webhooks and pages are redirected as before."""
+    secret = "the-webhook-secret-of-this-test-0123456789"
+    settings.SECURE_SSL_REDIRECT, settings.ERP_ENABLED = True, True
+    account = IntegrationAccount.objects.create(provider="erpnext", mode="test", enabled=True, label="erp-sync@")
+    IntegrationAccount.objects.filter(pk=account.pk).update(webhook_token=crypto.encrypt(secret))
+    raw, signature = FAKE.webhook("Quotation", "SAL-QTN-00001", secret)
+    ring = {"content_type": "application/json", "HTTP_X_FRAPPE_WEBHOOK_SIGNATURE": signature}
+    assert client.post("/api/hooks/erp-events/", raw, **ring).json() == {"detail": "Received."}
+    unsigned = client.post("/api/hooks/erp-events/", raw, content_type="application/json")
+    assert unsigned.status_code == 403  # its own answer: the signature is what lets a call in
+    for path in ["/api/hooks/parcel-events/", "/shop/webhooks/razorpay/", "/api/v1/products/"]:
+        assert client.post(path, b"{}", content_type="application/json").status_code == 301, path
+    other, signature = FAKE.webhook("Quotation", "SAL-QTN-00002", secret)  # through the ingress: https
+    secure = {"content_type": "application/json", "HTTP_X_FRAPPE_WEBHOOK_SIGNATURE": signature, "secure": True}
+    assert client.post("/api/hooks/erp-events/", other, **secure).status_code == 200

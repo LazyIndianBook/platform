@@ -3,10 +3,12 @@
 import random
 from datetime import timedelta
 
-from celery import Task, shared_task
+from celery import shared_task
 from celery.exceptions import Ignore
 from django.conf import settings
 from django.utils import timezone
+
+from examleaf.celery import Task  # a task delivered again after its process died runs a bounded number of times
 
 from .client import CircuitOpen, IntegrationUnavailable
 from .models import COOL_OFF, InboundEvent, IntegrationCall, IntegrationFailure

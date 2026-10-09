@@ -823,8 +823,10 @@ ANYMAIL.setdefault("REQUESTS_TIMEOUT", (3, 10))  # anymail's HTTP backends (Brev
 # PostgreSQL: DB_CONNECT_TIMEOUT seconds to connect (libpq waits for the system's TCP timeout otherwise, minutes);
 # DB_STATEMENT_TIMEOUT seconds for any one statement and DB_IDLE_IN_TRANSACTION_TIMEOUT for a transaction left idle
 # (a thread stuck while holding row locks), by role: 15 and 60 in the web, 600 and 600 in Celery, none in manage.py
-# (migrations, imports and reports run as long as they need). Behind PgBouncer in transaction mode these startup
-# options are not passed on: RESILIENCE.md "The pooler and the connections" has the per-role ALTER ROLE instead.
+# (migrations, imports and reports run as long as they need). They travel as libpq's startup options, which PgBouncer
+# in transaction mode refuses or drops (and a SET would pass to its next client): through the chart's pooler (its
+# DATABASE_URL disables server-side cursors, as transaction pooling needs) none are sent, and the limits are the
+# pooler's and the roles' (RESILIENCE.md "The pooler and the connections").
 DB_CONNECT_TIMEOUT = env.int("DB_CONNECT_TIMEOUT", default=5)
 DB_STATEMENT_TIMEOUT = env.int("DB_STATEMENT_TIMEOUT", default={"gunicorn": 15, "celery": 600}.get(PROGRAM, 0))
 DB_IDLE_IN_TRANSACTION_TIMEOUT = env.int(
@@ -841,19 +843,20 @@ if DATABASES["default"]["ENGINE"] == "django.db.backends.postgresql":
         ]
         if seconds
     ]
-    if _limits:
+    if _limits and not DATABASES["default"].get("DISABLE_SERVER_SIDE_CURSORS"):
         _db_options["options"] = " ".join([_db_options.get("options", ""), *_limits]).strip()
 # Celery. A task is acknowledged once it has run, not when it starts (acks_late): a worker that dies with it (a pod
 # killed after its grace period, a lost node) leaves it to another, so every task must be safe to run twice
 # (RESILIENCE.md says why each one is). Redis gives an unacknowledged task to another worker after visibility_timeout:
-# two hours, longer than the longest task (a clip: an hour) and the longest retry countdown (an hour). A task whose
-# process dies under it (killed, out of memory) is not put back (reject_on_worker_lost off, Celery's default): it
-# would kill the next process too, and the next. Each process takes one task at a time (prefetch 1: a clip or an
+# two hours, longer than the longest task (a clip: an hour) and the longest retry countdown (an hour), so a task is
+# never given to a second worker while it still runs. A task whose process dies under it (killed for its memory, a
+# crash) goes back to the queue at once (reject_on_worker_lost); one that kills its process every time fails after
+# three such runs (examleaf.celery.Task), not for ever. Each process takes one task at a time (prefetch 1: a clip or an
 # invoice keeps no other task waiting behind it) and is replaced after CELERY_WORKER_MAX_TASKS_PER_CHILD tasks, or
 # once it holds CELERY_WORKER_MAX_MEMORY_PER_CHILD KiB (WeasyPrint grows by about 1 MB an invoice). A task has 270 s,
 # then 30 s more before its process is killed (CELERY_TASK_TIME_LIMIT); longer ones say so (RESILIENCE.md).
 CELERY_TASK_ACKS_LATE = True
-CELERY_TASK_REJECT_ON_WORKER_LOST = False
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_TASK_SOFT_TIME_LIMIT = 270
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
@@ -872,3 +875,9 @@ LOGGING["handlers"]["stdout"]["filters"].append("task")
 # The cache Redis silent: SoftRedisCache stops asking it for a few seconds after a failed call and logs that once,
 # instead of a line for every call (examleaf/cache.py).
 DJANGO_REDIS_LOG_IGNORED_EXCEPTIONS = False
+# ERPNext's webhooks come from inside the cluster, over plain http to web's Service (no proxy, no X-Forwarded-Proto):
+# the https redirect would answer them 301. Their authentication is the HMAC signature of each body (erp/inbound.py),
+# not TLS, so their path is exempt; through the ingress they arrive over https as before. Not exempt: Shiprocket's
+# (a static token in a header, which plain http would expose), anymail's (HTTP basic auth, the same) and Razorpay's
+# (signed, but sent from the internet over https, with a customer's details in its body).
+SECURE_REDIRECT_EXEMPT = [r"^api/hooks/erp-events/"]

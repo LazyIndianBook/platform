@@ -88,6 +88,16 @@ def test_an_sms_task_run_again_does_not_send_again(capsys):
     assert capsys.readouterr().out.count("SMS otp to") == 1
 
 
+def test_an_email_task_delivered_again_does_not_send_again():
+    message = {"subject": "Your code", "body": "ABCD-EFGH", "from_email": None, "to": ["a@example.com"]}
+    message |= {"headers": {}, "alternatives": []}
+    for _ in range(2):  # the same task (its id) again: put back after its worker died once it had sent
+        tasks.send_email.apply(args=[message], task_id="b6f7a2a4-6d0e-4a52-9c39-07f0e2a3f0aa")
+    tasks.send_email.apply(args=[message])  # another task with the same email: sent, it is another email
+    tasks.send_email.run(message)  # sent here, the queue down: no id, no mark
+    assert len(mail.outbox) == 3
+
+
 def test_the_provider_failing_too_does_not_fail_the_page(half_open_broker, monkeypatch, caplog):
     def provider_down(self, *args, **kwargs):
         raise ConnectionError("the email provider is down")
