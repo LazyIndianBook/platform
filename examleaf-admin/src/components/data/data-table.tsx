@@ -4,7 +4,8 @@
 // and owns the address: filters, the saved view and the cursor are search params, so a list can be bookmarked, sent
 // to a colleague and walked back. Around the table: the saved views, the filters, a column chooser (kept with the
 // view, or on this device for the plain list) and the list's own tools (an export where the API has one). Keyboard
-// (when single-key shortcuts are on): j and k move between rows, Enter opens one, / jumps to the search box. Dense
+// (when single-key shortcuts are on): j and k move between rows, Enter opens one, x chooses it for the bulk bar and
+// Space looks at it beside the list (where the list offers them), / jumps to the search box. Dense
 // rows, 44 px targets, the header sticks while the table scrolls in its own box (from 900 px). The staff API's lists
 // are newest first and take no sort: there is none to choose.
 import { cn } from "cn";
@@ -51,6 +52,18 @@ type DataTableProps<T> = {
   views?: SavedView[] | null;
   empty?: { title: string; text: string };
   toolbar?: React.ReactNode;
+  /** The list's fixed views (the API's own filter, as the orders' tabs): a row of links above the filters that set
+   *  this search param, kept with a saved view as a filter is. */
+  presets?: { name: string; label: string; all: string; options: { value: string; label: string }[] };
+  /** Rows to act on together: a checkbox on each row (its name from `label`) and one for the page; `bulk` draws the
+   *  bar for the chosen rows, sticking to the bottom of the window, and `clear` empties the choice. */
+  selection?: {
+    label: (row: T) => string;
+    page: string;
+    bulk: (rows: T[], clear: () => void) => React.ReactNode;
+  };
+  /** Space on the active row (single-key shortcuts on): a look at the row without leaving the list. */
+  onPeek?: (row: T) => void;
 };
 
 const STORE_PREFIX = "examleaf-admin:columns:";
@@ -95,6 +108,9 @@ export function DataTable<T>({
   views = null,
   empty,
   toolbar,
+  presets,
+  selection,
+  onPeek,
 }: DataTableProps<T>) {
   const router = useRouter();
   const pathname = usePathname();
@@ -102,8 +118,25 @@ export function DataTable<T>({
   const shortcuts = useShortcutsEnabled();
   const [pending, startTransition] = useTransition();
   const body = useRef<HTMLTableSectionElement>(null);
+  const [pickedIds, setPickedIds] = useState<ReadonlySet<string>>(() => new Set());
+  // the rows chosen on this page (a new page or a fresh render keeps only the rows still here)
+  const picked = selection ? rows.filter((row) => pickedIds.has(rowId(row))) : [];
+  const clearChoice = () => setPickedIds(new Set());
+  const choose = (ids: string[], on: boolean) =>
+    setPickedIds((current) => {
+      const next = new Set(current);
+      for (const id of ids) {
+        if (on) next.add(id);
+        else next.delete(id);
+      }
+      return next;
+    });
 
-  const values = Object.fromEntries(filters.map((filter) => [filter.name, params.get(filter.name) ?? ""]));
+  const presetValue = presets ? (params.get(presets.name) ?? "") : "";
+  const values = Object.fromEntries([
+    ...filters.map((filter) => [filter.name, params.get(filter.name) ?? ""]),
+    ...(presets ? [[presets.name, presetValue]] : []),
+  ]);
   const filtered = Object.values(values).some(Boolean);
   const viewId = params.get("view");
   const activeView = views?.find((view) => String(view.id) === viewId) ?? null;
@@ -189,13 +222,21 @@ export function DataTable<T>({
         link?.scrollIntoView({ block: "nearest" });
         return;
       }
-      if (
-        event.key === "Enter" &&
-        current >= 0 &&
-        !(event.target instanceof HTMLAnchorElement || event.target instanceof HTMLButtonElement)
-      ) {
+      const onRow = current >= 0 && !(event.target instanceof HTMLButtonElement);
+      if (event.key === "Enter" && onRow && !(event.target instanceof HTMLAnchorElement)) {
         event.preventDefault();
         openRow(current);
+        return;
+      }
+      if (event.key === " " && onRow && onPeek && list[current]) {
+        event.preventDefault();
+        onPeek(list[current]);
+        return;
+      }
+      if (event.key === "x" && current >= 0 && selection && list[current]) {
+        event.preventDefault();
+        const id = rowId(list[current]);
+        choose([id], !pickedIds.has(id));
       }
     };
     document.addEventListener("keydown", onKey);
@@ -204,10 +245,43 @@ export function DataTable<T>({
 
   const listState = { filters: values, columns: shown.map((column) => column.key) };
 
+  const presetHref = (value: string) => {
+    const search = new URLSearchParams(params.toString());
+    if (value) search.set(presets!.name, value);
+    else search.delete(presets!.name);
+    search.delete("cursor");
+    const query = search.toString();
+    return query ? `${pathname}?${query}` : pathname;
+  };
+  const presetTab = (selected: boolean) =>
+    cn(
+      "inline-flex min-h-11 items-center px-3.5 text-[15px] font-semibold whitespace-nowrap text-muted-foreground no-underline hover:text-foreground",
+      selected && "text-foreground shadow-[inset_0_-2px_0_var(--red-ink)]",
+    );
+  const pageIds = rows.map(rowId);
+  const allChosen = pageIds.length > 0 && picked.length === pageIds.length;
+
   return (
     <div className="flex flex-col gap-4">
       {views ? (
         <SavedViews listKey={listKey} pathname={pathname} views={views} active={activeView} current={listState} />
+      ) : null}
+      {presets ? (
+        <nav aria-label={presets.label} className="min-w-0 overflow-x-auto border-b border-border">
+          <ul className="m-0 flex list-none p-0">
+            {[{ value: "", label: presets.all }, ...presets.options].map((option) => (
+              <li key={option.value || "all"}>
+                <Link
+                  href={presetHref(option.value)}
+                  aria-current={presetValue === option.value ? "page" : undefined}
+                  className={presetTab(presetValue === option.value)}
+                >
+                  {option.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
       ) : null}
       <div className="flex flex-wrap items-end justify-between gap-3">
         {filters.length ? <FilterBar filters={filters} values={values} onApply={applyFilters} /> : <span />}
@@ -283,6 +357,22 @@ export function DataTable<T>({
             <caption className="sr-only">{caption}</caption>
             <thead>
               <tr>
+                {selection ? (
+                  <th scope="col" className="w-11">
+                    <label className="inline-flex size-11 cursor-pointer items-center justify-center">
+                      <input
+                        type="checkbox"
+                        data-slot="checkbox"
+                        aria-label={selection.page}
+                        checked={allChosen}
+                        ref={(box) => {
+                          if (box) box.indeterminate = picked.length > 0 && !allChosen;
+                        }}
+                        onChange={(event) => choose(pageIds, event.target.checked)}
+                      />
+                    </label>
+                  </th>
+                ) : null}
                 {shown.map((column) => (
                   <th key={column.key} scope="col" className={cn(column.numeric && "num", column.className)}>
                     {column.label}
@@ -298,6 +388,7 @@ export function DataTable<T>({
                   <tr
                     key={id}
                     data-active={index === activeRow || undefined}
+                    data-selected={(selection && pickedIds.has(id)) || undefined}
                     onFocus={() => setActiveRow(index)}
                     onClick={(event) => {
                       // the whole row opens it; its own controls keep their own click
@@ -306,6 +397,19 @@ export function DataTable<T>({
                       openRow(index);
                     }}
                   >
+                    {selection ? (
+                      <td className="w-11">
+                        <label className="inline-flex size-11 cursor-pointer items-center justify-center">
+                          <input
+                            type="checkbox"
+                            data-slot="checkbox"
+                            aria-label={selection.label(row)}
+                            checked={pickedIds.has(id)}
+                            onChange={(event) => choose([id], event.target.checked)}
+                          />
+                        </label>
+                      </td>
+                    ) : null}
                     {shown.map((column, columnIndex) => (
                       <td
                         key={column.key}
@@ -344,6 +448,15 @@ export function DataTable<T>({
           </table>
         </div>
       )}
+
+      {selection && picked.length ? (
+        <div
+          data-bulk-bar=""
+          className="sticky bottom-0 z-10 flex flex-wrap items-center gap-3 border-t-[1.5px] border-foreground bg-background py-3"
+        >
+          {selection.bulk(picked, clearChoice)}
+        </div>
+      ) : null}
 
       {previous || next ? (
         <nav aria-label={copy.table.pages} className="flex flex-wrap gap-2">
