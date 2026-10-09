@@ -144,6 +144,13 @@ config:
   STAFF_IDLE_TIMEOUT: null  # default 1800 seconds (OWNER, ADMIN, FINANCE and PACKER: 15 minutes)
   STAFF_DORMANT_DAYS: null  # default 45
   STAFF_CHANGE_REQUEST_HOURS: null  # default 24
+  STAFF_BREAK_GLASS_HOURS: null  # default 2: a superuser (break-glass) session ends this long after sign-in, however active
+  STAFF_POLICIES: null  # policy versions staff must acknowledge, e.g. {"acceptable-use": "2026-10"}; default none
+  STAFF_GOOGLE_DOMAIN: null  # the Workspace domain staff sign in with (the hd claim is checked server-side); default off
+  STAFF_GOOGLE_AUTO_STAFF: null  # default 0: a Google sign-in never creates a staff account; "1" creates one on the domain
+  STAFF_GOOGLE_CLIENT_ID: null  # the Workspace's own OAuth client (Internal consent screen) for the admin host; its
+  # secret is STAFF_GOOGLE_CLIENT_SECRET in the secrets Secret below
+  API_THROTTLE_IMPERSONATE: null  # default 10/hour per address: the website's acceptance of impersonation tokens
   STAFF_AUDIT_RETENTION_DAYS: null  # default 730, never under 365
   STAFF_AUDIT_MONEY_RETENTION_FY: null  # default 8, never under 8
   STAFF_DATA_REQUEST_ACK_HOURS: null  # default 48
@@ -177,7 +184,7 @@ secrets:
   # first integration account (Shiprocket): once one exists, migrate stops without it (integrations.E001), so web never
   # starts. As the features need them (DEPLOYMENT.md section 13): INSIGHTS_HASH_SALT (recommended),
   # SECRET_KEY_FALLBACKS, JWT_SIGNING_KEY, SES_ACCESS_KEY_ID, SES_SECRET_ACCESS_KEY, ANYMAIL_WEBHOOK_SECRET, the
-  # provider's ANYMAIL_… API key, MSG91_AUTHKEY, GOOGLE_CLIENT_SECRET, TURNSTILE_SECRET_KEY, RAZORPAY_KEY_SECRET,
+  # provider's ANYMAIL_… API key, MSG91_AUTHKEY, GOOGLE_CLIENT_SECRET, STAFF_GOOGLE_CLIENT_SECRET, TURNSTILE_SECRET_KEY, RAZORPAY_KEY_SECRET,
   # RAZORPAY_WEBHOOK_SECRET, RAZORPAY_WEBHOOK_SECRET_TEST, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY,
   # PUBLIC_S3_ACCESS_KEY_ID, PUBLIC_S3_SECRET_ACCESS_KEY, FCM_SERVICE_ACCOUNT_JSON, SENTRY_DSN.
   # The frontend and the admin read INTERNAL_API_TOKEN from it, the media worker SECRET_KEY and the four S3 keys.
@@ -414,6 +421,10 @@ postgres:
       # take every pod out of the rotation (TESTING.md section 7)
       query_wait_timeout: "10"
       server_login_retry: "1"  # seconds before trying the new primary again (15 by default)
+      # Statement limits cannot travel as connection options through PgBouncer (RESILIENCE.md), so they live here: no
+      # statement runs longer than the workers' limit, and a transaction left idle is cut after a minute
+      query_timeout: "600"
+      idle_transaction_timeout: "60"
     resources:
       requests: {cpu: 50m, memory: 32Mi}
       limits: {cpu: 500m, memory: 128Mi}

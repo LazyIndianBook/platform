@@ -116,12 +116,10 @@ returned COD parcels) and the lawyer's (the legal form under E-Commerce Rule 4(1
 
 ## 7. Known gaps and follow-ups (small, deliberate)
 
-- The chart should switch web's liveness to `httpGet /health/live/`, readiness back to `/health/web/`, set the pooler's
-  `query_timeout` and `idle_transaction_timeout`, add the new environment variables (`examleaf-web/RESILIENCE.md` lists them).
+- The chart's web readiness stays a static file on purpose (a shared dependency's hiccup must not empty the rotation);
+  liveness is `/health/live/`; the pooler carries the statement limits (`query_timeout`, `idle_transaction_timeout`).
 - An abandoned break-glass session sends no end alert; the Django admin does not ask the break-glass reason (the panel
   does).
-- The chart's values do not yet carry `STAFF_GOOGLE_*`, `STAFF_BREAK_GLASS_HOURS`, `STAFF_POLICIES`,
-  `API_THROTTLE_IMPERSONATE`; add them to `deploy/kubernetes/examleaf-platform/values.yaml` and the README.
 - Shiprocket response shapes marked `_inferred` in `shipping/carriers/fake.py` need checking against a live account.
 - `insights` thresholds and weights are starting values; review monthly in season (`insights/README.md`).
 - The three-node HA run, autoscaler scaling, synchronous replication and ERPNext on Kubernetes are untested.

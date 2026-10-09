@@ -67,7 +67,7 @@ spec:
         - name: web
           image: {{ include "examleaf.webImage" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          # the image's command: gunicorn examleaf.wsgi --bind 0.0.0.0:8000 --max-requests 1000 …
+          # the image's command: gunicorn --config gunicorn.conf.py examleaf.wsgi (preload, workers, timeouts; RESILIENCE.md)
           {{- include "examleaf.djangoEnv" . | nindent 10 }}
             - name: WEB_CONCURRENCY
               value: {{ .Values.web.concurrency | quote }}
@@ -102,11 +102,19 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 3
-          # gunicorn answers at all: a database outage makes the pod unready, it never restarts it
+          # gunicorn and Django answer at all (/health/live/: no database, no Redis, examleaf.views.live): a database
+          # outage makes the pod unready, it never restarts it
           livenessProbe:
-            tcpSocket:
+            httpGet:
+              path: /health/live/
               port: http
+              httpHeaders:
+                - name: Host
+                  value: {{ .Values.domain | quote }}
+                - name: X-Forwarded-Proto
+                  value: https
             periodSeconds: 20
+            timeoutSeconds: 5
             failureThreshold: 3
           lifecycle:
             # A deleted pod leaves the Service's endpoints at once; the pause lets Traefik see that and stop sending
