@@ -391,7 +391,8 @@ for (const width of [1280, 390]) {
         await page.getByLabel("Add a note").fill("Promised a call back with the courier's number.");
         await page.getByRole("button", { name: "Save the note" }).click();
         await expect(toast(page, "Note saved")).toBeVisible();
-        await expect(page.getByText("Promised a call back with the courier's number.")).toBeVisible();
+        // exact: a colleague's note on the same customer says it too
+        await expect(page.getByText("Promised a call back with the courier's number.", { exact: true })).toBeVisible();
       });
 
       await test.step("sign in to the website as a customer, then end it", async () => {

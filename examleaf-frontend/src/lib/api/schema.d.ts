@@ -9047,6 +9047,7 @@ export interface components {
             requests: number;
             /** Format: date-time */
             last_asked: string;
+            /** @description copies to sell now (a bundle: its books') */
             available: number;
         };
         CatalogueAttribute: {

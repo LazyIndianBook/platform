@@ -27255,7 +27255,8 @@
                         "format": "date-time"
                     },
                     "available": {
-                        "type": "integer"
+                        "type": "integer",
+                        "description": "copies to sell now (a bundle: its books')"
                     }
                 },
                 "required": [
