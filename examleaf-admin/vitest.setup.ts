@@ -5,27 +5,28 @@ import { afterEach, vi } from "vitest";
 
 afterEach(cleanup);
 
-// The App Router's hooks outside a Next app: a fixed page and its search params (a test may set them), a router that
-// records what it was asked to do.
-export const navigation = vi.hoisted(() => ({
-  pathname: "/inbox/",
-  search: new URLSearchParams(),
-  router: {
-    push: (() => undefined) as (href: string) => void,
-    replace: (() => undefined) as (href: string) => void,
-    refresh: () => undefined,
-    prefetch: () => undefined,
-    back: () => undefined,
-  },
-}));
+// The App Router's hooks outside a Next app: src/test/navigation.ts holds the page, its search params and the router,
+// which a test may set or watch.
+vi.mock("next/navigation", async () => {
+  const { navigation } = await import("./src/test/navigation");
+  return {
+    usePathname: () => navigation.pathname,
+    useRouter: () => navigation.router,
+    useSearchParams: () => navigation.search,
+    redirect: vi.fn(),
+    notFound: vi.fn(),
+  };
+});
 
-vi.mock("next/navigation", () => ({
-  usePathname: () => navigation.pathname,
-  useRouter: () => navigation.router,
-  useSearchParams: () => navigation.search,
-  redirect: vi.fn(),
-  notFound: vi.fn(),
-}));
+// jsdom lays nothing out, so it has no scrollIntoView (the lists' j and k call it) and no ResizeObserver (the banners')
+if (typeof Element !== "undefined" && !Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = function scrollIntoView() {};
+}
+globalThis.ResizeObserver ??= class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
 
 // jsdom's <dialog> has no showModal() or close(): enough of both for the dialogs' tests
 if (typeof HTMLDialogElement !== "undefined" && !HTMLDialogElement.prototype.showModal) {
