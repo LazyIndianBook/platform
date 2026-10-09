@@ -1,0 +1,93 @@
+# The laptop profile (../kind-config.yaml, ../TESTING.md): https://examleaf.localhost with a certificate from
+# ../kind-extras.yaml's self-signed issuer, the images that `make kind-load` put into the node, every pod small enough
+# for a Docker VM of 4 CPUs and 6 GB, and backups to the RustFS store standing in for Cloudflare R2. Django runs as on a
+# server (DEBUG=0); `make kind-install` adds the image tags.
+domain: examleaf.localhost
+
+image:
+  pullPolicy: Never  # only what kind load put into the node: no registry has these names
+
+ingress:
+  clusterIssuer: kind-selfsigned
+
+media:
+  accessMode: ReadWriteOnce  # kind's local-path provisioner has no ReadWriteMany (and there is one node)
+  size: 1Gi
+
+initResources:
+  requests: {cpu: 10m, memory: 128Mi}
+  limits: {cpu: "1", memory: 512Mi}
+
+web:
+  concurrency: 1
+  resources:
+    requests: {cpu: 50m, memory: 256Mi}
+    limits: {cpu: "1", memory: 768Mi}
+
+worker:
+  concurrency: 1
+  terminationGracePeriodSeconds: 30
+  resources:
+    requests: {cpu: 20m, memory: 192Mi}
+    limits: {cpu: "1", memory: 512Mi}
+
+beat:
+  resources:
+    requests: {cpu: 10m, memory: 128Mi}
+    limits: {cpu: 500m, memory: 384Mi}
+
+mediaWorker:
+  tmpSize: 1Gi
+  terminationGracePeriodSeconds: 30
+  resources:
+    requests: {cpu: 20m, memory: 160Mi}
+    limits: {cpu: "1", memory: 768Mi}
+
+frontend:
+  image:
+    pullPolicy: Never
+  resources:
+    requests: {cpu: 20m, memory: 128Mi}
+    limits: {cpu: "1", memory: 512Mi}
+
+# No admin image exists yet: the website's image stands in, to try the host, its certificate and the allowlist.
+admin:
+  enabled: true
+  image:
+    repository: examleaf-frontend
+    pullPolicy: Never
+  resources:
+    requests: {cpu: 20m, memory: 128Mi}
+    limits: {cpu: "1", memory: 512Mi}
+
+postgres:
+  storage:
+    size: 1Gi
+  resources:
+    requests: {cpu: 50m, memory: 256Mi}
+    limits: {cpu: "1", memory: 768Mi}
+  backup:
+    enabled: true
+    bucket: examleaf-backups
+    endpointURL: http://rustfs.s3.svc.cluster.local:9000
+    sidecarResources:
+      requests: {cpu: 10m, memory: 64Mi}
+      limits: {cpu: 500m, memory: 384Mi}
+
+redis:
+  queue:
+    storage:
+      size: 256Mi
+    resources:
+      requests: {cpu: 10m, memory: 32Mi}
+      limits: {cpu: 250m, memory: 128Mi}
+  cache:
+    maxmemory: 64mb
+    resources:
+      requests: {cpu: 10m, memory: 32Mi}
+      limits: {cpu: 250m, memory: 128Mi}
+
+cronJobs:
+  healthCheck:
+    enabled: true
+    schedule: "*/5 * * * *"
