@@ -1,5 +1,7 @@
+// @vitest-environment node
 // The server-side API client speaks for the visitor (security review S4): every call carries their address, their
-// browser and the shared secret, and a public answer is kept by URL alone, so visitors share it.
+// browser and the shared secret, and a public answer is kept by URL alone, so visitors share it. A Django that does not
+// answer costs a call the request's deadline, never a hang.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const incoming = new Headers();
@@ -31,6 +33,15 @@ async function load() {
   vi.resetModules();
   return import("./server");
 }
+
+/** A Django that takes the call and never answers: only the call's signal ends it. */
+const hung = vi.fn(
+  (input: Request | string, init?: RequestInit) =>
+    new Promise<Response>((_, reject) => {
+      const signal = init?.signal ?? (input as Request).signal;
+      signal?.addEventListener("abort", () => reject(signal.reason));
+    }),
+);
 
 function visit(address: string, browser: string) {
   incoming.set("X-Forwarded-For", address);
@@ -78,5 +89,35 @@ describe("the server's API calls", () => {
       Cookie: "sessionid=s1; csrftoken=c1",
     });
     expect((await anonymousFetch()).headers).not.toHaveProperty("Cookie");
+  });
+
+  it("give up at the request's deadline when Django takes the call and never answers: status 0, never a hang", async () => {
+    vi.stubEnv("API_INTERNAL_TIMEOUT_MS", "40");
+    vi.stubGlobal("fetch", hung);
+    const { serverApi, publicFetch, personalFetch, anonymousFetch } = await load();
+    const { unwrap } = await import("./errors");
+    const { allauthGet } = await import("./account");
+    const { getSessionUser, requireUser } = await import("@/lib/auth/session");
+    const started = Date.now();
+    const unavailable = { status: 0, code: "unavailable" };
+    await expect(unwrap(serverApi.GET("/api/v1/books/", publicFetch("books")))).rejects.toMatchObject(unavailable);
+    await expect(unwrap(serverApi.GET("/api/v1/cart/", await personalFetch()))).rejects.toMatchObject(unavailable);
+    await expect(unwrap(serverApi.GET("/api/v1/me/", await anonymousFetch()))).rejects.toMatchObject(unavailable);
+    await expect(allauthGet("/account/email")).rejects.toMatchObject(unavailable);
+    expect(await getSessionUser()).toBeNull(); // the header renders as for a visitor
+    await expect(requireUser("/account/")).rejects.toMatchObject({ digest: "examleaf-unavailable" }); // not a log-out
+    expect(hung).toHaveBeenCalledTimes(6);
+    expect(Date.now() - started).toBeLessThan(2000);
+    expect(kept.size).toBe(0); // nothing kept from a call that failed
+  });
+
+  it("keep the caller's own signal beside the deadline: a cancelled call is still an AbortError", async () => {
+    vi.stubGlobal("fetch", hung);
+    const { serverApi, personalFetch } = await load();
+    const { unwrap } = await import("./errors");
+    const controller = new AbortController();
+    const call = unwrap(serverApi.GET("/api/v1/cart/", { ...(await personalFetch()), signal: controller.signal }));
+    controller.abort();
+    await expect(call).rejects.toMatchObject({ name: "AbortError" });
   });
 });

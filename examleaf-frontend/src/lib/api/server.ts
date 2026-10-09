@@ -3,6 +3,7 @@
 //   public catalogue and content: publicFetch("books")    -> kept 60 s by URL, tagged, no cookies (one answer for all)
 //   anything personal:            await personalFetch()   -> the visitor's cookies forwarded, never cached
 //   by an emailed link's secret:  await anonymousFetch()  -> no cookies, never cached
+// Every call gives up at the request's deadline (apiSignal): a hung Django costs a page 10 s at most, never more.
 // Every call speaks for the visitor: their address (X-Forwarded-For, as Caddy gave it) and browser go with it, and
 // INTERNAL_API_TOKEN (X-Internal-Token) makes Django believe the address, so its limits count each visitor and never
 // this server as one anonymous client (security review S4; examleaf-web's FrontendClientMiddleware).
@@ -29,6 +30,15 @@ export const REVALIDATE_SECONDS = 60;
 
 const INTERNAL_API_TOKEN = process.env.INTERNAL_API_TOKEN ?? "";
 
+/** One deadline per request (React's cache is per request): every call to Django in a render shares it, so a hung
+ *  Django costs a page this long at most however many calls it makes (10 s, or API_INTERNAL_TIMEOUT_MS), never Node's
+ *  default (5 minutes for the headers alone). Outside a render (a route handler) each call has its own. */
+const deadline = cache(() => AbortSignal.timeout(Number(process.env.API_INTERNAL_TIMEOUT_MS) || 10_000));
+
+/** The signal of a call to Django: the request's deadline, with the caller's own signal when it brings one. A deadline
+ *  that passes rejects the call with a TimeoutError, which unwrap() reports as status 0 ("cannot be reached"). */
+export const apiSignal = (signal?: AbortSignal) => (signal ? AbortSignal.any([signal, deadline()]) : deadline());
+
 /** The visitor's address and browser, and the secret that makes Django believe them. */
 async function visitorHeaders(): Promise<Record<string, string>> {
   const incoming = await headers();
@@ -40,7 +50,7 @@ async function visitorHeaders(): Promise<Record<string, string>> {
   return visitor;
 }
 
-const noStore = (request: Request) => fetch(request, { cache: "no-store" });
+const noStore = (request: Request) => fetch(request, { cache: "no-store", signal: apiSignal(request.signal) });
 
 type Answer = { status: number; type: string | null; body: string };
 class NotKept {
@@ -52,11 +62,13 @@ class NotKept {
  *  shares one call between the layout and the page of a request. */
 const keptAnswer = cache(async (url: string, redirect: RequestRedirect, tags: string): Promise<Answer> => {
   const visitor = await visitorHeaders();
+  const signal = apiSignal(); // a refresh of a stale answer in the background keeps this request's deadline too
   const ask = async (): Promise<Answer> => {
     const response = await fetch(url, {
       redirect,
       headers: { ...FORWARDED_HEADERS, ...visitor, Accept: "application/json" },
       cache: "no-store",
+      signal,
     });
     const answer = { status: response.status, type: response.headers.get("Content-Type"), body: await response.text() };
     if (response.status !== 200) throw new NotKept(answer);
