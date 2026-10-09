@@ -1,7 +1,8 @@
 # ExamLeaf ERP for development: ERPNext v16.50.0 with India Compliance v16.10.0 (dev.Containerfile) and this
-# repository's examleaf_erp, mounted so edits are live. The layout is frappe_docker v4.0.0's compose.yaml with its
-# MariaDB and Redis overrides, pinned, on Valkey, sized for a laptop. Not for production: the Helm chart runs the image
-# that ../image/build.sh builds. Use ./dev.sh (up, new-site, test, shell, down, destroy).
+# repository's examleaf_erp, mounted (bench commands and tests see an edit at once, gunicorn and the workers after
+# ./dev.sh restart). The layout is frappe_docker v4.0.0's compose.yaml with its MariaDB and Redis overrides, pinned, on
+# Valkey, sized for a laptop. Not for production: the Helm chart runs the image that ../image/build.sh builds. Use
+# ./dev.sh (up, new-site, test, restart, login, shell, down, destroy).
 name: examleaf-erp
 
 x-bench: &bench

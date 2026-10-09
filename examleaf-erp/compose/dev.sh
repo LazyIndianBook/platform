@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# The ERPNext development stack (compose.yaml): ./dev.sh up | new-site | test [run-tests args] | login | keys | shell |
-# bench <args> | down | destroy. The site is erp.localhost, served on http://127.0.0.1:8300 (README "Local setup").
+# The ERPNext development stack (compose.yaml): ./dev.sh up | new-site | test [run-tests args] | restart | login | keys |
+# shell | bench <args> | down | destroy. The site is erp.localhost, served on http://127.0.0.1:8300 (README "Local setup").
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -96,12 +96,13 @@ json.dump(config, open(path, "w"), indent=1)
     compose run --rm --no-deps -T backend bench --site "$SITE" browse --user Administrator 2>/dev/null |
       sed -n 's|^Login URL: .*\(/app?sid=.*\)$|http://127.0.0.1:8300\1|p'
     ;;
+  restart) compose restart backend scheduler queue-short queue-default queue-long ;;  # they load Python code once
   shell) compose exec backend bash ;;
   bench) shift; bench "$@" ;;
   down) compose down ;;
   destroy) compose down -v ;;
   *)
-    echo "usage: ./dev.sh up [--minimal] | new-site | test [args] | login | keys | shell | bench <args> | down | destroy" >&2
+    echo "usage: ./dev.sh up [--minimal] | new-site | test [args] | restart | login | keys | shell | bench <args> | down | destroy" >&2
     exit 2
     ;;
 esac

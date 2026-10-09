@@ -2,8 +2,8 @@
 # The development image: frappe/erpnext:v16.50.0 (frappe_docker's production image; never `latest`, which is develop)
 # plus India Compliance v16.10.0, fetched and built the way bench installs any app. examleaf_erp is not copied in:
 # compose.yaml mounts this repository's copy at apps/examleaf_erp in every container, and the .pth below puts it on
-# their Python path, so an edit in the repository is live (bench migrate for schema changes). Production builds a
-# sealed image instead: ../image/build.sh.
+# their Python path, so an edit in the repository is used without a build (./dev.sh restart for the web and worker
+# processes, bench migrate for schema changes). Production builds a sealed image instead: ../image/build.sh.
 FROM frappe/erpnext:v16.50.0
 
 ARG INDIA_COMPLIANCE_REF=v16.10.0
