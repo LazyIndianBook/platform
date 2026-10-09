@@ -3,3 +3,4 @@
 *
 !apps/examleaf_erp/
 apps/examleaf_erp/**/__pycache__
+apps/examleaf_erp/.ruff_cache

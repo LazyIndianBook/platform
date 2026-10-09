@@ -1,0 +1,117 @@
+# ExamLeaf ERP: lint and test examleaf_erp on MariaDB 11.8 in the pinned ERPNext image, then build the production image
+# (examleaf-erp/image/build.sh), scan it with Trivy, and push it to GHCR on an erp-v* tag. examleaf-erp/UPGRADE.md says
+# when a new tag is made.
+name: examleaf-erp
+
+on:
+  push:
+    branches: [main]
+    tags: ["erp-v*"]
+    paths: ["examleaf-erp/**", ".github/workflows/erp-image.yml"]
+  pull_request:
+    paths: ["examleaf-erp/**", ".github/workflows/erp-image.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.14"
+      - run: pip install ruff==0.16.10
+      - name: Lint
+        working-directory: examleaf-erp/apps/examleaf_erp
+        run: ruff check . && ruff format --check .
+      - name: Fixtures and doctypes are valid JSON
+        run: for f in $(find examleaf-erp/apps -name '*.json'); do python -m json.tool "$f" >/dev/null || exit 1; done
+
+  test:
+    needs: lint
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:11.8.9
+        env:
+          MARIADB_ROOT_PASSWORD: ci-root-only-for-this-job
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized" --health-interval=5s --health-timeout=5s
+          --health-retries=20
+      cache:
+        image: valkey/valkey:8.1.10-alpine
+        ports: ["6379:6379"]
+      queue:
+        image: valkey/valkey:8.1.10-alpine
+        ports: ["6380:6379"]
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: The character set Frappe needs (a service cannot take server options)
+        run: |
+          docker exec ${{ job.services.mariadb.id }} mariadb -uroot -pci-root-only-for-this-job -e \
+            "SET GLOBAL character_set_server = 'utf8mb4'; SET GLOBAL collation_server = 'utf8mb4_unicode_ci';"
+      - name: The development image (ERPNext v16.50.0 + India Compliance v16.10.0)
+        run: docker build -f examleaf-erp/compose/dev.Containerfile -t erp-ci examleaf-erp/compose
+      - name: Site, apps, bootstrap and the tests
+        # the image's entrypoint links its built assets into sites/ first, as in compose
+        run: |
+          docker run --rm --network host \
+            -v "$PWD/examleaf-erp/apps/examleaf_erp:/home/frappe/frappe-bench/apps/examleaf_erp" \
+            -v "$PWD/examleaf-erp/compose/site_config.example.json:/tmp/site_config.example.json:ro" \
+            erp-ci bash -euo pipefail -c '
+              ls -1 apps > sites/apps.txt
+              bench set-config -g db_host 127.0.0.1
+              bench set-config -gp db_port 3306
+              bench set-config -g redis_cache redis://127.0.0.1:6379
+              bench set-config -g redis_queue redis://127.0.0.1:6380
+              bench set-config -g redis_socketio redis://127.0.0.1:6380
+              bench set-config -g chromium_path /usr/bin/chromium-headless-shell
+              bench new-site ci.localhost --db-type mariadb --mariadb-user-host-login-scope=% \
+                --db-root-username root --db-root-password ci-root-only-for-this-job --admin-password admin \
+                --install-app erpnext --install-app india_compliance
+              env/bin/python -c "
+          import json
+          path = \"sites/ci.localhost/site_config.json\"
+          config = json.load(open(path))
+          config.update({k: v for k, v in json.load(open(\"/tmp/site_config.example.json\")).items() if v not in (\"\", None, 0)})
+          config.update({\"examleaf_allow_test_series\": 1, \"allow_tests\": True})
+          json.dump(config, open(path, \"w\"), indent=1)"
+              bench --site ci.localhost install-app examleaf_erp
+              bench --site ci.localhost execute examleaf_erp.setup.bootstrap
+              bench --site ci.localhost migrate
+              bench --site ci.localhost run-tests --app examleaf_erp
+            '
+
+  image:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      # the engine's own builder (BuildKit, docker driver), not setup-buildx's docker-container one: stage 2 builds FROM
+      # the stage 1 image and the smoke test runs it, so both must land in the local image store
+      - uses: actions/checkout@v7.0.1
+      - uses: docker/login-action@v4.6.0
+        if: startsWith(github.ref, 'refs/tags/erp-v')
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build (push on an erp-v* tag)
+        id: build
+        run: |
+          tag=$(PUSH=0 examleaf-erp/image/build.sh | tail -1)
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+      - name: Trivy (high and critical, fixed upstream, fail the job)
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.75.0 image \
+            --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --scanners vuln "${{ steps.build.outputs.tag }}"
+      - name: Push
+        if: startsWith(github.ref, 'refs/tags/erp-v')
+        run: |
+          docker push "${{ steps.build.outputs.tag }}"
+          docker images --format '{{.Repository}}:{{.Tag}}' | grep '/erp-base:' | xargs -r -n1 docker push
