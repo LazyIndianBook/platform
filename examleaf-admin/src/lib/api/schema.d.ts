@@ -3752,6 +3752,263 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/staff/tax/calendar/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description What is due in a month (?month=YYYY-MM, this one by default): the returns, payments and cut-offs computed from
+         *     the law's dates and the QRMP switch, and the threshold lines crossed this year.
+         */
+        get: operations["staff_tax_calendar_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/tax/documents/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The storefront's tax documents, newest first: invoices (by default) or credit notes (?kind=credit_note), by
+         *     series, type, month, year, cancelled or not; the test series only with ?test=true. One by its number (dashes for
+         *     its slashes: EL-2026-27-00001) with its lines, charges and Rule 46 checks; its PDF (a look at the buyer's name and
+         *     address: audited); cancel one with a reason (staff.cancel_document, high: re-authenticated). A cancelled document
+         *     keeps its number; the order and its refunds are left as they are.
+         */
+        get: operations["staff_tax_documents_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/tax/documents/{number}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The storefront's tax documents, newest first: invoices (by default) or credit notes (?kind=credit_note), by
+         *     series, type, month, year, cancelled or not; the test series only with ?test=true. One by its number (dashes for
+         *     its slashes: EL-2026-27-00001) with its lines, charges and Rule 46 checks; its PDF (a look at the buyer's name and
+         *     address: audited); cancel one with a reason (staff.cancel_document, high: re-authenticated). A cancelled document
+         *     keeps its number; the order and its refunds are left as they are.
+         */
+        get: operations["staff_tax_documents_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/tax/documents/{number}/cancel/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The storefront's tax documents, newest first: invoices (by default) or credit notes (?kind=credit_note), by
+         *     series, type, month, year, cancelled or not; the test series only with ?test=true. One by its number (dashes for
+         *     its slashes: EL-2026-27-00001) with its lines, charges and Rule 46 checks; its PDF (a look at the buyer's name and
+         *     address: audited); cancel one with a reason (staff.cancel_document, high: re-authenticated). A cancelled document
+         *     keeps its number; the order and its refunds are left as they are.
+         */
+        post: operations["staff_tax_documents_cancel_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/tax/documents/{number}/pdf/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The document's PDF as issued (cancelled: marked so): it names the buyer, so the look is audited. */
+        get: operations["staff_tax_documents_pdf_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/tax/gstr1/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Run the GSTR-1 export for a month, or the quarter ending with it, as a background job (staff.run_gstr1): 202
+         *     with the job; its file, the Offline Tool's CSV files zipped, through the job's result link. Above the starter's
+         *     export_rows the job waits for an approver first (its change_request_id).
+         */
+        post: operations["staff_tax_gstr1_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/tax/hsn/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The HSN and SAC master: codes with their rate today and any scheduled change (filters kind, taxability today,
+         *     q); one with its history and the products on it; a new code with its first rate, a new rate of a code (FINANCE:
+         *     shop.change_hsncode). Rates are never edited or deleted.
+         */
+        get: operations["staff_tax_hsn_list"];
+        put?: never;
+        /**
+         * @description The HSN and SAC master: codes with their rate today and any scheduled change (filters kind, taxability today,
+         *     q); one with its history and the products on it; a new code with its first rate, a new rate of a code (FINANCE:
+         *     shop.change_hsncode). Rates are never edited or deleted.
+         */
+        post: operations["staff_tax_hsn_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/tax/hsn/{code}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The HSN and SAC master: codes with their rate today and any scheduled change (filters kind, taxability today,
+         *     q); one with its history and the products on it; a new code with its first rate, a new rate of a code (FINANCE:
+         *     shop.change_hsncode). Rates are never edited or deleted.
+         */
+        get: operations["staff_tax_hsn_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/tax/hsn/{code}/rates/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The HSN and SAC master: codes with their rate today and any scheduled change (filters kind, taxability today,
+         *     q); one with its history and the products on it; a new code with its first rate, a new rate of a code (FINANCE:
+         *     shop.change_hsncode). Rates are never edited or deleted.
+         */
+        post: operations["staff_tax_hsn_rates_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/tax/problems/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The products whose GST disagrees with the master today, with why (the catalogue's red chip; ?all=true: the
+         *     ones off sale too). Not paged: the whole catalogue is checked at once.
+         */
+        get: operations["staff_tax_problems_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/tax/series/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Table 13, the documents issued: each series of the real documents of a financial year (?financial_year=, this
+         *     year's by default), or of one month of it (?month=YYYY-MM): its first and last number, how many, how many
+         *     cancelled, and its next serial.
+         */
+        get: operations["staff_tax_series_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/tax/thresholds/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The threshold card: the latest night's lines (₹2, 4, 5 and 10 crore of turnover this financial year; invoices
+         *     above ₹1 lakh to another state; taxable goods above ₹50,000 in a parcel), the year before's turnover, the QRMP
+         *     switch and the HSN digits documents print.
+         */
+        get: operations["staff_tax_thresholds_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/staff/users/": {
         parameters: {
             query?: never;
@@ -4405,6 +4662,10 @@ export interface components {
             /** Format: int64 */
             quantity?: number;
         };
+        CancelRequest: {
+            /** @description why: kept with the document */
+            reason: string;
+        };
         /**
          * @description * `manual` - by hand (staff type the courier and number)
          *     * `shiprocket` - Shiprocket
@@ -4675,6 +4936,47 @@ export interface components {
             /** @description the id of one of the customer's addresses (addresses/) */
             address: number;
             payment_method: components["schemas"]["CheckoutMethodEnum"];
+            /**
+             * @description a cart of courses alone: the state the buyer is billed in, the place of supply (else the address's); with books, the delivery address's state decides and another is refused
+             *
+             *     * `KA` - Karnataka
+             *     * `AP` - Andhra Pradesh
+             *     * `KL` - Kerala
+             *     * `TN` - Tamil Nadu
+             *     * `MH` - Maharashtra
+             *     * `UP` - Uttar Pradesh
+             *     * `GA` - Goa
+             *     * `GJ` - Gujarat
+             *     * `RJ` - Rajasthan
+             *     * `HP` - Himachal Pradesh
+             *     * `TG` - Telangana
+             *     * `AR` - Arunachal Pradesh
+             *     * `AS` - Assam
+             *     * `BR` - Bihar
+             *     * `CT` - Chhattisgarh
+             *     * `HR` - Haryana
+             *     * `JH` - Jharkhand
+             *     * `MP` - Madhya Pradesh
+             *     * `MN` - Manipur
+             *     * `ML` - Meghalaya
+             *     * `MZ` - Mizoram
+             *     * `NL` - Nagaland
+             *     * `OR` - Odisha
+             *     * `PB` - Punjab
+             *     * `SK` - Sikkim
+             *     * `TR` - Tripura
+             *     * `UT` - Uttarakhand
+             *     * `WB` - West Bengal
+             *     * `AN` - Andaman and Nicobar Islands
+             *     * `CH` - Chandigarh
+             *     * `DH` - Dadra and Nagar Haveli and Daman and Diu
+             *     * `DL` - Delhi
+             *     * `JK` - Jammu and Kashmir
+             *     * `LD` - Lakshadweep
+             *     * `LA` - Ladakh
+             *     * `PY` - Puducherry
+             */
+            billing_state?: components["schemas"]["StateEnum"];
         };
         /**
          * @description * `10` - Class 10
@@ -5459,6 +5761,23 @@ export interface components {
             expires_at?: string | null;
             reason: string;
         };
+        Gstr1Request: {
+            /** @description YYYY-MM: a month that has begun */
+            month: string;
+            /**
+             * @description 3: the quarter ending with `month`
+             *
+             *     * `1` - 1
+             *     * `3` - 3
+             * @default 1
+             */
+            months: components["schemas"]["MonthsEnum"];
+            /**
+             * @description count the documents, write nothing
+             * @default false
+             */
+            dry_run: boolean;
+        };
         /**
          * @description A visitor's checkout (no account): the email address for the order's emails, the delivery address, online
          *     payment (cash on delivery is for signed-in accounts with a confirmed email address) and the bot check.
@@ -5527,6 +5846,105 @@ export interface components {
             /** @description for orders/t/<token>/ and its payment; also in the emails */
             readonly token: string;
         };
+        HsnCode: {
+            readonly code: string;
+            readonly kind: components["schemas"]["HsnKindEnum"];
+            readonly description: string;
+            /**
+             * Unit (UQC)
+             * @description GSTR-1's unit in the HSN summary: NOS for books, NA for services (the CA confirms).
+             */
+            readonly uqc: string;
+            /** @description its rate today: null when the master has none */
+            readonly today: components["schemas"]["HsnRateBrief"] | null;
+            /** @description a rate that starts later, if one is set */
+            readonly next_change: components["schemas"]["HsnRateBrief"] | null;
+            /** @description the products on it */
+            readonly products: number;
+            /** Format: date-time */
+            readonly created: string;
+        };
+        HsnCodeDetail: {
+            readonly code: string;
+            readonly kind: components["schemas"]["HsnKindEnum"];
+            readonly description: string;
+            /**
+             * Unit (UQC)
+             * @description GSTR-1's unit in the HSN summary: NOS for books, NA for services (the CA confirms).
+             */
+            readonly uqc: string;
+            /** @description its rate today: null when the master has none */
+            readonly today: components["schemas"]["HsnRateBrief"] | null;
+            /** @description a rate that starts later, if one is set */
+            readonly next_change: components["schemas"]["HsnRateBrief"] | null;
+            /** @description the products on it */
+            readonly products: number;
+            /** Format: date-time */
+            readonly created: string;
+            /** @description its history, oldest first */
+            readonly rates: components["schemas"]["HsnRate"][];
+            /** @description the products on it, with their disagreement */
+            readonly linked: components["schemas"]["HsnProduct"][];
+        };
+        /**
+         * @description * `hsn` - HSN (goods)
+         *     * `sac` - SAC (services)
+         * @enum {string}
+         */
+        HsnKindEnum: "hsn" | "sac";
+        HsnProduct: {
+            readonly id: number;
+            readonly slug: string;
+            readonly title: string;
+            readonly kind: components["schemas"]["ProductKindEnum"];
+            /**
+             * GST rate (%)
+             * Format: decimal
+             * @description Printed books are exempt: 0.
+             */
+            readonly gst_rate: string;
+            /** On sale */
+            readonly is_active: boolean;
+            readonly problem: string;
+        };
+        HsnRate: {
+            readonly id: number;
+            /**
+             * GST rate (%)
+             * Format: decimal
+             */
+            readonly rate: string;
+            readonly taxability: components["schemas"]["TaxabilityEnum"];
+            /** Format: date */
+            readonly effective_from: string;
+            /**
+             * Format: date
+             * @description Empty: until the next row starts.
+             */
+            readonly effective_to: string | null;
+            /**
+             * Format: date
+             * @description its end, or the day before the next
+             */
+            readonly until: string | null;
+            /** @description e.g. 10/2025-Central Tax (Rate) */
+            readonly notification: string;
+            /** Serial number */
+            readonly serial: string;
+            /** @description Where it was read; what the CA should confirm. */
+            readonly note: string;
+            /** Format: date-time */
+            readonly created: string;
+            readonly created_by: number | null;
+        };
+        HsnRateBrief: {
+            /** Format: decimal */
+            rate: string;
+            taxability: components["schemas"]["TaxabilityEnum"];
+            /** Format: date */
+            effective_from: string;
+            notification: string;
+        };
         ImpersonateRequest: {
             reason: string;
             /** @description the support ticket or mail it answers */
@@ -5593,9 +6011,11 @@ export interface components {
          *     * `dead_letter` - integration task given up
          *     * `failed_event` - provider event not processed
          *     * `integration_down` - integration unavailable
+         *     * `tax_threshold` - a tax threshold crossed
+         *     * `credit_note_missing` - a refund without its credit note
          * @enum {string}
          */
-        InboxKindEnum: "approval" | "teacher_request" | "deletion_request" | "data_request" | "incident" | "failed_job" | "failed_webhook" | "sync_failed" | "reconciliation" | "shipping_exception" | "dead_letter" | "failed_event" | "integration_down";
+        InboxKindEnum: "approval" | "teacher_request" | "deletion_request" | "data_request" | "incident" | "failed_job" | "failed_webhook" | "sync_failed" | "reconciliation" | "shipping_exception" | "dead_letter" | "failed_event" | "integration_down" | "tax_threshold" | "credit_note_missing";
         Incident: {
             readonly id: number;
             title: string;
@@ -5768,12 +6188,13 @@ export interface components {
          * @description * `audit_export` - audit log export
          *     * `bulk_action` - bulk action
          *     * `erp_initial_load` - ERPNext initial load
+         *     * `gstr1_export` - GSTR-1 export
          * @enum {string}
          */
-        JobKindEnum: "audit_export" | "bulk_action" | "erp_initial_load";
+        JobKindEnum: "audit_export" | "bulk_action" | "erp_initial_load" | "gstr1_export";
         JobStartRequest: {
             kind: components["schemas"]["JobKindEnum"];
-            /** @description audit_export: {"filters": {…}} (the audit list's); bulk_action: {"action": "order.refund", "targets": [order numbers, slugs or ids], "payload": {…} (each target's, as for change-requests/), "reason"}; erp_initial_load: {"invoices_from": "YYYY-MM-DD"} (optional: without it, the catalogue only) */
+            /** @description audit_export: {"filters": {…}} (the audit list's); bulk_action: {"action": "order.refund", "targets": [order numbers, slugs or ids], "payload": {…} (each target's, as for change-requests/), "reason"}; erp_initial_load: {"invoices_from": "YYYY-MM-DD"} (optional: without it, the catalogue only); gstr1_export: {"month": "YYYY-MM", "months": 1 or 3} (a month, or the quarter ending with it) */
             params?: {
                 [key: string]: unknown;
             };
@@ -5910,6 +6331,12 @@ export interface components {
             shipments: number[];
         };
         /**
+         * @description * `1` - 1
+         *     * `3` - 3
+         * @enum {integer}
+         */
+        MonthsEnum: 1 | 3;
+        /**
          * @description * `re-attempt` - re-attempt
          *     * `return` - return
          *     * `fake-attempt` - fake-attempt
@@ -5925,6 +6352,43 @@ export interface components {
             phone?: string;
             address1?: string;
             address2?: string;
+        };
+        /** @description A code new to the master, with its first rate. */
+        NewHsnCodeRequest: {
+            code: string;
+            kind: components["schemas"]["HsnKindEnum"];
+            description: string;
+            /**
+             * Unit (UQC)
+             * @description GSTR-1's unit in the HSN summary: NOS for books, NA for services (the CA confirms).
+             */
+            uqc?: string;
+            first_rate: components["schemas"]["NewHsnRateRequest"];
+        };
+        /**
+         * @description A new rate of a code: from a day after its latest rate's start (its history is never rewritten), citing the
+         *     notification and serial number that set it.
+         */
+        NewHsnRateRequest: {
+            /**
+             * GST rate (%)
+             * Format: decimal
+             */
+            rate: string;
+            taxability: components["schemas"]["TaxabilityEnum"];
+            /** Format: date */
+            effective_from: string;
+            /**
+             * Format: date
+             * @description Empty: until the next row starts.
+             */
+            effective_to?: string | null;
+            /** @description e.g. 10/2025-Central Tax (Rate) */
+            notification: string;
+            /** Serial number */
+            serial?: string;
+            /** @description Where it was read; what the CA should confirm. */
+            note?: string;
         };
         NextClip: {
             readonly id: number;
@@ -6563,6 +7027,19 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["FraudSignal"][];
         };
+        PaginatedHsnCodeList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["HsnCode"][];
+        };
         PaginatedInboxItemList: {
             /**
              * Format: uri
@@ -6848,6 +7325,19 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["Subject"][];
+        };
+        PaginatedTaxDocumentList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["TaxDocument"][];
         };
         Paper: {
             code: string;
@@ -7960,6 +8450,44 @@ export interface components {
          * @enum {string}
          */
         ScopeKindEnum: "subject" | "board_class" | "order_status" | "warehouse" | "school" | "ticket_queue";
+        SeriesRegister: {
+            financial_year: string;
+            month: string | null;
+            /** @description SHOP_SERIES_FROM_FY: one series a type from this year */
+            series_from: string;
+            /** @description SHOP_SERIES_PREFIXES */
+            prefixes: {
+                [key: string]: string;
+            };
+            rows: components["schemas"]["SeriesRow"][];
+        };
+        SeriesRow: {
+            series: string;
+            /** @description table 13's nature of document */
+            nature: string;
+            document_type: components["schemas"]["SeriesTypeEnum"];
+            financial_year: string;
+            /** @description Sr. No. from */
+            first: string;
+            /** @description Sr. No. to */
+            last: string;
+            total: number;
+            cancelled: number;
+            /** @description the series' next serial */
+            next_number: number | null;
+        };
+        /**
+         * @description * `invoice` - invoices of every kind
+         *     * `tax_invoice` - tax invoices
+         *     * `bill_of_supply` - bills of supply
+         *     * `invoice_cum_bill_of_supply` - invoices-cum-bills of supply
+         *     * `credit_note` - credit notes
+         *     * `debit_note` - debit notes
+         *     * `receipt_voucher` - receipt vouchers
+         *     * `refund_voucher` - refund vouchers
+         * @enum {string}
+         */
+        SeriesTypeEnum: "invoice" | "tax_invoice" | "bill_of_supply" | "invoice_cum_bill_of_supply" | "credit_note" | "debit_note" | "receipt_voucher" | "refund_voucher";
         SessionsEnded: {
             sessions: number;
             tokens: number;
@@ -8398,6 +8926,197 @@ export interface components {
             /** Format: date-time */
             created: string;
         };
+        TaxCalendar: {
+            month: string;
+            qrmp: boolean;
+            items: components["schemas"]["TaxCalendarItem"][];
+            /** @description the lines the threshold monitor finds crossed */
+            crossed: components["schemas"]["ThresholdRow"][];
+        };
+        TaxCalendarItem: {
+            key: string;
+            title: string;
+            /** @description the period or year it is for */
+            covers: string;
+            /** Format: date */
+            due: string;
+            applies: boolean;
+            note: string;
+            past: boolean;
+        };
+        TaxCharge: {
+            label: string;
+            /** Format: decimal */
+            rate: string;
+            /** Format: decimal */
+            amount: string;
+            /** Format: decimal */
+            taxable: string;
+            /** Format: decimal */
+            tax: string;
+        };
+        TaxDocument: {
+            /** @description its number with dashes: the address of tax/documents/{number}/ */
+            key: string;
+            kind: components["schemas"]["TaxDocumentKindEnum"];
+            id: number;
+            number: string;
+            series: string;
+            financial_year: string;
+            serial: number;
+            document_type: components["schemas"]["TaxDocumentTypeEnum"] | components["schemas"]["BlankEnum"];
+            /** @description the test series: not a tax document */
+            test: boolean;
+            /** Format: date */
+            date: string;
+            /** @description the order's number */
+            order: string;
+            /** @description a credit note's invoice */
+            against: string | null;
+            /** @description a state code: the billing state */
+            place_of_supply: string;
+            /** @description its name and GST code: "Assam (18)" */
+            place_label: string;
+            /** Format: decimal */
+            total: string;
+            /** Format: decimal */
+            taxable_value: string | null;
+            /** Format: decimal */
+            exempt_value: string | null;
+            /** Format: decimal */
+            tax_amount: string | null;
+            /** Format: date-time */
+            cancelled_at: string | null;
+            cancel_reason: string;
+            cancelled_by: number | null;
+            has_pdf: boolean;
+        };
+        TaxDocumentDetail: {
+            /** @description its number with dashes: the address of tax/documents/{number}/ */
+            key: string;
+            kind: components["schemas"]["TaxDocumentKindEnum"];
+            id: number;
+            number: string;
+            series: string;
+            financial_year: string;
+            serial: number;
+            document_type: components["schemas"]["TaxDocumentTypeEnum"] | components["schemas"]["BlankEnum"];
+            /** @description the test series: not a tax document */
+            test: boolean;
+            /** Format: date */
+            date: string;
+            /** @description the order's number */
+            order: string;
+            /** @description a credit note's invoice */
+            against: string | null;
+            /** @description a state code: the billing state */
+            place_of_supply: string;
+            /** @description its name and GST code: "Assam (18)" */
+            place_label: string;
+            /** Format: decimal */
+            total: string;
+            /** Format: decimal */
+            taxable_value: string | null;
+            /** Format: decimal */
+            exempt_value: string | null;
+            /** Format: decimal */
+            tax_amount: string | null;
+            /** Format: date-time */
+            cancelled_at: string | null;
+            cancel_reason: string;
+            cancelled_by: number | null;
+            has_pdf: boolean;
+            title: string;
+            lines: components["schemas"]["TaxLine"][];
+            /** @description the shipping, following the goods it carries */
+            charges: components["schemas"]["TaxCharge"][];
+            /** Format: decimal */
+            round_off: string;
+            /** @description what Rule 46 asks that it misses */
+            checks: string[];
+            /** @description an invoice's credit notes */
+            credit_notes: string[];
+        };
+        /**
+         * @description * `invoice` - invoice
+         *     * `credit_note` - credit note
+         * @enum {string}
+         */
+        TaxDocumentKindEnum: "invoice" | "credit_note";
+        /**
+         * @description * `tax_invoice` - Tax invoice
+         *     * `bill_of_supply` - Bill of supply
+         *     * `invoice_cum_bill_of_supply` - Invoice-cum-bill of supply
+         * @enum {string}
+         */
+        TaxDocumentTypeEnum: "tax_invoice" | "bill_of_supply" | "invoice_cum_bill_of_supply";
+        TaxLine: {
+            title: string;
+            /** @description a split bundle's title, for its components */
+            bundle: string;
+            hsn_code: string;
+            quantity: number;
+            /** Format: decimal */
+            rate: string;
+            /**
+             * Format: decimal
+             * @description after its discount, tax included
+             */
+            amount: string;
+            /** Format: decimal */
+            taxable: string;
+            /** Format: decimal */
+            tax: string;
+        };
+        TaxProblem: {
+            readonly id: number;
+            readonly slug: string;
+            readonly title: string;
+            readonly kind: components["schemas"]["ProductKindEnum"];
+            readonly hsn_code: string;
+            /**
+             * GST rate (%)
+             * Format: decimal
+             * @description Printed books are exempt: 0.
+             */
+            readonly gst_rate: string;
+            /** On sale */
+            readonly is_active: boolean;
+            /**
+             * @description A bundle's GST, as the CA decides: split (recommended), composite or mixed.
+             *
+             *     * `split` - split: each component a line of its own, the price shared by their MRPs
+             *     * `composite` - composite: one line at the principal supply's rate
+             *     * `mixed` - mixed: one line at the highest rate
+             */
+            readonly tax_treatment: components["schemas"]["TaxTreatmentEnum"];
+            readonly problem: string;
+        };
+        /**
+         * @description * `gstr9` - ₹2 crore: the annual return (GSTR-9) is due
+         *     * `warning` - ₹4 crore: e-invoicing and monthly returns come at ₹5 crore
+         *     * `e_invoice` - ₹5 crore: e-invoicing, QRMP ends, 6-digit HSN codes
+         *     * `irp_30_days` - ₹10 crore: e-invoices reported to the IRP within 30 days
+         *     * `b2c_large` - invoices above ₹1 lakh to another state (GSTR-1 table 5)
+         *     * `eway_bill` - taxable goods above ₹50,000 in one parcel: an e-way bill
+         * @enum {string}
+         */
+        TaxThresholdLineEnum: "gstr9" | "warning" | "e_invoice" | "irp_30_days" | "b2c_large" | "eway_bill";
+        /**
+         * @description * `split` - split: each component a line of its own, the price shared by their MRPs
+         *     * `composite` - composite: one line at the principal supply's rate
+         *     * `mixed` - mixed: one line at the highest rate
+         * @enum {string}
+         */
+        TaxTreatmentEnum: "split" | "composite" | "mixed";
+        /**
+         * @description * `taxable` - taxable
+         *     * `nil` - nil-rated
+         *     * `exempt` - exempt
+         *     * `non_gst` - non-GST
+         * @enum {string}
+         */
+        TaxabilityEnum: "taxable" | "nil" | "exempt" | "non_gst";
         Teacher: {
             school_name: string;
             district: string;
@@ -8414,6 +9133,43 @@ export interface components {
             district: string;
             /** Subject taught */
             subject: string;
+        };
+        ThresholdCard: {
+            /**
+             * Format: date
+             * @description the night of the latest look; null: none yet
+             */
+            as_of: string | null;
+            financial_year: string;
+            previous_year: string;
+            /** Format: decimal */
+            previous_turnover: string;
+            /** @description SHOP_GST_QRMP */
+            qrmp: boolean;
+            /** @description SHOP_HSN_DIGITS */
+            hsn_digits: number;
+            /** @description what the turnover counts */
+            basis: string;
+            rows: components["schemas"]["ThresholdRow"][];
+        };
+        ThresholdRow: {
+            readonly line: components["schemas"]["TaxThresholdLineEnum"];
+            label: string;
+            /**
+             * Format: decimal
+             * @description Rupees, or documents for the counts.
+             */
+            readonly value: string;
+            /** Format: decimal */
+            readonly limit: string;
+            readonly crossed: boolean;
+            /** @description a number of documents, not rupees */
+            readonly count: boolean;
+            /** @description The documents' numbers, for the counts. */
+            readonly detail: unknown;
+            /** Format: date */
+            readonly date: string;
+            readonly financial_year: string;
         };
         TierAverage: {
             tier: components["schemas"]["TierEnum"];
@@ -13107,8 +13863,10 @@ export interface operations {
                  *     * `dead_letter` - integration task given up
                  *     * `failed_event` - provider event not processed
                  *     * `integration_down` - integration unavailable
+                 *     * `tax_threshold` - a tax threshold crossed
+                 *     * `credit_note_missing` - a refund without its credit note
                  */
-                kind?: "approval" | "data_request" | "dead_letter" | "deletion_request" | "failed_event" | "failed_job" | "failed_webhook" | "incident" | "integration_down" | "reconciliation" | "shipping_exception" | "sync_failed" | "teacher_request";
+                kind?: "approval" | "credit_note_missing" | "data_request" | "dead_letter" | "deletion_request" | "failed_event" | "failed_job" | "failed_webhook" | "incident" | "integration_down" | "reconciliation" | "shipping_exception" | "sync_failed" | "tax_threshold" | "teacher_request";
                 /** @description true: assigned to me */
                 mine?: boolean;
                 /** @description Number of results to return per page. */
@@ -13387,8 +14145,9 @@ export interface operations {
                  * @description * `audit_export` - audit log export
                  *     * `bulk_action` - bulk action
                  *     * `erp_initial_load` - ERPNext initial load
+                 *     * `gstr1_export` - GSTR-1 export
                  */
-                kind?: "audit_export" | "bulk_action" | "erp_initial_load";
+                kind?: "audit_export" | "bulk_action" | "erp_initial_load" | "gstr1_export";
                 /** @description true: the jobs I started */
                 mine?: boolean;
                 /** @description Number of results to return per page. */
@@ -14356,6 +15115,332 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Reconciled"];
+                };
+            };
+        };
+    };
+    staff_tax_calendar_retrieve: {
+        parameters: {
+            query?: {
+                /** @description YYYY-MM: this month by default */
+                month?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaxCalendar"];
+                };
+            };
+        };
+    };
+    staff_tax_documents_list: {
+        parameters: {
+            query?: {
+                cancelled?: boolean;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                document_type?: "bill_of_supply" | "invoice_cum_bill_of_supply" | "tax_invoice";
+                /** @description 2026-27 */
+                financial_year?: string;
+                /** @description invoices (by default) or credit notes */
+                kind?: "credit_note" | "invoice";
+                /** @description YYYY-MM: the documents dated in it */
+                month?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description a number's beginning, or an order's number */
+                search?: string;
+                /** @description a prefix: EL, CN, TI … */
+                series?: string;
+                /** @description the test series instead of the real one */
+                test?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedTaxDocumentList"];
+                };
+            };
+        };
+    };
+    staff_tax_documents_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaxDocumentDetail"];
+                };
+            };
+        };
+    };
+    staff_tax_documents_cancel_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaxDocument"];
+                };
+            };
+        };
+    };
+    staff_tax_documents_pdf_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+        };
+    };
+    staff_tax_gstr1_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Gstr1Request"];
+            };
+        };
+        responses: {
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+        };
+    };
+    staff_tax_hsn_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /**
+                 * @description * `hsn` - HSN (goods)
+                 *     * `sac` - SAC (services)
+                 */
+                kind?: "hsn" | "sac";
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /** @description a code's first digits, or words of its description */
+                q?: string;
+                /**
+                 * @description taxability today
+                 *
+                 *     * `taxable` - taxable
+                 *     * `nil` - nil-rated
+                 *     * `exempt` - exempt
+                 *     * `non_gst` - non-GST
+                 */
+                taxability?: "exempt" | "nil" | "non_gst" | "taxable";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedHsnCodeList"];
+                };
+            };
+        };
+    };
+    staff_tax_hsn_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewHsnCodeRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HsnCodeDetail"];
+                };
+            };
+        };
+    };
+    staff_tax_hsn_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique value identifying this HSN or SAC code. */
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HsnCodeDetail"];
+                };
+            };
+        };
+    };
+    staff_tax_hsn_rates_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique value identifying this HSN or SAC code. */
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewHsnRateRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HsnCodeDetail"];
+                };
+            };
+        };
+    };
+    staff_tax_problems_list: {
+        parameters: {
+            query?: {
+                /** @description also the products off sale */
+                all?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaxProblem"][];
+                };
+            };
+        };
+    };
+    staff_tax_series_retrieve: {
+        parameters: {
+            query?: {
+                /** @description 2026-27: this year's by default */
+                financial_year?: string;
+                /** @description YYYY-MM: one month of it */
+                month?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeriesRegister"];
+                };
+            };
+        };
+    };
+    staff_tax_thresholds_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ThresholdCard"];
                 };
             };
         };

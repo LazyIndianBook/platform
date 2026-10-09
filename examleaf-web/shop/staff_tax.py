@@ -364,6 +364,7 @@ class TaxDocumentSerializer(serializers.Serializer):
     order = serializers.CharField(help_text="the order's number")
     against = serializers.CharField(allow_null=True, help_text="a credit note's invoice")
     place_of_supply = serializers.CharField(help_text="a state code: the billing state")
+    place_label = serializers.CharField(help_text='its name and GST code: "Assam (18)"')
     total = serializers.DecimalField(max_digits=12, decimal_places=2)
     taxable_value = serializers.DecimalField(max_digits=12, decimal_places=2, allow_null=True)
     exempt_value = serializers.DecimalField(max_digits=12, decimal_places=2, allow_null=True)
@@ -392,6 +393,7 @@ class TaxDocumentSerializer(serializers.Serializer):
                 "order": order.number,
                 "against": document.invoice.number if note else None,
                 "place_of_supply": invoices.place(order),
+                "place_label": tax.state_label(invoices.place(order)),
                 "total": total,
                 "taxable_value": document.taxable_value,
                 "exempt_value": document.exempt_value,
@@ -733,7 +735,11 @@ class Gstr1Serializer(serializers.Serializer):
     dry_run = serializers.BooleanField(default=False, help_text="count the documents, write nothing")
 
     def validate(self, data):
-        return {**gstr1_period(data), "dry_run": data["dry_run"]}
+        try:
+            period = gstr1_period(data)
+        except serializers.ValidationError as error:  # this body's own fields: month and months, not a job's params
+            raise serializers.ValidationError(error.detail["params"]) from None
+        return {**period, "dry_run": data["dry_run"]}
 
 
 def gstr1_period(params):

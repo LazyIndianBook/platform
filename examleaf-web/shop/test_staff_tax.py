@@ -149,6 +149,7 @@ def test_documents_by_kind_series_month_and_state(live, rzp, commit, finance):
         mixed.number,
     )
     assert (row["total"], row["taxable_value"], row["tax_amount"]) == ("1298.00", "846.61", "152.39")
+    assert (row["place_of_supply"], row["place_label"]) == ("AS", "Assam (18)")
     notes = finance.get(TAX + "documents/?kind=credit_note").json()["results"]
     assert [(note["against"], note["total"]) for note in notes] == [(online.invoice.number, "598.00")]
     month = f"{timezone.localdate():%Y-%m}"
@@ -268,10 +269,10 @@ def test_the_gstr1_job_gives_the_months_files_zipped(live, finance, django_captu
     assert quarter.status_code == 202 and quarter.json()["params"] == {"month": "2026-09", "months": 3}
     later = f"{timezone.localdate() + timedelta(days=40):%Y-%m}"
     assert finance.post(TAX + "gstr1/", {"month": later}, format="json").json() == {
-        "params": {"month": ["A month that has begun."]}
+        "month": ["A month that has begun."]
     }
     assert finance.post(TAX + "gstr1/", {"month": "2026-08", "months": 3}, format="json").json() == {
-        "params": {"months": ["A quarter ends with June, September, December or March."]}
+        "months": ["A quarter ends with June, September, December or March."]
     }
 
 
