@@ -293,7 +293,7 @@ by `result_url` (signed for 5 minutes; a bucket's own signed link behind it) and
 
 ## Phase B: people, sessions and the system
 
-The People, Settings and System modules' backend (plan 5.16, 5.17 and 5.19; research-rbac-security 1.8, 2.9, 3.5,
+The People, Settings and System modules' backend (plan 5.17, 5.18 and 5.19; research-rbac-security 1.8, 2.9, 3.5,
 4.8 and 7). The endpoints are in API.md "Staff API"; the connections and the templates have their own READMEs
 (`../integrations/README.md` "The connections page", `../ops/README.md`).
 
