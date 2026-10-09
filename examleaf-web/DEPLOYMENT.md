@@ -116,11 +116,12 @@ docker compose logs -f web caddy      # migrations, bootstrap_roles, gunicorn; C
 
 The static files were collected (hashed, compressed) when the image was built. The web container runs `migrate` and
 `bootstrap_roles` on every start, in that order, then the readiness check
-(`manage.py health_check health_web --no-http`: database, cache, a write to the private storage, which is the `media`
-volume or the private bucket), then gunicorn; if the check fails the container stops, its log names the failing part,
-and Docker starts it again. To run them by hand:
+(`manage.py health_check health_web --no-http`: the database answers and no migration is waiting), then gunicorn
+(`gunicorn.conf.py`); if the check fails the container stops, its log names the failing part, and Docker starts it
+again. The cache and the buckets are not waited for: the site runs without them, and `/health/` (section 7) reports
+them. To run them by hand:
 `docker compose exec web python manage.py migrate && docker compose exec web python manage.py bootstrap_roles`. Worker,
-media-worker and beat start once the web container is healthy (`/health/web/`: database, cache and storage).
+media-worker and beat start once the web container is healthy (`/health/live/`: gunicorn answers).
 
 ## 6. Content and the first admin
 
@@ -147,8 +148,10 @@ docker compose exec web python manage.py sendtestemail you@example.com   # the e
 
 Then register a test student from a phone, type the emailed code, open a paper's solutions, and delete the account from
 My account (the purge erases it seven days later). Point the uptime monitor at `/health/` with the header
-`X-Health-Token` (it returns 500 when the database, cache or storage fails, or when the default or the media queue has
-no Celery worker: the ping waits two seconds for every worker before it judges, so a 500 means a worker is really gone).
+`X-Health-Token` (it returns 500 when the database, a migration, the cache or storage fails, or when the default or the
+media queue has no Celery worker: the ping waits two seconds for every worker before it judges, so a 500 means a worker
+is really gone). The other two are the probes': `/health/web/` (readiness: the database and the migrations) and
+`/health/live/` (liveness: the process answers, nothing else asked); RESILIENCE.md says why each holds what it holds.
 
 ## 8. QR codes for print
 
@@ -189,7 +192,9 @@ to decrypt). The script reads `BACKUP_KEEP_DAYS` and `BACKUP_AGE_RECIPIENT` from
 ## 10. Logs
 
 - `docker compose logs -f web worker media-worker beat` — Django and Celery, one JSON object per line with `time`,
-  `level`, `logger`, `message` and `request_id`;
+  `level`, `logger`, `message` and `request_id`: one line per request (`examleaf.requests`: method, URL pattern, status,
+  `duration_ms`, `user_id`; a warning past `SLOW_REQUEST_SECONDS`), `task_id` and `task_name` inside a Celery task, and
+  gunicorn's own lines (`gunicorn.error`: workers booting, exiting or timed out); RUNBOOK.md "Reading the logs";
 - `docker compose logs -f caddy` — the access log (JSON, with the same `X-Request-ID` in the request headers);
 - `docker compose logs db redis redis-cache`.
 
@@ -211,8 +216,10 @@ git -C /srv/books pull && docker compose exec web python manage.py import_papers
 Importing again is safe at any time: it changes only the questions and solutions whose Markdown changed (the rest are
 left alone, so the admin's history shows real edits) and drops questions that left a paper; nothing else is touched.
 
-The site is down for the few seconds the web container takes to restart. A new release can bring settings: compare
-`.env` with `.env.example` and section 13.
+The site is down for the few seconds the web container takes to restart: Docker gives it 40 seconds to stop, gunicorn's
+30 for the requests in progress, and the Celery workers five minutes to finish their tasks (a task cut short anyway runs
+again on the next worker: RESILIENCE.md). A new release can bring settings: compare `.env` with `.env.example` and
+section 13.
 
 ## 12. Shop: Razorpay
 
@@ -316,10 +323,15 @@ list any variable its clip task comes to need. After a change: `docker compose u
 |---|---|---|---|
 | `POSTGRES_PASSWORD` | none | required (compose) | the compose PostgreSQL's password: random, letters and digits only (it goes into a URL). `python3 -c "import secrets; print(secrets.token_hex(24))"` |
 | `DATABASE_URL` | SQLite `db.sqlite3` | set by compose | `postgres://user:password@host:5432/examleaf`; compose builds it from `POSTGRES_PASSWORD` |
-| `CONN_MAX_AGE` | `60` | no | seconds a database connection is kept between requests (0: closed after each) |
-| `CACHE_URL` | per-process memory | set by compose | `redis://host:6379/1`: a Redis of its own that may evict (compose: `redis-cache`, 256 MB, allkeys-lru), never the queue's; with Redis down the site runs on without it, but the shop's own limits (order lookup, checkout, place order, coupon codes, reviews, back-in-stock alerts, quotations) answer 429 |
+| `CONN_MAX_AGE` | `60` | no | seconds a database connection is kept between requests (0: closed after each); one per gunicorn thread and Celery process: PostgreSQL's `max_connections` must hold them all (RESILIENCE.md) |
+| `DB_CONNECT_TIMEOUT` | `5` | no | seconds to connect to PostgreSQL |
+| `DB_STATEMENT_TIMEOUT` | `15` in gunicorn, `600` in Celery, none in `manage.py` | no | seconds a statement may run before PostgreSQL cancels it (by the program's name; `0`: none). Behind PgBouncer in transaction mode set it on the database roles instead (RESILIENCE.md "The pooler") |
+| `DB_IDLE_IN_TRANSACTION_TIMEOUT` | `60` in gunicorn, `600` in Celery, none in `manage.py` | no | seconds a transaction may sit idle before PostgreSQL ends the session (a thread stuck while holding row locks) |
+| `CACHE_URL` | per-process memory | set by compose | `redis://host:6379/1`: a Redis of its own that may evict (compose: `redis-cache`, 256 MB, allkeys-lru), never the queue's; with Redis down the site runs on without it, but the shop's own limits (order lookup, checkout, place order, coupon codes, reviews, back-in-stock alerts, quotations) answer 429; a Redis that does not answer costs one second, then five seconds of misses at once (`examleaf/cache.py`) |
 | `CELERY_BROKER_URL` | empty | set by compose | `redis://host:6379/0` (compose: `redis`, never evicts); empty: tasks run inline in the web process (development) |
 | `CELERY_TASK_ALWAYS_EAGER` | `1` without a broker, else `0` | no | force inline tasks (1) or never (0) |
+| `CELERY_WORKER_MAX_TASKS_PER_CHILD` | `200` | no | a Celery process is replaced after this many tasks |
+| `CELERY_WORKER_MAX_MEMORY_PER_CHILD` | `307200` (KiB: 300 MB) | no | … or once it holds this much (WeasyPrint grows by about 1 MB an invoice); the worker's memory needs the main process (about 160 MB) and concurrency × this |
 
 ### Proxy, https and the web server
 
@@ -332,8 +344,16 @@ list any variable its clip task comes to need. After a change: `docker compose u
 | `SECURE_HSTS_SECONDS` | `31536000` | no | HSTS lifetime |
 | `SECURE_HSTS_INCLUDE_SUBDOMAINS`, `SECURE_HSTS_PRELOAD` | `0` | no | on only when every subdomain is https (they are the two `check --deploy` warnings, W005 and W021) |
 | `HEALTH_CHECK_TOKEN` | none | required (compose) | the value of the `X-Health-Token` header Caddy asks of `/health/` callers; letters, digits, `-` and `_`; compose refuses every command while it is empty (add it to `.env` before updating). `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`, then into the uptime monitor (section 14) |
-| `WEB_CONCURRENCY` | `1` | no | gunicorn worker processes (about 2 x CPU cores + 1) |
-| `GUNICORN_CMD_ARGS` | `--worker-class gthread --threads 8 --timeout 60` (compose) | no | extra gunicorn arguments: 8 threads in each of the `WEB_CONCURRENCY` processes, a silent worker restarted after 60 seconds. Not in `.env.example`: add it to `.env` to change it; a value you set replaces all three options |
+| `WEB_CONCURRENCY` | `2` | no | gunicorn worker processes (about 2 x CPU cores + 1); `gunicorn.conf.py` reads it and the variables below |
+| `GUNICORN_THREADS` | `8` | no | requests at once in each process; half of them at most wait on Razorpay or MSG91 (the bulkhead, RESILIENCE.md); each holds a database connection |
+| `GUNICORN_TIMEOUT` | `60` | no | a process whose main loop is silent this long is killed and replaced (with threads it is no request's limit: their calls and statements have their own) |
+| `GUNICORN_GRACEFUL_TIMEOUT` | `30` | no | after SIGTERM the requests in progress may finish this long; keep Docker's stop (40 s) and the chart's grace (70 s) above it |
+| `GUNICORN_KEEPALIVE` | `5` | no | seconds an idle connection from Caddy or the frontend stays open |
+| `GUNICORN_MAX_REQUESTS`, `GUNICORN_MAX_REQUESTS_JITTER` | `5000`, `2500` | no | a process is replaced after this many requests, each after a number of its own (smaller values restarted every process at once under load: RESILIENCE.md) |
+| `GUNICORN_WORKER_CONNECTIONS` | `1000` | no | connections a process takes at once; leave it (a cap starves kept-alive connections) |
+| `GUNICORN_BIND` | `0.0.0.0:8000` | no | where gunicorn listens |
+| `GUNICORN_CMD_ARGS` | none | no | gunicorn's own variable: more arguments, which win over `gunicorn.conf.py`. Not in `.env.example` |
+| `SLOW_REQUEST_SECONDS` | `2` | no | a request slower than this is logged as a warning (`examleaf.requests`) |
 
 ### Email
 
@@ -431,7 +451,7 @@ and section 17).
 
 | Variable | Default | Required | What it does; where to get the value |
 |---|---|---|---|
-| `LOG_JSON` | `1` with `DEBUG=0`, else `0` | no | log lines as JSON, or text |
+| `LOG_JSON` | `1` with `DEBUG=0`, else `0` | no | log lines as JSON, or text; gunicorn's own lines too (`gunicorn.conf.py`: JSON unless `0`) |
 | `LOG_LEVEL` | `INFO` | no | the log level |
 | `SENTRY_DSN` | empty (off) | no | error reports, scrubbed of personal data (`examleaf/sentry.py`); the project's DSN from Sentry (section 15) |
 | `SENTRY_ENVIRONMENT` | `production` | no | Sentry's environment name |
@@ -501,8 +521,9 @@ flag of the same name the panel can set (`staff/README.md`), which wins over the
 
 ## 14. Security settings
 
-**Health checks.** From the internet Caddy answers `/health/`, `/health/web/` and `/health/integrations/` (section
-21) with 404 unless the request carries the header `X-Health-Token: <HEALTH_CHECK_TOKEN>` (Caddyfile). Set the token in `.env` (letters, digits, `-` and `_`;
+**Health checks.** From the internet Caddy answers `/health/`, `/health/web/`, `/health/live/` and
+`/health/integrations/` (section 21) with 404 unless the request carries the header `X-Health-Token: <HEALTH_CHECK_TOKEN>`
+(Caddyfile). Set the token in `.env` (letters, digits, `-` and `_`;
 `secrets.token_urlsafe` gives that) and in the uptime monitor's request headers (UptimeRobot's paid plans, Better
 Stack, Uptime Kuma and most others can send one). The web container's own health check calls `127.0.0.1:8000` and
 needs no token. Caddy reads the token from its own environment, so docker-compose.yml passes it on:
@@ -1105,7 +1126,9 @@ The platform's side of the ERPNext sync (`erp/README.md`; ERPNext's side: `../ex
 3. **The webhook secret.** The same account → the action "New webhook token": shown once. In ERPNext's site config:
    `bench --site <site> set-config examleaf_webhook_secret '<it>'` and `examleaf_webhook_base
    'http://<platform web service>:8000/api/hooks/erp-events/'` (inside the cluster: Caddy is not on that path, so add
-   the service's host name to `ALLOWED_HOSTS`; the six webhooks stay off until both are set). A new token later: the
+   the service's host name to `ALLOWED_HOSTS`; the six webhooks stay off until both are set). Plain http is fine there:
+   this path alone is exempt from the https redirect, the hooks being authenticated by their signature, not by TLS
+   (RESILIENCE.md 9.3.1); through the public address they come over https as before. A new token later: the
    previous one is accepted for 24 hours, so set the new one in ERPNext within that time (RUNBOOK.md, "ERPNext").
 4. **The switches** (section 13, "ERPNext"; each also a feature flag the panel can set without a deploy, with its
    history: `PUT /api/v1/staff/flags/<name>/`): `ERP_ENABLED=1`, then the flows `ERP_SYNC_CATALOGUE`,

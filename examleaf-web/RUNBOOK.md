@@ -20,6 +20,7 @@ Commands run in `/srv/examleaf/examleaf-web` on the server. `dj` below stands fo
 - [ERPNext](#erpnext): ERPNext down, a refused document, the morning's differences, no doorbells, a flow
   switched off and on, ERPNext restored from a backup
 - [Incidents](#incidents)
+- [Reading the logs](#reading-the-logs): a request's lines, slow requests, a task's lines, gunicorn's restarts
 
 ## Backups and restore
 
@@ -975,14 +976,60 @@ counts, B2B documents) is entered again by hand from its paper trail.
   tried: please try again in an hour.") until the cache Redis is back; online payments already started still complete).
   The cache is `redis-cache` and the queue `redis`: `docker compose up -d redis redis-cache`, then the daily clean-up
   queues again the invoices, credit notes and refunds that could not be queued. A web container that will not start
-  prints the failing check (`docker compose logs web`).
+  prints the failing check (`docker compose logs web`): the database or a migration (its readiness check needs nothing
+  else; the site starts without its cache). A cache Redis that stops answering (rather than refusing) costs each web
+  process one second, then five seconds of misses at once: a warning "every cache call a miss for 5 seconds" in the logs.
+- **/health/web/ returns 500** (the chart's readiness: the pod gets no traffic): the database does not answer, or a
+  migration of this code is not applied ("N migrations not applied": `dj migrate`; on Kubernetes the init container
+  runs it, so look at its log). It never fails for the cache or the buckets.
 - **/health/integrations/ returns 500:** its JSON names what waits: a provider unavailable for 30 minutes (a circuit
   open), dead letters, failed webhooks ("Couriers and integrations"). The site itself is not down for it.
 - **The queue's Redis (`redis`) is down:** emails and SMS are sent inside the request; the AVIF and WebP sizes of a
-  product picture that staff upload are made inside the request too (slower, not an error); a clip video stays
-  "processing" until `dj reprocess_clips` queues it again.
+  product picture that staff upload are made inside the request too (slower, not an error), and so is a quotation's PDF;
+  a clip video stays "processing" until `dj reprocess_clips` queues it again.
+- **Razorpay (or MSG91) slow or down:** a payment page answers "The payment service could not be reached" within 10 to
+  13 seconds, or at once once half of a web process's threads already wait on a provider (the bulkhead,
+  RESILIENCE.md); the rest of the site keeps its threads. Customers try again; check https://status.razorpay.com; the
+  webhook and `dj reconcile_payments` complete payments made meanwhile (The shop, "A stuck payment").
+- **A task failed with `LostTooOften`** (Sentry, the task results in the admin): its process died under three runs
+  in a row (killed for its memory, a crash), so it is not run again. Look for the worker's "exited with signal 9"
+  lines and what the task was given (a huge PDF, a broken clip); raise the worker's memory limit or fix the input,
+  then queue it again (the task's own admin action, or `celery -A examleaf call <task> --args '[…]'`).
+- **Errors "canceling statement due to statement timeout"** (Sentry, logs): a statement ran past `DB_STATEMENT_TIMEOUT`
+  (15 s in the web, 600 s in Celery). The request answered 500 and its transaction was rolled back; find the query
+  (the log line's `request_id`, Sentry's breadcrumbs), and `EXPLAIN` it before raising the limit.
+- **A panel job stays "running"** long after its start: past its soft limit (25 minutes) a job ends failed with the
+  reason; one whose worker was lost (a pod killed, out of memory) stays running. Mark it failed by hand:
+  `dj shell -c "from staff.models import Job; Job.objects.filter(pk=ID, state='running').update(state='failed')"`, and
+  start it again from the panel.
 - **Disk full:** `docker system df`; old images (`docker image prune`), backups beyond `BACKUP_KEEP_DAYS`; logs are
   rotated already; the clips' videos are in the `media` volume unless the buckets are set.
 - **Certificate problems:** `docker compose logs caddy`; DNS must point at the server and ports 80/443 be open.
 - **Someone locked out by django-axes** (10 failed log-ins): it lifts after 15 minutes, or run
   `dj axes_reset_username x@example.com`.
+
+## Reading the logs
+
+Every line is a JSON object on stdout (`docker compose logs -f web worker`, or the cluster's log store): `time`,
+`level`, `logger`, `message`, and `request_id`, the id Caddy gave the request (`X-Request-ID`, sent back in the
+answer, and in Caddy's access log). A Celery task's lines carry the request id of the request that queued it, and their
+own `task_id` and `task_name`.
+
+- **A request:** one line from `examleaf.requests` when it is answered: `method`, `route` (the URL pattern, e.g.
+  `/api/<version>/orders/t/<slug:token>/`: an order link's token or a consent link never reaches the logs), `status`,
+  `duration_ms` and `user_id` (the account's id, null when signed out; never an email address). Everything else that
+  request logged has the same `request_id`:
+  `docker compose logs web | grep 4c6a4b317a694c15aed3a359fa453e1d`.
+- **Slow requests:** the same line at WARNING with "(slow)" past `SLOW_REQUEST_SECONDS` (2 s):
+  `docker compose logs web | grep '"level": "WARNING", "logger": "examleaf.requests"'`. A slow payment page is
+  Razorpay (`shop.payments` "not created"); a slow API page with "statement timeout" is a query.
+- **A task:** `docker compose logs worker | grep '"task_name": "shop.tasks.refund_payment"'`; Celery's own lines say
+  `received`, `succeeded in …s`, `retry: Retry in …s` or `raised …` for each task id.
+- **gunicorn's processes:** `gunicorn.error` lines: "Booting worker", "Autorestarting worker after current request"
+  (the recycling after `GUNICORN_MAX_REQUESTS`: normal), "Worker exiting", and the ones that matter: "WORKER TIMEOUT"
+  and "worker … timed out: the stacks of its threads follow" (a process stuck as a whole: the stacks after it show
+  where), "was sent SIGKILL! Perhaps out of memory?". Count them a day:
+  `docker compose logs --since 24h web | grep -c 'WORKER TIMEOUT\|Perhaps out of memory'`.
+- **The cache Redis silent:** `examleaf.cache` "every cache call a miss for 5 seconds", one a pause per process.
+- **The providers' bulkhead:** "Half of this process's threads are waiting on providers already" in a Razorpay or
+  MSG91 error: the provider is slow, and calls beyond the share are answered at once (Incidents).
