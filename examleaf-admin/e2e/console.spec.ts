@@ -390,6 +390,9 @@ for (const width of [1280, 390]) {
         await expect(toast(page, "Started")).toBeVisible();
         await expect(page.getByText(/Waiting for a second person to approve it: change request/)).toBeVisible();
         await expect(page.getByRole("link", { name: /^Open the change request/ })).toBeVisible();
+        // its starter may stop it while it waits (the world stays as the later steps expect it)
+        await page.getByRole("button", { name: "Cancel the job" }).click();
+        await expect(page.getByText("Cancelled: it stopped where it was.").first()).toBeVisible();
 
         // an adult alone: the check says it runs at once, and the run is carried out
         await page.goto("/users/");
@@ -401,11 +404,28 @@ for (const width of [1280, 390]) {
         await dialog.getByRole("button", { name: "Check first" }).click();
         await settle(page, dialog.getByText("1 account can be changed."), staff, codes);
         await expect(dialog.getByText("It runs at once, within your limits.")).toBeVisible();
+        // a suspension is wide: the number of accounts is typed before it runs
+        await expect(dialog.getByRole("button", { name: "Run it for 1 account" })).toBeDisabled();
+        await dialog.getByLabel("To confirm, type 1 below.").fill("1");
         await dialog.getByRole("button", { name: "Run it for 1 account" }).click();
         await settle(page, page.getByText("All done"), staff, codes);
-        await expect(
-          page.getByRole("region", { name: "Customers, a table" }).getByRole("row").filter({ hasText: "Bikash Deka" }),
-        ).toContainText("Suspended");
+        const bikash = page
+          .getByRole("region", { name: "Customers, a table" })
+          .getByRole("row")
+          .filter({ hasText: "Bikash Deka" });
+        await expect(bikash).toContainText("Suspended");
+
+        // and lifted again with the same bar, so that the later steps find the customer as the fixtures made them
+        await page.getByRole("checkbox", { name: "Choose Bikash Deka" }).check();
+        await page.getByRole("button", { name: "Lift the suspension" }).click();
+        dialog = page.getByRole("dialog", { name: "Lift the suspension of 1 account?" });
+        await dialog.getByLabel("Reason").fill("The test of the bulk bar is over.");
+        await dialog.getByRole("button", { name: "Check first" }).click();
+        await settle(page, dialog.getByText("1 account can be changed."), staff, codes);
+        await dialog.getByRole("button", { name: "Run it for 1 account" }).click();
+        await settle(page, page.getByText("All done"), staff, codes);
+        await expect(bikash).toContainText("Active");
+        await expect(bikash).not.toContainText("Suspended");
       });
 
       await test.step("SUPPORT: the staff's own actions are not theirs to read, and they may not suspend", async () => {

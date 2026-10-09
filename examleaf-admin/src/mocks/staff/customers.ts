@@ -580,7 +580,7 @@ function commerceOf(kit: CustomersKit, user: Account): Response {
 
 /** staff/customers.py evidence_problem: a reference says where the evidence is, never a contact. */
 function evidenceProblem(reference: string): string | null {
-  return /@|(?:\+?91[\s-]?)?[6-9]\d{4}[\s-]?\d{5}/.test(reference)
+  return /@|(?<!\d)(?:\+?91[\s-]?)?[6-9]\d{4}[\s-]?\d{5}(?!\d)/.test(reference)
     ? "Say where the evidence is (a ticket's number, a letter's date), not a contact's details."
     : null;
 }

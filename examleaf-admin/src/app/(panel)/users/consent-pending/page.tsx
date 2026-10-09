@@ -2,6 +2,7 @@
 // register first, with the link's life and the day's use; the link again or the consent recorded by hand from here.
 // It replaces the RUNBOOK's shell recipe for "who is waiting".
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 
 import { Problem } from "@/components/data/problem";
 import { ConsentPendingTable } from "@/components/modules/users/consent-pending-table";
@@ -10,12 +11,14 @@ import { ApiError } from "@/lib/api/errors";
 import { attempt, param, pathOf, type SearchParams, staffPage } from "@/lib/api/page";
 import { listConsentPending } from "@/lib/api/staff";
 import { copy } from "@/lib/copy";
+import { has, P } from "@/lib/modules";
 
 export const metadata: Metadata = { title: copy.customers.pending.title };
 
 export default async function ConsentPendingPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
-  const { transport, path } = await staffPage(pathOf("/users/consent-pending/", params));
+  const { manifest, transport, path } = await staffPage(pathOf("/users/consent-pending/", params));
+  if (!has(manifest, P.usersView)) notFound();
   const page = await attempt(listConsentPending({ cursor: param(params, "cursor") }, transport), path);
   return (
     <>

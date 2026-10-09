@@ -42,8 +42,8 @@ export function ConsentPendingTable({
   const record = can(P.usersVerifyConsent);
   const columns: Column<ConsentPending>[] = [
     { key: "student", label: words.columns.student, render: (row) => row.full_name },
-    { key: "class", label: words.columns.class, render: (row) => classOf(row) || copy.common.none },
-    { key: "age", label: words.columns.age, render: (row) => ageWords(row.age_band) },
+    { key: "class", label: words.columns.class, render: (row) => classOf(row) || copy.common.none, hidden: true },
+    { key: "age", label: words.columns.age, render: (row) => ageWords(row.age_band), hidden: true },
     {
       key: "parent",
       label: words.columns.parent,
@@ -62,8 +62,21 @@ export function ConsentPendingTable({
       key: "last",
       label: words.columns.last,
       render: (row) => (row.last_link_at ? formatDateTime(row.last_link_at) : words.never),
+      hidden: true,
     },
-    { key: "ends", label: words.columns.ends, wrap: true, render: (row) => linkEnds(row) },
+    {
+      key: "ends",
+      label: words.columns.ends,
+      wrap: true,
+      render: (row) => (
+        <span className="flex flex-col gap-0.5">
+          <span>{linkEnds(row)}</span>
+          {row.links_sent === 0 && !row.email_verified ? (
+            <span className="text-[13px] text-muted-foreground">{words.noEmail}</span>
+          ) : null}
+        </span>
+      ),
+    },
     {
       key: "today",
       label: words.columns.today,
@@ -73,12 +86,8 @@ export function ConsentPendingTable({
       key: "account",
       label: words.columns.account,
       wrap: true,
-      render: (row) => (
-        <span className="flex flex-col gap-0.5">
-          <span>{row.blocking ? <StatusChip tone="waiting">{words.readOnly}</StatusChip> : words.inUse}</span>
-          {row.email_verified ? null : <span className="text-[13px] text-muted-foreground">{words.noEmail}</span>}
-        </span>
-      ),
+      render: (row) => (row.blocking ? <StatusChip tone="waiting">{words.readOnly}</StatusChip> : words.inUse),
+      hidden: true,
     },
     ...(resend || record
       ? [

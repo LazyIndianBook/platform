@@ -24,7 +24,7 @@ import {
   DialogHeader,
 } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
-import { Textarea } from "@/components/ui/input";
+import { Input, Textarea } from "@/components/ui/input";
 import { toast } from "@/components/ui/toaster";
 import {
   bulkResult,
@@ -90,6 +90,7 @@ function BulkDialog({
   const words = copy.customers.bulk;
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
+  const [typed, setTyped] = useState("");
   // the check: its job, then the job as it ended (null: the answer could not be read)
   const [check, setCheck] = useState<{ job: Job; ended: Job | null | undefined } | null>(null);
   const asking = useAction();
@@ -97,9 +98,13 @@ function BulkDialog({
   const error = starting.error ?? asking.error;
   const ended = check?.ended && check.ended.state === "done" ? check.ended : null;
   const canRun = ended !== null && (bulkResult(ended).outcomes.valid ?? 0) > 0;
+  // a suspension is wide and shuts people out: the number of accounts is typed before it runs (as an order cancelling)
+  const confirms = action === "user.suspend";
+  const matches = !confirms || typed.trim() === String(ids.length);
 
   const reset = () => {
     setReason("");
+    setTyped("");
     setCheck(null);
     asking.setError(null);
     starting.setError(null);
@@ -123,7 +128,7 @@ function BulkDialog({
           className="flex flex-col gap-3.5"
           onSubmit={async (event) => {
             event.preventDefault();
-            if (!canRun) return;
+            if (!canRun || !matches) return;
             await starting.run(async () => {
               const job = await startCustomersJob(action, ids, reason.trim(), false);
               setOpen(false);
@@ -155,6 +160,9 @@ function BulkDialog({
           </Field>
           {check ? (
             <section aria-label={words.checked} className="flex flex-col gap-3">
+              <p className="m-0 text-[15px] font-semibold" aria-hidden="true">
+                {words.checked}
+              </p>
               <JobProgress
                 key={check.job.id}
                 job={check.job}
@@ -166,6 +174,23 @@ function BulkDialog({
               />
               {ended ? <CheckSummary job={ended} /> : null}
             </section>
+          ) : null}
+          {canRun && confirms ? (
+            <Field
+              id={`${id}-typed`}
+              label={copy.confirmTyped.instruction(String(ids.length))}
+              error={typed && !matches ? copy.confirmTyped.mismatch : null}
+            >
+              <Input
+                name="typed"
+                value={typed}
+                onChange={(event) => setTyped(event.target.value)}
+                inputMode="numeric"
+                autoComplete="off"
+                data-no-draft=""
+                className="w-28 font-mono"
+              />
+            </Field>
           ) : null}
           <DialogFooter>
             <DialogClose asChild>
@@ -183,7 +208,7 @@ function BulkDialog({
             >
               {check ? words.again : words.check}
             </Button>
-            <Button type="submit" busy={starting.busy} disabled={!canRun}>
+            <Button type="submit" busy={starting.busy} disabled={!canRun || !matches}>
               {words.run(ids.length)}
             </Button>
           </DialogFooter>

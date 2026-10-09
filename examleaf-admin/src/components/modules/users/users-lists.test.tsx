@@ -129,14 +129,28 @@ describe("the students waiting for a parent", () => {
     expect(linkEnds({ ...waiting, links_sent: 0, link_expires_at: null })).toBe("No link sent");
   });
 
-  it("show the link's life, the day's use and whether the account only reads", () => {
+  it("show the parent's contact, the link's life and the day's use", () => {
     withPermissions([P.usersView], <ConsentPendingTable rows={[waiting]} next={null} previous={null} />);
     const row = screen.getAllByRole("row")[1];
     expect(within(row).getByText("••••••4410 (text)")).toBeVisible();
+    expect(within(row).getByText(/^Works until 15 Oct 2026/)).toBeVisible();
     expect(within(row).getByText("1 of 3")).toBeVisible();
-    expect(within(row).getByText("Reads only until a parent confirms")).toBeVisible();
-    expect(within(row).getByText(/own email is not confirmed yet/)).toBeVisible();
     expect(screen.queryByRole("button", { name: /Send the link again/ })).toBeNull();
+  });
+
+  it("say why no link has gone when the student's own email is not confirmed yet", () => {
+    const unsent = { ...waiting, id: 7112, full_name: "Tina Rabha", links_sent: 0, link_expires_at: null };
+    withPermissions([P.usersView], <ConsentPendingTable rows={[waiting, unsent]} next={null} previous={null} />);
+    const [, sent, never] = screen.getAllByRole("row");
+    expect(within(sent).queryByText(/own email is not confirmed yet/)).toBeNull();
+    expect(within(never).getByText("No link sent")).toBeVisible();
+    expect(within(never).getByText(/own email is not confirmed yet/)).toBeVisible();
+  });
+
+  it("keep the class, the age, the last time and whether the account only reads for the column chooser", () => {
+    withPermissions([P.usersView], <ConsentPendingTable rows={[waiting]} next={null} previous={null} />);
+    expect(screen.queryByText("Reads only until a parent confirms")).toBeNull();
+    expect(screen.queryByRole("columnheader", { name: "Account" })).toBeNull();
   });
 
   it("offer the link again and the consent by hand to whoever holds the permissions", () => {

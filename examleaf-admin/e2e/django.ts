@@ -230,7 +230,7 @@ export type CustomersWorld = {
 };
 
 /** For the customers journey: a student of 14 whose parent has not confirmed (one link sent, by email; their own
- *  address confirmed), a guest buyer's order (no account, an email address of its own), and a live order of ₹1,500 paid
+ *  address confirmed), a guest buyer's live order (no account, an email address of its own), and a live order of ₹1,500 paid
  *  online for `customer` (seedRealWorld's order is a test-mode one: the customers' pages leave those out on a live
  *  site, which this backend counts itself as without Razorpay keys). */
 export function seedCustomersWorld(stamp: number, customer: number): CustomersWorld {
@@ -248,7 +248,7 @@ child = User.objects.create_user(email, "Child-e2e-2026!", full_name="Real E2E C
 EmailAddress.objects.create(user=child, email=email, primary=True, verified=True)
 ParentLinkSend.objects.create(user=child, channel="email")
 address = {"name": "Real E2E Guest", "phone": "+919864012345", "line1": "1 Test Lane", "line2": "", "city": "Guwahati", "district": "Kamrup Metro", "state": "AS", "pin": "781001"}
-Order.objects.create(email=${py(`admin-ui-guest-${stamp}@example.com`)}, shipping_address=address, subtotal=299, total=299, payment_method="razorpay", placed_at=timezone.now())
+Order.objects.create(email=${py(`admin-ui-guest-${stamp}@example.com`)}, shipping_address=address, subtotal=299, total=299, payment_method="razorpay", placed_at=timezone.now(), livemode=True)
 buyer = User.objects.get(pk=${customer})
 order = Order.objects.create(user=buyer, email=buyer.email, shipping_address=address, subtotal=1500, total=1500, payment_method="razorpay", placed_at=timezone.now(), livemode=True)
 Order.objects.filter(pk=order.pk).update(status="paid")

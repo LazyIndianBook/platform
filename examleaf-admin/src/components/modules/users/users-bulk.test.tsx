@@ -166,6 +166,29 @@ describe("an action in two steps", () => {
     expect(within(dialog).getByRole("button", { name: "Run it for 2 accounts" })).toBeDisabled();
   });
 
+  it("asks for the number of accounts to be typed before a suspension runs, and for nothing else", async () => {
+    const handlers = renderBar([P.usersSuspend]);
+    vi.mocked(startCustomersJob)
+      .mockResolvedValueOnce(job())
+      .mockResolvedValueOnce(job({ id: 32, dry_run: false, state: "running" }));
+    await userEvent.click(screen.getByRole("button", { name: "Suspend" }));
+    const dialog = screen.getByRole("dialog", { name: "Suspend 2 accounts?" });
+    await userEvent.type(within(dialog).getByLabelText("Reason"), "Spam sign-ups.");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Check first" }));
+    const run = within(dialog).getByRole("button", { name: "Run it for 2 accounts" });
+    const typed = await within(dialog).findByLabelText("To confirm, type 2 below.");
+    expect(run).toBeDisabled();
+    await userEvent.type(typed, "3");
+    expect(within(dialog).getByText("What you typed does not match.")).toBeVisible();
+    expect(run).toBeDisabled();
+    await userEvent.clear(typed);
+    await userEvent.type(typed, "2");
+    expect(run).toBeEnabled();
+    await userEvent.click(run);
+    expect(startCustomersJob).toHaveBeenLastCalledWith("user.suspend", [7101, 7102], "Spam sign-ups.", false);
+    expect(handlers.onJob).toHaveBeenCalled();
+  });
+
   it("shows the API's refusal beside its field, and starts nothing", async () => {
     renderBar([P.usersEndSessions]);
     vi.mocked(startCustomersJob).mockRejectedValueOnce(

@@ -329,8 +329,8 @@ cursor pagination `{next, previous, results}` (the `cursor` of the links, `page_
   `POST users/{id}/impersonate/` with `{reason, ticket}` (answered `{token, expires_at}`: the console builds the
   website's link, `NEXT_PUBLIC_WEBSITE_URL/account/impersonate/?token=…`) and `POST users/{id}/impersonate/end/` with
   the token. The bulk actions are `POST jobs/` `{kind: "bulk_action", params: {action: "user.suspend" |
-  "user.unsuspend" | "user.end_sessions" | "user.resend_consent", targets: ["7101", …], payload: {}, reason},
-  dry_run}`: a dry run's `result` is `{outcomes: {valid, refused}, minors, approval}` (`approval`: the rule's words
+"user.unsuspend" | "user.end_sessions" | "user.resend_consent", targets: ["7101", …], payload: {}, reason},
+dry_run}`: a dry run's `result` is `{outcomes: {valid, refused}, minors, approval}` (`approval`: the rule's words
   when the real run will wait for a second person, null otherwise).
 - **Data protection**: `GET`/`POST data-requests/`, `GET`/`PATCH data-requests/{id}/`, `POST …/acknowledge/`,
   `verify-identity/`, `close/`, `GET …/response/`, `GET …/erasure-report/`, `POST …/erase/`, `POST …/export/`;

@@ -307,7 +307,7 @@ test("OWNER: the customer's timeline and the views it logged; the child waiting 
   });
 
   await test.step("the audit trail shows the logged view, a customer's (no child mark)", async () => {
-    await page.goto(`/audit/?target_type=accounts.user&target_id=${world.customer}&action=sensitive_read`);
+    await page.goto(`/audit/?target_type=accounts.user&target_id=${world.customer}&action_prefix=sensitive_read`);
     let seen = false;
     for (let index = 0; index < 8 && !seen; index += 1) {
       await table.getByRole("button").nth(index).click();
@@ -321,7 +321,7 @@ test("OWNER: the customer's timeline and the views it logged; the child waiting 
   await test.step("a search for the customer by email is one lookup event: a hash, never the address", async () => {
     await page.goto(`/users/?q=${encodeURIComponent(world.email)}`);
     await expect(page.getByRole("link", { name: "Real E2E Customer" })).toBeVisible();
-    await page.goto("/audit/?action=customer.lookup");
+    await page.goto("/audit/?action_prefix=customer.lookup");
     await table.getByRole("button").first().click();
     await expect(sheet.getByText('"list": "users"')).toBeVisible();
     await expect(sheet.getByText('"kind": "email"')).toBeVisible();
@@ -395,7 +395,7 @@ test("OWNER: the customer's timeline and the views it logged; the child waiting 
   });
 
   await test.step("the audit trail has the method, and neither the evidence nor the parent's address", async () => {
-    await page.goto(`/audit/?target_type=accounts.user&target_id=${people.child}&action=user.consent_verified`);
+    await page.goto(`/audit/?target_type=accounts.user&target_id=${people.child}&action_prefix=user.consent_verified`);
     await table.getByRole("button").first().click();
     await expect(sheet.getByText('"method": "staff_manual"')).toBeVisible();
     await expect(sheet.getByText('"child": true')).toBeVisible();

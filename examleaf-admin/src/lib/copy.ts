@@ -3892,8 +3892,8 @@ export const en = {
       started: "Started",
       limits: (rows: number | null) =>
         rows === null
-          ? "You have no limit on the rows of one bulk action."
-          : `Above ${plural(rows, "account", "accounts")} a second person approves it, whoever you are.`,
+          ? "Your role has no limit on the accounts of one bulk action."
+          : `More than ${plural(rows, "account", "accounts")} at once need a second person's approval.`,
       nothing: "Nothing can be changed in this choice.",
     },
   },

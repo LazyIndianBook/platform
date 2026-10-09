@@ -4,6 +4,7 @@
 // the server records (a child's as such), and the course shows for a student under 18 as counts, never as a trail.
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 
 import { Problem } from "@/components/data/problem";
 import { RecordPage } from "@/components/data/record-page";
@@ -22,6 +23,7 @@ import { attempt, param, pathOf, recordId, type SearchParams, staffPage } from "
 import { getTimeline, getUser } from "@/lib/api/staff";
 import { copy, labelOf } from "@/lib/copy";
 import { classOf } from "@/lib/display";
+import { has, P } from "@/lib/modules";
 
 export const metadata: Metadata = { title: copy.customers.timeline.title };
 
@@ -34,7 +36,8 @@ export default async function CustomerTimelinePage({
 }) {
   const { id } = await params;
   const query = await searchParams;
-  const { transport, path } = await staffPage(pathOf(`/users/${encodeURIComponent(id)}/timeline/`, query));
+  const { manifest, transport, path } = await staffPage(pathOf(`/users/${encodeURIComponent(id)}/timeline/`, query));
+  if (!has(manifest, P.usersView)) notFound();
   const number = recordId(id);
   // a kind the API does not know is left out (a mistyped address is not an error page)
   const kind = TIMELINE_KINDS.includes(param(query, "kind")) ? param(query, "kind") : "";
