@@ -10,6 +10,8 @@ shown. kubectl 1.32 talks to a 1.35 server, three minor versions apart (it warns
   3529b96 (the platform with the Celery health fix).
 - **Run 1, on ingress-nginx** (03:00–04:15 UTC), section 7: the chart's first version, which the second replaced
   where the controller is concerned; what it showed about everything else still stands.
+- **The admin panel's own image** (05:41–05:47 UTC), section 6: it reached the integration branch after run 2 (in
+  6ec1af5), where the website's image had stood in for it; built and run on its own as the chart runs it.
 
 ## 1. Images and the cluster
 
@@ -119,7 +121,7 @@ the Cluster reported `ContinuousArchiving=True`.
 and its sidecar 20, each Redis 3 to 4, Traefik 30 (ingress-nginx used 64); the release 851 MiB, the node 1.8 GiB in
 all (2.4 GiB with the page cache).
 
-## 6. ERPNext and the other options, checked without running them
+## 6. Checked without a cluster: ERPNext, the other options, the admin panel's image
 
 ERPNext wants 6 to 8 GiB and the laptop had about 3 GB to spare, so it stayed off. With mariadb-operator 26.10.1's CRDs
 applied (CRDs only), `helm install erpcheck … --dry-run=server --set erpnext.enabled=true --set
@@ -131,6 +133,17 @@ it should. The default values with every optional part on (the autoscalers, the 
 the smoke test, backups to an R2 endpoint with `encryption: aws:kms`) were accepted the same way, and the ObjectStore
 CRD lists `AES256` and `aws:kms` for `encryption`. `helm lint` and `helm template` pass with the default values and
 with values-kind.yaml (`make lint`).
+
+**The admin panel's image.** `make images TAG=6ec1af5 DOMAIN=examleaf.localhost`'s new third build (the
+`examleaf-admin` Dockerfile unchanged, for `https://admin.examleaf.localhost`) took 84 seconds: 325 MB. Run as the
+chart runs the admin's pod, with no cluster (the laptop's disk and memory were needed by another agent's ERPNext
+stack): `docker run --read-only --tmpfs /tmp --tmpfs /app/.next/cache:mode=1777 --user 1000 --cap-drop ALL
+--security-opt no-new-privileges`, `API_INTERNAL_BASE` pointing at nothing. It ran as `uid=1000(node)
+gid=1000(node)`, 56 MiB; `/api/health/` answered 200 (the probes' path: the process only), `/` and `/sign-in/` 503
+with `Retry-After: 30` and the panel's own headers (CSP, HSTS, `X-Robots-Tag: noindex, nofollow`) while Django was
+unreachable, and `/health/` 500: the panel passes Django's paths on, `/health/` among them, so `health-hide` is
+needed on the admin host as on the website's. The new Middleware `drop-subrequest` (Headers, `customRequestHeaders` with an empty value, the shape
+`strip-server` has for responses) was rendered and linted, not applied.
 
 ## 7. Run 1, on ingress-nginx
 
@@ -171,14 +184,16 @@ What run 1 found, and what changed because of it:
 - **ERPNext running** (section 6), mariadb-operator's backups, the site-backup CronJob.
 - **More than one node**: ReadWriteMany media, a database failover, a real drain.
 - **Email, SMS, Razorpay, Google sign-in, Turnstile, Sentry, the media buckets**: no accounts on a laptop.
-- **A clip through the admin**, `import_papers`, and the admin panel itself (its image does not exist; the website's
-  stood in, which answers on the admin host only where Django's paths do not).
+- **A clip through the admin**, `import_papers`, and the admin panel on kind: run 2 had the website's image standing
+  in on the admin host (the panel's arrived later, section 6), so a sign-in through the panel is untried, and its
+  staff API (`/api/v1/staff/`) is not built yet.
 
 ## 9. Cleaning up
 
 ```sh
 make kind-down                    # kind delete cluster --name examleaf-test; docker image prune -f
 docker rmi ghcr.io/lazyindianbook/examleaf-web:3529b96 ghcr.io/lazyindianbook/examleaf-frontend:3529b96 <kindest/node image>
+docker rmi ghcr.io/lazyindianbook/examleaf-admin:6ec1af5      # after section 6's check
 colima ssh -- sudo fstrim -av     # the VM's freed blocks back to the Mac (8.9 GiB)
 ```
 
