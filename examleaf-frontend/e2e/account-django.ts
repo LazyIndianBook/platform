@@ -106,3 +106,26 @@ print(User.objects.filter(email=${py(email)}).delete(), BookCode.objects.filter(
 `,
   );
 }
+
+/** The staff console's step of an impersonation (staff.services.impersonation_token, as POST staff/users/{id}/
+ *  impersonate/ does it): a 15-minute token for the student, issued by a member of staff made for it (`staff`, no
+ *  role, no password: they never log in here). Printed last, as the console's link carries it. */
+export function impersonationToken(email: string, staff: string): string {
+  const out = manage(
+    "shell",
+    "-c",
+    `
+from accounts.models import User
+from staff.services import impersonation_token
+member = User.objects.filter(email=${py(staff)}).first() or User.objects.create_user(${py(staff)}, None, full_name="C E2E Support", is_staff=True)
+token, _ = impersonation_token(member, User.objects.get(email=${py(email)}), reason="The website's e2e: a customer's question", ticket="C-E2E-1")
+print(token)
+`,
+  );
+  return out.trim().split("\n").at(-1) ?? "";
+}
+
+/** The member of staff of impersonationToken (the audit events keep their id only). */
+export function deleteStaffMember(staff: string) {
+  manage("shell", "-c", `from accounts.models import User\nprint(User.objects.filter(email=${py(staff)}).delete())`);
+}

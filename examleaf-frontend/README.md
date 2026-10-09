@@ -112,6 +112,22 @@ password), `/account/signup/`, `/account/verify-email/`, `/account/password/rese
 `/account/password/reset/key/<key>/` (the emailed link), `/account/reauthenticate/`, `/account/2fa/authenticate/`,
 `/account/logout/`.
 
+### Impersonation
+
+A member of ExamLeaf's support can sign in as a customer from the staff console (`../examleaf-admin/`: a reason and a
+ticket, logged and the owners told; never a member of staff or a student under 18). The console gives them a link to
+`/account/impersonate/?token=…`, a token of 15 minutes; the page sends it once (`POST /api/v1/account/impersonate/`,
+answered `{until, user}`) and opens `/account/`, or says plainly that the link is not valid, has expired or was used
+(the 400's words). While the account manifest (`GET /api/v1/account/`, its `impersonation: {until, by} | null`, read
+once per request by the root layout: `getImpersonation()`) says so, a band above every page that cannot be dismissed
+says "A support colleague is viewing this account as <their masked email> until <time>", in the information colours,
+with End (`DELETE /api/v1/account/impersonate/`, then `/account/login/`). The actions such a session may not take are
+drawn disabled with the reason (`WhileImpersonated`, `src/components/site/impersonation.tsx`): ordering and paying,
+cancelling an order, the address book's changes, the email address, mobile number, password, Google link and
+passkeys, two-step log-in, the parent's link, the data download, keeping or deleting the account. The backend refuses
+them anyway (403 `impersonating`); the page only says so first. Until the backend publishes the endpoint and the
+manifest's field, the manifest reads as no impersonation and `e2e/impersonation.spec.ts` skips (its probe answers 404).
+
 ## Design system
 
 Direction A, "Answer Script" (the design files in `../implementation/design/*.dc.html`, one `[data-screen-label]` per
@@ -157,7 +173,8 @@ goes to an image service; `qrcode` would be about ten times the size with `pngjs
   (`<number>/`, `lookup/`, `t/<token>/`).
 - `(auth)`: `/account/login/` (Google's refused or cancelled sign-in lands here with `?error=`), `/account/signup/`,
   `/account/verify-email/`, `/account/password/reset/` (`key/<key>/`, `done/`: the new password is saved, Log in keeps
-  `next`), `/account/reauthenticate/`, `/account/2fa/authenticate/`, `/account/logout/`, `/account/inactive/`.
+  `next`), `/account/reauthenticate/`, `/account/2fa/authenticate/`, `/account/logout/`, `/account/inactive/`,
+  `/account/impersonate/` (the staff console's link: "Impersonation" above).
 - `(account)`: `/account/`, `/account/record/` (`<id>/edit/`), `/account/learning/` (8E: `GET me/learning/`: the
   clip to continue with, the next three days and the exam date, the revise-again counts, progress per subject and
   chapter, what is open, the streak), `/account/orders/` (`<number>/`), `/account/details/`, `/account/addresses/`,
