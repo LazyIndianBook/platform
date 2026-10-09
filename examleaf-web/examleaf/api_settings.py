@@ -34,7 +34,7 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 50,
     "DEFAULT_FILTER_BACKENDS": [
         "django_filters.rest_framework.DjangoFilterBackend",
-        "rest_framework.filters.SearchFilter",
+        "api.filters.BoundedSearchFilter",  # DRF's SearchFilter: five words of 50 characters at most
         "rest_framework.filters.OrderingFilter",
     ],
     # Counted in the cache (Redis in production), per client address (anon) or per user.

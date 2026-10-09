@@ -369,6 +369,9 @@ class ProductReviewSerializer(serializers.ModelSerializer):
         read_only_fields = ["status", "created"]
 
 
+REVIEWS_SHOWN = 200  # the newest of a product's reviews in its answer; the average and the count are of them all
+
+
 class ProductReviewsSerializer(serializers.Serializer):
     average = serializers.DecimalField(max_digits=2, decimal_places=1, allow_null=True, help_text="of the approved")
     count = serializers.IntegerField()
@@ -440,7 +443,7 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
         if request.method == "GET":
             approved = product.reviews.filter(status=Review.Status.APPROVED)
             data = approved.aggregate(average=Avg("rating"), count=Count("pk"))
-            data.update(can_review=Review.can_review(request.user, product), results=approved)
+            data.update(can_review=Review.can_review(request.user, product), results=approved[:REVIEWS_SHOWN])
             return Response(ProductReviewsSerializer(data).data)
         if not VerifiedEmail().has_permission(request, self):
             self.permission_denied(request, message=VerifiedEmail.message)
