@@ -470,13 +470,13 @@ def items_flagged(user, period):
     href="/finance/settlements/",
 )
 def settlement_items_unmatched(user, period):
-    """Lines of Razorpay's settlements that match no payment and no refund of ours (an adjustment is not a line to
-    match). FINANCE finds each one in the settlement it belongs to."""
+    """Lines of Razorpay's settlements that match no payment, no refund and no payment link of ours (an adjustment is
+    not a line to match). FINANCE finds each one in the settlement it belongs to."""
     line = model("shop.SettlementLine")
     links = [
         each.name
         for each in line._meta.get_fields()
-        if each.is_relation and each.many_to_one and each.related_model in (Payment, Refund)
+        if each.is_relation and each.many_to_one and (each.related_model in (Payment, Refund) or each.name == "link")
     ]
     if not links:
         raise Absent("shop.SettlementLine has no link to a payment or a refund")

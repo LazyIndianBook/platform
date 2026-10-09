@@ -11,13 +11,13 @@ from django.test.utils import isolate_apps
 from django.utils import timezone
 
 from accounts.factories import UserFactory
-from insights import reports
+from insights import metrics, reports
 from learn.models import BookCode
 from shop.factories import ProductFactory
-from shop.models import Product, money_field
+from shop.models import Payment, Product, Refund, money_field
 from staff.tests.conftest import STAFF, signed_in
 
-from .helpers import as_test, sell
+from .helpers import as_test, give_back, pay, sell
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -47,10 +47,21 @@ def finance(monkeypatch, settings):
             def __str__(self):
                 return self.settlement_id
 
+        class PaymentLink(models.Model):  # the Finance module's B2B payment link
+            class Meta:
+                app_label = "insights"
+                db_table = "stand_in_payment_link"
+
+            def __str__(self):
+                return f"link {self.pk}"
+
         class SettlementLine(models.Model):
             settlement = models.ForeignKey(Settlement, on_delete=models.CASCADE, related_name="lines")
             type = models.CharField(max_length=10)
             amount = money_field("amount", default=0)
+            payment = models.ForeignKey(Payment, on_delete=models.CASCADE, null=True, blank=True, related_name="+")
+            refund = models.ForeignKey(Refund, on_delete=models.CASCADE, null=True, blank=True, related_name="+")
+            link = models.ForeignKey(PaymentLink, on_delete=models.CASCADE, null=True, blank=True, related_name="+")
 
             class Meta:
                 app_label = "insights"
@@ -61,20 +72,24 @@ def finance(monkeypatch, settings):
 
         with connection.schema_editor() as editor:
             editor.create_model(Settlement)
+            editor.create_model(PaymentLink)
             editor.create_model(SettlementLine)
-        monkeypatch.setattr(reports, "model", lambda label: {"shop.Settlement": Settlement}[label])
+        models_by_label = {"shop.Settlement": Settlement, "shop.SettlementLine": SettlementLine}
+        monkeypatch.setattr(reports, "model", lambda label: models_by_label[label])
+        monkeypatch.setattr(metrics, "model", lambda label: models_by_label[label])
         try:
-            yield Settlement, SettlementLine
+            yield Settlement, SettlementLine, PaymentLink
         finally:
             with connection.schema_editor() as editor:
                 editor.delete_model(SettlementLine)
+                editor.delete_model(PaymentLink)
                 editor.delete_model(Settlement)
 
 
 @pytest.fixture
 def made(finance):
     """Two settlements this week (one of them taking back refunds), a test-keys one, and one long ago."""
-    settlement, line = finance
+    settlement, line, _ = finance
     today = timezone.localdate()
     money = dict(gross=Decimal("1000"), fees=Decimal("20"), tax=Decimal("3.60"), net=Decimal("976.40"))
     newest = settlement.objects.create(
@@ -130,6 +145,25 @@ def test_the_api_answers_the_same_rows_as_json(made):
     body = answer.json()
     assert body["configured"] is True and [row["reference"] for row in body["rows"]] == ["setl_2", "setl_1"]
     assert body["rows"][0]["refunds"] == "100.00" and body["rows"][0]["date"] == str(timezone.localdate())
+
+
+def test_unmatched_settlement_items_are_the_lines_matched_to_nothing(finance, settings):
+    settlement, line, link = finance
+    settings.RAZORPAY_KEY_ID = ""
+    book = ProductFactory()
+    order = sell(book, timezone.localdate())
+    payment = pay(order)
+    refund = give_back(payment, Decimal("50.00"), when=timezone.now())
+    today = timezone.localdate()
+    batch = settlement.objects.create(settlement_id="setl_1", date=today, livemode=True)
+    line.objects.create(settlement=batch, type="payment", payment=payment)  # matched to a payment
+    line.objects.create(settlement=batch, type="refund", refund=refund)  # to a refund
+    line.objects.create(settlement=batch, type="payment", link=link.objects.create())  # to a B2B payment link
+    line.objects.create(settlement=batch, type="adjustment")  # nothing to match
+    line.objects.create(settlement=batch, type="payment")  # ours to find
+    line.objects.create(settlement=batch, type="refund")  # ours to find
+    owner = UserFactory(is_staff=True, is_superuser=True)
+    assert metrics.settlement_items_unmatched(owner, metrics.last_days(7)).value == 2
 
 
 @pytest.fixture
