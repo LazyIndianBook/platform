@@ -23,6 +23,9 @@ export default function config(phase: string): NextConfig {
     // allauth.headless paths have no trailing slash: src/proxy.ts adds the slash everywhere else
     skipTrailingSlashRedirect: true,
     poweredByHeader: false,
+    // no next/image anywhere: the optimizer off, so /_next/image answers 404 and nothing is resized on request or
+    // written to .next/cache/images (RESILIENCE.md)
+    images: { unoptimized: true },
     // STAFF_API_MOCK=1 points the staff API at the fixtures of src/mocks/staff/ (src/lib/api/staff.ts), and only under
     // `next dev`: every build compiles it to "", so a production bundle can never answer from fixtures.
     env: {

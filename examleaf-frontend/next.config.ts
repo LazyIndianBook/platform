@@ -51,6 +51,9 @@ const nextConfig: NextConfig = {
   // everywhere else and passes Django's prefixes through untouched.
   skipTrailingSlashRedirect: true,
   poweredByHeader: false,
+  // no next/image anywhere: the optimizer off, so /_next/image answers 404 and nothing is resized on request or written
+  // to .next/cache/images (RESILIENCE.md)
+  images: { unoptimized: true },
   // a second `next dev` beside another in this directory (Next refuses two in one distDir): NEXT_DIST_DIR=.next/cache/b
   ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
   // a new service-worker cache per build (public/sw.js)
