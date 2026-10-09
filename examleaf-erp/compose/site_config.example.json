@@ -1,0 +1,21 @@
+{
+ "examleaf_company_name": "ExamLeaf LLP",
+ "examleaf_company_abbr": "EL",
+ "examleaf_gstin": "18AAAAA0000A1Z1",
+ "examleaf_address_line1": "[address line 1]",
+ "examleaf_address_line2": "",
+ "examleaf_city": "Guwahati",
+ "examleaf_pincode": "781001",
+ "examleaf_state": "Assam",
+ "examleaf_email": "[accounts email]",
+ "examleaf_phone": "[phone]",
+ "examleaf_bank_account": "Main Bank",
+ "examleaf_google_domain": "examleaf.in",
+ "examleaf_google_client_id": "",
+ "examleaf_google_client_secret": "",
+ "examleaf_sync_user": "erp-sync@examleaf.in",
+ "examleaf_sync_user_restrict_ip": "",
+ "examleaf_webhook_base": "",
+ "examleaf_webhook_secret": "",
+ "examleaf_allow_test_series": 0
+}
