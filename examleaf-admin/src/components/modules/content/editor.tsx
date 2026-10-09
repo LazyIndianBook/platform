@@ -97,7 +97,8 @@ export function Editor({ kind, record }: { kind: Drafted; record: ContentSolutio
     () => null,
   );
   const kept = keptRaw ? (JSON.parse(keptRaw) as Values) : null;
-  const restorable = kept !== null && Object.keys(saved).some((field) => (kept[field] ?? saved[field]) !== values[field]);
+  const restorable =
+    kept !== null && Object.keys(saved).some((field) => (kept[field] ?? saved[field]) !== values[field]);
 
   useEffect(() => {
     if (!dirty) return;
@@ -136,8 +137,14 @@ export function Editor({ kind, record }: { kind: Drafted; record: ContentSolutio
           text_md: values.text_md,
           table_md: values.table_md,
           marks_text: values.marks_text,
-          options_json: values.options_json.split("\n").map((option) => option.trim()).filter(Boolean),
-          tags: values.tags.split(",").map((tag) => tag.trim()).filter(Boolean),
+          options_json: values.options_json
+            .split("\n")
+            .map((option) => option.trim())
+            .filter(Boolean),
+          tags: values.tags
+            .split(",")
+            .map((tag) => tag.trim())
+            .filter(Boolean),
         });
       keep(key, null);
       toast.success(words.saved);
@@ -169,7 +176,11 @@ export function Editor({ kind, record }: { kind: Drafted; record: ContentSolutio
           <span className="text-sm text-muted-foreground">{copy.content.changed}</span>
         ) : null}
       </div>
-      {record.state === "in_review" ? <Alert variant="info" title={words.inReview} /> : <Alert variant="info" title={words.draftNote} />}
+      {record.state === "in_review" ? (
+        <Alert variant="info" title={words.inReview} />
+      ) : (
+        <Alert variant="info" title={words.draftNote} />
+      )}
       {restorable && kept && editable ? (
         <Alert variant="warning" title={words.keptTitle}>
           <p>
@@ -181,7 +192,9 @@ export function Editor({ kind, record }: { kind: Drafted; record: ContentSolutio
       ) : null}
       <form
         noValidate
-        aria-label={kind === "solutions" ? copy.content.reviews.fieldNames.body_md : copy.content.reviews.fieldNames.text_md}
+        aria-label={
+          kind === "solutions" ? copy.content.reviews.fieldNames.body_md : copy.content.reviews.fieldNames.text_md
+        }
         onSubmit={(event) => {
           event.preventDefault();
           save();
@@ -229,7 +242,12 @@ export function Editor({ kind, record }: { kind: Drafted; record: ContentSolutio
                       data-no-draft=""
                     />
                   </Field>
-                  <Field id={fieldId("tags")} label={words.tags} help={words.tagsHelp} error={fieldError(error, "tags")}>
+                  <Field
+                    id={fieldId("tags")}
+                    label={words.tags}
+                    help={words.tagsHelp}
+                    error={fieldError(error, "tags")}
+                  >
                     <Input
                       name="tags"
                       value={values.tags}
@@ -283,7 +301,15 @@ export function Editor({ kind, record }: { kind: Drafted; record: ContentSolutio
 }
 
 /** What can be done with the saved draft: submit it, discard it; undo the last publish (a reviewer). */
-function DraftActions({ kind, record, dirty }: { kind: Drafted; record: ContentSolution | ContentQuestion; dirty: boolean }) {
+function DraftActions({
+  kind,
+  record,
+  dirty,
+}: {
+  kind: Drafted;
+  record: ContentSolution | ContentQuestion;
+  dirty: boolean;
+}) {
   const router = useRouter();
   const can = useCan();
   const { run, busy, error } = useAction();

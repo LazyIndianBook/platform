@@ -21,7 +21,12 @@ export function DepositForm({ books, today }: { books: { id: number; title: stri
       id="deposit"
       submitLabel={words.record}
       success={words.recorded}
-      labels={{ ...labels, sent_on: words.fields.sentOn, proof_file: words.fields.file, erp_delivery_note: words.fields.erp }}
+      labels={{
+        ...labels,
+        sent_on: words.fields.sentOn,
+        proof_file: words.fields.file,
+        erp_delivery_note: words.fields.erp,
+      }}
       onSubmit={(form) => {
         const sent = new FormData();
         for (const name of ["book", "edition", "library", "sent_on", "proof", "erp_delivery_note"]) {
@@ -35,7 +40,13 @@ export function DepositForm({ books, today }: { books: { id: number; title: stri
     >
       {(error) => (
         <div className="grid gap-4 min-[720px]:grid-cols-2">
-          <Field id="deposit-book" label={words.fields.book} required error={fieldError(error, "book")} className="min-[720px]:col-span-2">
+          <Field
+            id="deposit-book"
+            label={words.fields.book}
+            required
+            error={fieldError(error, "book")}
+            className="min-[720px]:col-span-2"
+          >
             <Select name="book" defaultValue={books[0] ? String(books[0].id) : ""}>
               {books.map((book) => (
                 <option key={book.id} value={book.id}>
@@ -53,19 +64,48 @@ export function DepositForm({ books, today }: { books: { id: number; title: stri
               ))}
             </Select>
           </Field>
-          <Field id="deposit-edition" label={words.fields.edition} optional help={words.fields.editionHelp} error={fieldError(error, "edition")}>
+          <Field
+            id="deposit-edition"
+            label={words.fields.edition}
+            optional
+            help={words.fields.editionHelp}
+            error={fieldError(error, "edition")}
+          >
             <Input name="edition" autoComplete="off" />
           </Field>
           <Field id="deposit-sent_on" label={words.fields.sentOn} required error={fieldError(error, "sent_on")}>
             <Input name="sent_on" type="date" max={today} defaultValue={today} />
           </Field>
-          <Field id="deposit-proof" label={words.fields.proof} required help={words.fields.proofHelp} error={fieldError(error, "proof")}>
+          <Field
+            id="deposit-proof"
+            label={words.fields.proof}
+            required
+            help={words.fields.proofHelp}
+            error={fieldError(error, "proof")}
+          >
             <Input name="proof" autoComplete="off" />
           </Field>
-          <Field id="deposit-proof_file" label={words.fields.file} optional help={words.fields.fileHelp} error={fieldError(error, "proof_file")}>
-            <Input name="proof_file" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" className="py-2.5" />
+          <Field
+            id="deposit-proof_file"
+            label={words.fields.file}
+            optional
+            help={words.fields.fileHelp}
+            error={fieldError(error, "proof_file")}
+          >
+            <Input
+              name="proof_file"
+              type="file"
+              accept="application/pdf,image/jpeg,image/png,image/webp"
+              className="py-2.5"
+            />
           </Field>
-          <Field id="deposit-erp_delivery_note" label={words.fields.erp} optional help={words.fields.erpHelp} error={fieldError(error, "erp_delivery_note")}>
+          <Field
+            id="deposit-erp_delivery_note"
+            label={words.fields.erp}
+            optional
+            help={words.fields.erpHelp}
+            error={fieldError(error, "erp_delivery_note")}
+          >
             <Input name="erp_delivery_note" autoComplete="off" className="font-mono" />
           </Field>
         </div>

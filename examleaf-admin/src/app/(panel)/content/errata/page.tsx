@@ -35,7 +35,9 @@ export default async function ErrataPage({ searchParams }: { searchParams: Promi
     has(manifest, P.booksView) ? attempt(listBooks({ page_size: 200 }, transport), path) : null,
   ]);
   const bookOptions =
-    books && !(books instanceof ApiError) ? books.results.map((book) => ({ value: String(book.id), label: book.title })) : [];
+    books && !(books instanceof ApiError)
+      ? books.results.map((book) => ({ value: String(book.id), label: book.title }))
+      : [];
   return (
     <>
       <PageHeader eyebrow={copy.content.title} title={copy.content.errata.title} lead={copy.content.errata.lead} />

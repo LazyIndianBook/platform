@@ -125,7 +125,10 @@ export default async function ContentHome() {
               <CardContent>
                 {summary.last_import ? (
                   <p>
-                    {labelOf(words.subjectNames, String((summary.last_import.params as { subject?: string })?.subject ?? ""))}
+                    {labelOf(
+                      words.subjectNames,
+                      String((summary.last_import.params as { subject?: string })?.subject ?? ""),
+                    )}
                     {" · "}
                     {labelOf(words.imports.kinds, String(summary.last_import.dry_run))}
                     {" · "}

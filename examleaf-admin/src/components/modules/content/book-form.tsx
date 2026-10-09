@@ -50,7 +50,13 @@ export function BookForm({
     >
       {(error) => (
         <div className="grid gap-4 min-[720px]:grid-cols-2">
-          <Field id={`${id}-title`} label={words.fields.title} required error={fieldError(error, "title")} className="min-[720px]:col-span-2">
+          <Field
+            id={`${id}-title`}
+            label={words.fields.title}
+            required
+            error={fieldError(error, "title")}
+            className="min-[720px]:col-span-2"
+          >
             <Input name="title" defaultValue={book?.title ?? ""} autoComplete="off" />
           </Field>
           {book ? null : (
@@ -67,10 +73,22 @@ export function BookForm({
           <Field id={`${id}-edition`} label={words.fields.edition} optional error={fieldError(error, "edition")}>
             <Input name="edition" defaultValue={book?.edition ?? ""} autoComplete="off" />
           </Field>
-          <Field id={`${id}-slug`} label={words.fields.slug} required help={words.fields.slugHelp} error={fieldError(error, "slug")}>
+          <Field
+            id={`${id}-slug`}
+            label={words.fields.slug}
+            required
+            help={words.fields.slugHelp}
+            error={fieldError(error, "slug")}
+          >
             <Input name="slug" defaultValue={book?.slug ?? ""} autoComplete="off" className="font-mono" />
           </Field>
-          <Field id={`${id}-cover`} label={words.fields.cover} optional help={words.fields.coverHelp} error={fieldError(error, "cover")}>
+          <Field
+            id={`${id}-cover`}
+            label={words.fields.cover}
+            optional
+            help={words.fields.coverHelp}
+            error={fieldError(error, "cover")}
+          >
             <Input name="cover" defaultValue={book?.cover ?? ""} autoComplete="off" className="font-mono" />
           </Field>
           <Field id={`${id}-format`} label={words.fields.format} error={fieldError(error, "format")}>
@@ -82,8 +100,20 @@ export function BookForm({
               ))}
             </Select>
           </Field>
-          <Field id={`${id}-isbn`} label={words.fields.isbn} optional help={words.fields.isbnHelp} error={fieldError(error, "isbn")}>
-            <Input name="isbn" defaultValue={book?.isbn ?? ""} autoComplete="off" inputMode="numeric" className="font-mono" />
+          <Field
+            id={`${id}-isbn`}
+            label={words.fields.isbn}
+            optional
+            help={words.fields.isbnHelp}
+            error={fieldError(error, "isbn")}
+          >
+            <Input
+              name="isbn"
+              defaultValue={book?.isbn ?? ""}
+              autoComplete="off"
+              inputMode="numeric"
+              className="font-mono"
+            />
           </Field>
           <Field
             id={`${id}-published_on`}

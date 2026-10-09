@@ -59,7 +59,10 @@ export default async function BookPage({
           { label: words.books.fields.edition, value: book.edition || copy.common.none },
           { label: words.books.fields.isbn, value: <span className="font-mono">{book.isbn || copy.common.none}</span> },
           { label: words.books.fields.slug, value: <span className="font-mono">{book.slug}</span> },
-          { label: words.books.fields.publishedOn, value: book.published_on ? formatDate(book.published_on) : copy.common.none },
+          {
+            label: words.books.fields.publishedOn,
+            value: book.published_on ? formatDate(book.published_on) : copy.common.none,
+          },
           { label: words.books.columns.papers, value: book.papers },
         ]}
       />
@@ -84,7 +87,11 @@ export default async function BookPage({
         </Section>
       ) : null}
       <Section id="history" title={words.editor.history} lead={words.editor.historyLead}>
-        {versions instanceof ApiError ? <Problem error={versions} /> : <History kind="books" id={book.id} page={versions} />}
+        {versions instanceof ApiError ? (
+          <Problem error={versions} />
+        ) : (
+          <History kind="books" id={book.id} page={versions} />
+        )}
       </Section>
     </RecordPage>
   );

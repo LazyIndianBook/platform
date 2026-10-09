@@ -24,7 +24,8 @@ export default async function ImportsPage({ searchParams }: { searchParams: Prom
   const { manifest, transport, path } = await staffPage(pathOf("/content/imports/", params));
   if (!has(manifest, P.papersView)) notFound();
   const page = await attempt(listImports(param(params, "cursor"), transport), path);
-  const chosen = page instanceof ApiError ? undefined : page.results.find((job) => String(job.id) === param(params, "job"));
+  const chosen =
+    page instanceof ApiError ? undefined : page.results.find((job) => String(job.id) === param(params, "job"));
   return (
     <>
       <PageHeader eyebrow={copy.content.title} title={words.title} lead={words.lead} />

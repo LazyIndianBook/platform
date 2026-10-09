@@ -16,7 +16,13 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/input";
 import { toast } from "@/components/ui/toaster";
-import { type ContentReviewDetail, decideReview, type Drafted, draftAction, type ReviewDecision } from "@/lib/api/staff";
+import {
+  type ContentReviewDetail,
+  decideReview,
+  type Drafted,
+  draftAction,
+  type ReviewDecision,
+} from "@/lib/api/staff";
 import { copy } from "@/lib/copy";
 import { P } from "@/lib/modules";
 
@@ -68,7 +74,10 @@ export function ReviewActions({ review }: { review: ContentReviewDetail }) {
 
   if (undo > 0)
     return (
-      <div role="status" className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card px-4 py-3">
+      <div
+        role="status"
+        className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card px-4 py-3"
+      >
         <p className="m-0 flex-1 text-[15px]">{words.undoLead(undo)}</p>
         <Button
           variant="secondary"
@@ -104,7 +113,12 @@ export function ReviewActions({ review }: { review: ContentReviewDetail }) {
       }}
     >
       <ErrorSummary error={error} labels={{ comment: words.comment }} idPrefix="review-" />
-      <Field id="review-comment" label={words.comment} help={words.needsChangesHelp} error={fieldError(error, "comment")}>
+      <Field
+        id="review-comment"
+        label={words.comment}
+        help={words.needsChangesHelp}
+        error={fieldError(error, "comment")}
+      >
         <Textarea name="comment" rows={3} />
       </Field>
       <div className="flex flex-wrap gap-3">
@@ -116,7 +130,13 @@ export function ReviewActions({ review }: { review: ContentReviewDetail }) {
             {words.approve}
           </Button>
         ) : null}
-        <Button type="submit" name="verb" value="needs-changes" variant="secondary" busy={busy && pressed === "needs-changes"}>
+        <Button
+          type="submit"
+          name="verb"
+          value="needs-changes"
+          variant="secondary"
+          busy={busy && pressed === "needs-changes"}
+        >
           {words.needsChanges}
         </Button>
       </div>

@@ -42,7 +42,10 @@ export function History({ kind, id, page }: { kind: Versioned; id: number; page:
           const changes = version.changes.filter((change) => !QUIET.has(change.field));
           const who = version.by ? words.user(version.by) : words.someone;
           return (
-            <li key={version.id} className="flex flex-col gap-2 border-t border-border pt-3 first:border-t-0 first:pt-0">
+            <li
+              key={version.id}
+              className="flex flex-col gap-2 border-t border-border pt-3 first:border-t-0 first:pt-0"
+            >
               <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                 <p className="m-0 text-[15px] font-semibold">
                   {version.type === "+" ? words.created : version.reason || words.reasonless}
@@ -52,7 +55,9 @@ export function History({ kind, id, page }: { kind: Versioned; id: number; page:
               {changes.length ? (
                 <details>
                   <summary className="min-h-11 cursor-pointer text-[15px] font-semibold text-primary">
-                    {changes.map((change) => labelOf(copy.content.reviews.fieldNames, change.field.replace(/^draft\./, ""))).join(", ")}
+                    {changes
+                      .map((change) => labelOf(copy.content.reviews.fieldNames, change.field.replace(/^draft\./, "")))
+                      .join(", ")}
                   </summary>
                   <div className="mt-2 flex flex-col gap-3">
                     {changes.map((change) => (

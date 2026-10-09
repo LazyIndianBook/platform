@@ -7,7 +7,11 @@ const words = copy.content.reviews;
 const SIGN = { equal: " ", delete: "−", insert: "+" } as const;
 
 const short = (value: unknown) =>
-  value === null || value === undefined || value === "" ? copy.common.none : typeof value === "string" ? value : JSON.stringify(value);
+  value === null || value === undefined || value === ""
+    ? copy.common.none
+    : typeof value === "string"
+      ? value
+      : JSON.stringify(value);
 
 export function Diff({ change, title }: { change: ContentChange; title?: string }) {
   const name = title ?? labelOf(words.fieldNames, change.field.replace(/^draft\./, ""));
@@ -21,7 +25,9 @@ export function Diff({ change, title }: { change: ContentChange; title?: string 
             <li key={index} data-op={line.op}>
               <span aria-hidden="true">{SIGN[line.op]}</span>
               <span>
-                {line.op === "equal" ? null : <span className="sr-only">{line.op === "insert" ? words.added : words.removed}: </span>}
+                {line.op === "equal" ? null : (
+                  <span className="sr-only">{line.op === "insert" ? words.added : words.removed}: </span>
+                )}
                 {line.text || " "}
               </span>
             </li>

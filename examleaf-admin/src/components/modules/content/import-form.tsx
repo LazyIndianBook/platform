@@ -32,7 +32,11 @@ export function ImportResult({ job }: { job: Job }) {
       <p className="m-0 text-sm text-muted-foreground">
         {labelOf(copy.content.subjectNames, String((job.params as { subject?: string })?.subject ?? ""))}
         {" · "}
-        {(job.params as { fixtures?: boolean })?.fixtures ? words.testPapers : result.commit ? words.commitLine(result.commit.slice(0, 12)) : words.noCommit}
+        {(job.params as { fixtures?: boolean })?.fixtures
+          ? words.testPapers
+          : result.commit
+            ? words.commitLine(result.commit.slice(0, 12))
+            : words.noCommit}
       </p>
       <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-3">
         {Object.keys(words.counts).map((outcome) => (
@@ -42,18 +46,20 @@ export function ImportResult({ job }: { job: Job }) {
           </div>
         ))}
       </dl>
-      {Object.entries(result.rows ?? {}).filter(([, labels]) => labels.length).map(([outcome, labels]) => (
-        <details key={outcome}>
-          <summary className="min-h-11 cursor-pointer text-[15px] font-semibold text-primary">
-            {labelOf(words.counts, outcome)} · {labels.length.toLocaleString("en-IN")}
-          </summary>
-          <ul className="m-0 mt-1 flex max-h-72 list-none flex-col gap-0.5 overflow-y-auto p-0 font-mono text-sm">
-            {labels.map((label) => (
-              <li key={label}>{label}</li>
-            ))}
-          </ul>
-        </details>
-      ))}
+      {Object.entries(result.rows ?? {})
+        .filter(([, labels]) => labels.length)
+        .map(([outcome, labels]) => (
+          <details key={outcome}>
+            <summary className="min-h-11 cursor-pointer text-[15px] font-semibold text-primary">
+              {labelOf(words.counts, outcome)} · {labels.length.toLocaleString("en-IN")}
+            </summary>
+            <ul className="m-0 mt-1 flex max-h-72 list-none flex-col gap-0.5 overflow-y-auto p-0 font-mono text-sm">
+              {labels.map((label) => (
+                <li key={label}>{label}</li>
+              ))}
+            </ul>
+          </details>
+        ))}
     </div>
   );
 }
@@ -75,7 +81,11 @@ export function ImportForm() {
   };
   return (
     <div className="flex max-w-[48rem] flex-col gap-5">
-      <ErrorSummary error={error} labels={{ "params.subject": words.subject, "params.commit": words.commit, "params.dry_run_job": words.apply }} idPrefix="import-" />
+      <ErrorSummary
+        error={error}
+        labels={{ "params.subject": words.subject, "params.commit": words.commit, "params.dry_run_job": words.apply }}
+        idPrefix="import-"
+      />
       <form
         noValidate
         className="flex flex-col gap-4"
@@ -103,7 +113,13 @@ export function ImportForm() {
               ))}
             </Select>
           </Field>
-          <Field id="import-params.commit" label={words.commit} optional help={words.commitHelp} error={fieldError(error, "params.commit")}>
+          <Field
+            id="import-params.commit"
+            label={words.commit}
+            optional
+            help={words.commitHelp}
+            error={fieldError(error, "params.commit")}
+          >
             <Input
               name="commit"
               value={params.commit}

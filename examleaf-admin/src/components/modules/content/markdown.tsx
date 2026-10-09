@@ -64,7 +64,7 @@ const INLINE = new RegExp(
     "\\$\\$([\\s\\S]+?)\\$\\$", // maths in its own block
     "\\$([^$\\n]+?)\\$", // maths in the line
     '!\\[([^\\]]*)\\]\\(\\s*<?([^)\\s>]*)>?(?:\\s+"([^"]*)")?\\s*\\)', // a picture
-    "\\[([^\\]]+)\\]\\(\\s*<?([^)\\s>]+)>?(?:\\s+\"[^\"]*\")?\\s*\\)", // a link
+    '\\[([^\\]]+)\\]\\(\\s*<?([^)\\s>]+)>?(?:\\s+"[^"]*")?\\s*\\)', // a link
     "\\*\\*([\\s\\S]+?)\\*\\*|__([\\s\\S]+?)__", // strong
     "\\*([^*\\n]+?)\\*|(?<![A-Za-z0-9])_([^_\\n]+?)_(?![A-Za-z0-9])", // emphasis
     "(?: {2,}|\\\\)\\n", // a hard break
@@ -127,11 +127,21 @@ function inline(text: string, key: string): ReactNode[] {
 
 const TABLE_RULE = /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)*\|?\s*$/;
 const LIST_ITEM = /^\s{0,3}([-*+]|\d{1,9}[.)])\s+(.*)$/;
-const STARTS = [/^\s{0,3}#{1,6}\s/, /^\s{0,3}>/, /^\s{0,3}(```|~~~)/, /^\s*\$\$/, LIST_ITEM, /^\s{0,3}([-*_])(\s*\1){2,}\s*$/];
+const STARTS = [
+  /^\s{0,3}#{1,6}\s/,
+  /^\s{0,3}>/,
+  /^\s{0,3}(```|~~~)/,
+  /^\s*\$\$/,
+  LIST_ITEM,
+  /^\s{0,3}([-*_])(\s*\1){2,}\s*$/,
+];
 
 /** A table row's cells: split at the pipes not escaped (as GitHub's tables do, inside maths too). */
 function cells(row: string): string[] {
-  const inner = row.trim().replace(/^\|/, "").replace(/(?<!\\)\|$/, "");
+  const inner = row
+    .trim()
+    .replace(/^\|/, "")
+    .replace(/(?<!\\)\|$/, "");
   return inner.split(/(?<!\\)\|/).map((cell) => cell.trim().replace(/\\\|/g, "|"));
 }
 

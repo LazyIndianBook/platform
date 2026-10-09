@@ -24,9 +24,12 @@ const words = copy.content.deposits;
 
 /** Today in India, as a date input wants it. */
 const today = () =>
-  new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(
-    new Date(),
-  );
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
 
 export default async function DepositsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
@@ -35,7 +38,9 @@ export default async function DepositsPage({ searchParams }: { searchParams: Pro
   const [missing, deposits, books] = await Promise.all([
     attempt(listMissingDeposits(transport), path),
     attempt(listDeposits({ cursor: param(params, "cursor") }, transport), path),
-    has(manifest, P.depositsAdd) && has(manifest, P.booksView) ? attempt(listBooks({ page_size: 200 }, transport), path) : null,
+    has(manifest, P.depositsAdd) && has(manifest, P.booksView)
+      ? attempt(listBooks({ page_size: 200 }, transport), path)
+      : null,
   ]);
   return (
     <>

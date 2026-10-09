@@ -76,14 +76,19 @@ export function ReportSteps({ report }: { report: ContentReportDetail }) {
           />
         ) : null}
         {state === "rejected" ? (
-          <Button size="sm" variant="secondary" busy={busy && pressed === "reopen"} onClick={() => {
-            setPressed("reopen");
-            run(async () => {
-              await reportStep(report.id, "reopen");
-              toast.success(words.reopened);
-              router.refresh();
-            });
-          }}>
+          <Button
+            size="sm"
+            variant="secondary"
+            busy={busy && pressed === "reopen"}
+            onClick={() => {
+              setPressed("reopen");
+              run(async () => {
+                await reportStep(report.id, "reopen");
+                toast.success(words.reopened);
+                router.refresh();
+              });
+            }}
+          >
             {words.reopen}
           </Button>
         ) : null}
@@ -118,7 +123,12 @@ export function ReportNotes({ report }: { report: ContentReportDetail }) {
     >
       {(error) => (
         <>
-          <Field id={`report-${report.id}-staff_note`} label={words.staffNote} help={words.staffNoteHelp} error={fieldError(error, "staff_note")}>
+          <Field
+            id={`report-${report.id}-staff_note`}
+            label={words.staffNote}
+            help={words.staffNoteHelp}
+            error={fieldError(error, "staff_note")}
+          >
             <Textarea name="staff_note" rows={3} defaultValue={report.staff_note ?? ""} />
           </Field>
           <label className="flex min-h-11 cursor-pointer items-center gap-3 text-[15px]">

@@ -29,7 +29,9 @@ describe("Markdown", () => {
   });
 
   it("shows bad LaTeX in red where it is, its message escaped, and never runs \\href", () => {
-    const { container } = render(<Markdown source={"Bad: $\\frac{1}{<b>x</b>$ and $\\href{javascript:alert(1)}{y}$"} />);
+    const { container } = render(
+      <Markdown source={"Bad: $\\frac{1}{<b>x</b>$ and $\\href{javascript:alert(1)}{y}$"} />,
+    );
     const errors = container.querySelectorAll(".katex-error");
     expect(errors.length).toBeGreaterThan(0);
     expect(container.querySelector("b")).toBeNull(); // the source's HTML stays text inside the error
@@ -39,7 +41,9 @@ describe("Markdown", () => {
   it("keeps raw HTML as text, drops comments, and follows only safe links and pictures", () => {
     const { container } = render(
       <Markdown
-        source={'<script>alert(1)</script> <!-- note --> [ok](https://examleaf.in/) [no](javascript:x) ![A circuit](https://media.examleaf.in/c.png) ![](rule.png "decorative")'}
+        source={
+          '<script>alert(1)</script> <!-- note --> [ok](https://examleaf.in/) [no](javascript:x) ![A circuit](https://media.examleaf.in/c.png) ![](rule.png "decorative")'
+        }
       />,
     );
     expect(container.querySelector("script")).toBeNull();
