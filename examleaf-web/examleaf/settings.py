@@ -1079,6 +1079,7 @@ SPECTACULAR_SETTINGS["ENUM_NAME_OVERRIDES"].update(  # noqa: F405  the catalogue
     CatalogueStockStateEnum=["none", "out", "low", "in_stock"],
     CatalogueBookStockEnum=["out", "low", "in_stock"],  # a book's (copies of its own)
     CategoryMoveEnum="shop.staff_catalogue.MOVES",
+    CatalogueStatesEnum="shop.staff_catalogue.STATE_CODES",
 )
 
 # ---- Resilience (RESILIENCE.md: each knob below, its default and when to change it) --------------------------------

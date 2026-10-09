@@ -448,7 +448,7 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
         return products.distinct()  # a product on two shelves of one branch is listed once
 
     def list(self, request, *args, **kwargs):
-        """The page's prior prices read at once (one query of their history), not one product at a time."""
+        # the page's prior prices read at once (one query of their history), not one product at a time
         products = self.filter_queryset(self.get_queryset())
         page = self.paginate_queryset(products)
         rows = list(products) if page is None else page

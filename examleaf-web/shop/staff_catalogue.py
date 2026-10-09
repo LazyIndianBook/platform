@@ -1701,12 +1701,15 @@ class CatalogueShippingRateSerializer(serializers.ModelSerializer):
         return f"{rate.free_above.amount:.2f}" if rate.free_above is not None else None
 
 
+STATE_CODES = sorted(STATES)  # (the schema names its enum CatalogueStatesEnum: settings.py)
+
+
 class CatalogueShippingRateWriteSerializer(serializers.Serializer):
     """A rate's fields as given (a new one: its name and fee at least), checked against the other active rates: no
     state in two of them, one rate at most for every other state. `reason` goes into its history."""
 
     name = serializers.CharField(max_length=60)
-    states = serializers.ListField(child=serializers.ChoiceField(choices=sorted(STATES)), max_length=40)
+    states = serializers.ListField(child=serializers.ChoiceField(choices=STATE_CODES), max_length=40)
     fee = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal(0), max_value=Decimal(99999))
     free_above = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=Decimal(0), allow_null=True)
     is_active = serializers.BooleanField()
