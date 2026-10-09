@@ -30,6 +30,10 @@ podSelector:
         "from" (list (include "examleaf.from" (dict "ctx" . "components" (list "web" "worker" "beat" "shop-clean-up")) | fromYaml)))
   (dict "name" "acme-solver" "selector" (dict "acme.cert-manager.io/http01-solver" "true") "port" 8089 "from" (list $controller))
 -}}
+{{- $databaseClients := include "examleaf.from" (dict "ctx" . "components" (list "web" "worker" "beat" "media-worker" "shop-clean-up")) | fromYaml -}}
+{{- if .Values.postgres.pooler.enabled }}
+{{- $policies = append $policies (dict "name" "pooler" "selector" (dict "cnpg.io/poolerName" (printf "%s-pooler" (include "examleaf.dbCluster" .))) "port" 5432 "from" (list $databaseClients)) -}}
+{{- end }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -62,8 +66,9 @@ spec:
         - port: {{ .port }}
 {{- end }}
 ---
-# PostgreSQL: the site's pods; the operator (its instance manager on 8000, the database on 5432); the instances among
-# themselves (replication, once there are standbys)
+# PostgreSQL: the site's pods (the migrations still connect directly with the pooler on) and the pooler's; the
+# operator (its instance manager on 8000, the database on 5432); the instances among themselves (replication, once
+# there are standbys)
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -77,7 +82,12 @@ spec:
   policyTypes: [Ingress]
   ingress:
     - from:
-        - {{- include "examleaf.from" (dict "ctx" . "components" (list "web" "worker" "beat" "media-worker" "shop-clean-up")) | nindent 10 }}
+        - {{- toYaml $databaseClients | nindent 10 }}
+        {{- if .Values.postgres.pooler.enabled }}
+        - podSelector:
+            matchLabels:
+              cnpg.io/poolerName: {{ include "examleaf.dbCluster" . }}-pooler
+        {{- end }}
       ports:
         - port: 5432
     - from:

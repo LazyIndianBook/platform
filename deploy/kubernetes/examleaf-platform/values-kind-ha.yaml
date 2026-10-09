@@ -1,0 +1,50 @@
+# values-ha.yaml on the laptop's one-node kind cluster, for TESTING.md's chaos run: after values-kind.yaml and
+# values-ha.yaml (`make kind-install VALUES="-f …/values-kind.yaml -f …/values-ha.yaml -f …/values-kind-ha.yaml"`).
+# Two of each, all on the one node (the spreading cannot spread there), the media in RustFS's buckets, and no
+# autoscalers (kind has no metrics-server). The admin stays off: its pods are shaped as the frontend's, and the
+# laptop's memory went to an ERPNext stack beside the cluster.
+
+web:
+  # two gunicorn processes in each pod: with one, gunicorn's --max-requests recycling (every 1000 to 1100 requests)
+  # leaves the pod with no process for the seconds the next one takes to load, and its requests wait (TESTING.md)
+  concurrency: 2
+  autoscaling:
+    enabled: false
+
+frontend:
+  autoscaling:
+    enabled: false
+
+admin:
+  enabled: false
+  autoscaling:
+    enabled: false
+
+mediaWorker:
+  replicas: 1  # the one TESTING.md kills in the middle of a clip
+
+# every 5 minutes a whole Django process on a node whose 4 CPUs the profile already fills; the smoke test was run in
+# runs 1 and 2
+cronJobs:
+  healthCheck:
+    enabled: false
+
+postgres:
+  antiAffinity: preferred  # one node: the standby beside its primary
+
+# the Prometheus Operator's CRDs only (`make kind-monitoring-crds`): no Prometheus on the laptop, the alerts are checked
+# with promtool and the metrics read from their ports
+monitoring:
+  labels: {}
+
+config:
+  # the buckets of kind-extras.yaml's RustFS (`make kind-buckets`); the S3_* keys are in the env Secret
+  MEDIA_BUCKET: examleaf-media
+  PUBLIC_MEDIA_BUCKET: examleaf-public
+  PUBLIC_MEDIA_DOMAIN: media.examleaf.localhost
+  S3_ENDPOINT_URL: http://rustfs.s3.svc.cluster.local:9000
+  S3_REGION: us-east-1
+  # the load test's 50 connections all come from the Mac's one address, and DRF counts an anonymous client against
+  # both rates (the user rate by its address): either would answer most of them with 429
+  API_THROTTLE_ANON: 1000000/minute
+  API_THROTTLE_USER: 1000000/minute

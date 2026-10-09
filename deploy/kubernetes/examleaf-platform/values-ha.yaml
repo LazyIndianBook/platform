@@ -1,0 +1,85 @@
+# The high-availability profile, for a cluster of three nodes (README.md "High availability": their size, the cost,
+# what fails over and how fast). On top of values.yaml and your own production values:
+#   helm upgrade --install examleaf examleaf-platform -f values-production.yaml -f values-ha.yaml …
+# Every pod that serves a request is one of two or more on different nodes; the database fails over to a standby on
+# another node; the media are in the buckets, so no pod holds state of its own. One of a kind on purpose: beat (two
+# would send every periodic task twice), the queue's Redis (its AOF on a volume, back within seconds of a restart)
+# and the cache's (losing it costs nothing but a slower minute).
+
+spreadAcrossNodes: true
+
+web:
+  replicas: 2  # until the autoscaler takes over (its minimum)
+  autoscaling:
+    enabled: true  # metrics-server: k3s runs it
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+    # of the 640Mi request; gunicorn's --max-requests recycles its processes, so their memory comes back down after a
+    # burst and the autoscaler can scale in again
+    targetMemoryUtilizationPercentage: 85
+  pdb:
+    minAvailable: 1
+
+worker:
+  replicas: 2  # warm shutdown lets a drained node's tasks finish; the other takes the queue meanwhile
+
+mediaWorker:
+  replicas: 2
+
+frontend:
+  replicas: 2
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  pdb:
+    minAvailable: 1
+
+admin:
+  enabled: true
+  replicas: 2
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  pdb:
+    minAvailable: 1
+
+# The media in the buckets only (config.MEDIA_BUCKET, PUBLIC_MEDIA_BUCKET, PUBLIC_MEDIA_DOMAIN and the S3_* keys, in
+# your production values and the env Secret): no media volume. ReadWriteOnce here so that the chart refuses to start
+# without the buckets rather than quietly make a volume that pods on three nodes cannot share.
+media:
+  accessMode: ReadWriteOnce
+
+postgres:
+  instances: 2  # a primary and a standby, never on one node
+  antiAffinity: required
+  # synchronous: {method: any, number: 1, dataDurability: preferred}  # README.md "High availability"
+  pooler:
+    enabled: true
+    instances: 2
+
+monitoring:
+  enabled: true
+  labels:
+    release: kube-prometheus-stack  # the stack's release name, which its Prometheus selects rules and monitors by
+
+cronJobs:
+  healthCheck:
+    enabled: true
+
+# ERPNext stays off (erpnext.enabled); once it is on, its MariaDB has a replica and its sites volume is shared
+erp:
+  database:
+    replicas: 2
+erpnext:
+  dbHost: examleaf-erp-db-primary  # mariadb-operator's Service of the current primary
+  persistence:
+    worker:
+      storageClass: longhorn  # a class that provides ReadWriteMany (Longhorn, NFS, CephFS)
+      accessModes: [ReadWriteMany]

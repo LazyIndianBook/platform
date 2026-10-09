@@ -1,6 +1,7 @@
-{{- /* PodDisruptionBudgets for every Deployment of the site, and the optional HorizontalPodAutoscalers of web and the
-       frontend (they need metrics-server). maxUnavailable 1 lets a drain move a single pod and, with more replicas,
-       keeps all but one serving; beat's 0 refuses eviction, so that two beats never run at once (values.yaml "beat"). */ -}}
+{{- /* PodDisruptionBudgets for every Deployment of the site, and the optional HorizontalPodAutoscalers of web, the
+       frontend and the admin (they need metrics-server). maxUnavailable 1 lets a drain move a single pod and, with
+       more replicas, keeps all but one serving; minAvailable, when set, wins (values-ha.yaml: 1); beat's 0 refuses
+       eviction, so that two beats never run at once (values.yaml "beat"). */ -}}
 {{- $fullname := include "examleaf.fullname" . -}}
 {{- $parts := list
   (dict "component" "web" "values" .Values.web "on" true)
@@ -22,7 +23,11 @@ metadata:
   labels:
     {{- include "examleaf.labels" $labels | nindent 4 }}
 spec:
+  {{- if not (kindIs "invalid" .values.pdb.minAvailable) }}
+  minAvailable: {{ .values.pdb.minAvailable }}
+  {{- else }}
   maxUnavailable: {{ .values.pdb.maxUnavailable }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "examleaf.selectorLabels" $labels | nindent 6 }}
@@ -49,6 +54,14 @@ spec:
         target:
           type: Utilization
           averageUtilization: {{ .targetCPUUtilizationPercentage }}
+    {{- with .targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ . }}
+    {{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

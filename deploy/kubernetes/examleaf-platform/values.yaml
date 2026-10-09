@@ -187,20 +187,31 @@ containerSecurityContext:
 # for every pod of the chart (pin them to one node while the media volume is ReadWriteOnce: README.md "Storage")
 nodeSelector: {}
 tolerations: []
+# Spread the pods of web, the worker, the media worker, the frontend and the admin evenly over the nodes, each
+# preferring a node without one of its kind (values-ha.yaml; README.md "High availability"). It needs the media in the
+# buckets, or a ReadWriteMany media volume: the chart refuses otherwise.
+spreadAcrossNodes: false
+# Seconds a deleted pod of web, the frontend or the admin waits before its server gets SIGTERM: time for Traefik to
+# take it out of the rotation (the pod leaves the Service's endpoints at once), so that no new request is sent to a
+# server that is stopping. Each server then finishes the requests under way (web: gracefulTimeout).
+preStopSeconds: 10
 # the init containers (the migrations, the waits)
 initResources:
   requests: {cpu: 50m, memory: 192Mi}
   limits: {cpu: "1", memory: 512Mi}
 
 # Django behind gunicorn (docker-compose.yml "web"). Before gunicorn an init container waits for the database, then
-# runs migrate and bootstrap_roles (as the compose command does on every start); a pod is ready once /health/web/
-# (database, cache, storage) answers 200.
+# runs migrate and bootstrap_roles (as the compose command does on every start; pods that start together take turns
+# under a lock); a pod is ready once its gunicorn serves a static file (web.yaml says why not /health/web/).
 web:
   replicas: 1
   concurrency: 3  # WEB_CONCURRENCY: gunicorn processes in each pod, about 2 x its CPUs + 1
   # GUNICORN_CMD_ARGS: docker-compose.yml's, and no control socket (gunicorn 25.1's gunicornc interface, which would
   # make $HOME/.gunicorn/ on the read-only root and log an error at every start)
   gunicornArgs: --worker-class gthread --threads 8 --timeout 60 --no-control-socket
+  # gunicorn's --graceful-timeout: after SIGTERM, the seconds a request under way has to finish (as long as --timeout
+  # lets any request run). The pod's terminationGracePeriodSeconds is preStopSeconds + this + 5.
+  gracefulTimeout: 60
   tmpSize: 1Gi  # /tmp: uploads over 2.5 MB, invoice PDFs being drawn
   resources:
     requests: {cpu: 250m, memory: 640Mi}
@@ -210,8 +221,10 @@ web:
     minReplicas: 2
     maxReplicas: 4
     targetCPUUtilizationPercentage: 70
-  pdb:
+    targetMemoryUtilizationPercentage: null  # e.g. 80: memory as a second metric (the higher demand wins)
+  pdb:  # maxUnavailable, or minAvailable when set (it then wins)
     maxUnavailable: 1
+    minAvailable: null
   extraEnv: []  # more environment for web only: [{name: X, value: "y"}]
 
 # The Celery worker: the default queue "celery" (emails, invoices, pictures, refunds).
@@ -219,7 +232,9 @@ worker:
   replicas: 1
   concurrency: 2  # processes in each pod, as docker-compose.yml
   tmpSize: 1Gi
-  terminationGracePeriodSeconds: 300  # a running task may finish (CELERY_TASK_TIME_LIMIT is 300 s)
+  # SIGTERM is Celery's warm shutdown: no new task, the running ones finish. They are cut at CELERY_TASK_TIME_LIMIT
+  # (settings.py: 300 s), so this lets the longest finish, then a little.
+  terminationGracePeriodSeconds: 330
   resources:
     requests: {cpu: 100m, memory: 384Mi}
     limits: {cpu: "1", memory: 768Mi}
@@ -247,7 +262,9 @@ mediaWorker:
   replicas: 1
   concurrency: 1
   tmpSize: 4Gi  # FFmpeg's working copies of a clip
-  terminationGracePeriodSeconds: 300
+  # warm shutdown, as the worker's: learn.tasks.process_clip's own time_limit is 3600 s, so a clip being made can
+  # finish (a node drain then waits up to an hour; README.md "Graceful shutdown")
+  terminationGracePeriodSeconds: 3630
   resources:
     requests: {cpu: 100m, memory: 256Mi}
     limits: {cpu: "2", memory: 1Gi}
@@ -271,8 +288,10 @@ frontend:
     minReplicas: 2
     maxReplicas: 4
     targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: null
   pdb:
     maxUnavailable: 1
+    minAvailable: null
   env: {}  # more environment: {NAME: "value"}
 
 # The Admin Control Panel (examleaf-admin, Next.js, docs/examleaf-admin-control-panel-plan.md) at admin.<domain>,
@@ -294,8 +313,15 @@ admin:
   resources:
     requests: {cpu: 100m, memory: 256Mi}
     limits: {cpu: "1", memory: 512Mi}
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: null
   pdb:
     maxUnavailable: 1
+    minAvailable: null
   env: {}
 
 # The Ingress resources for Traefik (k3s's bundled controller) and its Middleware resources, which do what the
@@ -335,6 +361,31 @@ media:
 postgres:
   name: ""  # the Cluster's name; empty: <release>-db. A restore makes a new one (README.md "Restore")
   instances: 1  # 2 or 3 add standbys on other nodes, with automatic failover
+  # where the instances may run relative to each other: preferred (on different nodes where there are enough), or
+  # required (never two on one node: a standby without a node of its own stays pending)
+  antiAffinity: preferred
+  # Synchronous replication (CloudNativePG's postgresql.synchronous), e.g. {method: any, number: 1,
+  # dataDurability: preferred}: a commit waits for a standby, so a failover loses nothing; "preferred" goes on alone
+  # while no standby is there, "required" stops writes then. Empty: asynchronous, the standby a moment behind
+  # (README.md "High availability").
+  synchronous: {}
+  # PgBouncer in front of the primary (CloudNativePG's Pooler, transaction mode): the site's pods connect to it
+  # (DATABASE_URL), the migrations to the primary itself. It keeps PostgreSQL's connections few while pods come and go
+  # and holds the clients' connections through a failover.
+  pooler:
+    enabled: false
+    instances: 2
+    parameters:  # pgbouncer.ini settings
+      max_client_conn: "1000"
+      default_pool_size: "25"  # connections to PostgreSQL per pooler pod
+      # While there is no primary (a failover), a query waits this long, then fails, instead of PgBouncer's 120 s:
+      # waiting gunicorn threads would otherwise fill up, the pods' readiness probes behind them, and Traefik would
+      # take every pod out of the rotation (TESTING.md section 7)
+      query_wait_timeout: "10"
+      server_login_retry: "1"  # seconds before trying the new primary again (15 by default)
+    resources:
+      requests: {cpu: 50m, memory: 32Mi}
+      limits: {cpu: 500m, memory: 128Mi}
   image: ghcr.io/cloudnative-pg/postgresql:17.11-minimal-trixie  # PostgreSQL 17, as docker-compose.yml's postgres:17
   database: examleaf
   owner: examleaf

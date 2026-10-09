@@ -67,22 +67,79 @@ tolerations:
 {{- end }}
 {{- end -}}
 
+{{/* DATABASE_URL from the Secret CloudNativePG keeps for the database's owner: its "uri" (the primary's Service), or
+     with postgres.pooler the same owner through PgBouncer in transaction mode, where Django must not use server-side
+     cursors (QuerySet.iterator's would outlive their transaction). The generated password is letters and digits, so
+     it needs no quoting in the URL. (dict "ctx" $ "direct" true): the primary itself, for what needs a session of its
+     own (the migrations' lock). */}}
+{{- define "examleaf.databaseEnv" -}}
+{{- $cluster := include "examleaf.dbCluster" .ctx -}}
+{{- if and .ctx.Values.postgres.pooler.enabled (not .direct) }}
+- name: DATABASE_USER
+  valueFrom:
+    secretKeyRef:
+      name: {{ $cluster }}-app
+      key: username
+- name: DATABASE_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: {{ $cluster }}-app
+      key: password
+- name: DATABASE_URL
+  value: postgres://$(DATABASE_USER):$(DATABASE_PASSWORD)@{{ $cluster }}-pooler:5432/{{ .ctx.Values.postgres.database }}?disable_server_side_cursors=True
+{{- else }}
+- name: DATABASE_URL
+  valueFrom:
+    secretKeyRef:
+      name: {{ $cluster }}-app
+      key: uri
+{{- end }}
+{{- end -}}
+
 {{/* The Django processes' environment, as docker-compose.yml's x-app gives it: the settings (ConfigMap), the secret
-     settings (secrets.env, every key) and DATABASE_URL from the Secret CloudNativePG keeps for the database's owner. */}}
+     settings (secrets.env, every key) and DATABASE_URL. Call with $, or (dict "ctx" $ "direct" true). */}}
 {{- define "examleaf.djangoEnv" -}}
+{{- $ctx := .ctx | default . -}}
 envFrom:
   - configMapRef:
-      name: {{ include "examleaf.fullname" . }}-config
+      name: {{ include "examleaf.fullname" $ctx }}-config
   - secretRef:
-      name: {{ include "examleaf.envSecret" . }}
+      name: {{ include "examleaf.envSecret" $ctx }}
 env:
-  - name: DATABASE_URL
-    valueFrom:
-      secretKeyRef:
-        name: {{ include "examleaf.dbCluster" . }}-app
-        key: uri
+  {{- include "examleaf.databaseEnv" (dict "ctx" $ctx "direct" (and .ctx .direct)) | trim | nindent 2 }}
   - name: XDG_CACHE_HOME  # fontconfig's cache for the invoice PDFs: the home directory does not exist
     value: /tmp/.cache
+{{- end -}}
+
+{{/* With spreadAcrossNodes (values-ha.yaml): a component's pods spread evenly over the nodes (a node that is cordoned
+     or down does not count), each preferring a node without one, so that losing a node takes at most its share. Call
+     with the component's labels dict. */}}
+{{- define "examleaf.spread" -}}
+{{- if .ctx.Values.spreadAcrossNodes }}
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: DoNotSchedule
+    nodeTaintsPolicy: Honor
+    matchLabelKeys: [pod-template-hash]  # each rollout's new pods spread among themselves
+    labelSelector:
+      matchLabels:
+        {{- include "examleaf.selectorLabels" . | nindent 8 }}
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          topologyKey: kubernetes.io/hostname
+          labelSelector:
+            matchLabels:
+              {{- include "examleaf.selectorLabels" . | nindent 14 }}
+{{- end }}
+{{- end -}}
+
+{{/* "true" while the media live on the media volume, not in the buckets (config.MEDIA_BUCKET empty) */}}
+{{- define "examleaf.mediaOnVolume" -}}
+{{- if not .Values.config.MEDIA_BUCKET }}true{{ end -}}
 {{- end -}}
 
 {{/* Worker, beat and the media worker start once web has brought the schema up to date (docker-compose.yml: they wait
@@ -106,16 +163,20 @@ env:
     - {name: tmp, mountPath: /tmp}
 {{- end -}}
 
-{{/* /tmp as an emptyDir (the root filesystem is read-only) and the media volume */}}
+{{/* /tmp as an emptyDir (the root filesystem is read-only) and, unless the media are in the buckets, the media volume */}}
 {{- define "examleaf.djangoVolumes" -}}
 - name: tmp
   emptyDir:
     sizeLimit: {{ .tmpSize }}
+{{- if include "examleaf.mediaOnVolume" .ctx }}
 - name: media
   persistentVolumeClaim:
     claimName: {{ .ctx.Values.media.existingClaim | default (printf "%s-media" (include "examleaf.fullname" .ctx)) }}
+{{- end }}
 {{- end -}}
 {{- define "examleaf.djangoVolumeMounts" -}}
 - {name: tmp, mountPath: /tmp}
+{{- if include "examleaf.mediaOnVolume" . }}
 - {name: media, mountPath: /app/media}
+{{- end }}
 {{- end -}}

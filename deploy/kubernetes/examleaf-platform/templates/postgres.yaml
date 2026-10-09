@@ -1,7 +1,9 @@
 {{- /* PostgreSQL through CloudNativePG: the Cluster (the database examleaf, owned by examleaf, as docker-compose.yml's
-       db) and, with backup.enabled, the Barman Cloud plugin's ObjectStore and a ScheduledBackup. The operator writes
-       the owner's password into the Secret <cluster>-app, whose "uri" is the site's DATABASE_URL. The Cluster is kept
-       by `helm uninstall`. */ -}}
+       db), with pooler.enabled PgBouncer in front of its primary, and with backup.enabled the Barman Cloud plugin's
+       ObjectStore and a ScheduledBackup. The operator writes the owner's password into the Secret <cluster>-app, whose
+       "uri" is the site's DATABASE_URL (or, with the pooler, the migrations'). The Cluster is kept by
+       `helm uninstall`. With more than one instance the operator promotes a standby when the primary fails, and its
+       -rw Service (the pooler's server) follows the new primary. */ -}}
 {{- $cluster := include "examleaf.dbCluster" . -}}
 {{- /* one ObjectStore for every cluster of the release, so that a restored cluster and its origin share it */ -}}
 {{- $store := printf "%s-db-store" (include "examleaf.fullname" .) -}}
@@ -48,10 +50,16 @@ spec:
       database: {{ $pg.database }}
       owner: {{ $pg.owner }}
   {{- end }}
-  {{- with $pg.parameters }}
+  {{- if or $pg.parameters $pg.synchronous }}
   postgresql:
+    {{- with $pg.parameters }}
     parameters:
       {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with $pg.synchronous }}
+    synchronous:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
   {{- end }}
   storage:
     size: {{ $pg.storage.size }}
@@ -60,8 +68,10 @@ spec:
     {{- end }}
   resources:
     {{- toYaml $pg.resources | nindent 4 }}
-  {{- if or .Values.nodeSelector .Values.tolerations }}
-  affinity:
+  affinity:  # the instances on different nodes (antiAffinity: preferred or required)
+    enablePodAntiAffinity: true
+    topologyKey: kubernetes.io/hostname
+    podAntiAffinityType: {{ $pg.antiAffinity }}
     {{- with .Values.nodeSelector }}
     nodeSelector:
       {{- toYaml . | nindent 6 }}
@@ -70,7 +80,6 @@ spec:
     tolerations:
       {{- toYaml . | nindent 6 }}
     {{- end }}
-  {{- end }}
   {{- if $pg.backup.enabled }}
   plugins:
     - name: barman-cloud.cloudnative-pg.io
@@ -78,6 +87,54 @@ spec:
       parameters:
         barmanObjectName: {{ $store }}
   {{- end }}
+{{- if $pg.pooler.enabled }}
+---
+# PgBouncer in transaction mode, its pods on different nodes: a server connection is the client's for one
+# transaction, so a few PostgreSQL connections serve every gunicorn thread and Celery process (Django then needs
+# disable_server_side_cursors, which the chart's DATABASE_URL sets). It authenticates the site's owner against the
+# cluster itself (the operator's auth_query user), and keeps the clients' connections open through a failover.
+apiVersion: postgresql.cnpg.io/v1
+kind: Pooler
+metadata:
+  name: {{ $cluster }}-pooler
+  labels:
+    {{- include "examleaf.labels" $labels | nindent 4 }}
+spec:
+  cluster:
+    name: {{ $cluster }}
+  instances: {{ $pg.pooler.instances }}
+  type: rw
+  pgbouncer:
+    poolMode: transaction
+    parameters:
+      {{- toYaml $pg.pooler.parameters | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "examleaf.labels" (dict "ctx" . "component" "pooler" "app" "pgbouncer") | nindent 8 }}
+    spec:
+      containers:
+        - name: pgbouncer
+          resources:
+            {{- toYaml $pg.pooler.resources | nindent 12 }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    cnpg.io/poolerName: {{ $cluster }}-pooler
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
 {{- if or $pg.backup.enabled $pg.recovery.enabled }}
 ---
 # The bucket, as scripts/backup.sh's variables name it: BACKUP_BUCKET (bucket), BACKUP_ENDPOINT_URL (endpointURL),

@@ -13,6 +13,7 @@ metadata:
 spec:
   replicas: {{ .replicas }}
   revisionHistoryLimit: 3
+  progressDeadlineSeconds: 1800  # they wait for the migrations, as web does (web.yaml)
   strategy:
     {{- if .recreate }}
     type: Recreate
@@ -30,9 +31,12 @@ spec:
       labels:
         {{- include "examleaf.labels" $labels | nindent 8 }}
       annotations:
-        checksum/config: {{ include (print $ctx.Template.BasePath "/configmap.yaml") $ctx | sha256sum }}
+        checksum/config: {{ (include (print $ctx.Template.BasePath "/configmap.yaml") $ctx | fromYaml).data | toJson | sha256sum }}
     spec:
       {{- include "examleaf.podSpecCommon" $ctx | nindent 6 }}
+      {{- if not .recreate }}
+      {{- include "examleaf.spread" $labels | nindent 6 }}
+      {{- end }}
       terminationGracePeriodSeconds: {{ .values.terminationGracePeriodSeconds | default 30 }}
       initContainers:
         {{- include "examleaf.waitForMigrations" (dict "ctx" $ctx "env" .env) | nindent 8 }}
@@ -58,11 +62,7 @@ spec:
 {{- define "examleaf.mediaEnv" -}}
 {{- $fullname := include "examleaf.fullname" . -}}
 env:
-  - name: DATABASE_URL
-    valueFrom:
-      secretKeyRef:
-        name: {{ include "examleaf.dbCluster" . }}-app
-        key: uri
+  {{- include "examleaf.databaseEnv" (dict "ctx" .) | trim | nindent 2 }}
   - name: CELERY_BROKER_URL
     valueFrom:
       configMapKeyRef:

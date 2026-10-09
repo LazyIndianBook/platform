@@ -34,9 +34,13 @@ spec:
       labels:
         {{- include "examleaf.labels" $labels | nindent 8 }}
       annotations:
-        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") $ | sha256sum }}
+        checksum/config: {{ (include (print $.Template.BasePath "/configmap.yaml") $ | fromYaml).data | toJson | sha256sum }}
     spec:
       {{- include "examleaf.podSpecCommon" $ | nindent 6 }}
+      {{- include "examleaf.spread" $labels | nindent 6 }}
+      # the preStop pause, then 20 s for Next's own drain: on SIGTERM it stops accepting, finishes the requests under
+      # way and exits (next/dist/server/lib/start-server.js)
+      terminationGracePeriodSeconds: {{ add $.Values.preStopSeconds 20 }}
       containers:
         - name: {{ $component }}
           image: {{ include "examleaf.image" (dict "ctx" $ "image" $v.image) }}
@@ -72,12 +76,13 @@ spec:
               port: http
             periodSeconds: 2
             failureThreshold: 30
-          readinessProbe:
+          readinessProbe:  # unready after 30 s of failures, before the liveness probe gives up (60 s)
             httpGet:
               path: /api/health/
               port: http
             periodSeconds: 10
             timeoutSeconds: 5
+            failureThreshold: 3
           livenessProbe:
             httpGet:
               path: /api/health/
@@ -86,9 +91,9 @@ spec:
             timeoutSeconds: 5
             failureThreshold: 3
           lifecycle:
-            preStop:
+            preStop:  # Traefik takes the pod out of the rotation before Next stops (values.yaml preStopSeconds)
               sleep:
-                seconds: 5
+                seconds: {{ $.Values.preStopSeconds }}
           securityContext:
             {{- toYaml $.Values.containerSecurityContext | nindent 12 }}
           resources:

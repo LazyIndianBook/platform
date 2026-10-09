@@ -11,7 +11,10 @@ spec:
   replicas: {{ .Values.web.replicas }}
   {{- end }}
   revisionHistoryLimit: 3
-  strategy:  # one new pod at a time, ready before an old one goes: the migrations run in one pod only
+  # A first install's database, or a long migration, keeps the new pods in their init containers; past the default
+  # 10 minutes the Deployment would count as failed (and Helm's --wait with it), though it is only waiting.
+  progressDeadlineSeconds: 1800
+  strategy:  # one new pod at a time, ready before an old one goes
     type: RollingUpdate
     rollingUpdate:
       maxSurge: 1
@@ -24,13 +27,19 @@ spec:
       labels:
         {{- include "examleaf.labels" $labels | nindent 8 }}
       annotations:
-        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/config: {{ (include (print $.Template.BasePath "/configmap.yaml") . | fromYaml).data | toJson | sha256sum }}
     spec:
       {{- include "examleaf.podSpecCommon" . | nindent 6 }}
-      terminationGracePeriodSeconds: 70  # gunicorn's 60 s timeout, then a little
+      {{- include "examleaf.spread" $labels | nindent 6 }}
+      # the preStop pause, then gunicorn's graceful timeout for the requests under way, then a little
+      terminationGracePeriodSeconds: {{ add .Values.preStopSeconds .Values.web.gracefulTimeout 5 }}
       initContainers:
         # docker-compose.yml's web command before gunicorn: the schema and the role groups brought up to date. A new
-        # cluster's database may still be starting: wait for it first.
+        # cluster's database may still be starting: wait for it first. Pods that start together (a rollout's surge, an
+        # autoscaler's new pods, a first install of several) take turns through a PostgreSQL advisory lock, held on a
+        # session of its own with the primary (not through the pooler): one migrates, the others then find nothing to
+        # do. A pod killed while it migrates drops its session, so the lock and the half-done migration's transaction
+        # go with it.
         - name: migrate
           image: {{ include "examleaf.webImage" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
@@ -41,8 +50,13 @@ spec:
               until python -c 'import os, psycopg; psycopg.connect(os.environ["DATABASE_URL"], connect_timeout=5).close()' 2> /dev/null; do
                 echo "waiting for the database"; sleep 3
               done
-              python manage.py migrate --noinput && python manage.py bootstrap_roles
-          {{- include "examleaf.djangoEnv" . | nindent 10 }}
+              exec python -c '
+              import os, subprocess, sys, psycopg
+              with psycopg.connect(os.environ["DATABASE_URL"], autocommit=True) as session:
+                  session.execute("SELECT pg_advisory_lock(hashtext(%s))", ["examleaf migrate"])
+                  sys.exit(subprocess.call("python manage.py migrate --noinput && python manage.py bootstrap_roles", shell=True))
+              '
+          {{- include "examleaf.djangoEnv" (dict "ctx" . "direct" true) | nindent 10 }}
           securityContext:
             {{- toYaml .Values.containerSecurityContext | nindent 12 }}
           resources:
@@ -58,7 +72,7 @@ spec:
             - name: WEB_CONCURRENCY
               value: {{ .Values.web.concurrency | quote }}
             - name: GUNICORN_CMD_ARGS
-              value: {{ .Values.web.gunicornArgs | quote }}
+              value: {{ printf "%s --graceful-timeout %v" .Values.web.gunicornArgs .Values.web.gracefulTimeout | quote }}
             {{- with .Values.web.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -70,20 +84,21 @@ spec:
               port: http
             periodSeconds: 2
             failureThreshold: 60
-          # /health/web/ (database, cache, storage), asked as docker-compose.yml's health check asks it: the site's
-          # host and https as the ingress forwards them. The kubelet calls the pod directly, so the Ingress's /health
-          # gate (basic auth) is not in the way, as Caddy's never was for the compose check.
+          # Ready while this pod's gunicorn and Django answer: a static file through WhiteNoise and the middleware,
+          # with the site's host and https as the ingress forwards them. Not /health/web/ (database, cache, storage,
+          # which the monitors ask): those are shared, so when one of them falters every pod would leave the rotation
+          # at once and Traefik would answer 503 for the pages that do not need it, and under a load that fills every
+          # thread the storage check timed out and did just that (TESTING.md section 7). Unready after 30 s of
+          # failures, before the liveness probe gives up (60 s).
           readinessProbe:
             httpGet:
-              path: /health/web/
+              path: /static/admin/css/base.css
               port: http
               httpHeaders:
                 - name: Host
                   value: {{ .Values.domain | quote }}
                 - name: X-Forwarded-Proto
                   value: https
-                - name: Accept
-                  value: application/json
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 3
@@ -94,9 +109,11 @@ spec:
             periodSeconds: 20
             failureThreshold: 3
           lifecycle:
-            preStop:  # the ingress controller stops sending here before gunicorn stops
+            # A deleted pod leaves the Service's endpoints at once; the pause lets Traefik see that and stop sending
+            # here before gunicorn gets its SIGTERM and finishes what it has (--graceful-timeout).
+            preStop:
               sleep:
-                seconds: 5
+                seconds: {{ .Values.preStopSeconds }}
           securityContext:
             {{- toYaml .Values.containerSecurityContext | nindent 12 }}
           resources:

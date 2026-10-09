@@ -1,5 +1,13 @@
-{{- /* docker-compose.yml's "media" volume. Kept by `helm uninstall`: it holds the invoices, which are tax records. */ -}}
-{{- if not .Values.media.existingClaim }}
+{{- /* docker-compose.yml's "media" volume, while the media are not in the buckets (config.MEDIA_BUCKET empty). Kept by
+       `helm uninstall`: it holds the invoices, which are tax records. Every Django pod mounts it, so pods on more than
+       one node need it ReadWriteMany: the chart refuses a ReadWriteOnce volume with several replicas or spreading. */ -}}
+{{- if include "examleaf.mediaOnVolume" . }}
+{{- $v := .Values -}}
+{{- $several := or (gt (int $v.web.replicas) 1) $v.web.autoscaling.enabled (gt (int $v.worker.replicas) 1) (and $v.mediaWorker.enabled (gt (int $v.mediaWorker.replicas) 1)) $v.spreadAcrossNodes -}}
+{{- if and $several (ne $v.media.accessMode "ReadWriteMany") }}
+{{- fail "media: several Django pods would mount a ReadWriteOnce media volume from different nodes. Put the media in the buckets (config.MEDIA_BUCKET, PUBLIC_MEDIA_BUCKET, PUBLIC_MEDIA_DOMAIN), or set media.accessMode ReadWriteMany with a storage class that provides it (README.md \"Storage\")" }}
+{{- end }}
+{{- if not $v.media.existingClaim }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -16,4 +24,5 @@ spec:
   resources:
     requests:
       storage: {{ .Values.media.size }}
+{{- end }}
 {{- end }}
