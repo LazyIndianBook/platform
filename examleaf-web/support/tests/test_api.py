@@ -409,6 +409,19 @@ def test_logging_a_call_and_an_nch_complaint(commit):
     assert Ticket.objects.get(number=logged.json()["number"]).phone == "+919864012345"
 
 
+def test_a_test_orders_tickets_stay_out_of_the_live_queue_unless_asked_for(commit, settings):
+    support = make_staff(roles.SUPPORT)
+    with commit():
+        test = make_ticket(subject="Test", order=make_order((ProductFactory(), 1)), category="order")  # test keys
+        real = make_ticket(subject="Real")
+    settings.RAZORPAY_KEY_ID = "rzp_live_key"  # the site now runs live: that order is a test order
+    client = signed_in(support)
+    assert [row["number"] for row in client.get(TICKETS).json()["results"]] == [real.number]
+    [shown] = client.get(TICKETS, {"test": "true"}).json()["results"]
+    assert shown["number"] == test.number and shown["is_test"]
+    assert client.get(SUPPORT + "summary/").json()["received"] == 1
+
+
 def test_the_agents_are_the_staff_who_read_tickets_and_whether_they_handle_them():
     support = make_staff(roles.SUPPORT)
     editor = make_staff(roles.CONTENT_EDITOR)  # notes on content errors, never given a ticket

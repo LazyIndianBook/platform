@@ -1430,7 +1430,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 | DELETE | `staff/support/saved-replies/{id}/` | `support.delete_savedreply` |  |  | 204 |
 | POST | `staff/support/saved-replies/{id}/restore/` | `support.delete_savedreply` |  |  | 200 `SavedReply` |
 | GET | `staff/support/summary/` | `support.view_ticket` | `days` |  | 200 `SupportSummary` |
-| GET | `staff/support/tickets/` | `support.view_ticket` | `assignee`, `category`, `cursor`, `language`, `mine`, `open`, `overdue`, `page_size`, `priority`, `q`, `source`, `status`, `unassigned`, `waiting` |  | 200 `PaginatedTicketList` |
+| GET | `staff/support/tickets/` | `support.view_ticket` | `assignee`, `category`, `cursor`, `language`, `mine`, `open`, `overdue`, `page_size`, `priority`, `q`, `source`, `status`, `test`, `unassigned`, `waiting` |  | 200 `PaginatedTicketList` |
 | POST | `staff/support/tickets/` | `staff.handle_ticket` |  | `TicketCreateRequest` | 201 `TicketDetail` |
 | GET | `staff/support/tickets/{number}/` | `support.view_ticket` |  |  | 200 `TicketRecord` |
 | PATCH | `staff/support/tickets/{number}/` | `staff.handle_ticket` |  | `PatchedTicketChangeRequest` | 200 `TicketDetail` |

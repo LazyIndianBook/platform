@@ -79,6 +79,9 @@ class TicketFilter(django_filters.FilterSet):
     q = django_filters.CharFilter(
         method="search", help_text="a ticket's number, an order's, an email address or a mobile number (logged)"
     )
+    test = django_filters.BooleanFilter(
+        method="filter_test", help_text="true: the tickets about a test order only (left out otherwise on a live site)"
+    )
 
     class Meta:
         model = Ticket
@@ -115,8 +118,14 @@ class TicketFilter(django_filters.FilterSet):
             return queryset.filter(requester_phone_hash=contact_hash("phone", phone))
         return queryset.none()
 
+    def filter_test(self, queryset, name, value):
+        return queryset.filter(order__livemode=False) if value else queryset.exclude(order__livemode=False)
+
     def filter_queryset(self, queryset):
+        """Spam only when asked for by its status; on a live site, a test order's tickets only when asked for."""
         queryset = super().filter_queryset(queryset)
+        if live_mode() and self.form.cleaned_data.get("test") is None:
+            queryset = queryset.exclude(order__livemode=False)
         return queryset if SPAM in (self.form.cleaned_data.get("status") or []) else queryset.exclude(status=SPAM)
 
 
