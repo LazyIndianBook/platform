@@ -101,6 +101,7 @@ ROLES = {
         "content.add_legaldeposit",
         # support: the content-error tickets (ROLE_SCOPES), read and noted on, never answered (plan 5.14)
         *["support.view_ticket", "support.note_ticket"],
+        "shop.view_hsncode",  # the catalogue (Phase B): a new product's code from the master (FINANCE changes it)
         *PANEL,
     ],
     SALES: [  # the shop: prices and stock, coupons, offers, shipping rates; storefront orders and payments. Packing
@@ -123,6 +124,9 @@ ROLES = {
         *["shop.view_returnrequest", "staff.handle_return", "staff.receive_return"],
         # support: the order, payment and school-order tickets (ROLE_SCOPES)
         *["support.view_ticket", "support.note_ticket", "staff.handle_ticket", "support.view_savedreply"],
+        # the catalogue (Phase B, plan 5.5): prices (beyond discount_percent FINANCE approves) and stock by hand, a
+        # school's single-use coupon codes, a new product's code chosen from the HSN and SAC master
+        *["staff.change_price", "staff.set_stock", "shop.view_couponcode", "shop.add_couponcode", "shop.view_hsncode"],
         *PANEL,
     ],
     SUPPORT: [  # help students: look up accounts and records, verify teachers, answer data requests
@@ -173,6 +177,7 @@ ROLES = {
         *["staff.cancel_document", "staff.run_gstr1"],
         *["accounts.view_legalhold", "staff.manage_holds"],  # legal holds: a chargeback, a dispute over money
         "integrations.view_integrationaccount",  # the payment settings: the connections' cards (plan 5.18)
+        "staff.change_product_tax",  # the catalogue (Phase B): a product's HSN or SAC code, a bundle's treatment
         *PANEL,
     ],
     PACKER: [  # the packing queue only: the orders to pack and ship (ROLE_SCOPES) and their books; pick, pack, hand
@@ -198,6 +203,8 @@ ROLES = {
         "shop.view_product",
         *["staff.add_changerequest", "staff.view_insights"],  # the insights: aggregates only (insights/README.md)
         "ops.view_messagetemplate",  # the message templates (ADMIN changes them)
+        # the catalogue (Phase B): a school's single-use coupon codes; the shelves and collections an offer covers
+        *["shop.view_couponcode", "shop.add_couponcode", "shop.view_category", "shop.view_collection"],
         *PANEL,
     ],
     # read-only; no reveals, no writes; the exports a review needs (the audit log, the grievance register)

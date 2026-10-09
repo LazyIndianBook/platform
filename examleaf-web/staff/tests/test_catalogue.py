@@ -71,4 +71,5 @@ def test_the_risk_says_what_it_triggers():
     assert impersonate.reauth and impersonate.alerts  # critical: re-authenticate, and the owners are told
     assert not unlock.reauth and not unlock.alerts
     assert catalogue.entry("staff.manage_incident").alerts  # alerts by hand, without the re-authentication
-    assert catalogue.entry("shop.change_product").approval  # a price may wait for an approver
+    assert catalogue.entry("staff.change_price").approval  # a price may wait for an approver (Phase B: its own)
+    assert catalogue.entry("shop.add_offer").approval and not catalogue.entry("shop.change_product").approval

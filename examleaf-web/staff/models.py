@@ -367,6 +367,10 @@ class Job(models.Model):
         CONTENT_IMPORT = "content_import", "import from the books repository"  # content/imports.py
         # Phase B: support
         GRIEVANCE_EXPORT = "grievance_export", "grievance register export"  # support.register
+        # Phase B: catalogue (shop/catalogue_jobs.py)
+        COUPON_CODES = "coupon_codes", "single-use coupon codes"
+        PRODUCT_IMPORT = "product_import", "product import"
+        PRODUCT_EXPORT = "product_export", "product export"
 
     class State(models.TextChoices):
         QUEUED = "queued", "queued"
