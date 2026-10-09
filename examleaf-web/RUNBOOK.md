@@ -136,12 +136,18 @@ The superuser flag is only on one or two break-glass accounts, outside Google si
 backup key kept offline; the founder's daily account holds the OWNER role instead (DEPLOYMENT.md section 23). Use one
 only when nothing else works (Google sign-in down, every owner locked out of their account):
 
-1. Log in with it as any member of staff does. The owners are emailed at once ("Break-glass account #… signed in"),
-   and every audit event of the session carries `break_glass`. Its session ends after 15 idle minutes.
-2. Do what the emergency needs, nothing more, and log out.
-3. Within 24 hours an owner or the auditor reads what it did: `GET /api/v1/staff/audit/?break_glass=true` (the staff
+1. Log in with it as any member of staff does, with its password and its security key (never Google). The owners are
+   emailed at once ("Break-glass account #… signed in").
+2. Say why before anything else: the panel asks (the manifest's `break_glass.reason_required`); without the panel,
+   `POST /api/v1/staff/session/reason/` `{"reason": "…"}` on the admin host. Until then the staff API answers
+   `403 {"code": "break_glass_reason_required"}`. The owners get the reason, and every audit event of the session
+   carries `break_glass` and the reason (`details.break_glass_reason`). The Django admin does not ask: give the reason
+   first, in the same browser on the admin host. The session ends after 15 idle minutes, and 2 hours after the log-in
+   however busy (`STAFF_BREAK_GLASS_HOURS`); the owners are told when it ends.
+3. Do what the emergency needs, nothing more, and log out.
+4. Within 24 hours an owner or the auditor reads what it did: `GET /api/v1/staff/audit/?break_glass=true` (the staff
    API, as an AUDITOR or OWNER), and notes why in the incident or the access review.
-4. Every quarter: log in with each one once (the keys still work), log out, review that event, and check who can
+5. Every quarter: log in with each one once (the keys still work), log out, review that event, and check who can
    reach the keys.
 
 ## Data requests and privacy

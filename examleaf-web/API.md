@@ -1096,9 +1096,9 @@ minutes.
 - **Errors** carry `detail` and `code`, but 400's: `{"field": ["…"]}` (`non_field_errors` for the request as a whole,
   `params` for a job's); 401 `not_authenticated`, `authentication_failed` (an API key refused), `session_idle`,
   `session_expired`;
-  403 `permission_denied`, `reauthentication_required`, `mfa_setup_required`, `impersonating`, `link_expired` (a job's
-  file); 404 `not_found` (also every path on a host other than the admin host); 405 `method_not_allowed`; 429
-  `throttled`.
+  403 `permission_denied`, `reauthentication_required`, `break_glass_reason_required`, `mfa_setup_required`,
+  `impersonating`, `link_expired` (a job's file); 404 `not_found` (also every path on a host other than the admin
+  host); 405 `method_not_allowed`; 429 `throttled`.
 - **The session's limits.** After the person's idle limit without a request (`idle_timeout_s` in `session/`: 15 minutes
   for OWNER, ADMIN, FINANCE and PACKER, 30 for the others, the shortest of their roles') or 8 hours after the log-in
   the session ends: `401 {"code": "session_idle"}` or `{"code": "session_expired"}`; log in again. Do not poll in the
@@ -1116,7 +1116,8 @@ minutes.
 
 | Method | Path (under `/api/v1/staff/`) | Permission | What |
 |---|---|---|---|
-| GET | `session/` | any member of staff | the manifest: user, roles with expiry, permissions, scopes, limits, flags (and `test_mode` off production), the re-authentication window, the idle and absolute limits, `impersonating`, `manifest_version` |
+| GET | `session/` | any member of staff | the manifest: user, roles with expiry, permissions, scopes, limits, flags (and `test_mode` off production), the re-authentication window, the idle and absolute limits, `impersonating`, `break_glass`, `manifest_version` |
+| POST | `session/reason/` (`reason`) | a break-glass session | its reason, once, before anything else; the owners are told |
 | GET | `catalogue/` | any member of staff | every catalogued permission (label, area, risk, reauth, approval, alert) and every role (permissions, limits, scopes, conflicts, members) |
 | GET | `inbox/` (`?kind=&mine=&done=&snoozed=`), `inbox/count/` | `staff.view_inbox` | what waits: items assigned to you, or to nobody and needing a permission you hold; open and overdue counts |
 | POST | `inbox/<id>/done/`, `…/snooze/` (`until`), `…/assign/` (`assignee`) | `staff.view_inbox` | act on one |
@@ -1172,6 +1173,11 @@ minutes.
 **The manifest** (`session/`, `Cache-Control: no-store`). Keep it in memory, never in `localStorage`; fetch it again after
 any 403 and whenever `manifest_version` changes. `user.is_superuser` true is a break-glass account (no roles, every
 permission, no limits, the shortest idle limit; every event of its session is marked): show it a banner.
+`break_glass` is null for everyone else; for a break-glass session `{"reason_required", "reason", "ends_at"}`: while
+`reason_required` is true ask why and `POST session/reason/` `{"reason": "…"}` (10 to 500 characters, once: the
+answer is the same object), before which every other staff call answers `403 {"code": "break_glass_reason_required"}`
+(the manifest and `catalogue/` excepted); `ends_at` is its log-in plus 2 hours (`STAFF_BREAK_GLASS_HOURS`), the end
+however busy.
 
 ```sh
 curl https://examleaf.in/api/v1/staff/session/ -b "sessionid=…"
@@ -1181,7 +1187,8 @@ curl https://examleaf.in/api/v1/staff/session/ -b "sessionid=…"
 #      "scopes": {"ticket_queue": ["data_request"]}, "role_scopes": {},
 #      "limits": {"refund_inr": 1000, "offline_inr": 0, "discount_percent": 0, "export_rows": 100, "bulk_rows": 50},
 #      "flags": {"ERP_SYNC_ORDERS": false}, "reauth_valid_until": "2026-10-09T10:05:00Z", "idle_timeout_s": 1800,
-#      "absolute_expires_at": "2026-10-09T17:59:00Z", "impersonating": null, "manifest_version": "3f9a1c0d2b7e4a55"}
+#      "absolute_expires_at": "2026-10-09T17:59:00Z", "impersonating": null, "break_glass": null,
+#      "manifest_version": "3f9a1c0d2b7e4a55"}
 ```
 
 `flags.test_mode` is `true` only off production (`STAFF_TEST_MODE`, `DEBUG`'s by default): show the TEST band; absent,
@@ -1373,6 +1380,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 | PATCH | `staff/saved-views/{id}/` | `staff.change_savedview` |  | `PatchedSavedViewRequest` | 200 `SavedView` |
 | DELETE | `staff/saved-views/{id}/` | `staff.delete_savedview` |  |  | 204 |
 | GET | `staff/session/` | any member of staff |  |  | 200 `StaffManifest` |
+| POST | `staff/session/reason/` | any member of staff |  | `BreakGlassReasonRequest` | 200 `StaffBreakGlass` |
 | GET | `staff/settings/` | `staff.view_sitesetting` |  |  | 200 `[Setting]` |
 | GET | `staff/settings/{key}/` | `staff.view_sitesetting` (by the key or the body: see the table above) |  |  | 200 `[SwitchRow]` |
 | PUT | `staff/settings/{key}/` | `staff.manage_settings` (by the key or the body: see the table above) |  | `SwitchChangeRequest` | 200 `Setting` |
@@ -1406,6 +1414,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **Backtest**: `product` string (required, read-only); `horizon_weeks` integer (required); `wape` double (null); `mase_vs_seasonal_naive` double (null); `shown` boolean; `n` integer (required, read-only)
 - **BlankEnum**: null
 - **BookRequest**: `order` string (required, null); `courier_company_id` integer; `courier_name` string; `quoted_rate` decimal (null); `weight_g` integer; `length_cm` integer; `breadth_cm` integer; `height_cm` integer; `pickup_location` integer (null); `courier` CourierEnum; `tracking_number` string; `tracking_url` any
+- **BreakGlassReasonRequest**: `reason` string (required)
 - **CarrierEnum**: one of `manual`, `shiprocket`
 - **ChainEnum**: one of `general`, `money`
 - **ChangeRequest**: `id` integer (required, read-only); `action` string (required); `label` string (required, read-only); `target_type` string; `target_id` string; `target_label` string; `payload` any; `payload_sha256` string (required); `amount` decimal (null); `maker` integer (required); `reason` string (required); `rule` string; `status` ChangeRequestStatusEnum; `expires_at` date-time (required); `overridden` boolean; `checker` string (required, read-only); `approvals` [Approval] (required, read-only); `result` any (null); `executed_by` integer (null); `executed_at` date-time (null); `created` date-time (required, read-only); `modified` date-time (required, read-only)
@@ -1555,10 +1564,11 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ShippingExceptionStateEnum**: one of `open`, `resolved`, `dismissed`
 - **ShowEnum**: one of `email`, `phone`, `login_phone`, `parent_contact`, `parent_name`, `date_of_birth`
 - **SnoozeRequest**: `until` date-time (required)
+- **StaffBreakGlass**: `reason_required` boolean (required); `reason` string (required, null); `ends_at` date-time (required)
 - **StaffCatalogue**: `permissions` [object] (required); `roles` [object] (required)
 - **StaffImpersonating**: `user_id` integer (required); `email` string (required); `until` date-time (required)
 - **StaffInvite**: `id` integer (required, read-only); `email` string (required, read-only); `role` string (required); `invited_by` integer (null); `created` date-time; `expires_at` date-time (required); `accepted_at` date-time (null); `accepted_by` integer (null); `revoked_at` date-time (null)
-- **StaffManifest**: `user` StaffUser (required); `roles` [object] (required); `permissions` [string] (required); `scopes` object (required); `role_scopes` object (required); `limits` object (required); `flags` object (required); `reauth_valid_until` date-time (required, null); `idle_timeout_s` integer (required); `absolute_expires_at` date-time (required); `impersonating` StaffImpersonating (required, null); `manifest_version` string (required)
+- **StaffManifest**: `break_glass` StaffBreakGlass (required, null); `user` StaffUser (required); `roles` [object] (required); `permissions` [string] (required); `scopes` object (required); `role_scopes` object (required); `limits` object (required); `flags` object (required); `reauth_valid_until` date-time (required, null); `idle_timeout_s` integer (required); `absolute_expires_at` date-time (required); `impersonating` StaffImpersonating (required, null); `manifest_version` string (required)
 - **StaffSystem**: `health` any (required); `celery` any (required); `webhooks` any (required); `email` any (required); `sms` any (required); `backups` any (required); `maintenance` any (required); `audit` any (required)
 - **StaffUser**: `id` integer (required); `email` email (required); `full_name` string (required); `is_superuser` boolean (required)
 - **SwitchChangeRequest**: `value` any (required, null); `reason` string (required); `effective_from` date-time

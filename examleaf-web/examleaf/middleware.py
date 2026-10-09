@@ -11,7 +11,7 @@ from django.shortcuts import redirect
 from django.utils.cache import add_never_cache_headers
 from django.utils.crypto import constant_time_compare
 
-from accounts.models import STAFF_SESSION
+from accounts.models import staff_session_limit
 
 
 class FrontendClientMiddleware:
@@ -90,8 +90,9 @@ def needs_mfa_setup(user):
     return user.is_staff and not is_mfa_enabled(user, [Authenticator.Type.TOTP, Authenticator.Type.WEBAUTHN])
 
 
-# A member of staff's session (research 2.3): when it was signed in and last used, in the session itself.
-STAFF_LOGIN_AT, STAFF_SEEN = "staff:login_at", "staff:seen"
+# A member of staff's session (research 2.3): when it was signed in and last used, in the session itself; and a
+# break-glass session's reason, {"reason", "at"} (staff.api BreakGlassReasonView).
+STAFF_LOGIN_AT, STAFF_SEEN, BREAK_GLASS = "staff:login_at", "staff:seen", "staff:break_glass"
 SESSION_ENDED = {
     "idle": "Signed out after {minutes} minutes without activity: log in again.",
     "absolute": "Signed out: a staff session lasts {hours} hours. Log in again.",
@@ -108,12 +109,12 @@ def idle_limit(user):
     return min([limits.get(name, default) for name in user.role_names], default=default)
 
 
-def absolute_expiry(session):
-    """When a staff session ends at the latest: its expiry, or 8 hours after its log-in (accounts.models.STAFF_SESSION,
-    the absolute limit a staff session is given at log-in)."""
+def absolute_expiry(session, user):
+    """When a staff session ends at the latest: its expiry, or its limit after its log-in (8 hours, a break-glass
+    account's 2: accounts.models.staff_session_limit, the absolute limit a staff session is given at log-in)."""
     ends = session.get_expiry_date()
     if login_at := session.get(STAFF_LOGIN_AT):
-        ends = min(ends, datetime.fromtimestamp(login_at, UTC) + STAFF_SESSION)
+        ends = min(ends, datetime.fromtimestamp(login_at, UTC) + staff_session_limit(user))
     return ends
 
 
@@ -124,8 +125,9 @@ class StaffMFAMiddleware:
     reauthentication) and the static files. The app's session token becomes no JWT pair either (api.auth.ExchangeView).
 
     Before that, a staff session ends after its idle limit without a request (idle_limit: 15 or 30 minutes by role)
-    and 8 hours after its log-in: signed out, an API call is answered 401 with `code` "session_idle" or
-    "session_expired", any other page goes on signed out (the admin then asks for a log-in).
+    and 8 hours after its log-in (a break-glass account's: 2 hours, however busy): signed out, an API call is answered
+    401 with `code` "session_idle" or "session_expired", any other page goes on signed out (the admin then asks for a
+    log-in).
     """
 
     def __init__(self, get_response):
@@ -134,10 +136,9 @@ class StaffMFAMiddleware:
     def __call__(self, request):
         user, path = request.user, request.path
         if user.is_authenticated and user.is_staff and not path.startswith(settings.STATIC_URL):
-            limit = idle_limit(user)
+            limit, hours = idle_limit(user), int(staff_session_limit(user).total_seconds() // 3600)
             if why := self.ended(request, limit):
                 code = "session_idle" if why == "idle" else "session_expired"
-                hours = int(STAFF_SESSION.total_seconds() // 3600)
                 detail = SESSION_ENDED[why].format(minutes=limit // 60, hours=hours)
                 if path.startswith("/api/"):
                     return JsonResponse({"detail": detail, "code": code}, status=401)
@@ -160,7 +161,7 @@ class StaffMFAMiddleware:
         why = None
         if seen is not None and now - seen > idle_seconds:
             why = "idle"
-        elif now - login_at > STAFF_SESSION.total_seconds():
+        elif now - login_at > staff_session_limit(request.user).total_seconds():
             why = "absolute"
         if why is None:
             if seen is None or now - seen > 60:

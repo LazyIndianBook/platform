@@ -322,7 +322,7 @@ def test_every_endpoint_names_a_catalogued_permission_and_a_view_one_for_get():
             assert perm, (path, method, name)
             checked += 1
             if perm == ANY_STAFF:
-                assert path in ("session/", "catalogue/"), path
+                assert path in ("session/", "session/reason/", "catalogue/"), path
                 continue
             assert catalogue.entry(perm) is not None, (path, name, perm)
             if method == "get" and (cls, name) not in BOOKING_READS:

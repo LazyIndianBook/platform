@@ -62,11 +62,16 @@ the override; the audit log) and `MONEY_APPROVALS`. Who approves: FINANCE money,
 erasures and exports, REVIEWER content (it publishes), the owners anything. The newer roles do not open the Django
 admin (its lists are not scoped): `ADMIN_SITE_ROLES` there, the staff API here.
 
-**Break-glass.** The superuser flag is only on one or two sealed accounts outside Google sign-in, for when nothing
-else works (research 1.6); the founder's daily account is an OWNER. A break-glass account passes every check and has
-no limits; its log-in alerts the owners at once; every audit event of its sessions has `break_glass: true` (review
-them within 24 hours: `audit/?break_glass=true`), and so does an owner's override of an approval; its idle limit is
-the shortest.
+**Break-glass.** The superuser flag is only on one or two sealed accounts outside Google sign-in (the Google sign-in
+refuses them), for when nothing else works (research 1.6); the founder's daily account is an OWNER. A break-glass
+account passes every check and has no limits; its log-in alerts the owners at once. Its session gives a reason before
+anything else (`POST session/reason/`, once; the manifest's `break_glass.reason_required` until then, and every
+other staff call `403 break_glass_reason_required`, a step like a re-authentication, not an `authz_fail`); the owners
+get the reason. Every audit event of its sessions has `break_glass: true` and `details.break_glass_reason` (review
+them within 24 hours: `audit/?break_glass=true`), and so does an owner's override of an approval. Its idle limit is
+the shortest, and it ends `STAFF_BREAK_GLASS_HOURS` (2) after its log-in however busy
+(`accounts.models.staff_session_limit`); its end alerts the owners too. The Django admin does not ask for the reason
+(its tests run as superusers): give it in the panel first, in the same browser.
 
 Separation of duties: `SOD_CONFLICTS` lists the roles one person may not hold (FINANCE and PACKER, MARKETING and
 FINANCE, AUDITOR and every other); giving one through the panel is refused, and `sync_roles` (after every migrate,
@@ -265,7 +270,5 @@ The panel itself (Next.js); the orders, catalogue, content and course modules' o
 in the catalogue: `staff.publish_paper` waits for the content module); bulk actions beyond the change requests' (a
 bulk job runs those: refunds, offline payments, prices, coupons); the
 website's side of impersonation (the token's acceptance); replaying a Razorpay webhook from its body (the site keeps
-only the event's id and hash: `system/reconcile/` asks Razorpay again instead); ERPNext's role sync; a break-glass
-session's reason and its 2-hour box (research 1.6: today its alert and its marks); `Note` and
-`PolicyAcknowledgement` (plan 7.1); the insights' and shipping's endpoints' own permissions (their placeholders let
-any member of staff in, on every host).
+only the event's id and hash: `system/reconcile/` asks Razorpay again instead); ERPNext's role sync; `Note` and
+`PolicyAcknowledgement` (plan 7.1); the Django admin's own step for a break-glass session's reason.

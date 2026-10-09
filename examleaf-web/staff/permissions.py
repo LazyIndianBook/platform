@@ -15,7 +15,7 @@ from drf_spectacular.extensions import OpenApiAuthenticationExtension
 from rest_framework import authentication, exceptions, permissions, throttling
 
 from api.views import ReauthenticationRequired, recently_authenticated
-from examleaf.middleware import needs_mfa_setup
+from examleaf.middleware import BREAK_GLASS, needs_mfa_setup
 
 from . import catalogue
 from .models import ApiKey
@@ -116,16 +116,27 @@ class IsStaff(permissions.BasePermission):
 ANY_STAFF = "any_staff"  # the manifest and the catalogue: every member of staff reads their own
 
 
+class BreakGlassReasonRequired(exceptions.PermissionDenied):
+    """A break-glass session (a superuser's) says why before anything but the manifest and the catalogue (research
+    1.6): a step asked for, like a re-authentication, not a refusal."""
+
+    default_detail = "A break-glass session gives its reason first: POST session/reason/."
+    default_code = "break_glass_reason_required"
+
+
 class StaffPermission(permissions.BasePermission):
-    """The permission the view names for this action (or method); none named is refused (deny by default). Then a
-    recent re-authentication when the catalogue's risk says so, or the view's `reauth` actions (approving, running);
-    its `no_reauth` actions skip it (ending an impersonation)."""
+    """The permission the view names for this action (or method); none named is refused (deny by default). A
+    break-glass session's reason first (BreakGlassReasonRequired). Then a recent re-authentication when the catalogue's
+    risk says so, or the view's `reauth` actions (approving, running); its `no_reauth` actions skip it (ending an
+    impersonation)."""
 
     def has_permission(self, request, view):
         perm = view.required_permission(request)
         request._request._staff_perm = "" if perm == ANY_STAFF else perm or ""
         if perm == ANY_STAFF:
             return True
+        if request.user.is_superuser and not request.session.get(BREAK_GLASS):
+            raise BreakGlassReasonRequired()
         if not perm:
             self.message = "This endpoint names no permission for this: refused."
             return False

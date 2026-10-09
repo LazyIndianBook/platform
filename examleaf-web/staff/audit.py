@@ -148,6 +148,14 @@ def request_fields(request):
     }
 
 
+def session_break_glass(request):
+    """A break-glass session's {"reason", "at"} (examleaf.middleware.BREAK_GLASS), or None."""
+    from examleaf.middleware import BREAK_GLASS  # (the middleware imports this module late)
+
+    session = getattr(request, "session", None)
+    return session.get(BREAK_GLASS) if session is not None else None
+
+
 def _lock_head():
     head = AuditHead.objects.select_for_update().filter(pk=1).first()
     if head is None:  # the first event (or a test database flushed): concurrent creators, one row
@@ -201,6 +209,8 @@ def record(
         "changes": plain(mask(changes or {})),
         "details": plain(mask(details or {})),
     }
+    if fields["break_glass"] and (given := session_break_glass(request)):  # the session's reason, in each event
+        fields["details"]["break_glass_reason"] = given["reason"]
     # ponytail: one lock for every writer, held to the end of the caller's transaction; fine at this volume, a lock
     # per chain and day if it ever contends. Callers lock their own rows first and record last (no deadlock).
     with transaction.atomic():

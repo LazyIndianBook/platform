@@ -20,6 +20,7 @@ router.register("processors", api.ProcessorViewSet, basename="processor")
 
 urlpatterns = [
     path("session/", api.SessionView.as_view(), name="session"),
+    path("session/reason/", api.BreakGlassReasonView.as_view(), name="session-reason"),
     path("catalogue/", api.CatalogueView.as_view(), name="catalogue"),
     path("settings/", api.SettingsView.as_view(), name="settings"),
     path("settings/<str:key>/", api.SettingView.as_view(), name="setting"),

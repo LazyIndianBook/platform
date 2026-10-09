@@ -34,7 +34,7 @@ from rest_framework.settings import api_settings
 
 from accounts import roles
 from api.views import ReauthenticationRequired, exception_handler, recently_authenticated
-from examleaf.middleware import absolute_expiry, idle_limit
+from examleaf.middleware import BREAK_GLASS, absolute_expiry, idle_limit
 
 from . import approvals, audit, catalogue, jobs, services
 from . import serializers as s
@@ -201,12 +201,34 @@ def manifest(request):
         **body,
         "reauth_valid_until": reauth_valid_until(request),
         "idle_timeout_s": idle_limit(user),
-        "absolute_expires_at": absolute_expiry(request.session),
+        "absolute_expires_at": absolute_expiry(request.session, user),
         "impersonating": impersonating(request),
+        "break_glass": break_glass(request),
         "manifest_version": version,
     }
 
 
+def break_glass(request):
+    """A break-glass session's (a superuser's): {reason_required, reason, ends_at}; None for anyone else."""
+    if not request.user.is_superuser:
+        return None
+    given = request.session.get(BREAK_GLASS) or {}
+    return {
+        "reason_required": not given,
+        "reason": given.get("reason"),
+        "ends_at": absolute_expiry(request.session, request.user),
+    }
+
+
+BREAK_GLASS_SESSION = inline_serializer(
+    "StaffBreakGlass",
+    {
+        "reason_required": serializers.BooleanField(help_text="true: POST session/reason/ before anything else"),
+        "reason": serializers.CharField(allow_null=True),
+        "ends_at": serializers.DateTimeField(help_text="its log-in + STAFF_BREAK_GLASS_HOURS, however busy"),
+    },
+    allow_null=True,
+)
 MANIFEST = inline_serializer(
     "StaffManifest",
     {
@@ -239,6 +261,7 @@ MANIFEST = inline_serializer(
             },
             allow_null=True,
         ),
+        "break_glass": BREAK_GLASS_SESSION,
         "manifest_version": serializers.CharField(help_text="changes when anything above changes: fetch again"),
     },
 )
@@ -256,6 +279,35 @@ class SessionView(StaffView, generics.GenericAPIView):
     def get(self, request, *args, **kwargs):
         self.human()
         return Response(manifest(request))
+
+
+class BreakGlassReasonView(StaffView, generics.GenericAPIView):
+    """A break-glass session's reason (research 1.6), once, before anything else opens (`break_glass.reason_required`
+    in the manifest): kept on the session, in every audit event of the session (`details.break_glass_reason`), and sent
+    to the owners. The session ends STAFF_BREAK_GLASS_HOURS after its log-in, however busy."""
+
+    permissions = {"POST": ANY_STAFF}
+    serializer_class = s.BreakGlassReasonSerializer
+    pagination_class = None
+
+    @extend_schema(responses=BREAK_GLASS_SESSION)
+    def post(self, request, *args, **kwargs):
+        user, data = self.human(), self.get_serializer(data=request.data)
+        if not user.is_superuser:
+            raise serializers.ValidationError({"non_field_errors": ["Only a break-glass session gives a reason."]})
+        data.is_valid(raise_exception=True)
+        if not request.session.get(BREAK_GLASS):  # once: the session's reason stays the first
+            reason = data.validated_data["reason"]
+            request.session[BREAK_GLASS] = {"reason": reason, "at": time.time()}
+            ends = absolute_expiry(request.session, user)
+            with transaction.atomic():
+                audit.record("break_glass.started", request=request, reason=reason, details={"ends_at": ends})
+                audit.alert(
+                    f"Break-glass session of account #{user.pk}: its reason",
+                    f"Reason: {reason}\nIt ends at {timezone.localtime(ends):%H:%M} (India time) at the latest. Review "
+                    "its events within 24 hours: audit/?break_glass=true",
+                )
+        return Response(break_glass(request))
 
 
 CATALOGUE = inline_serializer(

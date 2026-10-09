@@ -24,10 +24,18 @@ from . import roles
 STAFF_SESSION = timedelta(hours=8)  # a member of staff's session lasts this long from the log-in (H2, L11)
 
 
+def staff_session_limit(user):
+    """How long a staff session lasts from its log-in, however busy: 8 hours; a break-glass account's (a superuser's)
+    STAFF_BREAK_GLASS_HOURS, 2 (research 1.6: the elevated session is time-boxed)."""
+    if user.is_superuser:
+        return min(STAFF_SESSION, timedelta(hours=settings.STAFF_BREAK_GLASS_HOURS))
+    return STAFF_SESSION
+
+
 @receiver(user_logged_in)  # allauth's log-in (the website and the admin; not the API, which has no session)
 def shorter_staff_sessions(sender, request, user, **kwargs):
-    if user.is_staff:
-        request.session.set_expiry(STAFF_SESSION)
+    if user.is_staff or user.is_superuser:
+        request.session.set_expiry(staff_session_limit(user))
 
 
 # PARENTAL_CONSENT_MODE "verified": the parent's link (accounts.views.send_parent_link) goes once the student has

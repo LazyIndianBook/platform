@@ -41,6 +41,12 @@ class ReasonSerializer(serializers.Serializer):
     reason = serializers.CharField(max_length=500, help_text="Why: kept in the audit log")
 
 
+class BreakGlassReasonSerializer(serializers.Serializer):
+    reason = serializers.CharField(
+        min_length=10, max_length=500, help_text="why nothing else works: the owners read it"
+    )
+
+
 class AuditEventSerializer(serializers.ModelSerializer):
     class Meta:
         model = AuditEvent

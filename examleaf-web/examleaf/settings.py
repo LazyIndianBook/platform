@@ -709,6 +709,9 @@ ADMIN_HOSTS = env.list("ADMIN_HOSTS", default=[])
 # for a role not listed (plan 3.5).
 STAFF_IDLE_TIMEOUT = env.int("STAFF_IDLE_TIMEOUT", default=30 * 60)
 STAFF_IDLE_TIMEOUTS = dict.fromkeys(["OWNER", "ADMIN", "FINANCE", "PACKER"], 15 * 60)
+# A break-glass session (a superuser's) gives its reason before anything (POST staff/session/reason/) and ends this
+# many hours after its log-in however busy (research 1.6); the owners are told at its start and its end.
+STAFF_BREAK_GLASS_HOURS = env.int("STAFF_BREAK_GLASS_HOURS", default=2)
 STAFF_PANEL_URL = env("STAFF_PANEL_URL", default=SITE_URL).rstrip("/")  # the panel's address: invitations link there
 STAFF_ALERT_EMAILS = env.list("STAFF_ALERT_EMAILS", default=[])  # the owners' alerts; empty: OWNER's members
 STAFF_CHANGE_REQUEST_HOURS = env.int("STAFF_CHANGE_REQUEST_HOURS", default=24)  # a change request's life

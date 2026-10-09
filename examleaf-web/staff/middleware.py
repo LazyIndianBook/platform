@@ -21,6 +21,7 @@ STAFF_APIS = re.compile(
     r"^/api/v1/(?:staff|insights|shipping/(?:shipments|exceptions|cod|charges|pickup-locations|orders|manifest))/"
 )
 ADMIN = "/admin/"
+STEPS = {"reauthentication_required", "break_glass_reason_required"}
 WEBHOOKS = {"/shop/webhooks/razorpay/": "Razorpay"}
 IMPERSONATING = "staff:impersonating"
 WHILE_IMPERSONATING = re.compile(
@@ -73,7 +74,7 @@ class StaffAuditMiddleware:
                 data = json.loads(response.content)
             except ValueError:
                 data = {}
-        if data.get("code") == "reauthentication_required":  # a step-up asked for, not a refusal
+        if data.get("code") in STEPS:  # a step-up or a break-glass session's reason asked for, not a refusal
             return
         from .audit import Outcome, record
 

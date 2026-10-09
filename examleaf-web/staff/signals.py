@@ -80,8 +80,17 @@ def staff_logged_in(sender, request, user, **kwargs):
 @receiver(user_logged_out)
 @quietly
 def staff_logged_out(sender, request, user, **kwargs):
-    if user is not None and user.is_staff and not getattr(request, "_staff_session_ended", None):
+    if user is None or not user.is_staff:
+        return
+    ended = getattr(request, "_staff_session_ended", None)  # idle or absolute: its own event was recorded
+    if not ended:
         record("session_logout", request=request, actor=user)
+    if user.is_superuser:  # a break-glass session's end: the owners are told, as at its start
+        why = {"idle": "idle", "absolute": "its time was up"}.get(ended, "logged out")
+        alert(
+            f"Break-glass session of account #{user.pk} ended ({why})",
+            "Review its events within 24 hours: audit/?break_glass=true",
+        )
 
 
 def staff_with(username):

@@ -10,6 +10,7 @@ from django.contrib.auth.models import Group
 from rest_framework.test import APIClient
 
 from accounts.factories import UserFactory
+from examleaf.middleware import BREAK_GLASS
 from shop.conftest import commit, no_network, quick_pdf, rzp, shop_settings  # noqa: F401  (fixtures)
 from staff.models import AuditEvent
 
@@ -28,13 +29,16 @@ def make_staff(*role_names, **fields):
     return type(user).objects.get(pk=user.pk)  # without cached roles or permissions
 
 
-def signed_in(user, reauth=True):
-    """The panel: a browser session of `user`, re-authenticated a moment ago (or long ago)."""
+def signed_in(user, reauth=True, reason="Testing the panel"):
+    """The panel: a browser session of `user`, re-authenticated a moment ago (or long ago); a break-glass account's
+    (a superuser's) with its reason given (reason=None: not yet)."""
     client = APIClient()
     client.force_login(user)
     session = client.session
     at = time.time() if reauth else time.time() - 3600
     session[AUTHENTICATION_METHODS_SESSION_KEY] = [{"method": "password", "at": at, "email": user.email}]
+    if user.is_superuser and reason:
+        session[BREAK_GLASS] = {"reason": reason, "at": time.time()}
     session.save()
     return client
 

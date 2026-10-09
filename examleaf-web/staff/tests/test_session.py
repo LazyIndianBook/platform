@@ -122,6 +122,68 @@ def test_activity_keeps_it_going_and_is_written_at_most_once_a_minute():
     assert client.get(SESSION).status_code == 200 and client.session[STAFF_SEEN] > first
 
 
+def test_a_break_glass_session_gives_its_reason_first_and_each_of_its_events_carries_it(
+    settings, django_capture_on_commit_callbacks
+):
+    from django.core import mail
+
+    from accounts.factories import UserFactory
+
+    settings.STAFF_ALERT_EMAILS = ["owner@examleaf.in"]
+    glass = make_staff(is_superuser=True)
+    client = signed_in(glass, reason=None)
+    asked = client.get(SESSION).json()["break_glass"]
+    assert (asked["reason_required"], asked["reason"]) == (True, None) and asked["ends_at"]
+    assert client.get(STAFF + "catalogue/").status_code == 200  # the manifest and the catalogue: to draw the panel
+    customer = UserFactory()
+    refused = client.get(f"{STAFF}users/{customer.pk}/")
+    assert (refused.status_code, refused.json()["code"]) == (403, "break_glass_reason_required")
+    assert not events("authz_fail", actor_id=glass.pk).exists()  # a step asked for, as a re-authentication
+    assert client.post(STAFF + "session/reason/", {"reason": "Down"}).status_code == 400  # say why
+    why = "Google sign-in is down and every owner is locked out"
+    with django_capture_on_commit_callbacks(execute=True):
+        given = client.post(STAFF + "session/reason/", {"reason": why})
+    assert given.json()["reason_required"] is False and given.json()["reason"] == why
+    assert client.post(STAFF + "session/reason/", {"reason": "Another reason, later"}).json()["reason"] == why  # once
+    started = events("break_glass.started").get()
+    assert (started.reason, started.break_glass, started.details["break_glass_reason"]) == (why, True, why)
+    assert any(message.to == ["owner@examleaf.in"] and why in message.body for message in mail.outbox)
+    assert client.get(f"{STAFF}users/{customer.pk}/").status_code == 200
+    assert events("sensitive_read", actor_id=glass.pk).get().details["break_glass_reason"] == why
+    mail.outbox.clear()
+    with django_capture_on_commit_callbacks(execute=True):
+        client.delete("/_allauth/browser/v1/auth/session")  # logged out: the owners are told it ended
+    assert any("ended (logged out)" in message.subject for message in mail.outbox)
+    staff = signed_in(make_staff(roles.ADMIN))
+    assert staff.get(SESSION).json()["break_glass"] is None
+    assert staff.post(STAFF + "session/reason/", {"reason": why}).status_code == 400  # no break-glass session
+
+
+def test_a_break_glass_session_ends_two_hours_after_its_log_in_however_busy(
+    settings, django_capture_on_commit_callbacks
+):
+    from django.core import mail
+
+    from accounts.models import staff_session_limit
+
+    settings.STAFF_ALERT_EMAILS = ["owner@examleaf.in"]
+    glass = make_staff(is_superuser=True)
+    assert staff_session_limit(glass) == timedelta(hours=2) and staff_session_limit(make_staff()) == STAFF_SESSION
+    client = signed_in(glass)
+    client.get(SESSION)
+    login_at = client.session[STAFF_LOGIN_AT]
+    ends = datetime.fromisoformat(client.get(SESSION).json()["break_glass"]["ends_at"].replace("Z", "+00:00"))
+    assert ends <= datetime.fromtimestamp(login_at, UTC) + timedelta(hours=2, seconds=1)
+    session = client.session
+    session[STAFF_LOGIN_AT], session[STAFF_SEEN] = time.time() - 2 * 3600 - 1, time.time()  # busy, but 2 hours on
+    session.save()
+    with django_capture_on_commit_callbacks(execute=True):
+        response = client.get(SESSION)
+    assert (response.status_code, response.json()["code"]) == (401, "session_expired")
+    assert "2 hours" in response.json()["detail"]
+    assert any("ended (its time was up)" in message.subject for message in mail.outbox)
+
+
 def test_a_staff_session_ends_8_hours_after_its_log_in_however_busy():
     assert STAFF_SESSION == timedelta(hours=8)
     client = signed_in(make_staff(roles.SUPPORT))
