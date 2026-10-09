@@ -272,6 +272,15 @@ class InboxItem(models.Model):
         DEAD_LETTER = "dead_letter", "integration task given up"
         FAILED_EVENT = "failed_event", "provider event not processed"
         INTEGRATION_DOWN = "integration_down", "integration unavailable"
+        # Phase B: staff, settings and integrations, system
+        ROLE_EXPIRED = "role_expired", "a temporary role ended"
+        OFFBOARDING = "offboarding", "offboarding: accounts to close by hand"
+        WEBHOOK_SILENT = "webhook_silent", "a provider's webhooks fell silent"
+        TEMPLATE_IDLE = "template_idle", "a message template unused for months"
+        TEMPLATE_CERTIFY = "template_certify", "a message template's yearly self-certification"
+        BACKUP_STALE = "backup_stale", "no recent backup"
+        DEPENDENCIES_STALE = "dependencies_stale", "the dependency report is old"
+        SCRIPTS_CHANGED = "scripts_changed", "the checkout's or console's scripts changed"
 
     kind = models.CharField(max_length=20, choices=Kind.choices, db_index=True)
     title = models.CharField(max_length=200, help_text="Names no one: a number, a kind.")
@@ -698,3 +707,120 @@ class ProcessorRecord(models.Model):
 
     def __str__(self):
         return self.name
+
+
+# Phase B: staff, settings and integrations, system
+
+
+class StaffOffboarding(models.Model):
+    """One offboarding of a member of staff (research 2.9; staff.services.offboard): who started it, when and why, and
+    its steps as rows: what the panel did at once (deactivated, sessions ended, tokens blacklisted, roles and scopes
+    removed, temporary grants cancelled, pending requests withdrawn, work unassigned, API keys revoked) and what an
+    owner ticks by hand (the ERPNext user disabled, the external accounts closed, the security keys collected, the last
+    90 days reviewed). Finished once every step is done or not needed."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="offboardings")
+    started_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    reason = models.CharField(max_length=500)
+    started_at = models.DateTimeField(default=timezone.now)
+    finished_at = models.DateTimeField(null=True, blank=True, help_text="When its last step was done.")
+
+    class Meta:
+        default_permissions = ("view",)  # started through staff.assign_role, its manual steps ticked by the owners
+        ordering = ["-started_at", "-pk"]
+
+    def __str__(self):
+        return f"Offboarding #{self.pk}"
+
+
+class OffboardingStep(models.Model):
+    """One step of an offboarding: done by the panel at once (auto), or ticked by an owner (manual), with who and when.
+    `detail` holds counts or the owner's note, never a person's details."""
+
+    class Kind(models.TextChoices):
+        AUTO = "auto", "done by the panel"
+        MANUAL = "manual", "ticked by an owner"
+
+    class State(models.TextChoices):
+        DONE = "done", "done"
+        TODO = "todo", "to do"
+        NOT_NEEDED = "not_needed", "not needed"
+
+    offboarding = models.ForeignKey(StaffOffboarding, on_delete=models.CASCADE, related_name="steps")
+    key = models.CharField(max_length=40)
+    kind = models.CharField(max_length=6, choices=Kind.choices)
+    state = models.CharField(max_length=10, choices=State.choices, default=State.TODO)
+    detail = models.CharField(max_length=300, blank=True)
+    done_at = models.DateTimeField(null=True, blank=True)
+    done_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    position = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        default_permissions = ()  # read with its offboarding
+        ordering = ["offboarding", "position", "pk"]
+        constraints = [models.UniqueConstraint(fields=["offboarding", "key"], name="one_offboarding_step_per_key")]
+
+    def __str__(self):
+        return f"Offboarding step #{self.pk}"
+
+
+class RestoreDrill(models.Model):
+    """A restore test (plan 5.19; research 7, CP-9): a backup restored into a scratch place, by whom, when, how long it
+    took and whether it worked, so the system page says when the backups were last proven to work. Recorded through
+    `system/backups/drills/` (staff.manage_system); never edited afterwards."""
+
+    class Engine(models.TextChoices):
+        PLATFORM = "platform", "the platform's PostgreSQL"
+        ERPNEXT = "erpnext", "ERPNext's MariaDB and files"
+        BOTH = "both", "both engines"
+
+    class Result(models.TextChoices):
+        PASSED = "passed", "it worked"
+        PARTIAL = "partial", "it worked in part"
+        FAILED = "failed", "it failed"
+
+    performed_on = models.DateField()
+    engine = models.CharField(max_length=10, choices=Engine.choices)
+    backup = models.CharField(max_length=200, help_text="The backup restored: its object's name in the bucket.")
+    result = models.CharField(max_length=10, choices=Result.choices)
+    duration_minutes = models.PositiveIntegerField()
+    notes = models.TextField(blank=True, max_length=2000)
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    created = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        default_permissions = ("view",)  # recorded through staff.manage_system
+        ordering = ["-performed_on", "-pk"]
+
+    def __str__(self):
+        return f"Restore drill #{self.pk}"
+
+
+class ScriptInventory(models.Model):
+    """A script the checkout page or the console's sign-in page loaded (PCI DSS 6.4.3 and 11.6.1; research 4.8): its
+    address (empty for an inline script) and the SHA-256 of its content, first and last seen by the daily check
+    (staff.tasks.check_scripts), which opens an inbox item and alerts the owners when the set changes."""
+
+    class Page(models.TextChoices):
+        CHECKOUT = "checkout", "the storefront's checkout"
+        CONSOLE = "console", "the console's sign-in"
+
+    page = models.CharField(max_length=10, choices=Page.choices)
+    src = models.URLField(max_length=500, blank=True, help_text="Empty: an inline script.")
+    sha256 = models.CharField(max_length=64)
+    first_seen = models.DateTimeField(default=timezone.now)
+    last_seen = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        default_permissions = ("view",)
+        ordering = ["page", "-last_seen", "pk"]
+        constraints = [models.UniqueConstraint(fields=["page", "src", "sha256"], name="one_script_per_content")]
+
+    def __str__(self):
+        return f"Script #{self.pk}"
