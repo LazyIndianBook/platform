@@ -135,6 +135,9 @@ def test_the_test_copies_are_for_a_test_site_and_the_import_is_the_reviewers(set
     assert answer.status_code == 400 and "fixtures" in answer.json()["params"]
     editor = signed_in(make_staff(roles.CONTENT_EDITOR))
     assert editor.post(STAFF + "jobs/", params, format="json").status_code == 403  # staff.import_content
+    # high: a reviewer whose authentication is an hour old confirms it first
+    stale = signed_in(make_staff(roles.REVIEWER), reauth=False).post(STAFF + "jobs/", params, format="json")
+    assert stale.status_code == 403 and stale.json()["code"] == "reauthentication_required"
 
 
 def test_the_command_still_imports_and_says_what_a_dry_run_would_do():
