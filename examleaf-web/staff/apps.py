@@ -22,4 +22,6 @@ class StaffConfig(AppConfig):
     verbose_name = "Staff (the Admin Control Panel)"
 
     def ready(self):
+        from . import signals  # noqa: F401  the audit log's and the inbox's receivers
+
         post_migrate.connect(sync_roles_after_migrate, sender=self, dispatch_uid="staff.sync_roles")

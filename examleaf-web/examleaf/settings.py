@@ -99,7 +99,8 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
-    "examleaf.middleware.StaffMFAMiddleware",  # staff must set up an authenticator app before anything else
+    "staff.middleware.StaffAuditMiddleware",  # the staff API's refusals in the audit log; impersonation's limits
+    "examleaf.middleware.StaffMFAMiddleware",  # staff: idle and absolute limits; an authenticator app before all
     "simple_history.middleware.HistoryRequestMiddleware",
     "axes.middleware.AxesMiddleware",  # keep last
 ]
@@ -727,3 +728,9 @@ STAFF_DPDP_RESPONSE_DAYS = env.int("STAFF_DPDP_RESPONSE_DAYS", default=90)
 # Quoted in every answer to a data request (DPDP r.9) and in the incident alerts (CERT-In Annexure II).
 DATA_PROTECTION_OFFICER = env("DATA_PROTECTION_OFFICER", default="[the Grievance Officer's name, email and phone]")
 CERT_IN_POINT_OF_CONTACT = env("CERT_IN_POINT_OF_CONTACT", default="[name, email and phone registered with CERT-In]")
+CELERY_BEAT_SCHEDULE.update(
+    {
+        "staff-verify-audit-chain": {"task": "staff.tasks.verify_audit_chain", "schedule": crontab(hour=2, minute=0)},
+        "staff-export-audit-log": {"task": "staff.tasks.export_audit_log", "schedule": crontab(hour=6, minute=0)},
+    }
+)

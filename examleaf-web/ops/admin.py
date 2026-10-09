@@ -69,9 +69,11 @@ class SmsLogAdmin(admin.ModelAdmin):
 
 class LoggedExportMixin(ExportMixin):
     """django-import-export's admin export (only with the model's "export_…" permission: settings.py), and each export
-    written to the admin log: who exported how many rows of which model, and when (M5)."""
+    written to the admin log and the audit log: who exported how many rows of which model, and when (M5)."""
 
     def get_data_for_export(self, request, queryset, **kwargs):
+        from staff.audit import record  # (staff's admin imports accounts', which imports this module)
+
         data = super().get_data_for_export(request, queryset, **kwargs)
         LogEntry.objects.create(
             user=request.user,
@@ -80,4 +82,8 @@ class LoggedExportMixin(ExportMixin):
             action_flag=CHANGE,
             change_message=f"Exported {len(data)} rows.",
         )
+        model = self.model._meta.label_lower
+        record("data_export", request=request, permission=f"{self.opts.app_label}.export_{self.opts.model_name}",
+               target=(model, "", f"Export of {self.opts.verbose_name_plural}"),
+               details={"model": model, "rows": len(data), "where": "admin"})  # fmt: skip
         return data
