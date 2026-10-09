@@ -1930,6 +1930,51 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 | POST | `staff/content/solutions/{id}/rollback/` | `staff.publish_paper` |  |  | 200 `ContentSolutionDetail` |
 | POST | `staff/content/solutions/{id}/submit/` | `content.change_solution` |  | `ContentSubmitRequest` | 201 `ContentOpenReview` |
 | GET | `staff/content/summary/` | `content.view_errorreport` |  |  | 200 `ContentSummary` |
+| GET | `staff/course/bin/` | `learn.view_clip` (by the key or the body: see the table above) | `cursor`, `kind`, `page_size` |  | 200 `PaginatedCourseBinRowList` |
+| GET | `staff/course/cards/{id}/` | `learn.view_flashcard` |  |  | 200 `CourseCard` |
+| PATCH | `staff/course/cards/{id}/` | `learn.change_flashcard` |  | `PatchedCourseCardRequest` | 200 `CourseCard` |
+| DELETE | `staff/course/cards/{id}/` | `learn.delete_flashcard` |  |  | 204 |
+| POST | `staff/course/cards/{id}/move/` | `learn.change_flashcard` |  | `CourseMoveRequest` | 200 `CourseCard` |
+| POST | `staff/course/cards/{id}/restore/` | `learn.change_flashcard` |  |  | 200 `CourseCard` |
+| PATCH | `staff/course/chapters/{id}/` | `learn.change_chapter` |  | `PatchedCourseChapterRequest` | 200 `CourseChapter` |
+| GET | `staff/course/clips/{id}/` | `learn.view_clip` |  |  | 200 `CourseClip` |
+| PATCH | `staff/course/clips/{id}/` | `learn.change_clip` |  | `PatchedCourseClipRequest` | 200 `CourseClip` |
+| DELETE | `staff/course/clips/{id}/` | `learn.delete_clip` |  |  | 204 |
+| POST | `staff/course/clips/{id}/move/` | `learn.change_clip` |  | `CourseMoveRequest` | 200 `CourseClip` |
+| POST | `staff/course/clips/{id}/restore/` | `learn.change_clip` |  |  | 200 `CourseClip` |
+| POST | `staff/course/clips/{id}/retry/` | `learn.change_clip` |  |  | 200 `CourseClip` |
+| GET | `staff/course/codes/batches/` | `learn.view_codebatch` | `cursor`, `page_size`, `q`, `state`, `subject` |  | 200 `PaginatedCourseBatchList` |
+| POST | `staff/course/codes/batches/` | `staff.make_book_codes` |  | `CourseBatchCreateRequest` | 202 `CourseBatchStarted` |
+| GET | `staff/course/codes/batches/{label}/` | `learn.view_codebatch` |  |  | 200 `CourseBatchDetail` |
+| POST | `staff/course/codes/batches/{label}/dispatched/` | `learn.change_codebatch` |  | `CourseDispatchedRequest` | 200 `CourseBatch` |
+| POST | `staff/course/codes/batches/{label}/void/` | `staff.void_book_codes` |  | `CourseVoidRequest` | 200 `CourseBatchVoided` |
+| POST | `staff/course/codes/lookup/` | `learn.view_bookcode` |  | `CourseCodeRequest` | 200 `CourseCodeLookup` |
+| GET | `staff/course/codes/report/` | `learn.view_codebatch` |  |  | 200 `CourseReport` |
+| POST | `staff/course/codes/void/` | `staff.void_book_codes` |  | `CourseCodeVoidRequest` | 200 `CourseCodeVoided` |
+| GET | `staff/course/entitlements/` | `learn.view_entitlement` | `cursor`, `page_size`, `q`, `source`, `state`, `subject`, `user` |  | 200 `PaginatedCourseEntitlementList` |
+| POST | `staff/course/entitlements/` | `learn.add_entitlement` |  | `CourseGrantRequest` | 201 `CourseEntitlement` |
+| GET | `staff/course/entitlements/{id}/` | `learn.view_entitlement` |  |  | 200 `CourseEntitlementDetail` |
+| POST | `staff/course/entitlements/{id}/extend/` | `learn.change_entitlement` |  | `CourseExtendRequest` | 200 `CourseEntitlement` |
+| POST | `staff/course/entitlements/{id}/revoke/` | `learn.change_entitlement` |  | `CourseReasonRequest` | 200 `CourseEntitlement` |
+| GET | `staff/course/items/` | `learn.view_quizitem` | `bloom`, `chapter`, `cursor`, `difficulty`, `flagged`, `flags`, `kind`, `marks`, `n_too_small`, `page_size`, `q`, `source`, `subject`, `tag`, `topic` |  | 200 `PaginatedCourseItemRowList` |
+| GET | `staff/course/items/{id}/` | `learn.view_quizitem` |  |  | 200 `CourseItem` |
+| PATCH | `staff/course/items/{id}/` | `learn.change_quizitem` |  | `PatchedCourseItemRequest` | 200 `CourseItem` |
+| DELETE | `staff/course/items/{id}/` | `learn.delete_quizitem` |  |  | 204 |
+| POST | `staff/course/items/{id}/flag/` | `staff.triage_report` |  | `CourseFlagRequest` | 200 `CourseFlagAnswer`; 201 `CourseFlagAnswer` |
+| GET | `staff/course/items/{id}/history/` | `learn.view_quizitem` |  |  | 200 `[CourseVersion]` |
+| POST | `staff/course/items/{id}/move/` | `learn.change_quizitem` |  | `CourseMoveRequest` | 200 `CourseItem` |
+| POST | `staff/course/items/{id}/restore/` | `learn.change_quizitem` |  |  | 200 `CourseItem` |
+| GET | `staff/course/learners/{user}/` | `learn.view_entitlement` |  |  | 200 `CourseLearner` |
+| POST | `staff/course/learners/{user}/devices/{device}/sign-out/` | `staff.end_user_sessions` |  |  | 204 |
+| GET | `staff/course/revisions/{id}/` | `learn.view_revision` |  |  | 200 `CourseRevision` |
+| PATCH | `staff/course/revisions/{id}/` | `learn.change_revision` |  | `PatchedCourseRevisionRequest` | 200 `CourseRevision` |
+| POST | `staff/course/revisions/{id}/approve/` | `staff.publish_course` |  | `CourseCommentRequest` | 200 `CourseRevision` |
+| POST | `staff/course/revisions/{id}/needs-changes/` | `staff.publish_course` |  | `CourseCommentRequest` | 200 `CourseRevision` |
+| POST | `staff/course/revisions/{id}/publish/` | `staff.publish_course` |  | `CoursePublishRequest` | 200 `CourseRevision` |
+| POST | `staff/course/revisions/{id}/submit/` | `learn.change_revision` |  |  | 200 `CourseRevision` |
+| POST | `staff/course/revisions/{id}/unpublish/` | `staff.publish_course` |  |  | 200 `CourseRevision` |
+| GET | `staff/course/subjects/` | `learn.view_chapter` |  |  | 200 `[CourseSubject]` |
+| GET | `staff/course/subjects/{subject}/outline/` | `learn.view_chapter` |  |  | 200 `CourseOutline` |
 | GET | `staff/data-requests/` | `staff.view_datarequest` | `assignee`, `cursor`, `kind`, `overdue`, `page_size`, `status`, `user` |  | 200 `PaginatedDataRequestListList` |
 | POST | `staff/data-requests/` | `staff.handle_data_request` |  | `DataRequestRequest` | 201 `DataRequest` |
 | GET | `staff/data-requests/{id}/` | `staff.view_datarequest` |  |  | 200 `DataRequest` |
@@ -2169,7 +2214,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ApiKeyRequest**: `name` string (required); `scopes` any; `sponsor` integer; `expires_at` date-time; `allowed_ips` any
 - **Approval**: `user` integer (required); `decision` DecisionEnum (required); `comment` string; `created` date-time
 - **ApproveRequest**: `payload_sha256` string (required); `comment` string; `override` boolean
-- **AskActionEnum**: one of `order.refund`, `order.offline_payment`, `product.price`, `coupon.create`
+- **AskActionEnum**: one of `order.refund`, `order.offline_payment`, `product.price`, `coupon.create`, `entitlement.grant`, `entitlement.extend`, `entitlement.revoke`, `item_metadata`
 - **AskRequest**: `action` AskActionEnum (required); `target` string (required); `payload` object (required); `reason` string (required)
 - **AssignRequest**: `assignee` integer (required, null)
 - **Attachment**: `id` integer (required, read-only); `name` string (required, read-only); `content_type` string (required, read-only); `size` integer (required, read-only)
@@ -2206,6 +2251,8 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **CircuitActionRequest**: `reason` string (required); `action` CircuitActionEnum (required)
 - **CircuitStateEnum**: one of `closed`, `open`, `half_open`
 - **ClassLevelEnum**: one of `10`, `12`
+- **ClipKindEnum**: one of `concept`, `trick`, `shortcut`, `formula`, `pattern`, `mistake`, `pyq`
+- **ClipProcessingEnum**: one of `uploaded`, `processing`, `ready`, `failed`
 - **Clock**: `kind` ClockKindEnum (required); `label` string (required); `rule` string (required); `started_at` date-time (required, null); `due_at` date-time (required, null); `overdue` boolean (required); `target_type` string (required); `target_id` string (required); `target_label` string (required); `account` integer (required, null)
 - **ClockCount**: `open` integer (required); `overdue` integer (required)
 - **ClockKindEnum**: one of `data_request_ack`, `data_request_answer`, `incident_cert_in`, `incident_board`, `complaint_ack`, `complaint_redress`, `complaint_nch`, `parent_consent`, `deletion_parent`, `dark_pattern_audit`
@@ -2264,6 +2311,76 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ContentVersionPage**: `next` uri (required, null); `previous` uri (required, null); `results` [ContentVersion] (required)
 - **ContentVersionTypeEnum**: one of `+`, `~`, `-`
 - **CourierEnum**: one of `India Post`, `Delhivery`, `Blue Dart`, `Ekart`, `DTDC`, `Xpressbees`, `Other`
+- **CourseBatch**: `id` integer (required, read-only); `key` string (required, read-only); `label` string (required, read-only); `subject` string (required, null, read-only); `product` CourseBatchProduct (required, null, read-only); `printed` integer (required, read-only); `codes` integer (required, read-only); `redeemed` integer (required, read-only); `void` integer (required, read-only); `state` CourseBatchStateEnum (required, read-only); `note` string (required, read-only); `created` date-time (required, read-only); `generated_at` date-time (required, null, read-only); `generated_by` CoursePerson (required, read-only); `dispatched_at` date-time (required, null, read-only); `voided_at` date-time (required, null, read-only); `void_reason` string (required, read-only); `job` CourseBatchJob (required, null, read-only)
+- **CourseBatchCreateRequest**: `label` string (required); `subject` string (required); `count` integer (required); `product` integer (required); `note` string
+- **CourseBatchDetail**: `id` integer (required, read-only); `key` string (required, read-only); `label` string (required, read-only); `subject` string (required, null, read-only); `product` CourseBatchProduct (required, null, read-only); `printed` integer (required, read-only); `codes` integer (required, read-only); `redeemed` integer (required, read-only); `void` integer (required, read-only); `state` CourseBatchStateEnum (required, read-only); `note` string (required, read-only); `created` date-time (required, read-only); `generated_at` date-time (required, null, read-only); `generated_by` CoursePerson (required, read-only); `dispatched_at` date-time (required, null, read-only); `voided_at` date-time (required, null, read-only); `void_reason` string (required, read-only); `job` CourseBatchJob (required, null, read-only); `redeemed_by_week` [CourseWeek] (required, read-only); `signals` [CourseBatchSignal] (required, read-only); `activation_rate` double (required, null, read-only); `file_until` string (required, null, read-only); `generation` Job (required, null, read-only)
+- **CourseBatchJob**: `id` integer (required); `state` string (required); `done` integer (required); `total` integer (required)
+- **CourseBatchProduct**: `id` integer (required); `title` string (required)
+- **CourseBatchSignal**: `id` integer (required, read-only); `kind` FraudSignalKindEnum (required, read-only); `label` string (required, read-only); `count` integer (required, read-only); `window_start` date-time (required, read-only); `window_end` date-time (required, read-only); `created` date-time (required, read-only); `acknowledged_at` date-time (required, null, read-only)
+- **CourseBatchStarted**: `batch` CourseBatch (required); `job` Job (required)
+- **CourseBatchStateEnum**: one of `generating`, `failed`, `ready`, `dispatched`, `void`
+- **CourseBatchVoided**: `batch` CourseBatch (required); `voided` integer (required)
+- **CourseBinChapter**: `id` integer (required); `number` integer (required); `title` string (required); `subject` string (required)
+- **CourseBinRow**: `id` integer (required); `kind` CourseRowKindEnum (required); `title` string (required); `chapter` CourseBinChapter (required); `revision` integer (required, null); `deleted_at` date-time (required); `bin_until` date-time (required)
+- **CourseCard**: `id` integer (required, read-only); `chapter` integer (required, read-only); `order` integer (required, read-only); `front` string (required); `back` string (required); `tags` [string]; `deleted_at` date-time (required, null, read-only); `bin_until` string (required, null, read-only)
+- **CourseChapter**: `id` integer (required, read-only); `subject` integer (required, read-only); `number` integer (required, read-only); `title` string (required, read-only); `weight` decimal (required, read-only); `frequency` integer (required, read-only); `must_do` string
+- **CourseClip**: `id` integer (required, read-only); `revision` CourseClipRevision (required, read-only); `order` integer (required, read-only); `title` string (required); `kind` ClipKindEnum; `notes` string; `is_free_preview` boolean; `free` boolean (required, read-only); `tags` [string]; `processing` ClipProcessingEnum (required, read-only); `processing_label` string (required, read-only); `reason` string (required, read-only); `error_detail` string (required, read-only); `processing_since` date-time (required, read-only); `stuck` boolean (required, read-only); `can_retry` boolean (required, read-only); `has_video` boolean (required, read-only); `duration` integer (required, read-only); `poster_url` string (required, null, read-only); `player_url` string (required, null, read-only); `questions` [CourseClipQuestion] (required, read-only); `deleted_at` date-time (required, null, read-only); `bin_until` string (required, null, read-only); `completion_rule` string (required, read-only); `created` date-time (required, read-only); `modified` date-time (required, read-only)
+- **CourseClipQuestion**: `id` integer (required); `paper` string (required); `label` string (required)
+- **CourseClipRevision**: `id` integer (required); `title` string (required); `status` CourseRevisionStatusEnum (required); `chapter` integer (required); `chapter_number` integer (required); `chapter_title` string (required); `subject` integer (required); `subject_code` string (required)
+- **CourseCodeLookup**: `state` CourseCodeStateEnum (required); `line` string (required); `batch` string (required, null); `batch_state` any (required, null); `subject` string (required, null); `redeemed_at` date-time (required, null); `voided_at` date-time (required, null); `redeemed_by` CourseCodeRedeemer (required, null)
+- **CourseCodeRedeemer**: `id` integer (required); `email` string (required); `is_minor` boolean (required)
+- **CourseCodeRequest**: `code` string (required)
+- **CourseCodeStateEnum**: one of `unknown`, `unused`, `redeemed`, `void`
+- **CourseCodeVoidRequest**: `code` string (required); `reason` string (required)
+- **CourseCodeVoided**: `id` integer (required); `batch` string (required); `voided_at` date-time (required)
+- **CourseCommentRequest**: `comment` string
+- **CourseDispatchedRequest**: `at` date-time (null)
+- **CourseEntitlement**: `id` integer (required, read-only); `user` CourseLearnerRef (required, read-only); `subject` string (required, null, read-only); `subject_name` string (required, read-only); `source` EntitlementSourceEnum (required, read-only); `reference` string (required, read-only); `valid_until` date (required, null, read-only); `note` string (required, read-only); `state` CourseEntitlementStateEnum (required, read-only); `revoked_at` date-time (required, null, read-only); `created` date-time (required, read-only); `modified` date-time (required, read-only); `can_extend` boolean (required, read-only); `can_revoke` boolean (required, read-only)
+- **CourseEntitlementDetail**: `id` integer (required, read-only); `user` CourseLearnerRef (required, read-only); `subject` string (required, null, read-only); `subject_name` string (required, read-only); `source` EntitlementSourceEnum (required, read-only); `reference` string (required, read-only); `valid_until` date (required, null, read-only); `note` string (required, read-only); `state` CourseEntitlementStateEnum (required, read-only); `revoked_at` date-time (required, null, read-only); `created` date-time (required, read-only); `modified` date-time (required, read-only); `can_extend` boolean (required, read-only); `can_revoke` boolean (required, read-only); `history` [CourseVersion] (required, read-only)
+- **CourseEntitlementStateEnum**: one of `active`, `ended`, `revoked`
+- **CourseExtendRequest**: `days` integer (required); `reason` string (required)
+- **CourseFlagAnswer**: `report` integer (required); `created` boolean (required)
+- **CourseFlagRequest**: `note` string
+- **CourseGrantRequest**: `user` integer (required); `subject` string (required); `valid_until` date (null); `reason` string (required); `reference` string
+- **CourseItem**: `id` integer (required, read-only); `chapter` CourseItemChapter (required, read-only); `order` integer (required, read-only); `kind` QuizItemKindEnum (required); `text` string (required); `options` any; `answer` string (required); `explanation` string; `topic` string; `marks` integer; `difficulty` any; `bloom` any; `tags` [string]; `source` CourseItemSource (required, null, read-only); `stats` CourseItemStats (required, read-only); `flagged` integer (required, null, read-only); `deleted_at` date-time (required, null, read-only); `bin_until` string (required, null, read-only)
+- **CourseItemChapter**: `id` integer (required); `number` integer (required); `title` string (required); `subject` string (required)
+- **CourseItemRow**: `id` integer (required, read-only); `chapter` CourseItemChapter (required, read-only); `order` integer (required, read-only); `kind` QuizItemKindEnum (required, read-only); `text` string (required, read-only); `topic` string (required, read-only); `marks` integer (required, read-only); `difficulty` QuizItemDifficultyEnum (required, read-only); `bloom` QuizItemBloomEnum (required, read-only); `tags` [string]; `source` CourseItemSource (required, null, read-only); `stats` CourseItemStats (required, read-only); `flagged` integer (required, null, read-only)
+- **CourseItemSource**: `question` integer (required); `paper` string (required); `label` string (required)
+- **CourseItemStats**: `n` integer (required, null); `p` double (required, null); `discrimination` double (required, null); `flags` [string] (required); `computed_at` date-time (required, null); `n_too_small` boolean (required)
+- **CourseLearner**: `logged` boolean (required); `user` CourseLearnerUser (required); `summary_only` boolean (required); `summary` CourseLearnerSummary (required); `entitlements` [CourseEntitlement] (required); `codes` [CourseLearnerCode] (required, null); `devices` [CourseLearnerDevice] (required); `chapters` [CourseLearnerChapter] (required); `tickets` [CourseLearnerTicket] (required, null)
+- **CourseLearnerChapter**: `id` integer (required); `subject` string (required); `number` integer (required); `title` string (required); `clips_watched` integer (required); `clips_total` integer (required); `minutes_watched` integer (required); `quiz_answers` integer (required); `quiz_accuracy` integer (required, null); `card_reviews` integer (required); `cards_known` integer (required)
+- **CourseLearnerCode**: `id` integer (required); `batch` string (required); `subject` string (required); `redeemed_at` date-time (required)
+- **CourseLearnerDevice**: `id` integer (required); `platform` string (required); `added` date-time (required, null); `last_seen` date-time (required, null); `last_seen_week` date (required, null)
+- **CourseLearnerRef**: `id` integer (required); `name` string (required); `email` string (required); `is_minor` boolean (required)
+- **CourseLearnerSummary**: `clips_watched` integer (required); `minutes_watched` integer (required); `quiz_answers` integer (required); `quiz_accuracy` integer (required, null); `card_reviews` integer (required); `last_active` date-time (required, null); `last_active_week` date (required, null)
+- **CourseLearnerTicket**: `number` string (required); `subject` string (required); `category` string (required); `status` string (required); `received_at` date-time (required)
+- **CourseLearnerUser**: `id` integer (required); `name` string (required); `email` string (required); `is_minor` boolean (required); `is_active` boolean (required)
+- **CourseMoveEnum**: one of `first`, `last`, `before`, `after`
+- **CourseMoveRequest**: `to` CourseMoveEnum (required); `target` integer (null)
+- **CourseOutline**: `subject` CourseOutlineSubject (required); `chapters` [CourseOutlineChapter] (required); `completion_rule` string (required); `free_preview` boolean (required)
+- **CourseOutlineCard**: `id` integer (required); `order` integer (required); `front` string (required)
+- **CourseOutlineChapter**: `id` integer (required); `number` integer (required); `title` string (required); `weight` decimal (required); `frequency` integer (required); `must_do` string (required); `revision` CourseOutlineRevision (required, null); `cards` [CourseOutlineCard] (required); `items` [CourseOutlineItem] (required)
+- **CourseOutlineClip**: `id` integer (required); `order` integer (required); `title` string (required); `kind` ClipKindEnum (required); `duration` integer (required); `processing` ClipProcessingEnum (required); `reason` string (required); `is_free_preview` boolean (required); `free` boolean (required)
+- **CourseOutlineItem**: `id` integer (required); `order` integer (required); `kind` QuizItemKindEnum (required); `text` string (required); `difficulty` string (required); `flagged` integer (required, null)
+- **CourseOutlineRevision**: `id` integer (required); `title` string (required); `status` CourseRevisionStatusEnum (required); `target_minutes` integer (required); `minutes` integer (required); `publish_at` date-time (required, null); `clips` [CourseOutlineClip] (required)
+- **CourseOutlineSubject**: `id` integer (required); `code` string (required); `name` string (required)
+- **CoursePerson**: `id` integer (required); `name` string (required)
+- **CoursePublishRequest**: `publish_at` date-time (null)
+- **CourseReasonRequest**: `reason` string (required)
+- **CourseReport**: `computed_at` date-time (required); `min_cell` integer (required); `definitions` object (required); `totals` CourseReportTotals (required); `rows` [CourseReportRow] (required)
+- **CourseReportCell**: `district` string (required); `activated` integer (required, null); `hidden` boolean (required)
+- **CourseReportRow**: `batch` CourseBatch (required); `printed` integer (required); `sold` integer (required, null); `activated` integer (required); `revoked` integer (required); `void` integer (required); `activation_rate` double (required, null); `districts` [CourseReportCell] (required)
+- **CourseReportTotals**: `printed` integer (required); `sold` integer (required); `activated` integer (required); `revoked` integer (required); `void` integer (required); `activation_rate` double (required, null)
+- **CourseRevision**: `id` integer (required, read-only); `chapter` CourseRevisionChapter (required, read-only); `title` string (required); `target_minutes` integer; `status` CourseRevisionStatusEnum (required, read-only); `status_label` string (required, read-only); `submitted_by` CoursePerson (required, read-only); `submitted_at` date-time (required, null, read-only); `reviewer` CoursePerson (required, read-only); `publish_at` date-time (required, null, read-only); `minutes` integer (required, read-only); `clips` [CourseOutlineClip] (required, read-only); `cards` integer (required, read-only); `items` integer (required, read-only); `transitions` [CourseTransitionEnum] (required, read-only); `created` date-time (required, read-only); `modified` date-time (required, read-only)
+- **CourseRevisionChapter**: `id` integer (required); `number` integer (required); `title` string (required); `subject` integer (required); `subject_code` string (required)
+- **CourseRevisionStatusEnum**: one of `draft`, `published`, `review`, `approved`
+- **CourseRowKindEnum**: one of `clips`, `cards`, `items`
+- **CourseSubject**: `id` integer (required); `code` string (required); `name` string (required); `chapters` integer (required); `published` integer (required); `in_review` integer (required); `scheduled` integer (required); `clips` integer (required); `failed` integer (required); `cards` integer (required); `items` integer (required); `bin` integer (required)
+- **CourseTransitionEnum**: one of `submit`, `approve`, `needs_changes`, `publish`, `unpublish`
+- **CourseVersion**: `id` integer (required); `at` date-time (required); `by` integer (required, null); `type` CourseVersionTypeEnum (required); `reason` string (required, null); `changes` [object] (required)
+- **CourseVersionTypeEnum**: one of `+`, `~`, `-`
+- **CourseVoidRequest**: `reason` string (required)
+- **CourseWeek**: `week` date (required); `redeemed` integer (required)
 - **CredentialsRequest**: `reason` string (required); `mode` IntegrationModeEnum (required); `credentials` object (required)
 - **Customer**: `id` integer (required, read-only); `email` string (required, read-only); `phone` string (required, read-only); `full_name` string (required); `class_level` any (null); `board` string (required, read-only); `district` string; `under_18` boolean (required, read-only); `status` string (required, read-only); `consent` string (required, read-only); `email_verified` boolean (required, read-only); `login_phone_verified` boolean; `created` date-time (required, read-only); `last_login` date-time (null)
 - **CustomerDetail**: `id` integer (required, read-only); `email` string (required, read-only); `phone` string (required, read-only); `full_name` string (required); `class_level` any (null); `board` string (required, read-only); `district` string; `under_18` boolean (required, read-only); `status` string (required, read-only); `consent` string (required, read-only); `email_verified` boolean (required, read-only); `login_phone_verified` boolean; `created` date-time (required, read-only); `last_login` date-time (null); `roles` [string] (required, read-only); `locked` boolean (required, read-only); `mfa` [string] (required, read-only); `teacher` string (required, read-only); `parent_contact` string (required, read-only); `orders` [object] (required, read-only); `consents` [object] (required, read-only); `sessions` [object] (required, read-only); `deletion_due_at` string (required, null, read-only)
@@ -2324,7 +2441,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **Flag**: `key` string (required); `value` any (required); `effective_from` date-time (required, null); `changed_by` integer (required, null); `reason` string (required); `label` string (required); `group` string (required); `environment` any (required, null); `source` SettingSourceEnum (required)
 - **Forecast**: `product` string (required, read-only); `title` string (required, read-only); `district` string (null); `week_start` date (required); `p10` double (required); `p50` double (required); `p90` double (required); `n` integer (required, read-only)
 - **FraudSignal**: `id` integer (required, read-only); `kind` FraudSignalKindEnum (required); `label` string (required, read-only); `subject` string (required); `window_start` date-time (required); `window_end` date-time (required); `details` any; `created` date-time (required, read-only); `acknowledged_at` date-time (null); `n` integer (required, read-only)
-- **FraudSignalKindEnum**: one of `codes_failed_account`, `codes_failed_ip`, `codes_failed_spike`, `codes_per_account`, `accounts_per_code`, `shared_phone`, `shared_address`
+- **FraudSignalKindEnum**: one of `codes_failed_account`, `codes_failed_ip`, `codes_failed_spike`, `codes_per_account`, `accounts_per_code`, `shared_phone`, `shared_address`, `codes_failed_device`, `codes_undispatched`
 - **GoogleFigures**: `domain` string (required); `auto_staff` boolean (required)
 - **GrantRequest**: `role` RoleEnum (required); `expires_at` date-time (null); `reason` string (required)
 - **Gstr1Request**: `month` string (required); `months` MonthsEnum; `dry_run` boolean
@@ -2343,7 +2460,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **InboundEventStateEnum**: one of `accepted`, `duplicate`, `rejected`, `failed`
 - **InboxCount**: `open` integer (required); `overdue` integer (required)
 - **InboxItem**: `id` integer (required, read-only); `kind` InboxKindEnum (required); `title` string (required); `target_type` string; `target_id` string; `permission` string (required); `assignee` integer (null); `due_at` date-time (null); `overdue` boolean (required, read-only); `snoozed_until` date-time (null); `done_at` date-time (null); `done_by` integer (null); `data` any; `created` date-time
-- **InboxKindEnum**: one of `approval`, `teacher_request`, `deletion_request`, `data_request`, `incident`, `failed_job`, `failed_webhook`, `sync_failed`, `reconciliation`, `shipping_exception`, `dead_letter`, `failed_event`, `integration_down`, `tax_threshold`, `credit_note_missing`, `processor_task`, `compliance`, `order_hold`, `return_request`, `bank_refund`, `role_expired`, `offboarding`, `webhook_silent`, `template_idle`, `template_certify`, `backup_stale`, `dependencies_stale`, `scripts_changed`, `review`, `error_report`, `legal_deposit`, `ticket_due`, `ticket_breach`, `ticket_mention`
+- **InboxKindEnum**: one of `approval`, `teacher_request`, `deletion_request`, `data_request`, `incident`, `failed_job`, `failed_webhook`, `sync_failed`, `reconciliation`, `shipping_exception`, `dead_letter`, `failed_event`, `integration_down`, `tax_threshold`, `credit_note_missing`, `processor_task`, `compliance`, `order_hold`, `return_request`, `bank_refund`, `role_expired`, `offboarding`, `webhook_silent`, `template_idle`, `template_certify`, `backup_stale`, `dependencies_stale`, `scripts_changed`, `review`, `error_report`, `legal_deposit`, `ticket_due`, `ticket_breach`, `ticket_mention`, `fraud_signal`
 - **Incident**: `id` integer (required, read-only); `title` string (required); `kind` IncidentKindEnum (required); `detected_at` date-time; `noticed_by` integer (required, null, read-only); `description` string; `systems` string; `data_categories` string; `people_affected` integer (null); `children_affected` boolean; `cert_in_due` date-time (required, read-only); `cert_in_overdue` boolean (required, read-only); `cert_in_reported_at` date-time (null); `cert_in_reference` string; `board_due` date-time (required, read-only); `board_overdue` boolean (required, read-only); `board_notified_at` date-time (null); `board_report_at` date-time (null); `board_reference` string; `notice_text` string; `notices_sent` integer; `notices_sent_at` date-time (null); `actions` string; `root_cause` string; `closed_at` date-time (required, null, read-only); `closed_by` integer (required, null, read-only); `created` date-time (required, read-only)
 - **IncidentKindEnum**: one of `data_breach`, `data_leak`, `unauthorised_access`, `malicious_code`, `application_attack`, `denial_of_service`, `loss_of_access`, `other`
 - **IncidentRequest**: `title` string (required); `kind` IncidentKindEnum (required); `detected_at` date-time; `description` string; `systems` string; `data_categories` string; `people_affected` integer (null); `children_affected` boolean; `cert_in_reported_at` date-time (null); `cert_in_reference` string; `board_notified_at` date-time (null); `board_report_at` date-time (null); `board_reference` string; `notice_text` string; `notices_sent` integer; `notices_sent_at` date-time (null); `actions` string; `root_cause` string
@@ -2352,7 +2469,7 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ItemStat**: `item` integer (required); `chapter` integer (required, read-only); `kind` string (required, read-only); `text` string (required, read-only); `n` integer (required); `p` double (null); `discrimination` double (null); `flags` any
 - **Job**: `id` integer (required, read-only); `kind` JobKindEnum (required, read-only); `state` JobStateEnum (required, read-only); `dry_run` boolean (required, read-only); `params` any (required, read-only); `done` integer (required, read-only); `total` integer (required, read-only); `errors` [JobError] (required, read-only); `result` any (required, read-only); `result_url` string (required, null, read-only); `change_request_id` integer (required, null, read-only); `cancel_requested` boolean (required, read-only); `started_by` integer (required, null, read-only); `created` date-time (required, read-only); `started_at` date-time (required, null, read-only); `finished_at` date-time (required, null, read-only)
 - **JobError**: `id` any (required, null); `label` string (required); `message` string (required)
-- **JobKindEnum**: one of `audit_export`, `bulk_action`, `erp_initial_load`, `gstr1_export`, `orders_pack`, `orders_print`, `orders_cancel`, `orders_export`, `content_import`, `grievance_export`
+- **JobKindEnum**: one of `audit_export`, `bulk_action`, `erp_initial_load`, `gstr1_export`, `orders_pack`, `orders_print`, `orders_cancel`, `orders_export`, `content_import`, `grievance_export`, `code_batch`
 - **JobStartRequest**: `kind` JobKindEnum (required); `params` object; `dry_run` boolean
 - **JobStateEnum**: one of `queued`, `running`, `done`, `failed`, `cancelled`
 - **LanguageEnum**: one of `as`, `bn`, `en`
@@ -2451,6 +2568,10 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **PaginatedContentReportList**: `next` uri (null); `previous` uri (null); `results` [ContentReport] (required)
 - **PaginatedContentReviewList**: `next` uri (null); `previous` uri (null); `results` [ContentReview] (required)
 - **PaginatedContentSolutionList**: `next` uri (null); `previous` uri (null); `results` [ContentSolution] (required)
+- **PaginatedCourseBatchList**: `next` uri (null); `previous` uri (null); `results` [CourseBatch] (required)
+- **PaginatedCourseBinRowList**: `next` uri (null); `previous` uri (null); `results` [CourseBinRow] (required)
+- **PaginatedCourseEntitlementList**: `next` uri (null); `previous` uri (null); `results` [CourseEntitlement] (required)
+- **PaginatedCourseItemRowList**: `next` uri (null); `previous` uri (null); `results` [CourseItemRow] (required)
 - **PaginatedCustomerList**: `next` uri (null); `previous` uri (null); `results` [Customer] (required)
 - **PaginatedDarkPatternAuditList**: `next` uri (null); `previous` uri (null); `results` [DarkPatternAudit] (required)
 - **PaginatedDataRequestListList**: `next` uri (null); `previous` uri (null); `results` [DataRequestList] (required)
@@ -2498,6 +2619,11 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **PatchedContentBookRequest**: `title` string; `subject` integer; `edition` string; `slug` string; `cover` string; `isbn` string; `format` BookFormatEnum; `published_on` date (null)
 - **PatchedContentPaperDetailRequest**: `title` string; `tier` TierEnum; `number` integer; `full_marks` integer; `pass_marks` integer; `time_text` string; `header_json` ContentHeaderRequest
 - **PatchedContentReportUpdateRequest**: `staff_note` string; `public` boolean; `printing` any; `step` integer (null)
+- **PatchedCourseCardRequest**: `front` string; `back` string; `tags` [string]
+- **PatchedCourseChapterRequest**: `must_do` string
+- **PatchedCourseClipRequest**: `title` string; `kind` ClipKindEnum; `notes` string; `is_free_preview` boolean; `tags` [string]
+- **PatchedCourseItemRequest**: `kind` QuizItemKindEnum; `text` string; `options` any; `answer` string; `explanation` string; `topic` string; `marks` integer; `difficulty` any; `bloom` any; `tags` [string]
+- **PatchedCourseRevisionRequest**: `title` string; `target_minutes` integer
 - **PatchedDarkPatternAuditRequest**: `year` integer; `rows` [AuditRowRequest]; `certificate_text` string; `effective_from` date (null)
 - **PatchedDataRequestRequest**: `kind` DataRequestKindEnum; `channel` ChannelEnum; `user` integer (null); `requester` string; `summary` string; `received_at` date-time; `assignee` integer (null); `notes` string; `details` any
 - **PatchedIncidentRequest**: `title` string; `kind` IncidentKindEnum; `detected_at` date-time; `description` string; `systems` string; `data_categories` string; `people_affected` integer (null); `children_affected` boolean; `cert_in_reported_at` date-time (null); `cert_in_reference` string; `board_notified_at` date-time (null); `board_report_at` date-time (null); `board_reference` string; `notice_text` string; `notices_sent` integer; `notices_sent_at` date-time (null); `actions` string; `root_cause` string
@@ -2544,6 +2670,9 @@ and the insights', `{id}` an object's id. "Answers" are the successful ones; the
 - **ProductPick**: `slug` string (required, read-only); `title` string (required, read-only); `kind` ProductKindEnum (required, read-only); `isbn` string (required, read-only); `price` decimal (required, read-only); `mrp` decimal (required, read-only); `available` integer (required, read-only)
 - **Proven**: `on` date (required); `engine` RestoreDrillEngineEnum (required)
 - **PublishRequest**: `markdown` string (required); `title` string; `summary` string (required); `effective_from` date
+- **QuizItemBloomEnum**: one of `remember`, `understand`, `apply`, `analyse`, `evaluate`, `create`
+- **QuizItemDifficultyEnum**: one of `easy`, `medium`, `hard`
+- **QuizItemKindEnum**: one of `mcq`, `true_false`, `fill_blank`
 - **Quote**: `courier_company_id` integer (required); `courier_name` string (required); `rate` decimal (required); `etd_days` integer (required, null); `rating` double (required, null); `cod` boolean (required); `cod_charges` decimal (required); `rto_charges` decimal (required); `recommended` boolean (required)
 - **QuoteConvertRequest**: `address` ShippingAddressRequest (required); `email` email; `send_link` boolean; `note` string; `reason` string
 - **QuoteDetail**: `id` integer (required, read-only); `number` string (required, read-only); `school` string (required, read-only); `contact_name` string (required, read-only); `email` string (required, read-only); `phone` string (required, read-only); `gstin` string (required, read-only); `delivery_pin` string (required, read-only); `copies` integer (required, read-only); `status` QuoteStatusEnum (required, read-only); `discount_percent` decimal (required, read-only); `shipping_fee` decimal (required, read-only); `quoted_at` date-time (required, null, read-only); `valid_until` date (required, null, read-only); `has_quotation` boolean (required, read-only); `order` string (required, null, read-only); `created` date-time (required, read-only); `items` [object] (required, read-only); `note` string (required, read-only); `waiting` integer (required, null, read-only)
