@@ -1,6 +1,7 @@
 // What the console's tests need from the Django backend beyond HTTP: staff members to sign in with (a role group, a
 // confirmed email address, a password and an authenticator app with a known secret), the records the real-backend
-// journey works on (a customer with an order paid online, an erasure request, an incident), all made and deleted
+// journey works on (a customer with an order paid online, an erasure request, an incident; a paper whose solution is
+// drafted and published), all made and deleted
 // through manage.py shell, and the authenticator's codes (RFC 6238, as allauth checks them).
 import { execFileSync } from "node:child_process";
 import { createHmac } from "node:crypto";
@@ -111,6 +112,42 @@ InboxItem.objects.filter(target_type="staff.incident", target_id=${py(String(wor
 Incident.objects.filter(pk=${world.incident}).delete()
 StaffInvite.objects.filter(email__startswith="admin-ui-").delete()
 print(User.objects.filter(pk=${world.customer}).delete())
+`);
+}
+
+export type ContentWorld = { book: number; paper: number; code: string; solution: number };
+
+/** For the content journey: a book and a paper of the run's own (PHY-T<5 digits>), its question 1(a) with a solution
+ *  as published, which an editor drafts and a reviewer publishes. */
+export function seedContent(stamp: number): ContentWorld {
+  return lastJson<ContentWorld>(
+    shell(`
+import json
+from content.models import Board, Book, ClassLevel, Paper, Question, Solution, Subject
+board, _ = Board.objects.get_or_create(short_name="ASSEB", defaults={"name": "Assam State School Education Board", "state": "Assam"})
+level, _ = ClassLevel.objects.get_or_create(number=12)
+subject, _ = Subject.objects.get_or_create(board=board, class_level=level, code="PHY", defaults={"name": "Physics"})
+book = Book.objects.create(slug=${py(`e2e-physics-${stamp}`)}, title="Physics, the console's tests", subject=subject, edition="E2E")
+code = ${py(`PHY-T${String(stamp).slice(-5)}`)}
+paper = Paper.objects.create(book=book, code=code, tier="E", number=1, title="The console's test paper", full_marks=70, pass_marks=21, time_text="3 hours")
+question = Question.objects.create(paper=paper, order=1, label="1(a)", marks_text="2", text_md="A cell of emf 6 V and internal resistance 1 ohm drives 11 ohm. Find the current.")
+solution = Solution.objects.create(question=question, body_md=${py("$I = \\dfrac{6}{12} = 5$ A")})
+print(json.dumps({"book": book.pk, "paper": paper.pk, "code": code, "solution": solution.pk}))
+`),
+  );
+}
+
+/** Deletes what seedContent made and what the journey made of it (its reviews and their inbox items) but the audit
+ *  events (the log is append-only) and the versions (the history keeps them). */
+export function deleteContent(world: ContentWorld) {
+  shell(`
+from content.models import Book, Paper, ReviewTask
+from staff.models import InboxItem
+tasks = ReviewTask.objects.filter(paper_id=${world.paper})
+InboxItem.objects.filter(target_type="content.reviewtask", target_id__in=[str(pk) for pk in tasks.values_list("pk", flat=True)]).delete()
+tasks.delete()
+Paper.objects.filter(pk=${world.paper}).delete()
+print(Book.objects.filter(pk=${world.book}).delete())
 `);
 }
 
