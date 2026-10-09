@@ -18,11 +18,13 @@ or entitlement changed.
   150 / 220 / 360 ms, transform and opacity only, everything inside `prefers-reduced-motion: no-preference`; the two
   signature moments ([data-mark-landed]: the saved score's circle after the server confirms; `.paper-page .qno` turning
   red as its row reaches the top of the screen with `animation-timeline: view()`, colour only).
-- `src/app/fonts.ts`: Source Serif 4 (400, 600, 700, normal and italic), Public Sans (400, 600, 700) and IBM Plex Mono
-  (500, 600) through `next/font/google`, downloaded at build time and served from this origin (`font-src 'self'`
-  holds; the build needs internet, or the three families become `localFont` as `README_IMPLEMENTATION.md` says). Hind
-  Siliguri stays in every stack for Assamese and Bangla. `poppins` is kept as an alias of the serif, so old imports
-  compile.
+- `src/app/fonts.ts`: Source Serif 4, Public Sans and IBM Plex Mono self-hosted from `src/app/fonts/` with their OFL
+  licences, as subsets made with fontTools from the official variable fonts (Latin, the rupee sign, arrows, ticks and
+  superscripts; the serif and the sans keep their weight axis from 400 to 700; the serif comes in a text cut, its
+  optical size pinned at 20, and a display cut at 60 for h1, h2 and the display sizes, which is what the design's
+  Google Fonts link asks for). A build needs nothing from the network and serves the same bytes every time;
+  `font-src 'self'` holds. Hind Siliguri stays in every stack for Assamese and Bangla. `poppins` is kept as an alias
+  of the serif, so old imports compile; the Poppins files are gone.
 - `src/components/ui/`: every component drawn as the Components board draws it, in every state (default, hover,
   focus-visible 2 px ring with a 2 px offset, active 1 px press, selected, disabled, busy with `aria-busy` and presses
   swallowed, error with the icon and the message tied to the field, success). `Sheet`, `MarkedRow` and `Marks` in
@@ -255,11 +257,11 @@ Where the design and the API disagreed, the API won and the page says what is tr
   muted (the board's grey fails 4.5:1), the drawer keeps the reviewed Tab-out-closes behaviour (F3), 44 px targets are
   kept where the board draws smaller ones, the open Menu toggle is outlined (as "A Phone Header"), the header's cart
   is shown to guests too.
-- Fonts: Source Serif 4 is loaded as static weights (400, 600, 700, normal and italic) without the `opsz` axis the
-  design's Google Fonts URL asks for, so large headings set a little heavier and wider than drawn. The variable
-  files with `opsz` are 119 KB (normal) and 126 KB (italic) for Latin alone, against the static files of 20 to 52 KB;
-  the three preloaded files already weigh about 129 KB against the architecture document's 60 KB budget
-  (45.6 KB before, Poppins and Hind).
+- Fonts: the first build used `next/font/google`, which downloads Google's files at build time; the branch now
+  vendors its own subsets (section 1), which removes the network from the build and the latin-ext files that the
+  rupee sign used to pull in (41 KB of serif, 17 KB of sans, 8 KB of mono on every page with a price). The display
+  cut gives the big headings the optical size the design asks for; headings between 21 and 28 px use the text cut,
+  so they set a little heavier than the artboards' variable font would.
 
 ## 8. Follow-ups
 
