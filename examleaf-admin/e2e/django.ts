@@ -31,11 +31,14 @@ export function newSecret(): string {
   return Array.from({ length: 32 }, () => alphabet[Math.floor(Math.random() * 32)]).join("");
 }
 
-/** A member of staff with the role group (ADMIN by default) and an authenticator app; answers their id. */
+/** A member of staff with the role group (ADMIN by default) and an authenticator app; answers their id. A role of
+ *  STAFF_PASSKEY_ROLES (OWNER, ADMIN, FINANCE) gets a passkey's row too, as the staff API asks of them first (never
+ *  used to sign in here: the tests sign in with the authenticator's code). */
 export function createStaff(staff: Staff, role = "ADMIN"): number {
   return lastJson<number>(
     shell(`
 from allauth.account.models import EmailAddress
+from allauth.mfa.models import Authenticator
 from allauth.mfa.totp.internal.auth import TOTP
 from django.contrib.auth.models import Group
 from accounts.models import User
@@ -44,6 +47,8 @@ user = User.objects.create_user(${py(staff.email)}, ${py(staff.password)}, full_
 EmailAddress.objects.create(user=user, email=user.email, primary=True, verified=True)
 user.groups.add(Group.objects.get(name=${py(role)}))
 TOTP.activate(user, ${py(staff.secret)})
+if ${py(role)} in ("OWNER", "ADMIN", "FINANCE"):
+    Authenticator.objects.create(user=user, type=Authenticator.Type.WEBAUTHN, data={"name": "E2E security key"})
 print(user.pk)
 `),
   );
