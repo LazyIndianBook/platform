@@ -5,6 +5,59 @@ commits are in `git log` (phase 4: abffe6f and e5abda5; phase 5 A and B with the
 and E: 4e30e59; the redesign's stage 2 so far: ba0b9dd). Details of each feature are in README.md; the numbers of the
 tests are those of `pytest` at the end of the phase.
 
+## Phase B, Catalogue (9 October 2026)
+
+The catalogue was kept in the Django admin, where whoever could change a product could change its price, its tax and
+its stock at once, coupons and offers ran without the approvals the panel had for them, and nothing remembered an
+earlier price. Plan 5.5 gives each part of a product its own people, the courier the weight and size its quote needs,
+and, from 1 January 2027, the prior price the amended E-Commerce Rules ask for beside a reduced price; the panel gets
+a Catalogue module for it (`shop/README.md` "Catalogue" has the rules, API.md "Catalogue (staff)" the endpoints).
+1,613 backend tests pass on SQLite (13 skipped, 4,528 subtests), 98 of them new: `shop/test_pricing.py`,
+`shop/test_staff_catalogue.py`, `shop/test_catalogue_rules.py`, `shop/test_catalogue_jobs.py`, an admin test and the
+authorization matrix's 48 catalogue endpoints. PostgreSQL was not run.
+
+- **A product's parts** each have a permission: the page, its shelves, pictures, the courier's data and the search
+  engines' words `shop.change_product`; the MRP and the selling price `staff.change_price`, always through the approval
+  `product.price` (beyond the maker's `discount_percent` FINANCE approves; its maker was `shop.change_product`); the
+  HSN or SAC code, a bundle's treatment and the CA's note `staff.change_product_tax` (FINANCE); stock
+  `staff.set_stock`, set by hand with a reason and refused when orders changed the count since it was read. New
+  products are made at their MRP and off sale. The admin no longer goes round this: its prices and tax are read-only to
+  all but superusers, new products, the product import, coupons and offers are theirs, and the single-use codes are
+  registered read-only.
+- **The courier's data**: a product with something to post weighs more than 0 g and has a packaging kind (a flyer by
+  default) or its dimensions (`length_cm`, `width_cm`, `height_cm`, `packaging`). The migration packs every such
+  product in a flyer and leaves its weight: `products/?incomplete=1` and the home's card list those still to weigh.
+- **History and the prior price**: products, coupons, offers and shipping rates keep their versions (simple-history,
+  the first one written by the migration, an offer's scope with it); `shop/pricing.py` reads a whole page's price
+  changes in one query, and the storefront's product gains `prior_price` (`SHOP_PRIOR_PRICE_FROM`), which the website
+  prints beside a reduced price.
+- **Coupons** cover chosen products and categories (less those left out, the minimum order reckoned on them), may be
+  for a first order, and may refuse to stack with the automatic offers; a school's single-use codes are made by a job
+  (`coupon_codes`, its CSV for the school), each taken by the order made with it in that order's transaction and freed
+  by its cancellation. Coupons and offers are made and changed through `coupon.create`, `coupon.change`,
+  `offer.create` and `offer.change`.
+- **The dark-pattern guardrails** are validation: a countdown only with a real end that never moves later once shown,
+  the phrases of `SHOP_DARK_PATTERN_PHRASES` refused in offer names, banners and coupon descriptions with the pattern
+  they read as; "only N left" from real stock, nothing added to a cart unasked and every fee in the cart before
+  checkout are held by tests; no coupon or offer can name an account (the founder's rule: no price discrimination
+  between consumers of the same class).
+- **The ISBN** is checked and once per kind; `products/{slug}/barcode.svg/` draws its EAN-13 from the standard's
+  patterns (`shop/barcode.py`, no dependency). **Shipping rates** never put a state in two active rates. **Categories**
+  move with what is under them (treebeard's own move). **The import** runs as a dry run, then its apply for the same
+  file within a day, each row through the panel's rules and a price through its approval; **the export** takes the
+  list's filters, escapes formula cells and waits for an approver above `export_rows`.
+- **Found and fixed on the way**: a bundle's books could change after orders had taken its copies, so a cancellation
+  or a return would have put other books back on the shelf (now refused); the storefront's product list had lost its
+  own description in the schema.
+- **ERPNext**: a product saved in the panel still enqueues `item.upserted` (its weight among the item's fields), a
+  bundle's books `bundle.upserted`; the erp tests stay green.
+- **The console's Catalogue module** (`/catalogue/`, under Shop): the home, the products with their chips, a product by
+  section (each part behind its own save bar, sending only what changed; the website's prior price shown before a new
+  price is saved, the change request when it waits; stock, a bundle's books, pictures, the barcode, versions), the
+  stock, coupons with a school's codes, offers, shipping rates, the shelf tree, collections, the import and export.
+  Console: Vitest 202 (12 new), Playwright 15 in mock mode (every catalogue page with axe at 1280, 390 and 320 px; the
+  catalogue journey at both widths) and the real backend's catalogue journey; the website: Vitest 228 (2 new).
+
 ## Phase B, Tax (9 October 2026)
 
 The storefront's GST was a rate typed on each product, its documents numbered by looking for the last serial in one
