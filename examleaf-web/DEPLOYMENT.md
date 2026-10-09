@@ -519,6 +519,21 @@ flag of the same name the panel can set (`staff/README.md`), which wins over the
 | `ERP_INSTANCE_PREFIX` | empty | when two platforms send to one ERPNext site | goes before every idempotency key (`staging-`), so that a staging copy and production never answer each other's |
 | `API_THROTTLE_ERP_EVENTS` | `600/minute` | no | ERPNext's webhook, per client address |
 
+### Support
+
+`support/README.md`; RUNBOOK.md "Support" for the support mailbox's forwarder. The tickets' requester details are
+encrypted with `INTEGRATION_KEYS` (Integrations and shipping): without them a server (`DEBUG` off) refuses to
+migrate (`support.E001`), so it does not start. The support address itself is `SUPPORT_EMAIL` (Email).
+
+| Variable | Default | Required | What it does; where to get the value |
+|---|---|---|---|
+| `SUPPORT_COPY_TO_EMAIL` | `0` | no | `1`: the support address also gets each contact-form message, Reply-To the sender, as before tickets (keep it on until the mailbox's forwarder runs) |
+| `SUPPORT_COMPLAINT_COPY_FROM` | `2027-01-01` | no | from this day (India) the acknowledgement carries a copy of the complaint as recorded (the E-Commerce Rules as amended) |
+| `SUPPORT_INTERMEDIARY_RULES` | `0` | no | `1`: grievance tickets also get the IT Rules' 24-hour acknowledgement and 15-day resolution; only once counsel says the reviews make ExamLeaf an intermediary. Also a panel setting, which wins while set |
+| `SUPPORT_MAIL_MAX_BYTES` | `10485760` | no | the largest email the support mailbox's hook takes (`POST /api/hooks/support-mail/`, 413 above) |
+| `MSG91_TEMPLATE_TICKET_ACK` | none | for acknowledgements by SMS | the DLT template of `ticket_ack` ("ExamLeaf: we have your request {#var#}."): used only when a ticket has no email address; without it such a ticket's acknowledgement is noted by staff |
+| `API_THROTTLE_SUPPORT_MAIL`, `API_THROTTLE_SUPPORT_REQUEST` | `120/minute`, `10/hour` | no | the support mailbox's hook per client address; new requests from My requests per account |
+
 ## 14. Security settings
 
 **Health checks.** From the internet Caddy answers `/health/`, `/health/web/`, `/health/live/` and

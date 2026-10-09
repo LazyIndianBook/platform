@@ -19,6 +19,8 @@ Commands run in `/srv/examleaf/examleaf-web` on the server. `dj` below stands fo
 - [Insights](#insights): a job failed, a fraud spike, the monthly review, a new season
 - [ERPNext](#erpnext): ERPNext down, a refused document, the morning's differences, no doorbells, a flow
   switched off and on, ERPNext restored from a backup
+- [Support](#support): the queue and its deadlines, logging a call or an NCH complaint, the support mailbox, spam,
+  the grievance register
 - [Incidents](#incidents)
 - [Reading the logs](#reading-the-logs): a request's lines, slow requests, a task's lines, gunicorn's restarts
 
@@ -389,7 +391,7 @@ page. If it did not:
    FINANCE (or an owner) approves in the panel, and nothing is refunded until then. "Cancel" on an order paid online is
    the same refund.
 2. Cash-on-delivery orders, and payments recorded offline, are refunded by bank transfer or UPI, outside the site: pay it
-   from the business account and note it in your support mailbox (or on the order's internal notes). The refund action
+   from the business account and note it on the customer's ticket (or on the order's internal notes). The refund action
    refunds nothing for them and changes nothing; cancel an order not yet shipped with "Cancel" (its copies go back and
    the customer is emailed).
 3. A refused parcel is refunded less the shipping: the same action with an amount (shipped or delivered orders only; an
@@ -800,8 +802,10 @@ of a digital product in the shop grant themselves when paid; an entitlement is n
 
 ### A lost code, or "my code says used already"
 
-1. Ask for the code (a photo of the slip) and look for it: Book codes → search with the whole code. Not found: a typo
-   (0/O and 1/I are not used), or a code from another batch or a fake.
+1. Ask for the code (a photo of the slip) and look it up from the customer's ticket (panel → Support → the ticket →
+   "Look up a book code": its batch and subject, redeemed by them or by another account, in one line; the code is
+   never kept), or in the admin: Book codes → search with the whole code. Not found: a typo (0/O and 1/I are not
+   used), or a code from another batch or a fake.
 2. **Found and not redeemed:** the student can type it again; after 5 tries an hour (right or wrong; per account, and
    separately per internet address) the app must wait.
 3. **Redeemed by this student:** nothing to do (Entitlements, search by the email, shows it).
@@ -962,6 +966,82 @@ answers duplicates for what the backup kept; an audit event, `erp.resend`). The 
 writes only what the outbox lacks. Then `dj erp_pull --restart` (the B2B mirrors and stock read again) and
 `dj erp_reconcile --date <each day since>`. What only ERPNext held since the backup (purchases, journals, receipts and
 counts, B2B documents) is entered again by hand from its paper trail.
+
+## Support
+
+Complaints and questions are tickets in the panel's Support module (`support/README.md`): the contact form, "My
+requests" on the website, email to the support address and the calls and messages staff log all land there, each
+with its number (`SR-2026-000123`) and its legal deadlines. The queue opens on the next deadline; what waits for a
+person is in the staff inbox too: a deadline three quarters gone (`ticket_due`), a deadline missed (`ticket_breach`),
+a colleague's note naming you (`ticket_mention`).
+
+### Working the queue
+
+1. Panel → Support, "Due soonest": the first rows are the nearest deadlines (red: late). Take one ("Take it"), read
+   the conversation and the customer beside it (orders with the Razorpay ids, shipments, invoices, course access, the
+   book codes redeemed, their other tickets).
+2. Answer from the reply box (saved replies with Alt and their number, in the customer's language). An email goes in
+   the customer's thread; a call or a WhatsApp message is recorded with "How". The first reply also acknowledges a
+   ticket not acknowledged yet.
+3. Act from the ticket: a refund (within your limit it runs; above it a change request waits for FINANCE in
+   Approvals), cancelling an order, the invoice or the confirmation again, course access extended, a book code looked
+   up, a data request started from a grievance or privacy request. Each is written on the ticket.
+4. Move it on: waiting on the customer or on a courier or bank (its deadlines keep running), then resolved with what was
+   done (an order ticket asks for its order, a content error for its paper, a privacy request for its data request). A
+   resolved ticket closes by itself after 4 days; the customer's reply reopens it (counted).
+
+The deadlines never pause: 48 hours to acknowledge and a calendar month to redress (E-Commerce Rules), 30 days for an
+NCH complaint, a month (90 days from 13 May 2027) for a privacy request. A missed one stays missed in the grievance
+register: say so to the customer and finish it.
+
+### Logging a call, a WhatsApp message or an NCH complaint
+
+Panel → Support → "Log a call or message": how it came, when (it may be earlier today or within the year: the
+deadlines run from then), the number they called from or the address it came from, what they said. An NCH complaint
+needs its docket number from NCH's portal; answer it on the portal too ("Answered on NCH's portal") and close it there
+when it is closed here. The acknowledgement goes to the address or number given (by SMS only between 08:00 and 21:00).
+
+### Setting up the support mailbox
+
+The support address (`SUPPORT_EMAIL`) is forwarded to the site so that every email becomes or joins a ticket:
+
+1. `INTEGRATION_KEYS` must be set (the requesters' details are encrypted with it; without it a server refuses to
+   migrate: `support.E001`).
+2. Admin → Integrations → Integration accounts → add one: provider `support_mail`, enabled; then its action "New
+   webhook token" shows the token once (the same action rotates it: the previous one works for 24 hours).
+3. The forwarder: an Amazon SES receipt rule for the address that sends the message to SNS (or S3) and a Lambda that
+   POSTs the raw message (`message/rfc822`) to `https://examleaf.in/api/hooks/support-mail/` with the header
+   `X-Support-Mail-Token: <token>`; or a Cloudflare Email Routing worker that does the same with `message.raw`.
+   Messages above `SUPPORT_MAIL_MAX_BYTES` (10 MB) are refused (413): the forwarder should bounce them.
+4. Send a test email: a ticket appears with source "Email" and the acknowledgement comes back with its number. While
+   the forwarder is not ready, keep `SUPPORT_COPY_TO_EMAIL=1` so the mailbox still gets the contact form's messages.
+
+**Mail not arriving as tickets:** Admin → Integrations → Inbound events, provider `support_mail`: a refused event is a
+wrong token (the forwarder's header); an event with an error says why it was not a ticket ("Not for a ticket: an
+auto-reply", our own mail coming back, a bounce, a list, more than 50 recipients, a flood of 20 an hour from one
+sender). One that failed while it was read (an error, in the staff inbox as `failed_event` for ADMIN and the
+owners) is marked failed: "Process again" there once the cause is fixed; an email is never made a ticket twice (its
+Message-ID).
+
+### Spam
+
+Move a ticket to "Spam": it leaves the queue and every number, gets no acknowledgement, and is purged with its
+messages and files after 30 days (the numbers purged are in the audit log). Back to "Open" if it was not spam: it is
+acknowledged then.
+
+### The grievance register
+
+Panel → Support → Grievance register (ADMIN, the owners, AUDITOR): the days received, then the file once the job is
+done (a dated CSV: numbers, categories, sources, NCH dockets, the times taken and whether in time; no personal data).
+Above your export limit it waits for an approver. Break-glass fallback, on the server:
+`dj grievance_register --from 2026-10-01 --until 2026-10-31 > register.csv`.
+
+### Switches
+
+`SUPPORT_INTERMEDIARY_RULES` (panel → Settings, with a reason; or the environment) adds the IT Rules' 24 hours and 15
+days to grievance tickets: turn it on only once counsel says the reviews make ExamLeaf an intermediary.
+`SUPPORT_COMPLAINT_COPY_FROM` (environment, 1 January 2027 by default) is the day from which the acknowledgement
+carries a copy of the complaint as recorded.
 
 ## Incidents
 

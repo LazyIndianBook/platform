@@ -67,6 +67,14 @@ and the security reviews, [SECURITY_REVIEW.md](SECURITY_REVIEW.md) (phases 1 to 
 - **Insights for staff** (`insights/`): nightly demand forecasts per title and district with their backtest against
   the seasonal naive, print-run advice (the newsvendor's quantity, reprint triggers), the quiz's item analysis,
   cohorts, code activation, delivery times, fraud signals and what offers did; learner data only as aggregates.
+- **Support** (`support/`, `support/README.md`): every complaint a ticket with a number the customer can quote
+  (`SR-2026-000123`), from the contact form, "My requests" on the account, email to the support address (forwarded,
+  threaded, loops guarded), or logged by staff (calls, WhatsApp, National Consumer Helpline complaints with their
+  docket); the legal clocks in calendar time in India (48 hours to acknowledge and a month to redress, NCH's 30 days,
+  the privacy rights' deadlines, the IT Rules' behind a switch), watched every 15 minutes; the acknowledgement with the
+  number (and, from 1 January 2027, a copy of the complaint); the queue, the conversation, saved replies in English,
+  Assamese and Bengali, and the actions on the customer's orders and course from the ticket; the grievance register as
+  a CSV.
 - **Messages and protection.** An SMS gateway (MSG91, under India's DLT rules) with a daily cap and a log, email through
   Amazon SES with a suppression list fed by bounce and complaint webhooks, Cloudflare Turnstile on public forms,
   passwords of 10 characters that are not in breaches, rate limits, a strict Content-Security-Policy, error reports
@@ -265,6 +273,7 @@ worker, and the error pages) are the Next.js frontend's, at the addresses Django
 | `/health/`, `/health/web/`, `/health/integrations/` | health checks (JSON with `Accept: application/json`); through Caddy only with the `X-Health-Token` header; see Production; the last one for a second monitor: the integrations (`integrations/README.md`) |
 | `/api/hooks/parcel-events/` | Shiprocket's tracking webhook (its token in `x-api-key`; `shipping/README.md`), under Caddy's `/api/` |
 | `/api/hooks/erp-events/` | ERPNext's webhook (signed: `X-Frappe-Webhook-Signature`; `erp/README.md`), under Caddy's `/api/` |
+| `/api/hooks/support-mail/` | email to the support address, forwarded (its token in `X-Support-Mail-Token`; `support/README.md`), under Caddy's `/api/` |
 | `/anymail/<provider>/tracking/` | the email provider's bounce and complaint webhooks; exist only while `ANYMAIL_WEBHOOK_SECRET` is set |
 | `/admin/` | the admin; signed out it sends to the website's log-in (`LOGIN_URL`, then back with `?next=`) |
 | `/static/…` | the admin's and the staff player's files, the fonts of the invoices and the book covers the website shows |

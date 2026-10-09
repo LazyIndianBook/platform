@@ -15,7 +15,8 @@ print runs, item analysis, cohorts, fraud signals). Code: `api/` (`auth.py`, `vi
 [Frontend integration guide](#frontend-integration-guide) · [Profile and data rights](#profile-and-data-rights) ·
 [Catalogue and solutions](#catalogue-and-solutions) · [Attempts](#attempts) · [Store catalogue](#store-catalogue) ·
 [Shop](#shop) · [Revision course](#revision-course) · [Site](#site-configuration-and-legal-pages) ·
-[Insights (staff)](#insights-staff) · [ERPNext sync (staff)](#erpnext-sync-staff) · [Lists](#lists) ·
+[Insights (staff)](#insights-staff) · [ERPNext sync (staff)](#erpnext-sync-staff) ·
+[Support (staff)](#support-staff) · [Lists](#lists) ·
 [Staff API](#staff-api) · [Errors](#errors) ·
 [Rate limits](#rate-limits) · [CORS](#cors) ·
 [Versioning](#versioning) · [Operations](#operations)
@@ -68,6 +69,7 @@ it, on the panel's session (or an API key), on the admin host only. **Shop open*
 | POST DELETE | `me/deletion/` | signed in | Delete my account (`password`, or a log-in in the last 5 minutes), due in 7 days; DELETE cancels |
 | GET POST | `me/teacher/` | confirmed | teacher access: its status; ask for it (once) |
 | POST | `me/parent-consent/` | signed in | the parent's link to confirm, again (while `consent_pending`) |
+| GET POST | `me/tickets/` | signed in; POST confirmed | My requests: the customer's support tickets (number, status, dates); POST asks a new one ([Support (staff)](#support-staff)) |
 | POST DELETE | `account/impersonate/` | anyone with the panel's token | a member of staff logged in as the customer: open the session (`{"token"}`), end it ([Profile and data rights](#profile-and-data-rights)) |
 | GET | `me/record/` (`?subject=&tier=`) | confirmed | My record in figures: averages per tier and subject, each paper's best and latest attempt |
 | GET | `me/learning/` | confirmed | the learning dashboard: what is open, progress per subject and chapter, the clip to continue with, revise-again counts, the plan's next three days, the streak |
@@ -119,7 +121,7 @@ it, on the panel's session (or an API key), on the admin host only. **Shop open*
 | POST DELETE | `devices/` | signed in | the app's Firebase installation ID, for the reminder |
 | GET | `config/` | anyone | what the server has switched on: log-in methods, Turnstile, the shop, consent mode, maintenance |
 | GET | `pages/`, `pages/<slug>/` | anyone | the legal pages: Markdown, the website's HTML, version, last change |
-| POST | `contact/` | anyone | the contact form: a message emailed to the support address |
+| POST | `contact/` | anyone | the contact form: a support ticket, its number emailed to the sender |
 | GET | `insights/forecasts/`, `insights/print-runs/`, `insights/backtests/` | `staff.view_insights` | the newest demand forecast (`?product=<slug>`, `?district=all` or a district), print-run advice, backtest |
 | GET | `insights/item-stats/` (`?chapter=`), `insights/chapter-stats/`, `insights/cohorts/`, `insights/code-activation/` | `staff.view_insights` | the quiz's item analysis, chapter accuracy, cohorts, book codes per batch and district: aggregates only |
 | GET | `insights/delivery/`, `insights/fraud-signals/` (`?open=1`), `insights/offers/` | `staff.view_insights` | days in transit per courier and district, fraud signals, what coupons and offers did |
@@ -137,6 +139,7 @@ it, on the panel's session (or an API key), on the admin host only. **Shop open*
 | GET | `/api/schema/`, `/api/docs/`, `/api/redoc/` | anyone | the OpenAPI schema, Swagger UI, Redoc |
 | any | `/_allauth/app/v1/…`, `/_allauth/browser/v1/…` | anyone; the account and authenticator endpoints need the signed-in session | allauth.headless: log-in, sign-up, codes, passkeys, Google, second step, email, phone, password, re-authentication, signed-in devices (`auth/sessions`); its OpenAPI file `/_allauth/openapi.json` (and `.yaml`) |
 | POST | `/api/hooks/parcel-events/` | the courier, with its token in `x-api-key` | Shiprocket's tracking webhook ([Shipping (staff)](#shipping-staff)); not in the OpenAPI schema |
+| POST | `/api/hooks/support-mail/` | the forwarder, with its token in `X-Support-Mail-Token` | an email to the support address ([Support (staff)](#support-staff)); not in the OpenAPI schema |
 | any | `staff/…` | staff only (the panel's session, or an API key), on the admin host | the Admin Control Panel: [Staff API](#staff-api) |
 
 ## Authentication from the app
@@ -974,8 +977,9 @@ change, as in the page's history), `markdown`, `html` (the website's rendering; 
 marked `<mark class="placeholder">`) and `web_url`.
 
 `contact/` (anyone) is the website's contact form: `name` (80 characters at most), `email` (we reply to it), `message`
-(2,000 at most) and `turnstile` while the bot check is on. The message is emailed to the support address with
-`Reply-To` the sender; nothing is stored. `200 {"detail": "Thank you: your message is on its way to us. We reply by
+(2,000 at most) and `turnstile` while the bot check is on. The message becomes a support ticket (its number in
+the acknowledgement emailed to the sender: [Support (staff)](#support-staff)), linked to the account whose
+confirmed address sent it; with `SUPPORT_COPY_TO_EMAIL` the support address also gets it, `Reply-To` the sender. `200 {"detail": "Thank you: your message is on its way to us. We reply by
 email."}`; 400 with the fields' errors; 429 after 5 an hour per client address, the website's form included (and while
 the count cannot be read); `503 {"detail": "The contact form is not set up yet: please write to us by email."}` while
 the support address is still a `[placeholder]` (`support.email` of `config/` is null then: show no form). `website` is
@@ -1081,6 +1085,89 @@ after a rotation the previous one), checked in constant time. A missing or wrong
 `ERP_ENABLED` off: `403 {"detail": "Unknown or missing signature."}`, kept without its body. Otherwise
 `200 {"detail": "Received."}` at once; the body (`{doctype, name, modified, examleaf_ref, event}`) is kept once per
 SHA-256 and read again by a task. 600 a minute per client address (`API_THROTTLE_ERP_EVENTS`).
+
+## Support (staff)
+
+`/api/v1/staff/support/…` (code: `support/api.py`; the app: [support/README.md](support/README.md)) is the Support
+module's API: the tickets with their legal clocks, the conversation, the actions on the customer's orders and course,
+the saved replies and the module's numbers. It keeps every rule of the [Staff API](#staff-api): the admin host only, a
+member of staff with a second factor (an API key reads only), each action's catalogued permission (area "Support"),
+every refusal an `authz_fail` event, cursor pages, `Cache-Control: no-store`; the schema tags it `support (staff)`.
+The tickets reach each person through their scope: a SALES member's are the order, payment and school-order tickets, a
+content editor's the content errors (`ticket_category`). Opening a ticket, revealing its requester's details,
+downloading a file and looking a person up by email or phone are `sensitive_read` events (the lookup's keyed hash,
+never the query); every change is an audit event (`support.ticket_logged`, `support.changed` with the masked fields,
+`support.replied`, `support.noted`, `support.assigned`, `support.status`, `support.reopened`, `support.acknowledged`,
+`support.action` with the action's name, `support.clock_breached`, `support.saved_reply_*`), naming the ticket by its
+number and never its requester.
+
+| Method | Path (under `/api/v1/staff/support/`) | Permission | What |
+|---|---|---|---|
+| GET | `tickets/` (`?status=&open=&waiting=&mine=&unassigned=&overdue=&category=&priority=&source=&language=&assignee=&test=&q=`) | `support.view_ticket` | the queue, the next legal deadline first (`next_due_at`); `q`: a ticket's or an order's number, an email address or a mobile number; spam only with `status=spam`; on a live site a test order's tickets only with `test=true` |
+| POST | `tickets/` (`source`, `nch_docket`, `name`, `email`, `phone`, `category`, `priority`, `subject`, `message`, `received_at`, `order`) | `staff.handle_ticket` | log a call, a WhatsApp message, an NCH complaint (its docket) or an email (201, the ticket); its clocks run from `received_at` (never ahead, within a year) |
+| GET | `tickets/<number>/` (or its id) | `support.view_ticket` | the ticket with `clocks`, `closing_fields`, `transitions`, `messages`, the `sidebar` (each part by the reader's permissions, null otherwise) and the `saved_replies` filled for it, its language first |
+| PATCH | `tickets/<number>/` | `staff.handle_ticket` | sort and correct it: category, priority, language, subject, source and NCH docket, `order` (a number), `record` (a paper's code), the requester's `name`, `email`, `phone`; a new category or source sets the clocks again from when it came |
+| POST | `tickets/<number>/messages/` (`direction`: `out` or `note`, `body`, `channel`, `mentions`) | a reply `staff.handle_ticket`; a note `support.note_ticket` | a reply (`channel` `email`: sent in the customer's thread; `phone`, `whatsapp`, `nch`: recorded), or an internal note naming colleagues (each an inbox item) |
+| POST | `tickets/<number>/assign/` (`assignee`, null: nobody), `…/claim/` | `staff.handle_ticket` | given to someone who handles tickets and may see this one; to yourself |
+| POST | `tickets/<number>/status/` (`status`, `resolution`, `order`, `record`) | `staff.handle_ticket` | moved on as `transitions` allows; resolving or closing asks for the category's `closing_fields` (field errors otherwise) |
+| POST | `tickets/<number>/reopen/` | `staff.handle_ticket` | a resolved or closed ticket back to open (counted) |
+| POST | `tickets/<number>/acknowledge/` (`note`) | `staff.handle_ticket` | the acknowledgement sent again; with `note`, recorded as given another way |
+| POST | `tickets/<number>/reveal/` (`show`: `email`, `phone`; `reason`) | `staff.reveal_contact` (re-authenticated; 30 an hour) | the requester's details, logged |
+| GET | `tickets/<number>/attachments/<id>/` | `support.view_ticket` | a file of the conversation: the file, or 302 to the private bucket's link signed for 5 minutes |
+| POST | `tickets/<number>/refund/` (`order`, `amount` or `lines` `[{item, quantity}]`, `reason`; `Idempotency-Key`) | `staff.refund_order` | through `order.refund`: 201 run within your `refund_inr`, 202 waiting for FINANCE above it, 400 when it failed |
+| POST | `tickets/<number>/cancel/` (`order`, `reason`; `Idempotency-Key`) | `shop.change_order` | cancel an order: one paid online through its refund (as above), another at once (200 `{order, status}`) |
+| POST | `tickets/<number>/resend-invoice/`, `…/resend-confirmation/` (`order`) | `staff.handle_ticket` | the shop's own email again, to the order's address |
+| POST | `tickets/<number>/extend-access/` (`entitlement`, `days` 1 to 365, `reason`) | `learn.change_entitlement` | course access extended from its end (or today) |
+| POST | `tickets/<number>/book-code/` (`code`) | `learn.view_bookcode` | a book code looked up by its digest (never kept): `{found, batch, subject, redeemed, by_requester, line}` |
+| POST | `tickets/<number>/data-request/` (`kind`, `summary`) | `staff.handle_data_request` | a data request from a grievance or privacy ticket (201, the request), received when the ticket was |
+| GET POST PUT PATCH DELETE | `saved-replies/` (`?language=&bin=`), `saved-replies/<id>/`, `saved-replies/<id>/restore/` | `support.view_savedreply`; `add_`, `change_`, `delete_savedreply` | the saved replies (`variables`: those its text uses); a delete puts one in the bin for 30 days, restore/ takes it out |
+| GET | `summary/` (`?days=` 1 to 366, 30) | `support.view_ticket` | the period's volume by category and source, the median first response and resolution (hours), the breaches; the backlog and the overdue now (spam and test orders left out) |
+| GET | `agents/` | `support.view_ticket` | who a ticket may be given to or a note may name: `{id, name, handles}` |
+
+The grievance register is a staff job: `POST /api/v1/staff/jobs/` `{"kind": "grievance_export", "params": {"from":
+"2026-10-01", "until": "2026-10-31"}}` (`staff.export_grievances`, high; above your `export_rows` it waits for an
+approver), its file a dated CSV with no personal data beyond the ticket's number and category.
+
+```sh
+curl "https://admin.examleaf.in/api/v1/staff/support/tickets/?open=true" -b "sessionid=..."
+# 200 {"next": null, "previous": null, "results": [{"id": 4103, "number": "SR-2026-000103", "subject": "Books arrived
+#      damaged", "source": "email", "category": "order", "status": "open", "requester": {"name": "Riya Das",
+#      "email": "ri•••@example.com", "phone": "••••••2210", "user": 7101}, "next_due_at": "2026-10-05T14:00:00+05:30",
+#      "clock": "due", "overdue": true, "due_breached": true, ...}, ...]}
+curl -X POST https://admin.examleaf.in/api/v1/staff/support/tickets/SR-2026-000103/messages/ \
+  -b "sessionid=...; csrftoken=..." -H "X-CSRFToken: ..." -H "Content-Type: application/json" \
+  -d '{"direction": "out", "body": "We have refunded the two books.", "channel": "email"}'
+# 201 {"id": 7012, "direction": "out", "channel": "email", "author": 9003, "author_name": "Rahul Saikia", ...}
+curl -X POST https://admin.examleaf.in/api/v1/staff/support/tickets/SR-2026-000103/status/ \
+  -b "sessionid=...; csrftoken=..." -H "X-CSRFToken: ..." -H "Content-Type: application/json" \
+  -d '{"status": "resolved"}'
+# 400 {"resolution": ["Say what was done."]}
+```
+
+**My requests** (the customer's side, API v1): `GET /api/v1/me/tickets/` (signed in) lists the account's tickets and
+those sent from one of its confirmed email addresses before, newest first, 50 a page: `number`, `subject`,
+`category` and `category_label`, `status` and `status_label` (the customer's words: received, being looked at,
+waiting for your reply …), `order`, `received_at`, `acknowledged_at`, `answer_by` (the latest we answer by),
+`resolved_at`, `closed_at`; never staff's notes nor who works on it. `POST` (a confirmed email address; 10 an hour)
+`{"category": "payment", "subject": "...", "message": "...", "order": "EL-2026-000123"}` (the order one of the
+account's, optional) makes one: 201 with it, acknowledged by email with its number. The contact form (`contact/`)
+makes one too, for anyone.
+
+```sh
+curl https://examleaf.in/api/v1/me/tickets/ -H "Authorization: Bearer eyJ..."
+# 200 {"count": 1, "next": null, "previous": null, "results": [{"number": "SR-2026-000114", "subject": "Refund not
+#      received", "category": "payment", "category_label": "payment or refund", "status": "open",
+#      "status_label": "being looked at", "order": "EL-2026-000131", "received_at": "...", "answer_by": "...", ...}]}
+```
+
+**The support mailbox's hook** `POST /api/hooks/support-mail/` is the forwarder's, not the API's (an SES receipt
+rule's Lambda, or Cloudflare's Email Routing worker): the raw message (`message/rfc822`) or SES's receipt notification,
+with the `support_mail` integration account's webhook token in `X-Support-Mail-Token` (constant time; the previous
+token too for 24 hours after a rotation). A missing or wrong token, or no enabled account: `403 {"detail": "Unknown
+or missing token."}`, kept without its body; more than `SUPPORT_MAIL_MAX_BYTES` (10 MB): 413. Otherwise `200
+{"detail": "Received."}` at once: the body is kept once per SHA-256 and read by a task, which drops our own mail,
+auto-replies, bounces and lists, and threads the rest by the thread id in its headers, a known Message-ID, or the
+`[SR-…]` number from the requester's own address. 120 a minute per client address (`API_THROTTLE_SUPPORT_MAIL`).
 
 ## Lists
 
@@ -1739,11 +1826,13 @@ Counted in the cache (Redis in production), per client address for anonymous req
 | back-in-stock alerts (`POST products/<slug>/stock-alert/`), per client address, the website's included | 10 an hour | fixed |
 | quotation requests (`POST quotes/`), per client address, the website's included | 5 an hour | fixed |
 | the couriers' webhook (`POST /api/hooks/parcel-events/`), per client address | 300 a minute | `API_THROTTLE_PARCEL_EVENTS` |
+| the support mailbox's hook (`POST /api/hooks/support-mail/`), per client address | 120 a minute | `API_THROTTLE_SUPPORT_MAIL` |
+| new requests from My requests (`POST me/tickets/`), per account | 10 an hour | `API_THROTTLE_SUPPORT_REQUEST` |
 | the staff API (`staff/…`), per member of staff or API key | 600 a minute | `STAFF_THROTTLE` |
-| customer searches (`GET staff/users/`) | 60 a minute | `STAFF_THROTTLE_SEARCH` |
-| reveals of a customer's details, and impersonation tokens (`staff/users/<id>/reveal/`, `…/impersonate/`) | 30 an hour | `STAFF_THROTTLE_REVEAL` |
+| customer searches (`GET staff/users/`), the support queue and its book-code lookups | 60 a minute | `STAFF_THROTTLE_SEARCH` |
+| reveals of a customer's details, and impersonation tokens (`staff/users/<id>/reveal/`, `…/impersonate/`, `staff/support/tickets/<number>/reveal/`) | 30 an hour | `STAFF_THROTTLE_REVEAL` |
 | audit-log exports (`staff/audit/export/`) | 10 an hour | `STAFF_THROTTLE_EXPORT` |
-| money actions and approvals (`staff/change-requests/` asked, approved, run; role grants, invitations, offboarding) | 120 an hour | `STAFF_THROTTLE_MONEY` |
+| money actions and approvals (`staff/change-requests/` asked, approved, run; role grants, invitations, offboarding; a ticket's refund and cancel) | 120 an hour | `STAFF_THROTTLE_MONEY` |
 | staff invitations accepted (`staff/invites/accept/`), per client address | 10 an hour | `STAFF_THROTTLE_INVITE` |
 | a member of staff logged in as a customer, opened or ended (`account/impersonate/`), per client address | 20 an hour | `API_THROTTLE_IMPERSONATE` |
 
