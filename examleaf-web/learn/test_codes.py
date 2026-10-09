@@ -291,6 +291,16 @@ def test_the_migration_made_a_batch_of_each_label_counted_as_dispatched(physics)
     assert CodeBatch.objects.count() == 2
 
 
+def test_the_shells_codes_are_a_print_run_of_the_panel_too(physics, tmp_path):
+    from django.core.management import call_command
+
+    out = tmp_path / "codes.csv"
+    call_command("make_book_codes", "ALL", "3", batch="ALL-2027-1", out=str(out), stderr=io.StringIO())
+    batch = CodeBatch.objects.get(label="ALL-2027-1")
+    assert (batch.printed, batch.subject, batch.generated_at is not None, batch.dispatched_at) == (3, None, True, None)
+    assert len(out.read_text().splitlines()) == 4
+
+
 def test_the_batch_pages_read_with_a_fixed_number_of_queries(physics):
     from django.db import connection
     from django.test.utils import CaptureQueriesContext

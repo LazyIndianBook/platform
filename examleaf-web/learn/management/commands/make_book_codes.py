@@ -3,8 +3,10 @@ import sys
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
+from django.utils import timezone
 
 from content.models import Subject
+from learn.models import CodeBatch
 from learn.services import make_codes
 
 
@@ -31,6 +33,9 @@ class Command(BaseCommand):
             if subj is None:
                 raise CommandError(f"No subject {subject}.")
         codes = make_codes(subj, count, batch)
+        # the panel's print run (learn.codes), for a new label: the panel marks it dispatched and voids it
+        made = {"subject": subj, "printed": count, "generated_at": timezone.now(), "note": "Made with make_book_codes."}
+        CodeBatch.objects.get_or_create(label=batch, defaults=made)
         with open(out, "w", newline="") if out else open(sys.stdout.fileno(), "w", closefd=False) as file:
             writer = csv.writer(file)
             writer.writerow(["code", "batch", "subject"])
