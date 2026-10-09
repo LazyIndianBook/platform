@@ -1,0 +1,9 @@
+{% autoescape off %}The courier is bringing your order {{ order.number }} back to us: it could not be delivered.
+
+{% if order.is_cod %}Nothing has been charged.{% else %}Once it is back, we send it again or refund you, as you prefer: tell us through
+{{ site_url }}/contact/ with the order number.{% endif %}
+
+Your order: {{ site_url }}{{ order.get_link_url }}
+(This link opens the order without an account: keep it to yourself.)
+
+ExamLeaf{% endautoescape %}

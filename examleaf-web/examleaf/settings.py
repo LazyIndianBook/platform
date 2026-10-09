@@ -173,7 +173,10 @@ if SMS_BACKEND not in {"console", "msg91"} or (SMS_BACKEND == "msg91" and not MS
     raise SystemExit(f'SMS_BACKEND="{SMS_BACKEND}": use "console", or "msg91" with MSG91_AUTHKEY set (DEPLOYMENT.md).')
 SMS_ENABLED = SMS_BACKEND != "console" or DEBUG or TESTING
 SMS_DAILY_CAP = env.int("SMS_DAILY_CAP", default=500)
-SMS_KINDS = ["otp", "order_placed", "order_shipped", "order_delivered", "parent_consent"]
+SMS_KINDS = [
+    *["otp", "order_placed", "order_shipped", "order_delivered", "parent_consent"],
+    *["order_arriving", "order_not_delivered"],  # a courier's news (shipping/messages.py)
+]
 MSG91_TEMPLATES = {kind: env(f"MSG91_TEMPLATE_{kind.upper()}", default="") for kind in SMS_KINDS}
 
 # django-allauth: email is the login, verified by a code typed on the same page (phone friendly). With SMS on, also a

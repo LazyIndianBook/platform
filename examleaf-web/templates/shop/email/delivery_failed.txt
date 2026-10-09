@@ -1,0 +1,9 @@
+{% autoescape off %}The courier could not deliver your order {{ order.number }} ({{ shipment.get_courier_display }}, tracking number {{ shipment.tracking_number }}).
+
+Couriers usually try again within a day or two. To have it delivered on another day, to correct the phone number or
+the address, or to cancel the order, tell us through {{ site_url }}/contact/ with the order number.
+
+Your order: {{ site_url }}{{ order.get_link_url }}
+(This link opens the order without an account: keep it to yourself.)
+
+ExamLeaf{% endautoescape %}

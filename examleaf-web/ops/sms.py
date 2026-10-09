@@ -6,6 +6,8 @@ kinds, their variables and the DLT templates registered for them are in RUNBOOK.
     order_placed     {"var1": order number}
     order_shipped    {"var1": order number, "var2": courier and tracking number}
     order_delivered  {"var1": order number}
+    order_arriving   {"var1": order number, "var2": the cash to keep ready, "638.00"} (out for delivery, COD only)
+    order_not_delivered  {"var1": order number, "var2": the order link's token} (the courier's attempt failed)
     parent_consent   {"var1": the student's first name, or "a student", "var2": the consent link's token}
 
 A DLT variable holds at most 30 characters."""
@@ -145,17 +147,27 @@ def queue_sms(kind, phone, variables, user=None):
     return True
 
 
-ORDER_SMS = {"confirmation": "order_placed", "shipped": "order_shipped", "delivered": "order_delivered"}
+ORDER_SMS = {
+    "confirmation": "order_placed",
+    "shipped": "order_shipped",
+    "delivered": "order_delivered",
+    "out_for_delivery": "order_arriving",  # a courier's news (shipping/messages.py); SmsLog.kind: 20 characters
+    "delivery_failed": "order_not_delivered",
+}
 
 
 def send_order_sms(order, kind):
-    """For the shop's notifications (shop.services.notify, with its kinds): "confirmation", "shipped" and "delivered"
-    send an SMS, other kinds nothing; and only to an account with a confirmed mobile number that asked for order
-    updates by SMS on My account."""
+    """For the shop's notifications (shop.services.notify, with its kinds) and a courier's news (shipping/messages.py):
+    the kinds of ORDER_SMS send an SMS, other kinds nothing; and only to an account with a confirmed mobile number that
+    asked for order updates by SMS on My account."""
     user = order.user
     if kind not in ORDER_SMS or not (user and user.login_phone_verified and user.sms_updates):
         return
     variables = {"var1": order.number}
     if kind == "shipped" and (shipment := order.shipments.first()):  # the latest
         variables["var2"] = f"{shipment.courier} {shipment.tracking_number}"[:30]
+    elif kind == "out_for_delivery":
+        variables["var2"] = f"{order.total.amount:.2f}"
+    elif kind == "delivery_failed":
+        variables["var2"] = order.token  # https://examleaf.in/orders/t/{#var#}/ in the template
     queue_sms(ORDER_SMS[kind], user.login_phone, variables, user=user)
