@@ -47,7 +47,7 @@ const PANEL = ["staff.view_inbox", "staff.view_savedview", "staff.add_savedview"
 const SUPPORT = [
   ...PANEL,
   "accounts.view_user",
-  "accounts.view_teacherprofile",
+  ...["accounts.view_teacherprofile", "accounts.change_teacherprofile"], // roles.py SUPPORT: teachers are verified here
   "shop.view_order",
   ...["staff.reveal_contact", "staff.unlock_user", "staff.resend_verification", "staff.end_user_sessions"],
   ...["staff.initiate_password_reset", "staff.reset_user_mfa", "staff.impersonate_user"],

@@ -59,7 +59,8 @@ export function ActionForm({
         });
         if (!ok) return;
         clear();
-        form.reset();
+        // the form's own reset: a field named "reset" (a setting's "back to the environment's") hides form.reset
+        HTMLFormElement.prototype.reset.call(form);
         if (success) toast.success(success);
         onDone?.(result);
         router.refresh();
