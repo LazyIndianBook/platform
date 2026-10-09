@@ -45,6 +45,7 @@ MODEL_SCOPES = {
     "learn.flashcard": _content("chapter__subject__"),
     "learn.quizitem": _content("chapter__subject__"),
     "learn.bookcode": _content("subject__"),
+    "learn.codebatch": _content("subject__"),
     "learn.entitlement": _content("subject__"),
     "shop.product": _content("subject__"),
     "shop.order": _order(""),
@@ -144,4 +145,5 @@ class ScopeBackend(BaseBackend):
     def has_perm(self, user_obj, perm, obj=None):
         if obj is None or not user_obj.is_active or not user_obj.has_perm(perm):
             return False
-        return scoped(type(obj)._default_manager.filter(pk=obj.pk), user_obj, perm).exists()
+        # the base manager: an object a default manager hides (a clip in the course's bin) is still checked for scope
+        return scoped(type(obj)._base_manager.filter(pk=obj.pk), user_obj, perm).exists()

@@ -276,6 +276,9 @@ class FraudSignal(models.Model):
         ACCOUNTS_PER_CODE = "accounts_per_code", "one code tried by several accounts"
         SHARED_PHONE = "shared_phone", "accounts sharing a phone number on COD or coupon orders"
         SHARED_ADDRESS = "shared_address", "accounts sharing an address on COD or coupon orders"
+        # Phase B: course
+        FAILED_CODES_DEVICE = "codes_failed_device", "failed book codes from one device in an hour"
+        UNDISPATCHED = "codes_undispatched", "codes redeemed from a batch not yet dispatched (a leak)"
 
     kind = models.CharField(max_length=25, choices=Kind.choices)
     subject = models.CharField(max_length=64, help_text="A keyed hash, or “all”.")
@@ -297,12 +300,14 @@ class FraudSignal(models.Model):
 
 class RedemptionAttempt(models.Model):
     """A book code tried in the app (api/learn.py RedeemView), for the fraud rules: keyed hashes of the account, the IP
-    address and the code, the code's batch and the outcome. Deleted after 180 days."""
+    address, the device (the app's installation ID, when it sends one) and the code, the code's batch and the outcome.
+    Deleted after 180 days."""
 
     class Outcome(models.TextChoices):
         REDEEMED = "redeemed", "redeemed"
         UNKNOWN = "unknown", "no such code"
         USED = "used", "used by another account"
+        VOID = "void", "a void code"  # Phase B: course
 
     user_hash = models.CharField(max_length=64, db_index=True)
     ip_hash = models.CharField(max_length=64, db_index=True)
@@ -310,6 +315,8 @@ class RedemptionAttempt(models.Model):
     batch = models.CharField(max_length=40, blank=True, help_text="Empty: no such code.")
     outcome = models.CharField(max_length=10, choices=Outcome.choices)
     created = models.DateTimeField(default=timezone.now, db_index=True)
+    # Phase B: course
+    device_hash = models.CharField(max_length=64, blank=True, db_index=True, help_text="Empty: the app sent none.")
 
     class Meta:
         ordering = ["-created"]
