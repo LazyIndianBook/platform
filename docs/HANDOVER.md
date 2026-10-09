@@ -1,7 +1,7 @@
 # Handover: where the ExamLeaf work stands and how to resume it
 
 Written 9 October 2026 at the end of a long Claude Code session. Everything below is in this repository on the branch
-`design/answer-script` (about 170 commits on top of `main`'s `b3cd16b`, not pushed anywhere). The branch is pushed to `origin` (github.com/LazyIndianBook/platform); no pull request is open yet. A new person with
+`design/answer-script` (about 170 commits on top of `main`'s `b3cd16b`, not pushed anywhere). The branch was merged into `main` (fast-forward) and pushed to `origin` (github.com/LazyIndianBook/platform) on 9 October 2026, so `main` holds everything described here. A new person with
 their own Claude Code can resume from this file alone: it says what exists, what is verified, what was in flight when the session
 ended, what to do next and in which order, and which decisions only the business owner can take.
 
@@ -83,7 +83,7 @@ a4fd8184097a1d590, a7c56ccbd5413ea94, a7f1f0910b79f7cb6, aa3c9f6cbf68be366, aa73
 
 ## 5. What to do next, in order (the plan's section 9 has the detail)
 
-1. **Close Phase A**: open the pull request from `design/answer-script` to `main`; run every suite once more on the tip; fix the three staff tests' dependence on `DEBUG` if it
+1. **Close Phase A**: run every suite once more on `main`; fix the three staff tests' dependence on `DEBUG` if it
    reappears (`STAFF_TEST_MODE` defaults to off under tests); regenerate `openapi.json` and the console's types
    (`manage.py spectacular --file openapi.json`, then `npm run api:types` in `examleaf-admin`); run the console's
    Playwright against a seeded Django; push the branch and open a pull request against `main`.
