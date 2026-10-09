@@ -8,6 +8,7 @@ from axes.models import AccessAttempt
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from accounts import roles
@@ -596,6 +597,25 @@ class CustomerSerializer(serializers.ModelSerializer):
         return bool(locked & {user.email, user.login_phone})
 
 
+class CustomerParentLinkSerializer(serializers.Serializer):
+    """A student under 18's consent link: what went, and when it stops working."""
+
+    sent = serializers.IntegerField(help_text="links sent so far")
+    last_at = serializers.DateTimeField(allow_null=True)
+    expires_at = serializers.DateTimeField(allow_null=True, help_text="the last one works for 7 days")
+    expired = serializers.BooleanField()
+    today = serializers.IntegerField(help_text="sent today for this account")
+    daily_limit = serializers.IntegerField(help_text="links a day to one parent's address or number")
+
+
+class CustomerLinkedSerializer(serializers.Serializer):
+    """An account a student's parent contact points to, or a student who named this account."""
+
+    id = serializers.IntegerField()
+    full_name = serializers.CharField()
+    relation = serializers.CharField(help_text="parent or child")
+
+
 class CustomerDetailSerializer(CustomerSerializer):
     roles = serializers.SerializerMethodField()
     mfa = serializers.SerializerMethodField()
@@ -604,10 +624,25 @@ class CustomerDetailSerializer(CustomerSerializer):
     consents = serializers.SerializerMethodField()
     sessions = serializers.SerializerMethodField()
     deletion_due_at = serializers.SerializerMethodField()
+    parent_link = serializers.SerializerMethodField(help_text="a student under 18's consent link; null for anyone else")
+    linked = serializers.SerializerMethodField(help_text="a student's parent's own account, or an adult's students")
 
     class Meta(CustomerSerializer.Meta):
         fields = [*CustomerSerializer.Meta.fields, "roles", "mfa", "parent_contact", "orders"]
-        fields += ["consents", "sessions", "deletion_due_at"]
+        fields += ["consents", "sessions", "deletion_due_at", "parent_link", "linked"]
+
+    @extend_schema_field(CustomerParentLinkSerializer(allow_null=True))
+    def get_parent_link(self, user):
+        from .customers import parent_link
+
+        return CustomerParentLinkSerializer(parent_link(user)).data if user.is_minor and user.parent_contact else None
+
+    @extend_schema_field(CustomerLinkedSerializer(many=True))
+    def get_linked(self, user):
+        from .customers import linked_accounts
+
+        request = self.context.get("request")
+        return list(linked_accounts(request.user, user)) if request is not None else []
 
     def get_roles(self, user) -> list[str]:
         return sorted(user.groups.values_list("name", flat=True))

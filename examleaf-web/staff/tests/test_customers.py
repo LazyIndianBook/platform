@@ -526,6 +526,24 @@ def test_the_children_waiting_for_a_parent_come_oldest_first_with_their_links_li
     assert signed_in(make_staff(roles.MARKETING)).get(USERS + "consent-pending/").status_code == 403
 
 
+def test_a_record_shows_its_consent_link_and_the_accounts_a_parent_contact_points_to():
+    mother = adult(email="anita@example.com", full_name="Anita Das")
+    kid, sibling = child(14, contact="anita@example.com"), child(12, contact="anita@example.com")
+    lonely = child(13, contact="nobody@example.com")
+    ParentLinkSend.objects.create(user=kid, channel="email")
+    client = signed_in(make_staff(roles.SUPPORT))
+    record = client.get(f"{USERS}{kid.pk}/").json()
+    assert record["linked"] == [{"id": mother.pk, "full_name": "Anita Das", "relation": "parent"}]
+    link = record["parent_link"]
+    assert (link["sent"], link["expired"], link["today"]) == (1, False, 1)
+    assert record["parent_link"]["daily_limit"] == 3
+    parent = client.get(f"{USERS}{mother.pk}/").json()
+    assert {account["id"] for account in parent["linked"]} == {kid.pk, sibling.pk}
+    assert {account["relation"] for account in parent["linked"]} == {"child"} and parent["parent_link"] is None
+    assert client.get(f"{USERS}{lonely.pk}/").json()["linked"] == []  # named, with no account of their own
+    assert client.get(f"{USERS}{lonely.pk}/").json()["parent_link"]["sent"] == 0
+
+
 def test_a_link_sent_is_on_record_whoever_sent_it_and_a_texts_quiet_hours_are_kept(settings, monkeypatch):
     settings.PARENTAL_CONSENT_MODE = "verified"
     by_email, by_sms = child(15, contact="anita@example.com"), child(14, contact="+919864012345")
@@ -783,6 +801,58 @@ def test_a_bulk_action_never_names_a_deletion_or_an_unknown_action():
     }
     bad = bulk(signed_in(make_staff(roles.ADMIN)), "user.erase", [1])
     assert bad.status_code == 400 and "action" in bad.json()["params"]
+
+
+# ---- Queries, the retention of the link records, an age not known ----
+
+
+def test_every_list_costs_the_same_few_queries_however_long(settings):
+    settings.PARENTAL_CONSENT_MODE = "verified"
+    client = signed_in(make_staff(roles.SUPPORT))
+    paths = [USERS + tail for tail in ("", "?kind=students", "?kind=parents", "?kind=guests", "consent-pending/")]
+
+    def more(count):
+        for n in range(count):
+            mother = adult(email=f"mother{count}x{n}@example.com")
+            pupil = child(14, contact=mother.email)
+            ParentLinkSend.objects.create(user=pupil, channel="email")
+            paid((ProductFactory(), 1), email=f"guest{count}x{n}@example.com", name="Guest", phone="+919864011111")
+
+    def queries(path):
+        client.get(path)  # what the first request after a change reads once (the switches, the session's own)
+        with CaptureQueriesContext(connection) as captured_queries:
+            assert client.get(path).status_code == 200
+        return len(captured_queries)
+
+    more(2)
+    few = {path: queries(path) for path in paths}
+    more(10)
+    assert {path: queries(path) for path in paths} == few
+
+
+def test_the_link_records_are_kept_a_year_and_then_the_nightly_clean_up_deletes_them():
+    from ops.tasks import purge_expired
+
+    kid = child()
+    now = timezone.now()
+    old = ParentLinkSend.objects.create(user=kid, channel="email", sent_at=now - timedelta(days=400))
+    recent = ParentLinkSend.objects.create(user=kid, channel="sms", sent_at=now - timedelta(days=100))
+    assert purge_expired()["parent_links"] == 1
+    assert list(ParentLinkSend.objects.values_list("pk", flat=True)) == [recent.pk] and old.pk != recent.pk
+
+
+def test_an_age_not_known_is_taken_for_a_childs_in_the_course_summary():
+    from content.tests import make_paper
+    from learn.models import Chapter, Clip, Progress, Revision
+
+    chapter = Chapter.objects.create(subject=make_paper().book.subject, number=1, title="One")
+    clip = Clip.objects.create(revision=Revision.objects.create(chapter=chapter, title="R"), title="Secret clip")
+    unknown = student(date_of_birth=None)
+    Progress.objects.create(user=unknown, clip=clip, seconds_watched=30, completed=True)
+    body = signed_in(make_staff(roles.SUPPORT)).get(f"{USERS}{unknown.pk}/timeline/").json()
+    course = [row for row in body["rows"] if row["kind"] == "course"]
+    assert body["child"] is False and len(course) == 1  # not a child by the record, but no weekly detail either
+    assert course[0]["label"].startswith("Course use so far: 1 chapter opened")
 
 
 # ---- The rule: no predictive lifetime value, RFM groups or churn scores on students ----

@@ -327,9 +327,9 @@ def access_rows(ctx):
 
 
 def course_rows(ctx):
-    """The course in use, in counts: a student under 18's is one row (the chapters opened so far, and the last week
-    they were active: no clip, no quiz answer, no day); an adult's adds the clips completed in each of the last
-    WEEKS weeks. Nothing here says what a child watched or when."""
+    """The course in use, in counts: a student under 18's (or of an age not known) is one row (the chapters opened so
+    far, and the last week they were active: no clip, no quiz answer, no day); a known adult's adds the clips completed
+    in each of the last WEEKS weeks. Nothing here says what a child watched or when."""
     from learn.models import CardReview, Progress, QuizAttempt
 
     user = ctx.user
@@ -353,7 +353,7 @@ def course_rows(ctx):
         week = week_start(latest)
         label = f"Course use so far: {plural(opened, 'chapter', 'chapters')} opened; "
         rows.append(Row(week, "course", 0, label + f"last active in the week of {words(week)}", href))
-    if not ctx.child:
+    if ctx.weekly:
         weekly = (
             Progress.objects.filter(user=user, completed=True)
             .annotate(week=TruncWeek("updated"))
@@ -543,6 +543,7 @@ def timeline(reader, user, *, kinds=None, before=None, request=None):
         reader=reader,
         user=user,
         child=user.is_minor,
+        weekly=user.date_of_birth is not None and not user.is_minor,  # an age not known is taken for a child's
         limit=TIMELINE_ROWS + 1,
         upto=cursor[0] if cursor else None,
         orders=customer_orders(reader, user),
@@ -672,6 +673,53 @@ def with_links(queryset):
 
 def link_expires_at(last_link):
     return last_link + timedelta(days=PARENT_LINK_DAYS) if last_link else None
+
+
+def parent_link(user):
+    """A student under 18's consent link as the record shows it: how many went, the last one's time and when it stops
+    working, how many today; None for anyone else (and for a student who named no parent)."""
+    if not user.is_minor or not user.parent_contact:
+        return None
+    midnight = timezone.localtime().replace(hour=0, minute=0, second=0, microsecond=0)
+    sums = user.parent_links.aggregate(
+        sent=Count("pk"), last=Max("sent_at"), today=Count("pk", filter=Q(sent_at__gte=midnight))
+    )
+    expires = link_expires_at(sums["last"])
+    return {
+        "sent": sums["sent"],
+        "last_at": sums["last"],
+        "expires_at": expires,
+        "expired": bool(expires and expires <= timezone.now()),
+        "today": sums["today"],
+        "daily_limit": DAILY_LINKS,
+    }
+
+
+def linked_accounts(reader, user, limit=10):
+    """The accounts a student's parent contact points to (their parent's own, when it has one), or for an adult the
+    students who named them: {id, full_name, relation}, in the reader's reach. Named by a verified email address or
+    log-in number only; being named is not proof of parenthood."""
+    accounts = scoped(
+        User.objects.filter(is_staff=False, is_superuser=False).exclude(pk=user.pk), reader, "accounts.view_user"
+    ).exclude(email__endswith=ERASED)
+    if user.is_minor:
+        contact = user.parent_contact
+        if not contact:
+            return []
+        if "@" in contact:
+            named = EmailAddress.objects.alias(lowered=Lower("email")).filter(
+                user=OuterRef("pk"), verified=True, lowered=contact.lower()
+            )
+            rows = accounts.alias(named=Exists(named)).filter(named=True)
+        else:
+            rows = accounts.filter(login_phone=contact, login_phone_verified=True)
+        rows, relation = rows.exclude(date_of_birth__gt=adult_born_by()), "parent"
+    else:
+        names = [address.email.lower() for address in user.emailaddress_set.all() if address.verified]
+        if user.login_phone_verified and user.login_phone:
+            names.append(user.login_phone)
+        rows, relation = accounts.filter(parent_contact__in=names, date_of_birth__gt=adult_born_by()), "child"
+    return [{"id": row.pk, "full_name": row.full_name, "relation": relation} for row in rows.order_by("pk")[:limit]]
 
 
 def blocking():
