@@ -14,7 +14,7 @@ entitlement changed. Backend: `GET config/` gains `web_course` (new setting `WEB
 switches on the revision course's pages on the website (`/revision/<subject>/<chapter>/`, its flash cards and quiz,
 `/account/learning/revise-again/`, all 404 while off); the HTML frame of every email, the order emails and the
 invoice, bill of supply, credit note and quotation PDFs carry the paper look, with every word, link and figure as
-before (one test assertion follows the code's new colour). 422 backend tests pass (7 skipped); Vitest 89 → 178.
+before (one test assertion follows the code's new colour). 422 backend tests pass (7 skipped); Vitest 89 → 180.
 
 ## Phase 8F review fixes (8 October 2026)
 

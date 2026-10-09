@@ -74,10 +74,11 @@ or entitlement changed.
 
 ### Tests
 
-- Unit (Vitest): 89 on `main` → 178 on the branch. New: every changed component state (busy by click and by Enter,
+- Unit (Vitest): 89 on `main` → 180 on the branch. New: every changed component state (busy by click and by Enter,
   disabled, a field in error, the OTP paste, tabs by arrow keys, dialog focus, the order statuses, progress), the
   marks form (busy, consent-blocked, the draft restored and cleared, the circle only after the response), the auth
-  pages (the NEXT chip, the methods from config, 400 and 429, the four edge pages), the shop (coupon applied and
+  pages (the NEXT chip, the methods from config, 400 and 429, the four edge pages, a switched-off account sent to
+  the inactive page after a right password or code), the shop (coupon applied and
   refused, PIN found and not found, the draft, cash on delivery, the pending and failed done states, the cancel
   dialog), the account (the filter with no match, the teacher's three states, deletion against the typed email, the
   export summary, the address draft), the course (no verdict before the server answers, Check busy, the card keys,
@@ -118,7 +119,7 @@ port 3001. The baseline column is `main` at b3cd16b, measured the same morning (
 | Check                                                                                              | Baseline (`main`)                                                                                        | The branch                                                                                                                                                                                                         |
 | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `npm run lint`, `format:check`, `typecheck`                                                        | clean                                                                                                    | clean                                                                                                                                                                                                              |
-| Vitest                                                                                             | 10 files, 89 tests                                                                                       | 14 files, 178 tests                                                                                                                                                                                                |
+| Vitest                                                                                             | 10 files, 89 tests                                                                                       | 14 files, 180 tests                                                                                                                                                                                                |
 | `next build`                                                                                       | 36 routes                                                                                                | 40 routes (the course's four behind the flag)                                                                                                                                                                      |
 | Playwright, CI's list (`npm run test:e2e`, production build)                                       | 26 passed                                                                                                | 41 passed, 4 skipped (`course.spec.ts`, `web_course` off), 2.1 min; one earlier run failed on the backend's book-code throttle after six runs in an hour (`learn/redeem/`, 5 an hour per address), not on the code |
 | Backend `pytest`                                                                                   | 422 passed, 7 skipped                                                                                    | 422 passed, 7 skipped (one assertion follows the email's new code colour)                                                                                                                                          |
@@ -187,40 +188,29 @@ artboards, the states exercised against the real API where the seed allows it):
 - Emails and the invoice: 12 emails and 5 PDFs rendered through the app's own path, every word, link and figure
   identical to before (pdftotext), readable at 320 px and in dark mode (Chromium); the backend suite 422 passed.
 
+- The web course on the merged branch too: `course.spec.ts` ran again on the production build against a second
+  backend with the flag on, 4 passed.
+- The shop's category and collection pages, with a shelf (and a sub-shelf) and a collection made for the check:
+  the right heading, the shelf's four books and the collection's two, axe 0, no sideways scroll at 390 and 320 (a
+  shelf made a moment ago shows from the next request on: the catalogue's 60 s cache serves the last list while it
+  refreshes, as designed). The catalogue's filters: `?subject=PHY&kind=solutions` lists the one book, a pair that
+  matches nothing says so.
+- A switched-off account: allauth.headless answers a right password (or code) with a 401 and no step left, which the
+  form used to show as nothing; it now sends such an account to `/account/inactive/` (why, and Contact), checked
+  against the real backend with an account switched off, and by two unit tests.
+
 ## 5. Implemented but not verified
 
-NOT_Checked on the production build of the branch against the seeded backend (`scripts/e2e-backend.sh`), in Chromium,
-by the checks in section 3 and by the packages' own runs (screenshots at 1280, 390 and 320 compared with the
-artboards, the states exercised against the real API where the seed allows it):
-
-- The foundation: tokens, fonts (self-hosted at build time; `font-src 'self'` unchanged), every shared component in
-  every state, the header, drawer, footer and account navigation (axe: 0 violations on the public and signed-in pages;
-  the header keeps one row from 320 px with a cart count; reduced motion computes to no animation).
-- Home, Book, Solutions (signed in, the wall with `next` kept, the printed paper), the parent's link (pending,
-  consent, confirmed, expired), About, the legal pages with the shipping rates, Contact (sent, 429), 404 with its
-  hints, the unavailable page, offline; nothing scrolls sideways at 320 px on 27 pages (`narrow.spec.ts`).
-- The record card: the circle only after the server's 201, the draft kept across a session that ended mid-save,
-  the consent-pending refusal with "Send the link again".
-- The shop: catalogue tabs and chips, the product's options, copies and facts, out of stock, school orders, the
-  cart's coupon applied and refused, Remove, checkout's two steps with the address book, PIN autofill (found, not
-  found, two states), the Delivery step's fee from the API, Back keeping what was typed, the draft cleared after the
-  order; pay without keys (honest), a declined payment, a pending payment with one update and no PAID, cash on
-  delivery and the shop closed (`states.spec.ts`); the order pages (link and account), credit notes, Your papers,
-  Cancel.
-- Sign-in: the methods from config, the NEXT chip, a code by email, the password fold, Register under 18 with the
-  emailed code, the forgot-password journey to the new reset-done page, the inactive page, 400 with the summary, a
-  real throttle's "Too many tries" wording, a 401 round trip with the notice and the draft restored.
-- The student area: the overview, the record with its filters and the honest no-match (saved marks, averages),
-  the edit page, Learning (continue, the plan form, chapter bars, the empty states), orders, details, addresses with
-  the PIN autofill and the draft across a 401, security (devices, the rows by anchor), the full 2FA activation to the
-  recovery board, privacy (the export summary before the download, deletion against the typed email), teacher
-  (request → checking → verified), the revision course page with its book-code states and the 429.
-- The web course behind the flag: all four routes 404 with the flag off (default); with `WEB_COURSE=1` on a second
-  backend: the chapter page open and locked, clips' progress, the flash cards' keys and saved reviews, the quiz with
-  no verdict before the server's reply and one request however often Check is pressed, the settings' limits in the
-  API's words, the session ending mid-quiz and coming back (`course.spec.ts`, 4 passed on that backend).
-- Emails and the invoice: 12 emails and 5 PDFs rendered through the app's own path, every word, link and figure
-  identical to before (pdftotext), readable at 320 px and in dark mode (Chromium); the backend suite 422 passed.
+- Browsers other than Chromium (Safari, Firefox, old Android WebViews): nothing was run there.
+- Real mail clients (Outlook, Gmail, Apple Mail): the emails were checked in Chromium with dark-mode emulation only.
+- Real video playback in the web course (the seed has no HLS files: progress was checked by firing media events on
+  the real `<video>`), the consent-pending state of the course (unit tests only), and a staff account's two-step
+  check at log-in.
+- Google sign-in against a real backend (rendered and unit-tested only; Turnstile and verified consent are
+  exercised by `states.spec.ts`), the generic error page from a real render crash, forced-colours mode.
+- 400 % zoom was checked as a 320 px wide viewport, which is what a 1280 px screen shows at 400 %.
+- The home figure's question (Sample Paper M-04, 2(c)) is the artboard's own illustration; it is not among the 13
+  fixture papers, so it was not checked against the published paper.
 
 ## 6. Blocked
 
@@ -232,8 +222,6 @@ artboards, the states exercised against the real API where the seed allows it):
   before play: the API has no endpoint or field for them (product and backend decisions).
 - The web course stays off until the product decision (`WEB_COURSE`); the AI answer checker is not built (no
   backend).
-- Inactive accounts: allauth.headless answers a password log-in with a plain 401, so `/account/inactive/` is reached
-  only by its link; sending the form there is a change to the log-in flow, which this pass left alone.
 
 ## 7. Deviations from the design, and why
 
@@ -283,7 +271,9 @@ Where the design and the API disagreed, the API won and the page says what is tr
   in the deploy (the e2e directory is empty, G12); the schema leaves `revise-again` and `Clip.questions` untyped and
   has no chapter lookup by number.
 - Frontend: a `&reason=expired` marker in `loginUrl()` would let the log-in notice show for every client-side 401
-  (today it shows when a draft waits); `ErrorSummary retryIn` could carry the 429 wording to every form; `HlsVideo`
+  (today it shows when a draft waits); a 429 from the API carries DRF's own "Expected available in N seconds" in
+  its detail, which every form shows, while allauth.headless's 429 has no time and gets the auth forms' `retryIn`
+  wording, which `ErrorSummary retryIn` could carry to every form; `HlsVideo`
   could take event props (the course catches progress on a wrapper); header tags for the account emails need a
   product decision on the words; `docs/design/parity-nextjs.md` and the screenshots under `docs/design/screenshots/nextjs/`
   describe the old look.
