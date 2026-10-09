@@ -12,6 +12,7 @@ from django.utils import timezone
 
 from accounts import roles
 from accounts.factories import UserFactory
+from accounts.models import DeletionRequest, LegalHold
 from api import urls as api_urls
 from insights.models import FraudSignal
 from integrations.models import IntegrationAccount
@@ -27,6 +28,7 @@ from staff.models import (
     ApiKey,
     AuditEvent,
     ChangeRequest,
+    DarkPatternAudit,
     DataRequest,
     InboxItem,
     Incident,
@@ -126,6 +128,30 @@ ENDPOINTS = [
     ("post", "system/reconcile/", "staff.replay_webhook"),
     ("get", "notes/?target_type=accounts.user&target_id={customer}", "staff.view_note"),  # (and the record's own)
     ("post", "notes/", "staff.add_note"),
+    # Legal and privacy (staff/privacy_api.py)
+    ("get", "privacy/cockpit/", "staff.view_datarequest"),
+    ("get", "privacy/retention/", "staff.view_datarequest"),
+    ("get", "privacy/holds/", "accounts.view_legalhold"),
+    ("get", "privacy/holds/{hold}/", "accounts.view_legalhold"),
+    ("post", "privacy/holds/", "staff.manage_holds"),
+    ("post", "privacy/holds/{hold}/release/", "staff.manage_holds"),
+    ("get", "privacy/nominees/{customer}/", "accounts.view_user"),
+    ("post", "privacy/nominees/{customer}/reveal/", "staff.reveal_contact"),
+    ("post", "privacy/deletions/{deletion}/parent-confirmation/", "staff.handle_data_request"),
+    ("get", "privacy/policies/", "pages.view_page"),
+    ("get", "privacy/policies/privacy/", "pages.view_page"),
+    ("get", "privacy/policies/privacy/versions/1/diff/", "pages.view_page"),
+    ("post", "privacy/policies/privacy/publish/", "pages.change_page"),
+    ("post", "privacy/policies/privacy/cancel-scheduled/", "pages.change_page"),
+    ("get", "privacy/disclosures/", "staff.view_sitesetting"),
+    ("put", "privacy/disclosures/", "staff.manage_settings"),
+    ("get", "privacy/dark-pattern-audits/", "staff.view_darkpatternaudit"),
+    ("get", "privacy/dark-pattern-audits/{audit}/", "staff.view_darkpatternaudit"),
+    ("post", "privacy/dark-pattern-audits/", "staff.manage_compliance"),
+    ("patch", "privacy/dark-pattern-audits/{audit}/", "staff.manage_compliance"),
+    ("post", "privacy/dark-pattern-audits/{audit}/complete/", "staff.manage_compliance"),
+    ("get", "privacy/dark-pattern-audits/{audit}/file/", "staff.view_darkpatternaudit"),
+    ("post", "privacy/dark-pattern-audits/{audit}/file/", "staff.manage_compliance"),
     ("post", "people/{person}/offboard/", "staff.assign_role"),  # last: the person goes
 ]
 WHO = sorted(roles.STAFF_ROLES)  # one member of staff per role (OWNER: the founder), and a break-glass account
@@ -178,6 +204,9 @@ def objects():
         "processor": ProcessorRecord.objects.create(
             name="Razorpay", purpose="payments", data_categories="orders", country="India"
         ).pk,  # fmt: skip
+        "hold": LegalHold.objects.create(user=customer, reason="dispute").pk,
+        "deletion": DeletionRequest.objects.create(user=customer).pk,
+        "audit": DarkPatternAudit.objects.create(year=2027).pk,
     }
 
 

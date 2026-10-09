@@ -77,7 +77,9 @@ def test_deletion_takes_the_sms_log_and_failed_phone_log_ins_and_the_export_show
     data = export_user_data(user)
     assert [row["kind"] for row in data["sms"]] == ["otp"] and data["email_suppressed"]["reason"] == "bounce"
     DeletionRequest.objects.create(user=user).complete()
-    assert not SmsLog.objects.exists() and not AccessAttempt.objects.exists()
+    # the SMS log is a processing log, kept its year (examleaf.retention), without the account or the last digits
+    assert list(SmsLog.objects.values_list("user", "phone_last4")) == [(None, "")]
+    assert not AccessAttempt.objects.exists()
 
 
 def test_a_code_request_that_failed_turnstile_spends_none_of_the_numbers_three(client, settings, monkeypatch):
