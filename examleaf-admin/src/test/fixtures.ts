@@ -18,6 +18,8 @@ export function manifestWith(permissions: string[], extra: Partial<Manifest> = {
     break_glass: null,
     policies_due: [],
     manifest_version: "test",
+    steps: [],
+    offer_end_sessions: false,
     ...extra,
   };
 }

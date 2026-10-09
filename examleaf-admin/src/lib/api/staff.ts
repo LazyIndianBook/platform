@@ -132,9 +132,10 @@ async function send<A extends Answer>(
       if (error.status === 401) sessionEnded(endedBy(error.code));
       if (error.code === "reauth_required" && !retried && (await reauth.request(flowsOf(body))))
         return send(transport, ask, signal, true);
-      // a refusal by permission or scope, or a break-glass session that owes its reason: the manifest, read again,
-      // says which
-      if (["permission_denied", "scope_denied", "break_glass_reason_required"].includes(error.code)) manifestStale();
+      // a refusal by permission or scope, a break-glass session that owes its reason, a passkey to add first: the
+      // manifest, read again, says which
+      if (["permission_denied", "scope_denied", "break_glass_reason_required", "passkey_required"].includes(error.code))
+        manifestStale();
     }
     throw error;
   }
@@ -633,6 +634,8 @@ export type SystemStatus = {
   backups: { configured: boolean; error?: string; latest?: string | null; size?: number; at?: string };
   maintenance: { on: boolean; banner: string };
   audit: { last_verification: { action: string; ts: string; details: unknown } | null; heads: unknown };
+  /** One line per subsystem, with the time it came to its state (staff/system_api.py). */
+  status: Schemas["SystemStatus"][];
 };
 
 export const getSystem = async (transport?: Transport) =>
@@ -640,3 +643,191 @@ export const getSystem = async (transport?: Transport) =>
 /** Ask Razorpay what became of an online order's payment (a lost webhook). */
 export const reconcileOrder = (order: string) =>
   send(undefined, (o) => api.POST("/api/v1/staff/system/reconcile/", { ...o, body: { order } }));
+
+// ---- Staff, settings and integrations, system ----
+// The role catalogue, a person's Access tab and a role change's preview, offboarding's checklist, ERPNext's role
+// mirror, one's own sessions; settings' and flags' history; the connections page (cards, tests, credentials, mode,
+// circuit, webhooks, events, calls, dead letters); the message templates; the system's pages. Their words:
+// copy.management; their pages: people/, settings/, system/.
+
+export type RoleCatalogueRow = Schemas["RoleCatalogue"];
+export type Capability = Schemas["Capability"];
+export type CapabilityArea = Schemas["CapabilityArea"];
+export type Access = Schemas["Access"];
+export type RolePreview = Schemas["RolePreview"];
+export type Offboarding = Schemas["Offboarding"];
+export type OffboardingStep = Schemas["OffboardingStep"];
+export type ErpMirror = Schemas["ErpMirror"];
+export type OwnSession = Schemas["OwnSession"];
+
+export const listRoleCatalogue = (transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/people/roles/", o));
+export const getAccess = (id: number, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/people/{id}/access/", { ...o, params: { path: { id } } }));
+/** What granting (or revoking) a role would change: nothing changes. */
+export const previewRole = (id: number, body: Schemas["RolePreviewRequestRequest"], signal?: AbortSignal) =>
+  send(
+    undefined,
+    (o) => api.POST("/api/v1/staff/people/{id}/roles/preview/", { ...o, params: { path: { id } }, body }),
+    signal,
+  );
+/** Their latest offboarding's checklist (404: never offboarded). */
+export const getOffboarding = (id: number, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/people/{id}/offboarding/", { ...o, params: { path: { id } } }));
+export const tickOffboarding = (id: number, body: Schemas["OffboardingTickRequest"]) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/people/{id}/offboarding/tick/", { ...o, params: { path: { id } }, body }),
+  );
+export const getErpMirror = (id: number, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/people/{id}/erp/", { ...o, params: { path: { id } } }));
+export const listOwnSessions = (transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/people/me/sessions/", o));
+export const endOwnSession = (session: number) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/people/me/sessions/{session}/end/", { ...o, params: { path: { session } } }),
+  );
+export const endOtherSessions = () =>
+  send(undefined, (o) => api.POST("/api/v1/staff/people/me/sessions/end-others/", o));
+
+/** A setting's or a flag's history, newest first (who, when, why, from when). */
+export const historyOf = (kind: "settings" | "flags", key: string) =>
+  kind === "settings"
+    ? send(undefined, (o) => api.GET("/api/v1/staff/settings/{key}/history/", { ...o, params: { path: { key } } }))
+    : send(undefined, (o) => api.GET("/api/v1/staff/flags/{key}/history/", { ...o, params: { path: { key } } }));
+
+export type ConnectionCard = Schemas["ConnectionCard"];
+export type ConnectionProvider = ConnectionCard["provider"];
+export type ConnectionAccount = Schemas["AccountRow"];
+export type TestResult = Schemas["TestResult"];
+export type WebhookInfo = Schemas["WebhookInfo"];
+export type InboundEvent = Schemas["InboundEvent"];
+export type IntegrationCall = Schemas["Call"];
+export type DeadLetter = Schemas["Failure"];
+
+const provider = (key: ConnectionProvider) => ({ params: { path: { provider: key } } });
+
+export const listConnections = (transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/connections/", o));
+export const getConnection = (key: ConnectionProvider, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/connections/{provider}/", { ...o, ...provider(key) }));
+/** One harmless read with the keys in force: ok false is a test that ran and failed (its words). */
+export const testConnection = (key: ConnectionProvider) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/connections/{provider}/test/", { ...o, ...provider(key) }));
+/** New credentials, kept only if their own test passes in the same call (400 with the provider's words otherwise). */
+export const replaceCredentials = (key: ConnectionProvider, body: Schemas["CredentialsRequest"]) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/connections/{provider}/credentials/", { ...o, ...provider(key), body }),
+  );
+export const switchMode = (key: ConnectionProvider, body: Schemas["ModeRequest"]) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/connections/{provider}/mode/", { ...o, ...provider(key), body }));
+export const setCircuit = (key: ConnectionProvider, body: Schemas["CircuitActionRequest"]) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/connections/{provider}/circuit/", { ...o, ...provider(key), body }));
+export const getWebhooks = (key: ConnectionProvider, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/connections/{provider}/webhooks/", { ...o, ...provider(key) }));
+/** A new webhook token: in this answer only. */
+export const rotateWebhook = (key: ConnectionProvider, reason: string) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/connections/{provider}/webhooks/rotate/", { ...o, ...provider(key), body: { reason } }),
+  );
+export const listInboundEvents = (
+  key: ConnectionProvider,
+  filters: Filters<"/api/v1/staff/connections/{provider}/events/">,
+  transport?: Transport,
+) =>
+  send(transport, (o) =>
+    api.GET("/api/v1/staff/connections/{provider}/events/", {
+      ...o,
+      params: { path: { provider: key }, query: query(filters) },
+    }),
+  ).then(paged);
+export const replayInboundEvent = (key: ConnectionProvider, id: number) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/connections/{provider}/events/{id}/replay/", {
+      ...o,
+      params: { path: { provider: key, id } },
+    }),
+  );
+export const replayFailedEvents = (key: ConnectionProvider, since: string) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/connections/{provider}/events/replay-failed/", {
+      ...o,
+      ...provider(key),
+      body: { since },
+    }),
+  );
+export const listCalls = (
+  key: ConnectionProvider,
+  filters: Filters<"/api/v1/staff/connections/{provider}/calls/">,
+  transport?: Transport,
+) =>
+  send(transport, (o) =>
+    api.GET("/api/v1/staff/connections/{provider}/calls/", {
+      ...o,
+      params: { path: { provider: key }, query: query(filters) },
+    }),
+  ).then(paged);
+export const listDeadLetters = (
+  key: ConnectionProvider,
+  filters: Filters<"/api/v1/staff/connections/{provider}/failures/">,
+  transport?: Transport,
+) =>
+  send(transport, (o) =>
+    api.GET("/api/v1/staff/connections/{provider}/failures/", {
+      ...o,
+      params: { path: { provider: key }, query: query(filters) },
+    }),
+  ).then(paged);
+export const replayDeadLetter = (key: ConnectionProvider, id: number) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/connections/{provider}/failures/{id}/replay/", {
+      ...o,
+      params: { path: { provider: key, id } },
+    }),
+  );
+export const discardDeadLetter = (key: ConnectionProvider, id: number, reason: string) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/connections/{provider}/failures/{id}/discard/", {
+      ...o,
+      params: { path: { provider: key, id } },
+      body: { reason },
+    }),
+  );
+
+export type MessageTemplate = Schemas["Template"];
+
+export const listTemplates = (filters: Filters<"/api/v1/staff/templates/">, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/templates/", { ...o, params: { query: query(filters) } }));
+export const createTemplate = (body: Schemas["TemplateRequest"]) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/templates/", { ...o, body }));
+export const updateTemplate = (id: number, body: Schemas["PatchedTemplateRequest"]) =>
+  send(undefined, (o) => api.PATCH("/api/v1/staff/templates/{id}/", { ...o, params: { path: { id } }, body }));
+/** A test to your own confirmed number or address only. */
+export const testTemplate = (id: number, variables: Record<string, string>) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/templates/{id}/test/", { ...o, params: { path: { id } }, body: { variables } }),
+  );
+
+export type SystemLine = Schemas["SystemStatus"];
+export type SyncMonitor = Schemas["Sync"];
+export type ErpLinkRow = Schemas["ErpLink"];
+export type Backups = Schemas["Backups"];
+export type RestoreDrill = Schemas["RestoreDrill"];
+export type LogsAndTime = Schemas["Logs"];
+export type Dependencies = Schemas["Dependencies"];
+export type HardeningRow = Schemas["HardeningRow"];
+export type ScriptChecks = Schemas["Scripts"];
+
+export const getSync = (transport?: Transport) => send(transport, (o) => api.GET("/api/v1/staff/system/sync/", o));
+export const findErpLinks = (q: string, signal?: AbortSignal) =>
+  send(undefined, (o) => api.GET("/api/v1/staff/system/sync/links/", { ...o, params: { query: { q } } }), signal);
+export const getBackups = (transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/system/backups/", o));
+export const recordDrill = (body: Schemas["RestoreDrillRequest"]) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/system/backups/drills/", { ...o, body }));
+export const getLogs = (transport?: Transport) => send(transport, (o) => api.GET("/api/v1/staff/system/logs/", o));
+export const getDependencies = (transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/system/dependencies/", o));
+export const getHardening = (transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/system/hardening/", o));
+export const getScripts = (transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/system/scripts/", o));

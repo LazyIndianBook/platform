@@ -63,6 +63,20 @@ export const P = {
   erpView: "erp.view_sync",
   erpReplay: "erp.replay_sync",
   erpResolve: "erp.resolve_difference",
+  // Phase B: staff, settings and integrations, system (offboarding's checklist, the connections, the templates, the
+  // system's pages)
+  offboardingView: "staff.view_staffoffboarding",
+  connectionsView: "integrations.view_integrationaccount",
+  connectionsManage: "staff.manage_connections",
+  eventsView: "integrations.view_inboundevent",
+  callsView: "integrations.view_integrationcall",
+  deadLettersView: "integrations.view_integrationfailure",
+  templatesView: "ops.view_messagetemplate",
+  templatesAdd: "ops.add_messagetemplate",
+  templatesChange: "ops.change_messagetemplate",
+  systemManage: "staff.manage_system",
+  drillsView: "staff.view_restoredrill",
+  scriptsView: "staff.view_scriptinventory",
 } as const;
 
 /** Whether the manifest lists the permission (the shell's only use of permissions: what to draw). */
@@ -117,9 +131,12 @@ export const MODULES: readonly Module[] = [
   { key: "processors", href: "/privacy/processors/", group: "privacy", any: [P.processorsView] },
   { key: "insights", href: "/insights/", group: "reports", any: [P.insightsView, P.signalsAcknowledge], soon: true },
   { key: "people", href: "/people/", group: "staff", any: [P.peopleView] },
+  { key: "roles", href: "/people/roles/", group: "staff", any: [P.peopleView] },
   { key: "accessReview", href: "/people/access-review/", group: "staff", any: [P.peopleView] },
   { key: "apiKeys", href: "/settings/api-keys/", group: "staff", any: [P.apiKeysView] },
   { key: "settings", href: "/settings/", group: "system", any: [P.settingsView, P.flagsView] },
+  { key: "connections", href: "/settings/connections/", group: "system", any: [P.connectionsView] },
+  { key: "templates", href: "/settings/templates/", group: "system", any: [P.templatesView] },
   { key: "system", href: "/system/", group: "system", any: [P.systemView] },
   { key: "finance", href: "/app/accounting", group: "erp", any: ERP, erp: "/app/accounting" },
   { key: "tax", href: "/app/gst-india", group: "erp", any: ERP, erp: "/app/gst-india" },
