@@ -29,6 +29,15 @@ describe("the content module", () => {
   });
 });
 
+describe("the reports module", () => {
+  it("opens for the insights' readers, under Reports, and is no planned module any more", () => {
+    expect(keys([P.insightsView])).toEqual(["home", "reports"]);
+    expect(keys([P.exportReport])).toEqual(["home"]); // an export alone opens nothing: the report must be readable
+    expect(soonModule("reports", manifestWith([P.insightsView]))).toBeNull();
+    expect(soonModule("insights", manifestWith([P.insightsView]))).toBeNull();
+  });
+});
+
 describe("visibleModules", () => {
   it("gives a manifest without permissions Home alone", () => {
     expect(keys([])).toEqual(["home"]);
@@ -73,7 +82,7 @@ describe("visibleModules", () => {
   it("opens the audit trail to its readers only, and shipping and the insights by their apps' permissions", () => {
     expect(keys([P.auditView])).toEqual(["home", "audit"]);
     expect(keys([P.codView])).toEqual(["home", "shipping"]);
-    expect(keys([P.signalsAcknowledge])).toEqual(["home", "insights"]);
+    expect(keys([P.signalsAcknowledge])).toEqual(["home", "reports"]);
   });
 
   it("links the business modules to ERPNext for the sync's permissions, and only with its address", () => {
