@@ -3,7 +3,7 @@ files, no database): they must still render when those are what failed. API path
 
 import time
 
-from django.http import HttpResponseBadRequest, HttpResponseServerError, JsonResponse
+from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseServerError, JsonResponse
 from django.template.loader import render_to_string
 from django_guid import get_guid
 from health_check.views import HealthCheckView
@@ -20,6 +20,13 @@ def error_handler(template, status, detail, response_class):
 
 bad_request = error_handler("400.html", 400, "Bad request.", HttpResponseBadRequest)
 server_error = error_handler("500.html", 500, "Server error.", HttpResponseServerError)
+
+
+def live(request):
+    """/health/live/, the liveness probe: the process answers. It reads neither the database nor Redis, so their
+    outage never gets a healthy pod restarted (readiness, /health/web/, takes it out of traffic instead); only a
+    process that cannot answer at all (every thread stuck) fails it."""
+    return HttpResponse("OK", content_type="text/plain")
 
 
 class Done:

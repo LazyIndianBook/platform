@@ -97,8 +97,9 @@ services:
   web:
     <<: *app
     # Migrations and the role groups are brought up to date on every start (one web container: no race), then the
-    # readiness check (database, cache, a write to the media volume; django-health-check's command) must pass
-    # before gunicorn starts; otherwise the container stops and is restarted.
+    # readiness check (the database, no migration waiting; django-health-check's command) must pass before gunicorn
+    # starts; otherwise the container stops and is restarted. The cache and the buckets are not waited for: the site
+    # runs without them, and /health/ (the uptime monitor) reports them.
     command: >-
       sh -c "python manage.py migrate --noinput && python manage.py bootstrap_roles
       && python manage.py health_check health_web --no-http
@@ -115,8 +116,8 @@ services:
     volumes:
       - media:/app/media
       - ${BOOK_SOURCE:-../../Class 12}/production:/book/production:ro  # the books' Markdown papers, for import_papers
-    healthcheck:
-      test: ["CMD", "python", "-c", "import os, urllib.request as u; u.urlopen(u.Request('http://127.0.0.1:8000/health/web/', headers={'Host': os.environ['DOMAIN'], 'X-Forwarded-Proto': 'https', 'Accept': 'application/json'}), timeout=10)"]
+    healthcheck:  # liveness: gunicorn answers (/health/live/ reads neither the database nor Redis)
+      test: ["CMD", "python", "-c", "import os, urllib.request as u; u.urlopen(u.Request('http://127.0.0.1:8000/health/live/', headers={'Host': os.environ['DOMAIN'], 'X-Forwarded-Proto': 'https'}), timeout=10)"]
       interval: 30s
       timeout: 15s
       retries: 3

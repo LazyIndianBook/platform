@@ -10,7 +10,7 @@ from django.core.mail import EmailMessage
 from health_check.exceptions import ServiceUnavailable
 
 from examleaf.health import WorkerPing
-from examleaf.urls import WEB_CHECKS, health_checks
+from examleaf.urls import MONITOR_CHECKS, health_checks
 from ops import sms, tasks
 from ops.models import SmsLog
 
@@ -77,9 +77,10 @@ class FakeCeleryApp:
 
 
 def test_the_health_ping_waits_for_every_worker_and_checks_each_queue_the_platform_uses():
-    assert health_checks(eager=True) == WEB_CHECKS  # inline tasks: no worker to ask
+    assert health_checks(eager=True) == MONITOR_CHECKS  # inline tasks: no worker to ask
     [*web, (ping, options)] = health_checks(eager=False)
-    assert web == WEB_CHECKS and ping == "examleaf.health.WorkerPing" and "limit" not in options  # every worker answers
+    assert web == MONITOR_CHECKS and ping == "examleaf.health.WorkerPing"
+    assert "limit" not in options  # every worker answers
     both = FakeCeleryApp({"celery@web": [{"name": "celery"}], "media@web": [{"name": "media"}]})
     WorkerPing(app=both).check_active_queues("celery@web", "media@web")  # both queues served: no complaint
     with pytest.raises(ServiceUnavailable, match="media"):  # the media worker is down, whichever worker answered first

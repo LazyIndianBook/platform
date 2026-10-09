@@ -1,5 +1,5 @@
-"""RESILIENCE.md's settings, as settings.py makes them: the timeouts of every client of another service, and the
-database's limits by role."""
+"""RESILIENCE.md's settings, as settings.py makes them: the timeouts of every client of another service, the
+database's limits by role, Celery's acknowledgements and limits; and the health checks each prober gets."""
 
 import importlib
 import json
@@ -10,9 +10,13 @@ import pytest
 from anymail.backends.amazon_ses import _get_anymail_boto3_params
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
+from django.core.cache.backends.base import BaseCache
 from django.db import connection
+from django.db.migrations.recorder import MigrationRecorder
+from health_check.exceptions import ServiceUnavailable
 from storages.backends.s3 import S3Storage
 
+from examleaf.health import Migrations
 from examleaf.storage import PublicS3Storage
 
 postgres_only = pytest.mark.skipif(connection.vendor != "postgresql", reason="PostgreSQL's own limits")
@@ -145,3 +149,25 @@ def test_tasks_are_acknowledged_once_run_and_none_outlives_the_brokers_visibilit
         assert countdown < visibility, task.name
     assert COOL_OFF.total_seconds() + 60 < visibility  # IntegrationTask's wait while a circuit is open
     assert app.tasks["learn.tasks.send_reminders"].acks_late is False  # run twice, it would remind everybody twice
+
+
+class Untouchable(BaseCache):
+    """A cache any use of which fails the test (BaseCache's methods raise NotImplementedError)."""
+
+    def __init__(self, location, params):
+        super().__init__(params)
+
+
+def test_liveness_answers_without_the_database_or_redis(client, settings):  # no django_db: a query would raise
+    settings.CACHES = {"default": {"BACKEND": "examleaf.test_resilience.Untouchable"}}
+    response = client.get("/health/live/", HTTP_X_FORWARDED_PROTO="https")
+    assert response.status_code == 200 and response.content == b"OK"
+
+
+@pytest.mark.django_db
+def test_readiness_fails_while_a_migration_of_this_code_is_waiting():
+    Migrations().run()  # all applied: ready
+    newest = MigrationRecorder.Migration.objects.filter(app="ops").latest("id")
+    newest.delete()  # as a pod of a new release finds the database before its migrate has run
+    with pytest.raises(ServiceUnavailable, match="migrations not applied"):
+        Migrations().run()
