@@ -1,6 +1,7 @@
-// What the console's tests need from the Django backend beyond HTTP: staff members to sign in with (an ADMIN with a
-// confirmed email address, a password and an authenticator app with a known secret), made and deleted through
-// manage.py shell, and the authenticator's codes (RFC 6238, as allauth checks them).
+// What the console's tests need from the Django backend beyond HTTP: staff members to sign in with (a role group, a
+// confirmed email address, a password and an authenticator app with a known secret), the records the real-backend
+// journey works on (a customer with an order paid online, an erasure request, an incident), all made and deleted
+// through manage.py shell, and the authenticator's codes (RFC 6238, as allauth checks them).
 import { execFileSync } from "node:child_process";
 import { createHmac } from "node:crypto";
 import path from "node:path";
@@ -17,6 +18,9 @@ function shell(code: string): string {
   }).toString();
 }
 
+/** The last line a shell snippet printed, as JSON. */
+const lastJson = <T>(output: string): T => JSON.parse(output.trim().split("\n").pop()!) as T;
+
 const py = (value: string) => JSON.stringify(value);
 
 export type Staff = { email: string; password: string; secret: string; name: string };
@@ -27,9 +31,10 @@ export function newSecret(): string {
   return Array.from({ length: 32 }, () => alphabet[Math.floor(Math.random() * 32)]).join("");
 }
 
-/** A member of staff with the role group (ADMIN by default) and an authenticator app. */
-export function createStaff(staff: Staff, role = "ADMIN") {
-  shell(`
+/** A member of staff with the role group (ADMIN by default) and an authenticator app; answers their id. */
+export function createStaff(staff: Staff, role = "ADMIN"): number {
+  return lastJson<number>(
+    shell(`
 from allauth.account.models import EmailAddress
 from allauth.mfa.totp.internal.auth import TOTP
 from django.contrib.auth.models import Group
@@ -39,14 +44,73 @@ user = User.objects.create_user(${py(staff.email)}, ${py(staff.password)}, full_
 EmailAddress.objects.create(user=user, email=user.email, primary=True, verified=True)
 user.groups.add(Group.objects.get(name=${py(role)}))
 TOTP.activate(user, ${py(staff.secret)})
+print(user.pk)
+`),
+  );
+}
+
+/** Deletes the members of staff the tests made (their emails start with "admin-ui-"), and first the change requests
+ *  they asked for or decided (which keep their people: PROTECT) with their inbox items. */
+export function deleteStaff(emails: string[]) {
+  shell(`
+from django.db.models import Q
+from accounts.models import User
+from staff.models import ChangeRequest, InboxItem
+users = User.objects.filter(email__in=${JSON.stringify(emails)}, email__startswith="admin-ui-")
+requests = ChangeRequest.objects.filter(Q(maker__in=users) | Q(approvals__user__in=users)).distinct()
+InboxItem.objects.filter(target_type="staff.changerequest", target_id__in=[str(pk) for pk in requests.values_list("pk", flat=True)]).delete()
+ChangeRequest.objects.filter(pk__in=list(requests.values_list("pk", flat=True))).delete()
+print(users.delete())
 `);
 }
 
-/** Deletes the members of staff the tests made (their emails start with "admin-ui-"). */
-export function deleteStaff(emails: string[]) {
+export type RealWorld = { customer: number; email: string; order: string; request: number; incident: number };
+
+/** For the real-backend journey: an adult customer with a confirmed address and a mobile number, an order of ₹1,500
+ *  paid online (a captured Razorpay payment, not shipped: a refund cancels it, above SUPPORT's ₹1,000), the customer's
+ *  erasure request (its inbox item follows) and an incident. */
+export function seedRealWorld(stamp: number): RealWorld {
+  return lastJson<RealWorld>(
+    shell(`
+import json
+from datetime import date
+from django.utils import timezone
+from allauth.account.models import EmailAddress
+from accounts.models import User
+from shop.models import Order, Payment
+from staff.models import DataRequest, Incident
+email = ${py(`admin-ui-customer-${stamp}@example.com`)}
+user = User.objects.create_user(email, "Customer-e2e-2026!", full_name="Real E2E Customer", class_level=12, date_of_birth=date(2000, 1, 1), consent_at=timezone.now(), phone="+919864012345")
+EmailAddress.objects.create(user=user, email=email, primary=True, verified=True)
+address = {"name": "Real E2E Customer", "phone": "+919864012345", "line1": "1 Test Lane", "line2": "", "city": "Guwahati", "district": "Kamrup Metro", "state": "AS", "pin": "781001"}
+order = Order.objects.create(user=user, email=email, shipping_address=address, subtotal=1500, total=1500, payment_method="razorpay", placed_at=timezone.now())
+Order.objects.filter(pk=order.pk).update(status="paid")
+payment = Payment.objects.create(order=order, method="razorpay", amount=1500, razorpay_order_id=${py(`order_e2e${stamp}`)}, razorpay_payment_id=${py(`pay_e2e${stamp}`)})
+Payment.objects.filter(pk=payment.pk).update(status="captured")
+request = DataRequest.objects.create(kind="erasure", channel="email", user=user, requester=email, summary="Please erase my account and what you hold about me.")
+incident = Incident.objects.create(title=${py(`E2E incident ${stamp}`)}, kind="other", detected_at=timezone.now(), description="Made by the console's tests.")
+order.refresh_from_db()
+print(json.dumps({"customer": user.pk, "email": email, "order": order.number, "request": request.pk, "incident": incident.pk}))
+`),
+  );
+}
+
+/** Deletes what seedRealWorld made and what the journey made of it but the change requests (deleteStaff takes those)
+ *  and the audit events (the log is append-only). */
+export function deleteRealWorld(world: RealWorld) {
   shell(`
 from accounts.models import User
-print(User.objects.filter(email__in=${JSON.stringify(emails)}, email__startswith="admin-ui-").delete())
+from shop.models import Order, Payment
+from staff.models import DataRequest, InboxItem, Incident, StaffInvite
+orders = Order.objects.filter(number=${py(world.order)})
+Payment.objects.filter(order__in=orders).delete()
+orders.delete()
+InboxItem.objects.filter(target_type="staff.datarequest", target_id=${py(String(world.request))}).delete()
+DataRequest.objects.filter(pk=${world.request}).delete()
+InboxItem.objects.filter(target_type="staff.incident", target_id=${py(String(world.incident))}).delete()
+Incident.objects.filter(pk=${world.incident}).delete()
+StaffInvite.objects.filter(email__startswith="admin-ui-").delete()
+print(User.objects.filter(pk=${world.customer}).delete())
 `);
 }
 
