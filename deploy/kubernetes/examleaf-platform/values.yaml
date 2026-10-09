@@ -65,6 +65,8 @@ config:
   MSG91_TEMPLATE_ORDER_SHIPPED: null
   MSG91_TEMPLATE_ORDER_DELIVERED: null
   MSG91_TEMPLATE_PARENT_CONSENT: null
+  MSG91_TEMPLATE_ORDER_ARRIVING: null  # a courier's news (shipping): out for delivery (cash on delivery)
+  MSG91_TEMPLATE_ORDER_NOT_DELIVERED: null  # and a failed delivery; not sent while empty
   SMS_DAILY_CAP: null  # default 500 SMS a day
   # Sign-in providers and Turnstile (each with its secret half in the Secret)
   GOOGLE_CLIENT_ID: null
@@ -113,12 +115,25 @@ config:
   API_THROTTLE_LEARN_REDEEM: null  # default 5/hour
   API_THROTTLE_LEARN_REDEEM_ADDRESS: null  # default 5/hour
   API_THROTTLE_LEARN_QUIZ: null  # default 600/hour
+  API_THROTTLE_PARCEL_EVENTS: null  # default 300/minute: the couriers' webhook (/api/hooks/parcel-events/), per address
+  # Insights, integrations and shipping
+  INSIGHTS_ALERT_EMAILS: null  # who gets the nightly fraud signals and print runs, comma separated; none: no email
+  INTEGRATIONS_CONNECT_TIMEOUT: null  # default 5 seconds to reach a provider (Shiprocket)
+  INTEGRATIONS_READ_TIMEOUT: null  # default 20 seconds for its answer
+  INTEGRATIONS_RETENTION_DAYS: null  # default 90: the call log and the webhooks kept
+  SHIPPING_PACKING_GRAMS: null  # default 50, added to the books' weights
+  SHIPPING_PARCEL_CM: null  # default 25,20,3: a flyer's length, breadth and height
+  SHIPPING_QUOTE_TIMEOUT: null  # default 3 seconds for Shiprocket's quote
+  SHIPPING_MIN_RATING: null  # default 4: couriers rated this or more come first
+  SHIPPING_MAX_DAYS: null  # default 7: … that deliver within this many days
+  SHIPPING_GYAN_POST: null  # default 0; 1 only once the postal division confirms the books qualify
+  SHIPPING_SURVEY_BATCH: null  # default 500 North-East PINs asked each Sunday
   # Logging and Sentry (SENTRY_DSN in the Secret)
   LOG_JSON: null  # default 1 with DEBUG=0: one JSON object per line
   LOG_LEVEL: null  # default INFO
   SENTRY_ENVIRONMENT: null  # default production
   SENTRY_TRACES_SAMPLE_RATE: null  # default 0
-  RELEASE: null  # a version label for Sentry, e.g. the image tag
+  RELEASE: null  # a version label for Sentry and each insights forecast run, e.g. the image tag
 
 # The secret settings. The chart never writes a Secret from values; it reads Secrets by these names:
 #   mode "existing":       you create them (kubectl create secret …; README.md "Secrets");
@@ -127,11 +142,13 @@ config:
 secrets:
   mode: existing
   # The site's secret environment: every key becomes an environment variable of web, worker and beat, as .env does in
-  # docker-compose.yml. Required: SECRET_KEY, LEARN_CODE_SECRET, INTERNAL_API_TOKEN. As the features need them
-  # (DEPLOYMENT.md section 13): SECRET_KEY_FALLBACKS, JWT_SIGNING_KEY, SES_ACCESS_KEY_ID, SES_SECRET_ACCESS_KEY,
-  # ANYMAIL_WEBHOOK_SECRET, the provider's ANYMAIL_… API key, MSG91_AUTHKEY, GOOGLE_CLIENT_SECRET,
-  # TURNSTILE_SECRET_KEY, RAZORPAY_KEY_SECRET, RAZORPAY_WEBHOOK_SECRET, RAZORPAY_WEBHOOK_SECRET_TEST, S3_ACCESS_KEY_ID,
-  # S3_SECRET_ACCESS_KEY, PUBLIC_S3_ACCESS_KEY_ID, PUBLIC_S3_SECRET_ACCESS_KEY, FCM_SERVICE_ACCOUNT_JSON, SENTRY_DSN.
+  # docker-compose.yml. Required: SECRET_KEY, LEARN_CODE_SECRET, INTERNAL_API_TOKEN, and INTEGRATION_KEYS before the
+  # first integration account (Shiprocket): once one exists, migrate stops without it (integrations.E001), so web never
+  # starts. As the features need them (DEPLOYMENT.md section 13): INSIGHTS_HASH_SALT (recommended),
+  # SECRET_KEY_FALLBACKS, JWT_SIGNING_KEY, SES_ACCESS_KEY_ID, SES_SECRET_ACCESS_KEY, ANYMAIL_WEBHOOK_SECRET, the
+  # provider's ANYMAIL_… API key, MSG91_AUTHKEY, GOOGLE_CLIENT_SECRET, TURNSTILE_SECRET_KEY, RAZORPAY_KEY_SECRET,
+  # RAZORPAY_WEBHOOK_SECRET, RAZORPAY_WEBHOOK_SECRET_TEST, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY,
+  # PUBLIC_S3_ACCESS_KEY_ID, PUBLIC_S3_SECRET_ACCESS_KEY, FCM_SERVICE_ACCOUNT_JSON, SENTRY_DSN.
   # The frontend and the admin read INTERNAL_API_TOKEN from it, the media worker SECRET_KEY and the four S3 keys.
   env: ""  # empty: <release>-env
   # The uptime monitor's way through the /health gate (README.md "Health checks"): a Secret of type

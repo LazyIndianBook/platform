@@ -165,7 +165,7 @@ and makes none from values:
 
 | Secret (default name) | Keys | Read by |
 |---|---|---|
-| `examleaf-env` | `SECRET_KEY`, `LEARN_CODE_SECRET` and `INTERNAL_API_TOKEN`, then as the features need them the keys `values.yaml` lists under `secrets.env` (email, SMS, Razorpay, Google, Turnstile, S3, Firebase, Sentry) | web, worker and beat as their environment (every key); the frontend and the admin `INTERNAL_API_TOKEN`; the media worker `SECRET_KEY` and the four S3 keys |
+| `examleaf-env` | `SECRET_KEY`, `LEARN_CODE_SECRET`, `INTERNAL_API_TOKEN` and `INTEGRATION_KEYS`, then as the features need them the keys `values.yaml` lists under `secrets.env` (insights, email, SMS, Razorpay, Google, Turnstile, S3, Firebase, Sentry) | web, worker and beat as their environment (every key); the frontend and the admin `INTERNAL_API_TOKEN`; the media worker `SECRET_KEY` and the four S3 keys |
 | `examleaf-health-auth` | type `kubernetes.io/basic-auth`: `username` monitor, `password` HEALTH_CHECK_TOKEN | Traefik's BasicAuth, for `/health` |
 | `examleaf-backup` | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` (the backup bucket's keys, as `scripts/backup.sh` names them) | the Barman Cloud plugin; with ERPNext, mariadb-operator's backups and the site backups; no pod of the site |
 | `examleaf-erp` (ERPNext only) | `db-root-password`, `admin-password` | MariaDB, bench (the site's database), the createSite Job |
@@ -185,7 +185,11 @@ shred -u examleaf.env
 
 The values are made as DEPLOYMENT.md section 4 makes them (`python3 -c "import secrets; print(secrets.token_urlsafe(50))"`
 for `SECRET_KEY` and `LEARN_CODE_SECRET`, `token_urlsafe(32)` for `INTERNAL_API_TOKEN` and `HEALTH_CHECK_TOKEN`).
-`LEARN_CODE_SECRET` is set once and never changed (printed book codes depend on it).
+`LEARN_CODE_SECRET` is set once and never changed (printed book codes depend on it). `INTEGRATION_KEYS`, Fernet keys
+newest first, must be there before anyone adds an integration account (Shiprocket's): the accounts' credentials are
+encrypted with them, and once one exists `migrate` stops without them (`integrations.E001`), so web's init container
+never finishes; a database restored elsewhere needs the same keys. One key:
+`python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`.
 
 **From a secret store** (`secrets.mode: externalSecret`). With the External Secrets Operator and a ClusterSecretStore
 for your store (AWS Secrets Manager, Vault, 1Password, Doppler …), the chart renders ExternalSecrets that write the
@@ -267,6 +271,9 @@ header (UptimeRobot, Better Stack, Uptime Kuma and Pingdom all can), with the sa
 ```sh
 curl -s -u "monitor:$HEALTH_CHECK_TOKEN" -H 'Accept: application/json' https://examleaf.in/health/
 ```
+
+A second monitor, as DEPLOYMENT.md asks, watches `/health/integrations/` with the same credentials: a provider down
+for half an hour, or dead letters and failed webhooks waiting for staff; `/health/` stays the site's own.
 
 `/health` must never reach the website: its server passes Django's paths on to Django (its development proxy), and the
 health pages would be open. Traefik drops a router whose middleware cannot be built, and without its Secret the
