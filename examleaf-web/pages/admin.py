@@ -6,9 +6,10 @@ from .models import Page
 
 @admin.register(Page)
 class PageAdmin(SimpleHistoryAdmin):
-    list_display = ["title", "slug", "version", "placeholders_left", "updated"]
+    list_display = ["title", "slug", "version", "effective_from", "placeholders_left", "updated"]
     readonly_fields = ["slug", "updated"]
-    fields = ["title", "slug", "version", "body_md", "updated"]
+    # a new version with its day and summary; the panel's Policy versions numbers them and publishes for a later day
+    fields = ["title", "slug", "version", "effective_from", "summary", "body_md", "updated"]
 
     @admin.display(description="[placeholders] left")
     def placeholders_left(self, page):
