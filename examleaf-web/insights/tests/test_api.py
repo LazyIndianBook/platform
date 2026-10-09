@@ -1,15 +1,19 @@
-"""The insights API: refused to all but active staff, and every answer says how its numbers were made."""
+"""The insights API: staff.view_insights to read (the staff app's rules: staff/tests/test_matrix.py has every role),
+staff.acknowledge_signal to acknowledge a fraud signal, and every answer says how its numbers were made."""
 
 from decimal import Decimal
 
 import pytest
+from django.utils import timezone
 from rest_framework.test import APIClient
 
-from accounts.factories import UserFactory
+from accounts import roles
 from api.tests import sign_in, student
 from insights.jobs import demand
-from insights.models import PrintCost
+from insights.models import FraudSignal, PrintCost
 from shop.factories import ProductFactory
+from staff.models import AuditEvent
+from staff.tests.conftest import make_staff, signed_in
 
 from .helpers import day_in, sell
 
@@ -22,22 +26,46 @@ ENDPOINTS = [
 
 @pytest.fixture
 def api():
-    return APIClient()
+    return signed_in(make_staff(roles.FINANCE))
 
 
-def test_the_insights_are_for_active_staff_only(api):
+def test_the_insights_need_their_permission(api):
     for name in ENDPOINTS:
-        assert api.get(f"/api/v1/insights/{name}/").status_code == 401, name
-    sign_in(api, student())
+        assert APIClient().get(f"/api/v1/insights/{name}/").status_code == 401, name
+    app = APIClient()
+    sign_in(app, make_staff(roles.OWNER))  # the app's JWT is never the staff's session
+    assert app.get("/api/v1/insights/forecasts/").status_code == 401
+    support = make_staff(roles.SUPPORT)
+    refused = signed_in(support).get("/api/v1/insights/forecasts/")
+    assert (refused.status_code, refused.json()["code"]) == (403, "permission_denied")
+    assert AuditEvent.objects.filter(action="authz_fail", actor_id=support.pk).exists()
+    assert signed_in(student()).get("/api/v1/insights/forecasts/").status_code == 403
     for name in ENDPOINTS:
-        assert api.get(f"/api/v1/insights/{name}/").json() == {"detail": "For staff only."}, name
-    sign_in(api, UserFactory(is_staff=True, is_active=False))
-    assert api.get("/api/v1/insights/forecasts/").status_code == 401
-    sign_in(api, UserFactory(is_staff=True))
-    for name in ENDPOINTS:
-        data = api.get(f"/api/v1/insights/{name}/").json()
+        response = api.get(f"/api/v1/insights/{name}/")
+        data = response.json()
         assert {"method", "data_as_of", "backtest", "shown", "count", "results"} <= set(data), name
-        assert data["results"] == [], name  # nothing worked out yet
+        assert data["results"] == [] and response["Cache-Control"] == "no-store", name  # nothing worked out yet
+
+
+def test_a_fraud_signal_is_acknowledged_once_by_whoever_may(api):
+    now = timezone.now()
+    signal = FraudSignal.objects.create(kind="codes_failed_account", subject="a" * 64, count=6, window_start=now,
+                                        window_end=now)  # fmt: skip
+    url = f"/api/v1/insights/fraud-signals/{signal.pk}/acknowledge/"
+    assert signed_in(make_staff(roles.MARKETING)).post(url).status_code == 403  # reads them, does not acknowledge
+    admin = make_staff(roles.ADMIN)
+    done = signed_in(admin).post(url)
+    assert done.status_code == 200 and done.json()["acknowledged_at"]
+    signal.refresh_from_db()
+    assert signal.acknowledged_by == admin.pk
+    assert signed_in(admin).post(url).json()["acknowledged_at"] == done.json()["acknowledged_at"]  # once
+    event = AuditEvent.objects.get(action="insights.signal_acknowledged")
+    assert (event.actor_id, event.target_id, event.target_label) == (
+        admin.pk,
+        str(signal.pk),
+        f"Fraud signal #{signal.pk}",
+    )
+    assert api.get("/api/v1/insights/fraud-signals/", {"open": 1}).json()["count"] == 0
 
 
 def test_staff_read_the_newest_forecast_with_its_method_backtest_and_n(api, physics, seasons):
@@ -51,7 +79,6 @@ def test_staff_read_the_newest_forecast_with_its_method_backtest_and_n(api, phys
     run = demand.forecast_demand(today=today)
     PrintCost.objects.create(product=book, unit_cost=60, salvage=5)
     demand.advise_print_run(today=today)
-    sign_in(api, UserFactory(is_staff=True))
     data = api.get("/api/v1/insights/forecasts/").json()
     assert (data["method"], data["shown"], data["count"]) == (demand.FORECAST, True, 47)  # weeks 5 to 51
     assert data["data_as_of"] == run.data_as_of.astimezone().isoformat()

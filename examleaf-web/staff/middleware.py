@@ -1,10 +1,10 @@
-"""Two guards on every request and two watches on every response. The staff API answers only on the admin host
-(ADMIN_HOSTS): on any other it is 404 to everyone, signed in or not (plan 9.1). A session that is a member of staff
-logged in as a customer (`staff:impersonating`, set by the website's account area when it accepts a token) is refused
-payments, passwords, email, second factors, consent, addresses and deletion (research 2.7). A 403 from the staff API
-to someone signed in is an `authz_fail` event (research 3.1: every authorization failure; anonymous probes stay in
-Caddy's log). A Razorpay webhook refused for its signature counts on the day's inbox item for the system's
-watchers."""
+"""Two guards on every request and two watches on every response. The staff's endpoints (the staff API, the shipping
+app's and the insights') answer only on the admin host (ADMIN_HOSTS): on any other they are 404 to everyone, signed in
+or not (plan 9.1). A session that is a member of staff logged in as a customer (`staff:impersonating`, set by the
+website's account area when it accepts a token) is refused payments, passwords, email, second factors, consent,
+addresses and deletion (research 2.7). A 403 from the staff's endpoints to someone signed in is an `authz_fail` event
+(research 3.1: every authorization failure; anonymous probes stay in Caddy's log). A Razorpay webhook refused for its
+signature counts on the day's inbox item for the system's watchers."""
 
 import logging
 import re
@@ -15,7 +15,11 @@ from django.http.request import split_domain_port, validate_host
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
-STAFF_API = "/api/v1/staff/"
+# The staff's endpoints: the staff API's, the shipping app's (not the checkout's shipping/ and shipping/quote/), the
+# insights'.
+STAFF_APIS = re.compile(
+    r"^/api/v1/(?:staff|insights|shipping/(?:shipments|exceptions|cod|charges|pickup-locations|orders|manifest))/"
+)
 WEBHOOKS = {"/shop/webhooks/razorpay/": "Razorpay"}
 IMPERSONATING = "staff:impersonating"
 WHILE_IMPERSONATING = re.compile(
@@ -37,7 +41,7 @@ class StaffAuditMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        if request.path.startswith(STAFF_API) and not on_admin_host(request):
+        if STAFF_APIS.match(request.path) and not on_admin_host(request):
             return JsonResponse({"detail": "Not found."}, status=404)
         if request.method not in SAFE and WHILE_IMPERSONATING.match(request.path):
             if request.session.get(IMPERSONATING):
@@ -45,7 +49,7 @@ class StaffAuditMiddleware:
                 return JsonResponse({"detail": detail, "code": "impersonating"}, status=403)
         response = self.get_response(request)
         try:
-            if response.status_code == 403 and request.path.startswith(STAFF_API):
+            if response.status_code == 403 and STAFF_APIS.match(request.path):
                 self.denied(request, response)
             elif response.status_code == 400 and request.path in WEBHOOKS:
                 self.webhook_refused(request.path)

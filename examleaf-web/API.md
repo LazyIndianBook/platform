@@ -118,19 +118,20 @@ active member of staff with an authenticator app, through the website's session.
 | GET | `config/` | anyone | what the server has switched on: log-in methods, Turnstile, the shop, consent mode, maintenance |
 | GET | `pages/`, `pages/<slug>/` | anyone | the legal pages: Markdown, the website's HTML, version, last change |
 | POST | `contact/` | anyone | the contact form: a message emailed to the support address |
-| GET | `insights/forecasts/`, `insights/print-runs/`, `insights/backtests/` | staff | the newest demand forecast (`?product=<slug>`, `?district=all` or a district), print-run advice, backtest |
-| GET | `insights/item-stats/` (`?chapter=`), `insights/chapter-stats/`, `insights/cohorts/`, `insights/code-activation/` | staff | the quiz's item analysis, chapter accuracy, cohorts, book codes per batch and district: aggregates only |
-| GET | `insights/delivery/`, `insights/fraud-signals/` (`?open=1`), `insights/offers/` | staff | days in transit per courier and district, fraud signals, what coupons and offers did |
+| GET | `insights/forecasts/`, `insights/print-runs/`, `insights/backtests/` | `staff.view_insights` | the newest demand forecast (`?product=<slug>`, `?district=all` or a district), print-run advice, backtest |
+| GET | `insights/item-stats/` (`?chapter=`), `insights/chapter-stats/`, `insights/cohorts/`, `insights/code-activation/` | `staff.view_insights` | the quiz's item analysis, chapter accuracy, cohorts, book codes per batch and district: aggregates only |
+| GET | `insights/delivery/`, `insights/fraud-signals/` (`?open=1`), `insights/offers/` | `staff.view_insights` | days in transit per courier and district, fraud signals, what coupons and offers did |
+| POST | `insights/fraud-signals/<id>/acknowledge/` | `staff.acknowledge_signal` | looked at and handled: it leaves `?open=1` |
 
-| GET | `shipping/orders/<number>/quote/` (`?weight_g=`) | staff | the couriers for an order's parcel, ranked, with India Post's price for a prepaid order ([Shipping (staff)](#shipping-staff)) |
-| GET POST | `shipping/shipments/` | staff | parcels (`?status=&carrier=&courier_company_id=&order=&search=`); POST books one: with a courier of the quote (202) or sent by hand (201) |
-| GET | `shipping/shipments/<id>/`, `shipping/shipments/<id>/events/` | staff | a parcel with its timeline, exceptions, charges and COD remittance; its timeline |
-| GET POST | `shipping/shipments/<id>/label/` | staff | the label's PDF (not JSON); POST fetches it |
-| POST | `shipping/shipments/<id>/pickup/`, `…/cancel/`, `…/ndr-action/`, `…/photo/` | staff | ask the courier to collect it; cancel the booking before that; act on a failed delivery; the parcel's photograph (multipart) |
-| POST | `shipping/manifest/` | staff | the handover list of booked parcels: the courier's PDF |
-| GET POST | `shipping/exceptions/`, `shipping/exceptions/<id>/resolve/` | staff | what parcels need from staff, by deadline; resolve or dismiss one |
-| GET | `shipping/cod/`, `shipping/charges/` | staff | COD remittances; the courier account's charges and reversals |
-| GET POST PATCH | `shipping/pickup-locations/`, `shipping/pickup-locations/sync/` | staff | our pickup addresses; read them from the courier account |
+| GET | `shipping/orders/<number>/quote/` (`?weight_g=`) | `staff.book_parcel` | the couriers for an order's parcel, ranked, with India Post's price for a prepaid order ([Shipping (staff)](#shipping-staff)) |
+| GET POST | `shipping/shipments/` | `staff.view_parcels`; POST `staff.book_parcel` | parcels (`?status=&carrier=&courier_company_id=&order=&search=`); POST books one: with a courier of the quote (202) or sent by hand (201) |
+| GET | `shipping/shipments/<id>/`, `shipping/shipments/<id>/events/` | `staff.view_parcels` | a parcel with its timeline, exceptions, charges and COD remittance; its timeline |
+| GET POST | `shipping/shipments/<id>/label/` | `staff.book_parcel` | the label's PDF (not JSON); POST fetches it |
+| POST | `shipping/shipments/<id>/pickup/`, `…/cancel/`, `…/photo/`; `…/ndr-action/` | `staff.book_parcel`; `staff.act_on_exception` | ask the courier to collect it; cancel the booking before that; the parcel's photograph (multipart); act on a failed delivery |
+| POST | `shipping/manifest/` | `staff.book_parcel` | the handover list of booked parcels: the courier's PDF |
+| GET POST | `shipping/exceptions/`, `shipping/exceptions/<id>/resolve/` | `staff.view_parcels`; POST `staff.act_on_exception` | what parcels need from staff, by deadline; resolve or dismiss one |
+| GET POST | `shipping/cod/`, `shipping/charges/`; `shipping/cod/<id>/reconcile/` | `staff.view_cod`; POST `staff.reconcile_cod` (re-authenticated) | COD remittances; the courier account's charges and reversals; a remittance matched with the bank's credit |
+| GET POST PATCH | `shipping/pickup-locations/`, `shipping/pickup-locations/sync/` | `staff.view_parcels`; changes `staff.manage_pickup_locations` | our pickup addresses; read them from the courier account |
 | GET | `/api/schema/`, `/api/docs/`, `/api/redoc/` | anyone | the OpenAPI schema, Swagger UI, Redoc |
 | any | `/_allauth/app/v1/…`, `/_allauth/browser/v1/…` | anyone; the account and authenticator endpoints need the signed-in session | allauth.headless: log-in, sign-up, codes, passkeys, Google, second step, email, phone, password, re-authentication, signed-in devices (`auth/sessions`); its OpenAPI file `/_allauth/openapi.json` (and `.yaml`) |
 | POST | `/api/hooks/parcel-events/` | the courier, with its token in `x-api-key` | Shiprocket's tracking webhook ([Shipping (staff)](#shipping-staff)); not in the OpenAPI schema |
@@ -848,12 +849,20 @@ server has `FCM_SERVICE_ACCOUNT_JSON`; IDs Firebase no longer knows are dropped.
 ## Shipping (staff)
 
 The packing room's and the shipping desk's endpoints (`shipping/api.py`; the app: `shipping/README.md`), for the
-admin panel. **Staff only**: an active member of staff with an authenticator app, through the website's session
-(with the CSRF token on changes); everyone else 403 (`{"detail": "For staff only."}`; staff without an authenticator
-app: `{"code": "mfa_setup_required"}`). The permission is a placeholder until the staff app's catalogued permissions
-replace it. These endpoints are tagged `shipping (staff)` in the schema. Money is in rupees as decimal strings; a
-refusal (ours or the courier's) is `400 {"non_field_errors": ["..."]}`, a courier that cannot be reached
-`503 {"detail": "The courier could not be reached: try again in a few minutes."}`.
+admin panel, on the [Staff API](#staff-api)'s rules: the panel's session (with the CSRF token on changes) or an API
+key, on the admin host only (404 elsewhere), each action its permission (`staff.view_parcels` to read;
+`staff.book_parcel` to quote, book, fetch and read labels, schedule pickups, manifests, photographs and cancellations;
+`staff.act_on_exception` for failed deliveries and resolving exceptions; `staff.view_cod` and `staff.reconcile_cod`
+for cash on delivery and the courier's charges; `staff.manage_pickup_locations`), otherwise `403 {"code":
+"permission_denied"}`; staff without an authenticator app: `{"code": "mfa_setup_required"}`. A PACKER's parcels are
+those of the orders to pack and on their way. Every change is an audit event (`shipping.booked`,
+`shipping.shipped_by_hand`, `shipping.label_requested`, `shipping.pickup_scheduled`, `shipping.manifested`,
+`shipping.cancelled`, `shipping.photo_added`, `shipping.ndr_action` with the names of the details changed,
+`shipping.exception_resolved` or `_dismissed`, `payment.cod_reconciled`, `shipping.pickup_location_saved`,
+`shipping.pickup_locations_synced`), targeting the order. These endpoints are tagged `shipping (staff)` in the
+schema. Money is in rupees as decimal strings; a refusal (ours or the courier's) is `400 {"non_field_errors":
+["..."]}`, a courier that cannot be reached `503 {"detail": "The courier could not be reached: try again in a few
+minutes."}`.
 
 - **Quote** `GET shipping/orders/<number>/quote/` (`?weight_g=` as weighed; else the books' weights and the packing):
   `couriers`, the top three by the research's rule (none without COD for a COD order, none blocked or out of area; first
@@ -891,7 +900,10 @@ refusal (ours or the courier's) is `400 {"non_field_errors": ["..."]}`, a courie
   dispute, ...), `resolution`; `POST shipping/exceptions/<id>/resolve/` `{"resolution": "...", "dismiss": false}`.
 - **Money** `GET shipping/cod/` (`?state=expected|overdue|remitted|mismatch|not_expected`): COD remittances with the
   expected and remitted amounts, days and UTR; `GET shipping/charges/` (`?kind=&shipment=`): the courier account's
-  statement lines (a reversal is negative). Read only.
+  statement lines (a reversal is negative). `POST shipping/cod/<id>/reconcile/` `{"utr": "...", "amount": "598.00",
+  "on": "2026-10-23"}` (`on`: today by default; `staff.reconcile_cod`, re-authenticated in the last 5 minutes)
+  matches a remittance with the bank's credit: the amount expected makes it `remitted` and settles the parcel's COD
+  exception; another amount makes it `mismatch` with an exception; a parcel that owes no cash is a 400.
 - **Pickup locations** `GET POST PATCH shipping/pickup-locations/`: our pickup addresses by Shiprocket's nickname (a new
   default replaces the old one); `POST shipping/pickup-locations/sync/` reads them from the courier account.
 
@@ -959,10 +971,12 @@ curl https://examleaf.in/api/v1/pages/privacy/
 ## Insights (staff)
 
 `insights/…` (code: `insights/api.py`; the jobs behind them: `insights/README.md`) gives the Admin Control Panel what
-the nightly jobs worked out, read-only, for an **active member of staff** (`is_staff`); anyone else gets 401 (no
-token) or `403 {"detail": "For staff only."}`. That check (`insights.permissions.StaffOnly`) is a placeholder: the
-staff app is to replace it with its catalogued permissions. Each answer is the rows of the job's newest run (or
-newest day), paginated as every list, with four fields more about how they were made:
+the nightly jobs worked out, on the [Staff API](#staff-api)'s rules: the panel's session or an API key (never the
+app's JWT), on the admin host only, `staff.view_insights` (FINANCE, MARKETING, ADMIN, the owners, AUDITOR) to read;
+without it `403 {"code": "permission_denied"}`, signed out 401. `POST insights/fraud-signals/<id>/acknowledge/`
+(`staff.acknowledge_signal`: ADMIN and the owners) marks a signal looked at and handled, once (again: the same
+answer), as the admin's action does; the audit log keeps who (`insights.signal_acknowledged`). Each answer is the rows
+of the job's newest run (or newest day), paginated as every list, with four fields more about how they were made:
 
 | Field | What it is |
 |---|---|
@@ -989,7 +1003,7 @@ a student.
 | `offers/` | per coupon (`coupon`: its code) or offer (`offer`: its name): `period_start`, `period_end`, `orders`, `revenue`, `discount_cost`, `period_orders`, `baseline_orders`, `baseline_revenue`, `interval_low`, `interval_high` (95 % interval of orders while it ran ÷ the same weeks last season), `note`, `n` |
 
 ```sh
-curl -H "Authorization: Bearer $ACCESS" https://examleaf.in/api/v1/insights/forecasts/?product=physics-sample-papers-2027
+curl https://admin.examleaf.in/api/v1/insights/forecasts/?product=physics-sample-papers-2027 -b "sessionid=…"
 # 200 {"method": "seasonal naive by week of season × damped growth (season to date ÷ the same weeks last season)",
 #      "data_as_of": "2026-11-03T01:15:02+05:30", "backtest": {"horizon_weeks": 4, "wape": 0.31,
 #      "mase_vs_seasonal_naive": 0.82, "shown": true, "n_weeks": 48, "data_as_of": "2026-11-03T01:00:01+05:30"},
@@ -1230,114 +1244,152 @@ needs a re-authentication, and get 401 when the key is revoked, expired, forged 
 ### Every staff endpoint and field
 
 Generated from the OpenAPI schema and the views' own permission maps (`manage.py staff_api_reference`; a test fails
-when this differs from the code). Paths are under `/api/v1/staff/`, `{id}` an object's id. "Answers" are the
-successful ones; the errors are those above (400, 401, 403, 404, 405, 429). A field is (required) in a request,
-(null) when it may be null, (read-only) in answers only; a `…Request` is what a POST, PUT or PATCH takes, a
-`Paginated…List` a cursor page.
+when this differs from the code). Paths are under `/api/v1/`: the staff API's, the shipping app's staff endpoints
+and the insights', `{id}` an object's id. "Answers" are the successful ones; the errors are those above (400, 401,
+403, 404, 405, 429). A field is (required) in a request, (null) when it may be null, (read-only) in answers only; a
+`…Request` is what a POST, PUT or PATCH takes, a `Paginated…List` a page: a cursor page under `staff/`, a numbered one
+(`count`, `?page=`) under `shipping/` and `insights/`.
 
 <!-- staff-api-reference -->
 | Method | Path | Permission | Query | Body | Answers |
 |---|---|---|---|---|---|
-| GET | `access-review/` | `staff.view_staff` |  |  | 200 `[AccessRow]` |
-| GET | `api-keys/` | `staff.view_apikey` | `cursor`, `page_size` |  | 200 `PaginatedApiKeyList` |
-| POST | `api-keys/` | `staff.manage_api_keys` |  | `ApiKeyRequest` | 201 `ApiKey` |
-| GET | `api-keys/{id}/` | `staff.view_apikey` |  |  | 200 `ApiKey` |
-| POST | `api-keys/{id}/revoke/` | `staff.manage_api_keys` |  |  | 200 `ApiKey` |
-| GET | `audit/` | `staff.view_auditlog` | `action`, `action_prefix`, `actor`, `actor_type`, `break_glass`, `chain`, `change_request`, `cursor`, `ip`, `outcome`, `page_size`, `permission`, `request_id`, `since`, `target_id`, `target_type`, `until` |  | 200 `PaginatedAuditEventList` |
-| POST | `audit/export/` | `staff.export_auditlog` |  | `ExportRequest` | 200 `application/x-ndjson`; 202 `Job` |
-| GET | `audit/{id}/` | `staff.view_auditlog` |  |  | 200 `AuditEvent` |
-| GET | `catalogue/` | any member of staff |  |  | 200 `StaffCatalogue` |
-| GET | `change-requests/` | `staff.view_changerequest` | `action`, `awaiting`, `cursor`, `mine`, `page_size`, `status` |  | 200 `PaginatedChangeRequestList` |
-| POST | `change-requests/` | `staff.add_changerequest` |  | `AskRequest` | 200 `ChangeRequest`; 201 `ChangeRequest`; 202 `ChangeRequest` |
-| GET | `change-requests/{id}/` | `staff.view_changerequest` |  |  | 200 `ChangeRequest` |
-| POST | `change-requests/{id}/approve/` | `staff.view_changerequest` |  | `ApproveRequest` | 200 `ChangeRequest` |
-| POST | `change-requests/{id}/execute/` | `staff.view_changerequest` |  |  | 200 `ChangeRequest`; 400 `ChangeRequest` |
-| POST | `change-requests/{id}/reject/` | `staff.view_changerequest` |  | `CommentRequest` | 200 `ChangeRequest` |
-| GET | `data-requests/` | `staff.view_datarequest` | `assignee`, `cursor`, `kind`, `overdue`, `page_size`, `status`, `user` |  | 200 `PaginatedDataRequestListList` |
-| POST | `data-requests/` | `staff.handle_data_request` |  | `DataRequestRequest` | 201 `DataRequest` |
-| GET | `data-requests/{id}/` | `staff.view_datarequest` |  |  | 200 `DataRequest` |
-| PATCH | `data-requests/{id}/` | `staff.handle_data_request` |  | `PatchedDataRequestRequest` | 200 `DataRequest` |
-| POST | `data-requests/{id}/acknowledge/` | `staff.handle_data_request` |  |  | 200 `DataRequest` |
-| POST | `data-requests/{id}/close/` | `staff.handle_data_request` |  | `CloseRequest` | 200 `DataRequest` |
-| POST | `data-requests/{id}/erase/` | `staff.handle_data_request` |  | `ReasonRequest` | 202 `ChangeRequest`; 400 `ErasureReport` |
-| GET | `data-requests/{id}/erasure-report/` | `staff.view_datarequest` |  |  | 200 `ErasureReport` |
-| POST | `data-requests/{id}/export/` | `staff.export_personal_data` |  |  | 202 `Detail` |
-| GET | `data-requests/{id}/response/` | `staff.view_datarequest` |  |  | 200 `ResponseText` |
-| POST | `data-requests/{id}/verify-identity/` | `staff.handle_data_request` |  | `VerifyIdentityRequest` | 200 `DataRequest` |
-| GET | `erp/cursors/` | `erp.view_sync` | `cursor`, `page_size` |  | 200 `PaginatedErpCursorList` |
-| GET | `erp/dead-letters/` | `erp.view_sync` | `aggregate_id`, `aggregate_type`, `cursor`, `event`, `page_size` |  | 200 `PaginatedErpOutboxList` |
-| GET | `erp/dead-letters/{id}/` | `erp.view_sync` |  |  | 200 `ErpOutbox` |
-| POST | `erp/dead-letters/{id}/discard/` | `erp.replay_sync` |  | `ErpDiscardRequest` | 200 `ErpOutbox` |
-| POST | `erp/dead-letters/{id}/replay/` | `erp.replay_sync` |  |  | 200 `ErpOutbox` |
-| GET | `erp/differences/` | `erp.view_sync` | `cursor`, `kind`, `open`, `page_size`, `run` |  | 200 `PaginatedErpDifferenceList` |
-| GET | `erp/differences/{id}/` | `erp.view_sync` |  |  | 200 `ErpDifference` |
-| POST | `erp/differences/{id}/resolve/` | `erp.resolve_difference` |  | `ErpResolveRequest` | 200 `ErpDifference` |
-| GET | `erp/outbox/` | `erp.view_sync` | `aggregate_id`, `aggregate_type`, `cursor`, `event`, `examleaf_ref`, `page_size`, `state` |  | 200 `PaginatedErpOutboxList` |
-| GET | `erp/outbox/{id}/` | `erp.view_sync` |  |  | 200 `ErpOutbox` |
-| GET | `erp/reconciliations/` | `erp.view_sync` | `cursor`, `date`, `page_size`, `state` |  | 200 `PaginatedErpRunList` |
-| GET | `erp/reconciliations/{id}/` | `erp.view_sync` |  |  | 200 `ErpRunDetail` |
-| GET | `erp/status/` | `erp.view_sync` |  |  | 200 `ErpStatus` |
-| GET | `flags/` | `staff.view_featureflag` |  |  | 200 `[Flag]` |
-| GET | `flags/{key}/` | `staff.view_featureflag` |  |  | 200 `[SwitchRow]` |
-| PUT | `flags/{key}/` | `staff.manage_flags` |  | `SwitchChangeRequest` | 200 `SwitchRow` |
-| GET | `inbox/` | `staff.view_inbox` | `cursor`, `done`, `kind`, `mine`, `page_size`, `snoozed` |  | 200 `PaginatedInboxItemList` |
-| GET | `inbox/count/` | `staff.view_inbox` |  |  | 200 `InboxCount` |
-| POST | `inbox/{id}/assign/` | `staff.view_inbox` |  | `AssignRequest` | 200 `InboxItem` |
-| POST | `inbox/{id}/done/` | `staff.view_inbox` |  |  | 200 `InboxItem` |
-| POST | `inbox/{id}/snooze/` | `staff.view_inbox` |  | `SnoozeRequest` | 200 `InboxItem` |
-| GET | `incidents/` | `staff.view_incident` | `cursor`, `kind`, `open`, `page_size` |  | 200 `PaginatedIncidentList` |
-| POST | `incidents/` | `staff.manage_incident` |  | `IncidentRequest` | 201 `Incident` |
-| GET | `incidents/{id}/` | `staff.view_incident` |  |  | 200 `Incident` |
-| PATCH | `incidents/{id}/` | `staff.manage_incident` |  | `PatchedIncidentRequest` | 200 `Incident` |
-| POST | `incidents/{id}/close/` | `staff.manage_incident` |  |  | 200 `Incident` |
-| POST | `invites/accept/` | none: the invitation's token |  | `AcceptRequest` | 200 `Detail` |
-| GET | `jobs/` | `staff.view_job` | `cursor`, `kind`, `mine`, `page_size`, `state` |  | 200 `PaginatedJobList` |
-| POST | `jobs/` | `staff.add_job` (by the key or the body: see the table above) |  | `JobStartRequest` | 202 `Job` |
-| GET | `jobs/{id}/` | `staff.view_job` |  |  | 200 `Job` |
-| POST | `jobs/{id}/cancel/` | `staff.view_job` |  |  | 200 `Job` |
-| GET | `jobs/{id}/result/` | `staff.view_job` | `token` |  | 200 `application/octet-stream`; 302 |
-| GET | `people/` | `staff.view_staff` | `cursor`, `page_size` |  | 200 `PaginatedPersonList` |
-| POST | `people/invite/` | `staff.assign_role` |  | `InviteRequest` | 201 `StaffInvite`; 202 `ChangeRequest` |
-| GET | `people/invites/` | `staff.view_staff` | `cursor`, `page_size` |  | 200 `PaginatedStaffInviteList` |
-| DELETE | `people/invites/{invite}/` | `staff.assign_role` |  |  | 204 |
-| GET | `people/{id}/` | `staff.view_staff` |  |  | 200 `Person` |
-| POST | `people/{id}/end-sessions/` | `staff.assign_role` |  |  | 200 `Ended` |
-| POST | `people/{id}/offboard/` | `staff.assign_role` |  | `ReasonRequest` | 200 `Offboarded` |
-| POST | `people/{id}/reset-mfa/` | `staff.reset_user_mfa` |  | `ReasonRequest` | 202 `ChangeRequest` |
-| POST | `people/{id}/roles/` | `staff.assign_role` |  | `GrantRequest` | 200 `Person`; 202 `ChangeRequest` |
-| DELETE | `people/{id}/roles/{role}/` | `staff.assign_role` |  |  | 200 `Person` |
-| POST | `people/{id}/scopes/` | `staff.assign_role` |  | `ScopeAddRequest` | 201 `Scope` |
-| DELETE | `people/{id}/scopes/{scope}/` | `staff.assign_role` |  |  | 204 |
-| GET | `processors/` | `staff.view_processorrecord` | `cursor`, `page_size` |  | 200 `PaginatedProcessorList` |
-| POST | `processors/` | `staff.add_processorrecord` |  | `ProcessorRequest` | 201 `Processor` |
-| GET | `processors/{id}/` | `staff.view_processorrecord` |  |  | 200 `Processor` |
-| PUT | `processors/{id}/` | `staff.change_processorrecord` |  | `ProcessorRequest` | 200 `Processor` |
-| PATCH | `processors/{id}/` | `staff.change_processorrecord` |  | `PatchedProcessorRequest` | 200 `Processor` |
-| DELETE | `processors/{id}/` | `staff.delete_processorrecord` |  |  | 204 |
-| GET | `saved-views/` | `staff.view_savedview` | `cursor`, `list_key`, `page_size` |  | 200 `PaginatedSavedViewList` |
-| POST | `saved-views/` | `staff.add_savedview` |  | `SavedViewRequest` | 201 `SavedView` |
-| GET | `saved-views/{id}/` | `staff.view_savedview` |  |  | 200 `SavedView` |
-| PUT | `saved-views/{id}/` | `staff.change_savedview` |  | `SavedViewRequest` | 200 `SavedView` |
-| PATCH | `saved-views/{id}/` | `staff.change_savedview` |  | `PatchedSavedViewRequest` | 200 `SavedView` |
-| DELETE | `saved-views/{id}/` | `staff.delete_savedview` |  |  | 204 |
-| GET | `session/` | any member of staff |  |  | 200 `StaffManifest` |
-| GET | `settings/` | `staff.view_sitesetting` |  |  | 200 `[Setting]` |
-| GET | `settings/{key}/` | `staff.view_sitesetting` (by the key or the body: see the table above) |  |  | 200 `[SwitchRow]` |
-| PUT | `settings/{key}/` | `staff.manage_settings` (by the key or the body: see the table above) |  | `SwitchChangeRequest` | 200 `Setting` |
-| GET | `system/` | `staff.view_system` |  |  | 200 `StaffSystem` |
-| POST | `system/reconcile/` | `staff.replay_webhook` |  | `ReconcileRequest` | 200 `Reconciled` |
-| GET | `users/` | `accounts.view_user` | `board`, `class_level`, `cursor`, `is_active`, `page_size`, `q` |  | 200 `PaginatedCustomerList` |
-| GET | `users/{id}/` | `accounts.view_user` |  |  | 200 `CustomerDetail` |
-| POST | `users/{id}/end-sessions/` | `staff.end_user_sessions` |  |  | 200 `SessionsEnded` |
-| POST | `users/{id}/impersonate/` | `staff.impersonate_user` |  | `ImpersonateRequest` | 200 `Impersonation` |
-| POST | `users/{id}/impersonate/end/` | `staff.impersonate_user` |  | `TokenRequest` | 204 |
-| POST | `users/{id}/password-reset/` | `staff.initiate_password_reset` |  |  | 200 `Detail` |
-| POST | `users/{id}/resend-verification/` | `staff.resend_verification` |  |  | 200 `Detail` |
-| POST | `users/{id}/reset-mfa/` | `staff.reset_user_mfa` |  | `ReasonRequest` | 202 `ChangeRequest` |
-| POST | `users/{id}/reveal/` | `staff.reveal_contact` |  | `RevealRequest` | 200 `Revealed` |
-| POST | `users/{id}/suspend/` | `staff.suspend_user` |  | `ReasonRequest` | 200 `Customer` |
-| POST | `users/{id}/unlock/` | `staff.unlock_user` |  |  | 200 `Unlocked` |
-| POST | `users/{id}/unsuspend/` | `staff.suspend_user` |  | `ReasonRequest` | 200 `Customer` |
+| GET | `insights/backtests/` | `staff.view_insights` | `page`, `page_size` |  | 200 `PaginatedBacktestList` |
+| GET | `insights/chapter-stats/` | `staff.view_insights` | `page`, `page_size` |  | 200 `PaginatedChapterStatList` |
+| GET | `insights/code-activation/` | `staff.view_insights` | `page`, `page_size` |  | 200 `PaginatedCodeActivationList` |
+| GET | `insights/cohorts/` | `staff.view_insights` | `page`, `page_size` |  | 200 `PaginatedCohortStatList` |
+| GET | `insights/delivery/` | `staff.view_insights` | `page`, `page_size` |  | 200 `PaginatedDeliveryStatList` |
+| GET | `insights/forecasts/` | `staff.view_insights` | `page`, `page_size` |  | 200 `PaginatedForecastList` |
+| GET | `insights/fraud-signals/` | `staff.view_insights` | `page`, `page_size` |  | 200 `PaginatedFraudSignalList` |
+| POST | `insights/fraud-signals/{id}/acknowledge/` | `staff.acknowledge_signal` |  |  | 200 `FraudSignal` |
+| GET | `insights/item-stats/` | `staff.view_insights` | `page`, `page_size` |  | 200 `PaginatedItemStatList` |
+| GET | `insights/offers/` | `staff.view_insights` | `page`, `page_size` |  | 200 `PaginatedOfferStatList` |
+| GET | `insights/print-runs/` | `staff.view_insights` | `page`, `page_size` |  | 200 `PaginatedPrintRunAdviceList` |
+| GET | `shipping/charges/` | `staff.view_cod` | `kind`, `ordering`, `page`, `page_size`, `search`, `shipment` |  | 200 `PaginatedShipmentChargeList` |
+| GET | `shipping/charges/{id}/` | `staff.view_cod` |  |  | 200 `ShipmentCharge` |
+| GET | `shipping/cod/` | `staff.view_cod` | `ordering`, `page`, `page_size`, `search`, `state` |  | 200 `PaginatedCodRemittanceList` |
+| GET | `shipping/cod/{id}/` | `staff.view_cod` |  |  | 200 `CodRemittance` |
+| POST | `shipping/cod/{id}/reconcile/` | `staff.reconcile_cod` |  | `CodReconcileRequest` | 200 `CodRemittance` |
+| GET | `shipping/exceptions/` | `staff.view_parcels` | `kind`, `ordering`, `page`, `page_size`, `search`, `shipment`, `state` |  | 200 `PaginatedShippingExceptionList` |
+| GET | `shipping/exceptions/{id}/` | `staff.view_parcels` |  |  | 200 `ShippingException` |
+| POST | `shipping/exceptions/{id}/resolve/` | `staff.act_on_exception` |  | `ResolveRequest` | 200 `ShippingException` |
+| POST | `shipping/manifest/` | `staff.book_parcel` |  | `ManifestRequestRequest` | 200 `Manifest` |
+| GET | `shipping/orders/{number}/quote/` | `staff.book_parcel` | `weight_g` |  | 200 `QuoteResult` |
+| GET | `shipping/pickup-locations/` | `staff.view_parcels` | `ordering`, `page`, `page_size`, `search` |  | 200 `PaginatedPickupLocationList` |
+| POST | `shipping/pickup-locations/` | `staff.manage_pickup_locations` |  | `PickupLocationRequest` | 201 `PickupLocation` |
+| POST | `shipping/pickup-locations/sync/` | `staff.manage_pickup_locations` |  |  | 200 `[PickupLocation]` |
+| GET | `shipping/pickup-locations/{id}/` | `staff.view_parcels` |  |  | 200 `PickupLocation` |
+| PUT | `shipping/pickup-locations/{id}/` | `staff.manage_pickup_locations` |  | `PickupLocationRequest` | 200 `PickupLocation` |
+| PATCH | `shipping/pickup-locations/{id}/` | `staff.manage_pickup_locations` |  | `PatchedPickupLocationRequest` | 200 `PickupLocation` |
+| GET | `shipping/shipments/` | `staff.view_parcels` | `carrier`, `courier_company_id`, `order`, `ordering`, `page`, `page_size`, `search`, `status` |  | 200 `PaginatedParcelList` |
+| POST | `shipping/shipments/` | `staff.book_parcel` |  | `BookRequest` | 201 `Parcel`; 202 `Parcel` |
+| GET | `shipping/shipments/{id}/` | `staff.view_parcels` |  |  | 200 `ParcelHistory` |
+| POST | `shipping/shipments/{id}/cancel/` | `staff.book_parcel` |  |  | 200 `Parcel` |
+| GET | `shipping/shipments/{id}/events/` | `staff.view_parcels` |  |  | 200 `[ShipmentEvent]` |
+| GET | `shipping/shipments/{id}/label/` | `staff.book_parcel` |  |  | 200 `application/pdf` |
+| POST | `shipping/shipments/{id}/label/` | `staff.book_parcel` |  |  | 202 `Detail` |
+| POST | `shipping/shipments/{id}/ndr-action/` | `staff.act_on_exception` |  | `NdrActionRequest` | 200 `ShippingException` |
+| POST | `shipping/shipments/{id}/photo/` | `staff.book_parcel` |  | `PhotoRequest` | 200 `Parcel` |
+| POST | `shipping/shipments/{id}/pickup/` | `staff.book_parcel` |  | `PickupRequestRequest` | 200 `PickupResult` |
+| GET | `staff/access-review/` | `staff.view_staff` |  |  | 200 `[AccessRow]` |
+| GET | `staff/api-keys/` | `staff.view_apikey` | `cursor`, `page_size` |  | 200 `PaginatedApiKeyList` |
+| POST | `staff/api-keys/` | `staff.manage_api_keys` |  | `ApiKeyRequest` | 201 `ApiKey` |
+| GET | `staff/api-keys/{id}/` | `staff.view_apikey` |  |  | 200 `ApiKey` |
+| POST | `staff/api-keys/{id}/revoke/` | `staff.manage_api_keys` |  |  | 200 `ApiKey` |
+| GET | `staff/audit/` | `staff.view_auditlog` | `action`, `action_prefix`, `actor`, `actor_type`, `break_glass`, `chain`, `change_request`, `cursor`, `ip`, `outcome`, `page_size`, `permission`, `request_id`, `since`, `target_id`, `target_type`, `until` |  | 200 `PaginatedAuditEventList` |
+| POST | `staff/audit/export/` | `staff.export_auditlog` |  | `ExportRequest` | 200 `application/x-ndjson`; 202 `Job` |
+| GET | `staff/audit/{id}/` | `staff.view_auditlog` |  |  | 200 `AuditEvent` |
+| GET | `staff/catalogue/` | any member of staff |  |  | 200 `StaffCatalogue` |
+| GET | `staff/change-requests/` | `staff.view_changerequest` | `action`, `awaiting`, `cursor`, `mine`, `page_size`, `status` |  | 200 `PaginatedChangeRequestList` |
+| POST | `staff/change-requests/` | `staff.add_changerequest` |  | `AskRequest` | 200 `ChangeRequest`; 201 `ChangeRequest`; 202 `ChangeRequest` |
+| GET | `staff/change-requests/{id}/` | `staff.view_changerequest` |  |  | 200 `ChangeRequest` |
+| POST | `staff/change-requests/{id}/approve/` | `staff.view_changerequest` |  | `ApproveRequest` | 200 `ChangeRequest` |
+| POST | `staff/change-requests/{id}/execute/` | `staff.view_changerequest` |  |  | 200 `ChangeRequest`; 400 `ChangeRequest` |
+| POST | `staff/change-requests/{id}/reject/` | `staff.view_changerequest` |  | `CommentRequest` | 200 `ChangeRequest` |
+| GET | `staff/data-requests/` | `staff.view_datarequest` | `assignee`, `cursor`, `kind`, `overdue`, `page_size`, `status`, `user` |  | 200 `PaginatedDataRequestListList` |
+| POST | `staff/data-requests/` | `staff.handle_data_request` |  | `DataRequestRequest` | 201 `DataRequest` |
+| GET | `staff/data-requests/{id}/` | `staff.view_datarequest` |  |  | 200 `DataRequest` |
+| PATCH | `staff/data-requests/{id}/` | `staff.handle_data_request` |  | `PatchedDataRequestRequest` | 200 `DataRequest` |
+| POST | `staff/data-requests/{id}/acknowledge/` | `staff.handle_data_request` |  |  | 200 `DataRequest` |
+| POST | `staff/data-requests/{id}/close/` | `staff.handle_data_request` |  | `CloseRequest` | 200 `DataRequest` |
+| POST | `staff/data-requests/{id}/erase/` | `staff.handle_data_request` |  | `ReasonRequest` | 202 `ChangeRequest`; 400 `ErasureReport` |
+| GET | `staff/data-requests/{id}/erasure-report/` | `staff.view_datarequest` |  |  | 200 `ErasureReport` |
+| POST | `staff/data-requests/{id}/export/` | `staff.export_personal_data` |  |  | 202 `Detail` |
+| GET | `staff/data-requests/{id}/response/` | `staff.view_datarequest` |  |  | 200 `ResponseText` |
+| POST | `staff/data-requests/{id}/verify-identity/` | `staff.handle_data_request` |  | `VerifyIdentityRequest` | 200 `DataRequest` |
+| GET | `staff/erp/cursors/` | `erp.view_sync` | `cursor`, `page_size` |  | 200 `PaginatedErpCursorList` |
+| GET | `staff/erp/dead-letters/` | `erp.view_sync` | `aggregate_id`, `aggregate_type`, `cursor`, `event`, `page_size` |  | 200 `PaginatedErpOutboxList` |
+| GET | `staff/erp/dead-letters/{id}/` | `erp.view_sync` |  |  | 200 `ErpOutbox` |
+| POST | `staff/erp/dead-letters/{id}/discard/` | `erp.replay_sync` |  | `ErpDiscardRequest` | 200 `ErpOutbox` |
+| POST | `staff/erp/dead-letters/{id}/replay/` | `erp.replay_sync` |  |  | 200 `ErpOutbox` |
+| GET | `staff/erp/differences/` | `erp.view_sync` | `cursor`, `kind`, `open`, `page_size`, `run` |  | 200 `PaginatedErpDifferenceList` |
+| GET | `staff/erp/differences/{id}/` | `erp.view_sync` |  |  | 200 `ErpDifference` |
+| POST | `staff/erp/differences/{id}/resolve/` | `erp.resolve_difference` |  | `ErpResolveRequest` | 200 `ErpDifference` |
+| GET | `staff/erp/outbox/` | `erp.view_sync` | `aggregate_id`, `aggregate_type`, `cursor`, `event`, `examleaf_ref`, `page_size`, `state` |  | 200 `PaginatedErpOutboxList` |
+| GET | `staff/erp/outbox/{id}/` | `erp.view_sync` |  |  | 200 `ErpOutbox` |
+| GET | `staff/erp/reconciliations/` | `erp.view_sync` | `cursor`, `date`, `page_size`, `state` |  | 200 `PaginatedErpRunList` |
+| GET | `staff/erp/reconciliations/{id}/` | `erp.view_sync` |  |  | 200 `ErpRunDetail` |
+| GET | `staff/erp/status/` | `erp.view_sync` |  |  | 200 `ErpStatus` |
+| GET | `staff/flags/` | `staff.view_featureflag` |  |  | 200 `[Flag]` |
+| GET | `staff/flags/{key}/` | `staff.view_featureflag` |  |  | 200 `[SwitchRow]` |
+| PUT | `staff/flags/{key}/` | `staff.manage_flags` |  | `SwitchChangeRequest` | 200 `SwitchRow` |
+| GET | `staff/inbox/` | `staff.view_inbox` | `cursor`, `done`, `kind`, `mine`, `page_size`, `snoozed` |  | 200 `PaginatedInboxItemList` |
+| GET | `staff/inbox/count/` | `staff.view_inbox` |  |  | 200 `InboxCount` |
+| POST | `staff/inbox/{id}/assign/` | `staff.view_inbox` |  | `AssignRequest` | 200 `InboxItem` |
+| POST | `staff/inbox/{id}/done/` | `staff.view_inbox` |  |  | 200 `InboxItem` |
+| POST | `staff/inbox/{id}/snooze/` | `staff.view_inbox` |  | `SnoozeRequest` | 200 `InboxItem` |
+| GET | `staff/incidents/` | `staff.view_incident` | `cursor`, `kind`, `open`, `page_size` |  | 200 `PaginatedIncidentList` |
+| POST | `staff/incidents/` | `staff.manage_incident` |  | `IncidentRequest` | 201 `Incident` |
+| GET | `staff/incidents/{id}/` | `staff.view_incident` |  |  | 200 `Incident` |
+| PATCH | `staff/incidents/{id}/` | `staff.manage_incident` |  | `PatchedIncidentRequest` | 200 `Incident` |
+| POST | `staff/incidents/{id}/close/` | `staff.manage_incident` |  |  | 200 `Incident` |
+| POST | `staff/invites/accept/` | none: the invitation's token |  | `AcceptRequest` | 200 `Detail` |
+| GET | `staff/jobs/` | `staff.view_job` | `cursor`, `kind`, `mine`, `page_size`, `state` |  | 200 `PaginatedJobList` |
+| POST | `staff/jobs/` | `staff.add_job` (by the key or the body: see the table above) |  | `JobStartRequest` | 202 `Job` |
+| GET | `staff/jobs/{id}/` | `staff.view_job` |  |  | 200 `Job` |
+| POST | `staff/jobs/{id}/cancel/` | `staff.view_job` |  |  | 200 `Job` |
+| GET | `staff/jobs/{id}/result/` | `staff.view_job` | `token` |  | 200 `application/octet-stream`; 302 |
+| GET | `staff/people/` | `staff.view_staff` | `cursor`, `page_size` |  | 200 `PaginatedPersonList` |
+| POST | `staff/people/invite/` | `staff.assign_role` |  | `InviteRequest` | 201 `StaffInvite`; 202 `ChangeRequest` |
+| GET | `staff/people/invites/` | `staff.view_staff` | `cursor`, `page_size` |  | 200 `PaginatedStaffInviteList` |
+| DELETE | `staff/people/invites/{invite}/` | `staff.assign_role` |  |  | 204 |
+| GET | `staff/people/{id}/` | `staff.view_staff` |  |  | 200 `Person` |
+| POST | `staff/people/{id}/end-sessions/` | `staff.assign_role` |  |  | 200 `Ended` |
+| POST | `staff/people/{id}/offboard/` | `staff.assign_role` |  | `ReasonRequest` | 200 `Offboarded` |
+| POST | `staff/people/{id}/reset-mfa/` | `staff.reset_user_mfa` |  | `ReasonRequest` | 202 `ChangeRequest` |
+| POST | `staff/people/{id}/roles/` | `staff.assign_role` |  | `GrantRequest` | 200 `Person`; 202 `ChangeRequest` |
+| DELETE | `staff/people/{id}/roles/{role}/` | `staff.assign_role` |  |  | 200 `Person` |
+| POST | `staff/people/{id}/scopes/` | `staff.assign_role` |  | `ScopeAddRequest` | 201 `Scope` |
+| DELETE | `staff/people/{id}/scopes/{scope}/` | `staff.assign_role` |  |  | 204 |
+| GET | `staff/processors/` | `staff.view_processorrecord` | `cursor`, `page_size` |  | 200 `PaginatedProcessorList` |
+| POST | `staff/processors/` | `staff.add_processorrecord` |  | `ProcessorRequest` | 201 `Processor` |
+| GET | `staff/processors/{id}/` | `staff.view_processorrecord` |  |  | 200 `Processor` |
+| PUT | `staff/processors/{id}/` | `staff.change_processorrecord` |  | `ProcessorRequest` | 200 `Processor` |
+| PATCH | `staff/processors/{id}/` | `staff.change_processorrecord` |  | `PatchedProcessorRequest` | 200 `Processor` |
+| DELETE | `staff/processors/{id}/` | `staff.delete_processorrecord` |  |  | 204 |
+| GET | `staff/saved-views/` | `staff.view_savedview` | `cursor`, `list_key`, `page_size` |  | 200 `PaginatedSavedViewList` |
+| POST | `staff/saved-views/` | `staff.add_savedview` |  | `SavedViewRequest` | 201 `SavedView` |
+| GET | `staff/saved-views/{id}/` | `staff.view_savedview` |  |  | 200 `SavedView` |
+| PUT | `staff/saved-views/{id}/` | `staff.change_savedview` |  | `SavedViewRequest` | 200 `SavedView` |
+| PATCH | `staff/saved-views/{id}/` | `staff.change_savedview` |  | `PatchedSavedViewRequest` | 200 `SavedView` |
+| DELETE | `staff/saved-views/{id}/` | `staff.delete_savedview` |  |  | 204 |
+| GET | `staff/session/` | any member of staff |  |  | 200 `StaffManifest` |
+| GET | `staff/settings/` | `staff.view_sitesetting` |  |  | 200 `[Setting]` |
+| GET | `staff/settings/{key}/` | `staff.view_sitesetting` (by the key or the body: see the table above) |  |  | 200 `[SwitchRow]` |
+| PUT | `staff/settings/{key}/` | `staff.manage_settings` (by the key or the body: see the table above) |  | `SwitchChangeRequest` | 200 `Setting` |
+| GET | `staff/system/` | `staff.view_system` |  |  | 200 `StaffSystem` |
+| POST | `staff/system/reconcile/` | `staff.replay_webhook` |  | `ReconcileRequest` | 200 `Reconciled` |
+| GET | `staff/users/` | `accounts.view_user` | `board`, `class_level`, `cursor`, `is_active`, `page_size`, `q` |  | 200 `PaginatedCustomerList` |
+| GET | `staff/users/{id}/` | `accounts.view_user` |  |  | 200 `CustomerDetail` |
+| POST | `staff/users/{id}/end-sessions/` | `staff.end_user_sessions` |  |  | 200 `SessionsEnded` |
+| POST | `staff/users/{id}/impersonate/` | `staff.impersonate_user` |  | `ImpersonateRequest` | 200 `Impersonation` |
+| POST | `staff/users/{id}/impersonate/end/` | `staff.impersonate_user` |  | `TokenRequest` | 204 |
+| POST | `staff/users/{id}/password-reset/` | `staff.initiate_password_reset` |  |  | 200 `Detail` |
+| POST | `staff/users/{id}/resend-verification/` | `staff.resend_verification` |  |  | 200 `Detail` |
+| POST | `staff/users/{id}/reset-mfa/` | `staff.reset_user_mfa` |  | `ReasonRequest` | 202 `ChangeRequest` |
+| POST | `staff/users/{id}/reveal/` | `staff.reveal_contact` |  | `RevealRequest` | 200 `Revealed` |
+| POST | `staff/users/{id}/suspend/` | `staff.suspend_user` |  | `ReasonRequest` | 200 `Customer` |
+| POST | `staff/users/{id}/unlock/` | `staff.unlock_user` |  |  | 200 `Unlocked` |
+| POST | `staff/users/{id}/unsuspend/` | `staff.suspend_user` |  | `ReasonRequest` | 200 `Customer` |
 
 - **AcceptRequest**: `token` string (required); `full_name` string; `password` string
 - **AccessRow**: `id` integer (required); `email` email (required); `roles` [string] (required); `grants` [object] (required); `scopes` object (required); `last_login` date-time (required, null); `dormant` boolean (required); `mfa` boolean (required); `permissions` integer (required); `unused` [string] (required); `last_used` object (required)
@@ -1351,13 +1403,24 @@ successful ones; the errors are those above (400, 401, 403, 404, 405, 429). A fi
 - **AssignRequest**: `assignee` integer (required, null)
 - **AuditEvent**: `id` integer (required, read-only); `chain` ChainEnum; `ts` date-time (required); `actor_id` integer (null); `actor_type` ActorTypeEnum (required); `actor_roles` any; `on_behalf_of` integer (null); `break_glass` boolean; `action` string (required); `permission` string; `target_type` string; `target_id` string; `target_label` string; `outcome` AuditOutcomeEnum; `reason` string; `change_request_id` integer (null); `request_id` string; `ip` string (null); `user_agent` string; `session_hash` string; `changes` any; `details` any; `prev_hash` string (required); `hash` string (required)
 - **AuditOutcomeEnum**: one of `success`, `denied`, `failed`
+- **Backtest**: `product` string (required, read-only); `horizon_weeks` integer (required); `wape` double (null); `mase_vs_seasonal_naive` double (null); `shown` boolean; `n` integer (required, read-only)
+- **BlankEnum**: null
+- **BookRequest**: `order` string (required, null); `courier_company_id` integer; `courier_name` string; `quoted_rate` decimal (null); `weight_g` integer; `length_cm` integer; `breadth_cm` integer; `height_cm` integer; `pickup_location` integer (null); `courier` CourierEnum; `tracking_number` string; `tracking_url` any
+- **CarrierEnum**: one of `manual`, `shiprocket`
 - **ChainEnum**: one of `general`, `money`
 - **ChangeRequest**: `id` integer (required, read-only); `action` string (required); `label` string (required, read-only); `target_type` string; `target_id` string; `target_label` string; `payload` any; `payload_sha256` string (required); `amount` decimal (null); `maker` integer (required); `reason` string (required); `rule` string; `status` ChangeRequestStatusEnum; `expires_at` date-time (required); `overridden` boolean; `checker` string (required, read-only); `approvals` [Approval] (required, read-only); `result` any (null); `executed_by` integer (null); `executed_at` date-time (null); `created` date-time (required, read-only); `modified` date-time (required, read-only)
 - **ChangeRequestStatusEnum**: one of `pending`, `approved`, `rejected`, `expired`, `executed`, `failed`
 - **ChannelEnum**: one of `email`, `letter`, `phone`, `form`, `in_person`, `board`
+- **ChapterStat**: `chapter` integer (required); `subject` integer (required, read-only); `number` integer (required, read-only); `title` string (required, read-only); `mean_accuracy` double (null); `trend` double (null); `n` integer (required, read-only)
 - **ClassLevelEnum**: one of `10`, `12`
 - **CloseRequest**: `outcome` DataRequestOutcomeEnum (required); `response` string (required)
+- **CodReconcileRequest**: `utr` string (required); `amount` decimal (required); `on` date
+- **CodRemittance**: `id` integer (required, read-only); `shipment` integer (required, read-only); `order` string (required, read-only); `expected_amount` decimal (required, read-only); `expected_on` date (required, read-only); `remitted_amount` decimal (required, null, read-only); `utr` string (required, read-only); `remitted_at` date (required, null, read-only); `state` CodRemittanceStateEnum (required, read-only); `checked_at` date-time (required, null, read-only)
+- **CodRemittanceStateEnum**: one of `expected`, `overdue`, `remitted`, `mismatch`, `not_expected`
+- **CodeActivation**: `batch` string (required); `district` string (null); `printed` integer (null); `redeemed` integer (required); `redeemed_7d` integer (required); `n` integer (required, read-only)
+- **CohortStat**: `cohort_month` date (required); `source` EntitlementSourceEnum (required); `week_index` integer (required); `active_share` double (null); `churned_share` double (null); `n` integer (required)
 - **CommentRequest**: `comment` string
+- **CourierEnum**: one of `India Post`, `Delhivery`, `Blue Dart`, `Ekart`, `DTDC`, `Xpressbees`, `Other`
 - **Customer**: `id` integer (required, read-only); `email` string (required, read-only); `phone` string (required, read-only); `full_name` string (required); `class_level` any (null); `board` string (required, read-only); `district` string; `under_18` boolean (required, read-only); `status` string (required, read-only); `consent` string (required, read-only); `email_verified` boolean (required, read-only); `login_phone_verified` boolean; `created` date-time (required, read-only); `last_login` date-time (null)
 - **CustomerDetail**: `id` integer (required, read-only); `email` string (required, read-only); `phone` string (required, read-only); `full_name` string (required); `class_level` any (null); `board` string (required, read-only); `district` string; `under_18` boolean (required, read-only); `status` string (required, read-only); `consent` string (required, read-only); `email_verified` boolean (required, read-only); `login_phone_verified` boolean; `created` date-time (required, read-only); `last_login` date-time (null); `roles` [string] (required, read-only); `locked` boolean (required, read-only); `mfa` [string] (required, read-only); `teacher` string (required, read-only); `parent_contact` string (required, read-only); `orders` [object] (required, read-only); `consents` [object] (required, read-only); `sessions` [object] (required, read-only); `deletion_due_at` string (required, null, read-only)
 - **DataRequest**: `id` integer (required, read-only); `kind` DataRequestKindEnum (required); `channel` ChannelEnum (required); `user` integer (null); `requester` string (required); `summary` string (required); `identity_verified` boolean (required, read-only); `identity_note` string (required, read-only); `verified_by` integer (required, null, read-only); `verified_at` date-time (required, null, read-only); `received_at` date-time; `ack_due_at` date-time (required, read-only); `acknowledged_at` date-time (required, null, read-only); `ack_overdue` boolean (required, read-only); `due_at` date-time (required, read-only); `overdue` boolean (required, read-only); `status` DataRequestStatusEnum (required, read-only); `assignee` integer (null); `notes` string; `details` any; `outcome` DataRequestOutcomeEnum (required, read-only); `response` string (required, read-only); `closed_at` date-time (required, null, read-only); `closed_by` integer (required, null, read-only); `created_by` integer (required, null, read-only)
@@ -1367,8 +1430,10 @@ successful ones; the errors are those above (400, 401, 403, 404, 405, 429). A fi
 - **DataRequestRequest**: `kind` DataRequestKindEnum (required); `channel` ChannelEnum (required); `user` integer (null); `requester` string (required); `summary` string (required); `received_at` date-time; `assignee` integer (null); `notes` string; `details` any
 - **DataRequestStatusEnum**: one of `new`, `acknowledged`, `closed`
 - **DecisionEnum**: one of `approve`, `reject`
+- **DeliveryStat**: `courier` string (required); `district` string (null); `median_days` double (required); `p90_days` double (required); `n` integer (required)
 - **Detail**: `detail` string (required)
 - **Ended**: `sessions` integer (required); `tokens` integer (required)
+- **EntitlementSourceEnum**: one of `book_code`, `purchase`, `grant`
 - **ErasureReport**: `erase` [object] (required); `keep` [object] (required); `blocks` [string] (required); `can_erase` boolean (required); `notes` [string] (required)
 - **ErpAccountStatus**: `id` integer (required); `label` string (required); `mode` string (required); `circuit` string (required); `last_success_at` date-time (required, null); `last_error` string (required)
 - **ErpCursor**: `id` integer (required, read-only); `doctype` string (required, read-only); `modified_after` string (required, read-only); `last_name` string (required, read-only); `rows_read` integer (required, read-only); `last_run_at` date-time (required, null, read-only); `last_error` string (required, read-only)
@@ -1386,6 +1451,9 @@ successful ones; the errors are those above (400, 401, 403, 404, 405, 429). A fi
 - **ErpStatus**: `enabled` boolean (required); `mode` string (required); `flows` object (required); `pull_stock` boolean (required); `pull_b2b` boolean (required); `stock_projection` boolean (required); `account` ErpAccountStatus (required, null); `outbox` object (required); `oldest_waiting_at` date-time (required, null); `oldest_waiting_seconds` integer (required, null); `held_aggregates` integer (required); `cursors` [ErpCursorStatus] (required); `last_reconciliation` ErpRunStatus (required, null)
 - **ExportRequest**: `filters` object
 - **Flag**: `key` string (required); `value` any (required); `effective_from` date-time (required); `changed_by` integer (required, null); `reason` string (required)
+- **Forecast**: `product` string (required, read-only); `title` string (required, read-only); `district` string (null); `week_start` date (required); `p10` double (required); `p50` double (required); `p90` double (required); `n` integer (required, read-only)
+- **FraudSignal**: `id` integer (required, read-only); `kind` FraudSignalKindEnum (required); `label` string (required, read-only); `subject` string (required); `window_start` date-time (required); `window_end` date-time (required); `details` any; `created` date-time (required, read-only); `acknowledged_at` date-time (null); `n` integer (required, read-only)
+- **FraudSignalKindEnum**: one of `codes_failed_account`, `codes_failed_ip`, `codes_failed_spike`, `codes_per_account`, `accounts_per_code`, `shared_phone`, `shared_address`
 - **GrantRequest**: `role` RoleEnum (required); `expires_at` date-time (null); `reason` string (required)
 - **ImpersonateRequest**: `reason` string (required); `ticket` string (required)
 - **Impersonation**: `token` string (required); `expires_at` date-time (required)
@@ -1396,39 +1464,76 @@ successful ones; the errors are those above (400, 401, 403, 404, 405, 429). A fi
 - **IncidentKindEnum**: one of `data_breach`, `data_leak`, `unauthorised_access`, `malicious_code`, `application_attack`, `denial_of_service`, `loss_of_access`, `other`
 - **IncidentRequest**: `title` string (required); `kind` IncidentKindEnum (required); `detected_at` date-time; `description` string; `systems` string; `data_categories` string; `people_affected` integer (null); `children_affected` boolean; `cert_in_reported_at` date-time (null); `cert_in_reference` string; `board_notified_at` date-time (null); `board_report_at` date-time (null); `board_reference` string; `notice_text` string; `notices_sent` integer; `notices_sent_at` date-time (null); `actions` string; `root_cause` string
 - **InviteRequest**: `email` email (required); `role` RoleEnum (required); `reason` string (required)
+- **ItemStat**: `item` integer (required); `chapter` integer (required, read-only); `kind` string (required, read-only); `text` string (required, read-only); `n` integer (required); `p` double (null); `discrimination` double (null); `flags` any
 - **Job**: `id` integer (required, read-only); `kind` JobKindEnum (required, read-only); `state` JobStateEnum (required, read-only); `dry_run` boolean (required, read-only); `params` any (required, read-only); `done` integer (required, read-only); `total` integer (required, read-only); `errors` [JobError] (required, read-only); `result` any (required, read-only); `result_url` string (required, null, read-only); `change_request_id` integer (required, null, read-only); `cancel_requested` boolean (required, read-only); `started_by` integer (required, null, read-only); `created` date-time (required, read-only); `started_at` date-time (required, null, read-only); `finished_at` date-time (required, null, read-only)
 - **JobError**: `id` any (required, null); `label` string (required); `message` string (required)
 - **JobKindEnum**: one of `audit_export`, `bulk_action`, `erp_initial_load`
 - **JobStartRequest**: `kind` JobKindEnum (required); `params` object; `dry_run` boolean
 - **JobStateEnum**: one of `queued`, `running`, `done`, `failed`, `cancelled`
+- **LevelEnum**: one of `ok`, `watch`, `act`
+- **Manifest**: `url` uri (required)
+- **ManifestRequestRequest**: `shipments` [integer] (required)
+- **NdrActionActionEnum**: one of `re-attempt`, `return`, `fake-attempt`
+- **NdrActionRequest**: `action` NdrActionActionEnum (required); `comments` string (required); `deferred_date` date; `phone` string; `address1` string; `address2` string
 - **NullEnum**: null
 - **Offboarded**: `roles` [string] (required); `scopes` integer (required); `api_keys` integer (required); `change_requests` integer (required); `sessions` integer (required); `tokens` integer (required)
+- **OfferStat**: `coupon` string (required, read-only); `offer` string (required, read-only); `period_start` date (required); `period_end` date (required); `orders` integer (required); `revenue` decimal (required); `discount_cost` decimal (required); `period_orders` integer (required); `baseline_orders` integer (required); `baseline_revenue` decimal (required); `interval_low` double (null); `interval_high` double (null); `note` string (required); `n` integer (required, read-only)
 - **PaginatedApiKeyList**: `next` uri (null); `previous` uri (null); `results` [ApiKey] (required)
 - **PaginatedAuditEventList**: `next` uri (null); `previous` uri (null); `results` [AuditEvent] (required)
+- **PaginatedBacktestList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [Backtest] (required)
 - **PaginatedChangeRequestList**: `next` uri (null); `previous` uri (null); `results` [ChangeRequest] (required)
+- **PaginatedChapterStatList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [ChapterStat] (required)
+- **PaginatedCodRemittanceList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [CodRemittance] (required)
+- **PaginatedCodeActivationList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [CodeActivation] (required)
+- **PaginatedCohortStatList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [CohortStat] (required)
 - **PaginatedCustomerList**: `next` uri (null); `previous` uri (null); `results` [Customer] (required)
 - **PaginatedDataRequestListList**: `next` uri (null); `previous` uri (null); `results` [DataRequestList] (required)
+- **PaginatedDeliveryStatList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [DeliveryStat] (required)
 - **PaginatedErpCursorList**: `next` uri (null); `previous` uri (null); `results` [ErpCursor] (required)
 - **PaginatedErpDifferenceList**: `next` uri (null); `previous` uri (null); `results` [ErpDifference] (required)
 - **PaginatedErpOutboxList**: `next` uri (null); `previous` uri (null); `results` [ErpOutbox] (required)
 - **PaginatedErpRunList**: `next` uri (null); `previous` uri (null); `results` [ErpRun] (required)
+- **PaginatedForecastList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [Forecast] (required)
+- **PaginatedFraudSignalList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [FraudSignal] (required)
 - **PaginatedInboxItemList**: `next` uri (null); `previous` uri (null); `results` [InboxItem] (required)
 - **PaginatedIncidentList**: `next` uri (null); `previous` uri (null); `results` [Incident] (required)
+- **PaginatedItemStatList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [ItemStat] (required)
 - **PaginatedJobList**: `next` uri (null); `previous` uri (null); `results` [Job] (required)
+- **PaginatedOfferStatList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [OfferStat] (required)
+- **PaginatedParcelList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [Parcel] (required)
 - **PaginatedPersonList**: `next` uri (null); `previous` uri (null); `results` [Person] (required)
+- **PaginatedPickupLocationList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [PickupLocation] (required)
+- **PaginatedPrintRunAdviceList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [PrintRunAdvice] (required)
 - **PaginatedProcessorList**: `next` uri (null); `previous` uri (null); `results` [Processor] (required)
 - **PaginatedSavedViewList**: `next` uri (null); `previous` uri (null); `results` [SavedView] (required)
+- **PaginatedShipmentChargeList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [ShipmentCharge] (required)
+- **PaginatedShippingExceptionList**: `count` integer (required); `next` uri (null); `previous` uri (null); `results` [ShippingException] (required)
 - **PaginatedStaffInviteList**: `next` uri (null); `previous` uri (null); `results` [StaffInvite] (required)
+- **Parcel**: `id` integer (required, read-only); `order` string (required, read-only); `courier` CourierEnum (required, read-only); `tracking_number` string (required, read-only); `tracking_url` uri (required, read-only); `shipped_at` date-time (required, read-only); `delivered_at` date-time (required, null, read-only); `detail` ParcelDetail (required, null, read-only)
+- **ParcelDetail**: `carrier` CarrierEnum (required, read-only); `account` integer (required, null, read-only); `status` any (required, null, read-only); `reference` string (required, read-only); `external_order_id` string (required, read-only); `external_shipment_id` string (required, read-only); `courier_company_id` integer (required, null, read-only); `courier_name` string (required, read-only); `weight_g` integer (required, null, read-only); `length_cm` integer (required, null, read-only); `breadth_cm` integer (required, null, read-only); `height_cm` integer (required, null, read-only); `charged_weight_g` integer (required, null, read-only); `quoted_rate` decimal (required, null, read-only); `cod_amount` decimal (required, null, read-only); `declared_value` decimal (required, null, read-only); `last_event_at` date-time (required, null, read-only); `pickup_location` integer (required, null, read-only); `pickup_date` date (required, null, read-only); `manifested_at` date-time (required, null, read-only); `has_label` boolean (required, read-only); `has_photo` boolean (required, read-only)
+- **ParcelHistory**: `id` integer (required, read-only); `order` string (required, read-only); `courier` CourierEnum (required, read-only); `tracking_number` string (required, read-only); `tracking_url` uri (required, read-only); `shipped_at` date-time (required, read-only); `delivered_at` date-time (required, null, read-only); `detail` ParcelDetail (required, null, read-only); `events` [ShipmentEvent] (required, read-only); `exceptions` [ShippingException] (required, read-only); `charges` [ShipmentCharge] (required, read-only); `cod_remittance` CodRemittance (required, null, read-only)
+- **ParcelStatusEnum**: one of `booked`, `pickup_problem`, `in_transit`, `out_for_delivery`, `delivered`, `delivery_failed`, `returning`, `returned`, `lost_or_damaged`, `cancelled`, `partial`
 - **PatchedDataRequestRequest**: `kind` DataRequestKindEnum; `channel` ChannelEnum; `user` integer (null); `requester` string; `summary` string; `received_at` date-time; `assignee` integer (null); `notes` string; `details` any
 - **PatchedIncidentRequest**: `title` string; `kind` IncidentKindEnum; `detected_at` date-time; `description` string; `systems` string; `data_categories` string; `people_affected` integer (null); `children_affected` boolean; `cert_in_reported_at` date-time (null); `cert_in_reference` string; `board_notified_at` date-time (null); `board_report_at` date-time (null); `board_reference` string; `notice_text` string; `notices_sent` integer; `notices_sent_at` date-time (null); `actions` string; `root_cause` string
+- **PatchedPickupLocationRequest**: `nickname` string; `address` string; `city` string; `state` string; `pin_code` string; `phone` string; `is_default` boolean; `active` boolean
 - **PatchedProcessorRequest**: `name` string; `purpose` string; `data_categories` string; `country` string; `contract_signed_on` date (null); `contract_ends_on` date (null); `active` boolean; `notes` string
 - **PatchedSavedViewRequest**: `role` string; `list_key` string; `name` string; `filters` any; `columns` any; `sort` any
 - **Person**: `id` integer (required, read-only); `email` email (required); `full_name` string (required); `is_active` boolean; `is_superuser` boolean; `roles` [string] (required, read-only); `grants` [object] (required, read-only); `scopes` [Scope] (required, read-only); `mfa` boolean (required, read-only); `last_login` date-time (null); `created` date-time (required, read-only)
+- **PhotoRequest**: `photo` binary (required)
+- **PickupLocation**: `id` integer (required, read-only); `nickname` string (required); `address` string; `city` string; `state` string; `pin_code` string (required); `phone` string; `is_default` boolean; `active` boolean; `external_id` string (required, read-only)
+- **PickupLocationRequest**: `nickname` string (required); `address` string; `city` string; `state` string; `pin_code` string (required); `phone` string; `is_default` boolean; `active` boolean
+- **PickupRequestRequest**: `date` date
+- **PickupResult**: `pickup_date` date (required, null)
+- **PostalPrice**: `service` string (required); `label` string (required); `price` decimal (required)
+- **PrintRunAdvice**: `product` string (required, read-only); `title` string (required, read-only); `net_price` decimal (required); `unit_cost` decimal (required); `salvage` decimal (required); `critical_ratio` double (required); `target_quantity` integer (required); `supply` integer (required); `recommended_quantity` integer (required); `reprint_trigger_units` integer (required); `weeks_of_cover` double (null); `projected_leftover` integer (required); `level` LevelEnum; `alert` string; `n` integer (required, read-only)
 - **Processor**: `id` integer (required, read-only); `name` string (required); `purpose` string (required); `data_categories` string (required); `country` string (required); `contract_signed_on` date (null); `contract_ends_on` date (null); `active` boolean; `notes` string
 - **ProcessorRequest**: `name` string (required); `purpose` string (required); `data_categories` string (required); `country` string (required); `contract_signed_on` date (null); `contract_ends_on` date (null); `active` boolean; `notes` string
+- **Quote**: `courier_company_id` integer (required); `courier_name` string (required); `rate` decimal (required); `etd_days` integer (required, null); `rating` double (required, null); `cod` boolean (required); `cod_charges` decimal (required); `rto_charges` decimal (required); `recommended` boolean (required)
+- **QuoteResult**: `couriers` [Quote] (required); `india_post` [PostalPrice] (required); `weight_g` integer (required); `stale` boolean (required); `error` string (required)
 - **ReasonRequest**: `reason` string (required)
 - **ReconcileRequest**: `order` string (required)
 - **Reconciled**: `order` string (required); `paid` boolean (required, null)
+- **ResolveRequest**: `resolution` string (required); `dismiss` boolean
 - **ResponseText**: `subject` string (required); `body` string (required)
 - **RevealRequest**: `show` [ShowEnum] (required); `reason` string (required)
 - **Revealed**: `email` string (null); `phone` string (null); `login_phone` string (null); `parent_contact` string (null); `parent_name` string (null); `date_of_birth` string (null)
@@ -1441,6 +1546,13 @@ successful ones; the errors are those above (400, 401, 403, 404, 405, 429). A fi
 - **SessionsEnded**: `sessions` integer (required); `tokens` integer (required)
 - **Setting**: `key` string (required); `label` string (required); `kind` any (required); `permission` string (required); `value` any (required); `environment` any (required); `source` SettingSourceEnum (required); `effective_from` date-time (required, null); `changed_by` integer (required, null); `reason` string (required); `scheduled` [object] (required)
 - **SettingSourceEnum**: one of `environment`, `database`
+- **ShipmentCharge**: `id` integer (required, read-only); `shipment` integer (required, null, read-only); `kind` ShipmentChargeKindEnum (required, read-only); `amount` decimal (required, read-only); `charged_weight_g` integer (required, null, read-only); `awb` string (required, read-only); `description` string (required, read-only); `statement_line_id` string (required, read-only); `charged_at` date-time (required, read-only)
+- **ShipmentChargeKindEnum**: one of `freight`, `freight_reversal`, `cod`, `cod_reversal`, `rto_freight`, `rto_freight_reversal`, `excess_weight`, `excess_weight_reversal`, `other`
+- **ShipmentEvent**: `source` ShipmentEventSourceEnum (required); `carrier_code` string; `carrier_label` string; `status` any (null); `occurred_at` date-time (required); `location` string; `activity` string
+- **ShipmentEventSourceEnum**: one of `webhook`, `poll`, `manual`
+- **ShippingException**: `id` integer (required, read-only); `kind` ShippingExceptionKindEnum (required, read-only); `shipment` integer (required, read-only); `order` string (required, read-only); `due_at` date-time (required, read-only); `state` ShippingExceptionStateEnum (required, read-only); `reference` string (required, read-only); `data` any (required, read-only); `resolution` string (required, read-only); `resolved_at` date-time (required, null, read-only); `resolved_by` integer (required, null, read-only); `created` date-time (required, read-only)
+- **ShippingExceptionKindEnum**: one of `pickup_problem`, `ndr`, `rto`, `lost`, `partial`, `weight_dispute`, `cod_overdue`, `no_movement`
+- **ShippingExceptionStateEnum**: one of `open`, `resolved`, `dismissed`
 - **ShowEnum**: one of `email`, `phone`, `login_phone`, `parent_contact`, `parent_name`, `date_of_birth`
 - **SnoozeRequest**: `until` date-time (required)
 - **StaffCatalogue**: `permissions` [object] (required); `roles` [object] (required)

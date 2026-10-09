@@ -1,7 +1,8 @@
 """The authorization matrix (research 1.9, OWASP: test the authorization logic): every role × every staff endpoint and
-method. A role without the endpoint's permission gets 403 and leaves an `authz_fail` event; a role with it never gets
-403 (its answer may be 400 for the empty body, 404 for an object out of its reach, or 200). And every endpoint names a
-catalogued permission, a view_ one for GET (DRF's pitfall: DjangoModelPermissions lets any GET through)."""
+method (the staff API's, the shipping app's and the insights'). A role without the endpoint's permission gets 403 and
+leaves an `authz_fail` event; a role with it never gets 403 (its answer may be 400 for the empty body, 404 for an object
+out of its reach, or 200). And every endpoint names a catalogued permission, a view_ one for GET (DRF's pitfall:
+DjangoModelPermissions lets any GET through)."""
 
 from datetime import timedelta
 
@@ -11,8 +12,16 @@ from django.utils import timezone
 
 from accounts import roles
 from accounts.factories import UserFactory
+from api import urls as api_urls
+from insights.models import FraudSignal
+from integrations.models import IntegrationAccount
+from shipping.api import OrderQuoteView, ShipmentViewSet
+from shipping.models import CodRemittance, PickupLocation, ShipmentCharge, ShippingException
+from shop.factories import ProductFactory, make_order
+from shop.models import Shipment
 from staff import approvals, catalogue
 from staff import urls as staff_urls
+from staff.api import StaffView
 from staff.audit import record
 from staff.models import (
     ApiKey,
@@ -170,10 +179,7 @@ def objects():
     }
 
 
-@pytest.mark.parametrize(("method", "path", "perm"), ENDPOINTS, ids=[f"{m} {p}" for m, p, _ in ENDPOINTS])
-def test_each_role_reaches_an_endpoint_only_with_its_permission(method, path, perm, subtests):
-    ids = objects()
-    url = STAFF + path.format(**ids)
+def reach(method, url, perm, subtests):
     people = [(role, make_staff(role)) for role in WHO] + [("break-glass", make_staff(is_superuser=True))]
     for who, user in people:
         with subtests.test(who=who):
@@ -185,6 +191,71 @@ def test_each_role_reaches_an_endpoint_only_with_its_permission(method, path, pe
             else:
                 assert response.status_code == 403, (who, response.status_code, response.content[:200])
                 assert denied.exists(), who
+
+
+@pytest.mark.parametrize(("method", "path", "perm"), ENDPOINTS, ids=[f"{m} {p}" for m, p, _ in ENDPOINTS])
+def test_each_role_reaches_an_endpoint_only_with_its_permission(method, path, perm, subtests):
+    reach(method, STAFF + path.format(**objects()), perm, subtests)
+
+
+APP_ENDPOINTS = [  # under /api/v1/: the shipping app's staff endpoints and the insights'
+    *[("get", f"shipping/shipments/{path}", "staff.view_parcels") for path in ["", "{parcel}/", "{parcel}/events/"]],
+    ("post", "shipping/shipments/", "staff.book_parcel"),
+    ("get", "shipping/shipments/{parcel}/label/", "staff.book_parcel"),  # the label: the customer's address on it
+    *[
+        ("post", f"shipping/shipments/{{parcel}}/{name}/", "staff.book_parcel")
+        for name in ["label", "pickup", "cancel"]
+    ],
+    ("post", "shipping/shipments/{parcel}/photo/", "staff.book_parcel"),
+    ("post", "shipping/shipments/{parcel}/ndr-action/", "staff.act_on_exception"),
+    ("get", "shipping/orders/{order}/quote/", "staff.book_parcel"),  # a courier's answer, for a booking
+    ("post", "shipping/manifest/", "staff.book_parcel"),
+    ("get", "shipping/exceptions/", "staff.view_parcels"),
+    ("get", "shipping/exceptions/{exception}/", "staff.view_parcels"),
+    ("post", "shipping/exceptions/{exception}/resolve/", "staff.act_on_exception"),
+    ("get", "shipping/cod/", "staff.view_cod"),
+    ("get", "shipping/cod/{remittance}/", "staff.view_cod"),
+    ("post", "shipping/cod/{remittance}/reconcile/", "staff.reconcile_cod"),
+    ("get", "shipping/charges/", "staff.view_cod"),
+    ("get", "shipping/charges/{charge}/", "staff.view_cod"),
+    ("get", "shipping/pickup-locations/", "staff.view_parcels"),
+    ("get", "shipping/pickup-locations/{pickup}/", "staff.view_parcels"),
+    ("post", "shipping/pickup-locations/", "staff.manage_pickup_locations"),
+    ("patch", "shipping/pickup-locations/{pickup}/", "staff.manage_pickup_locations"),
+    ("post", "shipping/pickup-locations/sync/", "staff.manage_pickup_locations"),
+    *[
+        ("get", f"insights/{name}/", "staff.view_insights")
+        for name in ["forecasts", "print-runs", "backtests", "item-stats", "chapter-stats", "cohorts"]
+        + ["code-activation", "delivery", "fraud-signals", "offers"]
+    ],
+    ("post", "insights/fraud-signals/{signal}/acknowledge/", "staff.acknowledge_signal"),
+]
+
+
+def app_objects():
+    """A parcel typed by hand (no courier to ask: nothing leaves the test) and what hangs on it."""
+    order = make_order((ProductFactory(stock=5), 1))
+    parcel = Shipment.objects.create(order=order, courier="India Post", tracking_number="EA123456789IN")
+    account = IntegrationAccount.objects.create(provider="shiprocket", mode="test", enabled=False)
+    now = timezone.now()
+    return {
+        "order": order.number,
+        "parcel": parcel.pk,
+        "exception": ShippingException.objects.create(shipment=parcel, kind="ndr", due_at=now).pk,
+        "remittance": CodRemittance.objects.create(shipment=parcel, expected_amount=299, expected_on=now.date()).pk,
+        "charge": ShipmentCharge.objects.create(
+            shipment=parcel, account=account, kind="freight", amount=63, statement_line_id="1", charged_at=now
+        ).pk,
+        "pickup": PickupLocation.objects.create(nickname="Primary", pin_code="781024", is_default=True).pk,
+        "signal": FraudSignal.objects.create(
+            kind="codes_failed_account", subject="a" * 64, count=6, window_start=now, window_end=now
+        ).pk,
+    }
+
+
+@pytest.mark.parametrize(("method", "path", "perm"), APP_ENDPOINTS, ids=[f"{m} {p}" for m, p, _ in APP_ENDPOINTS])
+def test_each_role_reaches_the_shipping_and_insights_endpoints_only_with_their_permission(method, path, perm, subtests):
+    reach(method, "/api/v1/" + path.format(**app_objects()), perm, subtests)
 
 
 def test_the_manifest_and_the_catalogue_are_every_staff_members_and_nobody_elses(subtests):
@@ -212,7 +283,8 @@ def test_signed_out_and_the_apps_tokens_get_nothing():
 
 
 def views():
-    """(path, the view class, the action or method names it serves) for every staff URL."""
+    """(path, the view class, the action or method names it serves) for every staff URL: the staff API's, and the
+    rest of the API's staff views (the shipping app's, the insights')."""
 
     def walk(patterns, prefix=""):
         for pattern in patterns:
@@ -221,7 +293,10 @@ def views():
             elif isinstance(pattern, URLPattern):
                 yield prefix + str(pattern.pattern), pattern.callback
 
-    for path, callback in walk(staff_urls.urlpatterns):
+    others = [(path, callback) for path, callback in walk(api_urls.urlpatterns)
+              if issubclass(getattr(callback, "cls", object), StaffView)]  # fmt: skip
+    assert len(others) > 20, others
+    for path, callback in [*walk(staff_urls.urlpatterns), *others]:
         cls = callback.cls
         if actions := getattr(callback, "actions", None):  # a viewset's route: method → action
             yield path, cls, sorted(actions.items())
@@ -250,9 +325,14 @@ def test_every_endpoint_names_a_catalogued_permission_and_a_view_one_for_get():
                 assert path in ("session/", "catalogue/"), path
                 continue
             assert catalogue.entry(perm) is not None, (path, name, perm)
-            if method == "get":
+            if method == "get" and (cls, name) not in BOOKING_READS:
                 assert ".view_" in perm, (path, name, perm)
-    assert checked > 70, checked
+    assert checked > 100, checked
+
+
+# Two reads that need more than a view_ permission: the courier's quote (asked of the courier, for a booking) and the
+# label's PDF (the customer's address on it): the packing room's, staff.book_parcel.
+BOOKING_READS = {(OrderQuoteView, "GET"), (ShipmentViewSet, "label")}
 
 
 def test_api_md_lists_every_staff_endpoint_and_field_as_the_code_has_them():

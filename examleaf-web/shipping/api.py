@@ -1,8 +1,9 @@
-"""The shipping app's staff API, under /api/v1/shipping/ (API.md "Shipping (staff)"). Its permission is a placeholder,
-StaffOnly (an active member of staff), until the staff app replaces it with its catalogued permissions. Everything
-goes through shipping.services: a booking and a label are queued (Celery); the quote (3 seconds at most), a pickup, a
-manifest, a cancellation and an NDR action are answered at once. A refusal of ours, or the courier's own, is a 400
-(non_field_errors); a courier that cannot be reached, a 503."""
+"""The shipping app's staff API, under /api/v1/shipping/ (API.md "Shipping (staff)"), on the staff app's rules
+(staff.api.StaffAppView: the panel's session or an API key, the permission each action names, the admin host only,
+every refusal and every change in the audit log). Everything goes through shipping.services: a booking and a label
+are queued (Celery); the quote (3 seconds at most), a pickup, a manifest, a cancellation and an NDR action are
+answered at once. A refusal of ours, or the courier's own, is a 400 (non_field_errors); a courier that cannot be
+reached, a 503."""
 
 from pathlib import Path
 
@@ -23,10 +24,14 @@ from api.views import DetailSerializer
 from integrations.client import IntegrationError, IntegrationUnavailable
 from integrations.models import IntegrationAccount
 from shop.models import Order, Shipment
+from staff import audit
+from staff.api import StaffAppView
+from staff.backends import scoped
 
 from . import services, tasks
 from .api_serializers import (
     BookSerializer,
+    CodReconcileSerializer,
     CodRemittanceSerializer,
     ManifestRequestSerializer,
     ManifestSerializer,
@@ -46,7 +51,6 @@ from .api_serializers import (
 )
 from .carriers import NotSupported
 from .models import CodRemittance, PickupLocation, ShipmentCharge, ShipmentDetail, ShippingException
-from .permissions import StaffOnly
 from .status import Status
 
 PDF = {(200, "application/pdf"): OpenApiTypes.BINARY}
@@ -81,9 +85,18 @@ def courier_call(function, *args, **kwargs):
         raise refused(str(error)) from error
 
 
-class Staff:
-    permission_classes = [StaffOnly]
+class Staff(StaffAppView):
+    """Each view's `permissions` per action (staff.catalogue: view_parcels, book_parcel, act_on_exception, view_cod,
+    reconcile_cod, manage_pickup_locations); its objects through `scoped()` with the action's permission (a PACKER's
+    parcels are those of the orders to pack and on their way)."""
+
     schema = StaffSchema()
+
+    def get_queryset(self):
+        return scoped(super().get_queryset(), self.request.user, self.required_permission(self.request))
+
+    def log(self, event, target, /, **details):
+        audit.record(event, request=self.request, target=target, details=details)
 
 
 class ShipmentFilter(django_filters.FilterSet):
@@ -105,6 +118,11 @@ class ShipmentViewSet(Staff, mixins.CreateModelMixin, viewsets.ReadOnlyModelView
     filterset_class = ShipmentFilter
     search_fields = ["tracking_number", "order__number", "detail__reference"]
     ordering_fields = ["pk", "shipped_at"]
+    permissions = {
+        **dict.fromkeys(["list", "retrieve", "events"], "staff.view_parcels"),
+        **dict.fromkeys(["create", "label", "pickup", "cancel", "photo"], "staff.book_parcel"),
+        "ndr_action": "staff.act_on_exception",
+    }
 
     def get_serializer_class(self):
         return {"retrieve": ParcelHistorySerializer, "create": BookSerializer}.get(self.action, ParcelSerializer)
@@ -137,6 +155,7 @@ class ShipmentViewSet(Staff, mixins.CreateModelMixin, viewsets.ReadOnlyModelView
                 data["tracking_url"],
                 by=request.user,
             )
+            self.log("shipping.shipped_by_hand", shipment.order, shipment=shipment.pk, courier=data["courier"])
             return Response(ParcelSerializer(shipment).data, status=status.HTTP_201_CREATED)
         account = IntegrationAccount.enabled_for("shiprocket")
         if account is None:
@@ -155,6 +174,14 @@ class ShipmentViewSet(Staff, mixins.CreateModelMixin, viewsets.ReadOnlyModelView
         )
         courier = data["courier_company_id"]
         transaction.on_commit(lambda: tasks.book_shipment.delay(shipment.pk, courier), robust=True)
+        self.log(
+            "shipping.booked",
+            shipment.order,
+            shipment=shipment.pk,
+            courier_company_id=courier,
+            courier_name=data["courier_name"],
+            weight_g=data.get("weight_g"),
+        )
         return Response(ParcelSerializer(services.parcel(shipment)).data, status=status.HTTP_202_ACCEPTED)
 
     @extend_schema(methods=["GET"], responses=PDF)
@@ -168,6 +195,7 @@ class ShipmentViewSet(Staff, mixins.CreateModelMixin, viewsets.ReadOnlyModelView
             if detail.status is None:
                 raise refused("Not booked yet: no label.")
             transaction.on_commit(lambda: tasks.fetch_label.delay(shipment.pk), robust=True)
+            self.log("shipping.label_requested", shipment.order, shipment=shipment.pk)
             return Response({"detail": "The label is on its way."}, status=status.HTTP_202_ACCEPTED)
         if not detail.label:
             raise Http404
@@ -179,7 +207,9 @@ class ShipmentViewSet(Staff, mixins.CreateModelMixin, viewsets.ReadOnlyModelView
         """Ask the courier to collect the parcel (on a date, or the next possible day)."""
         asked = PickupRequestSerializer(data=request.data)
         asked.is_valid(raise_exception=True)
-        day = courier_call(services.schedule_pickup, self.courier_parcel(), asked.validated_data.get("date"))
+        shipment = self.courier_parcel()
+        day = courier_call(services.schedule_pickup, shipment, asked.validated_data.get("date"))
+        self.log("shipping.pickup_scheduled", shipment.order, shipment=shipment.pk, pickup_date=day)
         return Response(PickupResultSerializer({"pickup_date": day}).data)
 
     @extend_schema(request=None, responses=ParcelSerializer)
@@ -187,6 +217,7 @@ class ShipmentViewSet(Staff, mixins.CreateModelMixin, viewsets.ReadOnlyModelView
     def cancel(self, request, *args, **kwargs):
         """Cancel the booking, until the courier is out to collect it."""
         shipment = courier_call(services.cancel, self.courier_parcel(), by=request.user)
+        self.log("shipping.cancelled", shipment.order, shipment=shipment.pk)
         return Response(ParcelSerializer(shipment).data)
 
     @extend_schema(request=NdrActionSerializer, responses=ShippingExceptionSerializer)
@@ -199,13 +230,14 @@ class ShipmentViewSet(Staff, mixins.CreateModelMixin, viewsets.ReadOnlyModelView
         action_, comments = fields.pop("action"), fields.pop("comments")
         if day := fields.get("deferred_date"):
             fields["deferred_date"] = day.isoformat()
-        exception = courier_call(
-            services.ndr_action, self.courier_parcel(), action_, comments, by=request.user, **fields
-        )
+        shipment = self.courier_parcel()
+        exception = courier_call(services.ndr_action, shipment, action_, comments, by=request.user, **fields)
+        # which details changed, never the details (a phone, an address)
+        self.log("shipping.ndr_action", shipment.order, shipment=shipment.pk, action=action_, changed=sorted(fields))
         return Response(ShippingExceptionSerializer(exception).data)
 
     @extend_schema(responses=ShipmentEventSerializer(many=True))
-    @action(detail=True)
+    @action(detail=True, pagination_class=None, filter_backends=[])  # the whole timeline
     def events(self, request, *args, **kwargs):
         """The parcel's timeline, oldest first."""
         return Response(ShipmentEventSerializer(self.get_object().events.all(), many=True).data)
@@ -222,6 +254,7 @@ class ShipmentViewSet(Staff, mixins.CreateModelMixin, viewsets.ReadOnlyModelView
         name = f"{detail.reference or shipment.pk}{suffix if suffix in PHOTO_TYPES else '.jpg'}"
         detail.parcel_photo.save(name, photo, save=False)
         detail.change(parcel_photo=detail.parcel_photo.name)
+        self.log("shipping.photo_added", shipment.order, shipment=shipment.pk)
         return Response(ParcelSerializer(services.parcel(shipment)).data)
 
 
@@ -231,6 +264,7 @@ class OrderQuoteView(Staff, generics.GenericAPIView):
     serializer_class = QuoteResultSerializer
     queryset = Order.objects.all()
     lookup_field = "number"
+    permissions = {"GET": "staff.book_parcel"}  # (a read, but a courier's answer for a booking)
 
     @extend_schema(parameters=[QuoteQuerySerializer])
     def get(self, request, *args, **kwargs):
@@ -244,16 +278,20 @@ class ManifestView(Staff, generics.GenericAPIView):
     """The handover list of booked parcels (one courier account): the carrier's PDF."""
 
     serializer_class = ManifestRequestSerializer
+    queryset = Shipment.objects.filter(detail__isnull=False)
+    permissions = {"POST": "staff.book_parcel"}
 
     @extend_schema(responses=ManifestSerializer)
     def post(self, request, *args, **kwargs):
         asked = ManifestRequestSerializer(data=request.data)
         asked.is_valid(raise_exception=True)
         ids = set(asked.validated_data["shipments"])
-        shipments = list(Shipment.objects.filter(pk__in=ids, detail__isnull=False))
+        shipments = list(self.get_queryset().filter(pk__in=ids))
         if len(shipments) != len(ids):
             raise refused("Some of these parcels do not exist or were typed by hand.")
-        return Response(ManifestSerializer({"url": courier_call(services.manifest, shipments)}).data)
+        url = courier_call(services.manifest, shipments)
+        self.log("shipping.manifested", None, shipments=sorted(ids))
+        return Response(ManifestSerializer({"url": url}).data)
 
 
 class ExceptionViewSet(Staff, viewsets.ReadOnlyModelViewSet):
@@ -263,6 +301,7 @@ class ExceptionViewSet(Staff, viewsets.ReadOnlyModelViewSet):
     serializer_class = ShippingExceptionSerializer
     filterset_fields = ["kind", "state", "shipment"]
     ordering_fields = ["due_at", "created"]
+    permissions = {"list": "staff.view_parcels", "retrieve": "staff.view_parcels", "resolve": "staff.act_on_exception"}
 
     @extend_schema(request=ResolveSerializer, responses=ShippingExceptionSerializer)
     @action(detail=True, methods=["post"])
@@ -273,16 +312,37 @@ class ExceptionViewSet(Staff, viewsets.ReadOnlyModelViewSet):
         done = courier_call(services.resolve_exception, exception, **asked.validated_data, by=request.user)
         if not done:
             raise refused("Already resolved or dismissed.")
+        verb = "dismissed" if asked.validated_data["dismiss"] else "resolved"
+        self.log(f"shipping.exception_{verb}", exception.shipment.order, exception=exception.pk, kind=exception.kind)
         return Response(ShippingExceptionSerializer(exception).data)
 
 
 class CodRemittanceViewSet(Staff, viewsets.ReadOnlyModelViewSet):
-    """Cash on delivery: expected, overdue, remitted, mismatched (filter state)."""
+    """Cash on delivery: expected, overdue, remitted, mismatched (filter state); reconcile one with the bank."""
 
     queryset = CodRemittance.objects.select_related("shipment__order")
     serializer_class = CodRemittanceSerializer
     filterset_fields = ["state"]
     ordering_fields = ["expected_on", "created"]
+    permissions = {"list": "staff.view_cod", "retrieve": "staff.view_cod", "reconcile": "staff.reconcile_cod"}
+
+    @extend_schema(request=CodReconcileSerializer, responses=CodRemittanceSerializer)
+    @action(detail=True, methods=["post"])
+    def reconcile(self, request, *args, **kwargs):
+        """The bank's credit for this parcel's cash, matched by its UTR: remitted at the amount expected, otherwise a
+        mismatch (and its exception)."""
+        asked = CodReconcileSerializer(data=request.data)
+        asked.is_valid(raise_exception=True)
+        remittance = courier_call(services.reconcile_cod, self.get_object(), **asked.validated_data)
+        self.log(  # a money event (the 8 years' chain)
+            "payment.cod_reconciled",
+            remittance.shipment.order,
+            remittance=remittance.pk,
+            utr=remittance.utr,
+            amount=remittance.remitted_amount,
+            state=remittance.state,
+        )
+        return Response(CodRemittanceSerializer(remittance).data)
 
 
 class ChargeViewSet(Staff, viewsets.ReadOnlyModelViewSet):
@@ -292,6 +352,7 @@ class ChargeViewSet(Staff, viewsets.ReadOnlyModelViewSet):
     serializer_class = ShipmentChargeSerializer
     filterset_fields = ["kind", "shipment"]
     ordering_fields = ["charged_at"]
+    permissions = {"list": "staff.view_cod", "retrieve": "staff.view_cod"}
 
 
 class PickupLocationViewSet(
@@ -306,20 +367,26 @@ class PickupLocationViewSet(
 
     queryset = PickupLocation.objects.all()
     serializer_class = PickupLocationSerializer
+    permissions = {
+        **dict.fromkeys(["list", "retrieve"], "staff.view_parcels"),
+        **dict.fromkeys(["create", "update", "partial_update", "sync"], "staff.manage_pickup_locations"),
+    }
 
     def perform_save(self, serializer):
         with transaction.atomic():
             if serializer.validated_data.get("is_default"):
                 PickupLocation.objects.exclude(pk=getattr(serializer.instance, "pk", None)).update(is_default=False)
-            serializer.save()
+            place = serializer.save()
+            self.log("shipping.pickup_location_saved", place, fields=sorted(serializer.validated_data))
 
     perform_create = perform_update = perform_save
 
     @extend_schema(request=None, responses=PickupLocationSerializer(many=True))
-    @action(detail=False, methods=["post"])
+    @action(detail=False, methods=["post"], pagination_class=None, filter_backends=[])
     def sync(self, request, *args, **kwargs):
         account = IntegrationAccount.enabled_for("shiprocket")
         if account is None:
             raise refused("No courier account is enabled (Integrations).")
         places = courier_call(services.sync_pickup_locations, account)
+        self.log("shipping.pickup_locations_synced", None, places=len(places))
         return Response(PickupLocationSerializer(places, many=True).data)

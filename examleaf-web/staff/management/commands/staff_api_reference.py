@@ -1,6 +1,7 @@
-"""manage.py staff_api_reference: every staff endpoint's method, path, permission, query, body and answers, and every
-field of what they take and give, as Markdown, from the OpenAPI schema and the views' own permission maps. API.md
-"Staff API reference" is its output; staff/tests/test_matrix.py fails when the two differ (run this, paste it)."""
+"""manage.py staff_api_reference: every staff endpoint's method, path, permission, query, body and answers (the staff
+API's, the shipping app's and the insights': staff.middleware.STAFF_APIS), and every field of what they take and give,
+as Markdown, from the OpenAPI schema and the views' own permission maps. API.md "Every staff endpoint and field" is its
+output; staff/tests/test_matrix.py fails when the two differ (run this, paste it)."""
 
 import re
 
@@ -9,9 +10,10 @@ from django.urls import resolve
 from drf_spectacular.generators import SchemaGenerator
 from rest_framework.test import APIRequestFactory
 
+from staff.middleware import STAFF_APIS
 from staff.permissions import ANY_STAFF
 
-PREFIX = "/api/v1/staff/"
+PREFIX = "/api/v1/"
 METHODS = ["get", "post", "put", "patch", "delete"]
 SAMPLES = {"role": "SUPPORT", "key": "SHOP_OPEN"}  # path parameters that are not ids
 
@@ -95,7 +97,7 @@ def reference():
     schema = SchemaGenerator(api_version="v1").get_schema(request=None, public=True)
     components, rows, used = schema["components"]["schemas"], [], set()
     for path, operations in sorted(schema["paths"].items()):
-        if not path.startswith(PREFIX):
+        if not STAFF_APIS.match(path):
             continue
         for method in [name for name in METHODS if name in operations]:
             operation = operations[method]

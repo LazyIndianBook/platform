@@ -204,4 +204,4 @@ class FraudSignalAdmin(ReadOnlyAdmin):
         self.message_user(request, f"{len(signals)} signals acknowledged.")
 
     def has_acknowledge_permission(self, request):
-        return request.user.has_perm("insights.change_fraudsignal")
+        return request.user.has_perm("staff.acknowledge_signal")  # as the API's (staff.catalogue)

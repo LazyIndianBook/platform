@@ -189,6 +189,21 @@ def test_the_old_roles_keep_their_permissions_and_gain_the_panels():
     )
 
 
+def test_shipping_and_the_insights_go_to_the_roles_that_do_them():
+    grants = {  # plan 5.7 and 5.16
+        roles.PACKER: {"staff.view_parcels", "staff.book_parcel"},
+        roles.SALES: {"staff.view_parcels", "staff.act_on_exception", "staff.view_cod"},
+        roles.FINANCE: {"staff.view_cod", "staff.reconcile_cod", "staff.view_insights"},
+        roles.MARKETING: {"staff.view_insights"},
+        roles.AUDITOR: {"staff.view_parcels", "staff.view_cod", "staff.view_insights"},  # the views
+    }
+    every = {"view_parcels", "book_parcel", "act_on_exception", "view_cod", "reconcile_cod", "manage_pickup_locations"}
+    every = {f"staff.{name}" for name in every | {"view_insights", "acknowledge_signal"}}
+    for name in roles.STAFF_ROLES:
+        held = member(name).get_all_permissions() & every
+        assert held == (every if name in (roles.ADMIN, roles.OWNER) else grants.get(name, set())), name
+
+
 def test_limits_take_the_highest_of_a_persons_roles():
     assert roles.limit({roles.SUPPORT}, "refund_inr") == 1_000
     assert roles.limit({roles.SUPPORT, roles.SALES}, "refund_inr") == 2_000

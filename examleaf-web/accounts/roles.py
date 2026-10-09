@@ -106,6 +106,8 @@ ROLES = {
         *crud("shop", [name for name in CATALOGUE if name not in ("productimage", "bundleitem")], ["view"]),
         # the panel: refunds and offline payments within ROLE_LIMITS, above them a ChangeRequest
         *["staff.refund_order", "staff.record_offline_payment", "staff.add_changerequest"],
+        # shipping: the parcels, failed deliveries and exceptions (the customer's call), cash on delivery to see
+        *["staff.view_parcels", "staff.act_on_exception", "staff.view_cod"],
         *PANEL,
     ],
     SUPPORT: [  # help students: look up accounts and records, verify teachers, answer data requests
@@ -143,12 +145,13 @@ ROLES = {
         *["staff.approve_discount", "staff.add_changerequest"],
         # the ERPNext sync: watch it and resolve the nightly reconciliation's differences (replaying is ADMIN's)
         *["erp.view_sync", "erp.resolve_difference"],
+        *["staff.view_cod", "staff.reconcile_cod", "staff.view_insights"],  # COD remittances; the reports
         *PANEL,
     ],
     PACKER: [  # the packing queue only: the orders to pack and ship (ROLE_SCOPES) and their books; pick, pack, hand
         # over to the courier (staff.pack_order; the shipping app's screens). No customers, payments or approvals
         *crud("shop", ["order", "orderitem", "shipment", "product"], ["view"]),
-        "staff.pack_order",
+        *["staff.pack_order", "staff.view_parcels", "staff.book_parcel"],  # booking, labels, pickups, manifests
         *INBOX,
     ],
     REVIEWER: [  # senior editors: read content and the course, publish: REVIEWER approves content (scoped by subject)
@@ -161,7 +164,7 @@ ROLES = {
         *crud("shop", ["coupon", "offer"]),
         *crud("shop", ["review"], ["view", "change"]),
         "shop.view_product",
-        "staff.add_changerequest",
+        *["staff.add_changerequest", "staff.view_insights"],  # the insights: aggregates only (insights/README.md)
         *PANEL,
     ],
     AUDITOR: [VIEW_ALL, "staff.view_auditlog", "staff.export_auditlog"],  # read-only; no reveals, no writes

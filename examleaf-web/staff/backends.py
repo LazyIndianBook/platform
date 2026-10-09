@@ -49,6 +49,11 @@ MODEL_SCOPES = {
     "shop.order": _order(""),
     **{f"shop.{model}": _order("order__") for model in ["orderitem", "orderdiscount", "ordernote", "shipment"]},
     **{f"shop.{model}": _order("order__") for model in ["payment", "refund"]},
+    # a parcel's exceptions, COD and charges by its order's status (a charge of no parcel: out of a narrowed scope)
+    **{
+        f"shipping.{model}": _order("shipment__order__")
+        for model in ["shippingexception", "codremittance", "shipmentcharge"]
+    },
     "shop.quoterequest": {SCHOOL: "school"},
     "accounts.teacherprofile": {SCHOOL: "school_name"},
     "staff.inboxitem": {TICKET_QUEUE: "kind"},

@@ -1,6 +1,8 @@
 import httpx
 import pytest
+from django.contrib.auth.models import Group
 
+from accounts import roles
 from accounts.factories import UserFactory
 from integrations import crypto
 from integrations.models import IntegrationAccount
@@ -112,5 +114,8 @@ def cod(book, customer, settings):
 
 @pytest.fixture
 def staff_client(client):
-    client.force_login(UserFactory(is_staff=True))
+    """ADMIN: every shipping permission (staff/tests/test_matrix.py has each role's)."""
+    admin = UserFactory(is_staff=True)
+    admin.groups.set(Group.objects.filter(name=roles.ADMIN))
+    client.force_login(admin)
     return client

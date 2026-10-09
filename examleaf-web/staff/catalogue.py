@@ -15,6 +15,7 @@ RISKS = [LOW, MEDIUM, HIGH, CRITICAL]
 ORDERS, PAYMENTS, CUSTOMERS, CONTENT, COURSE = "Orders", "Payments & refunds", "Customers", "Content", "Course"
 CATALOGUE, MARKETING, STAFF, AUDIT = "Catalogue", "Marketing", "Staff & roles", "Audit"
 PRIVACY, SETTINGS, OPERATIONS, ERP_SYNC = "Privacy", "Settings", "Operations", "ERP sync"
+SHIPPING, REPORTS = "Shipping", "Reports"
 
 
 @dataclass(frozen=True)
@@ -91,6 +92,15 @@ STAFF_ACTIONS = [
     ("view_system", "See the system: health, queues, webhooks, mail and SMS, backups", OPERATIONS, LOW),
     ("replay_webhook", "Ask Razorpay again what became of an order's payment", OPERATIONS, MEDIUM),
     ("view_inbox", "Use the inbox of things that wait", OPERATIONS, LOW),
+    # the shipping app's staff API (shipping/api.py) and the insights' (insights/api.py)
+    ("view_parcels", "See parcels, their timelines and exceptions, and the pickup addresses", SHIPPING, LOW),
+    ("book_parcel", "Book parcels: quotes, labels, pickups, manifests, cancellations", SHIPPING, MEDIUM),
+    ("act_on_exception", "Act on failed deliveries and resolve parcel exceptions", SHIPPING, MEDIUM),
+    ("view_cod", "See cash-on-delivery remittances and the courier's charges", PAYMENTS, LOW),
+    ("reconcile_cod", "Match cash-on-delivery remittances with the bank's credits", PAYMENTS, HIGH),
+    ("manage_pickup_locations", "Add and change the pickup addresses", SHIPPING, MEDIUM),
+    ("view_insights", "See the insights: forecasts, print runs, item analysis, cohorts, fraud signals", REPORTS, LOW),
+    ("acknowledge_signal", "Acknowledge fraud signals (looked at and handled)", REPORTS, LOW),
 ]
 STAFF_MODELS = [
     ("view_changerequest", "See the approvals you take part in", STAFF, LOW),
@@ -173,6 +183,8 @@ APP_AREAS = {
     "staff": STAFF,
     "shop": ORDERS,
     "erp": ERP_SYNC,
+    "shipping": SHIPPING,
+    "insights": REPORTS,
 }
 SHOP_AREAS = {
     **dict.fromkeys(["payment", "refund", "invoice", "creditnote"], PAYMENTS),

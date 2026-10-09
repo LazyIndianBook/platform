@@ -30,6 +30,7 @@ from rest_framework import exceptions, generics, mixins, pagination, permissions
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.settings import api_settings
 
 from accounts import roles
 from api.views import ReauthenticationRequired, exception_handler, recently_authenticated
@@ -109,6 +110,14 @@ class StaffView:
         if isinstance(self.request.auth, ApiKey):
             raise exceptions.PermissionDenied("Not with an API key.")
         return self.request.user
+
+
+class StaffAppView(StaffView):
+    """The staff API's rules for the other apps' staff endpoints (shipping/api.py, insights/api.py), with the API's own
+    pages (`count`) and filters (`?search=`, `?ordering=`), as API.md has them there."""
+
+    pagination_class = api_settings.DEFAULT_PAGINATION_CLASS
+    filter_backends = api_settings.DEFAULT_FILTER_BACKENDS
 
 
 REAUTH_FLOWS = [{"id": "reauthenticate"}, {"id": "mfa_reauthenticate"}]  # allauth.headless's, to step up with

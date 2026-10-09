@@ -7,10 +7,13 @@ from decimal import Decimal
 import pytest
 from django.utils import timezone
 
+from accounts import roles
 from shipping import services
 from shipping.carriers.fake import FAKE
 from shipping.models import CodRemittance, ShipmentCharge, ShipmentEvent, ShippingException
 from shipping.services import working_days_after
+from staff.models import AuditEvent
+from staff.tests.conftest import make_staff, signed_in
 
 pytestmark = pytest.mark.django_db
 
@@ -160,3 +163,21 @@ def test_an_exception_is_one_per_parcel_and_kind_until_resolved(account, pickup,
     assert services.resolve_exception(second, "Called: deliver tomorrow.")
     assert not services.resolve_exception(second, "Again.")
     assert services.open_exception(shipment, "ndr").pk != first.pk  # a new failed attempt later
+
+
+def test_finance_reconciles_a_remittance_with_the_banks_credit(delivered):
+    remittance = CodRemittance.objects.get(shipment=delivered)
+    url = f"/api/v1/shipping/cod/{remittance.pk}/reconcile/"
+    assert signed_in(make_staff(roles.SALES)).post(url, {"utr": "UTR1", "amount": "598.00"}).status_code == 403
+    finance = make_staff(roles.FINANCE)
+    stale = signed_in(finance, reauth=False).post(url, {"utr": "UTR1", "amount": "598.00"})
+    assert stale.json()["code"] == "reauthentication_required"  # money: a re-authentication first
+    short = signed_in(finance).post(url, {"utr": "UTR7", "amount": "498.00", "on": "2026-10-23"})
+    assert short.status_code == 200 and short.json()["state"] == "mismatch"
+    assert ShippingException.objects.get(kind="cod_overdue", state="open").data["remitted"] == "498.00"
+    paid = signed_in(finance).post(url, {"utr": "UTR8", "amount": "598.00"}).json()
+    assert (paid["state"], paid["utr"], paid["remitted_amount"]) == ("remitted", "UTR8", "598.00")
+    assert not ShippingException.objects.filter(kind="cod_overdue", state="open").exists()  # settled
+    events = AuditEvent.objects.filter(action="payment.cod_reconciled").order_by("id")
+    assert [event.details["state"] for event in events] == ["mismatch", "remitted"]
+    assert {event.chain for event in events} == {"money"} and events[0].target_label == delivered.order.number

@@ -224,6 +224,12 @@ class ResolveSerializer(serializers.Serializer):
     dismiss = serializers.BooleanField(default=False)
 
 
+class CodReconcileSerializer(serializers.Serializer):
+    utr = serializers.CharField(max_length=60, help_text="the bank credit's UTR")
+    amount = rupees(min_value=0, help_text="what the credit gave for this parcel")
+    on = serializers.DateField(required=False, help_text="the credit's day; today by default")
+
+
 class PhotoSerializer(serializers.Serializer):
     photo = serializers.ImageField(help_text="the parcel on the scale, label side up; JPEG or PNG, 5 MB at most")
 

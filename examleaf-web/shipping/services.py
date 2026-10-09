@@ -726,6 +726,25 @@ def check_cod(today=None):
     return dict(counts)
 
 
+def reconcile_cod(remittance, utr, amount, on=None):
+    """Finance: the bank's credit for a remittance, matched by its UTR (plan 5.7). The amount expected: remitted, and
+    the parcel's COD exception settled; another: a mismatch, with its exception (once)."""
+    if remittance.state == CodRemittance.State.NOT_EXPECTED:
+        raise ShippingError("No cash is expected for this parcel (it came back, was lost or was cancelled).")
+    remittance.utr, remittance.remitted_amount = utr.strip()[:60], amount
+    remittance.remitted_at, remittance.checked_at = on or timezone.localdate(), timezone.now()
+    matches = amount == remittance.expected_amount
+    remittance.state = CodRemittance.State.REMITTED if matches else CodRemittance.State.MISMATCH
+    with transaction.atomic():  # with what its post_save receivers write (the erp app's settlement), as check_cod
+        remittance.save()
+    if matches:
+        close_exceptions(remittance.shipment, [Kind.COD_OVERDUE], "Remitted: matched with the bank's credit.")
+    else:
+        data = {"expected": str(remittance.expected_amount), "remitted": str(amount), "utr": remittance.utr}
+        open_exception(remittance.shipment, Kind.COD_OVERDUE, data=data, reference=f"cod-mismatch-{remittance.pk}")
+    return remittance
+
+
 def statement_line_id(row):
     """A statement line's own id, or (none being documented) the digest of what makes it that line: its AWB,
     description, amounts, time and the balance after it."""

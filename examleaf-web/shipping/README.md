@@ -83,9 +83,15 @@ without a scan: an exception), `sync_statement` 05:00, `check_cod_remittances` 0
 day: an exception), `check_weight_discrepancies` 05:30 (due 7 working days after raised), `renew_token` 05:45,
 `survey_pins` Sundays 06:00 (`SHIPPING_SURVEY_BATCH` PINs, the oldest first), `send_held_messages` 08:00.
 
-**Staff API**: `/api/v1/shipping/` (API.md "Shipping (staff)"), behind `permissions.StaffOnly` (an active member of
-staff) until the staff app replaces it with its catalogued permissions; serializers in `api_serializers.py` for it to
-reuse.
+**Staff API**: `/api/v1/shipping/` (API.md "Shipping (staff)") on the staff app's rules (`staff.api.StaffAppView`: the
+panel's session or an API key, the admin host only, refusals audited): `staff.view_parcels` for every read,
+`staff.book_parcel` for the quote, booking, label, pickup, manifest, photograph and cancellation, `staff.act_on_exception`
+for NDR actions and resolving exceptions, `staff.view_cod` and `staff.reconcile_cod` for cash on delivery and the
+charges, `staff.manage_pickup_locations` (`staff/catalogue.py`; the roles: PACKER books, SALES acts on failed
+deliveries, FINANCE reconciles COD, ADMIN and the owners all; `accounts/roles.py`). Querysets go through the staff app's
+`scoped()` (a PACKER's parcels are the orders to pack and on their way). Every change is an audit event targeting the
+order (`shipping.booked`, `shipping.ndr_action` with the names of the details changed …; the COD reconciliation is
+`payment.cod_reconciled`, in the money chain). Serializers in `api_serializers.py`.
 
 ## Operations
 

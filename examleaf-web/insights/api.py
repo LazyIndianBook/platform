@@ -1,12 +1,20 @@
-"""The insights for staff, read-only, under /api/v1/insights/ (API.md "Insights (staff)"): the rows of each job's newest
-run or day. Every answer says how its numbers were made (research-b2b-predictive.md 4.1): `method`, `data_as_of`,
-`backtest` (the newest backtest of every title together, four weeks ahead; null where nothing is predicted) and
-`shown` (false while a prediction has not beaten the seasonal naive: the panel then hides it or says so); each row
-has its `n`."""
+"""The insights for staff, under /api/v1/insights/ (API.md "Insights (staff)"), on the staff app's rules
+(staff.api.StaffAppView: `staff.view_insights` to read, `staff.acknowledge_signal` to acknowledge a fraud signal; the
+admin host only; refusals and acknowledgements in the audit log): the rows of each job's newest run or day. Every
+answer says how its numbers were made (research-b2b-predictive.md 4.1): `method`, `data_as_of`, `backtest` (the newest
+backtest of every title together, four weeks ahead; null where nothing is predicted) and `shown` (false while a
+prediction has not beaten the seasonal naive: the panel then hides it or says so); each row has its `n`."""
 
+from django.db import transaction
 from django.db.models import Max
 from django.urls import path
+from django.utils import timezone
+from drf_spectacular.utils import extend_schema
 from rest_framework import generics, serializers
+from rest_framework.response import Response
+
+from staff import audit
+from staff.api import StaffAppView
 
 from .jobs import latest
 from .jobs.demand import SHOWN_HORIZON
@@ -23,7 +31,6 @@ from .models import (
     OfferStat,
     PrintRunAdvice,
 )
-from .permissions import StaffOnly
 
 
 class TitledSerializer(serializers.ModelSerializer):
@@ -139,10 +146,10 @@ def backtest_summary():
     return {**{name: getattr(row, name) for name in fields}, "data_as_of": TIME.to_representation(record.data_as_of)}
 
 
-class InsightList(generics.ListAPIView):
+class InsightList(StaffAppView, generics.ListAPIView):
     """The rows of a job's newest run (`kind` and `rows`: a ForecastRun's) or newest day (a stat model's)."""
 
-    permission_classes = [StaffOnly]
+    permissions = {"GET": "staff.view_insights"}
     filter_backends = []  # the few filters are read in get_queryset (API.md)
     kind = rows = None  # a predictive job: its ForecastRun kind, and the run's related name for its rows
     method = ""  # a stat job: how its rows are made
@@ -255,6 +262,28 @@ class FraudSignalList(InsightList):
         return rows.filter(acknowledged_at=None) if self.request.query_params.get("open") else rows
 
 
+class FraudSignalAcknowledgeView(StaffAppView, generics.GenericAPIView):
+    """Looked at and handled: the signal leaves `?open=1`. Once (again: the same answer); the audit log keeps who."""
+
+    permissions = {"POST": "staff.acknowledge_signal"}
+    queryset = FraudSignal.objects.all()
+    serializer_class = FraudSignalSerializer
+
+    @extend_schema(request=None, responses=FraudSignalSerializer)
+    def post(self, request, *args, **kwargs):
+        signal, user = self.get_object(), self.human()
+        with transaction.atomic():
+            done = FraudSignal.objects.filter(pk=signal.pk, acknowledged_at=None).update(
+                acknowledged_at=timezone.now(), acknowledged_by=user.pk
+            )
+            if done:
+                audit.record(
+                    "insights.signal_acknowledged", request=request, target=signal, details={"kind": signal.kind}
+                )
+        signal.refresh_from_db()
+        return Response(self.get_serializer(signal).data)
+
+
 class OfferList(InsightList):
     serializer_class = OfferStatSerializer
     method = "orders while it ran ÷ the same weeks last season, 95 % interval (normal approximation); no winners"
@@ -273,5 +302,10 @@ urlpatterns = [  # under /api/v1/insights/ (api/urls.py)
     path("code-activation/", CodeActivationList.as_view(), name="insights-code-activation"),
     path("delivery/", DeliveryList.as_view(), name="insights-delivery"),
     path("fraud-signals/", FraudSignalList.as_view(), name="insights-fraud-signals"),
+    path(
+        "fraud-signals/<int:pk>/acknowledge/",
+        FraudSignalAcknowledgeView.as_view(),
+        name="insights-fraud-signal-acknowledge",
+    ),
     path("offers/", OfferList.as_view(), name="insights-offers"),
 ]

@@ -173,7 +173,10 @@ data: redemptions from a batch not yet dispatched (no dispatch date: ERPNext's B
 
 ## Seams
 
-- `insights.permissions.StaffOnly` (active staff) is a placeholder for the staff app's catalogued permissions.
+- The API is on the staff app's rules (`staff.api.StaffAppView`): `staff.view_insights` (FINANCE, MARKETING, ADMIN,
+  the owners, AUDITOR) reads, `staff.acknowledge_signal` (ADMIN, the owners) acknowledges a fraud signal there and in
+  the admin; on the admin host only; refusals and acknowledgements in the audit log. Fraud signals do not file staff
+  inbox items yet (the nightly email tells `INSIGHTS_ALERT_EMAILS`).
 - `RtoHistory` waits for the shipping app's parcel outcomes (delivered, returned to origin, lost; the RTO reason); the
   repeated-refusal rule and the RTO model wait for the same.
 - `PrintCost` and the stock are to come from ERPNext (Item valuation, purchase orders, stock per warehouse) through the
