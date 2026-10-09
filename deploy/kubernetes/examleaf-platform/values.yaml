@@ -259,9 +259,10 @@ frontend:
   env: {}  # more environment: {NAME: "value"}
 
 # The Admin Control Panel (examleaf-admin, Next.js, docs/examleaf-admin-control-panel-plan.md) at admin.<domain>,
-# shaped as the frontend: a placeholder until its image exists. The admin host routes as the main host does: Django's
-# paths to web (the panel signs in and calls /api/v1/staff/ on its own host, with its own host-only cookies), every
-# other path to the panel; the host joins ALLOWED_HOSTS and CSRF_TRUSTED_ORIGINS.
+# shaped as the frontend; `make images` builds it for that host (its NEXT_PUBLIC_* values are compiled in). The admin
+# host routes as the main host does: Django's paths to web (the panel signs in and calls /api/v1/staff/ on its own
+# host, with its own host-only cookies), every other path to the panel; the host joins ALLOWED_HOSTS and
+# CSRF_TRUSTED_ORIGINS.
 admin:
   enabled: false
   host: ""  # empty: admin.<domain>

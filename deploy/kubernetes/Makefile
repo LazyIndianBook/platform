@@ -1,10 +1,14 @@
-# The Kubernetes packaging's tasks: the two images, the chart's checks, and the kind cluster that TESTING.md walks
+# The Kubernetes packaging's tasks: the three images, the chart's checks, and the kind cluster that TESTING.md walks
 # through. Run them from this directory (deploy/kubernetes/); `make` lists them.
 TAG ?= $(shell git rev-parse --short HEAD)
 # the chart's "registry" value: every image of the platform is <registry>/<name>:<tag>
 REGISTRY ?= ghcr.io/lazyindianbook
 DOMAIN ?= examleaf.in
-# compiled into the frontend's build (examleaf-frontend/Dockerfile): change one, build again; empty: off
+# the chart's admin.host, and ERPNext's desk for the admin's links once it runs (https://erp.examleaf.in; empty: none)
+ADMIN_HOST ?= admin.$(DOMAIN)
+ERP_URL ?=
+# the frontend's keys (empty: off). These, DOMAIN, ADMIN_HOST and ERP_URL are compiled into the two Next.js builds
+# (their Dockerfiles' NEXT_PUBLIC_* arguments): change one, build again
 RAZORPAY_KEY_ID ?=
 TURNSTILE_SITE_KEY ?=
 PUBLIC_MEDIA_DOMAIN ?=
@@ -14,6 +18,7 @@ RELEASE ?= examleaf
 CHART := examleaf-platform
 WEB_IMAGE := $(REGISTRY)/examleaf-web:$(TAG)
 FRONTEND_IMAGE := $(REGISTRY)/examleaf-frontend:$(TAG)
+ADMIN_IMAGE := $(REGISTRY)/examleaf-admin:$(TAG)
 
 # What a cluster needs before the chart (README.md, "Operators first"), each at a pinned release. Traefik goes into
 # kube-system, as k3s runs its bundled one, with traefik-values.yaml and, on kind, the node's ports 80 and 443.
@@ -28,7 +33,7 @@ BARMAN_PLUGIN := https://github.com/cloudnative-pg/plugin-barman-cloud/releases/
 help: ## list the tasks
 	@grep -E '^[a-z-]+:.*## ' Makefile | sed 's/:.*## /\t/'
 
-images: ## build examleaf-web and examleaf-frontend as REGISTRY/…:TAG (the git commit), the frontend for https://DOMAIN
+images: ## build examleaf-web, examleaf-frontend and examleaf-admin as REGISTRY/…:TAG (the git commit), for DOMAIN
 	docker build --tag $(WEB_IMAGE) ../../examleaf-web
 	docker build --tag $(FRONTEND_IMAGE) \
 	  --build-arg NEXT_PUBLIC_SITE_URL=https://$(DOMAIN) \
@@ -37,10 +42,16 @@ images: ## build examleaf-web and examleaf-frontend as REGISTRY/…:TAG (the git
 	  --build-arg NEXT_PUBLIC_MEDIA_HOST=$(PUBLIC_MEDIA_DOMAIN) \
 	  --build-arg NEXT_PUBLIC_RELEASE=$(TAG) \
 	  ../../examleaf-frontend
+	docker build --tag $(ADMIN_IMAGE) \
+	  --build-arg NEXT_PUBLIC_SITE_URL=https://$(ADMIN_HOST) \
+	  --build-arg NEXT_PUBLIC_WEBSITE_URL=https://$(DOMAIN) \
+	  --build-arg NEXT_PUBLIC_ERP_URL=$(ERP_URL) \
+	  ../../examleaf-admin
 
-push: ## push both images to REGISTRY (docker login ghcr.io first)
+push: ## push the three images to REGISTRY (docker login ghcr.io first)
 	docker push $(WEB_IMAGE)
 	docker push $(FRONTEND_IMAGE)
+	docker push $(ADMIN_IMAGE)
 
 deps: ## fetch the chart's dependencies (the erpnext chart, switched off) into examleaf-platform/charts/
 	helm dependency build $(CHART)
@@ -79,8 +90,8 @@ kind-secrets: ## the test cluster's Secrets, each made once with fresh random va
 	  && kubectl -n $(NAMESPACE) create secret generic $(RELEASE)-backup \
 	       --from-literal=AWS_ACCESS_KEY_ID=$$KEY --from-literal=AWS_SECRET_ACCESS_KEY=$$SECRET; }
 
-kind-load: ## copy the two images into the kind node (no registry)
-	kind load docker-image $(WEB_IMAGE) $(FRONTEND_IMAGE) --name $(CLUSTER)
+kind-load: ## copy the three images into the kind node (no registry)
+	kind load docker-image $(WEB_IMAGE) $(FRONTEND_IMAGE) $(ADMIN_IMAGE) --name $(CLUSTER)
 
 kind-install: deps ## helm install (or upgrade) the release into kind with values-kind.yaml
 	helm upgrade --install $(RELEASE) $(CHART) --namespace $(NAMESPACE) --create-namespace \

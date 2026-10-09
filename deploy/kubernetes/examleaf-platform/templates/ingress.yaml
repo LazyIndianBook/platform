@@ -64,6 +64,7 @@ spec:
                                                   large body from anyone but signed-in staff before reading it)
          <release>-health                           /health and /health/*: basic auth for the uptime monitor
          <release>-site, <release>-admin-site       every other path to the website or the admin panel: health-hide
+                                                  (and drop-subrequest on the admin host)
          <release>-http                             http on every host: redirect-https
        The admin host's every Ingress takes admin-allowlist first when admin.allowlist is set. */ -}}
 {{- $fullname := include "examleaf.fullname" . -}}
@@ -106,7 +107,7 @@ spec:
 {{- end }}
 ---
 {{ include "examleaf.ingress" (dict "ctx" $ "name" (printf "%s-site" $h.name) "entrypoint" "websecure" "tls" $tls
-      "middlewares" (concat $h.first (list "health-hide"))
+      "middlewares" (concat $h.first (list "health-hide") (eq $i 0 | ternary (list) (list "drop-subrequest")))
       "rules" (list (dict "host" $h.host "paths" (list (dict "path" "/" "service" $h.site "port" "http"))))) }}
 {{- $redirectRules = append $redirectRules (dict "host" $h.host "paths" (list (dict "path" "/" "service" (printf "%s-frontend" $fullname) "port" "http"))) }}
 {{- end }}

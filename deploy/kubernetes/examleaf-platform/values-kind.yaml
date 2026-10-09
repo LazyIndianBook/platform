@@ -52,11 +52,9 @@ frontend:
     requests: {cpu: 20m, memory: 128Mi}
     limits: {cpu: "1", memory: 512Mi}
 
-# No admin image exists yet: the website's image stands in, to try the host, its certificate and the allowlist.
 admin:
-  enabled: true
+  enabled: true  # https://admin.examleaf.localhost, built by `make images DOMAIN=examleaf.localhost`
   image:
-    repository: examleaf-frontend
     pullPolicy: Never
   resources:
     requests: {cpu: 20m, memory: 128Mi}
@@ -94,6 +92,6 @@ cronJobs:
     enabled: true
     schedule: "*/5 * * * *"
 
-# ERPNext stays off on a laptop: it wants 6 to 8 GiB of its own (TESTING.md section 7 checks its part without it)
+# ERPNext stays off on a laptop: it wants 6 to 8 GiB of its own (TESTING.md section 6 checks its part without it)
 erpnext:
   enabled: false

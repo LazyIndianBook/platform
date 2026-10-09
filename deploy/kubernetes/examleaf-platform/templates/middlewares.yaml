@@ -9,6 +9,8 @@
          health-auth      /health for the uptime monitor only: user monitor, HEALTH_CHECK_TOKEN as the password
          health-hide      on the Next.js servers' paths: /health never reaches a server that passes Django's paths on;
                           should the health Ingress be down (its Secret missing), /health is the website's 404
+         drop-subrequest  on the admin panel's paths: no X-Middleware-Subrequest from a visitor (Next.js's internal
+                          header, CVE-2025-29927), as the Caddyfile's admin site drops it
          admin-allowlist  the admin host for admin.allowlist's addresses only; the others get 403 */ -}}
 {{- $fullname := include "examleaf.fullname" . -}}
 {{- $labels := dict "ctx" . "component" "ingress" "app" "examleaf" "version" .Values.image.tag -}}
@@ -20,8 +22,11 @@
   "health-auth" (dict "basicAuth" (dict "secret" (include "examleaf.healthAuthSecret" .) "realm" "ExamLeaf health" "removeHeader" true))
   "health-hide" (dict "replacePathRegex" (dict "regex" "^/health(/.*)?$" "replacement" "/health-not-found/"))
 -}}
-{{- if and .Values.admin.enabled .Values.admin.allowlist }}
-{{- $_ := set $middlewares "admin-allowlist" (dict "ipAllowList" (dict "sourceRange" .Values.admin.allowlist)) }}
+{{- if .Values.admin.enabled }}
+{{- $_ := set $middlewares "drop-subrequest" (dict "headers" (dict "customRequestHeaders" (dict "X-Middleware-Subrequest" ""))) }}
+{{- with .Values.admin.allowlist }}
+{{- $_ := set $middlewares "admin-allowlist" (dict "ipAllowList" (dict "sourceRange" .)) }}
+{{- end }}
 {{- end }}
 {{- range $name, $spec := $middlewares }}
 ---

@@ -2,7 +2,7 @@
 
 This directory packages the platform for a Kubernetes cluster, as section 3.4 of
 `docs/examleaf-admin-control-panel-plan.md` decided: one Helm chart, `examleaf-platform`, with the Django backend and
-its Celery processes, the Next.js website, a place for the admin panel, PostgreSQL through the CloudNativePG operator,
+its Celery processes, the Next.js website and admin panel, PostgreSQL through the CloudNativePG operator,
 two Redis, the Ingress and its certificates. ERPNext is a dependency of the chart with its database, backups and
 Ingress prepared, switched off until it is added (section "ERPNext" below). docker-compose
 (`examleaf-web/docker-compose.yml`) stays for development and for a one-machine server; this is the same stack,
@@ -24,7 +24,7 @@ validated, not run); the chart has not yet run on a real cluster.
 | `web` (migrate, bootstrap_roles, gunicorn) | Deployment `examleaf-web`: an init container waits for the database and runs `migrate` and `bootstrap_roles`; gunicorn is ready once `/health/web/` answers |
 | `worker`, `beat`, `media-worker` | Deployments `examleaf-worker`, `examleaf-beat` (always one pod), `examleaf-media-worker` (its own small environment); each waits until the migrations are applied |
 | `frontend` | Deployment `examleaf-frontend` |
-| (none yet) | Deployment `examleaf-admin` at `admin.<domain>` (Django's paths there go to web), off until the panel's image exists |
+| `admin` (profile `admin`) | Deployment `examleaf-admin` at `admin.<domain>` (Django's paths there go to web), with `admin.enabled` |
 | `db` (postgres:17) | CloudNativePG `Cluster` `examleaf-db` (PostgreSQL 17), continuous backup to a bucket |
 | `redis`, `redis-cache` | Deployments `examleaf-redis-queue` (with a volume) and `examleaf-redis-cache` |
 | `caddy` | Ingresses and Middlewares for Traefik (k3s's bundled controller), certificates from cert-manager |
@@ -56,12 +56,12 @@ serves the Gateway API as well when the chart moves to it.
 
 ### The ingress controller
 
-The chart's Ingresses (`ingressClassName: traefik`) carry Traefik's annotations `router.entrypoints` (`websecure`,
-or `web` for the http redirect) and `router.middlewares`, which name the chart's Middleware resources
+The chart's Ingresses (`ingressClassName: traefik`) carry Traefik's annotations `router.entrypoints` (`websecure`, or
+`web` for the http redirect) and `router.middlewares`, which name the chart's Middleware resources
 (`templates/middlewares.yaml`): `redirect-https`, `body-limit` (Buffering), `compress`, `strip-server` (Headers),
-`health-auth` (BasicAuth), `health-hide` (ReplacePathRegex) and `admin-allowlist` (IPAllowList), plus `erp-headers`
-and `erp-allowlist` with ERPNext. Traefik adds no headers of its own (no HSTS, no `Server`), so Django's and Next's
-are what the browser gets.
+`health-auth` (BasicAuth), `health-hide` (ReplacePathRegex), `drop-subrequest` (Headers) and `admin-allowlist`
+(IPAllowList), plus `erp-headers` and `erp-allowlist` with ERPNext. Traefik adds no headers of its own (no HSTS, no
+`Server`), so Django's and Next's are what the browser gets.
 
 Two of Traefik's own settings go with them (`traefik-values.yaml`): a read timeout of 5 minutes for a whole request
 (Traefik's default of 60 seconds would cut off a photo from a slow phone, which Caddy gave 5 minutes), and the access
@@ -136,9 +136,9 @@ The chart's NetworkPolicies let the controller reach cert-manager's challenge po
 ## Images
 
 Every image of the platform lives under one registry, the chart's `registry` value (default
-`ghcr.io/lazyindianbook`, the owner's GitHub organisation): `examleaf-web` and `examleaf-frontend`, which the
-repository's Dockerfiles build unchanged, the admin panel's `examleaf-admin` once it exists, and ERPNext's
-`examleaf-erp` (section "ERPNext"). From this directory:
+`ghcr.io/lazyindianbook`, the owner's GitHub organisation): `examleaf-web`, `examleaf-frontend` and the admin panel's
+`examleaf-admin`, which the repository's Dockerfiles build unchanged, and ERPNext's `examleaf-erp` (section
+"ERPNext"). From this directory:
 
 ```sh
 docker login ghcr.io          # a token with write:packages
@@ -146,10 +146,12 @@ make images DOMAIN=examleaf.in RAZORPAY_KEY_ID=rzp_live_â€¦ TURNSTILE_SITE_KEY=â
 make push
 ```
 
-Both are tagged with the git commit (`TAG`; `REGISTRY` changes the registry, as the chart's value does). The website's
-`NEXT_PUBLIC_*` values are compiled into its build: a change of domain or of one of those keys means `make images`
-again. The packages of a private repository are private, so the cluster pulls with a Secret, `ghcr-pull`
-(`imagePullSecrets`, and `erpnext.imagePullSecrets` for ERPNext's pods), made from a token with `read:packages`:
+The three are tagged with the git commit (`TAG`; `REGISTRY` changes the registry, as the chart's value does). The two
+Next.js builds have their `NEXT_PUBLIC_*` values compiled in: the website its domain and keys, the panel its own host
+(`ADMIN_HOST`, default `admin.<DOMAIN>`, the chart's `admin.host`), the website's address and ERPNext's desk for its
+links (`ERP_URL`, empty until ERPNext runs). A change of one of them means `make images` again. The packages of a
+private repository are private, so the cluster pulls with a Secret, `ghcr-pull` (`imagePullSecrets`, and
+`erpnext.imagePullSecrets` for ERPNext's pods), made from a token with `read:packages`:
 
 ```sh
 kubectl -n examleaf create secret docker-registry ghcr-pull --docker-server=ghcr.io \
@@ -212,7 +214,11 @@ alone would also have caught `/apiary/`. The admin host needs Django's paths bec
 `CSRF_TRUSTED_ORIGINS` (both from the environment, as Django reads them). Its cookies are its own (Django's and the
 panel's are host-only, so a session there is not the website's). `admin.allowlist` (a list of CIDRs) limits who reaches
 the admin host at all, Django's paths there included: others get 403 from Traefik before the panel's own sign-in.
-`/health` is not served on the admin host; the panel's server never sees it (`health-hide`), so it answers 404.
+`/health` is not served on the admin host; the panel's server never sees it (`health-hide`), so it answers 404. As
+the Caddyfile's admin site does, Traefik drops the request header `X-Middleware-Subrequest` before the panel
+(`drop-subrequest`: Next.js's internal header, never a visitor's, CVE-2025-29927). Staff who sign in with Google there
+need `https://admin.<domain>/account/google/login/callback/` among the OAuth client's redirect URIs
+(`examleaf-admin/README.md` "Deploy").
 
 ## Install
 
@@ -220,7 +226,8 @@ the admin host at all, Django's paths there included: others get 403 from Traefi
 cd deploy/kubernetes
 make deps                                            # the ERPNext chart that Chart.lock pins (switched off)
 helm upgrade --install examleaf examleaf-platform --namespace examleaf --create-namespace \
-  -f values-production.yaml --set image.tag=<TAG> --set frontend.image.tag=<TAG> --wait --timeout 15m
+  -f values-production.yaml --set image.tag=<TAG> --set frontend.image.tag=<TAG> --set admin.image.tag=<TAG> \
+  --wait --timeout 15m
 ```
 
 `values-production.yaml` is yours, kept outside the repository or without secrets in it: at least `domain` (and
@@ -547,7 +554,8 @@ section 6: rendered and validated against the API server, not run).
   The http redirect keeps the whole path; it answers a GET with 301 where Caddy answered 308. HTTP/3 is off (Caddy
   answered on 443/udp; Traefik's chart has `ports.websecure.http3.enabled`).
 - **The health gate** is basic auth with `HEALTH_CHECK_TOKEN` as the password and answers 401, where Caddy wanted the
-  `X-Health-Token` header and answered 404 ("Health checks" above).
+  `X-Health-Token` header and answered 404 ("Health checks" above). It is on the main host only; Caddy's admin site
+  served `/health` with the token too.
 - **Request IDs.** Traefik makes none: django-guid makes one per request (and takes a client's own only when it is a
   UUID), so the access log and Django's log share no ID, where Caddy put its own ID into both.
 - **Body limits.** 10 MB on Django's form and API paths, read whole before gunicorn sees them, as Caddy did. The
