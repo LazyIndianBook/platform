@@ -7,6 +7,7 @@ from django.core.cache import cache
 from django.db.backends.signals import connection_created
 from pwned_passwords_django import api as pwned_passwords
 
+from examleaf.cache import SoftRedisCache
 from examleaf.celery import app as celery_app
 from examleaf.views import HealthView
 
@@ -46,6 +47,7 @@ def pytest_collection_modifyitems(items):
 def fresh_cache():
     cache.clear()  # allauth's rate limits and axes live in the cache
     HealthView.results_by_path.clear()  # the health checks' results, kept 20 s in the process
+    SoftRedisCache.down_until = 0.0  # a test's Redis outage is not the next one's
 
 
 @pytest.fixture(autouse=True)

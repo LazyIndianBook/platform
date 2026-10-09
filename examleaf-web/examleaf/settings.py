@@ -867,3 +867,6 @@ MIDDLEWARE.insert(
 )
 LOGGING["filters"]["task"] = {"()": "examleaf.celery.TaskIds"}
 LOGGING["handlers"]["stdout"]["filters"].append("task")
+# The cache Redis silent: SoftRedisCache stops asking it for a few seconds after a failed call and logs that once,
+# instead of a line for every call (examleaf/cache.py).
+DJANGO_REDIS_LOG_IGNORED_EXCEPTIONS = False

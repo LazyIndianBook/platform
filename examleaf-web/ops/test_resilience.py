@@ -1,11 +1,14 @@
-"""Redis half-open (takes connections, never answers), the email provider failing on top of it, MSG91 silent, the
-health ping."""
+"""Redis half-open (takes connections, never answers), as the queue and as the cache, the email provider failing on top
+of it, MSG91 silent, the health ping."""
 
+import logging
 import threading
+import time
 
 import httpx
 import pytest
 from django.core import mail
+from django.core.cache import cache
 from django.core.mail import EmailMessage
 from health_check.exceptions import ServiceUnavailable
 
@@ -34,6 +37,24 @@ def queue_within(seconds, message):
 def test_a_broker_that_never_answers_costs_seconds_not_the_request(half_open_broker):
     assert queue_within(30, EmailMessage("Your code", "ABCD-EFGH", to=["a@example.com"]))
     assert [m.subject for m in mail.outbox] == ["Your code"]  # sent from the web process instead
+
+
+def test_a_silent_cache_redis_costs_one_timeout_then_every_call_is_a_miss_at_once(
+    settings, monkeypatch, half_open_port, within, caplog
+):
+    caplog.set_level(logging.WARNING, logger="examleaf.cache")
+    settings.CACHES = {
+        "default": {
+            "BACKEND": "examleaf.cache.SoftRedisCache",  # what settings.py gives a redis:// CACHE_URL
+            "LOCATION": f"redis://127.0.0.1:{half_open_port}/1",
+            "OPTIONS": settings.REDIS_CACHE_OPTIONS,  # one second for each call
+        }
+    }
+    started = time.monotonic()
+    assert within(5, lambda: [cache.get("throttle") for _ in range(20)])  # a request makes 4 to 14 such calls
+    assert time.monotonic() - started < 3  # the first call's second, then misses at once: 20 s without the pause
+    assert cache.add("allauth-lock", 1) is True and cache.get("throttle") is None
+    assert caplog.text.count("every cache call a miss") == 1  # one warning a pause, not one a call
 
 
 def test_a_silent_msg91_costs_its_timeout_and_the_sms_is_tried_again(settings, monkeypatch, half_open_port, within):
