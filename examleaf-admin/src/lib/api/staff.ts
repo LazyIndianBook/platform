@@ -615,8 +615,8 @@ function staffMember(value: unknown, what: string): StaffMember {
   };
 }
 
-export const listPeople = (query: { q?: string; cursor?: string } = {}, transport?: Transport) =>
-  call(transport, "GET", "people/", page(staffMember), { query });
+export const listPeople = (query: { q?: string; cursor?: string } = {}, transport?: Transport, signal?: AbortSignal) =>
+  call(transport, "GET", "people/", page(staffMember), { query, signal });
 /** One staff member (GET people/{id}/: the list's detail route, not named in the brief). */
 export const getPerson = (id: string, transport?: Transport) =>
   call(transport, "GET", `people/${id}/`, (body) => staffMember(body, "person"));
@@ -931,8 +931,11 @@ function customerRecord(body: unknown): CustomerRecord {
   };
 }
 
-export const listUsers = (query: { q?: string; kind?: string; status?: string; cursor?: string } = {}, t?: Transport) =>
-  call(t, "GET", "users/", page(customer), { query });
+export const listUsers = (
+  query: { q?: string; kind?: string; status?: string; cursor?: string } = {},
+  t?: Transport,
+  signal?: AbortSignal,
+) => call(t, "GET", "users/", page(customer), { query, signal });
 export const getUser = (id: string, transport?: Transport) => call(transport, "GET", `users/${id}/`, customerRecord);
 export const revealUser = (id: string, field: "email" | "phone", reason: string) =>
   call(undefined, "POST", `users/${id}/reveal/`, (body) => text(obj(body, "reveal").value, "reveal.value"), {

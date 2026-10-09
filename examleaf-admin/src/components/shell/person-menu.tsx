@@ -20,6 +20,7 @@ export function PersonMenu({ onShortcuts }: { onShortcuts: () => void }) {
   const manifest = useManifest();
   const shortcuts = useShortcutsEnabled();
   const [leaving, setLeaving] = useState(false);
+  const [notEverywhere, setNotEverywhere] = useState(false);
   const name = manifest.user.name || manifest.user.email;
 
   return (
@@ -88,8 +89,9 @@ export function PersonMenu({ onShortcuts }: { onShortcuts: () => void }) {
               className={item}
               aria-busy={leaving || undefined}
               onClick={() => {
+                if (leaving) return;
                 setLeaving(true);
-                signOut();
+                void signOut();
               }}
             >
               {copy.common.signOut}
@@ -97,13 +99,24 @@ export function PersonMenu({ onShortcuts }: { onShortcuts: () => void }) {
             <button
               type="button"
               className={item}
+              aria-busy={leaving || undefined}
               onClick={() => {
+                if (leaving) return;
                 setLeaving(true);
-                signOutEverywhere();
+                setNotEverywhere(false);
+                signOutEverywhere().catch(() => {
+                  setLeaving(false);
+                  setNotEverywhere(true);
+                });
               }}
             >
               {copy.shell.signOutEverywhere}
             </button>
+            {notEverywhere ? (
+              <p role="alert" className="m-0 px-2.5 py-1.5 text-sm font-semibold text-destructive">
+                {copy.shell.signOutEverywhereFailed}
+              </p>
+            ) : null}
           </div>
         </div>
       )}

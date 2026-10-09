@@ -191,6 +191,8 @@ export const en = {
     shortcuts: "Keyboard shortcuts",
     shortcutsSwitch: "Single-key shortcuts",
     signOutEverywhere: "Sign out everywhere",
+    signOutEverywhereFailed:
+      "Your other sessions could not be ended, so you are still signed in here. Try again in a minute.",
     roles: "Roles",
     erp: "In ERPNext",
     erpOpens: "opens ERPNext",
