@@ -353,7 +353,7 @@ list any variable its clip task comes to need. After a change: `docker compose u
 |---|---|---|---|
 | `SMS_BACKEND` | `console` | for phone log-in and SMS | `msg91` sends SMS (section 15); `console` prints them, and on a server (`DEBUG=0`) turns phone log-in, order SMS and SMS consent links off. Any other value stops the site starting |
 | `MSG91_AUTHKEY` | none | with `msg91` (the site refuses to start without it) | MSG91 → API: create an authkey, with the server's IP whitelisted (section 15) |
-| `MSG91_TEMPLATE_OTP`, `MSG91_TEMPLATE_ORDER_PLACED`, `MSG91_TEMPLATE_ORDER_SHIPPED`, `MSG91_TEMPLATE_ORDER_DELIVERED`, `MSG91_TEMPLATE_PARENT_CONSENT` | none | one for each kind of SMS wanted | the id MSG91 gives each registered DLT template (texts: RUNBOOK.md "SMS") |
+| `MSG91_TEMPLATE_OTP`, `MSG91_TEMPLATE_ORDER_PLACED`, `MSG91_TEMPLATE_ORDER_SHIPPED`, `MSG91_TEMPLATE_ORDER_DELIVERED`, `MSG91_TEMPLATE_PARENT_CONSENT`, `MSG91_TEMPLATE_ORDER_ARRIVING`, `MSG91_TEMPLATE_ORDER_NOT_DELIVERED` | none | one for each kind of SMS wanted | the id MSG91 gives each registered DLT template (texts: RUNBOOK.md "SMS"); the last two are a courier's news (section 21), not sent while empty |
 | `SMS_DAILY_CAP` | `500` | no | SMS sent per day at most (India time), the last line behind the fixed limits per number, account and purpose; counted in the database (RUNBOOK.md "SMS") |
 
 ### Sign-in providers and Turnstile
@@ -374,6 +374,21 @@ list any variable its clip task comes to need. After a change: `docker compose u
 | `SHOP_COD_MAX_VALUE` | `1500` | no | the largest cash-on-delivery order, in rupees, shipping included |
 | `SHOP_LOW_STOCK` | `5` | no | each morning at 8 the SALES role is emailed the books with fewer copies (RUNBOOK.md "Stock, stock alerts and the low-stock email"); also the dashboard's "running out" |
 | `SELLER_LEGAL_NAME`, `SELLER_ADDRESS`, `SELLER_GSTIN`, `SELLER_STATE`, `SELLER_STATE_CODE`, `SELLER_EMAIL`, `SELLER_PHONE` | `ExamLeaf LLP`, `[address], [city], Assam [PIN]`, empty, `AS`, `18`, `[email]`, `[phone]` | required before the shop opens | the seller printed on every invoice (the LLP's registered details; GSTIN empty: "not registered"); no invoice of the real series is numbered while a `[placeholder]` is left |
+
+### Integrations and shipping
+
+| Variable | Default | Required | What it does; where to get the value |
+|---|---|---|---|
+| `INTEGRATION_KEYS` | none | once an integration account exists (the web container then refuses to migrate, and so to start, without it: `integrations.E001`) | Fernet keys, separated by commas, newest first, that encrypt the credentials and tokens of the integration accounts (Shiprocket's API user); make one with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`; a value that is not such a key stops the site starting. Kept with the other secrets: a database backup is unreadable without it (RUNBOOK.md "Integration keys") |
+| `INTEGRATIONS_CONNECT_TIMEOUT`, `INTEGRATIONS_READ_TIMEOUT` | `5`, `20` | no | seconds a call to a provider waits to connect, then for its answer |
+| `INTEGRATIONS_RETENTION_DAYS` | `90` | no | the call log, the inbound events and the dead letters dealt with go after this many days |
+| `SHIPPING_PACKING_GRAMS` | `50` | no | the packing's weight, added to the books' (`Product.weight_grams`, which must be filled in) |
+| `SHIPPING_PARCEL_CM` | `25,20,3` | no | a parcel's length, breadth and height in cm when staff give none (a flyer) |
+| `SHIPPING_QUOTE_TIMEOUT` | `3` | no | seconds the booking screen's quote waits for Shiprocket before showing its last answer |
+| `SHIPPING_MIN_RATING`, `SHIPPING_MAX_DAYS` | `4`, `7` | no | the quote ranks first the cheapest couriers rated this much or more that deliver within this many days |
+| `SHIPPING_GYAN_POST` | `0` | no | 1: India Post's Gyan Post priced beside the couriers for prepaid orders, only once the postal division has confirmed in writing that the books qualify (research 6.1) |
+| `SHIPPING_SURVEY_BATCH` | `500` | no | North-East PINs whose couriers are asked each Sunday, the oldest answers first |
+| `API_THROTTLE_PARCEL_EVENTS` | `300/minute` | no | the couriers' webhook, per client address |
 
 ### Buckets and media
 
@@ -438,8 +453,8 @@ Read by `scripts/backup.sh` (which takes `BACKUP_KEEP_DAYS` and `BACKUP_AGE_RECI
 
 ## 14. Security settings
 
-**Health checks.** From the internet Caddy answers `/health/` and `/health/web/` with 404 unless the request carries
-the header `X-Health-Token: <HEALTH_CHECK_TOKEN>` (Caddyfile). Set the token in `.env` (letters, digits, `-` and `_`;
+**Health checks.** From the internet Caddy answers `/health/`, `/health/web/` and `/health/integrations/` (section
+21) with 404 unless the request carries the header `X-Health-Token: <HEALTH_CHECK_TOKEN>` (Caddyfile). Set the token in `.env` (letters, digits, `-` and `_`;
 `secrets.token_urlsafe` gives that) and in the uptime monitor's request headers (UptimeRobot's paid plans, Better
 Stack, Uptime Kuma and most others can send one). The web container's own health check calls `127.0.0.1:8000` and
 needs no token. Caddy reads the token from its own environment, so docker-compose.yml passes it on:
@@ -833,3 +848,55 @@ Before the app uses passkeys, the domain must vouch for it: `https://examleaf.in
 the package name and the signing certificate's SHA-256, relation `delegate_permission/common.get_login_creds`) and
 `https://examleaf.in/.well-known/apple-app-site-association` (iOS: `webcredentials` with the app ID). Neither is served
 yet: add them with the app's first release.
+
+## 21. Shipping: Shiprocket, India Post and the integration keys
+
+The courier integration (`shipping/README.md`, on `integrations/README.md`): parcels booked with Shiprocket, tracked
+by its webhook and a two-hourly poll, reconciled from its statement; parcels sent by hand (India Post) as before.
+Shiprocket has no sandbox: its test mode here answers from recorded examples, and the live smoke test books and
+cancels one real parcel.
+
+1. **The integration key.** Make one (section 13, "Integrations and shipping"), put it in `.env` as
+   `INTEGRATION_KEYS`, keep a copy with the other secrets, `docker compose up -d`.
+2. **Shiprocket's API user** (an hour, on the Lite plan; Business at about 50 parcels a month). In Shiprocket:
+   Settings → API → Add New API User, with an email address that is not the account's own login, the modules the site
+   uses (orders, couriers, tracking, NDR, billing and wallet, pickup addresses) and "Buyer's Details Access" allowed
+   (the label needs the address). The password is shown once: copy it.
+3. **The account in the admin.** Admin → Integrations → Integration accounts → Add: provider Shiprocket, mode
+   **test**, enabled; "Replace the credentials" `{"email": "<API user>", "password": "<its password>"}`. Save, then
+   the action "Test the connection" ("Connected: wallet balance ₹…", answered by the recorded double in test mode).
+   Book a few parcels of test orders through `/api/v1/shipping/` (API.md "Shipping (staff)") to see the flow. For
+   real parcels: add a second account with mode **live** and the same credentials, disable the test one, enable the
+   live one (one enabled per provider), test the connection (the real wallet balance this time).
+4. **The pickup address.** In Shiprocket: Settings → Pickup Addresses, our address with the nickname we will use
+   ("Primary"). Then `POST /api/v1/shipping/pickup-locations/sync/` (or add it in Admin → Shipping → Pickup locations
+   with the same nickname and PIN), the default one.
+5. **The webhook.** Admin → Integration accounts → the live account → the action "New webhook token": the token is
+   shown once. In Shiprocket: Settings → API → Webhooks, URL `https://<domain>/api/hooks/parcel-events/` (Shiprocket
+   refuses a URL with "shiprocket", "kartrocket", "sr" or "kr" in it: this one has none; the domain must not either),
+   the token as the security token, enabled. Caddy already sends `/api/` to Django. Without a token set, every
+   webhook is refused (403); the previous token keeps working for 24 hours after a new one is made.
+6. **The catalogue's weights.** Every printed product needs its `weight (g)` (the quote and the booking add
+   `SHIPPING_PACKING_GRAMS`); a book without one cannot be quoted until it has one, or until staff weigh the parcel.
+7. **India Post's tariff.** `docker compose exec web python manage.py loaddata postal_tariffs` into the empty table
+   (Book Post, and Gyan Post for when `SHIPPING_GYAN_POST` is on: the published tariff as the research read it on 9
+   October 2026; verify it at the counter and correct it in Admin → Shipping → Postal tariffs).
+8. **The survey of the North-East's PINs.** With the PIN directory loaded (section 15), `docker compose exec web python
+   manage.py shipping_survey_pins` (500 PINs a run, then each Sunday by itself): Admin → Shipping → PIN serviceability
+   lists, per PIN, the couriers, their COD and rate; courier "no courier" PINs go by India Post.
+9. **SMS of a courier's news** (optional): register the two DLT templates of RUNBOOK.md "SMS" (`order_arriving`,
+   `order_not_delivered`) and set `MSG91_TEMPLATE_ORDER_ARRIVING` and `MSG91_TEMPLATE_ORDER_NOT_DELIVERED`; without
+   them those SMS are not sent (the emails are).
+10. **The live smoke test.** `docker compose exec web python manage.py shipping_smoke_test --yes`: books a prepaid
+    parcel to our own pickup address, assigns an AWB, fetches the label, cancels it before pickup and waits for the
+    freight's reversal in the statement, printing every step. It moves real money (the freight is debited, then given
+    back), and refuses to run with a test-mode account.
+11. **Monitoring.** A second uptime monitor on `https://<domain>/health/integrations/` with the `X-Health-Token`
+    header (section 7): it fails while Shiprocket has been unavailable for 30 minutes (the circuit open), or dead
+    letters or failed webhooks wait for staff. `/health/` stays the site's own.
+
+The labels and the parcels' photographs are kept in the private storage (`MEDIA_BUCKET`, folders `shipping/labels/`
+and `shipping/photos/`; MEDIA_ROOT without a bucket), behind links signed for 5 minutes, as invoices are. Celery beat
+runs the shipping tasks by itself (settings.py `CELERY_BEAT_SCHEDULE`, written into the beat tables at start-up):
+tracking every two hours, the statement 05:00, COD remittances 05:15, weight disputes 05:30, the token 05:45, the PIN
+survey on Sundays at 06:00, the SMS held through the night at 08:00, and the integrations' clean-up at 04:45.

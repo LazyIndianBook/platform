@@ -13,7 +13,8 @@ revision course (chapters, clips, quiz, flash cards, a pass plan, book codes). C
 [Conventions](#conventions) · [Endpoints](#endpoints) · [Authentication](#authentication-from-the-app) ·
 [Frontend integration guide](#frontend-integration-guide) · [Profile and data rights](#profile-and-data-rights) ·
 [Catalogue and solutions](#catalogue-and-solutions) · [Attempts](#attempts) · [Store catalogue](#store-catalogue) ·
-[Shop](#shop) · [Revision course](#revision-course) · [Site](#site-configuration-and-legal-pages) · [Lists](#lists) ·
+[Shop](#shop) · [Revision course](#revision-course) · [Shipping (staff)](#shipping-staff) ·
+[Site](#site-configuration-and-legal-pages) · [Lists](#lists) ·
 [Errors](#errors) · [Rate limits](#rate-limits) · [CORS](#cors) · [Versioning](#versioning) · [Operations](#operations)
 
 ## Conventions
@@ -33,8 +34,9 @@ revision course (chapters, clips, quiz, flash cards, a pass plan, book codes). C
 
 ## Endpoints
 
-Paths are under `/api/v1/` except those of the last two rows. Who: **anyone** needs no sign-in; **signed in** needs a
-valid access token (or the website's session); **confirmed** also needs a confirmed email address. **Shop open**: while
+Paths are under `/api/v1/` except those of the last three rows. Who: **anyone** needs no sign-in; **signed in** needs a
+valid access token (or the website's session); **confirmed** also needs a confirmed email address; **staff** is an
+active member of staff with an authenticator app, through the website's session. **Shop open**: while
 `SHOP_OPEN=0` (before the launch) changing the cart, checkout and payment answer 403
 `{"detail": "The shop opens soon."}` except for staff; reading stays possible.
 
@@ -109,8 +111,18 @@ valid access token (or the website's session); **confirmed** also needs a confir
 | GET | `config/` | anyone | what the server has switched on: log-in methods, Turnstile, the shop, consent mode |
 | GET | `pages/`, `pages/<slug>/` | anyone | the legal pages: Markdown, the website's HTML, version, last change |
 | POST | `contact/` | anyone | the contact form: a message emailed to the support address |
+| GET | `shipping/orders/<number>/quote/` (`?weight_g=`) | staff | the couriers for an order's parcel, ranked, with India Post's price for a prepaid order ([Shipping (staff)](#shipping-staff)) |
+| GET POST | `shipping/shipments/` | staff | parcels (`?status=&carrier=&courier_company_id=&order=&search=`); POST books one: with a courier of the quote (202) or sent by hand (201) |
+| GET | `shipping/shipments/<id>/`, `shipping/shipments/<id>/events/` | staff | a parcel with its timeline, exceptions, charges and COD remittance; its timeline |
+| GET POST | `shipping/shipments/<id>/label/` | staff | the label's PDF (not JSON); POST fetches it |
+| POST | `shipping/shipments/<id>/pickup/`, `…/cancel/`, `…/ndr-action/`, `…/photo/` | staff | ask the courier to collect it; cancel the booking before that; act on a failed delivery; the parcel's photograph (multipart) |
+| POST | `shipping/manifest/` | staff | the handover list of booked parcels: the courier's PDF |
+| GET POST | `shipping/exceptions/`, `shipping/exceptions/<id>/resolve/` | staff | what parcels need from staff, by deadline; resolve or dismiss one |
+| GET | `shipping/cod/`, `shipping/charges/` | staff | COD remittances; the courier account's charges and reversals |
+| GET POST PATCH | `shipping/pickup-locations/`, `shipping/pickup-locations/sync/` | staff | our pickup addresses; read them from the courier account |
 | GET | `/api/schema/`, `/api/docs/`, `/api/redoc/` | anyone | the OpenAPI schema, Swagger UI, Redoc |
 | any | `/_allauth/app/v1/…`, `/_allauth/browser/v1/…` | anyone; the account and authenticator endpoints need the signed-in session | allauth.headless: log-in, sign-up, codes, passkeys, Google, second step, email, phone, password, re-authentication, signed-in devices (`auth/sessions`); its OpenAPI file `/_allauth/openapi.json` (and `.yaml`) |
+| POST | `/api/hooks/parcel-events/` | the courier, with its token in `x-api-key` | Shiprocket's tracking webhook ([Shipping (staff)](#shipping-staff)); not in the OpenAPI schema |
 
 ## Authentication from the app
 
@@ -821,6 +833,73 @@ the old registration tokens are deprecated). An ID registered by another account
 account keeps its 5 newest devices. At log-out `DELETE` with `{"token": "..."}` (204). Reminders are sent only while the
 server has `FCM_SERVICE_ACCOUNT_JSON`; IDs Firebase no longer knows are dropped.
 
+## Shipping (staff)
+
+The packing room's and the shipping desk's endpoints (`shipping/api.py`; the app: `shipping/README.md`), for the
+admin panel. **Staff only**: an active member of staff with an authenticator app, through the website's session
+(with the CSRF token on changes); everyone else 403 (`{"detail": "For staff only."}`; staff without an authenticator
+app: `{"code": "mfa_setup_required"}`). The permission is a placeholder until the staff app's catalogued permissions
+replace it. These endpoints are tagged `shipping (staff)` in the schema. Money is in rupees as decimal strings; a
+refusal (ours or the courier's) is `400 {"non_field_errors": ["..."]}`, a courier that cannot be reached
+`503 {"detail": "The courier could not be reached: try again in a few minutes."}`.
+
+- **Quote** `GET shipping/orders/<number>/quote/` (`?weight_g=` as weighed; else the books' weights and the packing):
+  `couriers`, the top three by the research's rule (none without COD for a COD order, none blocked or out of area; first
+  the cheapest rated 4 or more that deliver within 7 days, ties to Shiprocket's own pick; each with `rate`,
+  `etd_days`, `rating`, `cod`, `cod_charges`, `rto_charges`, `recommended`), `india_post` (prepaid orders: Book Post,
+  and Gyan Post once confirmed), `weight_g`, and `stale` with `error` when Shiprocket could not be asked within 3
+  seconds (its last answer for that parcel; answers are kept 10 minutes).
+- **Book** `POST shipping/shipments/` `{"order": "EL-2026-000123", "courier_company_id": 51, "courier_name": "...",
+  "quoted_rate": "63.25", "weight_g": 420}` (optional: `length_cm`, `breadth_cm`, `height_cm` together, a flyer by
+  default; `pickup_location`, the default one otherwise): `202` with the parcel, booked by a task (its `detail.status`
+  becomes `booked`, its `tracking_number` the AWB; then its label is fetched). For a packed order, or a shipped one
+  whose parcel came back or was lost (a re-shipment); never two parcels on their way for one order; never a test
+  order with the live account; never a COD parcel whose cash to collect is not the order's total. **Sent by hand**
+  (India Post, a courier without an API): `{"order": "...", "courier": "India Post", "tracking_number": "EA123456789IN"}`
+  (and `tracking_url`): `201`, the order shipped at once, the customer emailed, as the admin's "Mark shipped".
+- **Parcels** `GET shipping/shipments/` (`?status=booked&carrier=shiprocket&courier_company_id=51&order=<number>`,
+  `?search=` an AWB, an order number or our reference; `?ordering=-pk`): `id`, `order`, `courier`, `tracking_number`,
+  `tracking_url`, `shipped_at`, `delivered_at` and `detail` (null for a parcel typed by hand in the admin before the
+  shipping app): `carrier`, `status`, `reference`, the carrier's ids, `courier_company_id`, `courier_name`,
+  `weight_g` and the dimensions, `charged_weight_g`, `quoted_rate`, `cod_amount`, `declared_value`, `last_event_at`,
+  `pickup_location`, `pickup_date`, `manifested_at`, `has_label`, `has_photo`. One parcel (`shipping/shipments/<id>/`)
+  adds `events` (the timeline), `exceptions`, `charges` and `cod_remittance`.
+- **The packing room**: `GET shipping/shipments/<id>/label/` the label's PDF, kept with us (any `Accept`; 404 until
+  fetched), `POST` the same address fetches it (202); `POST …/pickup/` `{"date": "2026-10-10"}` (optional) asks the
+  courier to collect it (`{"pickup_date": ...}`); `POST shipping/manifest/` `{"shipments": [ids]}` gives
+  `{"url": ...}`, the courier's handover list; `POST …/photo/` (multipart, `photo`, an image of 5 MB at most) keeps
+  the photograph of the parcel on the scale; `POST …/cancel/` cancels the booking until the courier is out for pickup.
+- **Failed deliveries** `POST shipping/shipments/<id>/ndr-action/` `{"action": "re-attempt", "comments": "...",
+  "deferred_date": "2026-10-15", "phone": "9864012345", "address1": "...", "address2": "..."}` (`action`:
+  `re-attempt`, `return` or `fake-attempt`): sent to the courier, noted on the parcel's NDR exception (what was done
+  and which details changed, not the details).
+- **Exceptions** `GET shipping/exceptions/` (`?state=open&kind=ndr&shipment=<id>`, `?ordering=due_at`): `kind`
+  (`pickup_problem`, `ndr`, `rto`, `lost`, `partial`, `weight_dispute`, `cod_overdue`, `no_movement`), `shipment`,
+  `order`, `due_at`, `state`, `data` (the reason and attempts of a failed delivery, our weight and the courier's of a
+  dispute, ...), `resolution`; `POST shipping/exceptions/<id>/resolve/` `{"resolution": "...", "dismiss": false}`.
+- **Money** `GET shipping/cod/` (`?state=expected|overdue|remitted|mismatch|not_expected`): COD remittances with the
+  expected and remitted amounts, days and UTR; `GET shipping/charges/` (`?kind=&shipment=`): the courier account's
+  statement lines (a reversal is negative). Read only.
+- **Pickup locations** `GET POST PATCH shipping/pickup-locations/`: our pickup addresses by Shiprocket's nickname (a new
+  default replaces the old one); `POST shipping/pickup-locations/sync/` reads them from the courier account.
+
+```sh
+curl https://examleaf.in/api/v1/shipping/orders/EL-2026-000123/quote/ -b "sessionid=..."
+# 200 {"couriers": [{"courier_company_id": 51, "courier_name": "Xpressbees Surface", "rate": "63.25", "etd_days": 7,
+#      "rating": 4.1, "cod": true, "cod_charges": "25.96", "rto_charges": "63.25", "recommended": true}, ...],
+#      "india_post": [], "weight_g": 650, "stale": false, "error": ""}
+curl -X POST https://examleaf.in/api/v1/shipping/shipments/ -b "sessionid=...; csrftoken=..." -H "X-CSRFToken: ..." \
+  -H "Content-Type: application/json" -d '{"order": "EL-2026-000123", "courier_company_id": 51, "weight_g": 650}'
+# 202 {"id": 41, "order": "EL-2026-000123", "courier": "Xpressbees", "tracking_number": "", ...,
+#      "detail": {"carrier": "shiprocket", "status": null, "reference": "EL-2026-000123", "cod_amount": "598.00", ...}}
+```
+
+**The couriers' webhook** `POST /api/hooks/parcel-events/` is Shiprocket's, not the API's: it authenticates with the
+static token we generate (`x-api-key`), compared in constant time with the enabled account's current token or, for 24
+hours after a rotation, the previous one; a missing or wrong token, or none set, is `403
+{"detail": "Unknown or missing token."}`. A good one is `200 {"detail": "Received."}` at once: the raw body is kept
+(once per SHA-256) and processed by a task. 300 a minute per client address (`API_THROTTLE_PARCEL_EVENTS`).
+
 ## Site configuration and legal pages
 
 `config/` (anyone, `Cache-Control: public, max-age=300`) is what this server has switched on, for frontends to follow
@@ -890,7 +969,7 @@ DRF's standard format, always JSON:
 | 413 | `{"detail": "The request body is too large."}` (over 1 MB, `DATA_UPLOAD_MAX_MEMORY_SIZE`) |
 | 429 | `{"detail": "..."}`: DRF's limits say "Request was throttled. Expected available in 38 seconds." and carry a `Retry-After` header; allauth's (codes, password reset, wrong passwords) have their own text and no `Retry-After`; allauth.headless answers `{"status": 429}` |
 | 500 | `{"detail": "Server error."}`; reported to Sentry, with the request ID in `X-Request-ID` (the site's own pages show an error page) |
-| 503 | `{"detail": "The payment service could not be reached."}` (or "Online payment is not set up yet."), from `orders/<number>/payment/`: try again |
+| 503 | `{"detail": "The payment service could not be reached."}` (or "Online payment is not set up yet."), from `orders/<number>/payment/`: try again; `{"detail": "The courier could not be reached: try again in a few minutes."}` from `shipping/` (staff) |
 
 ## Rate limits
 
@@ -912,6 +991,7 @@ Counted in the cache (Redis in production), per client address for anonymous req
 | reviews (`POST products/<slug>/reviews/`), per client address, the website's included | 5 an hour | fixed |
 | back-in-stock alerts (`POST products/<slug>/stock-alert/`), per client address, the website's included | 10 an hour | fixed |
 | quotation requests (`POST quotes/`), per client address, the website's included | 5 an hour | fixed |
+| the couriers' webhook (`POST /api/hooks/parcel-events/`), per client address | 300 a minute | `API_THROTTLE_PARCEL_EVENTS` |
 
 The rows marked "fixed" are counted by the shop itself and refuse (429) while the cache cannot be read (Redis down); the others
 let requests through meanwhile. `auth/exchange/`, `me/parent-consent/` count in the log-in scope (`API_THROTTLE_AUTH`).

@@ -247,7 +247,8 @@ worker, and the error pages) are the Next.js frontend's, at the addresses Django
 | `/shop/webhooks/razorpay/` | Razorpay's webhooks (signed) |
 | `/shop/media/…` | the public pictures when there are no buckets (only `products/` and `og/`) |
 | `/learn/preview/<clip>/`, `/learn/hls/<token>/<file>` | the staff player for a clip (on the admin's layout); the HLS playlists, segments and poster behind signed links |
-| `/health/`, `/health/web/` | health checks (JSON with `Accept: application/json`); through Caddy only with the `X-Health-Token` header; see Production |
+| `/health/`, `/health/web/`, `/health/integrations/` | health checks (JSON with `Accept: application/json`); through Caddy only with the `X-Health-Token` header; see Production; the last one for a second monitor: the integrations (`integrations/README.md`) |
+| `/api/hooks/parcel-events/` | Shiprocket's tracking webhook (its token in `x-api-key`; `shipping/README.md`), under Caddy's `/api/` |
 | `/anymail/<provider>/tracking/` | the email provider's bounce and complaint webhooks; exist only while `ANYMAIL_WEBHOOK_SECRET` is set |
 | `/admin/` | the admin; signed out it sends to the website's log-in (`LOGIN_URL`, then back with `?next=`) |
 | `/static/…` | the admin's and the staff player's files, the fonts of the invoices and the book covers the website shows |
@@ -574,7 +575,11 @@ emails (`templates/shop/email/`), the PDFs (`templates/shop/invoice.html` …) a
   order not paid in 16 days is cancelled by the daily clean-up.
 - **Shipping**: a flat fee per group of states (one rate without states covers the rest), free from an order value
   (after the discount). Shipments name a courier (India Post, Delhivery, Blue Dart, Ekart, DTDC, Xpressbees, other);
-  an empty tracking link is filled with the courier's tracking page (17TRACK for those without one). No courier API.
+  an empty tracking link is filled with the courier's tracking page (17TRACK for those without one). Parcels can also be
+  booked with a courier through Shiprocket (`shipping/README.md`): quote, AWB, label, pickup and manifest, the
+  courier's scans (its webhook and a poll) shipping and delivering the order, failed deliveries, returns, COD
+  remittances, the statement's charges and weight disputes, on the `integrations` framework (`integrations/README.md`:
+  encrypted credentials, a call log, a circuit breaker, dead letters).
 - **Buyers' reviews**: stars and up to 1,000 characters, only from accounts with a delivered order of the book, one
   each, approved by staff, shown as "Verified buyer" (no names: many buyers are minors); the star rating goes into the
   JSON-LD only from approved reviews.
@@ -830,6 +835,12 @@ Running without surprises:
 - `ops` — `SmsLog` (a keyed hash of the number, its last four digits, kind, status, the account), `EmailSuppression`;
   the Celery email and SMS tasks, the admin dashboard, the admin theme, the `upload_backup` command.
 - `api` — no models of its own; simplejwt's token blacklist tables hold the refresh tokens.
+- `integrations` — `IntegrationAccount` (a provider in a mode: encrypted credentials and tokens, the circuit breaker),
+  `IntegrationCall` (the redacted call log), `IntegrationFailure` (the dead-letter list), `InboundEvent` (webhooks as
+  they came) (`integrations/README.md`).
+- `shipping` — `ShipmentDetail` (a shipment's courier side, one to one), `ShipmentEvent` (its timeline),
+  `PickupLocation`, `ShipmentCharge`, `CodRemittance`, `ShippingException`, `PinServiceability`, `PostalTariff`
+  (`shipping/README.md`).
 
 ## Planned extensions (not built)
 
@@ -842,8 +853,9 @@ Running without surprises:
   its arguments once a second board exists.
 - **Teacher tools**: nothing links a student to a teacher yet (`TeacherProfile` has no students; the TEACHER role has
   no permissions), so teachers cannot see their students' attempts.
-- **Courier APIs** (Shiprocket or Delhivery) for automatic "shipped" and "delivered": the shape is in RUNBOOK.md; tracking
-  links are all there is now. Weight-based shipping rates.
+- **More couriers** (Delhivery direct, India Post's bulk API: a carrier of `shipping/carriers/`), 17TRACK's tracking of
+  parcels sent by hand, WhatsApp updates (a hook: `shipping.messages.notify_whatsapp`), the customer's own NDR page.
+  Weight-based shipping rates for the checkout.
 - **The mobile app** is a separate project; the REST API is ready for it.
 - **Left out on purpose** (`../docs/examleaf-phase5-plan.md`): abandoned-cart emails (DPDP s. 9(3)), third-party
   analytics, site search, a second live SMS provider, WhatsApp OTP, sign-up by passkey.

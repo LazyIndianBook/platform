@@ -5,6 +5,55 @@ commits are in `git log` (phase 4: abffe6f and e5abda5; phase 5 A and B with the
 and E: 4e30e59; the redesign's stage 2 so far: ba0b9dd). Details of each feature are in README.md; the numbers of the
 tests are those of `pytest` at the end of the phase.
 
+## Couriers: the integrations framework and the shipping app (9 October 2026)
+
+The courier integration of the Admin Control Panel research (`docs/research/2026-10-09-admin-control-panel/`
+`research-integrations.md`, section 3), as two apps; no change to payments, Razorpay, the checkout, sign-in or the
+Order state machine's rules. 573 backend tests pass (7 skipped; 422 before): 41 for `integrations`, 110 for
+`shipping`, against a recorded double of Shiprocket; two migrations, both new apps' own (none in shop).
+
+- **`integrations/`** (`integrations/README.md`), the base for every connection to a service others run for us:
+  `IntegrationAccount` (one provider in one mode, at most one enabled; credentials, the cached token and the webhook
+  tokens encrypted with MultiFernet over the new `INTEGRATION_KEYS`, shown by their last four characters only;
+  `rotate_integration_keys` re-encrypts every row; the previous webhook token accepted 24 hours; a circuit breaker:
+  open after 5 failures in 5 minutes, one trial after 5 minutes, held open or reset by staff), `IntegrationCall` (every
+  request, with a redacted excerpt: no secrets, phones to their last 4 digits, emails masked, names dropped, addresses
+  to their PIN; 90 days), `IntegrationFailure` (the dead-letter list: replay once, discard with a reason),
+  `InboundEvent` (webhooks raw, once per SHA-256). A base HTTP client (5 s to connect, 20 s to read; typed failures:
+  unavailable, rejected, authentication), `IntegrationTask` (the refund task's backoff; requeued while the circuit is
+  open; a dead letter when it gives up), connection tests per provider, signals for the staff inbox, the admin with
+  its actions, `/health/integrations/` for a second monitor, `integrations.E001` (a server with accounts and no keys
+  does not start), `integrations_retention`.
+- **`shipping/`** (`shipping/README.md`): a carrier interface with a manual carrier (today's counter flow) and
+  Shiprocket (API v1: the API user's token, renewed from day 9 and after a 401; refusals inside a 200), and a recorded
+  double of Shiprocket for test mode and the tests. `ShipmentDetail` (a shipment's courier side, one to one: shop's
+  model and migrations unchanged), `ShipmentEvent` (the timeline, a scan kept once by its digest), `PickupLocation`,
+  `ShipmentCharge`, `CodRemittance`, `ShippingException` (`exception_opened`), `PinServiceability`, `PostalTariff`
+  (empty; `loaddata postal_tariffs`, the published tariff marked "verify at the counter"). The quote (3 s, kept 10
+  minutes, the last answer while Shiprocket is down; ranked by the research's rule; India Post beside it for prepaid
+  orders), booking (idempotent; refused when the cash to collect is not the order's total; `-R1` for a re-shipment),
+  label kept by us, pickup, manifest, cancellation before pickup, NDR actions; our status machine (the research's
+  code table, forward only, the return branch its own); the first scan that says the parcel left ships the order and a
+  confirmed delivery delivers it (their existing transitions), COD remittances expected and checked, statement lines,
+  weight disputes, no-movement and NDR exceptions. The webhook `POST /api/hooks/parcel-events/` (the token compared in
+  constant time, the raw body kept, 200 at once, a claim of delivery read again first; throttled). Tasks and beat:
+  tracking every 2 hours, the statement, COD, disputes, the token, the PIN survey, the SMS held through the night.
+  Commands: `shipping_smoke_test` (live only, with `--yes`), `shipping_poll_tracking`, `shipping_sync_statement`,
+  `shipping_check_cod`, `shipping_check_discrepancies`, `shipping_survey_pins`.
+- **The staff API** `/api/v1/shipping/` (API.md "Shipping (staff)"): quote, book (with a courier, or by hand), parcels
+  with their timeline, label, pickup, manifest, cancel, NDR action, photograph, exceptions, COD, charges, pickup
+  locations, behind a placeholder permission (`shipping.permissions.StaffOnly`) for the staff app to replace.
+- **The shop**: `notify` and `deliver_order` can leave the SMS to the shipping app (quiet hours: none from 21:00 to
+  08:00), `ship_order`'s follow-up is `shipped()`; two emails (`delivery_failed`, `returning`) and two SMS kinds
+  (`order_arriving`, COD out for delivery; `order_not_delivered`; DLT texts in RUNBOOK.md). A courier's parcel is read
+  only on the order's admin page and appears on the customer's order page once it has left. The frontend's proxy
+  passes `/api/hooks/` to Django as Caddy does.
+- **New settings**: `INTEGRATION_KEYS`, `INTEGRATIONS_CONNECT_TIMEOUT`, `INTEGRATIONS_READ_TIMEOUT`,
+  `INTEGRATIONS_RETENTION_DAYS`, `SHIPPING_PACKING_GRAMS`, `SHIPPING_PARCEL_CM`, `SHIPPING_QUOTE_TIMEOUT`,
+  `SHIPPING_MIN_RATING`, `SHIPPING_MAX_DAYS`, `SHIPPING_GYAN_POST`, `SHIPPING_SURVEY_BATCH`,
+  `API_THROTTLE_PARCEL_EVENTS`, `MSG91_TEMPLATE_ORDER_ARRIVING`, `MSG91_TEMPLATE_ORDER_NOT_DELIVERED`
+  (DEPLOYMENT.md sections 13 and 21; RUNBOOK.md "Couriers and integrations", "Secrets and key rotation").
+
 ## The Answer Script redesign (9 October 2026)
 
 The frontend restyled to "Direction A, Answer Script" (`implementation/design/*.dc.html`; the report with the
