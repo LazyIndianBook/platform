@@ -24,6 +24,7 @@ metadata:
     cert-manager.io/cluster-issuer: {{ . }}
     {{- end }}
     nginx.ingress.kubernetes.io/proxy-body-size: {{ .Values.ingress.bodySize }}
+    nginx.ingress.kubernetes.io/preserve-trailing-slash: "true"  # the https redirect keeps /api/v1/config/ whole
     {{- with .Values.ingress.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -62,6 +63,7 @@ metadata:
     # pages get its name only; without a bucket the file comes with the form, and Django takes a body this large
     # from signed-in staff only (learn.uploads.LargeBodyGuard)
     nginx.ingress.kubernetes.io/proxy-body-size: {{ .Values.ingress.uploadBodySize }}
+    nginx.ingress.kubernetes.io/preserve-trailing-slash: "true"
     nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
     {{- with .Values.ingress.annotations }}
     {{- toYaml . | nindent 4 }}
@@ -92,6 +94,7 @@ metadata:
     {{- include "examleaf.labels" $labels | nindent 4 }}
   annotations:
     nginx.ingress.kubernetes.io/auth-secret: {{ include "examleaf.healthAuthSecret" . }}
+    nginx.ingress.kubernetes.io/preserve-trailing-slash: "true"
     {{- toYaml .Values.ingress.healthAnnotations | nindent 4 }}
     {{- with .Values.ingress.annotations }}
     {{- toYaml . | nindent 4 }}
@@ -131,6 +134,7 @@ metadata:
     cert-manager.io/cluster-issuer: {{ . }}
     {{- end }}
     nginx.ingress.kubernetes.io/proxy-body-size: {{ .Values.ingress.bodySize }}
+    nginx.ingress.kubernetes.io/preserve-trailing-slash: "true"  # the https redirect keeps /api/v1/config/ whole
     {{- with .Values.admin.allowlist }}
     nginx.ingress.kubernetes.io/whitelist-source-range: {{ . | quote }}
     {{- end }}

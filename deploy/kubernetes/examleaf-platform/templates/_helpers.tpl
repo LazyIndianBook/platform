@@ -78,11 +78,14 @@ env:
       secretKeyRef:
         name: {{ include "examleaf.dbCluster" . }}-app
         key: uri
+  - name: XDG_CACHE_HOME  # fontconfig's cache for the invoice PDFs: the home directory does not exist
+    value: /tmp/.cache
 {{- end -}}
 
 {{/* Worker, beat and the media worker start once web has brought the schema up to date (docker-compose.yml: they wait
      for web to be healthy). --skip-checks: the media worker's small environment has no LEARN_CODE_SECRET, whose check
-     would stop the command. */}}
+     would stop the command. timeout: a connection that is never answered (a starting database) costs 30 s, not the
+     two minutes of TCP's retries. */}}
 {{- define "examleaf.waitForMigrations" -}}
 - name: wait-for-migrations
   image: {{ include "examleaf.webImage" .ctx }}
@@ -90,7 +93,7 @@ env:
   command:
     - sh
     - -c
-    - until python manage.py migrate --check --skip-checks > /dev/null 2>&1; do echo "waiting for the database and its migrations"; sleep 5; done
+    - until timeout 30 python manage.py migrate --check --skip-checks > /dev/null 2>&1; do echo "waiting for the database and its migrations"; sleep 5; done
   {{- .env | nindent 2 }}
   securityContext:
     {{- toYaml .ctx.Values.containerSecurityContext | nindent 4 }}

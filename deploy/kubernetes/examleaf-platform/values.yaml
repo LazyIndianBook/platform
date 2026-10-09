@@ -146,8 +146,7 @@ secrets:
 # escalation, no capabilities, a read-only root filesystem (each pod has an emptyDir at /tmp; the frontend's cache too).
 podSecurityContext:
   runAsNonRoot: true
-  runAsUser: 1000  # examleaf in examleaf-web's image, node in the frontend's
-  runAsGroup: 1000
+  runAsUser: 1000  # examleaf in examleaf-web's image, node in the frontend's; the primary group is each image's own
   fsGroup: 1000  # the media volume's files belong to this group
   seccompProfile:
     type: RuntimeDefault
@@ -170,7 +169,9 @@ initResources:
 web:
   replicas: 1
   concurrency: 3  # WEB_CONCURRENCY: gunicorn processes in each pod, about 2 x its CPUs + 1
-  gunicornArgs: --worker-class gthread --threads 8 --timeout 60  # GUNICORN_CMD_ARGS, docker-compose.yml's
+  # GUNICORN_CMD_ARGS: docker-compose.yml's, and no control socket (gunicorn 25.1's gunicornc interface, which would
+  # make $HOME/.gunicorn/ on the read-only root and log an error at every start)
+  gunicornArgs: --worker-class gthread --threads 8 --timeout 60 --no-control-socket
   tmpSize: 1Gi  # /tmp: uploads over 2.5 MB, invoice PDFs being drawn
   resources:
     requests: {cpu: 250m, memory: 640Mi}
