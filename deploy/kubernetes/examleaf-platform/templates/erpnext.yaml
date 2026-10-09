@@ -18,8 +18,15 @@
 {{- if and (or $erp.database.backup.enabled $erp.siteBackup.enabled) (not $bucket) }}
 {{- fail "postgres.backup.bucket: ERPNext's backups go to the platform's backup bucket, under erp's prefixes" }}
 {{- end }}
-{{- if or (eq $erpnext.dbHost "") (ne $erpnext.dbHost $db) }}
-{{- fail (printf "erpnext.dbHost is %q: it must name this chart's MariaDB, %s" $erpnext.dbHost $db) }}
+{{- /* with a replica, ERPNext writes through mariadb-operator's -primary Service, which follows a failover */ -}}
+{{- $replicated := gt (int $erp.database.replicas) 1 -}}
+{{- $dbService := $replicated | ternary (printf "%s-primary" $db) $db -}}
+{{- if ne $erpnext.dbHost $dbService }}
+{{- fail (printf "erpnext.dbHost is %q: it must name this chart's MariaDB, %s" $erpnext.dbHost $dbService) }}
+{{- end }}
+{{- /* ERPNext's pods all mount the sites volume: spread over nodes, they need it ReadWriteMany */ -}}
+{{- if and .Values.spreadAcrossNodes (not (has "ReadWriteMany" $erpnext.persistence.worker.accessModes)) }}
+{{- fail "erpnext.persistence.worker: ERPNext's pods on several nodes all mount the sites volume, so it must be ReadWriteMany with a storage class that provides it (Longhorn, NFS, CephFS; values-ha.yaml)" }}
 {{- end }}
 {{- /* one registry for every image of the platform: frappe/helm's chart reads only erpnext.image */ -}}
 {{- $erpImage := printf "%s/examleaf-erp" (trimSuffix "/" .Values.registry) -}}
@@ -50,6 +57,19 @@ spec:
     {{- $erp.database.myCnf | nindent 4 }}
   resources:
     {{- toYaml $erp.database.resources | nindent 4 }}
+  {{- if $replicated }}
+  # a primary and asynchronous replicas (the binlog streamed, no wait for an acknowledgement), on different nodes;
+  # the operator promotes a replica when the primary fails and moves the -primary Service to it
+  replicas: {{ $erp.database.replicas }}
+  replicasAllowEvenNumber: true  # replication elects nothing: one primary and one replica is a valid pair
+  replication:
+    enabled: true
+    semiSyncEnabled: false
+    primary:
+      autoFailover: true
+  affinity:
+    antiAffinityEnabled: true
+  {{- end }}
 {{- if $erp.database.backup.enabled }}
 ---
 apiVersion: k8s.mariadb.com/v1alpha1
@@ -62,7 +82,7 @@ spec:
   mariaDbRef:
     name: {{ $db }}
     waitForIt: true
-  target: PreferReplica  # a standalone MariaDB has no replica: the backup is taken from the primary
+  target: PreferReplica  # from the replica when there is one (erp.database.replicas), else from the primary
   schedule:
     cron: {{ $erp.database.backup.schedule | quote }}
   maxRetention: {{ $erp.database.backup.maxRetention }}

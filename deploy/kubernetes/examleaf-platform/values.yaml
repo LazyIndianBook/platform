@@ -31,8 +31,9 @@ imagePullSecrets:
 config:
   # Core
   DEBUG: "0"  # never 1 on a server: with 1 Django refuses every host but localhost and *.localhost
-  # null: <domain>, and admin.<domain> when the admin is on (its panel signs in and calls /api/v1/staff/ on its own
-  # host). Comma separated; it must include <domain> (the readiness probe sends it)
+  # null: <domain>, admin.<domain> when the admin is on (its panel signs in and calls /api/v1/staff/ on its own
+  # host), and web's Service names when ERPNext is on (its webhooks come inside the cluster). Comma separated; it must
+  # include <domain> (the readiness probe sends it)
   ALLOWED_HOSTS: null
   SITE_URL: null  # null: https://<domain>. The base of the QR codes and of the links in emails and SMS
   # null: Django's default, SITE_URL; with the admin on, https://<domain>,https://admin.<domain>
@@ -134,6 +135,36 @@ config:
   SENTRY_ENVIRONMENT: null  # default production
   SENTRY_TRACES_SAMPLE_RATE: null  # default 0
   RELEASE: null  # a version label for Sentry and each insights forecast run, e.g. the image tag
+  # The staff app (the Admin Control Panel's backend; DEPLOYMENT.md "Staff and the audit log"). With admin.enabled the
+  # chart sets ADMIN_HOSTS (the staff API answers on the admin host only) and STAFF_PANEL_URL (https://<admin host>).
+  ADMIN_HOSTS: null
+  STAFF_PANEL_URL: null
+  STAFF_TEST_MODE: null  # default 0 with DEBUG=0; "1" on every site that is not production (the panel's TEST band)
+  STAFF_ALERT_EMAILS: null  # the owners' alerts; none: OWNER's members
+  STAFF_IDLE_TIMEOUT: null  # default 1800 seconds (OWNER, ADMIN, FINANCE and PACKER: 15 minutes)
+  STAFF_DORMANT_DAYS: null  # default 45
+  STAFF_CHANGE_REQUEST_HOURS: null  # default 24
+  STAFF_AUDIT_RETENTION_DAYS: null  # default 730, never under 365
+  STAFF_AUDIT_MONEY_RETENTION_FY: null  # default 8, never under 8
+  STAFF_DATA_REQUEST_ACK_HOURS: null  # default 48
+  DATA_PROTECTION_OFFICER: null  # quoted in every answer to a data request: name, email, phone
+  CERT_IN_POINT_OF_CONTACT: null  # in the incident alerts
+  # The ERPNext sync (examleaf-web/erp/; DEPLOYMENT.md section 24), all off until switched on in its order; each is
+  # also a flag the panel can set. The integration account (provider erpnext: api key and secret, base_url
+  # http://<release>-erpnext.<namespace>.svc:8080, site name) is made in the admin (README.md "ERPNext").
+  ERP_ENABLED: null  # default 0: no relay, pull, reconciliation or webhook
+  ERP_SYNC_CATALOGUE: null  # each default 0: the flow's events recorded in the outbox
+  ERP_SYNC_INVOICES: null
+  ERP_SYNC_PAYMENTS: null
+  ERP_SYNC_DELIVERIES: null
+  ERP_SYNC_SETTLEMENTS: null
+  ERP_PULL_STOCK: null  # default 0: stock read back from ERPNext
+  ERP_PULL_B2B: null  # default 0: B2B documents read back
+  ERP_STOCK_PROJECTION: null  # default 0 until the cut-over: ERPNext's stock used for the copies for sale
+  ERP_WAREHOUSE: null  # default Main
+  ERP_MAX_ATTEMPTS: null  # default 10
+  ERP_ALERT_EMAILS: null  # the nightly reconciliation's differences (FINANCE's addresses)
+  ERP_INSTANCE_PREFIX: null  # default empty
 
 # The secret settings. The chart never writes a Secret from values; it reads Secrets by these names:
 #   mode "existing":       you create them (kubectl create secret …; README.md "Secrets");
@@ -490,10 +521,13 @@ erp:
   # db-root-password (MariaDB's root, which bench uses to make each site's database) and admin-password (the site's
   # Administrator, read by the createSite Job).
   secret: ""  # empty: <release>-erp
-  # MariaDB through mariadb-operator 26.10 (installed first): standalone, no Galera at this size. ERPNext v16 needs
-  # MariaDB 11.8 and runs on no supported release of PostgreSQL. The MariaDB resource is kept by `helm uninstall`.
+  # MariaDB through mariadb-operator 26.10 (installed first): no Galera at this size. ERPNext v16 needs MariaDB 11.8
+  # and runs on no supported release of PostgreSQL. The MariaDB resource is kept by `helm uninstall`.
   database:
     image: mariadb:11.8.9
+    # 1: standalone. 2: a primary and an asynchronous replica on another node, which the operator promotes when the
+    # primary fails (ERPNext then writes through <release>-erp-db-primary: erpnext.dbHost; values-ha.yaml)
+    replicas: 1
     storage:
       size: 50Gi
       storageClass: ""
@@ -534,6 +568,16 @@ erp:
       requests: {cpu: 100m, memory: 256Mi}
       limits: {cpu: "1", memory: 1Gi}
   mariadbOperatorNamespace: mariadb-operator  # it reaches the database (NetworkPolicy)
+  # The site's set-up after createSite (templates/erp-site-setup.yaml; README.md "ERPNext"): a Job, rendered with
+  # helm template -s and applied as frappe/helm's own are, that merges the Secret's site-config.json (the examleaf_*
+  # keys of examleaf-erp/README.md "Site config", secrets among them) into the site's config, makes the outgoing Email
+  # Account from its email-account.json if there is one, then runs examleaf_erp.setup.bootstrap.
+  siteSetup:
+    enabled: false
+    secret: ""  # empty: <release>-erp-setup
+    resources:
+      requests: {cpu: 100m, memory: 256Mi}
+      limits: {cpu: "1", memory: 1Gi}
 
 erpnext:
   enabled: false
@@ -542,7 +586,7 @@ erpnext:
   # registry value above, so its repository spells it out and the chart refuses another registry.
   image:
     repository: ghcr.io/lazyindianbook/examleaf-erp  # <registry>/examleaf-erp
-    tag: ""  # required: the tag examleaf-erp/image built (no default)
+    tag: ""  # required, no default: 16.50.0-<commit>, the tag examleaf-erp/image/build.sh prints
     pullPolicy: IfNotPresent
   imagePullSecrets:
     - name: ghcr-pull

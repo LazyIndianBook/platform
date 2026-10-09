@@ -6,12 +6,22 @@
   "SITE_URL" (printf "https://%s" .Values.domain)
   "CACHE_URL" (printf "redis://%s-redis-cache:6379/0" $fullname)
   "CELERY_BROKER_URL" (printf "redis://%s-redis-queue:6379/0" $fullname) -}}
-{{- /* the admin panel signs in and calls the API on its own host: Django answers it and trusts its form posts */ -}}
+{{- /* the admin panel signs in and calls the API on its own host: Django answers it and trusts its form posts, the
+       staff API answers there only (ADMIN_HOSTS), and invitations link to it */ -}}
+{{- $hosts := list .Values.domain -}}
 {{- if .Values.admin.enabled }}
 {{- $adminHost := include "examleaf.adminHost" . }}
-{{- $_ := set $data "ALLOWED_HOSTS" (printf "%s,%s" .Values.domain $adminHost) }}
+{{- $hosts = append $hosts $adminHost }}
 {{- $_ := set $data "CSRF_TRUSTED_ORIGINS" (printf "https://%s,https://%s" .Values.domain $adminHost) }}
+{{- $_ := set $data "ADMIN_HOSTS" $adminHost }}
+{{- $_ := set $data "STAFF_PANEL_URL" (printf "https://%s" $adminHost) }}
 {{- end }}
+{{- /* ERPNext's webhooks reach web inside the cluster, by its Service's names (DEPLOYMENT.md section 24) */ -}}
+{{- if .Values.erpnext.enabled }}
+{{- $web := printf "%s-web" $fullname }}
+{{- $hosts = concat $hosts (list $web (printf "%s.%s.svc" $web .Release.Namespace) (printf "%s.%s.svc.cluster.local" $web .Release.Namespace)) }}
+{{- end }}
+{{- $_ := set $data "ALLOWED_HOSTS" (join "," $hosts) }}
 {{- range $key, $value := .Values.config }}
 {{- if not (kindIs "invalid" $value) }}
 {{- /* a whole number written without quotes would come out as 3.1536e+07 */ -}}

@@ -1,0 +1,105 @@
+{{- /* ERPNext's site, set up once after frappe/helm's createSite Job, in examleaf-erp/README.md's order: its site config,
+       the outgoing Email Account (before anyone signs in: the bootstrap turns on two-factor sign-in for Administrator,
+       who holds every role, and the first two-factor sign-in emails the authenticator's set-up), then
+       examleaf_erp.setup.bootstrap (the company, the accounts, the sync user, the hardening). Each step can run again
+       and changes nothing the second time. Like frappe/helm's Jobs it is not part of a release: README.md "ERPNext"
+       renders it with helm template -s and applies it. It runs on the ERPNext image in a pod of its own, never in the
+       gunicorn pod (whose gunicorn, PID 1 there, stops when a helper it reaps fails). The sync user's keys are not
+       made here, as they would land in the Job's log: README.md makes them straight into a Secret. */ -}}
+{{- if and .Values.erpnext.enabled .Values.erp.siteSetup.enabled }}
+{{- $fullname := include "examleaf.fullname" . -}}
+{{- $erp := .Values.erp -}}
+{{- $erpnext := .Values.erpnext -}}
+{{- $labels := dict "ctx" . "component" "erp-site-setup" "app" "examleaf" "version" $erpnext.image.tag -}}
+{{- $erpImage := printf "%s/examleaf-erp" (trimSuffix "/" .Values.registry) -}}
+{{- $erpTag := required "erpnext.image.tag: the tag that examleaf-erp/image built (README.md \"ERPNext\")" $erpnext.image.tag -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ $fullname }}-erp-site-setup-{{ now | date "20060102150405" }}
+  labels:
+    {{- include "examleaf.labels" $labels | nindent 4 }}
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        {{- include "examleaf.labels" $labels | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      {{- with $erpnext.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000  # frappe in the ERPNext image, who owns the sites volume
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      restartPolicy: Never
+      containers:
+        - name: site-setup
+          image: {{ printf "%s:%s" $erpImage $erpTag }}
+          imagePullPolicy: {{ $erpnext.image.pullPolicy }}
+          command:
+            - bash
+            - -c
+            - |
+              set -euo pipefail
+              cd /home/frappe/frappe-bench
+              echo "1. the site config"
+              env/bin/python - "$SITE" <<'PY'
+              import json, sys
+              path = f"sites/{sys.argv[1]}/site_config.json"
+              config = json.load(open(path))
+              config.update(json.load(open("/config/site-config.json")))
+              config.setdefault("allow_reads_during_maintenance", 1)  # Desk stays readable during migrate
+              with open(path, "w") as out:
+                  json.dump(config, out, indent=1)
+              PY
+              if [ -f /config/email-account.json ]; then
+                echo "2. the outgoing Email Account"
+                cd sites
+                ../env/bin/python - "$SITE" <<'PY'
+              import json, sys
+              import frappe
+              frappe.init(site=sys.argv[1], sites_path=".")
+              frappe.connect()
+              account = {"doctype": "Email Account", "email_account_name": "Notifications", "enable_outgoing": 1,
+                         "default_outgoing": 1, "use_tls": 1, "smtp_port": "587", "login_id_is_different": 1}
+              account.update(json.load(open("/config/email-account.json")))
+              if not frappe.db.exists("Email Account", account["email_account_name"]):
+                  frappe.get_doc(account).insert()  # Frappe signs in to the SMTP server before it saves
+                  frappe.db.commit()
+              frappe.destroy()
+              PY
+                cd ..
+              else
+                echo "2. no email-account.json: make the outgoing Email Account before anyone signs in"
+              fi
+              echo "3. the bootstrap"
+              bench --site "$SITE" execute examleaf_erp.setup.bootstrap
+          env:
+            - name: SITE
+              value: {{ $erp.host | quote }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          resources:
+            {{- toYaml $erp.siteSetup.resources | nindent 12 }}
+          volumeMounts:
+            - {name: sites, mountPath: /home/frappe/frappe-bench/sites}
+            - {name: logs, mountPath: /home/frappe/frappe-bench/logs}
+            - {name: config, mountPath: /config, readOnly: true}
+      volumes:
+        - name: sites
+          persistentVolumeClaim:
+            claimName: {{ printf "%s-erpnext" .Release.Name }}
+        - name: logs
+          emptyDir: {}
+        - name: config
+          secret:
+            secretName: {{ $erp.siteSetup.secret | default (printf "%s-erp-setup" $fullname) }}
+{{- end }}
