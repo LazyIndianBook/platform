@@ -341,7 +341,11 @@ export const en = {
     title: "Your background jobs",
     lead: "Exports and bulk actions you started, newest first. A file waits a week; its link is made fresh each time.",
     none: "You have started no background job.",
-    kinds: { audit_export: "Audit trail export", bulk_action: "Bulk action" } as Record<string, string>,
+    kinds: {
+      audit_export: "Audit trail export",
+      bulk_action: "Bulk action",
+      erp_initial_load: "ERPNext initial load",
+    } as Record<string, string>,
     states: {
       queued: "Waiting",
       running: "Running",
@@ -447,6 +451,8 @@ export const en = {
       incident: "Incident",
       failed_job: "Failed job",
       failed_webhook: "Failed webhook",
+      sync_failed: "ERPNext refused a document",
+      reconciliation: "ERPNext differences",
     } as Record<string, string>,
   },
   audit: {

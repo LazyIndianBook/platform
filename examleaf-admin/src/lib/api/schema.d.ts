@@ -2633,6 +2633,242 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/staff/erp/cursors/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description How far the pull has read each doctype. */
+        get: operations["staff_erp_cursors_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/erp/dead-letters/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The dead rows, each holding its aggregate's later ones: replay (again from its first try), or discard with a
+         *     reason (its aggregate goes on). Both need erp.replay_sync and a recent re-authentication.
+         */
+        get: operations["staff_erp_dead_letters_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/erp/dead-letters/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The dead rows, each holding its aggregate's later ones: replay (again from its first try), or discard with a
+         *     reason (its aggregate goes on). Both need erp.replay_sync and a recent re-authentication.
+         */
+        get: operations["staff_erp_dead_letters_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/erp/dead-letters/{id}/discard/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The dead rows, each holding its aggregate's later ones: replay (again from its first try), or discard with a
+         *     reason (its aggregate goes on). Both need erp.replay_sync and a recent re-authentication.
+         */
+        post: operations["staff_erp_dead_letters_discard_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/erp/dead-letters/{id}/replay/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The dead rows, each holding its aggregate's later ones: replay (again from its first try), or discard with a
+         *     reason (its aggregate goes on). Both need erp.replay_sync and a recent re-authentication.
+         */
+        post: operations["staff_erp_dead_letters_replay_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/erp/differences/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description What did not match (filters run, kind, open); resolve one with a note (erp.resolve_difference). */
+        get: operations["staff_erp_differences_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/erp/differences/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description What did not match (filters run, kind, open); resolve one with a note (erp.resolve_difference). */
+        get: operations["staff_erp_differences_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/erp/differences/{id}/resolve/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description What did not match (filters run, kind, open); resolve one with a note (erp.resolve_difference). */
+        post: operations["staff_erp_differences_resolve_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/erp/outbox/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The outbox, newest first (filters state, event, aggregate_type, aggregate_id, examleaf_ref). */
+        get: operations["staff_erp_outbox_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/erp/outbox/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The outbox, newest first (filters state, event, aggregate_type, aggregate_id, examleaf_ref). */
+        get: operations["staff_erp_outbox_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/erp/reconciliations/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The nightly runs, newest first (filters date, state); one with its differences. */
+        get: operations["staff_erp_reconciliations_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/erp/reconciliations/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The nightly runs, newest first (filters date, state); one with its differences. */
+        get: operations["staff_erp_reconciliations_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/erp/status/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The sync at a glance: switches, account, outbox by state, the oldest row waiting, aggregates held, cursors,
+         *     the last reconciliation.
+         */
+        get: operations["staff_erp_status_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/staff/flags/": {
         parameters: {
             query?: never;
@@ -4809,6 +5045,182 @@ export interface components {
             can_erase: boolean;
             notes: string[];
         };
+        ErpAccountStatus: {
+            id: number;
+            label: string;
+            mode: string;
+            circuit: string;
+            /** Format: date-time */
+            last_success_at: string | null;
+            last_error: string;
+        };
+        ErpCursor: {
+            readonly id: number;
+            readonly doctype: string;
+            /** @description Empty: from the start. */
+            readonly modified_after: string;
+            readonly last_name: string;
+            /** @description In all, since the cursor was made. */
+            readonly rows_read: number;
+            /** Format: date-time */
+            readonly last_run_at: string | null;
+            readonly last_error: string;
+        };
+        ErpCursorStatus: {
+            doctype: string;
+            modified_after: string;
+            /** Format: date-time */
+            last_run_at: string | null;
+            error: string;
+        };
+        ErpDifference: {
+            readonly id: number;
+            readonly run: number;
+            readonly kind: components["schemas"]["ErpDifferenceKindEnum"];
+            readonly key: string;
+            readonly platform_value: string;
+            /** ERPNext's value */
+            readonly erp_value: string;
+            /** @description Staff's, when resolved. */
+            readonly note: string;
+            /** Format: date-time */
+            readonly resolved_at: string | null;
+            readonly resolved_by: number | null;
+        };
+        /**
+         * @description * `invoices` - invoices
+         *     * `credit_notes` - credit notes
+         *     * `payments` - payments and refunds
+         *     * `settlements` - settlements
+         *     * `deliveries` - delivery notes
+         *     * `stock` - stock invariant
+         *     * `missing` - document not in ERPNext
+         * @enum {string}
+         */
+        ErpDifferenceKindEnum: "invoices" | "credit_notes" | "payments" | "settlements" | "deliveries" | "stock" | "missing";
+        ErpDiscardRequest: {
+            /** @description why it is given up (kept with its dead letter) */
+            reason: string;
+        };
+        ErpOutbox: {
+            readonly id: number;
+            /** @description order, product or settlement. */
+            readonly aggregate_type: string;
+            /** @description The order's number, the product's id, the settlement's. */
+            readonly aggregate_id: string;
+            /** @description The row's place in its aggregate. */
+            readonly sequence: number;
+            readonly event: string;
+            /** Reference */
+            readonly examleaf_ref: string;
+            /** @description The platform object it is about: shop.invoice … */
+            readonly model: string;
+            readonly object_id: string;
+            readonly idempotency_key: string;
+            readonly payload: unknown;
+            readonly state: components["schemas"]["ErpOutboxStateEnum"];
+            readonly attempts: number;
+            /**
+             * Next try
+             * Format: date-time
+             */
+            readonly next_at: string;
+            readonly last_error: string;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly sent_at: string | null;
+            /** ERPNext's answer */
+            readonly response: unknown;
+            readonly dead_letter: number | null;
+        };
+        /**
+         * @description * `pending` - pending
+         *     * `sending` - sending
+         *     * `sent` - sent
+         *     * `failed` - failed, to be tried again
+         *     * `dead` - dead letter (its aggregate waits)
+         *     * `discarded` - discarded by staff
+         * @enum {string}
+         */
+        ErpOutboxStateEnum: "pending" | "sending" | "sent" | "failed" | "dead" | "discarded";
+        /**
+         * @description * `running` - running
+         *     * `done` - done
+         *     * `failed` - failed
+         * @enum {string}
+         */
+        ErpReconciliationStateEnum: "running" | "done" | "failed";
+        ErpResolveRequest: {
+            /** @description what was done about it */
+            note: string;
+        };
+        ErpRun: {
+            readonly id: number;
+            /** Format: date */
+            readonly date: string;
+            readonly state: components["schemas"]["ErpReconciliationStateEnum"];
+            readonly platform_totals: unknown;
+            /** ERPNext's totals */
+            readonly erp_totals: unknown;
+            readonly differences_count: number;
+            /** Format: date-time */
+            readonly started_at: string;
+            /** Format: date-time */
+            readonly finished_at: string | null;
+            readonly error: string;
+        };
+        ErpRunDetail: {
+            readonly id: number;
+            /** Format: date */
+            readonly date: string;
+            readonly state: components["schemas"]["ErpReconciliationStateEnum"];
+            readonly platform_totals: unknown;
+            /** ERPNext's totals */
+            readonly erp_totals: unknown;
+            readonly differences_count: number;
+            /** Format: date-time */
+            readonly started_at: string;
+            /** Format: date-time */
+            readonly finished_at: string | null;
+            readonly error: string;
+            readonly differences: components["schemas"]["ErpDifference"][];
+        };
+        ErpRunStatus: {
+            id: number;
+            /** Format: date */
+            date: string;
+            state: string;
+            differences: number;
+            open_differences: number;
+            /** Format: date-time */
+            finished_at: string | null;
+        };
+        ErpStatus: {
+            /** @description ERP_ENABLED: the platform talks to ERPNext */
+            enabled: boolean;
+            /** @description erpnext, or fake (an in-memory ERPNext) */
+            mode: string;
+            /** @description each ERP_SYNC_* switch */
+            flows: {
+                [key: string]: boolean;
+            };
+            pull_stock: boolean;
+            pull_b2b: boolean;
+            stock_projection: boolean;
+            account: components["schemas"]["ErpAccountStatus"] | null;
+            /** @description rows by state */
+            outbox: {
+                [key: string]: number;
+            };
+            /** Format: date-time */
+            oldest_waiting_at: string | null;
+            oldest_waiting_seconds: number | null;
+            /** @description aggregates whose rows wait behind a dead one */
+            held_aggregates: number;
+            cursors: components["schemas"]["ErpCursorStatus"][];
+            last_reconciliation: components["schemas"]["ErpRunStatus"] | null;
+        };
         ExportPart: {
             /** @description the part's name in the file */
             key: string;
@@ -5008,9 +5420,11 @@ export interface components {
          *     * `incident` - incident
          *     * `failed_job` - failed job
          *     * `failed_webhook` - failed webhook
+         *     * `sync_failed` - ERPNext refused a document (a dead letter)
+         *     * `reconciliation` - ERPNext reconciliation differences
          * @enum {string}
          */
-        InboxKindEnum: "approval" | "teacher_request" | "deletion_request" | "data_request" | "incident" | "failed_job" | "failed_webhook";
+        InboxKindEnum: "approval" | "teacher_request" | "deletion_request" | "data_request" | "incident" | "failed_job" | "failed_webhook" | "sync_failed" | "reconciliation";
         Incident: {
             readonly id: number;
             title: string;
@@ -5182,12 +5596,13 @@ export interface components {
         /**
          * @description * `audit_export` - audit log export
          *     * `bulk_action` - bulk action
+         *     * `erp_initial_load` - ERPNext initial load
          * @enum {string}
          */
-        JobKindEnum: "audit_export" | "bulk_action";
+        JobKindEnum: "audit_export" | "bulk_action" | "erp_initial_load";
         JobStartRequest: {
             kind: components["schemas"]["JobKindEnum"];
-            /** @description audit_export: {"filters": {…}} (the audit list's); bulk_action: {"action": "order.refund", "targets": [order numbers, slugs or ids], "payload": {…} (each target's, as for change-requests/), "reason"} */
+            /** @description audit_export: {"filters": {…}} (the audit list's); bulk_action: {"action": "order.refund", "targets": [order numbers, slugs or ids], "payload": {…} (each target's, as for change-requests/), "reason"}; erp_initial_load: {"invoices_from": "YYYY-MM-DD"} (optional: without it, the catalogue only) */
             params?: {
                 [key: string]: unknown;
             };
@@ -5861,6 +6276,58 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["Entitlement"][];
+        };
+        PaginatedErpCursorList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["ErpCursor"][];
+        };
+        PaginatedErpDifferenceList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["ErpDifference"][];
+        };
+        PaginatedErpOutboxList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["ErpOutbox"][];
+        };
+        PaginatedErpRunList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["ErpRun"][];
         };
         PaginatedFlashCardList: {
             /** @example 123 */
@@ -11967,6 +12434,343 @@ export interface operations {
             };
         };
     };
+    staff_erp_cursors_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedErpCursorList"];
+                };
+            };
+        };
+    };
+    staff_erp_dead_letters_list: {
+        parameters: {
+            query?: {
+                aggregate_id?: string;
+                aggregate_type?: string;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                event?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedErpOutboxList"];
+                };
+            };
+        };
+    };
+    staff_erp_dead_letters_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this outbox row. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErpOutbox"];
+                };
+            };
+        };
+    };
+    staff_erp_dead_letters_discard_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this outbox row. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ErpDiscardRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErpOutbox"];
+                };
+            };
+        };
+    };
+    staff_erp_dead_letters_replay_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this outbox row. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErpOutbox"];
+                };
+            };
+        };
+    };
+    staff_erp_differences_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /**
+                 * @description * `invoices` - invoices
+                 *     * `credit_notes` - credit notes
+                 *     * `payments` - payments and refunds
+                 *     * `settlements` - settlements
+                 *     * `deliveries` - delivery notes
+                 *     * `stock` - stock invariant
+                 *     * `missing` - document not in ERPNext
+                 */
+                kind?: "credit_notes" | "deliveries" | "invoices" | "missing" | "payments" | "settlements" | "stock";
+                /** @description not resolved yet */
+                open?: boolean;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                run?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedErpDifferenceList"];
+                };
+            };
+        };
+    };
+    staff_erp_differences_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this reconciliation difference. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErpDifference"];
+                };
+            };
+        };
+    };
+    staff_erp_differences_resolve_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this reconciliation difference. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ErpResolveRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErpDifference"];
+                };
+            };
+        };
+    };
+    staff_erp_outbox_list: {
+        parameters: {
+            query?: {
+                aggregate_id?: string;
+                aggregate_type?: string;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                event?: string;
+                examleaf_ref?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /**
+                 * @description * `pending` - pending
+                 *     * `sending` - sending
+                 *     * `sent` - sent
+                 *     * `failed` - failed, to be tried again
+                 *     * `dead` - dead letter (its aggregate waits)
+                 *     * `discarded` - discarded by staff
+                 */
+                state?: "dead" | "discarded" | "failed" | "pending" | "sending" | "sent";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedErpOutboxList"];
+                };
+            };
+        };
+    };
+    staff_erp_outbox_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this outbox row. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErpOutbox"];
+                };
+            };
+        };
+    };
+    staff_erp_reconciliations_list: {
+        parameters: {
+            query?: {
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                date?: string;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /**
+                 * @description * `running` - running
+                 *     * `done` - done
+                 *     * `failed` - failed
+                 */
+                state?: "done" | "failed" | "running";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedErpRunList"];
+                };
+            };
+        };
+    };
+    staff_erp_reconciliations_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this reconciliation run. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErpRunDetail"];
+                };
+            };
+        };
+    };
+    staff_erp_status_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErpStatus"];
+                };
+            };
+        };
+    };
     staff_flags_list: {
         parameters: {
             query?: never;
@@ -12047,8 +12851,10 @@ export interface operations {
                  *     * `incident` - incident
                  *     * `failed_job` - failed job
                  *     * `failed_webhook` - failed webhook
+                 *     * `sync_failed` - ERPNext refused a document (a dead letter)
+                 *     * `reconciliation` - ERPNext reconciliation differences
                  */
-                kind?: "approval" | "data_request" | "deletion_request" | "failed_job" | "failed_webhook" | "incident" | "teacher_request";
+                kind?: "approval" | "data_request" | "deletion_request" | "failed_job" | "failed_webhook" | "incident" | "reconciliation" | "sync_failed" | "teacher_request";
                 /** @description true: assigned to me */
                 mine?: boolean;
                 /** @description Number of results to return per page. */
@@ -12326,8 +13132,9 @@ export interface operations {
                 /**
                  * @description * `audit_export` - audit log export
                  *     * `bulk_action` - bulk action
+                 *     * `erp_initial_load` - ERPNext initial load
                  */
-                kind?: "audit_export" | "bulk_action";
+                kind?: "audit_export" | "bulk_action" | "erp_initial_load";
                 /** @description true: the jobs I started */
                 mine?: boolean;
                 /** @description Number of results to return per page. */

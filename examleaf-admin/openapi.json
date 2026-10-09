@@ -8277,6 +8277,698 @@
                 }
             }
         },
+        "/api/v1/staff/erp/cursors/": {
+            "get": {
+                "operationId": "staff_erp_cursors_list",
+                "description": "How far the pull has read each doctype.",
+                "parameters": [
+                    {
+                        "name": "cursor",
+                        "required": false,
+                        "in": "query",
+                        "description": "The pagination cursor value.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "page_size",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "tags": [
+                    "erp (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedErpCursorList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/erp/dead-letters/": {
+            "get": {
+                "operationId": "staff_erp_dead_letters_list",
+                "description": "The dead rows, each holding its aggregate's later ones: replay (again from its first try), or discard with a\nreason (its aggregate goes on). Both need erp.replay_sync and a recent re-authentication.",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "aggregate_id",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "aggregate_type",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "required": false,
+                        "in": "query",
+                        "description": "The pagination cursor value.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "event",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "page_size",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "tags": [
+                    "erp (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedErpOutboxList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/erp/dead-letters/{id}/": {
+            "get": {
+                "operationId": "staff_erp_dead_letters_retrieve",
+                "description": "The dead rows, each holding its aggregate's later ones: replay (again from its first try), or discard with a\nreason (its aggregate goes on). Both need erp.replay_sync and a recent re-authentication.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this outbox row.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "erp (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErpOutbox"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/erp/dead-letters/{id}/discard/": {
+            "post": {
+                "operationId": "staff_erp_dead_letters_discard_create",
+                "description": "The dead rows, each holding its aggregate's later ones: replay (again from its first try), or discard with a\nreason (its aggregate goes on). Both need erp.replay_sync and a recent re-authentication.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this outbox row.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "erp (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ErpDiscardRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErpOutbox"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/erp/dead-letters/{id}/replay/": {
+            "post": {
+                "operationId": "staff_erp_dead_letters_replay_create",
+                "description": "The dead rows, each holding its aggregate's later ones: replay (again from its first try), or discard with a\nreason (its aggregate goes on). Both need erp.replay_sync and a recent re-authentication.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this outbox row.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "erp (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErpOutbox"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/erp/differences/": {
+            "get": {
+                "operationId": "staff_erp_differences_list",
+                "description": "What did not match (filters run, kind, open); resolve one with a note (erp.resolve_difference).",
+                "parameters": [
+                    {
+                        "name": "cursor",
+                        "required": false,
+                        "in": "query",
+                        "description": "The pagination cursor value.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "kind",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "credit_notes",
+                                "deliveries",
+                                "invoices",
+                                "missing",
+                                "payments",
+                                "settlements",
+                                "stock"
+                            ]
+                        },
+                        "description": "* `invoices` - invoices\n* `credit_notes` - credit notes\n* `payments` - payments and refunds\n* `settlements` - settlements\n* `deliveries` - delivery notes\n* `stock` - stock invariant\n* `missing` - document not in ERPNext"
+                    },
+                    {
+                        "in": "query",
+                        "name": "open",
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "description": "not resolved yet"
+                    },
+                    {
+                        "name": "page_size",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "run",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "tags": [
+                    "erp (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedErpDifferenceList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/erp/differences/{id}/": {
+            "get": {
+                "operationId": "staff_erp_differences_retrieve",
+                "description": "What did not match (filters run, kind, open); resolve one with a note (erp.resolve_difference).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this reconciliation difference.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "erp (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErpDifference"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/erp/differences/{id}/resolve/": {
+            "post": {
+                "operationId": "staff_erp_differences_resolve_create",
+                "description": "What did not match (filters run, kind, open); resolve one with a note (erp.resolve_difference).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this reconciliation difference.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "erp (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ErpResolveRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErpDifference"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/erp/outbox/": {
+            "get": {
+                "operationId": "staff_erp_outbox_list",
+                "description": "The outbox, newest first (filters state, event, aggregate_type, aggregate_id, examleaf_ref).",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "aggregate_id",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "aggregate_type",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "cursor",
+                        "required": false,
+                        "in": "query",
+                        "description": "The pagination cursor value.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "event",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "examleaf_ref",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "page_size",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "state",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "dead",
+                                "discarded",
+                                "failed",
+                                "pending",
+                                "sending",
+                                "sent"
+                            ]
+                        },
+                        "description": "* `pending` - pending\n* `sending` - sending\n* `sent` - sent\n* `failed` - failed, to be tried again\n* `dead` - dead letter (its aggregate waits)\n* `discarded` - discarded by staff"
+                    }
+                ],
+                "tags": [
+                    "erp (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedErpOutboxList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/erp/outbox/{id}/": {
+            "get": {
+                "operationId": "staff_erp_outbox_retrieve",
+                "description": "The outbox, newest first (filters state, event, aggregate_type, aggregate_id, examleaf_ref).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this outbox row.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "erp (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErpOutbox"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/erp/reconciliations/": {
+            "get": {
+                "operationId": "staff_erp_reconciliations_list",
+                "description": "The nightly runs, newest first (filters date, state); one with its differences.",
+                "parameters": [
+                    {
+                        "name": "cursor",
+                        "required": false,
+                        "in": "query",
+                        "description": "The pagination cursor value.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "date",
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "page_size",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "state",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "done",
+                                "failed",
+                                "running"
+                            ]
+                        },
+                        "description": "* `running` - running\n* `done` - done\n* `failed` - failed"
+                    }
+                ],
+                "tags": [
+                    "erp (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedErpRunList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/erp/reconciliations/{id}/": {
+            "get": {
+                "operationId": "staff_erp_reconciliations_retrieve",
+                "description": "The nightly runs, newest first (filters date, state); one with its differences.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this reconciliation run.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "erp (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErpRunDetail"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/erp/status/": {
+            "get": {
+                "operationId": "staff_erp_status_retrieve",
+                "description": "The sync at a glance: switches, account, outbox by state, the oldest row waiting, aggregates held, cursors,\nthe last reconciliation.",
+                "tags": [
+                    "erp (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErpStatus"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
         "/api/v1/staff/flags/": {
             "get": {
                 "operationId": "staff_flags_list",
@@ -8432,10 +9124,12 @@
                                 "failed_job",
                                 "failed_webhook",
                                 "incident",
+                                "reconciliation",
+                                "sync_failed",
                                 "teacher_request"
                             ]
                         },
-                        "description": "* `approval` - approval\n* `teacher_request` - teacher access request\n* `deletion_request` - account deletion\n* `data_request` - data request\n* `incident` - incident\n* `failed_job` - failed job\n* `failed_webhook` - failed webhook"
+                        "description": "* `approval` - approval\n* `teacher_request` - teacher access request\n* `deletion_request` - account deletion\n* `data_request` - data request\n* `incident` - incident\n* `failed_job` - failed job\n* `failed_webhook` - failed webhook\n* `sync_failed` - ERPNext refused a document (a dead letter)\n* `reconciliation` - ERPNext reconciliation differences"
                     },
                     {
                         "in": "query",
@@ -8954,10 +9648,11 @@
                             "type": "string",
                             "enum": [
                                 "audit_export",
-                                "bulk_action"
+                                "bulk_action",
+                                "erp_initial_load"
                             ]
                         },
-                        "description": "* `audit_export` - audit log export\n* `bulk_action` - bulk action"
+                        "description": "* `audit_export` - audit log export\n* `bulk_action` - bulk action\n* `erp_initial_load` - ERPNext initial load"
                     },
                     {
                         "in": "query",
@@ -14455,6 +15150,592 @@
                     "notes"
                 ]
             },
+            "ErpAccountStatus": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "mode": {
+                        "type": "string"
+                    },
+                    "circuit": {
+                        "type": "string"
+                    },
+                    "last_success_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "last_error": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "circuit",
+                    "id",
+                    "label",
+                    "last_error",
+                    "last_success_at",
+                    "mode"
+                ]
+            },
+            "ErpCursor": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "doctype": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "modified_after": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "Empty: from the start."
+                    },
+                    "last_name": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "rows_read": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "description": "In all, since the cursor was made."
+                    },
+                    "last_run_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "last_error": {
+                        "type": "string",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "doctype",
+                    "id",
+                    "last_error",
+                    "last_name",
+                    "last_run_at",
+                    "modified_after",
+                    "rows_read"
+                ]
+            },
+            "ErpCursorStatus": {
+                "type": "object",
+                "properties": {
+                    "doctype": {
+                        "type": "string"
+                    },
+                    "modified_after": {
+                        "type": "string"
+                    },
+                    "last_run_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "error": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "doctype",
+                    "error",
+                    "last_run_at",
+                    "modified_after"
+                ]
+            },
+            "ErpDifference": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "run": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "kind": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ErpDifferenceKindEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "key": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "platform_value": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "erp_value": {
+                        "type": "string",
+                        "readOnly": true,
+                        "title": "ERPNext's value"
+                    },
+                    "note": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "Staff's, when resolved."
+                    },
+                    "resolved_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "resolved_by": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "erp_value",
+                    "id",
+                    "key",
+                    "kind",
+                    "note",
+                    "platform_value",
+                    "resolved_at",
+                    "resolved_by",
+                    "run"
+                ]
+            },
+            "ErpDifferenceKindEnum": {
+                "enum": [
+                    "invoices",
+                    "credit_notes",
+                    "payments",
+                    "settlements",
+                    "deliveries",
+                    "stock",
+                    "missing"
+                ],
+                "type": "string",
+                "description": "* `invoices` - invoices\n* `credit_notes` - credit notes\n* `payments` - payments and refunds\n* `settlements` - settlements\n* `deliveries` - delivery notes\n* `stock` - stock invariant\n* `missing` - document not in ERPNext"
+            },
+            "ErpDiscardRequest": {
+                "type": "object",
+                "properties": {
+                    "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "why it is given up (kept with its dead letter)",
+                        "maxLength": 300
+                    }
+                },
+                "required": [
+                    "reason"
+                ]
+            },
+            "ErpOutbox": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "aggregate_type": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "order, product or settlement."
+                    },
+                    "aggregate_id": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "The order's number, the product's id, the settlement's."
+                    },
+                    "sequence": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "description": "The row's place in its aggregate."
+                    },
+                    "event": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "examleaf_ref": {
+                        "type": "string",
+                        "readOnly": true,
+                        "title": "Reference"
+                    },
+                    "model": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "The platform object it is about: shop.invoice …"
+                    },
+                    "object_id": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "idempotency_key": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "payload": {
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "state": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ErpOutboxStateEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "attempts": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "next_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "title": "Next try"
+                    },
+                    "last_error": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "created": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "sent_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "response": {
+                        "readOnly": true,
+                        "nullable": true,
+                        "title": "ERPNext's answer"
+                    },
+                    "dead_letter": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "aggregate_id",
+                    "aggregate_type",
+                    "attempts",
+                    "created",
+                    "dead_letter",
+                    "event",
+                    "examleaf_ref",
+                    "id",
+                    "idempotency_key",
+                    "last_error",
+                    "model",
+                    "next_at",
+                    "object_id",
+                    "payload",
+                    "response",
+                    "sent_at",
+                    "sequence",
+                    "state"
+                ]
+            },
+            "ErpOutboxStateEnum": {
+                "enum": [
+                    "pending",
+                    "sending",
+                    "sent",
+                    "failed",
+                    "dead",
+                    "discarded"
+                ],
+                "type": "string",
+                "description": "* `pending` - pending\n* `sending` - sending\n* `sent` - sent\n* `failed` - failed, to be tried again\n* `dead` - dead letter (its aggregate waits)\n* `discarded` - discarded by staff"
+            },
+            "ErpReconciliationStateEnum": {
+                "enum": [
+                    "running",
+                    "done",
+                    "failed"
+                ],
+                "type": "string",
+                "description": "* `running` - running\n* `done` - done\n* `failed` - failed"
+            },
+            "ErpResolveRequest": {
+                "type": "object",
+                "properties": {
+                    "note": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "what was done about it",
+                        "maxLength": 300
+                    }
+                },
+                "required": [
+                    "note"
+                ]
+            },
+            "ErpRun": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "date": {
+                        "type": "string",
+                        "format": "date",
+                        "readOnly": true
+                    },
+                    "state": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ErpReconciliationStateEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "platform_totals": {
+                        "readOnly": true
+                    },
+                    "erp_totals": {
+                        "readOnly": true,
+                        "title": "ERPNext's totals"
+                    },
+                    "differences_count": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "started_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "finished_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "error": {
+                        "type": "string",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "date",
+                    "differences_count",
+                    "erp_totals",
+                    "error",
+                    "finished_at",
+                    "id",
+                    "platform_totals",
+                    "started_at",
+                    "state"
+                ]
+            },
+            "ErpRunDetail": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "date": {
+                        "type": "string",
+                        "format": "date",
+                        "readOnly": true
+                    },
+                    "state": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ErpReconciliationStateEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "platform_totals": {
+                        "readOnly": true
+                    },
+                    "erp_totals": {
+                        "readOnly": true,
+                        "title": "ERPNext's totals"
+                    },
+                    "differences_count": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "started_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "finished_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "error": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "differences": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ErpDifference"
+                        },
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "date",
+                    "differences",
+                    "differences_count",
+                    "erp_totals",
+                    "error",
+                    "finished_at",
+                    "id",
+                    "platform_totals",
+                    "started_at",
+                    "state"
+                ]
+            },
+            "ErpRunStatus": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "date": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "state": {
+                        "type": "string"
+                    },
+                    "differences": {
+                        "type": "integer"
+                    },
+                    "open_differences": {
+                        "type": "integer"
+                    },
+                    "finished_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "date",
+                    "differences",
+                    "finished_at",
+                    "id",
+                    "open_differences",
+                    "state"
+                ]
+            },
+            "ErpStatus": {
+                "type": "object",
+                "properties": {
+                    "enabled": {
+                        "type": "boolean",
+                        "description": "ERP_ENABLED: the platform talks to ERPNext"
+                    },
+                    "mode": {
+                        "type": "string",
+                        "description": "erpnext, or fake (an in-memory ERPNext)"
+                    },
+                    "flows": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "boolean"
+                        },
+                        "description": "each ERP_SYNC_* switch"
+                    },
+                    "pull_stock": {
+                        "type": "boolean"
+                    },
+                    "pull_b2b": {
+                        "type": "boolean"
+                    },
+                    "stock_projection": {
+                        "type": "boolean"
+                    },
+                    "account": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ErpAccountStatus"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "outbox": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "integer"
+                        },
+                        "description": "rows by state"
+                    },
+                    "oldest_waiting_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "oldest_waiting_seconds": {
+                        "type": "integer",
+                        "nullable": true
+                    },
+                    "held_aggregates": {
+                        "type": "integer",
+                        "description": "aggregates whose rows wait behind a dead one"
+                    },
+                    "cursors": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ErpCursorStatus"
+                        }
+                    },
+                    "last_reconciliation": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/ErpRunStatus"
+                            }
+                        ],
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "account",
+                    "cursors",
+                    "enabled",
+                    "flows",
+                    "held_aggregates",
+                    "last_reconciliation",
+                    "mode",
+                    "oldest_waiting_at",
+                    "oldest_waiting_seconds",
+                    "outbox",
+                    "pull_b2b",
+                    "pull_stock",
+                    "stock_projection"
+                ]
+            },
             "ExportPart": {
                 "type": "object",
                 "properties": {
@@ -15029,10 +16310,12 @@
                     "data_request",
                     "incident",
                     "failed_job",
-                    "failed_webhook"
+                    "failed_webhook",
+                    "sync_failed",
+                    "reconciliation"
                 ],
                 "type": "string",
-                "description": "* `approval` - approval\n* `teacher_request` - teacher access request\n* `deletion_request` - account deletion\n* `data_request` - data request\n* `incident` - incident\n* `failed_job` - failed job\n* `failed_webhook` - failed webhook"
+                "description": "* `approval` - approval\n* `teacher_request` - teacher access request\n* `deletion_request` - account deletion\n* `data_request` - data request\n* `incident` - incident\n* `failed_job` - failed job\n* `failed_webhook` - failed webhook\n* `sync_failed` - ERPNext refused a document (a dead letter)\n* `reconciliation` - ERPNext reconciliation differences"
             },
             "Incident": {
                 "type": "object",
@@ -15507,10 +16790,11 @@
             "JobKindEnum": {
                 "enum": [
                     "audit_export",
-                    "bulk_action"
+                    "bulk_action",
+                    "erp_initial_load"
                 ],
                 "type": "string",
-                "description": "* `audit_export` - audit log export\n* `bulk_action` - bulk action"
+                "description": "* `audit_export` - audit log export\n* `bulk_action` - bulk action\n* `erp_initial_load` - ERPNext initial load"
             },
             "JobStartRequest": {
                 "type": "object",
@@ -15521,7 +16805,7 @@
                     "params": {
                         "type": "object",
                         "additionalProperties": {},
-                        "description": "audit_export: {\"filters\": {…}} (the audit list's); bulk_action: {\"action\": \"order.refund\", \"targets\": [order numbers, slugs or ids], \"payload\": {…} (each target's, as for change-requests/), \"reason\"}"
+                        "description": "audit_export: {\"filters\": {…}} (the audit list's); bulk_action: {\"action\": \"order.refund\", \"targets\": [order numbers, slugs or ids], \"payload\": {…} (each target's, as for change-requests/), \"reason\"}; erp_initial_load: {\"invoices_from\": \"YYYY-MM-DD\"} (optional: without it, the catalogue only)"
                     },
                     "dry_run": {
                         "type": "boolean",
@@ -17222,6 +18506,110 @@
                         "type": "array",
                         "items": {
                             "$ref": "#/components/schemas/Entitlement"
+                        }
+                    }
+                }
+            },
+            "PaginatedErpCursorList": {
+                "type": "object",
+                "required": [
+                    "results"
+                ],
+                "properties": {
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cD00ODY%3D\""
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cj0xJnA9NDg3"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ErpCursor"
+                        }
+                    }
+                }
+            },
+            "PaginatedErpDifferenceList": {
+                "type": "object",
+                "required": [
+                    "results"
+                ],
+                "properties": {
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cD00ODY%3D\""
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cj0xJnA9NDg3"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ErpDifference"
+                        }
+                    }
+                }
+            },
+            "PaginatedErpOutboxList": {
+                "type": "object",
+                "required": [
+                    "results"
+                ],
+                "properties": {
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cD00ODY%3D\""
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cj0xJnA9NDg3"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ErpOutbox"
+                        }
+                    }
+                }
+            },
+            "PaginatedErpRunList": {
+                "type": "object",
+                "required": [
+                    "results"
+                ],
+                "properties": {
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cD00ODY%3D\""
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cj0xJnA9NDg3"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ErpRun"
                         }
                     }
                 }
@@ -22428,6 +23816,10 @@
         {
             "name": "shipping (staff)",
             "description": "Parcels, couriers, exceptions and COD, for staff (API.md)."
+        },
+        {
+            "name": "erp (staff)",
+            "description": "The ERPNext sync: outbox, dead letters, reconciliation (API.md)."
         }
     ]
 }

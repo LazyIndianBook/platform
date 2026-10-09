@@ -59,7 +59,7 @@ export const P = {
   pickupLocations: "shipping.manage_pickup_locations",
   insightsView: "insights.view_insights",
   signalsAcknowledge: "insights.acknowledge_signal",
-  // the ERPNext sync (the backend's erp app, coming)
+  // the ERPNext sync (the backend's erp app): no page of its own here yet; they open the ERPNext links
   erpView: "erp.view_sync",
   erpReplay: "erp.replay_sync",
   erpResolve: "erp.resolve_difference",
