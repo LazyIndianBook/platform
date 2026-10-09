@@ -6,8 +6,9 @@
 // the payload's hash), the audit trail shows both steps; invites a colleague (a privileged role waits for another
 // person: the owner may not approve their own); searches for the customer and reveals their address (audited);
 // acknowledges the data request; changes a setting with a reason; signs in to the website as the customer and ends
-// it. Every page passes axe at 1280 and 390 px and fits 320 px; the idle sign-out comes at the manifest's limit;
-// nothing animates with reduced motion.
+// it. SUPPORT then answers the customer's ticket: the reply goes out, the first reply is recorded, and the OWNER finds
+// it in the ticket's audit trail. Every page passes axe at 1280 and 390 px and fits 320 px; the idle sign-out comes
+// at the manifest's limit; nothing animates with reduced motion.
 import { type Browser, expect, type Page, test } from "@playwright/test";
 
 import { checkPages, type Codes, csrf, settle, signIn, toast } from "./console";
@@ -16,8 +17,10 @@ import {
   deleteRealWorld,
   deleteStaff,
   newSecret,
+  type RealTicket,
   type RealWorld,
   seedRealWorld,
+  seedTicket,
   type Staff,
 } from "./django";
 
@@ -33,6 +36,7 @@ const support = staffFor("SUPPORT");
 const ownerCodes: Codes = { last: null };
 const supportCodes: Codes = { last: null };
 let world: RealWorld;
+let ticket: RealTicket;
 let supportId: number;
 let changeRequest = "";
 
@@ -42,6 +46,7 @@ test.beforeAll(() => {
   createStaff(owner, "OWNER");
   supportId = createStaff(support, "SUPPORT");
   world = seedRealWorld(stamp);
+  ticket = seedTicket(world);
 });
 
 test.afterAll(() => {
@@ -248,6 +253,36 @@ test("OWNER: signs in to the website as the customer with the real token, and en
   await page.context().close();
 });
 
+test("SUPPORT answers the customer's ticket; the first reply is recorded and the OWNER finds it in the audit trail", async ({
+  browser,
+}) => {
+  const page = await open(browser);
+  await signIn(page, support, `/support/tickets/${ticket.number}/`, supportCodes);
+  await expect(page.getByRole("heading", { level: 1, name: "The parcel has not come (e2e)" })).toBeVisible();
+  const facts = page.getByRole("region", { name: "About it" });
+  const firstReply = facts.locator("dt", { hasText: "First reply" }).locator("+ dd");
+  await expect(firstReply).toHaveText("Not yet");
+  await expect(facts.getByText(world.order)).toBeVisible();
+  await page.getByLabel("Your reply").fill("We have asked the courier; you will hear from us tomorrow (e2e).");
+  await page.getByRole("button", { name: "Send the reply" }).click();
+  await expect(toast(page, "Reply sent")).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Conversation" }).getByText("We have asked the courier; you will hear from us"),
+  ).toBeVisible();
+  await expect(firstReply).toHaveText(/\d{4}, \d\d:\d\d$/);
+  await page.context().close();
+
+  const ownerPage = await open(browser);
+  await signIn(ownerPage, owner, `/support/tickets/${ticket.number}/`, ownerCodes);
+  const trail = ownerPage.getByRole("complementary", { name: "The customer and the audit trail" });
+  await expect(trail.getByText("support.replied")).toBeVisible();
+  await ownerPage.goto(`/audit/?target_type=support.ticket&target_id=${ticket.id}`);
+  await expect(
+    ownerPage.getByRole("region", { name: "Audit trail, a table" }).getByText("support.replied"),
+  ).toBeVisible();
+  await ownerPage.context().close();
+});
+
 for (const width of [1280, 390]) {
   test(`every page passes axe and fits the window at ${width} px (320 px too)`, async ({ browser }) => {
     const page = await open(browser, width);
@@ -275,6 +310,11 @@ for (const width of [1280, 390]) {
         "/system/",
         "/account/",
         "/users/999999/",
+        "/support/",
+        `/support/tickets/${ticket.number}/`,
+        "/support/new/",
+        "/support/replies/",
+        "/support/export/",
       ],
       width,
     );

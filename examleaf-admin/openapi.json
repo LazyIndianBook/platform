@@ -2062,7 +2062,7 @@
         "/api/v1/contact/": {
             "post": {
                 "operationId": "contact_create",
-                "description": "The contact form, as on the website's /contact/: the message is emailed to the support address (SUPPORT_EMAIL,\nelse SELLER_EMAIL) with Reply-To the sender, and nothing is stored. Turnstile's token while the bot check is on; 5\nan hour per client address, the website's form included; a filled-in `website` (the honeypot) is thanked and\ndropped. 503 while the support address is still a [placeholder].",
+                "description": "The contact form, as on the website's /contact/: the message becomes a support ticket (support.services\n.from_contact_form: a number, the legal clocks, the acknowledgement with the number to the sender's address; with\nSUPPORT_COPY_TO_EMAIL a copy to the support address, SUPPORT_EMAIL else SELLER_EMAIL). Turnstile's token while the\nbot check is on; 5 an hour per client address, the website's form included; a filled-in `website` (the honeypot)\nis thanked and dropped. 503 while the support address is still a [placeholder]: the acknowledgement's replies go\nthere.",
                 "tags": [
                     "contact"
                 ],
@@ -3819,6 +3819,92 @@
                             "application/json": {
                                 "schema": {
                                     "$ref": "#/components/schemas/Teacher"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/me/tickets/": {
+            "get": {
+                "operationId": "me_tickets_list",
+                "description": "My requests: the signed-in customer's tickets (their account's, and those sent from one of its confirmed email\naddresses before it had them), newest first, 50 a page: the number, what it is about, its status and dates, never\nstaff's notes nor who works on it. POST makes one (a confirmed email address; 10 an hour): it is acknowledged by\nemail with its number at once.",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "required": false,
+                        "in": "query",
+                        "description": "A page number within the paginated result set.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "page_size",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "tags": [
+                    "account"
+                ],
+                "security": [
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedMyTicketList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "post": {
+                "operationId": "me_tickets_create",
+                "description": "My requests: the signed-in customer's tickets (their account's, and those sent from one of its confirmed email\naddresses before it had them), newest first, 50 a page: the number, what it is about, its status and dates, never\nstaff's notes nor who works on it. POST makes one (a confirmed email address; 10 an hour): it is acknowledged by\nemail with its number at once.",
+                "tags": [
+                    "account"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/MyTicketCreateRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "jwtAuth": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MyTicket"
                                 }
                             }
                         },
@@ -9158,10 +9244,13 @@
                                 "reconciliation",
                                 "shipping_exception",
                                 "sync_failed",
-                                "teacher_request"
+                                "teacher_request",
+                                "ticket_breach",
+                                "ticket_due",
+                                "ticket_mention"
                             ]
                         },
-                        "description": "* `approval` - approval\n* `teacher_request` - teacher access request\n* `deletion_request` - account deletion\n* `data_request` - data request\n* `incident` - incident\n* `failed_job` - failed job\n* `failed_webhook` - failed webhook\n* `sync_failed` - ERPNext refused a document (a dead letter)\n* `reconciliation` - ERPNext reconciliation differences\n* `shipping_exception` - parcel exception\n* `dead_letter` - integration task given up\n* `failed_event` - provider event not processed\n* `integration_down` - integration unavailable"
+                        "description": "* `approval` - approval\n* `teacher_request` - teacher access request\n* `deletion_request` - account deletion\n* `data_request` - data request\n* `incident` - incident\n* `failed_job` - failed job\n* `failed_webhook` - failed webhook\n* `sync_failed` - ERPNext refused a document (a dead letter)\n* `reconciliation` - ERPNext reconciliation differences\n* `shipping_exception` - parcel exception\n* `dead_letter` - integration task given up\n* `failed_event` - provider event not processed\n* `integration_down` - integration unavailable\n* `ticket_due` - a ticket's legal clock three quarters gone\n* `ticket_breach` - a ticket past its legal clock\n* `ticket_mention` - named in a ticket's note"
                     },
                     {
                         "in": "query",
@@ -9681,10 +9770,11 @@
                             "enum": [
                                 "audit_export",
                                 "bulk_action",
-                                "erp_initial_load"
+                                "erp_initial_load",
+                                "grievance_export"
                             ]
                         },
-                        "description": "* `audit_export` - audit log export\n* `bulk_action` - bulk action\n* `erp_initial_load` - ERPNext initial load"
+                        "description": "* `audit_export` - audit log export\n* `bulk_action` - bulk action\n* `erp_initial_load` - ERPNext initial load\n* `grievance_export` - grievance register export"
                     },
                     {
                         "in": "query",
@@ -11388,6 +11478,1513 @@
                 }
             }
         },
+        "/api/v1/staff/support/agents/": {
+            "get": {
+                "operationId": "staff_support_agents_list",
+                "description": "Who a ticket may be given to or a note may name: the active staff who read tickets (`handles`: who may be\ngiven them).",
+                "tags": [
+                    "support (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/Agent"
+                                    }
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/support/saved-replies/": {
+            "get": {
+                "operationId": "staff_support_saved_replies_list",
+                "description": "Saved replies (support.view_savedreply to read; changes: ADMIN's): a delete puts one in the bin for 30 days,\nrestore/ takes it out.",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "bin",
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "description": "true: the deleted ones (30 days)"
+                    },
+                    {
+                        "name": "cursor",
+                        "required": false,
+                        "in": "query",
+                        "description": "The pagination cursor value.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "language",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "as",
+                                "bn",
+                                "en"
+                            ]
+                        },
+                        "description": "* `as` - Assamese\n* `bn` - Bengali\n* `en` - English"
+                    },
+                    {
+                        "name": "page_size",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "tags": [
+                    "support (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedSavedReplyList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "post": {
+                "operationId": "staff_support_saved_replies_create",
+                "description": "Saved replies (support.view_savedreply to read; changes: ADMIN's): a delete puts one in the bin for 30 days,\nrestore/ takes it out.",
+                "tags": [
+                    "support (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SavedReplyRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SavedReply"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/support/saved-replies/{id}/": {
+            "get": {
+                "operationId": "staff_support_saved_replies_retrieve",
+                "description": "Saved replies (support.view_savedreply to read; changes: ADMIN's): a delete puts one in the bin for 30 days,\nrestore/ takes it out.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this saved reply.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "support (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SavedReply"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "put": {
+                "operationId": "staff_support_saved_replies_update",
+                "description": "Saved replies (support.view_savedreply to read; changes: ADMIN's): a delete puts one in the bin for 30 days,\nrestore/ takes it out.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this saved reply.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "support (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SavedReplyRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SavedReply"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "patch": {
+                "operationId": "staff_support_saved_replies_partial_update",
+                "description": "Saved replies (support.view_savedreply to read; changes: ADMIN's): a delete puts one in the bin for 30 days,\nrestore/ takes it out.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this saved reply.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "support (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedSavedReplyRequest"
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SavedReply"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "delete": {
+                "operationId": "staff_support_saved_replies_destroy",
+                "description": "Saved replies (support.view_savedreply to read; changes: ADMIN's): a delete puts one in the bin for 30 days,\nrestore/ takes it out.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this saved reply.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "support (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/support/saved-replies/{id}/restore/": {
+            "post": {
+                "operationId": "staff_support_saved_replies_restore_create",
+                "description": "Saved replies (support.view_savedreply to read; changes: ADMIN's): a delete puts one in the bin for 30 days,\nrestore/ takes it out.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "id",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "A unique integer value identifying this saved reply.",
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "support (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SavedReply"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/support/summary/": {
+            "get": {
+                "operationId": "staff_support_summary_retrieve",
+                "description": "The module's numbers (research lms 4.9), from what each ticket stores: the period's volume by category and\nsource, the median first response and resolution, the breaches; the backlog and what is overdue now. Spam and\ntickets about a test order are left out of every number.",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "days",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "description": "the period: 1 to 366 days to today (30)"
+                    }
+                ],
+                "tags": [
+                    "support (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SupportSummary"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/support/tickets/": {
+            "get": {
+                "operationId": "staff_support_tickets_list",
+                "description": "The queue (the next legal clock first) and each ticket: its conversation, its sidebar, its actions.",
+                "parameters": [
+                    {
+                        "in": "query",
+                        "name": "assignee",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "category",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "book_code",
+                                "content_error",
+                                "grievance",
+                                "order",
+                                "payment",
+                                "privacy_request",
+                                "qr_solutions",
+                                "school_order"
+                            ]
+                        },
+                        "description": "Empty: not sorted.\n\n* `order` - order\n* `payment` - payment or refund\n* `book_code` - book code\n* `qr_solutions` - QR solutions\n* `content_error` - a mistake in the content\n* `school_order` - school order\n* `privacy_request` - privacy request\n* `grievance` - grievance"
+                    },
+                    {
+                        "name": "cursor",
+                        "required": false,
+                        "in": "query",
+                        "description": "The pagination cursor value.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "language",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "as",
+                                "bn",
+                                "en"
+                            ]
+                        },
+                        "description": "* `as` - Assamese\n* `bn` - Bengali\n* `en` - English"
+                    },
+                    {
+                        "in": "query",
+                        "name": "mine",
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "description": "true: given to me"
+                    },
+                    {
+                        "in": "query",
+                        "name": "open",
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "description": "true: new, open or waiting (its clocks run)"
+                    },
+                    {
+                        "in": "query",
+                        "name": "overdue",
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "description": "true: a running clock past its time"
+                    },
+                    {
+                        "name": "page_size",
+                        "required": false,
+                        "in": "query",
+                        "description": "Number of results to return per page.",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "in": "query",
+                        "name": "priority",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "high",
+                                "low",
+                                "medium",
+                                "urgent"
+                            ]
+                        },
+                        "description": "* `low` - low\n* `medium` - medium\n* `high` - high\n* `urgent` - urgent"
+                    },
+                    {
+                        "in": "query",
+                        "name": "q",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "a ticket's number, an order's, an email address or a mobile number (logged)"
+                    },
+                    {
+                        "in": "query",
+                        "name": "source",
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "email",
+                                "form",
+                                "nch",
+                                "phone",
+                                "whatsapp"
+                            ]
+                        },
+                        "description": "* `form` - the website (the contact form, My requests)\n* `email` - email\n* `phone` - phone\n* `whatsapp` - WhatsApp\n* `nch` - the National Consumer Helpline"
+                    },
+                    {
+                        "in": "query",
+                        "name": "status",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "closed",
+                                    "new",
+                                    "open",
+                                    "resolved",
+                                    "spam",
+                                    "waiting_customer",
+                                    "waiting_third_party"
+                                ]
+                            }
+                        },
+                        "description": "one or more; spam only so\n\n* `new` - new\n* `open` - open\n* `waiting_customer` - waiting on the customer\n* `waiting_third_party` - waiting on a third party\n* `resolved` - resolved\n* `closed` - closed\n* `spam` - spam (quarantined)",
+                        "explode": true,
+                        "style": "form"
+                    },
+                    {
+                        "in": "query",
+                        "name": "test",
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "description": "true: the tickets about a test order only (left out otherwise on a live site)"
+                    },
+                    {
+                        "in": "query",
+                        "name": "unassigned",
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "description": "true: given to nobody"
+                    },
+                    {
+                        "in": "query",
+                        "name": "waiting",
+                        "schema": {
+                            "type": "boolean"
+                        },
+                        "description": "true: waiting on the customer or others"
+                    }
+                ],
+                "tags": [
+                    "support (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedTicketList"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "post": {
+                "operationId": "staff_support_tickets_create",
+                "description": "Log a ticket that came another way: a call, WhatsApp, an NCH complaint with its docket, a letter or email.",
+                "tags": [
+                    "support (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TicketCreateRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TicketDetail"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/support/tickets/{number}/": {
+            "get": {
+                "operationId": "staff_support_tickets_retrieve",
+                "description": "Opening a ticket is a `sensitive_read` (its customer's record: their account's when there is one, a\nchild's marked so); the mentions waiting for the reader there are done.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "number",
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9-]+$"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "support (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TicketRecord"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            },
+            "patch": {
+                "operationId": "staff_support_tickets_partial_update",
+                "description": "Sort or correct it: category, priority, language, subject, source and NCH docket, the order or paper it is\nabout, the requester's name, email address, mobile number.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "number",
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9-]+$"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "support (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchedTicketChangeRequest"
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TicketDetail"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/support/tickets/{number}/acknowledge/": {
+            "post": {
+                "operationId": "staff_support_tickets_acknowledge_create",
+                "description": "The acknowledgement again (an address added, a copy of the complaint owed), or `note`: it was given\nanother way (on the call).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "number",
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9-]+$"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "support (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AcknowledgeRequest"
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Ticket"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/support/tickets/{number}/assign/": {
+            "post": {
+                "operationId": "staff_support_tickets_assign_create",
+                "description": "The queue (the next legal clock first) and each ticket: its conversation, its sidebar, its actions.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "number",
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9-]+$"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "support (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TicketAssignRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Ticket"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/support/tickets/{number}/attachments/{attachment}/": {
+            "get": {
+                "operationId": "staff_support_tickets_attachments_retrieve",
+                "description": "A file of the conversation: the private storage's link signed for 5 minutes (or the file itself).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "attachment",
+                        "schema": {
+                            "type": "integer"
+                        },
+                        "required": true
+                    },
+                    {
+                        "in": "path",
+                        "name": "number",
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9-]+$"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "support (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/octet-stream": {
+                                "schema": {
+                                    "type": "string",
+                                    "format": "binary"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "302": {
+                        "description": "No response body"
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/support/tickets/{number}/book-code/": {
+            "post": {
+                "operationId": "staff_support_tickets_book_code_create",
+                "description": "A book code looked up by its digest: one line (its batch, its subject, redeemed or not, by this requester\nor someone else). The code is never kept.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "number",
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9-]+$"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "support (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/BookCodeLookupRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/CodeAnswer"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/support/tickets/{number}/cancel/": {
+            "post": {
+                "operationId": "staff_support_tickets_cancel_create",
+                "description": "Cancel one of the requester's orders: paid online, through its refund (a change request, as refund/);\notherwise at once.",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Idempotency-Key",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "once per request"
+                    },
+                    {
+                        "in": "path",
+                        "name": "number",
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9-]+$"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "support (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CancelRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TicketOrderCancelled"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ChangeRequest"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "202": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ChangeRequest"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ChangeRequest"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/support/tickets/{number}/claim/": {
+            "post": {
+                "operationId": "staff_support_tickets_claim_create",
+                "description": "Give it to yourself.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "number",
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9-]+$"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "support (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Ticket"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/support/tickets/{number}/data-request/": {
+            "post": {
+                "operationId": "staff_support_tickets_data_request_create",
+                "description": "A data request from a grievance or privacy ticket: the rights queue's own clocks, from when the ticket\ncame.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "number",
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9-]+$"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "support (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/DataRequestStartRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/DataRequest"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/support/tickets/{number}/extend-access/": {
+            "post": {
+                "operationId": "staff_support_tickets_extend_access_create",
+                "description": "The queue (the next legal clock first) and each ticket: its conversation, its sidebar, its actions.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "number",
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9-]+$"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "support (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ExtendRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AccessExtended"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/support/tickets/{number}/messages/": {
+            "post": {
+                "operationId": "staff_support_tickets_messages_create",
+                "description": "A reply (emailed, or a call or WhatsApp message recorded) or an internal note, with @mentions.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "number",
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9-]+$"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "support (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/MessageCreateRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Message"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/support/tickets/{number}/refund/": {
+            "post": {
+                "operationId": "staff_support_tickets_refund_create",
+                "description": "Through the shop's refund (order.refund): within your limit it runs (201), above it waits for FINANCE\n(202). Not shipped: cancelled and refunded in full. Shipped: by `amount`, or by `lines` (copies from 0).",
+                "parameters": [
+                    {
+                        "in": "header",
+                        "name": "Idempotency-Key",
+                        "schema": {
+                            "type": "string"
+                        },
+                        "description": "once per request"
+                    },
+                    {
+                        "in": "path",
+                        "name": "number",
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9-]+$"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "support (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RefundRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ChangeRequest"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "201": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ChangeRequest"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "202": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ChangeRequest"
+                                }
+                            }
+                        },
+                        "description": ""
+                    },
+                    "400": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ChangeRequest"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/support/tickets/{number}/reopen/": {
+            "post": {
+                "operationId": "staff_support_tickets_reopen_create",
+                "description": "A resolved or closed ticket back to open (counted); its clocks never stopped.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "number",
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9-]+$"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "support (staff)"
+                ],
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Ticket"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/support/tickets/{number}/resend-confirmation/": {
+            "post": {
+                "operationId": "staff_support_tickets_resend_confirmation_create",
+                "description": "The order's confirmation email again (for an order with the course: how to open it).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "number",
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9-]+$"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "support (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/OrderActionRequest"
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Detail"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/support/tickets/{number}/resend-invoice/": {
+            "post": {
+                "operationId": "staff_support_tickets_resend_invoice_create",
+                "description": "The queue (the next legal clock first) and each ticket: its conversation, its sidebar, its actions.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "number",
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9-]+$"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "support (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/OrderActionRequest"
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Detail"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/support/tickets/{number}/reveal/": {
+            "post": {
+                "operationId": "staff_support_tickets_reveal_create",
+                "description": "The requester's email address or mobile number, with a reason (a `sensitive_read`, re-authenticated, 30 an\nhour).",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "number",
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9-]+$"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "support (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/TicketRevealRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/TicketRevealed"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
+        "/api/v1/staff/support/tickets/{number}/status/": {
+            "post": {
+                "operationId": "staff_support_tickets_status_create",
+                "description": "Move it on (its `transitions`); resolving or closing asks for its `closing_fields`.",
+                "parameters": [
+                    {
+                        "in": "path",
+                        "name": "number",
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9-]+$"
+                        },
+                        "required": true
+                    }
+                ],
+                "tags": [
+                    "support (staff)"
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/StatusRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    },
+                    {
+                        "cookieAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Ticket"
+                                }
+                            }
+                        },
+                        "description": ""
+                    }
+                }
+            }
+        },
         "/api/v1/staff/system/": {
             "get": {
                 "operationId": "staff_system_retrieve",
@@ -12181,6 +13778,22 @@
                     "token"
                 ]
             },
+            "AccessExtended": {
+                "type": "object",
+                "properties": {
+                    "entitlement": {
+                        "type": "integer"
+                    },
+                    "valid_until": {
+                        "type": "string",
+                        "format": "date"
+                    }
+                },
+                "required": [
+                    "entitlement",
+                    "valid_until"
+                ]
+            },
             "AccessRow": {
                 "type": "object",
                 "properties": {
@@ -12258,6 +13871,17 @@
                     "scopes",
                     "unused"
                 ]
+            },
+            "AcknowledgeRequest": {
+                "type": "object",
+                "properties": {
+                    "note": {
+                        "type": "string",
+                        "default": "",
+                        "description": "given another way: how (the acknowledgement is not sent then)",
+                        "maxLength": 300
+                    }
+                }
             },
             "ActorTypeEnum": {
                 "enum": [
@@ -12399,6 +14023,26 @@
                     "name",
                     "phone",
                     "pin"
+                ]
+            },
+            "Agent": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "handles": {
+                        "type": "boolean",
+                        "description": "may be given tickets (staff.handle_ticket)"
+                    }
+                },
+                "required": [
+                    "handles",
+                    "id",
+                    "name"
                 ]
             },
             "AnswerRequest": {
@@ -12645,6 +14289,33 @@
                 },
                 "required": [
                     "assignee"
+                ]
+            },
+            "Attachment": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "name": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "content_type": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "size": {
+                        "type": "integer",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "content_type",
+                    "id",
+                    "name",
+                    "size"
                 ]
             },
             "Attempt": {
@@ -13065,6 +14736,20 @@
                     "title"
                 ]
             },
+            "BookCodeLookupRequest": {
+                "type": "object",
+                "properties": {
+                    "code": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "as printed: 7KQM-3XPA-9TRW",
+                        "maxLength": 40
+                    }
+                },
+                "required": [
+                    "code"
+                ]
+            },
             "BookRequest": {
                 "type": "object",
                 "description": "Book a parcel for a packed order: with a courier of the quote (`courier_company_id`), booked by a task; or\nsent by hand (India Post, a courier without an API): `courier` and `tracking_number`, shipped at once.",
@@ -13181,6 +14866,24 @@
                 "required": [
                     "product",
                     "title"
+                ]
+            },
+            "CancelRequest": {
+                "type": "object",
+                "properties": {
+                    "order": {
+                        "type": "string",
+                        "default": "",
+                        "maxLength": 20
+                    },
+                    "reason": {
+                        "type": "string",
+                        "minLength": 5,
+                        "maxLength": 200
+                    }
+                },
+                "required": [
+                    "reason"
                 ]
             },
             "CarrierEnum": {
@@ -14108,6 +15811,42 @@
                     "title"
                 ]
             },
+            "Clock": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "ack, redress, nch, dpdp, it_ack, it_resolve"
+                    },
+                    "kind": {
+                        "type": "string",
+                        "description": "ack (stops at the acknowledgement) or resolve (at the resolution)"
+                    },
+                    "due": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "rule": {
+                        "type": "string"
+                    },
+                    "stopped_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "breached": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "breached",
+                    "due",
+                    "kind",
+                    "name",
+                    "rule",
+                    "stopped_at"
+                ]
+            },
             "CloseRequest": {
                 "type": "object",
                 "properties": {
@@ -14280,6 +16019,33 @@
                     "redeemed_7d"
                 ]
             },
+            "CodeAnswer": {
+                "type": "object",
+                "properties": {
+                    "found": {
+                        "type": "boolean"
+                    },
+                    "batch": {
+                        "type": "string"
+                    },
+                    "subject": {
+                        "type": "string"
+                    },
+                    "redeemed": {
+                        "type": "boolean"
+                    },
+                    "by_requester": {
+                        "type": "boolean"
+                    },
+                    "line": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "found",
+                    "line"
+                ]
+            },
             "CodeRequest": {
                 "type": "object",
                 "properties": {
@@ -14292,6 +16058,26 @@
                 },
                 "required": [
                     "code"
+                ]
+            },
+            "CodeRow": {
+                "type": "object",
+                "properties": {
+                    "batch": {
+                        "type": "string"
+                    },
+                    "subject": {
+                        "type": "string"
+                    },
+                    "redeemed_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "batch",
+                    "redeemed_at",
+                    "subject"
                 ]
             },
             "CohortStat": {
@@ -14428,6 +16214,40 @@
                     "solutions_require_login",
                     "support",
                     "web_course"
+                ]
+            },
+            "ConsentRow": {
+                "type": "object",
+                "properties": {
+                    "event": {
+                        "type": "string"
+                    },
+                    "method": {
+                        "type": "string"
+                    },
+                    "by_parent": {
+                        "type": "boolean"
+                    },
+                    "verified_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "notice_version": {
+                        "type": "string"
+                    },
+                    "created": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "by_parent",
+                    "created",
+                    "event",
+                    "method",
+                    "notice_version",
+                    "verified_at"
                 ]
             },
             "ContactEnum": {
@@ -15171,6 +16991,22 @@
                     "summary"
                 ]
             },
+            "DataRequestStartRequest": {
+                "type": "object",
+                "properties": {
+                    "kind": {
+                        "$ref": "#/components/schemas/DataRequestKindEnum"
+                    },
+                    "summary": {
+                        "type": "string",
+                        "default": "",
+                        "maxLength": 300
+                    }
+                },
+                "required": [
+                    "kind"
+                ]
+            },
             "DataRequestStatusEnum": {
                 "enum": [
                     "new",
@@ -15310,6 +17146,33 @@
                     "token"
                 ]
             },
+            "DeviceRow": {
+                "type": "object",
+                "properties": {
+                    "kind": {
+                        "type": "string",
+                        "description": "app (the reminders' phone) or browser (a signed-in session)"
+                    },
+                    "label": {
+                        "type": "string"
+                    },
+                    "ip": {
+                        "type": "string",
+                        "description": "masked"
+                    },
+                    "last_seen": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "ip",
+                    "kind",
+                    "label",
+                    "last_seen"
+                ]
+            },
             "Document": {
                 "type": "object",
                 "properties": {
@@ -15387,6 +17250,39 @@
                     "created",
                     "id",
                     "source"
+                ]
+            },
+            "EntitlementRow": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "subject": {
+                        "type": "string"
+                    },
+                    "source": {
+                        "type": "string"
+                    },
+                    "reference": {
+                        "type": "string"
+                    },
+                    "valid_until": {
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true
+                    },
+                    "active": {
+                        "type": "boolean"
+                    }
+                },
+                "required": [
+                    "active",
+                    "id",
+                    "reference",
+                    "source",
+                    "subject",
+                    "valid_until"
                 ]
             },
             "EntitlementSourceEnum": {
@@ -16056,6 +17952,29 @@
                     }
                 }
             },
+            "ExtendRequest": {
+                "type": "object",
+                "properties": {
+                    "entitlement": {
+                        "type": "integer"
+                    },
+                    "days": {
+                        "type": "integer",
+                        "maximum": 365,
+                        "minimum": 1
+                    },
+                    "reason": {
+                        "type": "string",
+                        "minLength": 5,
+                        "maxLength": 200
+                    }
+                },
+                "required": [
+                    "days",
+                    "entitlement",
+                    "reason"
+                ]
+            },
             "Flag": {
                 "type": "object",
                 "properties": {
@@ -16638,10 +18557,13 @@
                     "shipping_exception",
                     "dead_letter",
                     "failed_event",
-                    "integration_down"
+                    "integration_down",
+                    "ticket_due",
+                    "ticket_breach",
+                    "ticket_mention"
                 ],
                 "type": "string",
-                "description": "* `approval` - approval\n* `teacher_request` - teacher access request\n* `deletion_request` - account deletion\n* `data_request` - data request\n* `incident` - incident\n* `failed_job` - failed job\n* `failed_webhook` - failed webhook\n* `sync_failed` - ERPNext refused a document (a dead letter)\n* `reconciliation` - ERPNext reconciliation differences\n* `shipping_exception` - parcel exception\n* `dead_letter` - integration task given up\n* `failed_event` - provider event not processed\n* `integration_down` - integration unavailable"
+                "description": "* `approval` - approval\n* `teacher_request` - teacher access request\n* `deletion_request` - account deletion\n* `data_request` - data request\n* `incident` - incident\n* `failed_job` - failed job\n* `failed_webhook` - failed webhook\n* `sync_failed` - ERPNext refused a document (a dead letter)\n* `reconciliation` - ERPNext reconciliation differences\n* `shipping_exception` - parcel exception\n* `dead_letter` - integration task given up\n* `failed_event` - provider event not processed\n* `integration_down` - integration unavailable\n* `ticket_due` - a ticket's legal clock three quarters gone\n* `ticket_breach` - a ticket past its legal clock\n* `ticket_mention` - named in a ticket's note"
             },
             "Incident": {
                 "type": "object",
@@ -17117,10 +19039,11 @@
                 "enum": [
                     "audit_export",
                     "bulk_action",
-                    "erp_initial_load"
+                    "erp_initial_load",
+                    "grievance_export"
                 ],
                 "type": "string",
-                "description": "* `audit_export` - audit log export\n* `bulk_action` - bulk action\n* `erp_initial_load` - ERPNext initial load"
+                "description": "* `audit_export` - audit log export\n* `bulk_action` - bulk action\n* `erp_initial_load` - ERPNext initial load\n* `grievance_export` - grievance register export"
             },
             "JobStartRequest": {
                 "type": "object",
@@ -17131,7 +19054,7 @@
                     "params": {
                         "type": "object",
                         "additionalProperties": {},
-                        "description": "audit_export: {\"filters\": {…}} (the audit list's); bulk_action: {\"action\": \"order.refund\", \"targets\": [order numbers, slugs or ids], \"payload\": {…} (each target's, as for change-requests/), \"reason\"}; erp_initial_load: {\"invoices_from\": \"YYYY-MM-DD\"} (optional: without it, the catalogue only)"
+                        "description": "audit_export: {\"filters\": {…}} (the audit list's); bulk_action: {\"action\": \"order.refund\", \"targets\": [order numbers, slugs or ids], \"payload\": {…} (each target's, as for change-requests/), \"reason\"}; erp_initial_load: {\"invoices_from\": \"YYYY-MM-DD\"} (optional: without it, the catalogue only); grievance_export: {\"from\": \"YYYY-MM-DD\", \"until\": \"YYYY-MM-DD\"} (the days received, both optional)"
                     },
                     "dry_run": {
                         "type": "boolean",
@@ -17486,6 +19409,266 @@
                 },
                 "required": [
                     "shipments"
+                ]
+            },
+            "Message": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "direction": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/TicketDirectionEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "channel": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/TicketChannelEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "author": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "author_name": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "a member of staff's name; empty for the customer"
+                    },
+                    "automatic": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "Written by the site, not a person."
+                    },
+                    "body": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "sent_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "mentions": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        },
+                        "readOnly": true,
+                        "description": "staff named (ids)"
+                    },
+                    "attachments": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Attachment"
+                        },
+                        "readOnly": true
+                    },
+                    "other_sender": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "an email from another address than the requester's"
+                    },
+                    "dropped": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "readOnly": true,
+                        "description": "attachments not kept, and why"
+                    }
+                },
+                "required": [
+                    "attachments",
+                    "author",
+                    "author_name",
+                    "automatic",
+                    "body",
+                    "channel",
+                    "direction",
+                    "dropped",
+                    "id",
+                    "mentions",
+                    "other_sender",
+                    "sent_at"
+                ]
+            },
+            "MessageCreateDirectionEnum": {
+                "enum": [
+                    "out",
+                    "note"
+                ],
+                "type": "string",
+                "description": "* `out` - out\n* `note` - note"
+            },
+            "MessageCreateRequest": {
+                "type": "object",
+                "properties": {
+                    "direction": {
+                        "$ref": "#/components/schemas/MessageCreateDirectionEnum"
+                    },
+                    "body": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 20000
+                    },
+                    "channel": {
+                        "default": "",
+                        "description": "a reply's: email (sent), or phone, WhatsApp or NCH's portal (recorded); default email\n\n* `email` - email\n* `phone` - phone\n* `whatsapp` - WhatsApp\n* `nch` - the National Consumer Helpline's portal",
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/TicketReplyChannelEnum"
+                            },
+                            {
+                                "$ref": "#/components/schemas/BlankEnum"
+                            }
+                        ]
+                    },
+                    "mentions": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "maxItems": 20
+                    }
+                },
+                "required": [
+                    "body",
+                    "direction"
+                ]
+            },
+            "MyTicket": {
+                "type": "object",
+                "description": "One of the customer's requests: its number, what it is about, where it stands and its dates; never staff's\nnotes, never who works on it.",
+                "properties": {
+                    "number": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "subject": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "category": {
+                        "readOnly": true,
+                        "description": "empty: unsorted\n\n* `order` - order\n* `payment` - payment or refund\n* `book_code` - book code\n* `qr_solutions` - QR solutions\n* `content_error` - a mistake in the content\n* `school_order` - school order\n* `privacy_request` - privacy request\n* `grievance` - grievance",
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/TicketCategoryEnum"
+                            },
+                            {
+                                "$ref": "#/components/schemas/BlankEnum"
+                            }
+                        ]
+                    },
+                    "category_label": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "status": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/TicketStatusEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "status_label": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "order": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "received_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "acknowledged_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "answer_by": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "description": "the latest we answer it by"
+                    },
+                    "resolved_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "closed_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "modified": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "acknowledged_at",
+                    "answer_by",
+                    "category",
+                    "category_label",
+                    "closed_at",
+                    "modified",
+                    "number",
+                    "order",
+                    "received_at",
+                    "resolved_at",
+                    "status",
+                    "status_label",
+                    "subject"
+                ]
+            },
+            "MyTicketCreateRequest": {
+                "type": "object",
+                "properties": {
+                    "category": {
+                        "$ref": "#/components/schemas/TicketCategoryEnum"
+                    },
+                    "subject": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                    },
+                    "message": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 5000
+                    },
+                    "order": {
+                        "type": "string",
+                        "default": "",
+                        "maxLength": 20
+                    }
+                },
+                "required": [
+                    "category",
+                    "message",
+                    "subject"
                 ]
             },
             "NdrActionActionEnum": {
@@ -17992,6 +20175,16 @@
                     "web_url"
                 ]
             },
+            "OrderActionRequest": {
+                "type": "object",
+                "properties": {
+                    "order": {
+                        "type": "string",
+                        "default": "",
+                        "maxLength": 20
+                    }
+                }
+            },
             "OrderBrief": {
                 "type": "object",
                 "properties": {
@@ -18110,6 +20303,34 @@
                     "line_total",
                     "mrp",
                     "product",
+                    "quantity",
+                    "title",
+                    "unit_price"
+                ]
+            },
+            "OrderLine": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "quantity": {
+                        "type": "integer"
+                    },
+                    "unit_price": {
+                        "type": "string"
+                    },
+                    "discount": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "discount",
+                    "id",
                     "quantity",
                     "title",
                     "unit_price"
@@ -18279,6 +20500,100 @@
                     "timeline",
                     "total",
                     "web_url"
+                ]
+            },
+            "OrderPayment": {
+                "type": "object",
+                "properties": {
+                    "method": {
+                        "type": "string"
+                    },
+                    "paid_with": {
+                        "type": "string",
+                        "description": "Razorpay's method: upi, card, netbanking … (180 days)"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "amount": {
+                        "type": "string"
+                    },
+                    "razorpay_order_id": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "razorpay_payment_id": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "created": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "amount",
+                    "created",
+                    "method",
+                    "paid_with",
+                    "razorpay_order_id",
+                    "razorpay_payment_id",
+                    "status"
+                ]
+            },
+            "OrderRefund": {
+                "type": "object",
+                "properties": {
+                    "amount": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "razorpay_refund_id": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "created": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "amount",
+                    "created",
+                    "razorpay_refund_id",
+                    "status"
+                ]
+            },
+            "OrderShipment": {
+                "type": "object",
+                "properties": {
+                    "courier": {
+                        "type": "string"
+                    },
+                    "tracking_number": {
+                        "type": "string"
+                    },
+                    "tracking_url": {
+                        "type": "string"
+                    },
+                    "shipped_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "delivered_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "courier",
+                    "delivered_at",
+                    "shipped_at",
+                    "tracking_number",
+                    "tracking_url"
                 ]
             },
             "OrderStatusEnum": {
@@ -19213,6 +21528,37 @@
                     }
                 }
             },
+            "PaginatedMyTicketList": {
+                "type": "object",
+                "required": [
+                    "count",
+                    "results"
+                ],
+                "properties": {
+                    "count": {
+                        "type": "integer",
+                        "example": 123
+                    },
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=4"
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?page=2"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/MyTicket"
+                        }
+                    }
+                }
+            },
             "PaginatedOfferStatList": {
                 "type": "object",
                 "required": [
@@ -19544,6 +21890,32 @@
                     }
                 }
             },
+            "PaginatedSavedReplyList": {
+                "type": "object",
+                "required": [
+                    "results"
+                ],
+                "properties": {
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cD00ODY%3D\""
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cj0xJnA9NDg3"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/SavedReply"
+                        }
+                    }
+                }
+            },
             "PaginatedSavedViewList": {
                 "type": "object",
                 "required": [
@@ -19685,6 +22057,32 @@
                         "type": "array",
                         "items": {
                             "$ref": "#/components/schemas/Subject"
+                        }
+                    }
+                }
+            },
+            "PaginatedTicketList": {
+                "type": "object",
+                "required": [
+                    "results"
+                ],
+                "properties": {
+                    "next": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cD00ODY%3D\""
+                    },
+                    "previous": {
+                        "type": "string",
+                        "nullable": true,
+                        "format": "uri",
+                        "example": "http://api.example.org/accounts/?cursor=cj0xJnA9NDg3"
+                    },
+                    "results": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Ticket"
                         }
                     }
                 }
@@ -20424,6 +22822,34 @@
                     "email"
                 ]
             },
+            "PastTicket": {
+                "type": "object",
+                "properties": {
+                    "number": {
+                        "type": "string"
+                    },
+                    "subject": {
+                        "type": "string"
+                    },
+                    "category": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "received_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "category",
+                    "number",
+                    "received_at",
+                    "status",
+                    "subject"
+                ]
+            },
             "PatchedAddressRequest": {
                 "type": "object",
                 "description": "A saved delivery address: a state code from the list, a 6-digit PIN code and a 10-digit Indian mobile number\n(the website's rules).",
@@ -20788,6 +23214,29 @@
                     }
                 }
             },
+            "PatchedSavedReplyRequest": {
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                    },
+                    "language": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/TicketLanguageEnum"
+                            }
+                        ],
+                        "default": "en"
+                    },
+                    "body": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 5000
+                    }
+                }
+            },
             "PatchedSavedViewRequest": {
                 "type": "object",
                 "properties": {
@@ -20811,6 +23260,69 @@
                     "filters": {},
                     "columns": {},
                     "sort": {}
+                }
+            },
+            "PatchedTicketChangeRequest": {
+                "type": "object",
+                "properties": {
+                    "category": {
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/TicketCategoryEnum"
+                            },
+                            {
+                                "$ref": "#/components/schemas/BlankEnum"
+                            }
+                        ]
+                    },
+                    "priority": {
+                        "$ref": "#/components/schemas/TicketPriorityEnum"
+                    },
+                    "language": {
+                        "$ref": "#/components/schemas/TicketLanguageEnum"
+                    },
+                    "source": {
+                        "$ref": "#/components/schemas/TicketSourceEnum"
+                    },
+                    "nch_docket": {
+                        "type": "string",
+                        "maxLength": 40
+                    },
+                    "subject": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                    },
+                    "name": {
+                        "type": "string",
+                        "maxLength": 120
+                    },
+                    "email": {
+                        "oneOf": [
+                            {
+                                "type": "string",
+                                "format": "email"
+                            },
+                            {
+                                "type": "string",
+                                "maxLength": 0
+                            }
+                        ]
+                    },
+                    "phone": {
+                        "type": "string",
+                        "maxLength": 20
+                    },
+                    "order": {
+                        "type": "string",
+                        "description": "its number; empty: none",
+                        "maxLength": 20
+                    },
+                    "record": {
+                        "type": "string",
+                        "description": "a paper's code",
+                        "maxLength": 20
+                    }
                 }
             },
             "PaymentConfirmRequest": {
@@ -22441,6 +24953,54 @@
                     "status"
                 ]
             },
+            "RefundLineRequest": {
+                "type": "object",
+                "properties": {
+                    "item": {
+                        "type": "integer",
+                        "description": "the order line's id"
+                    },
+                    "quantity": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": "copies to refund, from 0"
+                    }
+                },
+                "required": [
+                    "item",
+                    "quantity"
+                ]
+            },
+            "RefundRequest": {
+                "type": "object",
+                "properties": {
+                    "order": {
+                        "type": "string",
+                        "default": "",
+                        "maxLength": 20
+                    },
+                    "amount": {
+                        "type": "string",
+                        "format": "decimal",
+                        "pattern": "^-?\\d{0,8}(?:\\.\\d{0,2})?$",
+                        "nullable": true
+                    },
+                    "lines": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/RefundLineRequest"
+                        }
+                    },
+                    "reason": {
+                        "type": "string",
+                        "minLength": 5,
+                        "maxLength": 300
+                    }
+                },
+                "required": [
+                    "reason"
+                ]
+            },
             "RegisterRequest": {
                 "type": "object",
                 "description": "The website's sign-up form, field for field, with its rules: under 18, a parent's name and phone or email, and\nthe parent ticks the consent; everyone agrees to the privacy notice; the email and password rules of the site.",
@@ -22504,6 +25064,33 @@
                     "full_name",
                     "password1",
                     "password2"
+                ]
+            },
+            "Requester": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "email": {
+                        "type": "string",
+                        "description": "masked; reveal/ shows it, logged"
+                    },
+                    "phone": {
+                        "type": "string",
+                        "description": "masked"
+                    },
+                    "user": {
+                        "type": "integer",
+                        "nullable": true,
+                        "description": "the requester's account"
+                    }
+                },
+                "required": [
+                    "email",
+                    "name",
+                    "phone",
+                    "user"
                 ]
             },
             "ResolveRequest": {
@@ -22699,6 +25286,122 @@
                 "type": "string",
                 "description": "* `ADMIN` - ADMIN\n* `AUDITOR` - AUDITOR\n* `CONTENT_EDITOR` - CONTENT_EDITOR\n* `FINANCE` - FINANCE\n* `MARKETING` - MARKETING\n* `OWNER` - OWNER\n* `PACKER` - PACKER\n* `REVIEWER` - REVIEWER\n* `SALES` - SALES\n* `SALES_REP` - SALES_REP\n* `SUPPORT` - SUPPORT"
             },
+            "SavedReply": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "title": {
+                        "type": "string",
+                        "maxLength": 100
+                    },
+                    "language": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/TicketLanguageEnum"
+                            }
+                        ],
+                        "default": "en"
+                    },
+                    "body": {
+                        "type": "string",
+                        "maxLength": 5000
+                    },
+                    "variables": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "readOnly": true,
+                        "description": "the variables its text uses"
+                    },
+                    "created_by": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "created": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "modified": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "deleted_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true,
+                        "description": "In the bin since."
+                    }
+                },
+                "required": [
+                    "body",
+                    "created",
+                    "created_by",
+                    "deleted_at",
+                    "id",
+                    "modified",
+                    "title",
+                    "variables"
+                ]
+            },
+            "SavedReplyRequest": {
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                    },
+                    "language": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/TicketLanguageEnum"
+                            }
+                        ],
+                        "default": "en"
+                    },
+                    "body": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 5000
+                    }
+                },
+                "required": [
+                    "body",
+                    "title"
+                ]
+            },
+            "SavedReplyText": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "integer"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "language": {
+                        "type": "string"
+                    },
+                    "text": {
+                        "type": "string",
+                        "description": "filled for this ticket: its variables replaced"
+                    }
+                },
+                "required": [
+                    "id",
+                    "language",
+                    "text",
+                    "title"
+                ]
+            },
             "SavedView": {
                 "type": "object",
                 "properties": {
@@ -22864,10 +25567,11 @@
                     "order_status",
                     "warehouse",
                     "school",
-                    "ticket_queue"
+                    "ticket_queue",
+                    "ticket_category"
                 ],
                 "type": "string",
-                "description": "* `subject` - subject (PHY, CHE, MAT, BIO)\n* `board_class` - board and class (ASSEB:12)\n* `order_status` - order status\n* `warehouse` - warehouse\n* `school` - school\n* `ticket_queue` - work queue (an inbox kind)"
+                "description": "* `subject` - subject (PHY, CHE, MAT, BIO)\n* `board_class` - board and class (ASSEB:12)\n* `order_status` - order status\n* `warehouse` - warehouse\n* `school` - school\n* `ticket_queue` - work queue (an inbox kind)\n* `ticket_category` - ticket category (support: order, content_error …)"
             },
             "SessionsEnded": {
                 "type": "object",
@@ -23468,6 +26172,167 @@
                 "type": "string",
                 "description": "* `email` - email\n* `phone` - phone\n* `login_phone` - login_phone\n* `parent_contact` - parent_contact\n* `parent_name` - parent_name\n* `date_of_birth` - date_of_birth"
             },
+            "Sidebar": {
+                "type": "object",
+                "properties": {
+                    "account": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/Customer"
+                            }
+                        ],
+                        "nullable": true
+                    },
+                    "orders": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/SidebarOrder"
+                        },
+                        "nullable": true
+                    },
+                    "entitlements": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/EntitlementRow"
+                        },
+                        "nullable": true
+                    },
+                    "codes": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/CodeRow"
+                        },
+                        "nullable": true
+                    },
+                    "devices": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/DeviceRow"
+                        },
+                        "nullable": true
+                    },
+                    "tickets": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PastTicket"
+                        },
+                        "nullable": true
+                    },
+                    "consents": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/ConsentRow"
+                        },
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "account",
+                    "codes",
+                    "consents",
+                    "devices",
+                    "entitlements",
+                    "orders",
+                    "tickets"
+                ]
+            },
+            "SidebarOrder": {
+                "type": "object",
+                "properties": {
+                    "number": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "status_label": {
+                        "type": "string"
+                    },
+                    "total": {
+                        "type": "string"
+                    },
+                    "payment_method": {
+                        "type": "string"
+                    },
+                    "created": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "placed_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "is_test": {
+                        "type": "boolean"
+                    },
+                    "refund_mode": {
+                        "type": "string",
+                        "description": "cancel: refunded in full with its cancellation; partial: shipped"
+                    },
+                    "refund_warning": {
+                        "type": "string",
+                        "description": "why a refund through Razorpay may not go, or empty"
+                    },
+                    "linked": {
+                        "type": "boolean",
+                        "description": "the ticket's own order"
+                    },
+                    "payments": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/OrderPayment"
+                        }
+                    },
+                    "refunds": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/OrderRefund"
+                        }
+                    },
+                    "shipments": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/OrderShipment"
+                        }
+                    },
+                    "invoice": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "credit_notes": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/OrderLine"
+                        }
+                    }
+                },
+                "required": [
+                    "created",
+                    "credit_notes",
+                    "invoice",
+                    "is_test",
+                    "items",
+                    "linked",
+                    "number",
+                    "payment_method",
+                    "payments",
+                    "placed_at",
+                    "refund_mode",
+                    "refund_warning",
+                    "refunds",
+                    "shipments",
+                    "status",
+                    "status_label",
+                    "total"
+                ]
+            },
             "SlugEnum": {
                 "enum": [
                     "privacy",
@@ -23822,6 +26687,32 @@
                 "type": "string",
                 "description": "* `KA` - Karnataka\n* `AP` - Andhra Pradesh\n* `KL` - Kerala\n* `TN` - Tamil Nadu\n* `MH` - Maharashtra\n* `UP` - Uttar Pradesh\n* `GA` - Goa\n* `GJ` - Gujarat\n* `RJ` - Rajasthan\n* `HP` - Himachal Pradesh\n* `TG` - Telangana\n* `AR` - Arunachal Pradesh\n* `AS` - Assam\n* `BR` - Bihar\n* `CT` - Chhattisgarh\n* `HR` - Haryana\n* `JH` - Jharkhand\n* `MP` - Madhya Pradesh\n* `MN` - Manipur\n* `ML` - Meghalaya\n* `MZ` - Mizoram\n* `NL` - Nagaland\n* `OR` - Odisha\n* `PB` - Punjab\n* `SK` - Sikkim\n* `TR` - Tripura\n* `UT` - Uttarakhand\n* `WB` - West Bengal\n* `AN` - Andaman and Nicobar Islands\n* `CH` - Chandigarh\n* `DH` - Dadra and Nagar Haveli and Daman and Diu\n* `DL` - Delhi\n* `JK` - Jammu and Kashmir\n* `LD` - Lakshadweep\n* `LA` - Ladakh\n* `PY` - Puducherry"
             },
+            "StatusRequest": {
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "$ref": "#/components/schemas/TicketStatusEnum"
+                    },
+                    "resolution": {
+                        "type": "string",
+                        "default": "",
+                        "maxLength": 5000
+                    },
+                    "order": {
+                        "type": "string",
+                        "default": "",
+                        "maxLength": 20
+                    },
+                    "record": {
+                        "type": "string",
+                        "default": "",
+                        "maxLength": 20
+                    }
+                },
+                "required": [
+                    "status"
+                ]
+            },
             "Streak": {
                 "type": "object",
                 "properties": {
@@ -23925,6 +26816,77 @@
                 "required": [
                     "email",
                     "phone"
+                ]
+            },
+            "SupportSummary": {
+                "type": "object",
+                "properties": {
+                    "since": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "until": {
+                        "type": "string",
+                        "format": "date"
+                    },
+                    "received": {
+                        "type": "integer"
+                    },
+                    "by_category": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "integer"
+                        },
+                        "description": "\"\" : not sorted yet"
+                    },
+                    "by_source": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "integer"
+                        }
+                    },
+                    "first_response_hours": {
+                        "type": "number",
+                        "format": "double",
+                        "nullable": true,
+                        "description": "the median"
+                    },
+                    "resolution_hours": {
+                        "type": "number",
+                        "format": "double",
+                        "nullable": true,
+                        "description": "the median"
+                    },
+                    "backlog": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "integer"
+                        },
+                        "description": "open tickets by status, now"
+                    },
+                    "overdue": {
+                        "type": "integer",
+                        "description": "open tickets past a clock, now"
+                    },
+                    "breaches": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "integer"
+                        },
+                        "description": "ack and due, of the period"
+                    }
+                },
+                "required": [
+                    "backlog",
+                    "breaches",
+                    "by_category",
+                    "by_source",
+                    "first_response_hours",
+                    "overdue",
+                    "received",
+                    "resolution_hours",
+                    "since",
+                    "until"
                 ]
             },
             "SwitchChangeRequest": {
@@ -24048,6 +27010,1077 @@
                     "school_name",
                     "subject"
                 ]
+            },
+            "Ticket": {
+                "type": "object",
+                "description": "A ticket in the queue.",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "number": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "subject": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "source": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/TicketSourceEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "nch_docket": {
+                        "type": "string",
+                        "readOnly": true,
+                        "title": "NCH docket number"
+                    },
+                    "category": {
+                        "readOnly": true,
+                        "description": "empty: unsorted\n\n* `order` - order\n* `payment` - payment or refund\n* `book_code` - book code\n* `qr_solutions` - QR solutions\n* `content_error` - a mistake in the content\n* `school_order` - school order\n* `privacy_request` - privacy request\n* `grievance` - grievance",
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/TicketCategoryEnum"
+                            },
+                            {
+                                "$ref": "#/components/schemas/BlankEnum"
+                            }
+                        ]
+                    },
+                    "priority": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/TicketPriorityEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "status": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/TicketStatusEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "language": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/TicketLanguageEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "requester": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/Requester"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "assignee": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "order": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "received_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "acknowledged_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "first_response_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true,
+                        "description": "The first reply a person sent."
+                    },
+                    "resolved_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "closed_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "ack_due_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "title": "Acknowledge by"
+                    },
+                    "due_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "title": "Resolve by"
+                    },
+                    "next_due_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "ack_breached": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "due_breached": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "overdue": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "a running clock past its due time"
+                    },
+                    "clock": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true,
+                        "description": "the running clock next_due_at is: ack or due; null: stopped"
+                    },
+                    "is_test": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "about a test order: shown under the TEST band only"
+                    },
+                    "reopened_count": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "message_count": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "default": 0
+                    },
+                    "last_message_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "ack_breached",
+                    "ack_due_at",
+                    "acknowledged_at",
+                    "assignee",
+                    "category",
+                    "clock",
+                    "closed_at",
+                    "due_at",
+                    "due_breached",
+                    "first_response_at",
+                    "id",
+                    "is_test",
+                    "language",
+                    "last_message_at",
+                    "message_count",
+                    "nch_docket",
+                    "next_due_at",
+                    "number",
+                    "order",
+                    "overdue",
+                    "priority",
+                    "received_at",
+                    "reopened_count",
+                    "requester",
+                    "resolved_at",
+                    "source",
+                    "status",
+                    "subject"
+                ]
+            },
+            "TicketAssignRequest": {
+                "type": "object",
+                "properties": {
+                    "assignee": {
+                        "type": "integer",
+                        "nullable": true,
+                        "description": "a member of staff's id; null: nobody"
+                    }
+                },
+                "required": [
+                    "assignee"
+                ]
+            },
+            "TicketCategoryEnum": {
+                "enum": [
+                    "order",
+                    "payment",
+                    "book_code",
+                    "qr_solutions",
+                    "content_error",
+                    "school_order",
+                    "privacy_request",
+                    "grievance"
+                ],
+                "type": "string",
+                "description": "* `order` - order\n* `payment` - payment or refund\n* `book_code` - book code\n* `qr_solutions` - QR solutions\n* `content_error` - a mistake in the content\n* `school_order` - school order\n* `privacy_request` - privacy request\n* `grievance` - grievance"
+            },
+            "TicketChannelEnum": {
+                "enum": [
+                    "web",
+                    "email",
+                    "phone",
+                    "whatsapp",
+                    "sms",
+                    "nch",
+                    "panel"
+                ],
+                "type": "string",
+                "description": "* `web` - the website\n* `email` - email\n* `phone` - phone\n* `whatsapp` - WhatsApp\n* `sms` - SMS\n* `nch` - the National Consumer Helpline's portal\n* `panel` - the panel (a note)"
+            },
+            "TicketCreateRequest": {
+                "type": "object",
+                "description": "A ticket staff log: a call, a WhatsApp message, an NCH complaint with its docket, a letter or an email.",
+                "properties": {
+                    "source": {
+                        "$ref": "#/components/schemas/TicketLoggedSourceEnum"
+                    },
+                    "nch_docket": {
+                        "type": "string",
+                        "default": "",
+                        "maxLength": 40
+                    },
+                    "name": {
+                        "type": "string",
+                        "default": "",
+                        "maxLength": 120
+                    },
+                    "email": {
+                        "oneOf": [
+                            {
+                                "type": "string",
+                                "format": "email",
+                                "default": ""
+                            },
+                            {
+                                "type": "string",
+                                "maxLength": 0
+                            }
+                        ]
+                    },
+                    "phone": {
+                        "type": "string",
+                        "default": "",
+                        "maxLength": 20
+                    },
+                    "category": {
+                        "default": "",
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/TicketCategoryEnum"
+                            },
+                            {
+                                "$ref": "#/components/schemas/BlankEnum"
+                            }
+                        ]
+                    },
+                    "priority": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/TicketPriorityEnum"
+                            }
+                        ],
+                        "default": "medium"
+                    },
+                    "subject": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                    },
+                    "message": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "the complaint as recorded: what they said or wrote",
+                        "maxLength": 20000
+                    },
+                    "received_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "when it came (default now); never ahead"
+                    },
+                    "order": {
+                        "type": "string",
+                        "default": "",
+                        "maxLength": 20
+                    }
+                },
+                "required": [
+                    "message",
+                    "source",
+                    "subject"
+                ]
+            },
+            "TicketDetail": {
+                "type": "object",
+                "description": "A ticket with its requester (masked), its clocks, what closing it asks for, its moves, its messages; the\nsidebar and the saved replies are the view's (by the reader's permissions).",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "number": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "subject": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "source": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/TicketSourceEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "nch_docket": {
+                        "type": "string",
+                        "readOnly": true,
+                        "title": "NCH docket number"
+                    },
+                    "category": {
+                        "readOnly": true,
+                        "description": "empty: unsorted\n\n* `order` - order\n* `payment` - payment or refund\n* `book_code` - book code\n* `qr_solutions` - QR solutions\n* `content_error` - a mistake in the content\n* `school_order` - school order\n* `privacy_request` - privacy request\n* `grievance` - grievance",
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/TicketCategoryEnum"
+                            },
+                            {
+                                "$ref": "#/components/schemas/BlankEnum"
+                            }
+                        ]
+                    },
+                    "priority": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/TicketPriorityEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "status": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/TicketStatusEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "language": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/TicketLanguageEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "requester": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/Requester"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "assignee": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "order": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "received_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "acknowledged_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "first_response_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true,
+                        "description": "The first reply a person sent."
+                    },
+                    "resolved_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "closed_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "ack_due_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "title": "Acknowledge by"
+                    },
+                    "due_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "title": "Resolve by"
+                    },
+                    "next_due_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "ack_breached": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "due_breached": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "overdue": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "a running clock past its due time"
+                    },
+                    "clock": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true,
+                        "description": "the running clock next_due_at is: ack or due; null: stopped"
+                    },
+                    "is_test": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "about a test order: shown under the TEST band only"
+                    },
+                    "reopened_count": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "message_count": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "default": 0
+                    },
+                    "last_message_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "data_request": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "record": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true,
+                        "description": "the paper a content error is in (its code)"
+                    },
+                    "resolution": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "What was done: asked for when closing."
+                    },
+                    "complaint_copy_sent_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "ack_held": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "An SMS acknowledgement waiting for 08:00."
+                    },
+                    "redress_due_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true,
+                        "title": "Redress by (E-Commerce Rules)"
+                    },
+                    "nch_due_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true,
+                        "title": "Respond by (NCH)"
+                    },
+                    "dpdp_due_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true,
+                        "title": "Answer by (SPDI or DPDP Rules)"
+                    },
+                    "it_due_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true,
+                        "title": "Resolve by (IT Rules)"
+                    },
+                    "clocks": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Clock"
+                        },
+                        "readOnly": true
+                    },
+                    "closing_fields": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "readOnly": true,
+                        "description": "what resolving or closing asks for"
+                    },
+                    "transitions": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "readOnly": true,
+                        "description": "the statuses it may move to now"
+                    },
+                    "messages": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Message"
+                        },
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "ack_breached",
+                    "ack_due_at",
+                    "ack_held",
+                    "acknowledged_at",
+                    "assignee",
+                    "category",
+                    "clock",
+                    "clocks",
+                    "closed_at",
+                    "closing_fields",
+                    "complaint_copy_sent_at",
+                    "data_request",
+                    "dpdp_due_at",
+                    "due_at",
+                    "due_breached",
+                    "first_response_at",
+                    "id",
+                    "is_test",
+                    "it_due_at",
+                    "language",
+                    "last_message_at",
+                    "message_count",
+                    "messages",
+                    "nch_docket",
+                    "nch_due_at",
+                    "next_due_at",
+                    "number",
+                    "order",
+                    "overdue",
+                    "priority",
+                    "received_at",
+                    "record",
+                    "redress_due_at",
+                    "reopened_count",
+                    "requester",
+                    "resolution",
+                    "resolved_at",
+                    "source",
+                    "status",
+                    "subject",
+                    "transitions"
+                ]
+            },
+            "TicketDirectionEnum": {
+                "enum": [
+                    "in",
+                    "out",
+                    "note"
+                ],
+                "type": "string",
+                "description": "* `in` - from the customer\n* `out` - to the customer\n* `note` - internal note"
+            },
+            "TicketLanguageEnum": {
+                "enum": [
+                    "as",
+                    "bn",
+                    "en"
+                ],
+                "type": "string",
+                "description": "* `as` - Assamese\n* `bn` - Bengali\n* `en` - English"
+            },
+            "TicketLoggedSourceEnum": {
+                "enum": [
+                    "phone",
+                    "whatsapp",
+                    "nch",
+                    "email"
+                ],
+                "type": "string",
+                "description": "* `phone` - phone\n* `whatsapp` - WhatsApp\n* `nch` - the National Consumer Helpline\n* `email` - email"
+            },
+            "TicketOrderCancelled": {
+                "type": "object",
+                "properties": {
+                    "order": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "order",
+                    "status"
+                ]
+            },
+            "TicketPriorityEnum": {
+                "enum": [
+                    "low",
+                    "medium",
+                    "high",
+                    "urgent"
+                ],
+                "type": "string",
+                "description": "* `low` - low\n* `medium` - medium\n* `high` - high\n* `urgent` - urgent"
+            },
+            "TicketRecord": {
+                "type": "object",
+                "description": "A ticket as its page draws it: TicketDetailSerializer, the sidebar (by the reader's permissions) and the saved\nreplies filled for it.",
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "number": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "subject": {
+                        "type": "string",
+                        "readOnly": true
+                    },
+                    "source": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/TicketSourceEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "nch_docket": {
+                        "type": "string",
+                        "readOnly": true,
+                        "title": "NCH docket number"
+                    },
+                    "category": {
+                        "readOnly": true,
+                        "description": "empty: unsorted\n\n* `order` - order\n* `payment` - payment or refund\n* `book_code` - book code\n* `qr_solutions` - QR solutions\n* `content_error` - a mistake in the content\n* `school_order` - school order\n* `privacy_request` - privacy request\n* `grievance` - grievance",
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/TicketCategoryEnum"
+                            },
+                            {
+                                "$ref": "#/components/schemas/BlankEnum"
+                            }
+                        ]
+                    },
+                    "priority": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/TicketPriorityEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "status": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/TicketStatusEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "language": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/TicketLanguageEnum"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "requester": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/Requester"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "assignee": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "order": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true
+                    },
+                    "received_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "acknowledged_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "first_response_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true,
+                        "description": "The first reply a person sent."
+                    },
+                    "resolved_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "closed_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "ack_due_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "title": "Acknowledge by"
+                    },
+                    "due_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "title": "Resolve by"
+                    },
+                    "next_due_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true
+                    },
+                    "ack_breached": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "due_breached": {
+                        "type": "boolean",
+                        "readOnly": true
+                    },
+                    "overdue": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "a running clock past its due time"
+                    },
+                    "clock": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true,
+                        "description": "the running clock next_due_at is: ack or due; null: stopped"
+                    },
+                    "is_test": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "about a test order: shown under the TEST band only"
+                    },
+                    "reopened_count": {
+                        "type": "integer",
+                        "readOnly": true
+                    },
+                    "message_count": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "default": 0
+                    },
+                    "last_message_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "data_request": {
+                        "type": "integer",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "record": {
+                        "type": "string",
+                        "nullable": true,
+                        "readOnly": true,
+                        "description": "the paper a content error is in (its code)"
+                    },
+                    "resolution": {
+                        "type": "string",
+                        "readOnly": true,
+                        "description": "What was done: asked for when closing."
+                    },
+                    "complaint_copy_sent_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true
+                    },
+                    "ack_held": {
+                        "type": "boolean",
+                        "readOnly": true,
+                        "description": "An SMS acknowledgement waiting for 08:00."
+                    },
+                    "redress_due_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true,
+                        "title": "Redress by (E-Commerce Rules)"
+                    },
+                    "nch_due_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true,
+                        "title": "Respond by (NCH)"
+                    },
+                    "dpdp_due_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true,
+                        "title": "Answer by (SPDI or DPDP Rules)"
+                    },
+                    "it_due_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "readOnly": true,
+                        "nullable": true,
+                        "title": "Resolve by (IT Rules)"
+                    },
+                    "clocks": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Clock"
+                        },
+                        "readOnly": true
+                    },
+                    "closing_fields": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "readOnly": true,
+                        "description": "what resolving or closing asks for"
+                    },
+                    "transitions": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "readOnly": true,
+                        "description": "the statuses it may move to now"
+                    },
+                    "messages": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/Message"
+                        },
+                        "readOnly": true
+                    },
+                    "sidebar": {
+                        "allOf": [
+                            {
+                                "$ref": "#/components/schemas/Sidebar"
+                            }
+                        ],
+                        "readOnly": true
+                    },
+                    "saved_replies": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/SavedReplyText"
+                        },
+                        "readOnly": true
+                    }
+                },
+                "required": [
+                    "ack_breached",
+                    "ack_due_at",
+                    "ack_held",
+                    "acknowledged_at",
+                    "assignee",
+                    "category",
+                    "clock",
+                    "clocks",
+                    "closed_at",
+                    "closing_fields",
+                    "complaint_copy_sent_at",
+                    "data_request",
+                    "dpdp_due_at",
+                    "due_at",
+                    "due_breached",
+                    "first_response_at",
+                    "id",
+                    "is_test",
+                    "it_due_at",
+                    "language",
+                    "last_message_at",
+                    "message_count",
+                    "messages",
+                    "nch_docket",
+                    "nch_due_at",
+                    "next_due_at",
+                    "number",
+                    "order",
+                    "overdue",
+                    "priority",
+                    "received_at",
+                    "record",
+                    "redress_due_at",
+                    "reopened_count",
+                    "requester",
+                    "resolution",
+                    "resolved_at",
+                    "saved_replies",
+                    "sidebar",
+                    "source",
+                    "status",
+                    "subject",
+                    "transitions"
+                ]
+            },
+            "TicketReplyChannelEnum": {
+                "enum": [
+                    "email",
+                    "phone",
+                    "whatsapp",
+                    "nch"
+                ],
+                "type": "string",
+                "description": "* `email` - email\n* `phone` - phone\n* `whatsapp` - WhatsApp\n* `nch` - the National Consumer Helpline's portal"
+            },
+            "TicketRevealFieldEnum": {
+                "enum": [
+                    "email",
+                    "phone"
+                ],
+                "type": "string",
+                "description": "* `email` - email address\n* `phone` - mobile number"
+            },
+            "TicketRevealRequest": {
+                "type": "object",
+                "properties": {
+                    "show": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/TicketRevealFieldEnum"
+                        }
+                    },
+                    "reason": {
+                        "type": "string",
+                        "minLength": 5,
+                        "description": "why: kept in the audit log",
+                        "maxLength": 300
+                    }
+                },
+                "required": [
+                    "reason",
+                    "show"
+                ]
+            },
+            "TicketRevealed": {
+                "type": "object",
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "phone": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                },
+                "required": [
+                    "email",
+                    "phone"
+                ]
+            },
+            "TicketSourceEnum": {
+                "enum": [
+                    "form",
+                    "email",
+                    "phone",
+                    "whatsapp",
+                    "nch"
+                ],
+                "type": "string",
+                "description": "* `form` - the website (the contact form, My requests)\n* `email` - email\n* `phone` - phone\n* `whatsapp` - WhatsApp\n* `nch` - the National Consumer Helpline"
+            },
+            "TicketStatusEnum": {
+                "enum": [
+                    "new",
+                    "open",
+                    "waiting_customer",
+                    "waiting_third_party",
+                    "resolved",
+                    "closed",
+                    "spam"
+                ],
+                "type": "string",
+                "description": "* `new` - new\n* `open` - open\n* `waiting_customer` - waiting on the customer\n* `waiting_third_party` - waiting on a third party\n* `resolved` - resolved\n* `closed` - closed\n* `spam` - spam (quarantined)"
             },
             "TierAverage": {
                 "type": "object",
@@ -24279,6 +28312,10 @@
         {
             "name": "erp (staff)",
             "description": "The ERPNext sync: outbox, dead letters, reconciliation (API.md)."
+        },
+        {
+            "name": "support (staff)",
+            "description": "Tickets, their legal clocks and actions; saved replies (API.md)."
         }
     ]
 }

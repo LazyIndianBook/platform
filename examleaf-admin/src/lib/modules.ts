@@ -63,6 +63,20 @@ export const P = {
   erpView: "erp.view_sync",
   erpReplay: "erp.replay_sync",
   erpResolve: "erp.resolve_difference",
+  // support (the backend's support app): the tickets, their notes, the saved replies, the grievance register
+  ticketsView: "support.view_ticket",
+  ticketsHandle: "staff.handle_ticket",
+  ticketsNote: "support.note_ticket",
+  repliesView: "support.view_savedreply",
+  repliesAdd: "support.add_savedreply",
+  repliesChange: "support.change_savedreply",
+  repliesDelete: "support.delete_savedreply",
+  grievancesExport: "staff.export_grievances",
+  // what a ticket's actions also need: the shop's and the course's own permissions
+  ordersView: "shop.view_order",
+  ordersChange: "shop.change_order",
+  accessExtend: "learn.change_entitlement",
+  bookCodesView: "learn.view_bookcode",
 } as const;
 
 /** Whether the manifest lists the permission (the shell's only use of permissions: what to draw). */
@@ -112,6 +126,7 @@ export const MODULES: readonly Module[] = [
   { key: "course", href: "/course/", group: "learning", any: ["learn.view_chapter"], soon: true },
   { key: "users", href: "/users/", group: "customers", any: [P.usersView] },
   { key: "partners", href: "/partners/", group: "customers", any: ["accounts.view_teacherprofile"], soon: true },
+  { key: "support", href: "/support/", group: "customers", any: [P.ticketsView, P.repliesView, P.grievancesExport] },
   { key: "requests", href: "/privacy/requests/", group: "privacy", any: [P.requestsView] },
   { key: "incidents", href: "/privacy/incidents/", group: "privacy", any: [P.incidentsView] },
   { key: "processors", href: "/privacy/processors/", group: "privacy", any: [P.processorsView] },

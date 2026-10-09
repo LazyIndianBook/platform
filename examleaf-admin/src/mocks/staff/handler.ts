@@ -18,6 +18,7 @@
 import type { Note } from "@/lib/api/staff";
 
 import { COLLEAGUES, createWorld, type MockJob, type MockSchemas, payloadHash, type World } from "./fixtures";
+import { grievanceFile, type Kit, startGrievanceExport, supportPermission, supportRoute } from "./support-handler";
 
 type S = MockSchemas;
 
@@ -53,6 +54,9 @@ const SUPPORT = [
   ...["staff.initiate_password_reset", "staff.reset_user_mfa", "staff.impersonate_user"],
   ...["staff.view_datarequest", "staff.handle_data_request", "staff.view_processorrecord"],
   ...["staff.refund_order", "staff.add_changerequest"],
+  // support (roles.py SUPPORT): every ticket, the saved replies read; the course's entitlements and book codes
+  ...["support.view_ticket", "support.note_ticket", "staff.handle_ticket", "support.view_savedreply"],
+  ...["learn.view_entitlement", "learn.change_entitlement", "learn.view_bookcode"],
 ];
 const FINANCE = [
   ...PANEL,
@@ -78,6 +82,8 @@ const EVERYTHING = [
     ...["staff.suspend_user", "shop.view_product", "shop.change_product", "shop.view_coupon", "shop.add_coupon"],
     ...["content.view_book", "content.view_paper", "learn.view_chapter"],
     ...["staff.view_parcels", "staff.book_parcel", "staff.view_insights", "erp.view_sync"],
+    ...["support.add_savedreply", "support.change_savedreply", "support.delete_savedreply"],
+    ...["staff.export_grievances", "shop.change_order"],
   ]),
 ].sort();
 const ROLE_PERMISSIONS: Record<string, string[]> = {
@@ -85,8 +91,14 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
   ADMIN: EVERYTHING.filter((perm) => !OWNER_ONLY.includes(perm) && !MONEY_APPROVALS.includes(perm)),
   FINANCE,
   SUPPORT,
-  AUDITOR: [...EVERYTHING.filter((perm) => perm.split(".")[1].startsWith("view_")), "staff.export_auditlog"],
-  CONTENT_EDITOR: [...PANEL, "content.view_book", "content.view_paper", "learn.view_chapter", "shop.view_product"],
+  AUDITOR: [
+    ...EVERYTHING.filter((perm) => perm.split(".")[1].startsWith("view_")),
+    ...["staff.export_auditlog", "staff.export_grievances"],
+  ],
+  CONTENT_EDITOR: [
+    ...[...PANEL, "content.view_book", "content.view_paper", "learn.view_chapter", "shop.view_product"],
+    ...["support.view_ticket", "support.note_ticket"], // the content errors' tickets (ROLE_SCOPES), noted on
+  ],
   PACKER: ["staff.view_inbox", "staff.view_savedview", "shop.view_order", "staff.view_parcels"],
 };
 // accounts/roles.py ROLE_LIMITS (null: none)
@@ -104,6 +116,7 @@ const RISKY = new Set([
   ...["staff.export_personal_data", "staff.approve_erasure", "staff.manage_incident", "staff.assign_role"],
   ...["staff.approve_role_change", "staff.manage_api_keys", "staff.export_auditlog", "staff.approve_export"],
   ...["staff.manage_settings", "staff.manage_flags", "staff.toggle_maintenance"],
+  "staff.export_grievances",
 ]);
 // the online-paid orders a refund may name (shop.Order with a captured Razorpay payment), rupees paid
 const PAID_ORDERS: Record<string, { id: number; paid: number; shipped: boolean }> = {
@@ -386,6 +399,7 @@ function permissionFor(context: Context): string | null {
     case "change-requests":
       return !a && method === "POST" ? "staff.add_changerequest" : "staff.view_changerequest";
     case "jobs":
+      if (method === "POST" && !a && context.body.kind === "grievance_export") return "staff.export_grievances";
       return "staff.view_job";
     case "saved-views":
       return get
@@ -436,6 +450,8 @@ function permissionFor(context: Context): string | null {
       return get ? "staff.view_processorrecord" : "staff.add_processorrecord";
     case "system":
       return a === "reconcile" ? "staff.replay_webhook" : "staff.view_system";
+    case "support":
+      return supportPermission(context);
   }
   void c;
   return "staff.view_system";
@@ -751,6 +767,7 @@ async function route(context: Context): Promise<Response> {
     }
 
     case "jobs": {
+      if (method === "POST" && !a && body.kind === "grievance_export") return startGrievanceExport(context, KIT);
       const mine = world.jobs.filter((job) => job.started_by === me || can("staff.view_system"));
       if (method === "GET" && !a) {
         const rows = mine.filter(
@@ -789,6 +806,7 @@ async function route(context: Context): Promise<Response> {
             code: "link_expired",
           });
         record(context, "job.result_downloaded", target("staff.job", job.id, `Job #${job.id}`));
+        if (job.kind === "grievance_export") return grievanceFile(context, job);
         const rows = world.audit
           .slice(0, job.total || 20)
           .map((row) => JSON.stringify(row))
@@ -1582,6 +1600,9 @@ async function route(context: Context): Promise<Response> {
       }
       return notFound();
     }
+
+    case "support":
+      return supportRoute(context, KIT);
   }
   return notFound();
 }
@@ -1657,10 +1678,28 @@ function visibleJob(context: Context, job: MockJob): S["Job"] {
   const { _ticks, _rows, ...visible } = job;
   void _ticks;
   void _rows;
-  const file = job.state === "done" && job.kind === "audit_export" && job.started_by === context.who.id;
+  const file =
+    job.state === "done" &&
+    (job.kind === "audit_export" || job.kind === "grievance_export") &&
+    job.started_by === context.who.id;
   const token = `t-${job.id}-${Date.now() + 5 * 60_000}`;
   return { ...visible, result_url: file ? `${context.url.origin}${ROOT}jobs/${job.id}/result/?token=${token}` : null };
 }
+
+/** The helpers the support part (support-handler.ts) answers with. */
+const KIT: Kit = {
+  json,
+  noContent,
+  notFound,
+  invalid,
+  record,
+  paginate,
+  waiting,
+  nextId,
+  limitOf,
+  startJob,
+  visibleJob,
+};
 
 /** The mock's one entry: refuses outside `next dev` with STAFF_API_MOCK=1. */
 export async function handleMock(request: Request): Promise<Response> {

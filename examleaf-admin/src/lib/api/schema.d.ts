@@ -633,10 +633,12 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description The contact form, as on the website's /contact/: the message is emailed to the support address (SUPPORT_EMAIL,
-         *     else SELLER_EMAIL) with Reply-To the sender, and nothing is stored. Turnstile's token while the bot check is on; 5
-         *     an hour per client address, the website's form included; a filled-in `website` (the honeypot) is thanked and
-         *     dropped. 503 while the support address is still a [placeholder].
+         * @description The contact form, as on the website's /contact/: the message becomes a support ticket (support.services
+         *     .from_contact_form: a number, the legal clocks, the acknowledgement with the number to the sender's address; with
+         *     SUPPORT_COPY_TO_EMAIL a copy to the support address, SUPPORT_EMAIL else SELLER_EMAIL). Turnstile's token while the
+         *     bot check is on; 5 an hour per client address, the website's form included; a filled-in `website` (the honeypot)
+         *     is thanked and dropped. 503 while the support address is still a [placeholder]: the acknowledgement's replies go
+         *     there.
          */
         post: operations["contact_create"];
         delete?: never;
@@ -1285,6 +1287,34 @@ export interface paths {
          *     in me/).
          */
         post: operations["me_teacher_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/tickets/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description My requests: the signed-in customer's tickets (their account's, and those sent from one of its confirmed email
+         *     addresses before it had them), newest first, 50 a page: the number, what it is about, its status and dates, never
+         *     staff's notes nor who works on it. POST makes one (a confirmed email address; 10 an hour): it is acknowledged by
+         *     email with its number at once.
+         */
+        get: operations["me_tickets_list"];
+        put?: never;
+        /**
+         * @description My requests: the signed-in customer's tickets (their account's, and those sent from one of its confirmed email
+         *     addresses before it had them), newest first, 50 a page: the number, what it is about, its status and dates, never
+         *     staff's notes nor who works on it. POST makes one (a confirmed email address; 10 an hour): it is acknowledged by
+         *     email with its number at once.
+         */
+        post: operations["me_tickets_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3711,6 +3741,438 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/staff/support/agents/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Who a ticket may be given to or a note may name: the active staff who read tickets (`handles`: who may be
+         *     given them).
+         */
+        get: operations["staff_support_agents_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/saved-replies/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Saved replies (support.view_savedreply to read; changes: ADMIN's): a delete puts one in the bin for 30 days,
+         *     restore/ takes it out.
+         */
+        get: operations["staff_support_saved_replies_list"];
+        put?: never;
+        /**
+         * @description Saved replies (support.view_savedreply to read; changes: ADMIN's): a delete puts one in the bin for 30 days,
+         *     restore/ takes it out.
+         */
+        post: operations["staff_support_saved_replies_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/saved-replies/{id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Saved replies (support.view_savedreply to read; changes: ADMIN's): a delete puts one in the bin for 30 days,
+         *     restore/ takes it out.
+         */
+        get: operations["staff_support_saved_replies_retrieve"];
+        /**
+         * @description Saved replies (support.view_savedreply to read; changes: ADMIN's): a delete puts one in the bin for 30 days,
+         *     restore/ takes it out.
+         */
+        put: operations["staff_support_saved_replies_update"];
+        post?: never;
+        /**
+         * @description Saved replies (support.view_savedreply to read; changes: ADMIN's): a delete puts one in the bin for 30 days,
+         *     restore/ takes it out.
+         */
+        delete: operations["staff_support_saved_replies_destroy"];
+        options?: never;
+        head?: never;
+        /**
+         * @description Saved replies (support.view_savedreply to read; changes: ADMIN's): a delete puts one in the bin for 30 days,
+         *     restore/ takes it out.
+         */
+        patch: operations["staff_support_saved_replies_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/support/saved-replies/{id}/restore/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Saved replies (support.view_savedreply to read; changes: ADMIN's): a delete puts one in the bin for 30 days,
+         *     restore/ takes it out.
+         */
+        post: operations["staff_support_saved_replies_restore_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/summary/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The module's numbers (research lms 4.9), from what each ticket stores: the period's volume by category and
+         *     source, the median first response and resolution, the breaches; the backlog and what is overdue now. Spam and
+         *     tickets about a test order are left out of every number.
+         */
+        get: operations["staff_support_summary_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/tickets/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The queue (the next legal clock first) and each ticket: its conversation, its sidebar, its actions. */
+        get: operations["staff_support_tickets_list"];
+        put?: never;
+        /** @description Log a ticket that came another way: a call, WhatsApp, an NCH complaint with its docket, a letter or email. */
+        post: operations["staff_support_tickets_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/tickets/{number}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Opening a ticket is a `sensitive_read` (its customer's record: their account's when there is one, a
+         *     child's marked so); the mentions waiting for the reader there are done.
+         */
+        get: operations["staff_support_tickets_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * @description Sort or correct it: category, priority, language, subject, source and NCH docket, the order or paper it is
+         *     about, the requester's name, email address, mobile number.
+         */
+        patch: operations["staff_support_tickets_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/staff/support/tickets/{number}/acknowledge/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The acknowledgement again (an address added, a copy of the complaint owed), or `note`: it was given
+         *     another way (on the call).
+         */
+        post: operations["staff_support_tickets_acknowledge_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/tickets/{number}/assign/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The queue (the next legal clock first) and each ticket: its conversation, its sidebar, its actions. */
+        post: operations["staff_support_tickets_assign_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/tickets/{number}/attachments/{attachment}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description A file of the conversation: the private storage's link signed for 5 minutes (or the file itself). */
+        get: operations["staff_support_tickets_attachments_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/tickets/{number}/book-code/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A book code looked up by its digest: one line (its batch, its subject, redeemed or not, by this requester
+         *     or someone else). The code is never kept.
+         */
+        post: operations["staff_support_tickets_book_code_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/tickets/{number}/cancel/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Cancel one of the requester's orders: paid online, through its refund (a change request, as refund/);
+         *     otherwise at once.
+         */
+        post: operations["staff_support_tickets_cancel_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/tickets/{number}/claim/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Give it to yourself. */
+        post: operations["staff_support_tickets_claim_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/tickets/{number}/data-request/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description A data request from a grievance or privacy ticket: the rights queue's own clocks, from when the ticket
+         *     came.
+         */
+        post: operations["staff_support_tickets_data_request_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/tickets/{number}/extend-access/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The queue (the next legal clock first) and each ticket: its conversation, its sidebar, its actions. */
+        post: operations["staff_support_tickets_extend_access_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/tickets/{number}/messages/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description A reply (emailed, or a call or WhatsApp message recorded) or an internal note, with @mentions. */
+        post: operations["staff_support_tickets_messages_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/tickets/{number}/refund/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Through the shop's refund (order.refund): within your limit it runs (201), above it waits for FINANCE
+         *     (202). Not shipped: cancelled and refunded in full. Shipped: by `amount`, or by `lines` (copies from 0).
+         */
+        post: operations["staff_support_tickets_refund_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/tickets/{number}/reopen/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description A resolved or closed ticket back to open (counted); its clocks never stopped. */
+        post: operations["staff_support_tickets_reopen_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/tickets/{number}/resend-confirmation/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The order's confirmation email again (for an order with the course: how to open it). */
+        post: operations["staff_support_tickets_resend_confirmation_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/tickets/{number}/resend-invoice/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The queue (the next legal clock first) and each ticket: its conversation, its sidebar, its actions. */
+        post: operations["staff_support_tickets_resend_invoice_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/tickets/{number}/reveal/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description The requester's email address or mobile number, with a reason (a `sensitive_read`, re-authenticated, 30 an
+         *     hour).
+         */
+        post: operations["staff_support_tickets_reveal_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/staff/support/tickets/{number}/status/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Move it on (its `transitions`); resolving or closing asks for its `closing_fields`. */
+        post: operations["staff_support_tickets_status_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/staff/system/": {
         parameters: {
             query?: never;
@@ -4047,6 +4509,11 @@ export interface components {
             /** @default  */
             password: string;
         };
+        AccessExtended: {
+            entitlement: number;
+            /** Format: date */
+            valid_until: string;
+        };
         AccessRow: {
             id: number;
             /** Format: email */
@@ -4071,6 +4538,13 @@ export interface components {
             last_used: {
                 [key: string]: string;
             };
+        };
+        AcknowledgeRequest: {
+            /**
+             * @description given another way: how (the acknowledgement is not sent then)
+             * @default
+             */
+            note: string;
         };
         /**
          * @description * `staff` - staff
@@ -4127,6 +4601,12 @@ export interface components {
             pin: string;
             /** Use by default */
             is_default?: boolean;
+        };
+        Agent: {
+            id: number;
+            name: string;
+            /** @description may be given tickets (staff.handle_ticket) */
+            handles: boolean;
         };
         AnswerRequest: {
             /** @description the option's number from 1, true/false, or the word(s) */
@@ -4224,6 +4704,12 @@ export interface components {
         AssignRequest: {
             /** @description a member of staff's id; null: nobody */
             assignee: number | null;
+        };
+        Attachment: {
+            readonly id: number;
+            readonly name: string;
+            readonly content_type: string;
+            readonly size: number;
         };
         /** @description A student's marks for a published paper, from 0 to its full marks (as the website's form); the paper is fixed. */
         Attempt: {
@@ -4363,6 +4849,10 @@ export interface components {
             readonly subject: components["schemas"]["Subject"];
             readonly papers: components["schemas"]["PaperBrief"][];
         };
+        BookCodeLookupRequest: {
+            /** @description as printed: 7KQM-3XPA-9TRW */
+            code: string;
+        };
         /**
          * @description Book a parcel for a packed order: with a courier of the quote (`courier_company_id`), booked by a task; or
          *     sent by hand (India Post, a courier without an API): `courier` and `tracking_number`, shipped at once.
@@ -4404,6 +4894,11 @@ export interface components {
             readonly title: string;
             /** Format: int64 */
             quantity?: number;
+        };
+        CancelRequest: {
+            /** @default  */
+            order: string;
+            reason: string;
         };
         /**
          * @description * `manual` - by hand (staff type the courier and number)
@@ -4735,6 +5230,18 @@ export interface components {
             readonly locked: boolean;
             readonly completed: boolean;
         };
+        Clock: {
+            /** @description ack, redress, nch, dpdp, it_ack, it_resolve */
+            name: string;
+            /** @description ack (stops at the acknowledgement) or resolve (at the resolution) */
+            kind: string;
+            /** Format: date-time */
+            due: string;
+            rule: string;
+            /** Format: date-time */
+            stopped_at: string | null;
+            breached: boolean;
+        };
         CloseRequest: {
             outcome: components["schemas"]["DataRequestOutcomeEnum"];
             /** @description the answer sent, as sent */
@@ -4803,9 +5310,23 @@ export interface components {
             redeemed_7d: number;
             readonly n: number;
         };
+        CodeAnswer: {
+            found: boolean;
+            batch?: string;
+            subject?: string;
+            redeemed?: boolean;
+            by_requester?: boolean;
+            line: string;
+        };
         CodeRequest: {
             /** @description as printed: 7KQM-3XPA-9TRW (any case, spaces or dashes) */
             code: string;
+        };
+        CodeRow: {
+            batch: string;
+            subject: string;
+            /** Format: date-time */
+            redeemed_at: string;
         };
         CohortStat: {
             /**
@@ -4858,6 +5379,16 @@ export interface components {
             /** @description the revision course's chapter, flash-card and quiz pages on the website; off: the app only */
             web_course: boolean;
             maintenance: components["schemas"]["MaintenanceConfig"];
+        };
+        ConsentRow: {
+            event: string;
+            method: string;
+            by_parent: boolean;
+            /** Format: date-time */
+            verified_at: string | null;
+            notice_version: string;
+            /** Format: date-time */
+            created: string;
         };
         /**
          * @description * `email` - email
@@ -5096,6 +5627,11 @@ export interface components {
             /** @description A nominee; a parent's confirmation; holds. */
             details?: unknown;
         };
+        DataRequestStartRequest: {
+            kind: components["schemas"]["DataRequestKindEnum"];
+            /** @default  */
+            summary: string;
+        };
         /**
          * @description * `new` - received
          *     * `acknowledged` - acknowledged
@@ -5152,6 +5688,15 @@ export interface components {
             token: string;
             platform?: components["schemas"]["PlatformEnum"] | components["schemas"]["BlankEnum"];
         };
+        DeviceRow: {
+            /** @description app (the reminders' phone) or browser (a signed-in session) */
+            kind: string;
+            label: string;
+            /** @description masked */
+            ip: string;
+            /** Format: date-time */
+            last_seen: string | null;
+        };
         Document: {
             number: string;
             /** Format: date-time */
@@ -5180,6 +5725,15 @@ export interface components {
             valid_until?: string | null;
             /** Format: date-time */
             readonly created: string;
+        };
+        EntitlementRow: {
+            id: number;
+            subject: string;
+            source: string;
+            reference: string;
+            /** Format: date */
+            valid_until: string | null;
+            active: boolean;
         };
         /**
          * @description * `book_code` - book code
@@ -5388,6 +5942,11 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        ExtendRequest: {
+            entitlement: number;
+            days: number;
+            reason: string;
+        };
         Flag: {
             key: string;
             value: unknown;
@@ -5593,9 +6152,12 @@ export interface components {
          *     * `dead_letter` - integration task given up
          *     * `failed_event` - provider event not processed
          *     * `integration_down` - integration unavailable
+         *     * `ticket_due` - a ticket's legal clock three quarters gone
+         *     * `ticket_breach` - a ticket past its legal clock
+         *     * `ticket_mention` - named in a ticket's note
          * @enum {string}
          */
-        InboxKindEnum: "approval" | "teacher_request" | "deletion_request" | "data_request" | "incident" | "failed_job" | "failed_webhook" | "sync_failed" | "reconciliation" | "shipping_exception" | "dead_letter" | "failed_event" | "integration_down";
+        InboxKindEnum: "approval" | "teacher_request" | "deletion_request" | "data_request" | "incident" | "failed_job" | "failed_webhook" | "sync_failed" | "reconciliation" | "shipping_exception" | "dead_letter" | "failed_event" | "integration_down" | "ticket_due" | "ticket_breach" | "ticket_mention";
         Incident: {
             readonly id: number;
             title: string;
@@ -5768,12 +6330,13 @@ export interface components {
          * @description * `audit_export` - audit log export
          *     * `bulk_action` - bulk action
          *     * `erp_initial_load` - ERPNext initial load
+         *     * `grievance_export` - grievance register export
          * @enum {string}
          */
-        JobKindEnum: "audit_export" | "bulk_action" | "erp_initial_load";
+        JobKindEnum: "audit_export" | "bulk_action" | "erp_initial_load" | "grievance_export";
         JobStartRequest: {
             kind: components["schemas"]["JobKindEnum"];
-            /** @description audit_export: {"filters": {…}} (the audit list's); bulk_action: {"action": "order.refund", "targets": [order numbers, slugs or ids], "payload": {…} (each target's, as for change-requests/), "reason"}; erp_initial_load: {"invoices_from": "YYYY-MM-DD"} (optional: without it, the catalogue only) */
+            /** @description audit_export: {"filters": {…}} (the audit list's); bulk_action: {"action": "order.refund", "targets": [order numbers, slugs or ids], "payload": {…} (each target's, as for change-requests/), "reason"}; erp_initial_load: {"invoices_from": "YYYY-MM-DD"} (optional: without it, the catalogue only); grievance_export: {"from": "YYYY-MM-DD", "until": "YYYY-MM-DD"} (the days received, both optional) */
             params?: {
                 [key: string]: unknown;
             };
@@ -5908,6 +6471,94 @@ export interface components {
         };
         ManifestRequestRequest: {
             shipments: number[];
+        };
+        Message: {
+            readonly id: number;
+            readonly direction: components["schemas"]["TicketDirectionEnum"];
+            readonly channel: components["schemas"]["TicketChannelEnum"];
+            readonly author: number | null;
+            /** @description a member of staff's name; empty for the customer */
+            readonly author_name: string;
+            /** @description Written by the site, not a person. */
+            readonly automatic: boolean;
+            readonly body: string;
+            /** Format: date-time */
+            readonly sent_at: string;
+            /** @description staff named (ids) */
+            readonly mentions: number[];
+            readonly attachments: components["schemas"]["Attachment"][];
+            /** @description an email from another address than the requester's */
+            readonly other_sender: boolean;
+            /** @description attachments not kept, and why */
+            readonly dropped: string[];
+        };
+        /**
+         * @description * `out` - out
+         *     * `note` - note
+         * @enum {string}
+         */
+        MessageCreateDirectionEnum: "out" | "note";
+        MessageCreateRequest: {
+            direction: components["schemas"]["MessageCreateDirectionEnum"];
+            body: string;
+            /**
+             * @description a reply's: email (sent), or phone, WhatsApp or NCH's portal (recorded); default email
+             *
+             *     * `email` - email
+             *     * `phone` - phone
+             *     * `whatsapp` - WhatsApp
+             *     * `nch` - the National Consumer Helpline's portal
+             * @default
+             */
+            channel: components["schemas"]["TicketReplyChannelEnum"] | components["schemas"]["BlankEnum"];
+            mentions?: number[];
+        };
+        /**
+         * @description One of the customer's requests: its number, what it is about, where it stands and its dates; never staff's
+         *     notes, never who works on it.
+         */
+        MyTicket: {
+            readonly number: string;
+            readonly subject: string;
+            /**
+             * @description empty: unsorted
+             *
+             *     * `order` - order
+             *     * `payment` - payment or refund
+             *     * `book_code` - book code
+             *     * `qr_solutions` - QR solutions
+             *     * `content_error` - a mistake in the content
+             *     * `school_order` - school order
+             *     * `privacy_request` - privacy request
+             *     * `grievance` - grievance
+             */
+            readonly category: components["schemas"]["TicketCategoryEnum"] | components["schemas"]["BlankEnum"];
+            readonly category_label: string;
+            readonly status: components["schemas"]["TicketStatusEnum"];
+            readonly status_label: string;
+            readonly order: string | null;
+            /** Format: date-time */
+            readonly received_at: string;
+            /** Format: date-time */
+            readonly acknowledged_at: string | null;
+            /**
+             * Format: date-time
+             * @description the latest we answer it by
+             */
+            readonly answer_by: string;
+            /** Format: date-time */
+            readonly resolved_at: string | null;
+            /** Format: date-time */
+            readonly closed_at: string | null;
+            /** Format: date-time */
+            readonly modified: string;
+        };
+        MyTicketCreateRequest: {
+            category: components["schemas"]["TicketCategoryEnum"];
+            subject: string;
+            message: string;
+            /** @default  */
+            order: string;
         };
         /**
          * @description * `re-attempt` - re-attempt
@@ -6075,6 +6726,10 @@ export interface components {
             readonly credit_notes: components["schemas"]["CreditNote"][];
             readonly web_url: string;
         };
+        OrderActionRequest: {
+            /** @default  */
+            order: string;
+        };
         OrderBrief: {
             readonly number: string | null;
             /** Format: date-time */
@@ -6115,6 +6770,13 @@ export interface components {
             quantity: number;
             /** Format: decimal */
             readonly line_total: string;
+        };
+        OrderLine: {
+            id: number;
+            title: string;
+            quantity: number;
+            unit_price: string;
+            discount: string | null;
         };
         /**
          * @description The order by the link in its emails, as the website's page shows it: its PDFs by the link (no account needed);
@@ -6164,6 +6826,33 @@ export interface components {
             readonly invoice: components["schemas"]["Document"] | null;
             readonly credit_notes: components["schemas"]["CreditNote"][];
             readonly web_url: string;
+        };
+        OrderPayment: {
+            method: string;
+            /** @description Razorpay's method: upi, card, netbanking … (180 days) */
+            paid_with: string;
+            status: string;
+            amount: string;
+            razorpay_order_id: string | null;
+            razorpay_payment_id: string | null;
+            /** Format: date-time */
+            created: string;
+        };
+        OrderRefund: {
+            amount: string;
+            status: string;
+            razorpay_refund_id: string | null;
+            /** Format: date-time */
+            created: string;
+        };
+        OrderShipment: {
+            courier: string;
+            tracking_number: string;
+            tracking_url: string;
+            /** Format: date-time */
+            shipped_at: string;
+            /** Format: date-time */
+            delivered_at: string | null;
         };
         /**
          * @description * `pending` - awaiting payment
@@ -6617,6 +7306,21 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["Job"][];
         };
+        PaginatedMyTicketList: {
+            /** @example 123 */
+            count: number;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=4
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?page=2
+             */
+            previous?: string | null;
+            results: components["schemas"]["MyTicket"][];
+        };
         PaginatedOfferStatList: {
             /** @example 123 */
             count: number;
@@ -6778,6 +7482,19 @@ export interface components {
             previous?: string | null;
             results: components["schemas"]["QuizItem"][];
         };
+        PaginatedSavedReplyList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["SavedReply"][];
+        };
         PaginatedSavedViewList: {
             /**
              * Format: uri
@@ -6848,6 +7565,19 @@ export interface components {
              */
             previous?: string | null;
             results: components["schemas"]["Subject"][];
+        };
+        PaginatedTicketList: {
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cD00ODY%3D"
+             */
+            next?: string | null;
+            /**
+             * Format: uri
+             * @example http://api.example.org/accounts/?cursor=cj0xJnA9NDg3
+             */
+            previous?: string | null;
+            results: components["schemas"]["Ticket"][];
         };
         Paper: {
             code: string;
@@ -7094,6 +7824,14 @@ export interface components {
             /** Format: email */
             email: string;
         };
+        PastTicket: {
+            number: string;
+            subject: string;
+            category: string;
+            status: string;
+            /** Format: date-time */
+            received_at: string;
+        };
         /**
          * @description A saved delivery address: a state code from the list, a 6-digit PIN code and a 10-digit Indian mobile number
          *     (the website's rules).
@@ -7231,6 +7969,12 @@ export interface components {
             /** @description 0 removes the book */
             quantity?: number;
         };
+        PatchedSavedReplyRequest: {
+            title?: string;
+            /** @default en */
+            language: components["schemas"]["TicketLanguageEnum"];
+            body?: string;
+        };
         PatchedSavedViewRequest: {
             /** @description Shared with this role's members; empty: private. */
             role?: string;
@@ -7243,6 +7987,21 @@ export interface components {
             filters?: unknown;
             columns?: unknown;
             sort?: unknown;
+        };
+        PatchedTicketChangeRequest: {
+            category?: components["schemas"]["TicketCategoryEnum"] | components["schemas"]["BlankEnum"];
+            priority?: components["schemas"]["TicketPriorityEnum"];
+            language?: components["schemas"]["TicketLanguageEnum"];
+            source?: components["schemas"]["TicketSourceEnum"];
+            nch_docket?: string;
+            subject?: string;
+            name?: string;
+            email?: string;
+            phone?: string;
+            /** @description its number; empty: none */
+            order?: string;
+            /** @description a paper's code */
+            record?: string;
         };
         /** @description What the SDK's success callback returns. */
         PaymentConfirmRequest: {
@@ -7802,6 +8561,20 @@ export interface components {
             /** Format: date-time */
             processed_at: string | null;
         };
+        RefundLineRequest: {
+            /** @description the order line's id */
+            item: number;
+            /** @description copies to refund, from 0 */
+            quantity: number;
+        };
+        RefundRequest: {
+            /** @default  */
+            order: string;
+            /** Format: decimal */
+            amount?: string | null;
+            lines?: components["schemas"]["RefundLineRequest"][];
+            reason: string;
+        };
         /**
          * @description The website's sign-up form, field for field, with its rules: under 18, a parent's name and phone or email, and
          *     the parent ticks the consent; everyone agrees to the privacy notice; the email and password rules of the site.
@@ -7824,6 +8597,15 @@ export interface components {
             parent_contact?: string;
             /** @description agrees to the privacy notice (the parent, under 18) */
             consent: boolean;
+        };
+        Requester: {
+            name: string;
+            /** @description masked; reveal/ shows it, logged */
+            email: string;
+            /** @description masked */
+            phone: string;
+            /** @description the requester's account */
+            user: number | null;
         };
         ResolveRequest: {
             /** @description what was done, or why it is dismissed */
@@ -7893,6 +8675,38 @@ export interface components {
          * @enum {string}
          */
         RoleEnum: "ADMIN" | "AUDITOR" | "CONTENT_EDITOR" | "FINANCE" | "MARKETING" | "OWNER" | "PACKER" | "REVIEWER" | "SALES" | "SALES_REP" | "SUPPORT";
+        SavedReply: {
+            readonly id: number;
+            title: string;
+            /** @default en */
+            language: components["schemas"]["TicketLanguageEnum"];
+            body: string;
+            /** @description the variables its text uses */
+            readonly variables: string[];
+            readonly created_by: number | null;
+            /** Format: date-time */
+            readonly created: string;
+            /** Format: date-time */
+            readonly modified: string;
+            /**
+             * Format: date-time
+             * @description In the bin since.
+             */
+            readonly deleted_at: string | null;
+        };
+        SavedReplyRequest: {
+            title: string;
+            /** @default en */
+            language: components["schemas"]["TicketLanguageEnum"];
+            body: string;
+        };
+        SavedReplyText: {
+            id: number;
+            title: string;
+            language: string;
+            /** @description filled for this ticket: its variables replaced */
+            text: string;
+        };
         SavedView: {
             readonly id: number;
             readonly owner: number;
@@ -7957,9 +8771,10 @@ export interface components {
          *     * `warehouse` - warehouse
          *     * `school` - school
          *     * `ticket_queue` - work queue (an inbox kind)
+         *     * `ticket_category` - ticket category (support: order, content_error …)
          * @enum {string}
          */
-        ScopeKindEnum: "subject" | "board_class" | "order_status" | "warehouse" | "school" | "ticket_queue";
+        ScopeKindEnum: "subject" | "board_class" | "order_status" | "warehouse" | "school" | "ticket_queue" | "ticket_category";
         SessionsEnded: {
             sessions: number;
             tokens: number;
@@ -8188,6 +9003,39 @@ export interface components {
          * @enum {string}
          */
         ShowEnum: "email" | "phone" | "login_phone" | "parent_contact" | "parent_name" | "date_of_birth";
+        Sidebar: {
+            account: components["schemas"]["Customer"] | null;
+            orders: components["schemas"]["SidebarOrder"][] | null;
+            entitlements: components["schemas"]["EntitlementRow"][] | null;
+            codes: components["schemas"]["CodeRow"][] | null;
+            devices: components["schemas"]["DeviceRow"][] | null;
+            tickets: components["schemas"]["PastTicket"][] | null;
+            consents: components["schemas"]["ConsentRow"][] | null;
+        };
+        SidebarOrder: {
+            number: string;
+            status: string;
+            status_label: string;
+            total: string;
+            payment_method: string;
+            /** Format: date-time */
+            created: string;
+            /** Format: date-time */
+            placed_at: string | null;
+            is_test: boolean;
+            /** @description cancel: refunded in full with its cancellation; partial: shipped */
+            refund_mode: string;
+            /** @description why a refund through Razorpay may not go, or empty */
+            refund_warning: string;
+            /** @description the ticket's own order */
+            linked: boolean;
+            payments: components["schemas"]["OrderPayment"][];
+            refunds: components["schemas"]["OrderRefund"][];
+            shipments: components["schemas"]["OrderShipment"][];
+            invoice: string | null;
+            credit_notes: string[];
+            items: components["schemas"]["OrderLine"][];
+        };
         /**
          * @description * `privacy` - privacy
          *     * `terms` - terms
@@ -8342,6 +9190,15 @@ export interface components {
          * @enum {string}
          */
         StateEnum: "KA" | "AP" | "KL" | "TN" | "MH" | "UP" | "GA" | "GJ" | "RJ" | "HP" | "TG" | "AR" | "AS" | "BR" | "CT" | "HR" | "JH" | "MP" | "MN" | "ML" | "MZ" | "NL" | "OR" | "PB" | "SK" | "TR" | "UT" | "WB" | "AN" | "CH" | "DH" | "DL" | "JK" | "LD" | "LA" | "PY";
+        StatusRequest: {
+            status: components["schemas"]["TicketStatusEnum"];
+            /** @default  */
+            resolution: string;
+            /** @default  */
+            order: string;
+            /** @default  */
+            record: string;
+        };
         Streak: {
             /** @description in a row with a clip watched, a quiz answer or a card review */
             days: number;
@@ -8377,6 +9234,40 @@ export interface components {
             email: string | null;
             /** @description null until the real one is set */
             phone: string | null;
+        };
+        SupportSummary: {
+            /** Format: date */
+            since: string;
+            /** Format: date */
+            until: string;
+            received: number;
+            /** @description "" : not sorted yet */
+            by_category: {
+                [key: string]: number;
+            };
+            by_source: {
+                [key: string]: number;
+            };
+            /**
+             * Format: double
+             * @description the median
+             */
+            first_response_hours: number | null;
+            /**
+             * Format: double
+             * @description the median
+             */
+            resolution_hours: number | null;
+            /** @description open tickets by status, now */
+            backlog: {
+                [key: string]: number;
+            };
+            /** @description open tickets past a clock, now */
+            overdue: number;
+            /** @description ack and due, of the period */
+            breaches: {
+                [key: string]: number;
+            };
         };
         SwitchChangeRequest: {
             /** @description the new value; null: back to the environment's (a flag: off) */
@@ -8415,6 +9306,411 @@ export interface components {
             /** Subject taught */
             subject: string;
         };
+        /** @description A ticket in the queue. */
+        Ticket: {
+            readonly id: number;
+            readonly number: string;
+            readonly subject: string;
+            readonly source: components["schemas"]["TicketSourceEnum"];
+            /** NCH docket number */
+            readonly nch_docket: string;
+            /**
+             * @description empty: unsorted
+             *
+             *     * `order` - order
+             *     * `payment` - payment or refund
+             *     * `book_code` - book code
+             *     * `qr_solutions` - QR solutions
+             *     * `content_error` - a mistake in the content
+             *     * `school_order` - school order
+             *     * `privacy_request` - privacy request
+             *     * `grievance` - grievance
+             */
+            readonly category: components["schemas"]["TicketCategoryEnum"] | components["schemas"]["BlankEnum"];
+            readonly priority: components["schemas"]["TicketPriorityEnum"];
+            readonly status: components["schemas"]["TicketStatusEnum"];
+            readonly language: components["schemas"]["TicketLanguageEnum"];
+            readonly requester: components["schemas"]["Requester"];
+            readonly assignee: number | null;
+            readonly order: string | null;
+            /** Format: date-time */
+            readonly received_at: string;
+            /** Format: date-time */
+            readonly acknowledged_at: string | null;
+            /**
+             * Format: date-time
+             * @description The first reply a person sent.
+             */
+            readonly first_response_at: string | null;
+            /** Format: date-time */
+            readonly resolved_at: string | null;
+            /** Format: date-time */
+            readonly closed_at: string | null;
+            /**
+             * Acknowledge by
+             * Format: date-time
+             */
+            readonly ack_due_at: string;
+            /**
+             * Resolve by
+             * Format: date-time
+             */
+            readonly due_at: string;
+            /** Format: date-time */
+            readonly next_due_at: string;
+            readonly ack_breached: boolean;
+            readonly due_breached: boolean;
+            /** @description a running clock past its due time */
+            readonly overdue: boolean;
+            /** @description the running clock next_due_at is: ack or due; null: stopped */
+            readonly clock: string | null;
+            /** @description about a test order: shown under the TEST band only */
+            readonly is_test: boolean;
+            readonly reopened_count: number;
+            /** @default 0 */
+            readonly message_count: number;
+            /** Format: date-time */
+            readonly last_message_at: string | null;
+        };
+        TicketAssignRequest: {
+            /** @description a member of staff's id; null: nobody */
+            assignee: number | null;
+        };
+        /**
+         * @description * `order` - order
+         *     * `payment` - payment or refund
+         *     * `book_code` - book code
+         *     * `qr_solutions` - QR solutions
+         *     * `content_error` - a mistake in the content
+         *     * `school_order` - school order
+         *     * `privacy_request` - privacy request
+         *     * `grievance` - grievance
+         * @enum {string}
+         */
+        TicketCategoryEnum: "order" | "payment" | "book_code" | "qr_solutions" | "content_error" | "school_order" | "privacy_request" | "grievance";
+        /**
+         * @description * `web` - the website
+         *     * `email` - email
+         *     * `phone` - phone
+         *     * `whatsapp` - WhatsApp
+         *     * `sms` - SMS
+         *     * `nch` - the National Consumer Helpline's portal
+         *     * `panel` - the panel (a note)
+         * @enum {string}
+         */
+        TicketChannelEnum: "web" | "email" | "phone" | "whatsapp" | "sms" | "nch" | "panel";
+        /** @description A ticket staff log: a call, a WhatsApp message, an NCH complaint with its docket, a letter or an email. */
+        TicketCreateRequest: {
+            source: components["schemas"]["TicketLoggedSourceEnum"];
+            /** @default  */
+            nch_docket: string;
+            /** @default  */
+            name: string;
+            email?: string;
+            /** @default  */
+            phone: string;
+            /** @default  */
+            category: components["schemas"]["TicketCategoryEnum"] | components["schemas"]["BlankEnum"];
+            /** @default medium */
+            priority: components["schemas"]["TicketPriorityEnum"];
+            subject: string;
+            /** @description the complaint as recorded: what they said or wrote */
+            message: string;
+            /**
+             * Format: date-time
+             * @description when it came (default now); never ahead
+             */
+            received_at?: string;
+            /** @default  */
+            order: string;
+        };
+        /**
+         * @description A ticket with its requester (masked), its clocks, what closing it asks for, its moves, its messages; the
+         *     sidebar and the saved replies are the view's (by the reader's permissions).
+         */
+        TicketDetail: {
+            readonly id: number;
+            readonly number: string;
+            readonly subject: string;
+            readonly source: components["schemas"]["TicketSourceEnum"];
+            /** NCH docket number */
+            readonly nch_docket: string;
+            /**
+             * @description empty: unsorted
+             *
+             *     * `order` - order
+             *     * `payment` - payment or refund
+             *     * `book_code` - book code
+             *     * `qr_solutions` - QR solutions
+             *     * `content_error` - a mistake in the content
+             *     * `school_order` - school order
+             *     * `privacy_request` - privacy request
+             *     * `grievance` - grievance
+             */
+            readonly category: components["schemas"]["TicketCategoryEnum"] | components["schemas"]["BlankEnum"];
+            readonly priority: components["schemas"]["TicketPriorityEnum"];
+            readonly status: components["schemas"]["TicketStatusEnum"];
+            readonly language: components["schemas"]["TicketLanguageEnum"];
+            readonly requester: components["schemas"]["Requester"];
+            readonly assignee: number | null;
+            readonly order: string | null;
+            /** Format: date-time */
+            readonly received_at: string;
+            /** Format: date-time */
+            readonly acknowledged_at: string | null;
+            /**
+             * Format: date-time
+             * @description The first reply a person sent.
+             */
+            readonly first_response_at: string | null;
+            /** Format: date-time */
+            readonly resolved_at: string | null;
+            /** Format: date-time */
+            readonly closed_at: string | null;
+            /**
+             * Acknowledge by
+             * Format: date-time
+             */
+            readonly ack_due_at: string;
+            /**
+             * Resolve by
+             * Format: date-time
+             */
+            readonly due_at: string;
+            /** Format: date-time */
+            readonly next_due_at: string;
+            readonly ack_breached: boolean;
+            readonly due_breached: boolean;
+            /** @description a running clock past its due time */
+            readonly overdue: boolean;
+            /** @description the running clock next_due_at is: ack or due; null: stopped */
+            readonly clock: string | null;
+            /** @description about a test order: shown under the TEST band only */
+            readonly is_test: boolean;
+            readonly reopened_count: number;
+            /** @default 0 */
+            readonly message_count: number;
+            /** Format: date-time */
+            readonly last_message_at: string | null;
+            readonly data_request: number | null;
+            /** @description the paper a content error is in (its code) */
+            readonly record: string | null;
+            /** @description What was done: asked for when closing. */
+            readonly resolution: string;
+            /** Format: date-time */
+            readonly complaint_copy_sent_at: string | null;
+            /** @description An SMS acknowledgement waiting for 08:00. */
+            readonly ack_held: boolean;
+            /**
+             * Redress by (E-Commerce Rules)
+             * Format: date-time
+             */
+            readonly redress_due_at: string | null;
+            /**
+             * Respond by (NCH)
+             * Format: date-time
+             */
+            readonly nch_due_at: string | null;
+            /**
+             * Answer by (SPDI or DPDP Rules)
+             * Format: date-time
+             */
+            readonly dpdp_due_at: string | null;
+            /**
+             * Resolve by (IT Rules)
+             * Format: date-time
+             */
+            readonly it_due_at: string | null;
+            readonly clocks: components["schemas"]["Clock"][];
+            /** @description what resolving or closing asks for */
+            readonly closing_fields: string[];
+            /** @description the statuses it may move to now */
+            readonly transitions: string[];
+            readonly messages: components["schemas"]["Message"][];
+        };
+        /**
+         * @description * `in` - from the customer
+         *     * `out` - to the customer
+         *     * `note` - internal note
+         * @enum {string}
+         */
+        TicketDirectionEnum: "in" | "out" | "note";
+        /**
+         * @description * `as` - Assamese
+         *     * `bn` - Bengali
+         *     * `en` - English
+         * @enum {string}
+         */
+        TicketLanguageEnum: "as" | "bn" | "en";
+        /**
+         * @description * `phone` - phone
+         *     * `whatsapp` - WhatsApp
+         *     * `nch` - the National Consumer Helpline
+         *     * `email` - email
+         * @enum {string}
+         */
+        TicketLoggedSourceEnum: "phone" | "whatsapp" | "nch" | "email";
+        TicketOrderCancelled: {
+            order: string;
+            status: string;
+        };
+        /**
+         * @description * `low` - low
+         *     * `medium` - medium
+         *     * `high` - high
+         *     * `urgent` - urgent
+         * @enum {string}
+         */
+        TicketPriorityEnum: "low" | "medium" | "high" | "urgent";
+        /**
+         * @description A ticket as its page draws it: TicketDetailSerializer, the sidebar (by the reader's permissions) and the saved
+         *     replies filled for it.
+         */
+        TicketRecord: {
+            readonly id: number;
+            readonly number: string;
+            readonly subject: string;
+            readonly source: components["schemas"]["TicketSourceEnum"];
+            /** NCH docket number */
+            readonly nch_docket: string;
+            /**
+             * @description empty: unsorted
+             *
+             *     * `order` - order
+             *     * `payment` - payment or refund
+             *     * `book_code` - book code
+             *     * `qr_solutions` - QR solutions
+             *     * `content_error` - a mistake in the content
+             *     * `school_order` - school order
+             *     * `privacy_request` - privacy request
+             *     * `grievance` - grievance
+             */
+            readonly category: components["schemas"]["TicketCategoryEnum"] | components["schemas"]["BlankEnum"];
+            readonly priority: components["schemas"]["TicketPriorityEnum"];
+            readonly status: components["schemas"]["TicketStatusEnum"];
+            readonly language: components["schemas"]["TicketLanguageEnum"];
+            readonly requester: components["schemas"]["Requester"];
+            readonly assignee: number | null;
+            readonly order: string | null;
+            /** Format: date-time */
+            readonly received_at: string;
+            /** Format: date-time */
+            readonly acknowledged_at: string | null;
+            /**
+             * Format: date-time
+             * @description The first reply a person sent.
+             */
+            readonly first_response_at: string | null;
+            /** Format: date-time */
+            readonly resolved_at: string | null;
+            /** Format: date-time */
+            readonly closed_at: string | null;
+            /**
+             * Acknowledge by
+             * Format: date-time
+             */
+            readonly ack_due_at: string;
+            /**
+             * Resolve by
+             * Format: date-time
+             */
+            readonly due_at: string;
+            /** Format: date-time */
+            readonly next_due_at: string;
+            readonly ack_breached: boolean;
+            readonly due_breached: boolean;
+            /** @description a running clock past its due time */
+            readonly overdue: boolean;
+            /** @description the running clock next_due_at is: ack or due; null: stopped */
+            readonly clock: string | null;
+            /** @description about a test order: shown under the TEST band only */
+            readonly is_test: boolean;
+            readonly reopened_count: number;
+            /** @default 0 */
+            readonly message_count: number;
+            /** Format: date-time */
+            readonly last_message_at: string | null;
+            readonly data_request: number | null;
+            /** @description the paper a content error is in (its code) */
+            readonly record: string | null;
+            /** @description What was done: asked for when closing. */
+            readonly resolution: string;
+            /** Format: date-time */
+            readonly complaint_copy_sent_at: string | null;
+            /** @description An SMS acknowledgement waiting for 08:00. */
+            readonly ack_held: boolean;
+            /**
+             * Redress by (E-Commerce Rules)
+             * Format: date-time
+             */
+            readonly redress_due_at: string | null;
+            /**
+             * Respond by (NCH)
+             * Format: date-time
+             */
+            readonly nch_due_at: string | null;
+            /**
+             * Answer by (SPDI or DPDP Rules)
+             * Format: date-time
+             */
+            readonly dpdp_due_at: string | null;
+            /**
+             * Resolve by (IT Rules)
+             * Format: date-time
+             */
+            readonly it_due_at: string | null;
+            readonly clocks: components["schemas"]["Clock"][];
+            /** @description what resolving or closing asks for */
+            readonly closing_fields: string[];
+            /** @description the statuses it may move to now */
+            readonly transitions: string[];
+            readonly messages: components["schemas"]["Message"][];
+            readonly sidebar: components["schemas"]["Sidebar"];
+            readonly saved_replies: components["schemas"]["SavedReplyText"][];
+        };
+        /**
+         * @description * `email` - email
+         *     * `phone` - phone
+         *     * `whatsapp` - WhatsApp
+         *     * `nch` - the National Consumer Helpline's portal
+         * @enum {string}
+         */
+        TicketReplyChannelEnum: "email" | "phone" | "whatsapp" | "nch";
+        /**
+         * @description * `email` - email address
+         *     * `phone` - mobile number
+         * @enum {string}
+         */
+        TicketRevealFieldEnum: "email" | "phone";
+        TicketRevealRequest: {
+            show: components["schemas"]["TicketRevealFieldEnum"][];
+            /** @description why: kept in the audit log */
+            reason: string;
+        };
+        TicketRevealed: {
+            email: string | null;
+            phone: string | null;
+        };
+        /**
+         * @description * `form` - the website (the contact form, My requests)
+         *     * `email` - email
+         *     * `phone` - phone
+         *     * `whatsapp` - WhatsApp
+         *     * `nch` - the National Consumer Helpline
+         * @enum {string}
+         */
+        TicketSourceEnum: "form" | "email" | "phone" | "whatsapp" | "nch";
+        /**
+         * @description * `new` - new
+         *     * `open` - open
+         *     * `waiting_customer` - waiting on the customer
+         *     * `waiting_third_party` - waiting on a third party
+         *     * `resolved` - resolved
+         *     * `closed` - closed
+         *     * `spam` - spam (quarantined)
+         * @enum {string}
+         */
+        TicketStatusEnum: "new" | "open" | "waiting_customer" | "waiting_third_party" | "resolved" | "closed" | "spam";
         TierAverage: {
             tier: components["schemas"]["TierEnum"];
             label: string;
@@ -10460,6 +11756,53 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Teacher"];
+                };
+            };
+        };
+    };
+    me_tickets_list: {
+        parameters: {
+            query?: {
+                /** @description A page number within the paginated result set. */
+                page?: number;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedMyTicketList"];
+                };
+            };
+        };
+    };
+    me_tickets_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MyTicketCreateRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyTicket"];
                 };
             };
         };
@@ -13107,8 +14450,11 @@ export interface operations {
                  *     * `dead_letter` - integration task given up
                  *     * `failed_event` - provider event not processed
                  *     * `integration_down` - integration unavailable
+                 *     * `ticket_due` - a ticket's legal clock three quarters gone
+                 *     * `ticket_breach` - a ticket past its legal clock
+                 *     * `ticket_mention` - named in a ticket's note
                  */
-                kind?: "approval" | "data_request" | "dead_letter" | "deletion_request" | "failed_event" | "failed_job" | "failed_webhook" | "incident" | "integration_down" | "reconciliation" | "shipping_exception" | "sync_failed" | "teacher_request";
+                kind?: "approval" | "data_request" | "dead_letter" | "deletion_request" | "failed_event" | "failed_job" | "failed_webhook" | "incident" | "integration_down" | "reconciliation" | "shipping_exception" | "sync_failed" | "teacher_request" | "ticket_breach" | "ticket_due" | "ticket_mention";
                 /** @description true: assigned to me */
                 mine?: boolean;
                 /** @description Number of results to return per page. */
@@ -13387,8 +14733,9 @@ export interface operations {
                  * @description * `audit_export` - audit log export
                  *     * `bulk_action` - bulk action
                  *     * `erp_initial_load` - ERPNext initial load
+                 *     * `grievance_export` - grievance register export
                  */
-                kind?: "audit_export" | "bulk_action" | "erp_initial_load";
+                kind?: "audit_export" | "bulk_action" | "erp_initial_load" | "grievance_export";
                 /** @description true: the jobs I started */
                 mine?: boolean;
                 /** @description Number of results to return per page. */
@@ -14314,6 +15661,798 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Setting"];
+                };
+            };
+        };
+    };
+    staff_support_agents_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Agent"][];
+                };
+            };
+        };
+    };
+    staff_support_saved_replies_list: {
+        parameters: {
+            query?: {
+                /** @description true: the deleted ones (30 days) */
+                bin?: boolean;
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /**
+                 * @description * `as` - Assamese
+                 *     * `bn` - Bengali
+                 *     * `en` - English
+                 */
+                language?: "as" | "bn" | "en";
+                /** @description Number of results to return per page. */
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedSavedReplyList"];
+                };
+            };
+        };
+    };
+    staff_support_saved_replies_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedReplyRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedReply"];
+                };
+            };
+        };
+    };
+    staff_support_saved_replies_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this saved reply. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedReply"];
+                };
+            };
+        };
+    };
+    staff_support_saved_replies_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this saved reply. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedReplyRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedReply"];
+                };
+            };
+        };
+    };
+    staff_support_saved_replies_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this saved reply. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    staff_support_saved_replies_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this saved reply. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedSavedReplyRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedReply"];
+                };
+            };
+        };
+    };
+    staff_support_saved_replies_restore_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A unique integer value identifying this saved reply. */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedReply"];
+                };
+            };
+        };
+    };
+    staff_support_summary_retrieve: {
+        parameters: {
+            query?: {
+                /** @description the period: 1 to 366 days to today (30) */
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportSummary"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_list: {
+        parameters: {
+            query?: {
+                assignee?: number;
+                /**
+                 * @description Empty: not sorted.
+                 *
+                 *     * `order` - order
+                 *     * `payment` - payment or refund
+                 *     * `book_code` - book code
+                 *     * `qr_solutions` - QR solutions
+                 *     * `content_error` - a mistake in the content
+                 *     * `school_order` - school order
+                 *     * `privacy_request` - privacy request
+                 *     * `grievance` - grievance
+                 */
+                category?: "book_code" | "content_error" | "grievance" | "order" | "payment" | "privacy_request" | "qr_solutions" | "school_order";
+                /** @description The pagination cursor value. */
+                cursor?: string;
+                /**
+                 * @description * `as` - Assamese
+                 *     * `bn` - Bengali
+                 *     * `en` - English
+                 */
+                language?: "as" | "bn" | "en";
+                /** @description true: given to me */
+                mine?: boolean;
+                /** @description true: new, open or waiting (its clocks run) */
+                open?: boolean;
+                /** @description true: a running clock past its time */
+                overdue?: boolean;
+                /** @description Number of results to return per page. */
+                page_size?: number;
+                /**
+                 * @description * `low` - low
+                 *     * `medium` - medium
+                 *     * `high` - high
+                 *     * `urgent` - urgent
+                 */
+                priority?: "high" | "low" | "medium" | "urgent";
+                /** @description a ticket's number, an order's, an email address or a mobile number (logged) */
+                q?: string;
+                /**
+                 * @description * `form` - the website (the contact form, My requests)
+                 *     * `email` - email
+                 *     * `phone` - phone
+                 *     * `whatsapp` - WhatsApp
+                 *     * `nch` - the National Consumer Helpline
+                 */
+                source?: "email" | "form" | "nch" | "phone" | "whatsapp";
+                /**
+                 * @description one or more; spam only so
+                 *
+                 *     * `new` - new
+                 *     * `open` - open
+                 *     * `waiting_customer` - waiting on the customer
+                 *     * `waiting_third_party` - waiting on a third party
+                 *     * `resolved` - resolved
+                 *     * `closed` - closed
+                 *     * `spam` - spam (quarantined)
+                 */
+                status?: ("closed" | "new" | "open" | "resolved" | "spam" | "waiting_customer" | "waiting_third_party")[];
+                /** @description true: the tickets about a test order only (left out otherwise on a live site) */
+                test?: boolean;
+                /** @description true: given to nobody */
+                unassigned?: boolean;
+                /** @description true: waiting on the customer or others */
+                waiting?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedTicketList"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TicketCreateRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketDetail"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketRecord"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedTicketChangeRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketDetail"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_acknowledge_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["AcknowledgeRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ticket"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_assign_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TicketAssignRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ticket"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_attachments_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attachment: number;
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description No response body */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    staff_support_tickets_book_code_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BookCodeLookupRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodeAnswer"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_cancel_create: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description once per request */
+                "Idempotency-Key"?: string;
+            };
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketOrderCancelled"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_claim_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ticket"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_data_request_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DataRequestStartRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataRequest"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_extend_access_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtendRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessExtended"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_messages_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MessageCreateRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Message"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_refund_create: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description once per request */
+                "Idempotency-Key"?: string;
+            };
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefundRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeRequest"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_reopen_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ticket"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_resend_confirmation_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["OrderActionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Detail"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_resend_invoice_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["OrderActionRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Detail"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_reveal_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TicketRevealRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketRevealed"];
+                };
+            };
+        };
+    };
+    staff_support_tickets_status_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StatusRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ticket"];
                 };
             };
         };

@@ -14,7 +14,8 @@ const keys = (permissions: string[], erp = "") => visibleModules(manifestWith(pe
 
 describe("P", () => {
   it("names only the backend's codenames (app_label.codename)", () => {
-    for (const perm of Object.values(P)) expect(perm).toMatch(/^(staff|accounts|shipping|insights|erp)\.[a-z_]+$/);
+    for (const perm of Object.values(P))
+      expect(perm).toMatch(/^(staff|accounts|shipping|insights|erp|support|shop|learn)\.[a-z_]+$/);
   });
 });
 

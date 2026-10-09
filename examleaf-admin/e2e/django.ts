@@ -95,6 +95,24 @@ print(json.dumps({"customer": user.pk, "email": email, "order": order.number, "r
   );
 }
 
+export type RealTicket = { number: string; id: number };
+
+/** For the support journey: the customer's complaint about their order, made as the contact form makes one (its
+ *  number, its clocks, the acknowledgement by email). */
+export function seedTicket(world: RealWorld): RealTicket {
+  return lastJson<RealTicket>(
+    shell(`
+import json
+from accounts.models import User
+from support import services
+from support.models import Ticket, TicketMessage
+user = User.objects.get(pk=${world.customer})
+ticket = services.create_ticket(source=Ticket.Source.FORM, channel=TicketMessage.Channel.WEB, subject="The parcel has not come (e2e)", body="Order ${world.order} has not come yet.", user=user, name=user.full_name, email=user.email, category="order", order=user.orders.get(number=${py(world.order)}))
+print(json.dumps({"number": ticket.number, "id": ticket.pk}))
+`),
+  );
+}
+
 /** Deletes what seedRealWorld made and what the journey made of it but the change requests (deleteStaff takes those)
  *  and the audit events (the log is append-only). */
 export function deleteRealWorld(world: RealWorld) {
@@ -102,6 +120,10 @@ export function deleteRealWorld(world: RealWorld) {
 from accounts.models import User
 from shop.models import Order, Payment
 from staff.models import DataRequest, InboxItem, Incident, StaffInvite
+from support.models import Ticket
+tickets = Ticket.objects.filter(user_id=${world.customer})
+InboxItem.objects.filter(target_type="support.ticket", target_id__in=[str(pk) for pk in tickets.values_list("pk", flat=True)]).delete()
+tickets.delete()
 orders = Order.objects.filter(number=${py(world.order)})
 Payment.objects.filter(order__in=orders).delete()
 orders.delete()

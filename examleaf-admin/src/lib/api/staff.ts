@@ -640,3 +640,161 @@ export const getSystem = async (transport?: Transport) =>
 /** Ask Razorpay what became of an online order's payment (a lost webhook). */
 export const reconcileOrder = (order: string) =>
   send(undefined, (o) => api.POST("/api/v1/staff/system/reconcile/", { ...o, body: { order } }));
+
+// ---- Support ----
+
+export type Ticket = Schemas["Ticket"];
+export type TicketRecord = Schemas["TicketRecord"];
+export type TicketMessage = Schemas["Message"];
+export type TicketClock = Schemas["Clock"];
+export type TicketSidebar = Schemas["Sidebar"];
+export type SidebarOrder = Schemas["SidebarOrder"];
+export type SavedReply = Schemas["SavedReply"];
+export type SavedReplyText = Schemas["SavedReplyText"];
+export type Agent = Schemas["Agent"];
+export type SupportSummary = Schemas["SupportSummary"];
+export type TicketStatus = Schemas["TicketStatusEnum"];
+export type TicketCategory = Schemas["TicketCategoryEnum"];
+export type TicketLanguage = Schemas["TicketLanguageEnum"];
+export type TicketFilters = Filters<"/api/v1/staff/support/tickets/">;
+/** A ticket's path parameter: its number (SR-2026-000123) or, from the inbox and the audit log, its id. */
+const ticketPath = (number: string) => ({ params: { path: { number } } });
+
+/** The queue, the next legal clock first (spam only by its status; on a live site a test order's only with `test`). */
+export const listTickets = (filters: TicketFilters, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/support/tickets/", { ...o, params: { query: query(filters) } })).then(
+    paged,
+  );
+/** A ticket by its number (or id): its conversation, clocks, sidebar and saved replies. The server records the read
+ *  (a child's as such) and marks the reader's mentions on it done. */
+export const getTicket = (number: string, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/support/tickets/{number}/", { ...o, ...ticketPath(number) }));
+/** A call, a WhatsApp message, an NCH complaint (its docket) or an email, logged: the new ticket. */
+export const logTicket = (body: Schemas["TicketCreateRequest"]) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/support/tickets/", { ...o, body }));
+export const changeTicket = (number: string, body: Schemas["PatchedTicketChangeRequest"]) =>
+  send(undefined, (o) => api.PATCH("/api/v1/staff/support/tickets/{number}/", { ...o, ...ticketPath(number), body }));
+/** A reply (emailed, or a call or WhatsApp message recorded) or an internal note with its mentions. */
+export const addTicketMessage = (number: string, body: Schemas["MessageCreateRequest"]) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/support/tickets/{number}/messages/", { ...o, ...ticketPath(number), body }),
+  );
+export const assignTicket = (number: string, assignee: number | null) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/support/tickets/{number}/assign/", { ...o, ...ticketPath(number), body: { assignee } }),
+  );
+export const claimTicket = (number: string) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/support/tickets/{number}/claim/", { ...o, ...ticketPath(number) }));
+/** Moves it on (its `transitions`); resolving or closing asks for its `closing_fields`, refused field by field. */
+export const setTicketStatus = (number: string, body: Schemas["StatusRequest"]) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/support/tickets/{number}/status/", { ...o, ...ticketPath(number), body }),
+  );
+export const reopenTicket = (number: string) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/support/tickets/{number}/reopen/", { ...o, ...ticketPath(number) }));
+/** The acknowledgement sent again; with `note`, recorded as given another way (on the call). */
+export const acknowledgeTicket = (number: string, note = "") =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/support/tickets/{number}/acknowledge/", { ...o, ...ticketPath(number), body: { note } }),
+  );
+/** The requester's email address or mobile number, with a reason (logged, re-authenticated, throttled). */
+export async function revealRequester(number: string, field: "email" | "phone", reason: string): Promise<string> {
+  const shown = await send(undefined, (o) =>
+    api.POST("/api/v1/staff/support/tickets/{number}/reveal/", {
+      ...o,
+      ...ticketPath(number),
+      body: { show: [field], reason },
+    }),
+  );
+  return shown[field] ?? "";
+}
+/** A file of the conversation, opened through the API (a link signed for 5 minutes, or the file). */
+export const ticketAttachmentHref = (number: string, attachment: number) =>
+  `/api/v1/staff/support/tickets/${encodeURIComponent(number)}/attachments/${attachment}/`;
+
+/** A refund through the shop's (201 done; 202 approval_required above your limit): by `amount`, or by `lines`. */
+export const refundFromTicket = (number: string, body: Schemas["RefundRequest"]) => {
+  const headers = once();
+  return send(undefined, (o) =>
+    api.POST("/api/v1/staff/support/tickets/{number}/refund/", {
+      ...o,
+      headers: { ...o.headers, ...headers },
+      ...ticketPath(number),
+      body,
+    }),
+  );
+};
+/** Cancels an order: paid online, through its refund (as refundFromTicket); otherwise at once ({order, status}). */
+export const cancelFromTicket = (number: string, body: Schemas["CancelRequest"]) => {
+  const headers = once();
+  return send(undefined, (o) =>
+    api.POST("/api/v1/staff/support/tickets/{number}/cancel/", {
+      ...o,
+      headers: { ...o.headers, ...headers },
+      ...ticketPath(number),
+      body,
+    }),
+  );
+};
+export const resendInvoice = (number: string, order: string) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/support/tickets/{number}/resend-invoice/", {
+      ...o,
+      ...ticketPath(number),
+      body: { order },
+    }),
+  );
+export const resendConfirmation = (number: string, order: string) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/support/tickets/{number}/resend-confirmation/", {
+      ...o,
+      ...ticketPath(number),
+      body: { order },
+    }),
+  );
+export const extendAccess = (number: string, body: Schemas["ExtendRequest"]) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/support/tickets/{number}/extend-access/", { ...o, ...ticketPath(number), body }),
+  );
+/** A book code looked up by its digest (never kept): one line to answer with. */
+export const lookUpBookCode = (number: string, code: string) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/support/tickets/{number}/book-code/", { ...o, ...ticketPath(number), body: { code } }),
+  );
+/** A data request from a grievance or privacy ticket (the rights queue's own clocks, from when the ticket came). */
+export const startDataRequest = (number: string, body: Schemas["DataRequestStartRequest"]) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/support/tickets/{number}/data-request/", { ...o, ...ticketPath(number), body }),
+  );
+
+/** Who a ticket may be given to or a note may name (`handles`: may be given tickets). */
+export const listAgents = (transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/support/agents/", o));
+/** The module's numbers over `days` to today; the backlog and what is overdue now. */
+export const getSupportSummary = (days: number, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/support/summary/", { ...o, params: { query: { days } } }));
+
+export const listSavedReplies = (filters: Filters<"/api/v1/staff/support/saved-replies/">, transport?: Transport) =>
+  send(transport, (o) =>
+    api.GET("/api/v1/staff/support/saved-replies/", { ...o, params: { query: query(filters) } }),
+  ).then(paged);
+export const createSavedReply = (body: Schemas["SavedReplyRequest"]) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/support/saved-replies/", { ...o, body }));
+export const updateSavedReply = (id: number, body: Schemas["PatchedSavedReplyRequest"]) =>
+  send(undefined, (o) =>
+    api.PATCH("/api/v1/staff/support/saved-replies/{id}/", { ...o, params: { path: { id } }, body }),
+  );
+/** Into the bin for 30 days (restoreSavedReply takes it out). */
+export const deleteSavedReply = (id: number) =>
+  send(undefined, (o) => api.DELETE("/api/v1/staff/support/saved-replies/{id}/", { ...o, params: { path: { id } } }));
+export const restoreSavedReply = (id: number) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/support/saved-replies/{id}/restore/", { ...o, params: { path: { id } } }),
+  );
+
+/** The grievance register as a background job (a dated CSV): the days received, both optional; above your export
+ *  limit the job waits for an approver (its change_request_id). */
+export const exportGrievances = (params: { from?: string; until?: string }) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/jobs/", { ...o, body: { kind: "grievance_export", params, dry_run: false } }),
+  );

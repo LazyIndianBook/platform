@@ -20,6 +20,8 @@ type RecordPageProps = {
   current?: string;
   /** Beside the content: its notes and audit events (RecordSide). */
   side?: React.ReactNode;
+  /** The side's name for screen readers, when it holds more than notes and audit events. */
+  sideLabel?: string;
   /** The Danger section's content: actions that cannot be undone. */
   danger?: React.ReactNode;
   dangerTitle?: string;
@@ -36,6 +38,7 @@ export function RecordPage({
   tabs,
   current,
   side,
+  sideLabel,
   danger,
   dangerTitle,
   children,
@@ -67,7 +70,7 @@ export function RecordPage({
         <div className="flex min-w-0 flex-col gap-8">{children}</div>
         {side ? (
           <aside
-            aria-label={copy.notes.side}
+            aria-label={sideLabel ?? copy.notes.side}
             className="min-w-0 border-t border-border pt-6 min-[1180px]:border-t-0 min-[1180px]:border-l min-[1180px]:pt-0 min-[1180px]:pl-6"
           >
             {side}
