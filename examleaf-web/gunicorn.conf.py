@@ -23,8 +23,11 @@ worker_connections = number("GUNICORN_WORKER_CONNECTIONS", 1000)
 timeout = number("GUNICORN_TIMEOUT", 60)
 graceful_timeout = number("GUNICORN_GRACEFUL_TIMEOUT", 30)  # after SIGTERM, the requests in progress may finish
 keepalive = number("GUNICORN_KEEPALIVE", 5)  # seconds an idle connection from the proxy is kept
-max_requests = number("GUNICORN_MAX_REQUESTS", 1000)  # a process is replaced after this many (slow leaks)...
-max_requests_jitter = number("GUNICORN_MAX_REQUESTS_JITTER", 100)  # ...each after a different number
+# A process is replaced after this many requests (a slow leak's limit), each after a number of its own: under even
+# load, 1000 and a jitter of 100 restarted all three processes within four seconds of each other every half minute
+# (the load test: the slowest 1% of requests took 6 s), while their memory stayed flat without any restart.
+max_requests = number("GUNICORN_MAX_REQUESTS", 5000)
+max_requests_jitter = number("GUNICORN_MAX_REQUESTS_JITTER", 2500)
 worker_tmp_dir = "/dev/shm" if os.path.isdir("/dev/shm") else None  # the heartbeat file in memory, not on a disk
 control_socket_disable = True  # gunicorn 25.1's gunicornc socket: unused, and $HOME is read-only in the chart
 # One JSON object per line, as Django's own logs (settings.LOGGING): gunicorn's start, stop and worker messages.

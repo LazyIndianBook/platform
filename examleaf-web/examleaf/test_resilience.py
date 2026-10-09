@@ -200,7 +200,7 @@ def test_gunicorn_runs_from_one_config_file_wherever_it_runs(settings, monkeypat
     config = gunicorn_config(path)
     assert (config.worker_class_str, config.threads, config.workers) == ("gthread", 8, 2)
     assert (config.timeout, config.graceful_timeout, config.keepalive) == (60, 30, 5)
-    assert (config.max_requests, config.max_requests_jitter, config.control_socket_disable) == (1000, 100, True)
+    assert (config.max_requests, config.max_requests_jitter, config.control_socket_disable) == (5000, 2500, True)
     assert config.logconfig_dict["formatters"]["json"]["()"] == "pythonjsonlogger.json.JsonFormatter"
     root = logging.getLogger()
     kept = root.handlers[:], root.level
