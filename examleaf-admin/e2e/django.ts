@@ -209,9 +209,10 @@ print(Product.objects.filter(title__startswith=${py(world.title)}).delete())
 
 export type FinanceWorld = { order: string; payment: number; request: number };
 
-/** For the Finance journey: an order of ₹2,400 paid online and not yet sent, and its refund asked for by `maker` (a
- *  SUPPORT member: above their ₹1,000, so a change request waits for FINANCE), made as the panel makes one
- *  (staff.approvals.ask: its inbox item and audit event follow). */
+/** For the Finance journey: an order of ₹2,400 paid online with live keys and not yet sent (with no keys the site
+ *  counts as live, and Finance leaves test orders out), and its refund asked for by `maker` (a SUPPORT member: above
+ *  their ₹1,000, so a change request waits for FINANCE), made as the panel makes one (staff.approvals.ask: its inbox
+ *  item and audit event follow). */
 export function seedFinanceWorld(stamp: number, maker: string): FinanceWorld {
   return lastJson<FinanceWorld>(
     shell(`
@@ -221,9 +222,9 @@ from accounts.models import User
 from shop.models import Order, Payment
 from staff import approvals
 address = {"name": "Real E2E Payer", "phone": "+919864012345", "line1": "1 Test Lane", "line2": "", "city": "Guwahati", "district": "Kamrup Metro", "state": "AS", "pin": "781001"}
-order = Order.objects.create(email=${py(`admin-ui-payer-${stamp}@example.com`)}, shipping_address=address, subtotal=2400, total=2400, payment_method="razorpay", placed_at=timezone.now())
+order = Order.objects.create(email=${py(`admin-ui-payer-${stamp}@example.com`)}, shipping_address=address, subtotal=2400, total=2400, payment_method="razorpay", placed_at=timezone.now(), livemode=True)
 Order.objects.filter(pk=order.pk).update(status="paid")
-payment = Payment.objects.create(order=order, method="razorpay", amount=2400, razorpay_order_id=${py(`order_e2ef${stamp}`)}, razorpay_payment_id=${py(`pay_e2ef${stamp}`)})
+payment = Payment.objects.create(order=order, method="razorpay", amount=2400, razorpay_order_id=${py(`order_e2ef${stamp}`)}, razorpay_payment_id=${py(`pay_e2ef${stamp}`)}, livemode=True)
 Payment.objects.filter(pk=payment.pk).update(status="captured")
 order.refresh_from_db()
 request, _ = approvals.ask("order.refund", maker=User.objects.get(email=${py(maker)}), target=order.number, payload={}, reason="The customer cancelled by phone (the console's tests).")
