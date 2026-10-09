@@ -74,7 +74,7 @@ then delete the worktree (`git worktree remove .claude/worktrees/<name>`).
 
 | Branch (worktree under `.claude/worktrees/`) | Work | What to check |
 |---|---|---|
-| `worktree-agent-a7c56ccbd5413ea94` | console reconciliation: generated types from the OpenAPI schema, remap of permissions, paths, fields and error codes to the staff API as built, mock regenerated, Playwright against a real seeded Django; plus the public site's `/account/impersonate/` route and banner | both apps' checks; whether the real-backend e2e ran |
+| `worktree-agent-a7c56ccbd5413ea94` | console reconciliation, finished on bc88395: generated types from the OpenAPI schema, every call, field, filter and error code mapped to the staff API as built, the mock regenerated, 9 Playwright tests against a real seeded Django passed, the website's `/account/impersonate/` route and band; two console bugs fixed on the way. Its branch conflicts with the frontend resilience commits in six files (`staff.ts`, `job-progress`, `data-table`, `command-palette`, `impersonation-banner`, `person-menu`); the agent was merging the tip into it when the session ended | if the branch is already merged with the tip, fast-forward; otherwise `git merge design/answer-script` in that worktree and resolve by keeping the rewritten contract and carrying the resilience behaviour (10 s server deadline, 30 s browser timeout, `type="button"` defaults, busy state until a job ends, the log-out catch); then both apps' checks and the console's Playwright (mock and real) |
 
 If a branch has no new commits beyond the head, nothing is lost: redo the item from the plan's section 9.1 exit criteria.
 
