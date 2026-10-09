@@ -397,8 +397,8 @@ def cod_settlement(remittance):
 
 
 def razorpay_settlement(settlement):
-    """record_settlement of a Razorpay settlement: {id, date, gross, fees, tax, net, utr} as Razorpay's settlement
-    recon gives it (the platform does not fetch it yet: erp/README.md "Who owns what")."""
+    """record_settlement of a Razorpay settlement: {id, date, gross, fees, tax, net, utr} as shop/settlements.py keeps
+    it from Razorpay's settlement recon (the fees without their GST, the gross their sum with the net)."""
     return {
         "kind": "razorpay",
         "settlement_id": settlement["id"],

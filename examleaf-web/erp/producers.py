@@ -283,8 +283,8 @@ def cod_remitted(remittance, order):
 
 
 def razorpay_settlement(settlement):
-    """A Razorpay settlement ({id, date, gross, fees, tax, net, utr, payment_ids}), its own aggregate: the hook for
-    when the platform keeps them (erp/README.md, "Who owns what"); nothing calls it yet."""
+    """A Razorpay settlement ({id, date, gross, fees, tax, net, utr, payment_ids}), its own aggregate: called once a
+    settlement is matched (shop/settlements.py `post`; the payment ids are not ERPNext's to take)."""
     if enabled("settlements"):
         ref = contract.settlement_ref(settlement["id"])
         payload = contract.razorpay_settlement(settlement)
