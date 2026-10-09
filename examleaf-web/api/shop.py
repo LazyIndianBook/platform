@@ -10,6 +10,7 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Avg, Count, Prefetch, Q
 from django.http import Http404
+from django.utils import timezone
 from django.utils.cache import add_never_cache_headers, patch_cache_control
 from django_fsm import TransitionNotAllowed
 from drf_spectacular.types import OpenApiTypes
@@ -48,6 +49,7 @@ from shop.models import (
     OrderItem,
     PinCode,
     Product,
+    ReturnRequest,
     Review,
     Shipment,
     ShippingRate,
@@ -62,6 +64,16 @@ from .views import DetailSerializer, VerifiedEmail, cached, check_turnstile
 
 CUSTOMER = [permissions.IsAuthenticated, VerifiedEmail]
 NOT_PAYABLE = "This order is not waiting for an online payment."
+RETURN_LABELS = {  # a return's state as the website says it to the customer
+    "requested": "asked for: we answer within two working days",
+    "approved": "approved: we email you how to send the books back",
+    "declined": "declined",
+    "label_sent": "send the books back with the courier and number below",
+    "received": "back with us: being checked",
+    "restocked": "checked: your refund is on its way",
+    "damaged": "checked: your refund is on its way",
+    "refunded": "refunded",
+}
 SHIPMENTS = Prefetch("shipments", queryset=Shipment.objects.select_related("detail"))  # a courier's: shipping/
 
 
@@ -914,6 +926,26 @@ class CreditNoteSerializer(DocumentSerializer):
     amount = rupees(help_text="credited (refunded)")
 
 
+class OrderReturnLineSerializer(serializers.Serializer):
+    product = serializers.CharField()
+    title = serializers.CharField()
+    quantity = serializers.IntegerField()
+
+
+class OrderReturnSerializer(serializers.Serializer):
+    """A return of the order (asked for on the website or by staff for the customer), where it stands."""
+
+    number = serializers.CharField(help_text="RR-00012")
+    status = serializers.ChoiceField(choices=ReturnRequest.Status.choices)
+    status_label = serializers.CharField(help_text="as the website shows it")
+    reason = serializers.ChoiceField(choices=ReturnRequest.Reason.choices)
+    created = serializers.DateTimeField()
+    lines = OrderReturnLineSerializer(many=True)
+    decision_note = serializers.CharField(help_text="why it was declined, when it was")
+    return_courier = serializers.CharField()
+    return_awb = serializers.CharField(help_text="hand the parcel over with this number")
+
+
 class OrderSerializer(OrderBriefSerializer):
     """An order as its owner sees it on the website: status and timeline, the books (prices as ordered), the address
     copied at checkout, shipments with tracking, refunds, and the invoice and credit notes once their PDFs exist."""
@@ -931,13 +963,63 @@ class OrderSerializer(OrderBriefSerializer):
     invoice = serializers.SerializerMethodField()
     credit_notes = serializers.SerializerMethodField()
     web_url = serializers.SerializerMethodField()
+    returns = serializers.SerializerMethodField()
+    can_return = serializers.SerializerMethodField(help_text="its owner may ask to send books back now (returns/)")
+    return_until = serializers.SerializerMethodField(
+        help_text="the last moment to ask, SHOP_RETURN_DAYS after delivery"
+    )
 
     class Meta(OrderBriefSerializer.Meta):
         fields = [
             *OrderBriefSerializer.Meta.fields,
             *["email", "shipping_address", "subtotal", "savings", "discount", "shipping_fee", "coupon_code"],
             *["timeline", "shipments", "refunds", "can_cancel", "can_pay", "invoice", "credit_notes", "web_url"],
+            *["returns", "can_return", "return_until"],
         ]
+
+    @extend_schema_field(OrderReturnSerializer(many=True))
+    def get_returns(self, order):
+        titles = {item.pk: (item.product.slug, item.title) for item in order.items.all()}
+        rows = [
+            {
+                "number": back.number,
+                "status": back.status,
+                "status_label": RETURN_LABELS.get(back.status, back.get_status_display()),
+                "reason": back.reason,
+                "created": back.created,
+                "lines": [
+                    {
+                        "product": titles.get(line["item"], ("", ""))[0],
+                        "title": titles.get(line["item"], ("", ""))[1],
+                        "quantity": line["quantity"],
+                    }
+                    for line in back.lines
+                ],
+                "decision_note": back.decision_note,
+                "return_courier": back.return_courier,
+                "return_awb": back.return_awb,
+            }
+            for back in order.returns.all()
+        ]
+        return OrderReturnSerializer(rows, many=True).data
+
+    def get_return_until(self, order) -> str | None:
+        if order.status != Order.Status.DELIVERED:
+            return None
+        deadline = services.return_deadline(order)
+        return deadline.isoformat() if deadline else None
+
+    def get_can_return(self, order) -> bool:
+        """Delivered books, within the window, none of them asked back yet, no return under way: the owner's form."""
+        request = self.context.get("request")
+        if request is None or not request.user.is_authenticated or order.user_id != request.user.pk:
+            return False
+        if order.status != Order.Status.DELIVERED or any(back.is_open for back in order.returns.all()):
+            return False
+        deadline = services.return_deadline(order)
+        if deadline is None or timezone.now() > deadline:
+            return False
+        return any(left > 0 for left in services.returnable(order).values())
 
     @extend_schema_field(SavingSerializer(many=True))
     def get_savings(self, order):
@@ -1065,6 +1147,9 @@ class OrderLinkSerializer(OrderSerializer):
     def get_can_pay(self, order) -> bool:
         return order.user_id is None and can_pay(order)
 
+    def get_can_return(self, order) -> bool:  # its owner asks, signed in
+        return False
+
     def get_web_url(self, order) -> str:
         return self.context["request"].build_absolute_uri(order.get_link_url())
 
@@ -1115,6 +1200,17 @@ class PaymentConfirmSerializer(serializers.Serializer):
         OpenApiExample("A guest", value={"number": "EL-2026-000123", "email": "guest@example.com"}, request_only=True)
     ]
 )
+class CustomerReturnLineSerializer(serializers.Serializer):
+    product = serializers.CharField(max_length=50, help_text="a book of the order: its items' `product`")
+    quantity = serializers.IntegerField(min_value=0, max_value=1000, help_text="copies to send back; 0: none")
+
+
+class CustomerReturnSerializer(serializers.Serializer):
+    lines = CustomerReturnLineSerializer(many=True, allow_empty=False)
+    reason = serializers.ChoiceField(choices=ReturnRequest.Reason.choices)
+    note = serializers.CharField(required=False, allow_blank=True, max_length=1000, help_text="what happened")
+
+
 class LookupSerializer(serializers.Serializer):
     number = serializers.CharField(max_length=20)
     email = serializers.EmailField(help_text="the address the order was placed with")
@@ -1189,7 +1285,7 @@ class OrderViewSet(Private, mixins.ListModelMixin, mixins.RetrieveModelMixin, vi
         items = Prefetch("items", queryset=OrderItem.objects.select_related("product"))  # is_digital reads them
         if self.action == "list":
             return orders.prefetch_related(items)
-        return orders.select_related("invoice").prefetch_related(items, SHIPMENTS, "refunds")
+        return orders.select_related("invoice").prefetch_related(items, SHIPMENTS, "refunds", "returns")
 
     def get_serializer_class(self):
         return OrderBriefSerializer if self.action == "list" else OrderSerializer
@@ -1257,6 +1353,34 @@ class OrderViewSet(Private, mixins.ListModelMixin, mixins.RetrieveModelMixin, vi
         """Cancel while pending or paid; an online payment is refunded in full (5–7 working days)."""
         return self.answer(cancel_by_customer(self.get_object()))
 
+    @extend_schema(request=CustomerReturnSerializer, responses={201: OrderSerializer})
+    @action(detail=True, methods=["post"], permission_classes=CUSTOMER)  # also while the shop is closed
+    def returns(self, request, **kwargs):
+        """Ask to send back books of a delivered order (damaged, misprinted, not what was ordered, late …), within
+        SHOP_RETURN_DAYS of delivery: the books and copies (`product`: as the order's `items` name it), a reason
+        from the list, a note. Staff answer within two working days; the order's `returns` say where it stands.
+        Refused with the reason otherwise (400)."""
+        data = CustomerReturnSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        order, values = self.get_object(), data.validated_data
+        items = {item.product.slug: item.pk for item in order.items.select_related("product")}
+        if unknown := [line["product"] for line in values["lines"] if line["product"] not in items]:
+            raise refuse(f"Not a book of this order: {', '.join(unknown)}.")
+        lines = [{"item": items[line["product"]], "quantity": line["quantity"]} for line in values["lines"]]
+        try:
+            services.request_return(
+                order,
+                lines,
+                values["reason"],
+                values.get("note", ""),
+                by=request.user,
+                by_customer=True,
+                request=request,
+            )
+        except services.ShopError as error:
+            raise refuse(str(error)) from error
+        return self.answer(self.get_object(), status.HTTP_201_CREATED)
+
     @extend_schema(request=None, responses=PaymentStartSerializer)
     @action(detail=True, methods=["post"], throttle_scope="payment")
     def payment(self, request, **kwargs):
@@ -1322,7 +1446,7 @@ class OrderLinkView(generics.RetrieveAPIView):
     serializer_class = OrderLinkSerializer
     lookup_field = "token"
     queryset = Order.objects.select_related("invoice").prefetch_related(
-        Prefetch("items", queryset=OrderItem.objects.select_related("product")), SHIPMENTS, "refunds"
+        Prefetch("items", queryset=OrderItem.objects.select_related("product")), SHIPMENTS, "refunds", "returns"
     )
 
     def retrieve(self, request, *args, **kwargs):
