@@ -2,10 +2,12 @@
 
 // After a failed submit: one box at the top of the form, which takes the focus (so a long form scrolls back to it),
 // as the public site's components/auth/error-summary.tsx, with the staff API's answers worded:
-//   approval_required  the change request that was made, and the way to it (not an error: the outcome)
+//   approval_required  (a 202) the change request that was made, its state and who may approve it, and the way to it
+//                      (not an error: the outcome)
 //   429                when to try again (Retry-After, from this device's clock)
 //   409                someone else changed it: Reload (the draft stays)
 //   reauth_required    the "confirm it's you" dialog was closed: nothing changed
+//   impersonating      what stays closed while this session is signed in as a customer
 //   403 without JSON   Django's own CSRF page: the form timed out
 //   anything else      the API's words, each field's problem a link to its field
 import { useRouter } from "next/navigation";
@@ -41,7 +43,15 @@ export function ErrorSummary({
     </div>
   );
 
-  if (error.code === "approval_required") return frame(<ApprovalNotice changeRequestId={error.changeRequestId} />);
+  if (error.code === "approval_required") return frame(<ApprovalNotice approval={error.approval} />);
+
+  if (error.code === "impersonating") {
+    return frame(
+      <Alert variant="warning" role="alert" title={copy.errors.impersonatingTitle}>
+        <p>{copy.errors.impersonating}</p>
+      </Alert>,
+    );
+  }
 
   if (error.status === 429) {
     const until = error.retryAt === null ? null : formatTime(error.retryAt);

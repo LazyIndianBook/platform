@@ -1,16 +1,21 @@
-// The staff API client: what goes out (the path, the CSRF token on a change, If-Match), what the guards make of the
-// answer (typed data, or bad_response), and what the browser does with each refusal (sign in again, confirm it's you
-// then send once more, read the manifest again, a change request instead of the action).
+// The staff API client (openapi-fetch, typed from the backend's schema): what goes out (the path, the query's set
+// values, the CSRF token and the JSON body on a change, an Idempotency-Key where the API takes one), what comes back
+// (a 202 with a change request as approval_required, with its id, status and checker; a reveal as its value; an
+// audit export as a file or a job), and what the browser does with each refusal (sign in again with why, confirm
+// it's you then send once more, read the manifest again).
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "./errors";
 import {
+  askChange,
   cursorOf,
+  exportAudit,
   getSession,
+  jobFileHref,
   listInbox,
-  revealUser,
+  listUsers,
   resetUserMfa,
-  staffPath,
+  revealUser,
   updateDataRequest,
   userAction,
 } from "./staff";
@@ -25,20 +30,6 @@ vi.mock("./client", async (original) => {
     reauth: { ...real.reauth, request: client.reauthRequest },
   };
 });
-
-const SESSION = {
-  user: { id: 7, email: "staff@example.com", name: "Staff Member" },
-  roles: [{ name: "SUPPORT", expires_at: null }],
-  permissions: ["accounts.view_user", "staff.view_inboxitem"],
-  scopes: { subject: ["PHY"] },
-  limits: { refund_inr: "2000.00", discount_percent: 20, export_rows: 5000, bulk_rows: 100 },
-  flags: { web_course: false },
-  reauth_valid_until: null,
-  idle_timeout_s: 1800,
-  absolute_expires_at: "2026-10-09T20:00:00+05:30",
-  impersonating: null,
-  manifest_version: "abc123",
-};
 
 const json = (status: number, body: unknown, headers: Record<string, string> = {}) =>
   new Response(body === null ? null : JSON.stringify(body), {
@@ -60,135 +51,184 @@ afterEach(() => {
 });
 
 const sent = (call = 0) => fetchMock.mock.calls[call][0] as Request;
+const PAGE = { results: [], next: null, previous: null };
 
 describe("the request", () => {
-  it("asks the staff root with the query's set values only", async () => {
-    fetchMock.mockResolvedValueOnce(json(200, { results: [], next: null, previous: null }));
-    await listInbox({ state: "open", kind: "", assignee: "me" });
+  it("asks the staff path with the query's set values only, never cached", async () => {
+    fetchMock.mockResolvedValueOnce(json(200, PAGE));
+    await listInbox({ kind: "approval", mine: true, cursor: "" });
     const request = sent();
     expect(new URL(request.url).pathname).toBe("/api/v1/staff/inbox/");
-    expect(new URL(request.url).search).toBe("?state=open&assignee=me");
+    expect(new URL(request.url).search).toBe("?kind=approval&mine=true");
     expect(request.method).toBe("GET");
     expect(request.headers.get("X-CSRFToken")).toBeNull();
-    expect(staffPath("people/", { q: "anita", cursor: undefined })).toBe("/api/v1/staff/people/?q=anita");
+    expect(fetchMock.mock.calls[0][1]).toEqual({ cache: "no-store" });
   });
 
-  it("sends a change with the CSRF token, a JSON body and the version it read", async () => {
-    fetchMock.mockResolvedValueOnce(
-      json(200, {
-        id: 801,
-        type: "erasure",
-        received_at: "2026-10-07T10:00:00+05:30",
-        state: "received",
-        requester: {},
-        version: 3,
-      }),
-    );
-    await updateDataRequest("801", { notes: "Called back." }, "2");
+  it("sends a change with the CSRF token and a JSON body", async () => {
+    fetchMock.mockResolvedValueOnce(json(200, { id: 801, notes: "Called back." }));
+    await updateDataRequest(801, { notes: "Called back." });
     const request = sent();
     expect(request.method).toBe("PATCH");
+    expect(new URL(request.url).pathname).toBe("/api/v1/staff/data-requests/801/");
     expect(request.headers.get("X-CSRFToken")).toBe("token-123");
-    expect(request.headers.get("If-Match")).toBe('"2"');
     expect(await request.json()).toEqual({ notes: "Called back." });
+  });
+
+  it("asks with an Idempotency-Key, the same one when it is sent again", async () => {
+    const flows = [{ id: "reauthenticate" }];
+    fetchMock
+      .mockResolvedValueOnce(json(403, { detail: "Log in again.", code: "reauthentication_required", flows }))
+      .mockResolvedValueOnce(json(201, { id: 12, status: "executed", payload_sha256: "ab", checker: "x" }));
+    client.reauthRequest.mockResolvedValueOnce(true);
+    await askChange({
+      action: "order.refund",
+      target: "EL-2026-000123",
+      payload: { amount: "500" },
+      reason: "Damaged",
+    });
+    const first = sent(0).headers.get("Idempotency-Key");
+    expect(first).toMatch(/^[0-9a-f-]{36}$/);
+    expect(sent(1).headers.get("Idempotency-Key")).toBe(first);
+  });
+
+  it("names the customer's details to show, and answers the value", async () => {
+    fetchMock.mockResolvedValueOnce(json(200, { login_phone: null, phone: "+919864012345" }));
+    await expect(revealUser(42, ["login_phone", "phone"], "Ticket 4412")).resolves.toBe("+919864012345");
+    expect(await sent().json()).toEqual({ show: ["login_phone", "phone"], reason: "Ticket 4412" });
   });
 });
 
-describe("the guards", () => {
-  it("turn the session into the manifest the shell draws from", async () => {
-    fetchMock.mockResolvedValueOnce(json(200, SESSION));
-    const manifest = await getSession();
-    expect(manifest.user).toEqual({ id: "7", email: "staff@example.com", name: "Staff Member" });
-    expect(manifest.limits).toEqual({ refund_inr: 2000, discount_percent: 20, export_rows: 5000, bulk_rows: 100 });
-    expect(manifest.scopes).toEqual({ subject: ["PHY"] });
-    expect(manifest.idle_timeout_s).toBe(1800);
-    // the platform's User.full_name serves as the name
-    fetchMock.mockResolvedValueOnce(
-      json(200, { ...SESSION, user: { id: 7, email: "s@example.com", full_name: "S M" } }),
-    );
-    expect((await getSession()).user.name).toBe("S M");
+describe("the answers", () => {
+  it("are the API's own fields, the session's included", async () => {
+    const session = {
+      user: { id: 7, email: "staff@example.com", full_name: "Staff Member", is_superuser: false },
+      roles: [{ name: "SUPPORT", expires_at: null, granted_by: 1 }],
+      permissions: ["accounts.view_user", "staff.view_inbox"],
+      scopes: { ticket_queue: ["data_request"] },
+      role_scopes: {},
+      limits: { refund_inr: 1000, export_rows: 100 },
+      flags: { test_mode: true },
+      reauth_valid_until: null,
+      idle_timeout_s: 1800,
+      absolute_expires_at: "2026-10-09T17:59:00Z",
+      impersonating: null,
+      manifest_version: "3f9a1c0d2b7e4a55",
+    };
+    fetchMock.mockResolvedValueOnce(json(200, session));
+    await expect(getSession()).resolves.toEqual(session);
   });
 
-  it("fail loudly as bad_response when a field the console needs is missing or renamed", async () => {
-    const { idle_timeout_s, ...renamed } = SESSION;
-    void idle_timeout_s;
-    fetchMock.mockResolvedValueOnce(json(200, { ...renamed, idle_seconds: 1800 }));
-    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    await expect(getSession()).rejects.toMatchObject({ code: "bad_response" });
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining("idle_timeout_s"));
-    spy.mockRestore();
-  });
-
-  it("read a cursor out of the pagination's links", () => {
-    expect(cursorOf("https://admin.examleaf.in/api/v1/staff/audit/?cursor=cD0yMDI2&q=x")).toBe("cD0yMDI2");
+  it("turn a page's links into cursors", async () => {
+    const next = "https://admin.examleaf.in/api/v1/staff/users/?cursor=cD0yMDI2&q=riya";
+    fetchMock.mockResolvedValueOnce(json(200, { results: [{ id: 1 }], next, previous: null }));
+    await expect(listUsers({ q: "riya" })).resolves.toEqual({ results: [{ id: 1 }], next: "cD0yMDI2", previous: null });
     expect(cursorOf(null)).toBeNull();
     expect(cursorOf("https://admin.examleaf.in/api/v1/staff/audit/?page=2")).toBeNull();
+  });
+
+  it("an audit export is a file at once, or a job", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response('{"id": 1}\n', {
+        headers: {
+          "Content-Type": "application/x-ndjson",
+          "Content-Disposition": 'attachment; filename="audit-20261009.jsonl"',
+        },
+      }),
+    );
+    const file = await exportAudit({ action_prefix: "order." });
+    expect(file).toMatchObject({ name: "audit-20261009.jsonl" });
+    expect(await sent().json()).toEqual({ filters: { action_prefix: "order." } });
+    fetchMock.mockResolvedValueOnce(json(202, { id: 702, state: "queued", change_request_id: 508 }));
+    await expect(exportAudit({})).resolves.toEqual({ job: { id: 702, state: "queued", change_request_id: 508 } });
+  });
+
+  it("a job's file is the job read again for a fresh link, kept on this origin", async () => {
+    fetchMock.mockResolvedValueOnce(
+      json(200, { id: 703, state: "done", result_url: "http://web:8000/api/v1/staff/jobs/703/result/?token=abc%3A1" }),
+    );
+    await expect(jobFileHref(703)).resolves.toBe("/api/v1/staff/jobs/703/result/?token=abc%3A1");
+    expect(new URL(sent().url).pathname).toBe("/api/v1/staff/jobs/703/");
+    fetchMock.mockResolvedValueOnce(json(200, { id: 703, state: "done", result_url: null }));
+    await expect(jobFileHref(703)).resolves.toBeNull();
+  });
+
+  it("a 202 with a change request is approval_required, with its id, status and checker", async () => {
+    const changeRequest = {
+      id: 77,
+      action: "user.reset_mfa",
+      payload_sha256: "ab",
+      status: "pending",
+      checker: "staff.reset_user_mfa",
+    };
+    fetchMock.mockResolvedValueOnce(json(202, changeRequest));
+    const error = (await resetUserMfa(7103, "Lost phone").catch((caught) => caught)) as ApiError;
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error.code).toBe("approval_required");
+    expect(error.approval).toEqual({ id: "77", status: "pending", checker: "staff.reset_user_mfa" });
   });
 });
 
 describe("in the browser, the answers that act", () => {
-  it("a 401 sends the person to sign in again and fails the call", async () => {
-    fetchMock.mockResolvedValueOnce(json(401, { detail: "Authentication credentials were not provided." }));
-    await expect(userAction("7101", "unlock")).rejects.toMatchObject({ status: 401 });
+  it("a 401 sends the person to sign in again, saying why", async () => {
+    fetchMock.mockResolvedValueOnce(json(401, { detail: "Not signed in.", code: "not_authenticated" }));
+    await expect(userAction(7101, "unlock")).rejects.toMatchObject({ status: 401 });
     expect(client.sessionEnded).toHaveBeenCalledWith("expired");
-    // the backend's own idle limit says so, and the sign-in page says why
     fetchMock.mockResolvedValueOnce(json(401, { detail: "Signed out after inactivity.", code: "session_idle" }));
-    await expect(userAction("7101", "unlock")).rejects.toMatchObject({ status: 401 });
+    await expect(userAction(7101, "unlock")).rejects.toMatchObject({ code: "session_idle" });
     expect(client.sessionEnded).toHaveBeenLastCalledWith("idle");
+    fetchMock.mockResolvedValueOnce(json(401, { detail: "Session over.", code: "session_expired" }));
+    await expect(userAction(7101, "unlock")).rejects.toMatchObject({ code: "session_expired" });
+    expect(client.sessionEnded).toHaveBeenLastCalledWith("expired");
   });
 
-  it("reauth_required waits for 'confirm it's you', then sends the call once more", async () => {
+  it("reauthentication_required waits for 'confirm it's you', then sends the call once more", async () => {
     const flows = [{ id: "mfa_reauthenticate", types: ["totp"] }];
     fetchMock
-      .mockResolvedValueOnce(json(403, { detail: "Confirm it's you.", code: "reauth_required", flows }))
-      .mockResolvedValueOnce(json(200, { value: "riya.das@example.com" }));
+      .mockResolvedValueOnce(json(403, { detail: "Log in again.", code: "reauthentication_required", flows }))
+      .mockResolvedValueOnce(json(200, { email: "riya.das@example.com" }));
     client.reauthRequest.mockResolvedValueOnce(true);
-    await expect(revealUser("7101", "email", "Ticket 4412")).resolves.toBe("riya.das@example.com");
+    await expect(revealUser(7101, ["email"], "Ticket 4412")).resolves.toBe("riya.das@example.com");
     expect(client.reauthRequest).toHaveBeenCalledWith(flows);
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(await sent(1).json()).toEqual({ field: "email", reason: "Ticket 4412" });
+    expect(await sent(1).json()).toEqual({ show: ["email"], reason: "Ticket 4412" });
   });
 
   it("a closed 'confirm it's you' fails the call with reauth_required, sent once", async () => {
-    fetchMock.mockResolvedValue(json(403, { detail: "Confirm it's you.", code: "reauth_required" }));
+    fetchMock.mockResolvedValue(json(403, { detail: "Log in again.", code: "reauthentication_required" }));
     client.reauthRequest.mockResolvedValueOnce(false);
-    await expect(revealUser("7101", "email", "Ticket 4412")).rejects.toMatchObject({ code: "reauth_required" });
+    await expect(revealUser(7101, ["email"], "Ticket 4412")).rejects.toMatchObject({ code: "reauth_required" });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("a refusal by role or scope reads the manifest again", async () => {
-    fetchMock.mockResolvedValueOnce(json(403, { detail: "Your role does not allow this.", code: "permission_denied" }));
-    await expect(userAction("7101", "suspend")).rejects.toMatchObject({ code: "permission_denied" });
-    expect(client.manifestStale).toHaveBeenCalled();
-    fetchMock.mockResolvedValueOnce(json(403, { detail: "Not your subject.", code: "scope_denied" }));
-    await expect(userAction("7101", "suspend")).rejects.toMatchObject({ code: "scope_denied" });
-    expect(client.manifestStale).toHaveBeenCalledTimes(2);
-  });
-
-  it("a 202 with a change request is an approval_required with its id", async () => {
-    fetchMock.mockResolvedValueOnce(
-      json(202, { id: 77, action: "accounts.reset_user_mfa", payload_sha256: "ab", state: "pending" }),
-    );
-    const error = (await resetUserMfa("7103").catch((caught) => caught)) as ApiError;
-    expect(error).toBeInstanceOf(ApiError);
-    expect(error.code).toBe("approval_required");
-    expect(error.changeRequestId).toBe("77");
+  it("a refusal by permission reads the manifest again; impersonating and not_found do not", async () => {
+    fetchMock.mockResolvedValueOnce(json(403, { detail: "You need the permission x.", code: "permission_denied" }));
+    await expect(userAction(7101, "unlock")).rejects.toMatchObject({ code: "permission_denied" });
+    expect(client.manifestStale).toHaveBeenCalledTimes(1);
+    fetchMock.mockResolvedValueOnce(json(403, { detail: "Not while impersonating.", code: "impersonating" }));
+    await expect(userAction(7101, "unlock")).rejects.toMatchObject({ code: "impersonating" });
+    fetchMock.mockResolvedValueOnce(json(404, { detail: "Not found.", code: "not_found" }));
+    await expect(userAction(7101, "unlock")).rejects.toMatchObject({ status: 404, code: "not_found" });
+    expect(client.manifestStale).toHaveBeenCalledTimes(1);
   });
 
   it("a 429 says when to try again", async () => {
-    fetchMock.mockResolvedValueOnce(json(429, { detail: "Request was throttled." }, { "Retry-After": "30" }));
-    await expect(revealUser("7101", "phone", "Ticket")).rejects.toMatchObject({ status: 429, retryAfter: 30 });
+    fetchMock.mockResolvedValueOnce(
+      json(429, { detail: "Request was throttled.", code: "throttled" }, { "Retry-After": "30" }),
+    );
+    await expect(revealUser(7101, ["phone"], "Ticket")).rejects.toMatchObject({ status: 429, retryAfter: 30 });
   });
 
   it("no answer is 'unavailable', never a sign-out", async () => {
     fetchMock.mockRejectedValueOnce(new TypeError("Failed to fetch"));
-    await expect(userAction("7101", "unlock")).rejects.toMatchObject({ status: 0, code: "unavailable" });
+    await expect(userAction(7101, "unlock")).rejects.toMatchObject({ status: 0, code: "unavailable" });
     expect(client.sessionEnded).not.toHaveBeenCalled();
   });
 });
 
 describe("on the server", () => {
   it("speaks with the transport's base, headers and fetch, and leaves the browser's reactions out", async () => {
-    const serverFetch = vi.fn().mockResolvedValue(json(401, { detail: "Signed out." }));
+    const serverFetch = vi.fn().mockResolvedValue(json(401, { detail: "Signed out.", code: "not_authenticated" }));
     const transport = { base: "http://web:8000", headers: { Cookie: "sessionid=abc" }, fetch: serverFetch };
     await expect(getSession(transport)).rejects.toMatchObject({ status: 401 });
     const request = serverFetch.mock.calls[0][0] as Request;

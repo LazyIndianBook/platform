@@ -8,19 +8,23 @@ import { formatTime } from "@/lib/format";
 
 export function Problem({ error, what }: { error: ApiError; what?: string }) {
   const title =
-    error.status === 403
-      ? copy.problem.noAccessTitle
-      : error.code === "bad_response"
-        ? copy.problem.badResponseTitle
-        : error.status === 429
-          ? copy.problem.throttledTitle
-          : error.unavailable
-            ? copy.problem.unavailableTitle
-            : copy.problem.failedTitle;
+    error.code === "impersonating"
+      ? copy.errors.impersonatingTitle
+      : error.status === 403
+        ? copy.problem.noAccessTitle
+        : error.code === "bad_response"
+          ? copy.problem.badResponseTitle
+          : error.status === 429
+            ? copy.problem.throttledTitle
+            : error.unavailable
+              ? copy.problem.unavailableTitle
+              : copy.problem.failedTitle;
   const text =
     error.status === 429 && error.retryAt !== null
       ? copy.errors.throttledUntil(formatTime(error.retryAt))
-      : error.message;
+      : error.code === "impersonating"
+        ? copy.errors.impersonating
+        : error.message;
   return (
     <Alert variant={error.status === 403 ? "warning" : "error"} title={what ? `${what}: ${title}` : title}>
       <p>{text}</p>

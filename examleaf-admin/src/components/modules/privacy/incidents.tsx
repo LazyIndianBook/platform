@@ -1,28 +1,24 @@
 "use client";
 
-// The breach register (GET incidents/): each incident with its two clocks from detection, CERT-In within 6 hours and
-// the Data Protection Board within 72 (the API's certin_due_at and board_due_at), as time left in words and by
-// urgency, stopped once reported. Recording one (POST incidents/) takes only what is known at first; on its page the
-// report times, the notices sent, what was done and its state are kept up (PATCH incidents/{id}/, with the version
-// read).
+// The breach register (GET incidents/?kind=&open=): each incident with its two clocks from detection, CERT-In within
+// 6 hours (cert_in_due) and the Data Protection Board's detailed report within 72 (board_due), as time left in words
+// and by urgency, stopped once reported (cert_in_reported_at, board_report_at). Recording one (POST incidents/) takes
+// only what is known at first and tells the owners; on its page the reports' times and references, the notices, what
+// was done and the root cause are kept up (PATCH incidents/{id}/), and it is closed (POST incidents/{id}/close/).
 import { Clock } from "@/components/data/clock";
+import { ConfirmDialog } from "@/components/data/confirm-typed";
 import { type Column, DataTable } from "@/components/data/data-table";
-import { StatusChip, toneOf } from "@/components/data/status-chip";
+import { StatusChip } from "@/components/data/status-chip";
 import { ActionForm, formText } from "@/components/forms/action-form";
 import { fieldError } from "@/components/forms/use-action";
 import { Checkbox } from "@/components/ui/choice";
 import { Field, FormGrid } from "@/components/ui/field";
 import { Input, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/native-select";
-import { createIncident, type Incident, type SavedView, updateIncident } from "@/lib/api/staff";
+import { closeIncident, createIncident, type Incident, type SavedView, updateIncident } from "@/lib/api/staff";
 import { copy, labelOf } from "@/lib/copy";
+import { incidentState } from "@/lib/display";
 import { formatDateTime, formatNumber, fromLocalInput, toLocalInput } from "@/lib/format";
-
-const list = (text: string) =>
-  text
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
 
 /** One of an incident's two clocks: CERT-In's (6 hours) or the Board's (72 hours), stopped once reported. */
 export function IncidentClock({
@@ -40,9 +36,9 @@ export function IncidentClock({
   return (
     <Clock
       label={certin ? copy.privacy.certinClock : copy.privacy.boardClock}
-      start={incident.detected_at}
-      due={certin ? incident.certin_due_at : incident.board_due_at}
-      doneAt={certin ? incident.certin_reported_at : incident.board_reported_at}
+      start={incident.detected_at ?? null}
+      due={certin ? incident.cert_in_due : incident.board_due}
+      doneAt={certin ? incident.cert_in_reported_at : incident.board_report_at}
       now={now}
       compact={compact}
     />
@@ -63,21 +59,16 @@ export function IncidentsTable({
   now: number;
 }) {
   const columns: Column<Incident>[] = [
+    { key: "title", label: copy.privacy.incidentColumns.title, render: (incident) => incident.title },
     {
       key: "detected",
       label: copy.privacy.incidentColumns.detected,
       render: (incident) => formatDateTime(incident.detected_at),
     },
     {
-      key: "type",
-      label: copy.privacy.incidentColumns.type,
-      render: (incident) => labelOf(copy.privacy.incidentTypes, incident.type),
-    },
-    {
-      key: "systems",
-      label: copy.privacy.incidentColumns.systems,
-      render: (incident) => incident.systems.join(", "),
-      wrap: true,
+      key: "kind",
+      label: copy.privacy.incidentColumns.kind,
+      render: (incident) => labelOf(copy.privacy.incidentKinds, incident.kind),
     },
     {
       key: "people",
@@ -107,7 +98,9 @@ export function IncidentsTable({
       key: "state",
       label: copy.privacy.incidentColumns.state,
       render: (incident) => (
-        <StatusChip tone={toneOf(incident.state)}>{labelOf(copy.privacy.states, incident.state)}</StatusChip>
+        <StatusChip tone={incident.closed_at ? "stopped" : "waiting"}>
+          {labelOf(copy.privacy.incidentStates, incidentState(incident))}
+        </StatusChip>
       ),
     },
   ];
@@ -117,21 +110,26 @@ export function IncidentsTable({
       caption={copy.privacy.incidentsTitle}
       rows={rows}
       columns={columns}
-      rowId={(incident) => incident.id}
-      rowLabel={(incident) => `${labelOf(copy.privacy.incidentTypes, incident.type)} ${incident.id}`}
+      rowId={(incident) => String(incident.id)}
       rowHref={(incident) => `/privacy/incidents/${incident.id}/`}
       next={next}
       previous={previous}
       views={views}
       filters={[
         {
-          name: "state",
-          label: copy.privacy.incidentColumns.state,
+          name: "open",
+          label: copy.privacy.openFilter,
           type: "select",
-          options: ["open", "contained", "closed"].map((state) => ({
-            value: state,
-            label: copy.privacy.states[state],
-          })),
+          options: [
+            { value: "true", label: copy.privacy.incidentStates.open },
+            { value: "false", label: copy.privacy.incidentStates.closed },
+          ],
+        },
+        {
+          name: "kind",
+          label: copy.privacy.incidentKind,
+          type: "select",
+          options: Object.entries(copy.privacy.incidentKinds).map(([value, label]) => ({ value, label })),
         },
       ]}
       empty={{ title: copy.privacy.emptyIncidentsTitle, text: copy.privacy.emptyIncidentsText }}
@@ -145,14 +143,21 @@ export function NewIncidentForm({ now }: { now: number }) {
       id="new-incident"
       submitLabel={copy.privacy.recordIncident}
       success={copy.privacy.incidentRecorded}
-      labels={{ detected_at: copy.privacy.detectedAt, type: copy.privacy.incidentType }}
+      labels={{
+        title: copy.privacy.title,
+        detected_at: copy.privacy.detectedAt,
+        kind: copy.privacy.incidentKind,
+        people_affected: copy.privacy.peopleAffected,
+      }}
       onSubmit={(form) => {
         const people = formText(form, "people_affected");
         return createIncident({
+          title: formText(form, "title"),
           detected_at: fromLocalInput(formText(form, "detected_at")),
-          type: formText(form, "type"),
-          systems: list(formText(form, "systems")),
-          data_categories: list(formText(form, "data_categories")),
+          kind: formText(form, "kind") as Incident["kind"],
+          description: formText(form, "description"),
+          systems: formText(form, "systems"),
+          data_categories: formText(form, "data_categories"),
           people_affected: people ? Number(people) : null,
           children_affected: form.get("children_affected") === "on",
         });
@@ -160,6 +165,9 @@ export function NewIncidentForm({ now }: { now: number }) {
     >
       {(error) => (
         <>
+          <Field id="new-incident-title" label={copy.privacy.title} error={fieldError(error, "title")}>
+            <Input name="title" autoComplete="off" aria-required="true" maxLength={200} />
+          </Field>
           <FormGrid>
             <Field
               id="new-incident-detected_at"
@@ -168,10 +176,10 @@ export function NewIncidentForm({ now }: { now: number }) {
             >
               <Input name="detected_at" type="datetime-local" defaultValue={toLocalInput(now)} aria-required="true" />
             </Field>
-            <Field id="new-incident-type" label={copy.privacy.incidentType} error={fieldError(error, "type")}>
-              <Select name="type" defaultValue="" aria-required="true">
-                <option value="">{copy.privacy.incidentType}</option>
-                {Object.entries(copy.privacy.incidentTypes).map(([value, label]) => (
+            <Field id="new-incident-kind" label={copy.privacy.incidentKind} error={fieldError(error, "kind")}>
+              <Select name="kind" defaultValue="" aria-required="true">
+                <option value="">{copy.privacy.incidentKind}</option>
+                {Object.entries(copy.privacy.incidentKinds).map(([value, label]) => (
                   <option key={value} value={value}>
                     {label}
                   </option>
@@ -187,6 +195,9 @@ export function NewIncidentForm({ now }: { now: number }) {
               <Input name="people_affected" type="number" min={0} inputMode="numeric" />
             </Field>
           </FormGrid>
+          <Field id="new-incident-description" label={copy.privacy.description} optional>
+            <Textarea name="description" rows={3} />
+          </Field>
           <FormGrid>
             <Field id="new-incident-systems" label={copy.privacy.systems} optional help={copy.privacy.systemsHelp}>
               <Input name="systems" autoComplete="off" />
@@ -207,94 +218,89 @@ export function NewIncidentForm({ now }: { now: number }) {
   );
 }
 
+/** A datetime-local value of the API's time (empty for none). */
+const local = (value: string | null | undefined) => (value ? toLocalInput(value) : "");
+/** The API's time from a datetime-local value (null for none). */
+const moment = (value: string) => (value ? fromLocalInput(value) : null);
+
 export function IncidentUpdateForm({ incident }: { incident: Incident }) {
+  const id = `incident-${incident.id}`;
+  const field = (name: string, label: string, value: string | null | undefined, type = "datetime-local") => (
+    <Field id={`${id}-${name}`} label={label} optional>
+      <Input name={name} type={type} defaultValue={type === "datetime-local" ? local(value) : (value ?? "")} />
+    </Field>
+  );
   return (
     <ActionForm
-      id={`incident-${incident.id}`}
+      id={id}
       submitLabel={copy.privacy.saveIncident}
       success={copy.privacy.incidentSaved}
       labels={{
-        certin_reported_at: copy.privacy.markCertin,
-        board_reported_at: copy.privacy.markBoard,
+        cert_in_reported_at: copy.privacy.certinReportedAt,
+        board_notified_at: copy.privacy.boardNotifiedAt,
+        board_report_at: copy.privacy.boardReportAt,
         notices_sent: copy.privacy.noticesSent,
-        state: copy.privacy.incidentState,
       }}
-      onSubmit={(form) => {
-        const certin = formText(form, "certin_reported_at");
-        const board = formText(form, "board_reported_at");
-        const action = formText(form, "action");
-        return updateIncident(
-          incident.id,
-          {
-            certin_reported_at: certin ? fromLocalInput(certin) : null,
-            board_reported_at: board ? fromLocalInput(board) : null,
-            notices_sent: Number(formText(form, "notices_sent") || 0),
-            state: formText(form, "state"),
-            ...(action ? { action } : {}),
-          },
-          incident.version,
-        );
-      }}
+      onSubmit={(form) =>
+        updateIncident(incident.id, {
+          cert_in_reported_at: moment(formText(form, "cert_in_reported_at")),
+          cert_in_reference: formText(form, "cert_in_reference"),
+          board_notified_at: moment(formText(form, "board_notified_at")),
+          board_report_at: moment(formText(form, "board_report_at")),
+          board_reference: formText(form, "board_reference"),
+          notices_sent: Number(formText(form, "notices_sent") || 0),
+          notices_sent_at: moment(formText(form, "notices_sent_at")),
+          actions: formText(form, "actions"),
+          root_cause: formText(form, "root_cause"),
+        })
+      }
     >
-      {(error) => (
+      {() => (
         <>
           <FormGrid>
-            <Field
-              id={`incident-${incident.id}-certin_reported_at`}
-              label={copy.privacy.markCertin}
-              optional
-              error={fieldError(error, "certin_reported_at")}
-            >
-              <Input
-                name="certin_reported_at"
-                type="datetime-local"
-                defaultValue={incident.certin_reported_at ? toLocalInput(incident.certin_reported_at) : ""}
-              />
-            </Field>
-            <Field
-              id={`incident-${incident.id}-board_reported_at`}
-              label={copy.privacy.markBoard}
-              optional
-              error={fieldError(error, "board_reported_at")}
-            >
-              <Input
-                name="board_reported_at"
-                type="datetime-local"
-                defaultValue={incident.board_reported_at ? toLocalInput(incident.board_reported_at) : ""}
-              />
-            </Field>
-            <Field
-              id={`incident-${incident.id}-notices_sent`}
-              label={copy.privacy.noticesSent}
-              error={fieldError(error, "notices_sent")}
-            >
+            {field("cert_in_reported_at", copy.privacy.certinReportedAt, incident.cert_in_reported_at)}
+            {field("cert_in_reference", copy.privacy.certinReference, incident.cert_in_reference, "text")}
+          </FormGrid>
+          <FormGrid>
+            {field("board_notified_at", copy.privacy.boardNotifiedAt, incident.board_notified_at)}
+            {field("board_report_at", copy.privacy.boardReportAt, incident.board_report_at)}
+            {field("board_reference", copy.privacy.boardReference, incident.board_reference, "text")}
+          </FormGrid>
+          <FormGrid>
+            <Field id={`${id}-notices_sent`} label={copy.privacy.noticesSent}>
               <Input
                 name="notices_sent"
                 type="number"
                 min={0}
                 inputMode="numeric"
-                defaultValue={incident.notices_sent}
+                defaultValue={incident.notices_sent ?? 0}
               />
             </Field>
-            <Field
-              id={`incident-${incident.id}-state`}
-              label={copy.privacy.incidentState}
-              error={fieldError(error, "state")}
-            >
-              <Select name="state" defaultValue={incident.state}>
-                {["open", "contained", "closed"].map((state) => (
-                  <option key={state} value={state}>
-                    {copy.privacy.states[state]}
-                  </option>
-                ))}
-              </Select>
-            </Field>
+            {field("notices_sent_at", copy.privacy.noticesSentAt, incident.notices_sent_at)}
           </FormGrid>
-          <Field id={`incident-${incident.id}-action`} label={copy.privacy.incidentActions} optional>
-            <Textarea name="action" rows={3} />
+          <Field id={`${id}-actions`} label={copy.privacy.incidentActions} optional>
+            <Textarea name="actions" rows={4} defaultValue={incident.actions ?? ""} />
+          </Field>
+          <Field id={`${id}-root_cause`} label={copy.privacy.rootCause} optional>
+            <Textarea name="root_cause" rows={2} defaultValue={incident.root_cause ?? ""} />
           </Field>
         </>
       )}
     </ActionForm>
+  );
+}
+
+export function CloseIncident({ incident }: { incident: Incident }) {
+  if (incident.closed_at) return null;
+  return (
+    <ConfirmDialog
+      triggerLabel={copy.privacy.closeIncident}
+      title={copy.privacy.closeIncident}
+      text={copy.privacy.closeIncidentText}
+      confirmLabel={copy.privacy.closeIncident}
+      confirmVariant="primary"
+      success={copy.privacy.incidentClosed}
+      onConfirm={() => closeIncident(incident.id)}
+    />
   );
 }

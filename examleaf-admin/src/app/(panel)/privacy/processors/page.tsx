@@ -1,8 +1,9 @@
-// /privacy/processors/: the processor register (GET processors/), which the access exports' recipients list and a
-// cross-border switch read; adding one (POST processors/, #new).
+// /privacy/processors/: the processor register (GET processors/): who processes personal data for ExamLeaf, for
+// what, where, under which agreement; adding one (POST processors/, #new).
 import type { Metadata } from "next";
 
 import { Problem } from "@/components/data/problem";
+import { StatusChip } from "@/components/data/status-chip";
 import { NewProcessorForm } from "@/components/modules/privacy/processors";
 import { PageHeader, Section } from "@/components/shell/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -36,7 +37,7 @@ export default async function ProcessorsPage() {
       <div className="flex flex-col gap-10">
         {processors instanceof ApiError ? (
           <Problem error={processors} />
-        ) : processors.length === 0 ? (
+        ) : processors.results.length === 0 ? (
           <EmptyState title={copy.privacy.emptyProcessorsTitle}>
             <p>{copy.privacy.emptyProcessorsText}</p>
           </EmptyState>
@@ -49,17 +50,23 @@ export default async function ProcessorsPage() {
                 <TableHead>{copy.privacy.processorColumns.country}</TableHead>
                 <TableHead>{copy.privacy.processorColumns.categories}</TableHead>
                 <TableHead>{copy.privacy.processorColumns.contract}</TableHead>
+                <TableHead>{copy.privacy.processorColumns.active}</TableHead>
               </tr>
             </thead>
             <tbody>
-              {processors.map((processor) => (
+              {processors.results.map((processor) => (
                 <tr key={processor.id}>
                   <TableCell className="font-semibold">{processor.name}</TableCell>
                   <TableCell>{processor.purpose}</TableCell>
                   <TableCell>{processor.country}</TableCell>
-                  <TableCell>{processor.data_categories.join(", ")}</TableCell>
+                  <TableCell>{processor.data_categories}</TableCell>
                   <TableCell>
-                    {processor.contract_until ? formatDate(processor.contract_until) : copy.common.none}
+                    {processor.contract_ends_on ? formatDate(processor.contract_ends_on) : copy.common.none}
+                  </TableCell>
+                  <TableCell>
+                    <StatusChip tone={processor.active === false ? "stopped" : "good"}>
+                      {processor.active === false ? copy.common.no : copy.common.yes}
+                    </StatusChip>
                   </TableCell>
                 </tr>
               ))}

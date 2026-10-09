@@ -1,5 +1,5 @@
-// /settings/: the site's settings and feature flags (GET settings/ and flags/), each with its source, history and, for
-// the console's own values, the change with a reason and an optional effective date.
+// /settings/: the site's switches and the feature flags (GET settings/ and flags/), each with its source, history and
+// the change with a reason and an optional effective date for whoever may (components/modules/settings/).
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -9,13 +9,13 @@ import { PageHeader, Section } from "@/components/shell/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ApiError } from "@/lib/api/errors";
 import { attempt, staffPage } from "@/lib/api/page";
-import { listSettings, type Setting } from "@/lib/api/staff";
+import { type Flag, listFlags, listSettings, type Setting } from "@/lib/api/staff";
 import { copy } from "@/lib/copy";
 import { has, P } from "@/lib/modules";
 
 export const metadata: Metadata = { title: copy.settings.title };
 
-function Part({ kind, answer }: { kind: "settings" | "flags"; answer: Setting[] | ApiError }) {
+function Part({ kind, answer }: { kind: "settings" | "flags"; answer: (Setting | Flag)[] | ApiError }) {
   if (answer instanceof ApiError) return <Problem error={answer} />;
   if (!answer.length)
     return (
@@ -23,14 +23,14 @@ function Part({ kind, answer }: { kind: "settings" | "flags"; answer: Setting[] 
         <p>{copy.settings.emptyText}</p>
       </EmptyState>
     );
-  return <SettingsList kind={kind} settings={answer} />;
+  return <SettingsList kind={kind} rows={answer} />;
 }
 
 export default async function SettingsPage() {
   const { manifest, transport, path } = await staffPage("/settings/");
   const [settings, flags] = await Promise.all([
-    has(manifest, P.settingsView) ? attempt(listSettings("settings", transport), path) : null,
-    has(manifest, P.flagsView) ? attempt(listSettings("flags", transport), path) : null,
+    has(manifest, P.settingsView) ? attempt(listSettings(transport), path) : null,
+    has(manifest, P.flagsView) ? attempt(listFlags(transport), path) : null,
   ]);
   return (
     <>

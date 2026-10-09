@@ -1,24 +1,66 @@
-// The staff API (/api/v1/staff/, examleaf-web's staff app): every call the console makes for staff data, as thin typed
-// functions, each with a runtime guard (plain narrowing, no schema library) that turns the answer into the types below
-// or fails loudly with code "bad_response", so a renamed field costs this one file. The types are the contract as it
-// stands (docs/examleaf-admin-control-panel-plan.md, the panel brief); once the backend publishes its OpenAPI schema,
-// `npm run api:snapshot && npm run api:types` generates src/lib/api/schema.d.ts and these types come from there.
+// The staff API (/api/v1/staff/, examleaf-web's staff app): every call the console makes for staff data, typed from
+// the backend's own OpenAPI schema (openapi.json, `npm run api:types` → schema.d.ts) through openapi-fetch. A path, a
+// query parameter, a body or a field the backend renames is a type error here and in every page that reads it: the
+// types are the contract, never written by hand (but the few endpoints the backend has not published yet, `Pending`
+// below, until the schema has them).
 //
 // One function, two places. In a server component pass the server's transport (`await staffTransport()`, server.ts):
 // Django over the internal network with the person's cookies. In the browser leave it out: same origin, the CSRF token,
-// and the answers the browser acts on (client.ts): a 401 sends the person to sign in and back, a refusal by role or
-// scope reads the manifest again, "confirm it's you" opens the dialog and sends the call once more.
+// and the answers the browser acts on (client.ts): a 401 sends the person to sign in and back, a refusal by permission
+// reads the manifest again, "confirm it's you" opens the dialog and sends the call once more. An action that waits for
+// a second person answers 202 with its change request: that reaches the caller as the error `approval_required`
+// (the change request in its body), since nothing ran.
 //
-// STAFF_API_MOCK=1 (next dev only, next.config.ts) points everything at the fixtures of src/mocks/staff/ instead.
+// STAFF_API_MOCK=1 (next dev only, next.config.ts) answers every path from the fixtures of src/mocks/staff/ instead:
+// src/proxy.ts sends the browser's calls there, server.ts the server's.
+import createClient from "openapi-fetch";
+
 import type { Flow } from "@/lib/auth/headless";
 import { copy } from "@/lib/copy";
 
 import { endedBy, ensureCsrfCookie, manifestStale, reauth, readCookie, sessionEnded } from "./client";
-import { ApiError, changeRequestOf, toApiError } from "./errors";
+import { ApiError, toApiError } from "./errors";
+import type { components, paths } from "./schema";
 
-/** Compiled in by next.config.ts: "1" only in `next dev` with STAFF_API_MOCK=1, "" in every build. */
-export const MOCK = process.env.STAFF_API_MOCK === "1";
-export const STAFF_ROOT = MOCK ? "/api/mock/staff/" : "/api/v1/staff/";
+export type Schemas = components["schemas"];
+
+// ---- What the backend has not published yet (its contract as given; mocked in src/mocks/staff/). Once `npm run
+// api:types` brings one, delete it here: the generated one takes its place and any difference is a type error. ----
+
+type Json<T> = { content: { "application/json": T } };
+type Operation<Query, Body, Answer> = {
+  parameters: { query?: Query; header?: never; path?: never; cookie?: never };
+  requestBody?: Body extends never ? never : Json<Body>;
+  responses: { 200: Json<Answer>; 201: Json<Answer> };
+};
+
+/** A note on a record (plan 7.1): personal data too, so it goes into the person's access export. */
+export type Note = {
+  id: number;
+  target_type: string;
+  target_id: string;
+  author: number | null;
+  body: string;
+  created: string;
+};
+/** A policy the person has not acknowledged in its current version. */
+export type PolicyDue = { policy: string; version: string; title: string; url?: string | null };
+/** A break-glass session (research 1.6): its reason, asked before anything else, and the end of its box. */
+export type BreakGlass = { reason_required: boolean; reason?: string | null; until?: string | null };
+
+type NotePage = { next?: string | null; previous?: string | null; results: Note[] };
+
+type Pending = {
+  "/api/v1/staff/notes/": {
+    get: Operation<{ target_type: string; target_id: string; cursor?: string }, never, NotePage>;
+    post: Operation<never, { target_type: string; target_id: string; body: string }, Note>;
+  };
+  "/api/v1/staff/policies/ack/": { post: Operation<never, { policy: string; version: string }, unknown> };
+  "/api/v1/staff/session/reason/": { post: Operation<never, { reason: string }, unknown> };
+};
+const api = createClient<paths & Pending>({ credentials: "same-origin" });
+
+// ---- The transport and the answers ----
 
 export type Transport = {
   /** Where the API is: Django's internal address on the server, "" (same origin) in the browser. */
@@ -27,92 +69,42 @@ export type Transport = {
   fetch?: (request: Request) => Promise<Response>;
 };
 
-type Query = Record<string, string | number | boolean | null | undefined>;
-type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-type CallOptions = { query?: Query; body?: unknown; version?: string | number | null; signal?: AbortSignal };
+type Init = {
+  baseUrl: string;
+  headers: Record<string, string>;
+  fetch: (request: Request) => Promise<Response>;
+  signal?: AbortSignal;
+};
 
-const UNSAFE = new Set<Method>(["POST", "PUT", "PATCH", "DELETE"]);
+const UNSAFE = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
-/** The path and query under the staff root: empty values are left out. */
-export function staffPath(path: string, query: Query = {}): string {
-  const search = new URLSearchParams();
-  for (const [name, value] of Object.entries(query)) {
-    if (value !== undefined && value !== null && value !== "") search.set(name, String(value));
-  }
-  const tail = search.toString();
-  return `${STAFF_ROOT}${path}${tail ? `?${tail}` : ""}`;
-}
-
-async function call<T>(
-  transport: Transport | undefined,
-  method: Method,
-  path: string,
-  read: (body: unknown) => T,
-  options: CallOptions = {},
-  retried = false,
-): Promise<T> {
-  const browser = !transport && typeof window !== "undefined";
-  const base = transport?.base ?? (typeof window === "undefined" ? "" : window.location.origin);
-  const headers: Record<string, string> = { Accept: "application/json", ...transport?.headers };
-  if (options.body !== undefined) headers["Content-Type"] = "application/json";
-  if (options.version !== undefined && options.version !== null) headers["If-Match"] = `"${options.version}"`;
-  if (browser && UNSAFE.has(method)) {
+/** The browser's way: same origin, never cached, Django's CSRF token on every change. */
+async function browserFetch(request: Request): Promise<Response> {
+  if (UNSAFE.has(request.method)) {
     await ensureCsrfCookie();
     const token = readCookie("csrftoken");
-    if (token) headers["X-CSRFToken"] = token;
+    if (token) request.headers.set("X-CSRFToken", token);
   }
-  const request = new Request(`${base}${staffPath(path, options.query)}`, {
-    method,
+  return fetch(request, { cache: "no-store" });
+}
+
+function init(transport: Transport | undefined, signal?: AbortSignal): Init {
+  const headers = { Accept: "application/json", ...transport?.headers };
+  if (transport) return { baseUrl: transport.base, headers, fetch: transport.fetch ?? fetch, signal };
+  return {
+    baseUrl: typeof window === "undefined" ? "" : window.location.origin,
     headers,
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
-    credentials: "same-origin",
-    // the server's transport sends its own cache rule (no-store) to Next's fetch
-    ...(transport ? {} : { cache: "no-store" as const }),
-    signal: options.signal,
-  });
-
-  let response: Response;
-  try {
-    response = await (transport?.fetch ?? fetch)(request);
-  } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") throw error;
-    throw new ApiError(0, "unavailable", copy.errors.unavailable);
-  }
-  const json: unknown = response.status === 204 ? null : await response.json().catch(() => null);
-
-  // 202 with a change request: the action did not run, a second person is asked; for the console that is the same
-  // outcome as a 403 approval_required, so both reach the caller as that error (and its changeRequestId)
-  const asked = response.status === 202 ? (changeRequestOf(json) ?? changeRequestIdOf(json)) : null;
-  if (asked) {
-    throw new ApiError(202, "approval_required", copy.errors.approvalRequired, {}, { change_request: asked });
-  }
-
-  if (!response.ok) {
-    const error = toApiError(response.status, json, response.headers);
-    if (browser) {
-      if (error.status === 401) sessionEnded(endedBy(error.code));
-      if (error.code === "reauth_required" && !retried && (await reauth.request(flowsOf(json))))
-        return call(transport, method, path, read, options, true);
-      if (error.code === "permission_denied" || error.code === "scope_denied") manifestStale();
-    }
-    throw error;
-  }
-
-  try {
-    return read(json);
-  } catch (error) {
-    if (!(error instanceof ShapeError)) throw error;
-    if (typeof console !== "undefined") console.error(`staff API ${method} ${path}: unexpected ${error.message}`);
-    throw new ApiError(response.status, "bad_response", copy.errors.badResponse, {}, json);
-  }
+    fetch: browserFetch,
+    signal,
+  };
 }
 
-/** A change request's own body ({"id", "payload_sha256", …}) names itself. */
-function changeRequestIdOf(body: unknown): string | null {
-  if (!body || typeof body !== "object" || !("payload_sha256" in body)) return null;
-  const id = (body as { id?: unknown }).id;
-  return typeof id === "number" || (typeof id === "string" && id) ? String(id) : null;
-}
+type Answer = { data?: unknown; error?: unknown; response: Response };
+/** What a call answers: its 2xx body, or nothing (204). */
+type Data<A extends Answer> = [Exclude<A["data"], undefined>] extends [never] ? void : Exclude<A["data"], undefined>;
+
+const isChangeRequest = (body: unknown): body is Schemas["ChangeRequest"] =>
+  Boolean(body && typeof body === "object" && "payload_sha256" in body && "checker" in body);
 
 /** allauth's reauthentication flows, when the 403 carries them. */
 function flowsOf(body: unknown): Flow[] {
@@ -120,54 +112,40 @@ function flowsOf(body: unknown): Flow[] {
   return Array.isArray(flows) ? (flows.filter((flow) => flow && typeof flow === "object") as Flow[]) : [];
 }
 
-// ---- Guards: plain narrowing. Each takes the value and where it sits, for the message of a mismatch. ----
-
-class ShapeError extends Error {}
-
-const bad = (what: string): never => {
-  throw new ShapeError(what);
-};
-const obj = (value: unknown, what: string): Record<string, unknown> =>
-  value !== null && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : bad(what);
-const text = (value: unknown, what: string): string => (typeof value === "string" ? value : bad(what));
-const maybeText = (value: unknown, what: string): string | null => (value == null ? null : text(value, what));
-const anId = (value: unknown, what: string): string =>
-  typeof value === "number" || (typeof value === "string" && value !== "") ? String(value) : bad(what);
-const maybeId = (value: unknown, what: string): string | null => (value == null ? null : anId(value, what));
-const num = (value: unknown, what: string): number => {
-  const number = typeof value === "string" && value.trim() !== "" ? Number(value) : value;
-  return typeof number === "number" && Number.isFinite(number) ? number : bad(what);
-};
-const maybeNum = (value: unknown, what: string): number | null => (value == null ? null : num(value, what));
-const yes = (value: unknown, what: string): boolean => (typeof value === "boolean" ? value : bad(what));
-const list = <T>(value: unknown, what: string, item: (value: unknown, what: string) => T): T[] =>
-  Array.isArray(value) ? value.map((entry, index) => item(entry, `${what}[${index}]`)) : bad(what);
-const texts = (value: unknown, what: string): string[] => list(value, what, (entry) => String(entry));
-
-export type PersonRef = { id: string | null; email: string; name: string | null };
-export type TargetRef = { type: string; id: string; label: string; url: string | null };
-
-/** A person as the API names one: {id, email, name}, or an email alone. */
-function person(value: unknown, what: string): PersonRef {
-  if (typeof value === "string") return { id: null, email: value, name: null };
-  const record = obj(value, what);
-  return {
-    id: maybeId(record.id, `${what}.id`),
-    email: typeof record.email === "string" ? record.email : "",
-    name: maybeText(record.name, `${what}.name`),
-  };
+async function send<A extends Answer>(
+  transport: Transport | undefined,
+  ask: (init: Init) => Promise<A>,
+  signal?: AbortSignal,
+  retried = false,
+): Promise<Data<A>> {
+  const browser = !transport && typeof window !== "undefined";
+  let answer: A;
+  try {
+    answer = await ask(init(transport, signal));
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") throw error;
+    throw new ApiError(0, "unavailable", copy.errors.unavailable);
+  }
+  const { response } = answer;
+  // 202 with a change request: nothing ran, a second person is asked
+  if (response.status === 202 && isChangeRequest(answer.data)) {
+    throw new ApiError(202, "approval_required", copy.errors.approvalRequired, {}, answer.data);
+  }
+  if (!response.ok) {
+    const body = answer.error && typeof answer.error === "object" ? answer.error : null;
+    const error = toApiError(response.status, body, response.headers);
+    if (browser) {
+      if (error.status === 401) sessionEnded(endedBy(error.code));
+      if (error.code === "reauth_required" && !retried && (await reauth.request(flowsOf(body))))
+        return send(transport, ask, signal, true);
+      if (error.code === "permission_denied") manifestStale();
+    }
+    throw error;
+  }
+  return answer.data as Data<A>;
 }
-const maybePerson = (value: unknown, what: string) => (value == null ? null : person(value, what));
 
-function target(value: unknown, what: string): TargetRef {
-  const record = obj(value, what);
-  return {
-    type: text(record.type, `${what}.type`),
-    id: anId(record.id, `${what}.id`),
-    label: maybeText(record.label, `${what}.label`) ?? "",
-    url: maybeText(record.url, `${what}.url`),
-  };
-}
+// ---- Lists: the API's cursor pages, with each page's link turned into its cursor ----
 
 export type Page<T> = { results: T[]; next: string | null; previous: string | null };
 
@@ -181,886 +159,486 @@ export function cursorOf(link: unknown): string | null {
   }
 }
 
-const page =
-  <T>(item: (value: unknown, what: string) => T) =>
-  (body: unknown): Page<T> => {
-    const record = obj(body, "page");
-    return {
-      results: list(record.results, "results", item),
-      next: cursorOf(record.next),
-      previous: cursorOf(record.previous),
-    };
-  };
+const paged = <T>(page: { results: T[]; next?: string | null; previous?: string | null }): Page<T> => ({
+  results: page.results,
+  next: cursorOf(page.next),
+  previous: cursorOf(page.previous),
+});
 
-/** A list that may come paginated ({results}) or as a plain array. */
-const all =
-  <T>(item: (value: unknown, what: string) => T) =>
-  (body: unknown): T[] =>
-    Array.isArray(body) ? list(body, "list", item) : list(obj(body, "list").results, "results", item);
+/** A list's filters as the address gives them: the schema's names (a renamed one is a type error), any value (the API
+ *  checks it: 400 for one it does not take). Empty values are left out. */
+type Filters<P extends keyof paths> = paths[P] extends { get: { parameters: { query?: infer Q } } }
+  ? { [K in keyof NonNullable<Q>]?: string | number | boolean | null }
+  : never;
 
-const nothing = () => undefined;
-
-// ---- The session manifest (GET session/): what the shell draws from. ----
-
-export type Manifest = {
-  user: { id: string; email: string; name: string };
-  roles: { name: string; expires_at: string | null }[];
-  /** Sorted app.codename strings (user.get_all_permissions()). */
-  permissions: string[];
-  scopes: Record<string, string[]>;
-  limits: { refund_inr: number | null; discount_percent: number | null; export_rows: number; bulk_rows: number };
-  flags: Record<string, boolean>;
-  reauth_valid_until: string | null;
-  idle_timeout_s: number;
-  absolute_expires_at: string | null;
-  impersonating: { user_id: string; email: string; until: string } | null;
-  manifest_version: string;
-};
-
-export function readManifest(body: unknown): Manifest {
-  const record = obj(body, "session");
-  const user = obj(record.user, "user");
-  const limits = obj(record.limits ?? {}, "limits");
-  const scopes = obj(record.scopes ?? {}, "scopes");
-  const flags = obj(record.flags ?? {}, "flags");
-  const impersonating = record.impersonating == null ? null : obj(record.impersonating, "impersonating");
-  return {
-    user: {
-      id: anId(user.id, "user.id"),
-      email: text(user.email, "user.email"),
-      name: maybeText(user.name ?? user.full_name, "user.name") ?? "",
-    },
-    roles: list(record.roles, "roles", (value, what) => {
-      const role = obj(value, what);
-      return { name: text(role.name, `${what}.name`), expires_at: maybeText(role.expires_at, `${what}.expires_at`) };
-    }),
-    permissions: texts(record.permissions, "permissions"),
-    scopes: Object.fromEntries(Object.entries(scopes).map(([kind, values]) => [kind, texts(values, `scopes.${kind}`)])),
-    limits: {
-      refund_inr: maybeNum(limits.refund_inr, "limits.refund_inr"),
-      discount_percent: maybeNum(limits.discount_percent, "limits.discount_percent"),
-      export_rows: maybeNum(limits.export_rows, "limits.export_rows") ?? 0,
-      bulk_rows: maybeNum(limits.bulk_rows, "limits.bulk_rows") ?? 0,
-    },
-    flags: Object.fromEntries(Object.entries(flags).map(([key, value]) => [key, value === true])),
-    reauth_valid_until: maybeText(record.reauth_valid_until, "reauth_valid_until"),
-    idle_timeout_s: num(record.idle_timeout_s, "idle_timeout_s"),
-    absolute_expires_at: maybeText(record.absolute_expires_at, "absolute_expires_at"),
-    impersonating: impersonating && {
-      user_id: anId(impersonating.user_id, "impersonating.user_id"),
-      email: text(impersonating.email, "impersonating.email"),
-      until: text(impersonating.until, "impersonating.until"),
-    },
-    manifest_version: text(record.manifest_version, "manifest_version"),
-  };
+function query(filters: Record<string, string | number | boolean | null | undefined>): never {
+  const kept = Object.entries(filters).filter(([, value]) => value !== undefined && value !== null && value !== "");
+  return Object.fromEntries(kept) as never;
 }
 
-export const getSession = (transport?: Transport) => call(transport, "GET", "session/", readManifest);
+/** A unique Idempotency-Key: the same key answers the first request again (a retry after "confirm it's you"). */
+const once = () => ({ "Idempotency-Key": crypto.randomUUID() });
+
+// ---- The session manifest (GET session/): what the shell draws from ----
+
+export type Manifest = Schemas["StaffManifest"] & {
+  /** Not in the schema yet: a break-glass session's reason (asked before anything else). */
+  break_glass?: BreakGlass | null;
+  /** Not in the schema yet: the policies to acknowledge, once each version. */
+  policies_due?: PolicyDue[];
+};
+export type Limits = { refund_inr: number | null; export_rows: number | null; bulk_rows: number | null };
+
+export const getSession = (transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/session/", o)) as Promise<Manifest>;
+/** A break-glass session's reason, before anything else (the backend's research 1.6 box). */
+export const giveSessionReason = (reason: string) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/session/reason/", { ...o, body: { reason } }));
+export const acknowledgePolicy = (policy: PolicyDue) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/policies/ack/", { ...o, body: { policy: policy.policy, version: policy.version } }),
+  );
+
+/** The manifest's limits, which the schema types as a map: null is no limit. */
+export function limitsOf(manifest: Pick<Manifest, "limits">): Limits {
+  const value = (name: string) => (name in manifest.limits ? (manifest.limits[name] ?? null) : 0);
+  return { refund_inr: value("refund_inr"), export_rows: value("export_rows"), bulk_rows: value("bulk_rows") };
+}
+
+/** A role of the manifest (the schema types them as maps). */
+export type ManifestRole = { name: string; expires_at: string | null };
+export const rolesOf = (manifest: Pick<Manifest, "roles">): ManifestRole[] =>
+  manifest.roles.map((role) => ({
+    name: String(role.name ?? ""),
+    expires_at: typeof role.expires_at === "string" ? role.expires_at : null,
+  }));
 
 // ---- Inbox ----
 
-export type InboxState = "open" | "snoozed" | "done";
-export type InboxItem = {
-  id: string;
-  kind: string;
-  title: string;
-  target: TargetRef | null;
-  assignee: PersonRef | null;
-  due_at: string | null;
-  snoozed_until: string | null;
-  done_at: string | null;
-  created_at: string;
-};
-export type InboxQuery = { kind?: string; assignee?: string; state?: string; cursor?: string };
+export type InboxItem = Schemas["InboxItem"];
+export type InboxCount = Schemas["InboxCount"];
 
-function inboxItem(value: unknown, what: string): InboxItem {
-  const record = obj(value, what);
-  return {
-    id: anId(record.id, `${what}.id`),
-    kind: text(record.kind, `${what}.kind`),
-    title: text(record.title, `${what}.title`),
-    target: record.target == null ? null : target(record.target, `${what}.target`),
-    assignee: maybePerson(record.assignee, `${what}.assignee`),
-    due_at: maybeText(record.due_at, `${what}.due_at`),
-    snoozed_until: maybeText(record.snoozed_until, `${what}.snoozed_until`),
-    done_at: maybeText(record.done_at, `${what}.done_at`),
-    created_at: text(record.created_at, `${what}.created_at`),
-  };
-}
-
-export const listInbox = (query: InboxQuery = {}, transport?: Transport) =>
-  call(transport, "GET", "inbox/", page(inboxItem), { query });
-export const inboxDone = (id: string) => call(undefined, "POST", `inbox/${id}/done/`, nothing, { body: {} });
-export const inboxSnooze = (id: string, until: string) =>
-  call(undefined, "POST", `inbox/${id}/snooze/`, nothing, { body: { until } });
-export const inboxAssign = (id: string, userId: string) =>
-  call(undefined, "POST", `inbox/${id}/assign/`, nothing, { body: { user_id: userId } });
-
-export type InboxCounts = { total: number; more: boolean; byKind: Record<string, number> };
-
-/** What waits for the person, from the first page of their open inbox (the contract has no count endpoint): `more`
- *  when the list goes on beyond it. */
-export async function inboxCounts(transport?: Transport): Promise<InboxCounts> {
-  const first = await listInbox({ state: "open", assignee: "me" }, transport);
-  const byKind: Record<string, number> = {};
-  for (const item of first.results) byKind[item.kind] = (byKind[item.kind] ?? 0) + 1;
-  return { total: first.results.length, more: Boolean(first.next), byKind };
-}
+export const listInbox = (filters: Filters<"/api/v1/staff/inbox/">, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/inbox/", { ...o, params: { query: query(filters) } })).then(paged);
+export const inboxCount = (transport?: Transport) => send(transport, (o) => api.GET("/api/v1/staff/inbox/count/", o));
+export const inboxDone = (id: number) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/inbox/{id}/done/", { ...o, params: { path: { id } } }));
+export const inboxSnooze = (id: number, until: string) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/inbox/{id}/snooze/", { ...o, params: { path: { id } }, body: { until } }),
+  );
+export const inboxAssign = (id: number, assignee: number | null) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/inbox/{id}/assign/", { ...o, params: { path: { id } }, body: { assignee } }),
+  );
 
 // ---- Audit ----
 
-export type AuditEvent = {
-  id: string;
-  ts: string;
-  actor: PersonRef & { type: string };
-  on_behalf_of: PersonRef | null;
-  action: string;
-  target: TargetRef | null;
-  outcome: string;
-  reason: string | null;
-  request_id: string | null;
-  ip: string | null;
-  changes: Record<string, [unknown, unknown]>;
-  hash: string | null;
-};
-export type AuditQuery = {
-  q?: string;
-  actor?: string;
-  action?: string;
-  target_type?: string;
-  target_id?: string;
-  from?: string;
-  to?: string;
-  cursor?: string;
-};
+export type AuditEvent = Schemas["AuditEvent"];
+export type AuditFilters = Filters<"/api/v1/staff/audit/">;
 
-function auditEvent(value: unknown, what: string): AuditEvent {
-  const record = obj(value, what);
-  const actor = obj(record.actor, `${what}.actor`);
-  const changes = obj(record.changes ?? {}, `${what}.changes`);
-  return {
-    id: anId(record.id, `${what}.id`),
-    ts: text(record.ts, `${what}.ts`),
-    actor: { ...person(actor, `${what}.actor`), type: maybeText(actor.type, `${what}.actor.type`) ?? "staff" },
-    on_behalf_of: maybePerson(record.on_behalf_of, `${what}.on_behalf_of`),
-    action: text(record.action, `${what}.action`),
-    target: record.target == null ? null : target(record.target, `${what}.target`),
-    outcome: maybeText(record.outcome, `${what}.outcome`) ?? "success",
-    reason: maybeText(record.reason, `${what}.reason`),
-    request_id: maybeText(record.request_id, `${what}.request_id`),
-    ip: maybeText(record.ip, `${what}.ip`),
-    changes: Object.fromEntries(
-      Object.entries(changes).map(([field, pair]) => {
-        if (!Array.isArray(pair) || pair.length !== 2) bad(`${what}.changes.${field}`);
-        return [field, [(pair as unknown[])[0], (pair as unknown[])[1]] as [unknown, unknown]];
-      }),
-    ),
-    hash: maybeText(record.hash, `${what}.hash`),
-  };
+export const listAudit = (filters: AuditFilters, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/audit/", { ...o, params: { query: query(filters) } })).then(paged);
+
+export type AuditExport = { file: Blob; name: string } | { job: Job };
+
+/** The list's filters as a file: JSON lines at once (up to 5,000 rows within your export limit), else a job. */
+export async function exportAudit(filters: Record<string, string>): Promise<AuditExport> {
+  let disposition = "";
+  let status = 0;
+  const answer = await send(undefined, async (o) => {
+    const sent = await api.POST("/api/v1/staff/audit/export/", { ...o, body: { filters }, parseAs: "blob" });
+    status = sent.response.status;
+    disposition = sent.response.headers.get("Content-Disposition") ?? "";
+    return status === 202 && sent.data ? { ...sent, data: JSON.parse(await sent.data.text()) as Job } : sent;
+  });
+  if (status === 202) return { job: answer as Job };
+  return { file: answer as Blob, name: /filename="([^"]+)"/.exec(disposition)?.[1] ?? "audit.jsonl" };
 }
-
-export const listAudit = (query: AuditQuery = {}, transport?: Transport) =>
-  call(transport, "GET", "audit/", page(auditEvent), { query });
-
-const job = (body: unknown) => ({ job_id: anId(obj(body, "job").job_id, "job.job_id") });
-export const exportAudit = (input: { from: string; to: string }) =>
-  call(undefined, "POST", "audit/export/", job, { body: input });
 
 // ---- Change requests (maker-checker) ----
 
-export type ChangeRequestState = "pending" | "approved" | "rejected" | "expired" | "executed" | "failed";
-export type ChangeRequest = {
-  id: string;
-  action: string;
-  target: TargetRef | null;
-  payload: unknown;
-  payload_sha256: string;
-  amount: number | null;
-  maker: PersonRef;
-  reason: string;
-  state: string;
-  approvals: { user: PersonRef; decision: string; comment: string; at: string }[];
-  expires_at: string | null;
-  created_at: string | null;
-  result: unknown;
+export type ChangeRequest = Schemas["ChangeRequest"];
+export type AskRequest = Schemas["AskRequest"];
+
+export const listChangeRequests = (filters: Filters<"/api/v1/staff/change-requests/">, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/change-requests/", { ...o, params: { query: query(filters) } })).then(
+    paged,
+  );
+export const getChangeRequest = (id: number, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/change-requests/{id}/", { ...o, params: { path: { id } } }));
+/** 201: it ran at once (within your limits); 202 (approval_required): it waits for a second person. */
+export const askChange = (body: AskRequest) => {
+  const headers = once();
+  return send(undefined, (o) =>
+    api.POST("/api/v1/staff/change-requests/", { ...o, headers: { ...o.headers, ...headers }, body }),
+  );
 };
-
-function changeRequest(value: unknown, what: string): ChangeRequest {
-  const record = obj(value, what);
-  return {
-    id: anId(record.id, `${what}.id`),
-    action: text(record.action, `${what}.action`),
-    target: record.target == null ? null : target(record.target, `${what}.target`),
-    payload: record.payload ?? null,
-    payload_sha256: text(record.payload_sha256, `${what}.payload_sha256`),
-    amount: maybeNum(record.amount, `${what}.amount`),
-    maker: person(record.maker, `${what}.maker`),
-    reason: maybeText(record.reason, `${what}.reason`) ?? "",
-    state: text(record.state, `${what}.state`),
-    approvals: list(record.approvals ?? [], `${what}.approvals`, (entry, where) => {
-      const approval = obj(entry, where);
-      return {
-        user: person(approval.user, `${where}.user`),
-        decision: text(approval.decision, `${where}.decision`),
-        comment: maybeText(approval.comment, `${where}.comment`) ?? "",
-        at: text(approval.at, `${where}.at`),
-      };
+/** The approval binds to the payload the approver read: its SHA-256 goes back. */
+export const approveChangeRequest = (request: Pick<ChangeRequest, "id" | "payload_sha256">, comment: string) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/change-requests/{id}/approve/", {
+      ...o,
+      params: { path: { id: request.id } },
+      body: { payload_sha256: request.payload_sha256, comment, override: false },
     }),
-    expires_at: maybeText(record.expires_at, `${what}.expires_at`),
-    created_at: maybeText(record.created_at, `${what}.created_at`),
-    result: record.result ?? null,
-  };
-}
+  );
+export const rejectChangeRequest = (id: number, comment: string) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/change-requests/{id}/reject/", { ...o, params: { path: { id } }, body: { comment } }),
+  );
+export const executeChangeRequest = (id: number) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/change-requests/{id}/execute/", { ...o, params: { path: { id } } }));
 
-export const listChangeRequests = (query: { state?: string; cursor?: string } = {}, transport?: Transport) =>
-  call(transport, "GET", "change-requests/", page(changeRequest), { query });
-export const getChangeRequest = (id: string, transport?: Transport) =>
-  call(transport, "GET", `change-requests/${id}/`, (body) => changeRequest(body, "change request"));
-const decided = (body: unknown) => changeRequest(body, "change request");
-export const approveChangeRequest = (id: string, comment: string) =>
-  call(undefined, "POST", `change-requests/${id}/approve/`, decided, { body: { comment } });
-export const rejectChangeRequest = (id: string, comment: string) =>
-  call(undefined, "POST", `change-requests/${id}/reject/`, decided, { body: { comment } });
-export const executeChangeRequest = (id: string) =>
-  call(undefined, "POST", `change-requests/${id}/execute/`, decided, { body: {} });
+// ---- Background jobs ----
+
+export type Job = Schemas["Job"];
+export const FINAL_JOB_STATES = new Set<Job["state"]>(["done", "failed", "cancelled"]);
+
+export const listJobs = (filters: Filters<"/api/v1/staff/jobs/">, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/jobs/", { ...o, params: { query: query(filters) } })).then(paged);
+export const getJob = (id: number, signal?: AbortSignal) =>
+  send(undefined, (o) => api.GET("/api/v1/staff/jobs/{id}/", { ...o, params: { path: { id } } }), signal);
+export const cancelJob = (id: number) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/jobs/{id}/cancel/", { ...o, params: { path: { id } } }));
+
+/** A job's file: the job read again for a fresh `result_url` (its token lasts 5 minutes), opened on this origin. */
+export async function jobFileHref(id: number): Promise<string | null> {
+  const job = await getJob(id);
+  if (!job.result_url) return null;
+  const url = new URL(job.result_url, "http://link.invalid");
+  return `${url.pathname}${url.search}`;
+}
 
 // ---- Saved views ----
 
-export type SavedView = {
-  id: string;
-  list_key: string;
-  name: string;
+export type SavedView = Omit<Schemas["SavedView"], "filters" | "columns" | "sort"> & {
   filters: Record<string, string>;
   columns: string[];
   sort: string;
-  shared_with_role: string | null;
 };
-export type SavedViewInput = Omit<SavedView, "id">;
+export type SavedViewInput = Pick<SavedView, "list_key" | "name" | "filters" | "columns" | "sort"> & { role: string };
 
-function savedView(value: unknown, what: string): SavedView {
-  const record = obj(value, what);
-  const filters = obj(record.filters ?? {}, `${what}.filters`);
+/** The schema types a view's filters, columns and sort as any JSON: the console keeps text. */
+function view(row: Schemas["SavedView"]): SavedView {
+  const filters = row.filters && typeof row.filters === "object" ? (row.filters as Record<string, unknown>) : {};
   return {
-    id: anId(record.id, `${what}.id`),
-    list_key: text(record.list_key, `${what}.list_key`),
-    name: text(record.name, `${what}.name`),
-    filters: Object.fromEntries(Object.entries(filters).map(([key, entry]) => [key, String(entry ?? "")])),
-    columns: texts(record.columns ?? [], `${what}.columns`),
-    sort: maybeText(record.sort, `${what}.sort`) ?? "",
-    shared_with_role: maybeText(record.shared_with_role, `${what}.shared_with_role`),
+    ...row,
+    filters: Object.fromEntries(Object.entries(filters).map(([key, value]) => [key, String(value ?? "")])),
+    columns: Array.isArray(row.columns) ? row.columns.map(String) : [],
+    sort: typeof row.sort === "string" ? row.sort : "",
   };
 }
 
 export const listSavedViews = async (listKey: string, transport?: Transport) =>
-  (await call(transport, "GET", "saved-views/", all(savedView), { query: { list_key: listKey } })).filter(
-    (view) => view.list_key === listKey,
+  (
+    await send(transport, (o) =>
+      api.GET("/api/v1/staff/saved-views/", { ...o, params: { query: { list_key: listKey, page_size: 50 } } }),
+    )
+  ).results.map(view);
+export const createSavedView = async (body: SavedViewInput) =>
+  view(await send(undefined, (o) => api.POST("/api/v1/staff/saved-views/", { ...o, body })));
+export const updateSavedView = async (id: number, body: Partial<SavedViewInput>) =>
+  view(
+    await send(undefined, (o) =>
+      api.PATCH("/api/v1/staff/saved-views/{id}/", { ...o, params: { path: { id } }, body }),
+    ),
   );
-export const createSavedView = (input: SavedViewInput) =>
-  call(undefined, "POST", "saved-views/", (body) => savedView(body, "saved view"), { body: input });
-export const updateSavedView = (id: string, input: Partial<SavedViewInput>) =>
-  call(undefined, "PATCH", `saved-views/${id}/`, (body) => savedView(body, "saved view"), { body: input });
-export const deleteSavedView = (id: string) => call(undefined, "DELETE", `saved-views/${id}/`, nothing);
+export const deleteSavedView = (id: number) =>
+  send(undefined, (o) => api.DELETE("/api/v1/staff/saved-views/{id}/", { ...o, params: { path: { id } } }));
 
-// ---- Settings and feature flags (one shape) ----
+// ---- Site settings and feature flags ----
 
-export type SettingKind = "settings" | "flags";
-export type SettingChange = {
-  value: unknown;
-  changed_by: PersonRef | null;
-  reason: string | null;
-  at: string | null;
-  effective_from: string | null;
-};
-export type Setting = {
-  key: string;
-  value: unknown;
-  source: string;
-  effective_from: string | null;
-  changed_by: PersonRef | null;
-  reason: string | null;
-  history: SettingChange[];
-};
+export type Setting = Schemas["Setting"];
+export type Flag = Schemas["Flag"];
+export type SwitchRow = Schemas["SwitchRow"];
+export type SwitchChange = Schemas["SwitchChangeRequest"];
 
-function setting(value: unknown, what: string): Setting {
-  const record = obj(value, what);
-  return {
-    key: text(record.key, `${what}.key`),
-    value: record.value ?? null,
-    source: text(record.source, `${what}.source`),
-    effective_from: maybeText(record.effective_from, `${what}.effective_from`),
-    changed_by: maybePerson(record.changed_by, `${what}.changed_by`),
-    reason: maybeText(record.reason, `${what}.reason`),
-    history: list(record.history ?? [], `${what}.history`, (entry, where) => {
-      const change = obj(entry, where);
-      return {
-        value: change.value ?? null,
-        changed_by: maybePerson(change.changed_by, `${where}.changed_by`),
-        reason: maybeText(change.reason, `${where}.reason`),
-        at: maybeText(change.at ?? change.changed_at, `${where}.at`),
-        effective_from: maybeText(change.effective_from, `${where}.effective_from`),
-      };
-    }),
-  };
-}
-
-export const listSettings = (kind: SettingKind, transport?: Transport) =>
-  call(transport, "GET", `${kind}/`, all(setting));
-export const changeSetting = (
-  kind: SettingKind,
-  key: string,
-  input: { value: unknown; reason: string; effective_from?: string },
-) =>
-  call(undefined, "PUT", `${kind}/${encodeURIComponent(key)}/`, (body) => setting(body, kind), {
-    body: input,
-  });
+export const listSettings = (transport?: Transport) => send(transport, (o) => api.GET("/api/v1/staff/settings/", o));
+export const listFlags = (transport?: Transport) => send(transport, (o) => api.GET("/api/v1/staff/flags/", o));
+/** One switch's history, newest first. */
+export const switchHistory = (kind: "settings" | "flags", key: string) =>
+  kind === "settings"
+    ? send(undefined, (o) => api.GET("/api/v1/staff/settings/{key}/", { ...o, params: { path: { key } } }))
+    : send(undefined, (o) => api.GET("/api/v1/staff/flags/{key}/", { ...o, params: { path: { key } } }));
+/** A new value from now or from `effective_from`, with a reason (null: back to the environment's; a flag: off). */
+export const changeSetting = (key: string, body: SwitchChange) =>
+  send(undefined, (o) => api.PUT("/api/v1/staff/settings/{key}/", { ...o, params: { path: { key } }, body }));
+export const changeFlag = (key: string, body: SwitchChange) =>
+  send(undefined, (o) => api.PUT("/api/v1/staff/flags/{key}/", { ...o, params: { path: { key } }, body }));
 
 // ---- API keys ----
 
-export type ApiKey = {
-  id: string;
-  name: string;
-  prefix: string;
-  scopes: string[];
-  created_at: string | null;
-  expires_at: string | null;
-  last_used_at: string | null;
-  last_ip: string | null;
-  sponsor: PersonRef | null;
-  revoked_at: string | null;
-};
+export type ApiKey = Schemas["ApiKey"];
 
-function apiKey(value: unknown, what: string): ApiKey {
-  const record = obj(value, what);
-  return {
-    id: anId(record.id, `${what}.id`),
-    name: text(record.name, `${what}.name`),
-    prefix: maybeText(record.prefix, `${what}.prefix`) ?? "",
-    scopes: texts(record.scopes ?? [], `${what}.scopes`),
-    created_at: maybeText(record.created_at, `${what}.created_at`),
-    expires_at: maybeText(record.expires_at, `${what}.expires_at`),
-    last_used_at: maybeText(record.last_used_at, `${what}.last_used_at`),
-    last_ip: maybeText(record.last_ip, `${what}.last_ip`),
-    sponsor: maybePerson(record.sponsor, `${what}.sponsor`),
-    revoked_at: maybeText(record.revoked_at, `${what}.revoked_at`),
-  };
-}
-
-export const listApiKeys = (transport?: Transport) => call(transport, "GET", "api-keys/", all(apiKey));
-/** The new key with its secret, which the API answers this once. */
-export const createApiKey = (input: { name: string; scopes: string[]; expires_at: string }) =>
-  call(
-    undefined,
-    "POST",
-    "api-keys/",
-    (body) => ({ key: apiKey(body, "api key"), secret: text(obj(body, "api key").secret, "api key.secret") }),
-    { body: input },
+export const listApiKeys = (transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/api-keys/", { ...o, params: { query: { page_size: 200 } } })).then(
+    paged,
   );
-export const revokeApiKey = (id: string) => call(undefined, "POST", `api-keys/${id}/revoke/`, nothing, { body: {} });
+/** The new key: its `key` (the whole secret) is in this answer only. */
+export const createApiKey = (body: Schemas["ApiKeyRequest"]) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/api-keys/", { ...o, body }));
+export const revokeApiKey = (id: number) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/api-keys/{id}/revoke/", { ...o, params: { path: { id } } }));
 
 // ---- People (staff) ----
 
-export type StaffRoleGrant = { name: string; expires_at: string | null; granted_by: PersonRef | null };
-export type StaffScope = { id: string; kind: string; value: string; expires_at: string | null };
-export type StaffMember = {
-  id: string;
-  email: string;
-  name: string;
-  roles: StaffRoleGrant[];
-  scopes: StaffScope[];
-  mfa: boolean;
-  last_login: string | null;
-  sessions: number;
-  status: string;
-};
+export type Person = Schemas["Person"];
+export type StaffInvite = Schemas["StaffInvite"];
+export type AccessRow = Schemas["AccessRow"];
+export type Role = Schemas["RoleEnum"];
+export type ScopeKind = Schemas["ScopeKindEnum"];
 
-function staffMember(value: unknown, what: string): StaffMember {
-  const record = obj(value, what);
-  return {
-    id: anId(record.id, `${what}.id`),
-    email: text(record.email, `${what}.email`),
-    name: maybeText(record.name, `${what}.name`) ?? "",
-    roles: list(record.roles ?? [], `${what}.roles`, (entry, where) => {
-      const role = obj(entry, where);
-      return {
-        name: text(role.name, `${where}.name`),
-        expires_at: maybeText(role.expires_at, `${where}.expires_at`),
-        granted_by: maybePerson(role.granted_by, `${where}.granted_by`),
-      };
+export const listPeople = (filters: Filters<"/api/v1/staff/people/">, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/people/", { ...o, params: { query: query(filters) } })).then(paged);
+export const getPerson = (id: number, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/people/{id}/", { ...o, params: { path: { id } } }));
+export const listInvites = (transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/people/invites/", o)).then(paged);
+/** 201 the invitation; a privileged role: 202, another person approves first (approval_required). */
+export const invitePerson = (body: Schemas["InviteRequest"]) => {
+  const headers = once();
+  return send(undefined, (o) =>
+    api.POST("/api/v1/staff/people/invite/", { ...o, headers: { ...o.headers, ...headers }, body }),
+  );
+};
+export const revokeInvite = (invite: number) =>
+  send(undefined, (o) => api.DELETE("/api/v1/staff/people/invites/{invite}/", { ...o, params: { path: { invite } } }));
+/** A privileged role, or one for yourself: 202, another person approves (approval_required); separation of duties:
+ *  400. */
+export const grantRole = (id: number, body: Schemas["GrantRequest"]) => {
+  const headers = once();
+  return send(undefined, (o) =>
+    api.POST("/api/v1/staff/people/{id}/roles/", {
+      ...o,
+      headers: { ...o.headers, ...headers },
+      params: { path: { id } },
+      body,
     }),
-    scopes: list(record.scopes ?? [], `${what}.scopes`, (entry, where) => {
-      const scope = obj(entry, where);
-      return {
-        id: anId(scope.id, `${where}.id`),
-        kind: text(scope.kind, `${where}.kind`),
-        value: String(scope.value ?? ""),
-        expires_at: maybeText(scope.expires_at, `${where}.expires_at`),
-      };
+  );
+};
+export const revokeRole = (id: number, role: Role, reason: string) =>
+  send(undefined, (o) =>
+    api.DELETE("/api/v1/staff/people/{id}/roles/{role}/", {
+      ...o,
+      params: { path: { id, role } },
+      querySerializer: () => new URLSearchParams({ reason }).toString(),
     }),
-    mfa: yes(record.mfa, `${what}.mfa`),
-    last_login: maybeText(record.last_login, `${what}.last_login`),
-    sessions: maybeNum(record.sessions, `${what}.sessions`) ?? 0,
-    status: text(record.status, `${what}.status`),
-  };
-}
-
-export const listPeople = (query: { q?: string; cursor?: string } = {}, transport?: Transport) =>
-  call(transport, "GET", "people/", page(staffMember), { query });
-/** One staff member (GET people/{id}/: the list's detail route, not named in the brief). */
-export const getPerson = (id: string, transport?: Transport) =>
-  call(transport, "GET", `people/${id}/`, (body) => staffMember(body, "person"));
-/** An invitation (a privileged role needs an approval: the error approval_required). */
-export const invitePerson = (input: { email: string; role: string }) =>
-  call(undefined, "POST", "people/invite/", nothing, { body: input });
-export const grantRole = (id: string, input: { role: string; expires_at?: string; reason: string }) =>
-  call(undefined, "POST", `people/${id}/roles/`, nothing, { body: input });
-export const revokeRole = (id: string, role: string) =>
-  call(undefined, "DELETE", `people/${id}/roles/${encodeURIComponent(role)}/`, nothing);
-export const addScope = (id: string, input: { kind: string; value: string; reason: string }) =>
-  call(undefined, "POST", `people/${id}/scopes/`, nothing, { body: input });
-export const removeScope = (id: string, scopeId: string) =>
-  call(undefined, "DELETE", `people/${id}/scopes/${scopeId}/`, nothing);
-export const endPersonSessions = (id: string) =>
-  call(undefined, "POST", `people/${id}/end-sessions/`, nothing, { body: {} });
-export const offboardPerson = (id: string, reason: string) =>
-  call(undefined, "POST", `people/${id}/offboard/`, nothing, { body: { reason } });
-
-export type AccessReviewRow = {
-  person: PersonRef;
-  roles: string[];
-  scopes: string[];
-  last_login: string | null;
-  unused_permissions: string[];
-  dormant: boolean;
-};
-export type AccessReview = { generated_at: string | null; rows: AccessReviewRow[] };
-
-function accessReview(body: unknown): AccessReview {
-  const record = Array.isArray(body) ? { rows: body } : obj(body, "access review");
-  return {
-    generated_at: maybeText(record.generated_at, "generated_at"),
-    rows: list(record.rows ?? record.results, "rows", (entry, where) => {
-      const row = obj(entry, where);
-      return {
-        person: person(row.person ?? row.user, `${where}.person`),
-        roles: list(row.roles ?? [], `${where}.roles`, (role) =>
-          typeof role === "string" ? role : text(obj(role, `${where}.roles`).name, `${where}.roles.name`),
-        ),
-        scopes: list(row.scopes ?? [], `${where}.scopes`, (scope) =>
-          typeof scope === "string"
-            ? scope
-            : `${text(obj(scope, `${where}.scopes`).kind, `${where}.scopes.kind`)}: ${String(
-                (scope as Record<string, unknown>).value ?? "",
-              )}`,
-        ),
-        last_login: maybeText(row.last_login, `${where}.last_login`),
-        unused_permissions: texts(row.unused_permissions ?? [], `${where}.unused_permissions`),
-        dormant: row.dormant === true,
-      };
-    }),
-  };
-}
-
-export const getAccessReview = (transport?: Transport) => call(transport, "GET", "access-review/", accessReview);
-
-// ---- Data-rights requests (DPDP) ----
-
-export const DATA_REQUEST_TYPES = ["access", "correction", "erasure", "nomination", "grievance", "complaint"];
-/** States after which no clock runs. */
-export const FINAL_REQUEST_STATES = new Set(["responded", "closed", "rejected"]);
-
-export type DataRequest = {
-  id: string;
-  type: string;
-  channel: string;
-  requester: { masked_email: string | null; masked_phone: string | null; verified: boolean };
-  received_at: string;
-  acknowledged_at: string | null;
-  ack_due_at: string | null;
-  due_at: string | null;
-  state: string;
-  notes: string;
-  actions: { at: string | null; text: string }[];
-  version: string | null;
-};
-
-/** What was done on a request or an incident: strings, or entries with a time and words. */
-function actionsOf(value: unknown, what: string) {
-  return list(value ?? [], what, (entry, where) => {
-    if (typeof entry === "string") return { at: null, text: entry };
-    const action = obj(entry, where);
-    const words = action.text ?? action.action ?? action.what ?? action.label;
-    return { at: maybeText(action.at, `${where}.at`), text: text(words, `${where}.text`) };
-  });
-}
-
-function dataRequest(value: unknown, what: string): DataRequest {
-  const record = obj(value, what);
-  const requester = obj(record.requester ?? {}, `${what}.requester`);
-  return {
-    id: anId(record.id, `${what}.id`),
-    type: text(record.type, `${what}.type`),
-    channel: maybeText(record.channel, `${what}.channel`) ?? "",
-    requester: {
-      masked_email: maybeText(requester.masked_email, `${what}.requester.masked_email`),
-      masked_phone: maybeText(requester.masked_phone, `${what}.requester.masked_phone`),
-      verified: requester.verified === true,
-    },
-    received_at: text(record.received_at, `${what}.received_at`),
-    acknowledged_at: maybeText(record.acknowledged_at, `${what}.acknowledged_at`),
-    ack_due_at: maybeText(record.ack_due_at, `${what}.ack_due_at`),
-    due_at: maybeText(record.due_at, `${what}.due_at`),
-    state: text(record.state, `${what}.state`),
-    notes: typeof record.notes === "string" ? record.notes : "",
-    actions: actionsOf(record.actions, `${what}.actions`),
-    version: maybeId(record.version, `${what}.version`),
-  };
-}
-
-export type DryRun = { held: { what: string; why: string; until: string | null }[]; will_erase: string[] };
-
-function dryRun(body: unknown): DryRun {
-  const record = obj(body, "dry run");
-  return {
-    held: list(record.held ?? [], "held", (entry, where) => {
-      const held = obj(entry, where);
-      return {
-        what: text(held.what, `${where}.what`),
-        why: text(held.why, `${where}.why`),
-        until: maybeText(held.until, `${where}.until`),
-      };
-    }),
-    will_erase: list(record.will_erase ?? [], "will_erase", (entry, where) =>
-      typeof entry === "string" ? entry : text(obj(entry, where).what, `${where}.what`),
-    ),
-  };
-}
-
-export const listDataRequests = (query: { state?: string; type?: string; cursor?: string } = {}, t?: Transport) =>
-  call(t, "GET", "data-requests/", page(dataRequest), { query });
-/** One request (GET data-requests/{id}/: the detail route of the PATCH, not named in the brief). */
-export const getDataRequest = (id: string, transport?: Transport) =>
-  call(transport, "GET", `data-requests/${id}/`, (body) => dataRequest(body, "data request"));
-export const createDataRequest = (input: {
-  type: string;
-  channel: string;
-  requester_email?: string;
-  requester_phone?: string;
-  received_at: string;
-  notes?: string;
-}) => call(undefined, "POST", "data-requests/", (body) => dataRequest(body, "data request"), { body: input });
-export const updateDataRequest = (id: string, input: { notes?: string; state?: string }, version?: string | null) =>
-  call(undefined, "PATCH", `data-requests/${id}/`, (body) => dataRequest(body, "data request"), {
-    body: input,
-    version,
-  });
-export const acknowledgeDataRequest = (id: string) =>
-  call(undefined, "POST", `data-requests/${id}/acknowledge/`, nothing, { body: {} });
-export const erasureDryRun = (id: string) =>
-  call(undefined, "POST", `data-requests/${id}/erasure-dry-run/`, dryRun, { body: {} });
-
-// ---- Incidents (the breach register) ----
-
-export type Incident = {
-  id: string;
-  detected_at: string;
-  type: string;
-  systems: string[];
-  data_categories: string[];
-  people_affected: number | null;
-  children_affected: boolean;
-  certin_due_at: string | null;
-  board_due_at: string | null;
-  certin_reported_at: string | null;
-  board_reported_at: string | null;
-  notices_sent: number;
-  actions: { at: string | null; text: string }[];
-  state: string;
-  version: string | null;
-};
-export type IncidentInput = {
-  detected_at: string;
-  type: string;
-  systems: string[];
-  data_categories: string[];
-  people_affected: number | null;
-  children_affected: boolean;
-};
-
-function incident(value: unknown, what: string): Incident {
-  const record = obj(value, what);
-  const children = record.children_affected;
-  return {
-    id: anId(record.id, `${what}.id`),
-    detected_at: text(record.detected_at, `${what}.detected_at`),
-    type: text(record.type, `${what}.type`),
-    systems: texts(record.systems ?? [], `${what}.systems`),
-    data_categories: texts(record.data_categories ?? [], `${what}.data_categories`),
-    people_affected: maybeNum(record.people_affected, `${what}.people_affected`),
-    children_affected: typeof children === "number" ? children > 0 : children === true,
-    certin_due_at: maybeText(record.certin_due_at, `${what}.certin_due_at`),
-    board_due_at: maybeText(record.board_due_at, `${what}.board_due_at`),
-    certin_reported_at: maybeText(record.certin_reported_at, `${what}.certin_reported_at`),
-    board_reported_at: maybeText(record.board_reported_at, `${what}.board_reported_at`),
-    notices_sent: maybeNum(record.notices_sent, `${what}.notices_sent`) ?? 0,
-    actions: actionsOf(record.actions, `${what}.actions`),
-    state: text(record.state, `${what}.state`),
-    version: maybeId(record.version, `${what}.version`),
-  };
-}
-
-export const listIncidents = (query: { state?: string; cursor?: string } = {}, transport?: Transport) =>
-  call(transport, "GET", "incidents/", page(incident), { query });
-/** One incident (GET incidents/{id}/: the detail route of the PATCH, not named in the brief). */
-export const getIncident = (id: string, transport?: Transport) =>
-  call(transport, "GET", `incidents/${id}/`, (body) => incident(body, "incident"));
-export const createIncident = (input: IncidentInput) =>
-  call(undefined, "POST", "incidents/", (body) => incident(body, "incident"), { body: input });
-export const updateIncident = (
-  id: string,
-  input: Partial<{
-    certin_reported_at: string | null;
-    board_reported_at: string | null;
-    notices_sent: number;
-    state: string;
-    action: string;
-  }>,
-  version?: string | null,
-) => call(undefined, "PATCH", `incidents/${id}/`, (body) => incident(body, "incident"), { body: input, version });
-
-// ---- Processors ----
-
-export type Processor = {
-  id: string;
-  name: string;
-  purpose: string;
-  country: string;
-  data_categories: string[];
-  contract_until: string | null;
-};
-export type ProcessorInput = Omit<Processor, "id">;
-
-function processor(value: unknown, what: string): Processor {
-  const record = obj(value, what);
-  return {
-    id: anId(record.id, `${what}.id`),
-    name: text(record.name, `${what}.name`),
-    purpose: maybeText(record.purpose, `${what}.purpose`) ?? "",
-    country: maybeText(record.country, `${what}.country`) ?? "",
-    data_categories: texts(record.data_categories ?? [], `${what}.data_categories`),
-    contract_until: maybeText(record.contract_until, `${what}.contract_until`),
-  };
-}
-
-export const listProcessors = (transport?: Transport) => call(transport, "GET", "processors/", all(processor));
-export const createProcessor = (input: ProcessorInput) =>
-  call(undefined, "POST", "processors/", (body) => processor(body, "processor"), { body: input });
+  );
+export const addScope = (id: number, body: Schemas["ScopeAddRequest"]) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/people/{id}/scopes/", { ...o, params: { path: { id } }, body }));
+export const removeScope = (id: number, scope: number) =>
+  send(undefined, (o) =>
+    api.DELETE("/api/v1/staff/people/{id}/scopes/{scope}/", { ...o, params: { path: { id, scope } } }),
+  );
+export const endPersonSessions = (id: number) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/people/{id}/end-sessions/", { ...o, params: { path: { id } } }));
+export const resetPersonMfa = (id: number, reason: string) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/people/{id}/reset-mfa/", { ...o, params: { path: { id } }, body: { reason } }),
+  );
+export const offboardPerson = (id: number, reason: string) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/people/{id}/offboard/", { ...o, params: { path: { id } }, body: { reason } }),
+  );
+export const getAccessReview = (transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/access-review/", o));
 
 // ---- Customers ----
 
-export type CustomerFlags = { child: boolean; consent_pending: boolean; locked: boolean; suspended: boolean };
-export type Customer = {
-  id: string;
-  masked_email: string | null;
-  masked_phone: string | null;
-  name: string;
-  kind: string;
-  status: string;
-  joined: string | null;
-  last_seen: string | null;
-  flags: CustomerFlags;
-};
-/** The full record (GET users/{id}/; the server logs the read). Beyond the list's fields only what it sends. */
-export type CustomerRecord = Customer & {
-  email_verified: boolean | null;
-  phone_verified: boolean | null;
-  mfa: boolean | null;
-  consent: string | null;
-  sessions: number | null;
-};
+export type Customer = Schemas["Customer"];
+export type CustomerDetail = Schemas["CustomerDetail"];
+export type Revealable = Schemas["ShowEnum"];
 
-function customer(value: unknown, what: string): Customer {
-  const record = obj(value, what);
-  const flags = obj(record.flags ?? {}, `${what}.flags`);
-  return {
-    id: anId(record.id, `${what}.id`),
-    masked_email: maybeText(record.masked_email, `${what}.masked_email`),
-    masked_phone: maybeText(record.masked_phone, `${what}.masked_phone`),
-    name: maybeText(record.name, `${what}.name`) ?? "",
-    kind: text(record.kind, `${what}.kind`),
-    status: text(record.status, `${what}.status`),
-    joined: maybeText(record.joined, `${what}.joined`),
-    last_seen: maybeText(record.last_seen, `${what}.last_seen`),
-    flags: {
-      child: flags.child === true,
-      consent_pending: flags.consent_pending === true,
-      locked: flags.locked === true,
-      suspended: flags.suspended === true,
-    },
-  };
-}
-
-const maybeYes = (value: unknown) => (typeof value === "boolean" ? value : null);
-
-function customerRecord(body: unknown): CustomerRecord {
-  const record = obj(body, "customer");
-  const consent = record.consent;
-  return {
-    ...customer(record, "customer"),
-    email_verified: maybeYes(record.email_verified),
-    phone_verified: maybeYes(record.phone_verified),
-    mfa: maybeYes(record.mfa),
-    consent:
-      typeof consent === "string"
-        ? consent
-        : consent && typeof consent === "object"
-          ? (maybeText((consent as Record<string, unknown>).state, "customer.consent.state") ?? null)
-          : null,
-    sessions: maybeNum(record.sessions, "customer.sessions"),
-  };
-}
-
-export const listUsers = (query: { q?: string; kind?: string; status?: string; cursor?: string } = {}, t?: Transport) =>
-  call(t, "GET", "users/", page(customer), { query });
-export const getUser = (id: string, transport?: Transport) => call(transport, "GET", `users/${id}/`, customerRecord);
-export const revealUser = (id: string, field: "email" | "phone", reason: string) =>
-  call(undefined, "POST", `users/${id}/reveal/`, (body) => text(obj(body, "reveal").value, "reveal.value"), {
-    body: { field, reason },
-  });
-
-export type CustomerAction =
-  "suspend" | "unsuspend" | "unlock" | "resend-verification" | "end-sessions" | "password-reset";
-export const userAction = (id: string, action: CustomerAction) =>
-  call(undefined, "POST", `users/${id}/${action}/`, nothing, { body: {} });
-
-/** Resetting two-step sign-in answers 202 with the change request it made, which reaches the caller as the error
- *  approval_required (its changeRequestId), as every action that needs a second person does. */
-export const resetUserMfa = (id: string) => call(undefined, "POST", `users/${id}/reset-mfa/`, nothing, { body: {} });
-export const impersonate = (id: string, reason: string) =>
-  call(
-    undefined,
-    "POST",
-    `users/${id}/impersonate/`,
-    (body) => {
-      const record = obj(body, "impersonation");
-      return { url: text(record.url, "impersonation.url"), until: text(record.until, "impersonation.until") };
-    },
-    { body: { reason } },
+export const listUsers = (filters: Filters<"/api/v1/staff/users/">, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/users/", { ...o, params: { query: query(filters) } })).then(paged);
+/** The full record; the server records the read (a child's as such). */
+export const getUser = (id: number, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/users/{id}/", { ...o, params: { path: { id } } }));
+/** A detail shown, with a reason (logged, re-authenticated, 30 an hour): `{show: [fields]}` → `{field: value}`, the
+ *  first of `fields` that has one (the masked mobile number is the login number, else the contact number). */
+export async function revealUser(id: number, fields: Revealable[], reason: string): Promise<string> {
+  const shown = await send(undefined, (o) =>
+    api.POST("/api/v1/staff/users/{id}/reveal/", { ...o, params: { path: { id } }, body: { show: fields, reason } }),
   );
-/** Ends the "sign in as" window (DELETE users/{id}/impersonate/: not named in the brief). */
-export const endImpersonation = (userId: string) => call(undefined, "DELETE", `users/${userId}/impersonate/`, nothing);
+  return fields.map((field) => shown[field]).find(Boolean) ?? "";
+}
+
+export type CustomerAction = "unlock" | "resend-verification" | "end-sessions" | "password-reset";
+export const userAction = (id: number, action: CustomerAction) => {
+  const path = { params: { path: { id } } };
+  switch (action) {
+    case "unlock":
+      return send(undefined, (o) => api.POST("/api/v1/staff/users/{id}/unlock/", { ...o, ...path }));
+    case "resend-verification":
+      return send(undefined, (o) => api.POST("/api/v1/staff/users/{id}/resend-verification/", { ...o, ...path }));
+    case "end-sessions":
+      return send(undefined, (o) => api.POST("/api/v1/staff/users/{id}/end-sessions/", { ...o, ...path }));
+    case "password-reset":
+      return send(undefined, (o) => api.POST("/api/v1/staff/users/{id}/password-reset/", { ...o, ...path }));
+  }
+};
+export const suspendUser = (id: number, suspend: boolean, reason: string) =>
+  suspend
+    ? send(undefined, (o) =>
+        api.POST("/api/v1/staff/users/{id}/suspend/", { ...o, params: { path: { id } }, body: { reason } }),
+      )
+    : send(undefined, (o) =>
+        api.POST("/api/v1/staff/users/{id}/unsuspend/", { ...o, params: { path: { id } }, body: { reason } }),
+      );
+/** Always 202: another person approves it (approval_required). */
+export const resetUserMfa = (id: number, reason: string) => {
+  const headers = once();
+  return send(undefined, (o) =>
+    api.POST("/api/v1/staff/users/{id}/reset-mfa/", {
+      ...o,
+      headers: { ...o.headers, ...headers },
+      params: { path: { id } },
+      body: { reason },
+    }),
+  );
+};
+
+export type Impersonation = { token: string; until: string; url: string };
+const IMPERSONATION_KEY = "examleaf-admin:impersonation";
+
+/** The token of this tab's impersonation of a customer, which ending it needs (kept in sessionStorage: this tab only,
+ *  gone with it; the token lasts 15 minutes anyway). */
+export function impersonationToken(userId: number): string | null {
+  try {
+    const kept = JSON.parse(window.sessionStorage.getItem(IMPERSONATION_KEY) ?? "null") as {
+      user: number;
+      token: string;
+    } | null;
+    return kept?.user === userId ? kept.token : null;
+  } catch {
+    return null;
+  }
+}
+
+function keepImpersonation(userId: number, token: string | null) {
+  try {
+    if (token) window.sessionStorage.setItem(IMPERSONATION_KEY, JSON.stringify({ user: userId, token }));
+    else window.sessionStorage.removeItem(IMPERSONATION_KEY);
+  } catch {
+    // storage off: End is offered on the website's own banner instead
+  }
+}
+
+/** A 15-minute token for the website's account area (never staff or a child), with a reason and a ticket: the link
+ *  that opens it there (`website`/account/impersonate/?token=…). */
+export async function impersonate(id: number, body: Schemas["ImpersonateRequest"], website: string) {
+  const answer = await send(undefined, (o) =>
+    api.POST("/api/v1/staff/users/{id}/impersonate/", { ...o, params: { path: { id } }, body }),
+  );
+  keepImpersonation(id, answer.token);
+  const url = `${website}/account/impersonate/?token=${encodeURIComponent(answer.token)}`;
+  return { token: answer.token, until: answer.expires_at, url } satisfies Impersonation;
+}
+export async function endImpersonation(userId: number, token: string) {
+  await send(undefined, (o) =>
+    api.POST("/api/v1/staff/users/{id}/impersonate/end/", { ...o, params: { path: { id: userId } }, body: { token } }),
+  );
+  keepImpersonation(userId, null);
+}
+
+// ---- Notes (not in the schema yet: Pending) ----
+
+export const listNotes = (target: { type: string; id: string }, transport?: Transport) =>
+  send(transport, (o) =>
+    api.GET("/api/v1/staff/notes/", { ...o, params: { query: { target_type: target.type, target_id: target.id } } }),
+  ).then(paged);
+export const addNote = (target: { type: string; id: string }, body: string) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/notes/", { ...o, body: { target_type: target.type, target_id: target.id, body } }),
+  );
+
+// ---- Data protection ----
+
+export type DataRequest = Schemas["DataRequest"];
+export type DataRequestRow = Schemas["DataRequestList"];
+export type ErasureReport = Schemas["ErasureReport"];
+export type Incident = Schemas["Incident"];
+export type Processor = Schemas["Processor"];
+
+export const listDataRequests = (filters: Filters<"/api/v1/staff/data-requests/">, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/data-requests/", { ...o, params: { query: query(filters) } })).then(
+    paged,
+  );
+export const getDataRequest = (id: number, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/data-requests/{id}/", { ...o, params: { path: { id } } }));
+export const createDataRequest = (body: Schemas["DataRequestRequest"]) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/data-requests/", { ...o, body }));
+export const updateDataRequest = (id: number, body: Schemas["PatchedDataRequestRequest"]) =>
+  send(undefined, (o) => api.PATCH("/api/v1/staff/data-requests/{id}/", { ...o, params: { path: { id } }, body }));
+export const acknowledgeDataRequest = (id: number) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/data-requests/{id}/acknowledge/", { ...o, params: { path: { id } } }));
+export const verifyIdentity = (id: number, note: string) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/data-requests/{id}/verify-identity/", {
+      ...o,
+      params: { path: { id } },
+      body: { note },
+    }),
+  );
+export const closeDataRequest = (id: number, body: Schemas["CloseRequest"]) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/data-requests/{id}/close/", { ...o, params: { path: { id } }, body }));
+/** The answer's text with the contact block, to send as it is or adapted. */
+export const dataRequestResponse = (id: number, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/data-requests/{id}/response/", { ...o, params: { path: { id } } }));
+/** The erasure's dry run: what goes, what stays and why, what stops it. */
+export const erasureReport = (id: number) =>
+  send(undefined, (o) =>
+    api.GET("/api/v1/staff/data-requests/{id}/erasure-report/", { ...o, params: { path: { id } } }),
+  );
+/** 202 (approval_required): the erasure waits for staff.approve_erasure; 400 with the dry run while something stops
+ *  it (its blocks, in the error's body). */
+export const eraseForRequest = (id: number, reason: string) =>
+  send(undefined, (o) =>
+    api.POST("/api/v1/staff/data-requests/{id}/erase/", { ...o, params: { path: { id } }, body: { reason } }),
+  );
+/** An access request's data, emailed to the account's own address (202, its words). */
+export const exportForRequest = (id: number) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/data-requests/{id}/export/", { ...o, params: { path: { id } } }));
+
+export const listIncidents = (filters: Filters<"/api/v1/staff/incidents/">, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/incidents/", { ...o, params: { query: query(filters) } })).then(paged);
+export const getIncident = (id: number, transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/incidents/{id}/", { ...o, params: { path: { id } } }));
+export const createIncident = (body: Schemas["IncidentRequest"]) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/incidents/", { ...o, body }));
+export const updateIncident = (id: number, body: Schemas["PatchedIncidentRequest"]) =>
+  send(undefined, (o) => api.PATCH("/api/v1/staff/incidents/{id}/", { ...o, params: { path: { id } }, body }));
+export const closeIncident = (id: number) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/incidents/{id}/close/", { ...o, params: { path: { id } } }));
+
+export const listProcessors = (transport?: Transport) =>
+  send(transport, (o) => api.GET("/api/v1/staff/processors/", { ...o, params: { query: { page_size: 200 } } })).then(
+    paged,
+  );
+export const createProcessor = (body: Schemas["ProcessorRequest"]) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/processors/", { ...o, body }));
 
 // ---- System ----
 
-export type HealthCheck = { name: string; ok: boolean; detail: string | null };
+/** GET system/ as staff/api.py's SystemView builds it (the schema types each part as any JSON). */
 export type SystemStatus = {
-  health: HealthCheck[];
-  celery: { queues: Record<string, number>; failed: number };
-  webhooks: { provider: string; event: string; at: string | null; ok: boolean; status: string | null }[];
-  email: { sent: number | null; bounced: number | null; suppressed: number | null };
-  sms: Record<string, string | number>;
-  backups: { last_run: string | null; size: number | null };
+  health: { check: string; ok: boolean; error: string }[];
+  celery: {
+    queues: Record<string, number> | { error: string } | null;
+    failed_7_days: number;
+    failed: { task_id: string; task_name: string | null; date_done: string }[];
+  };
+  webhooks: { last_day: Record<string, number>; refused_7_days: number };
+  email: { suppressed: number; suppressed_7_days: Record<string, number> };
+  sms: { last_day: Record<string, number> };
+  backups: { configured: boolean; error?: string; latest?: string | null; size?: number; at?: string };
   maintenance: { on: boolean; banner: string };
+  audit: { last_verification: { action: string; ts: string; details: unknown } | null; heads: unknown };
 };
 
-/** A health entry as true/false, "ok"/"…", or {ok, detail} / {status, detail}. */
-function healthCheck(name: string, value: unknown): HealthCheck {
-  if (typeof value === "boolean") return { name, ok: value, detail: null };
-  if (typeof value === "string")
-    return { name, ok: /^(ok|working|up|pass(ing)?|healthy)$/i.test(value), detail: value };
-  const record = obj(value, `health.${name}`);
-  const ok =
-    typeof record.ok === "boolean"
-      ? record.ok
-      : typeof record.status === "string" && /^(ok|working|up|pass(ing)?|healthy)$/i.test(record.status);
-  return { name, ok, detail: maybeText(record.detail ?? record.error ?? null, `health.${name}.detail`) };
-}
-
-function systemStatus(body: unknown): SystemStatus {
-  const record = obj(body, "system");
-  const celery = obj(record.celery ?? {}, "celery");
-  const queues = obj(celery.queues ?? {}, "celery.queues");
-  const webhooks = obj(record.webhooks ?? {}, "webhooks");
-  const email = obj(record.email ?? {}, "email");
-  const sms = obj(record.sms ?? {}, "sms");
-  const backups = obj(record.backups ?? {}, "backups");
-  const maintenance = obj(record.maintenance ?? {}, "maintenance");
-  return {
-    health: Object.entries(obj(record.health ?? {}, "health")).map(([name, value]) => healthCheck(name, value)),
-    celery: {
-      queues: Object.fromEntries(Object.entries(queues).map(([name, size]) => [name, num(size, `queues.${name}`)])),
-      failed: maybeNum(celery.failed, "celery.failed") ?? 0,
-    },
-    webhooks: list(webhooks.recent ?? [], "webhooks.recent", (entry, where) => {
-      const hook = obj(entry, where);
-      const status = maybeText(hook.status, `${where}.status`);
-      return {
-        provider: text(hook.provider ?? hook.source ?? "", `${where}.provider`),
-        event: text(hook.event ?? hook.type ?? "", `${where}.event`),
-        at: maybeText(hook.at ?? hook.received_at, `${where}.at`),
-        ok:
-          typeof hook.ok === "boolean"
-            ? hook.ok
-            : typeof hook.signature_valid === "boolean"
-              ? hook.signature_valid && status !== "failed"
-              : status === "processed" || status === "ok",
-        status,
-      };
-    }),
-    email: {
-      sent: maybeNum(email.sent, "email.sent"),
-      bounced: maybeNum(email.bounced, "email.bounced"),
-      suppressed: maybeNum(email.suppressed, "email.suppressed"),
-    },
-    sms: Object.fromEntries(
-      Object.entries(sms)
-        .filter(([, value]) => typeof value === "string" || typeof value === "number")
-        .map(([key, value]) => [key, value as string | number]),
-    ),
-    backups: {
-      last_run: maybeText(backups.last_run, "backups.last_run"),
-      size: maybeNum(backups.size, "backups.size"),
-    },
-    maintenance: { on: maintenance.on === true, banner: maybeText(maintenance.banner, "maintenance.banner") ?? "" },
-  };
-}
-
-export const getSystem = (transport?: Transport) => call(transport, "GET", "system/", systemStatus);
-export const setMaintenance = (input: { on: boolean; banner: string; reason: string }) =>
-  call(undefined, "POST", "system/maintenance/", nothing, { body: input });
-
-// ---- Background jobs (bulk actions and exports; POST jobs/ and GET jobs/{id}/ are not named in the brief) ----
-
-export type Job = {
-  id: string;
-  state: string;
-  done: number;
-  total: number;
-  errors: { id: string; label: string; message: string }[];
-  result_url: string | null;
-};
-
-function jobStatus(body: unknown): Job {
-  const record = obj(body, "job");
-  return {
-    id: anId(record.id, "job.id"),
-    state: text(record.state, "job.state"),
-    done: maybeNum(record.done, "job.done") ?? 0,
-    total: maybeNum(record.total, "job.total") ?? 0,
-    errors: list(record.errors ?? [], "job.errors", (entry, where) => {
-      const error = obj(entry, where);
-      return {
-        id: anId(error.id, `${where}.id`),
-        label: maybeText(error.label, `${where}.label`) ?? String(error.id),
-        message: text(error.message, `${where}.message`),
-      };
-    }),
-    result_url: maybeText(record.result_url, "job.result_url"),
-  };
-}
-
-/** A bulk action or an export in the background: `action` is "<list>.<verb>" (inbox.done, users.export). */
-export const startJob = (input: { action: string; ids?: string[]; filters?: Record<string, string> }) =>
-  call(undefined, "POST", "jobs/", job, { body: input });
-export const getJob = (id: string, signal?: AbortSignal) =>
-  call(undefined, "GET", `jobs/${id}/`, jobStatus, { signal });
-export const FINAL_JOB_STATES = new Set(["done", "failed", "cancelled"]);
+export const getSystem = async (transport?: Transport) =>
+  (await send(transport, (o) => api.GET("/api/v1/staff/system/", o))) as SystemStatus;
+/** Ask Razorpay what became of an online order's payment (a lost webhook). */
+export const reconcileOrder = (order: string) =>
+  send(undefined, (o) => api.POST("/api/v1/staff/system/reconcile/", { ...o, body: { order } }));

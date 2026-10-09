@@ -1,53 +1,68 @@
-// The console's modules and the permissions it looks for in the session manifest, in one place: the backend's
-// staff/permissions.py names the same codenames (reconcile them here). A module is drawn when the person holds any of
-// its permissions; nothing is drawn for the others. That is the only thing the console does with permissions: it hides
-// what the manifest says the person cannot use. The API checks every call again and its answer is the truth.
+// The console's modules and the permissions it looks for in the session manifest, in one place: the codenames the
+// backend's catalogue names (examleaf-web/staff/catalogue.py, API.md "Every staff endpoint and field"), never made up
+// here. A module is drawn when the person holds any of its permissions; nothing is drawn for the others. That is the
+// only thing the console does with permissions: it hides what the manifest says the person cannot use. The API checks
+// every call again and its answer is the truth. Where the API names the permission an object needs (a change request's
+// `checker`, a setting's `permission`), the console reads it from there.
 import { copy } from "@/lib/copy";
 import type { Manifest } from "@/lib/api/staff";
 
-/** The capability codenames the console reads (Django "app.codename"; staff.* is the staff app's). */
+/** The capability codenames the console reads (Django "app_label.codename"; staff.* is the staff app's). */
 export const P = {
-  inboxView: "staff.view_inboxitem",
-  inboxChange: "staff.change_inboxitem",
+  inboxView: "staff.view_inbox",
   approvalsView: "staff.view_changerequest",
-  approvalsDecide: "staff.approve_changerequest",
-  approvalsExecute: "staff.execute_changerequest",
-  auditView: "staff.view_auditevent",
-  auditExport: "staff.export_auditevent",
+  approvalsAsk: "staff.add_changerequest",
+  refundOrder: "staff.refund_order",
+  auditView: "staff.view_auditlog",
+  auditExport: "staff.export_auditlog",
+  jobsView: "staff.view_job",
+  savedViewsView: "staff.view_savedview",
+  savedViewsAdd: "staff.add_savedview",
+  savedViewsChange: "staff.change_savedview",
+  savedViewsDelete: "staff.delete_savedview",
+  // notes (the backend's Note model, coming: Django's own verbs)
+  notesView: "staff.view_note",
+  notesAdd: "staff.add_note",
   usersView: "accounts.view_user",
-  usersExport: "accounts.export_user",
-  usersReveal: "accounts.reveal_contact",
-  usersSuspend: "accounts.suspend_user",
-  usersUnlock: "accounts.unlock_user",
-  usersResendVerification: "accounts.resend_verification",
-  usersEndSessions: "accounts.end_user_sessions",
-  usersPasswordReset: "accounts.initiate_password_reset",
-  usersResetMfa: "accounts.reset_user_mfa",
-  usersImpersonate: "accounts.impersonate_user",
+  usersReveal: "staff.reveal_contact",
+  usersSuspend: "staff.suspend_user",
+  usersUnlock: "staff.unlock_user",
+  usersResendVerification: "staff.resend_verification",
+  usersEndSessions: "staff.end_user_sessions",
+  usersPasswordReset: "staff.initiate_password_reset",
+  usersResetMfa: "staff.reset_user_mfa",
+  usersImpersonate: "staff.impersonate_user",
   peopleView: "staff.view_staff",
-  peopleInvite: "staff.invite_staff",
-  peopleRoles: "staff.change_staff_roles",
-  peopleScopes: "staff.change_staff_scopes",
-  peopleSessions: "staff.end_staff_sessions",
-  peopleOffboard: "staff.offboard_staff",
-  accessReview: "staff.view_accessreview",
+  /** Invitations, roles, scopes, sessions and offboarding (OWNER's). */
+  peopleAssign: "staff.assign_role",
   requestsView: "staff.view_datarequest",
-  requestsAdd: "staff.add_datarequest",
-  requestsChange: "staff.change_datarequest",
+  requestsHandle: "staff.handle_data_request",
+  requestsExport: "staff.export_personal_data",
   incidentsView: "staff.view_incident",
-  incidentsAdd: "staff.add_incident",
-  incidentsChange: "staff.change_incident",
-  processorsView: "staff.view_processor",
-  processorsAdd: "staff.add_processor",
+  incidentsManage: "staff.manage_incident",
+  processorsView: "staff.view_processorrecord",
+  processorsAdd: "staff.add_processorrecord",
   settingsView: "staff.view_sitesetting",
-  settingsChange: "staff.change_sitesetting",
   flagsView: "staff.view_featureflag",
-  flagsChange: "staff.change_featureflag",
+  flagsChange: "staff.manage_flags",
   apiKeysView: "staff.view_apikey",
-  apiKeysAdd: "staff.add_apikey",
-  apiKeysRevoke: "staff.revoke_apikey",
+  apiKeysManage: "staff.manage_api_keys",
   systemView: "staff.view_system",
-  maintenance: "staff.change_maintenance",
+  maintenance: "staff.toggle_maintenance",
+  reconcile: "staff.replay_webhook",
+  // the shipping desk and the insights (the backend's shipping and insights apps, their permissions coming)
+  parcelsView: "shipping.view_parcels",
+  parcelsBook: "shipping.book_parcel",
+  exceptionsAct: "shipping.act_on_exception",
+  codView: "shipping.view_cod",
+  codReconcile: "shipping.reconcile_cod",
+  pickupLocations: "shipping.manage_pickup_locations",
+  insightsView: "insights.view_insights",
+  signalsAcknowledge: "insights.acknowledge_signal",
+  // the ERPNext sync (the backend's erp app, coming)
+  erpView: "erp.view_sync",
+  erpReplay: "erp.replay_sync",
+  erpResolve: "erp.resolve_difference",
 } as const;
 
 /** Whether the manifest lists the permission (the shell's only use of permissions: what to draw). */
@@ -72,15 +87,19 @@ export type Module = {
   erp?: string;
 };
 
-// The order of the plan's information architecture (section 8). The ERPNext paths are the desk's workspaces (CRM is
-// ERPNext's own: Frappe CRM and Helpdesk are not installed, so tickets are the platform's Support); the base comes
-// from NEXT_PUBLIC_ERP_URL. Partners' codenames are the planned `partners` app's and accounts' TeacherProfile.
+const SHIPPING = [P.parcelsView, P.parcelsBook, P.exceptionsAct, P.codView, P.codReconcile, P.pickupLocations];
+const ERP = [P.erpView, P.erpReplay, P.erpResolve];
+
+// The order of the plan's information architecture (section 8). The planned modules are drawn for the permissions of
+// the data they will show (the shop's, content's, the course's, accounts' TeacherProfile, the shipping and insights
+// apps'). The ERPNext links are the sync's (the erp app's permissions): its desk asks for its own sign-in and roles.
 export const MODULES: readonly Module[] = [
   { key: "home", href: "/", group: "work", any: [] },
   { key: "inbox", href: "/inbox/", group: "work", any: [P.inboxView] },
   { key: "approvals", href: "/approvals/", group: "work", any: [P.approvalsView] },
   { key: "audit", href: "/audit/", group: "work", any: [P.auditView] },
   { key: "orders", href: "/orders/", group: "shop", any: ["shop.view_order"], soon: true },
+  { key: "shipping", href: "/shipping/", group: "shop", any: SHIPPING, soon: true },
   { key: "catalogue", href: "/catalogue/", group: "shop", any: ["shop.view_product"], soon: true },
   { key: "marketing", href: "/marketing/", group: "shop", any: ["shop.view_coupon", "shop.view_offer"], soon: true },
   {
@@ -92,27 +111,21 @@ export const MODULES: readonly Module[] = [
   },
   { key: "course", href: "/course/", group: "learning", any: ["learn.view_chapter"], soon: true },
   { key: "users", href: "/users/", group: "customers", any: [P.usersView] },
-  {
-    key: "partners",
-    href: "/partners/",
-    group: "customers",
-    any: ["accounts.view_teacherprofile", "partners.view_schoolcode", "partners.view_schoollicence"],
-    soon: true,
-  },
-  { key: "support", href: "/support/", group: "customers", any: ["support.view_ticket"], soon: true },
+  { key: "partners", href: "/partners/", group: "customers", any: ["accounts.view_teacherprofile"], soon: true },
   { key: "requests", href: "/privacy/requests/", group: "privacy", any: [P.requestsView] },
   { key: "incidents", href: "/privacy/incidents/", group: "privacy", any: [P.incidentsView] },
   { key: "processors", href: "/privacy/processors/", group: "privacy", any: [P.processorsView] },
+  { key: "insights", href: "/insights/", group: "reports", any: [P.insightsView, P.signalsAcknowledge], soon: true },
   { key: "people", href: "/people/", group: "staff", any: [P.peopleView] },
-  { key: "accessReview", href: "/people/access-review/", group: "staff", any: [P.accessReview] },
+  { key: "accessReview", href: "/people/access-review/", group: "staff", any: [P.peopleView] },
   { key: "apiKeys", href: "/settings/api-keys/", group: "staff", any: [P.apiKeysView] },
   { key: "settings", href: "/settings/", group: "system", any: [P.settingsView, P.flagsView] },
   { key: "system", href: "/system/", group: "system", any: [P.systemView] },
-  { key: "finance", href: "/app/accounting", group: "erp", any: ["erp.view_finance"], erp: "/app/accounting" },
-  { key: "tax", href: "/app/gst-india", group: "erp", any: ["erp.view_tax"], erp: "/app/gst-india" },
-  { key: "inventory", href: "/app/stock", group: "erp", any: ["erp.view_inventory"], erp: "/app/stock" },
-  { key: "purchases", href: "/app/buying", group: "erp", any: ["erp.view_purchases"], erp: "/app/buying" },
-  { key: "crm", href: "/app/crm", group: "erp", any: ["erp.view_crm"], erp: "/app/crm" },
+  { key: "finance", href: "/app/accounting", group: "erp", any: ERP, erp: "/app/accounting" },
+  { key: "tax", href: "/app/gst-india", group: "erp", any: ERP, erp: "/app/gst-india" },
+  { key: "inventory", href: "/app/stock", group: "erp", any: ERP, erp: "/app/stock" },
+  { key: "purchases", href: "/app/buying", group: "erp", any: ERP, erp: "/app/buying" },
+  { key: "crm", href: "/app/crm", group: "erp", any: ERP, erp: "/app/crm" },
 ];
 
 /** The modules a manifest opens, in order; the ERPNext links only when its address is set. */

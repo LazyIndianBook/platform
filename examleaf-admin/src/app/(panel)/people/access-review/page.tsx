@@ -1,6 +1,6 @@
 // /people/access-review/: the quarterly access review (GET access-review/): every staff member's roles, scopes, last
-// sign-in and the permissions they have not used, dormant accounts marked. Changes go through the person's page
-// (role grants and revocations, which may need an approval).
+// sign-in, second factor and the action permissions they have not used in 90 days, dormant accounts marked. Changes
+// go through the person's page (role grants and revocations, which may need an approval).
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -25,13 +25,6 @@ export default async function AccessReviewPage() {
         title={copy.people.accessReview}
         lead={copy.people.accessReviewLead}
         back={{ href: "/people/", label: copy.people.title }}
-        actions={
-          review instanceof ApiError || !review.generated_at ? null : (
-            <p className="m-0 text-sm text-muted-foreground">
-              {copy.people.generated(formatDateTime(review.generated_at))}
-            </p>
-          )
-        }
       />
       {review instanceof ApiError ? (
         <Problem error={review} />
@@ -48,32 +41,38 @@ export default async function AccessReviewPage() {
             </tr>
           </thead>
           <tbody>
-            {review.rows.map((row) => (
-              <tr key={row.person.id ?? row.person.email}>
-                <TableCell>
-                  {row.person.id ? (
-                    <Link href={`/people/${row.person.id}/`} className="font-semibold">
-                      {row.person.name || row.person.email}
+            {review.map((row) => {
+              const scopes = Object.entries(row.scopes as Record<string, string[]>).flatMap(([kind, values]) =>
+                values.map((value) => `${labelOf(copy.people.scopeKinds, kind)}: ${value}`),
+              );
+              return (
+                <tr key={row.id}>
+                  <TableCell>
+                    <Link href={`/people/${row.id}/`} className="font-semibold">
+                      {row.email}
                     </Link>
-                  ) : (
-                    row.person.name || row.person.email
-                  )}
-                </TableCell>
-                <TableCell>
-                  {row.roles.map((role) => labelOf(copy.people.roleNames, role)).join(", ") || copy.people.noRoles}
-                </TableCell>
-                <TableCell>{row.scopes.join(", ") || copy.common.none}</TableCell>
-                <TableCell>{formatDateTime(row.last_login)}</TableCell>
-                <TableCell>
-                  {row.unused_permissions.length ? (
-                    <code className="text-[13px] break-all">{row.unused_permissions.join(", ")}</code>
-                  ) : (
-                    copy.common.none
-                  )}
-                </TableCell>
-                <TableCell>{row.dormant ? <StatusChip tone="bad">{copy.people.dormant}</StatusChip> : null}</TableCell>
-              </tr>
-            ))}
+                  </TableCell>
+                  <TableCell>
+                    {row.roles.map((role) => labelOf(copy.people.roleNames, role)).join(", ") || copy.people.noRoles}
+                  </TableCell>
+                  <TableCell>{scopes.join(", ") || copy.common.none}</TableCell>
+                  <TableCell>{formatDateTime(row.last_login)}</TableCell>
+                  <TableCell>
+                    {row.unused.length ? (
+                      <code className="text-[13px] break-all">{row.unused.join(", ")}</code>
+                    ) : (
+                      copy.common.none
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <span className="inline-flex flex-wrap gap-1.5">
+                      {row.dormant ? <StatusChip tone="bad">{copy.people.dormant}</StatusChip> : null}
+                      {row.mfa ? null : <StatusChip tone="bad">{copy.people.noMfa}</StatusChip>}
+                    </span>
+                  </TableCell>
+                </tr>
+              );
+            })}
           </tbody>
         </Table>
       )}

@@ -1,5 +1,5 @@
-// /settings/api-keys/: keys for integrations (GET api-keys/): who answers for each, its scopes, when it ends and when
-// it was last used, from where; making one (its secret shown once) and revoking one.
+// /settings/api-keys/: keys for integrations (GET api-keys/): who answers for each, its permissions, when it ends and
+// when it was last used, from where; making one (its whole key shown once) and revoking one (OWNER's).
 import type { Metadata } from "next";
 
 import { Problem } from "@/components/data/problem";
@@ -12,6 +12,7 @@ import { ApiError } from "@/lib/api/errors";
 import { attempt, requestTime, staffPage } from "@/lib/api/page";
 import { type ApiKey, listApiKeys } from "@/lib/api/staff";
 import { copy, labelOf } from "@/lib/copy";
+import { staffLabel } from "@/lib/display";
 import { formatDate, formatDateTime, toLocalInput } from "@/lib/format";
 import { has, P } from "@/lib/modules";
 
@@ -23,11 +24,13 @@ function statusOf(key: ApiKey, now: number): "active" | "revoked" | "expired" {
   return "active";
 }
 
+const scopesOf = (key: ApiKey) => (Array.isArray(key.scopes) ? key.scopes.map(String) : []);
+
 export default async function ApiKeysPage() {
   const { manifest, transport, path } = await staffPage("/settings/api-keys/");
   const keys = await attempt(listApiKeys(transport), path);
   const now = requestTime();
-  const revoking = has(manifest, P.apiKeysRevoke);
+  const managing = has(manifest, P.apiKeysManage);
   return (
     <>
       <PageHeader
@@ -38,7 +41,7 @@ export default async function ApiKeysPage() {
       <div className="flex flex-col gap-10">
         {keys instanceof ApiError ? (
           <Problem error={keys} />
-        ) : keys.length === 0 ? (
+        ) : keys.results.length === 0 ? (
           <EmptyState title={copy.apiKeys.emptyTitle}>
             <p>{copy.apiKeys.emptyText}</p>
           </EmptyState>
@@ -53,11 +56,11 @@ export default async function ApiKeysPage() {
                 <TableHead>{copy.apiKeys.columns.lastUsed}</TableHead>
                 <TableHead>{copy.apiKeys.columns.sponsor}</TableHead>
                 <TableHead>{copy.apiKeys.columns.status}</TableHead>
-                {revoking ? <TableHead>{copy.common.actions}</TableHead> : null}
+                {managing ? <TableHead>{copy.common.actions}</TableHead> : null}
               </tr>
             </thead>
             <tbody>
-              {keys.map((key) => {
+              {keys.results.map((key) => {
                 const status = statusOf(key, now);
                 return (
                   <tr key={key.id}>
@@ -66,29 +69,31 @@ export default async function ApiKeysPage() {
                       <code>{key.prefix}…</code>
                     </TableCell>
                     <TableCell>
-                      <code className="text-[13px] break-all">{key.scopes.join(", ")}</code>
+                      <code className="text-[13px] break-all">{scopesOf(key).join(", ")}</code>
                     </TableCell>
                     <TableCell>{key.expires_at ? formatDate(key.expires_at) : copy.common.none}</TableCell>
                     <TableCell>
                       {formatDateTime(key.last_used_at)}
-                      {key.last_ip ? (
-                        <span className="block font-mono text-xs text-muted-foreground">{key.last_ip}</span>
+                      {key.last_used_ip ? (
+                        <span className="block font-mono text-xs text-muted-foreground">
+                          {copy.apiKeys.lastUsedFrom(key.last_used_ip)}
+                        </span>
                       ) : null}
                     </TableCell>
-                    <TableCell>{key.sponsor ? key.sponsor.name || key.sponsor.email : copy.common.none}</TableCell>
+                    <TableCell>{staffLabel(key.sponsor, manifest.user.id)}</TableCell>
                     <TableCell>
                       <StatusChip tone={status === "active" ? "good" : "stopped"}>
                         {labelOf(copy.apiKeys.statuses, status)}
                       </StatusChip>
                     </TableCell>
-                    {revoking ? <TableCell>{status === "active" ? <RevokeKey apiKey={key} /> : null}</TableCell> : null}
+                    {managing ? <TableCell>{status === "active" ? <RevokeKey apiKey={key} /> : null}</TableCell> : null}
                   </tr>
                 );
               })}
             </tbody>
           </Table>
         )}
-        {has(manifest, P.apiKeysAdd) ? (
+        {managing ? (
           <Section id="new" title={copy.apiKeys.createTitle} lead={copy.apiKeys.createText}>
             <NewKey latest={toLocalInput(now + 365 * 86_400_000).slice(0, 10)} />
           </Section>

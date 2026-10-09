@@ -1,9 +1,10 @@
 "use client";
 
 // What stays above every page while it holds: the TEST band when the manifest's flags say this is not production
-// (`test_mode`; absent means production), and the impersonation banner while the person is signed in to the website
-// as a customer. Neither can be dismissed. Together they stick while the page scrolls, and their height pushes the
-// sticky top bar and sidebar down (--banner on <html>).
+// (`test_mode`; absent means production), the break-glass banner for a break-glass account (`user.is_superuser`:
+// every check passes, every event is marked), and the impersonation banner while the person is signed in to the
+// website as a customer (`impersonating`). None can be dismissed. Together they stick while the page scrolls, and
+// their height pushes the sticky top bar and sidebar down (--banner on <html>).
 import { useEffect, useRef } from "react";
 
 import { ImpersonationBanner } from "@/components/shell/impersonation-banner";
@@ -13,7 +14,8 @@ import { copy } from "@/lib/copy";
 export function Banners({ manifest, now }: { manifest: Manifest; now: number }) {
   const box = useRef<HTMLDivElement>(null);
   const test = manifest.flags.test_mode === true;
-  const shown = test || Boolean(manifest.impersonating);
+  const breakGlass = manifest.user.is_superuser;
+  const shown = test || breakGlass || Boolean(manifest.impersonating);
 
   useEffect(() => {
     const element = box.current;
@@ -42,6 +44,18 @@ export function Banners({ manifest, now }: { manifest: Manifest; now: number }) 
               {copy.shell.test}
             </strong>{" "}
             {copy.shell.testText}
+          </p>
+        </section>
+      ) : null}
+      {breakGlass ? (
+        <section
+          aria-label={copy.shell.breakGlassLabel}
+          className="border-b-[1.5px] border-warning-line bg-warning-bg px-4 py-2 text-[15px] text-foreground nav:px-6"
+        >
+          <p className="m-0">
+            <strong className="mr-2 font-semibold">{copy.shell.breakGlassLabel}.</strong>
+            {copy.shell.breakGlass}
+            {manifest.break_glass?.reason ? ` ${copy.shell.breakGlassReason(manifest.break_glass.reason)}` : ""}
           </p>
         </section>
       ) : null}

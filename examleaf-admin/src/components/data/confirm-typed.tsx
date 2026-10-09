@@ -35,10 +35,12 @@ type ConfirmProps = {
   /** Ask for a reason (saved in the audit trail with the action). */
   reason?: boolean;
   reasonHelp?: string;
+  /** More short fields the action needs (a ticket number), before the reason. */
+  fields?: { name: string; label: string; help?: string }[];
   /** The words the person types to confirm (the record's label). */
   typed?: string;
   success?: string;
-  onConfirm: (input: { reason: string }) => Promise<unknown>;
+  onConfirm: (input: { reason: string; values: Record<string, string> }) => Promise<unknown>;
   /** After it worked, instead of a fresh render of the page. */
   onDone?: (result: unknown) => void;
   disabled?: boolean;
@@ -53,6 +55,7 @@ export function ConfirmDialog({
   confirmVariant = "destructive",
   reason = false,
   reasonHelp,
+  fields = [],
   typed,
   success,
   onConfirm,
@@ -90,10 +93,14 @@ export function ConfirmDialog({
           onSubmit={async (event) => {
             event.preventDefault();
             if (!matches) return;
-            const given = String(new FormData(event.currentTarget).get("reason") ?? "").trim();
+            const form = new FormData(event.currentTarget);
+            const given = String(form.get("reason") ?? "").trim();
+            const values = Object.fromEntries(
+              fields.map((field) => [field.name, String(form.get(field.name) ?? "").trim()]),
+            );
             let result: unknown;
             const ok = await run(async () => {
-              result = await onConfirm({ reason: given });
+              result = await onConfirm({ reason: given, values });
             });
             if (!ok) return;
             setOpen(false);
@@ -106,7 +113,25 @@ export function ConfirmDialog({
           <DialogBody>
             <DialogDescription>{text}</DialogDescription>
           </DialogBody>
-          <ErrorSummary error={error} idPrefix={`${id}-`} labels={{ reason: copy.common.reason }} />
+          <ErrorSummary
+            error={error}
+            idPrefix={`${id}-`}
+            labels={{
+              reason: copy.common.reason,
+              ...Object.fromEntries(fields.map((field) => [field.name, field.label])),
+            }}
+          />
+          {fields.map((field) => (
+            <Field
+              key={field.name}
+              id={`${id}-${field.name}`}
+              label={field.label}
+              help={field.help}
+              error={fieldError(error, field.name)}
+            >
+              <Input name={field.name} autoComplete="off" aria-required="true" />
+            </Field>
+          ))}
           {reason ? (
             <Field
               id={`${id}-reason`}

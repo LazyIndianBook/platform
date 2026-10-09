@@ -71,9 +71,10 @@ export function CommandPalette({
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       setState("searching");
+      // customers through the API's search; the staff (a short list, people/ has no search) filtered here
       const [customers, people] = await Promise.allSettled([
-        has(manifest, P.usersView) ? listUsers({ q }, undefined) : Promise.resolve(null),
-        has(manifest, P.peopleView) ? listPeople({ q }, undefined) : Promise.resolve(null),
+        has(manifest, P.usersView) ? listUsers({ q }) : Promise.resolve(null),
+        has(manifest, P.peopleView) ? listPeople({ page_size: 200 }) : Promise.resolve(null),
       ]);
       if (controller.signal.aborted) return;
       const failed = [customers, people].some((answer) => answer.status === "rejected");
@@ -84,19 +85,22 @@ export function CommandPalette({
           customers.status === "fulfilled" && customers.value
             ? customers.value.results.slice(0, 6).map((user) => ({
                 id: `user:${user.id}`,
-                label: user.name || user.masked_email || user.id,
-                hint: user.masked_email ?? undefined,
+                label: user.full_name || user.email,
+                hint: user.email,
                 href: `/users/${user.id}/`,
               }))
             : [],
         people:
           people.status === "fulfilled" && people.value
-            ? people.value.results.slice(0, 6).map((person) => ({
-                id: `person:${person.id}`,
-                label: person.name || person.email,
-                hint: person.email,
-                href: `/people/${person.id}/`,
-              }))
+            ? people.value.results
+                .filter((person) => matches(q, person.full_name, person.email))
+                .slice(0, 6)
+                .map((person) => ({
+                  id: `person:${person.id}`,
+                  label: person.full_name || person.email,
+                  hint: person.email,
+                  href: `/people/${person.id}/`,
+                }))
             : [],
       });
     }, 250);
@@ -116,13 +120,13 @@ export function CommandPalette({
     .concat({ id: "page:account", label: copy.nav.modules.account, hint: undefined, href: "/account/" });
 
   const actions: PaletteItem[] = [
-    ...(has(manifest, P.peopleInvite)
+    ...(has(manifest, P.peopleAssign)
       ? [{ id: "action:invite", label: copy.palette.inviteAction, href: "/people/#invite" }]
       : []),
-    ...(has(manifest, P.incidentsAdd)
+    ...(has(manifest, P.incidentsManage)
       ? [{ id: "action:incident", label: copy.palette.incidentAction, href: "/privacy/incidents/#new" }]
       : []),
-    ...(has(manifest, P.requestsAdd)
+    ...(has(manifest, P.requestsHandle)
       ? [{ id: "action:request", label: copy.palette.requestAction, href: "/privacy/requests/#new" }]
       : []),
     { id: "action:shortcuts", label: copy.palette.shortcutsAction, run: onShortcuts },

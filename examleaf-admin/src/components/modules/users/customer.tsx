@@ -1,10 +1,10 @@
 "use client";
 
-// A customer's record, the parts that act: the contact details (masked; Reveal with a reason, POST users/{id}/reveal/),
-// the everyday actions (send the email confirmation or a password reset again, unlock, sign them out everywhere), and
-// the Danger section (suspend or lift it, reset two-step sign-in, which a second person approves, and signing in to
-// the website as them for 15 minutes, with a reason and the name typed). Each is drawn when the manifest allows it;
-// the API decides, may ask to confirm it's you, and records it.
+// A customer's record, the parts that act: the contact details (masked; Reveal with a reason, POST users/{id}/reveal/
+// {show: [...]}), the everyday actions (the parent's consent link again while it waits, a password reset link, unlock,
+// sign them out everywhere), and the Danger section (suspend or lift it with a reason, reset two-step sign-in, which a
+// second person approves, and signing in to the website as them for 15 minutes, with a ticket, a reason and the name
+// typed). Each is drawn when the manifest allows it; the API decides, may ask to confirm it's you, and records it.
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -19,17 +19,21 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toaster";
 import {
   type CustomerAction,
-  type CustomerRecord,
+  type CustomerDetail,
+  endImpersonation,
+  type Impersonation,
   impersonate,
   resetUserMfa,
   revealUser,
+  suspendUser,
   userAction,
 } from "@/lib/api/staff";
 import { copy } from "@/lib/copy";
 import { formatTime } from "@/lib/format";
 import { P } from "@/lib/modules";
+import { WEBSITE_URL } from "@/lib/site";
 
-export function CustomerContact({ user }: { user: CustomerRecord }) {
+export function CustomerContact({ user }: { user: CustomerDetail }) {
   const can = useCan();
   const revealing = can(P.usersReveal);
   return (
@@ -39,9 +43,9 @@ export function CustomerContact({ user }: { user: CustomerRecord }) {
           label: copy.users.email,
           value: (
             <MaskedValue
-              masked={user.masked_email}
+              masked={user.email}
               what={copy.masked.email}
-              reveal={revealing ? (reason) => revealUser(user.id, "email", reason) : undefined}
+              reveal={revealing ? (reason) => revealUser(user.id, ["email"], reason) : undefined}
             />
           ),
         },
@@ -49,12 +53,26 @@ export function CustomerContact({ user }: { user: CustomerRecord }) {
           label: copy.users.phone,
           value: (
             <MaskedValue
-              masked={user.masked_phone}
+              masked={user.phone}
               what={copy.masked.phone}
-              reveal={revealing ? (reason) => revealUser(user.id, "phone", reason) : undefined}
+              reveal={revealing ? (reason) => revealUser(user.id, ["login_phone", "phone"], reason) : undefined}
             />
           ),
         },
+        ...(user.parent_contact
+          ? [
+              {
+                label: copy.users.parentContact,
+                value: (
+                  <MaskedValue
+                    masked={user.parent_contact}
+                    what={copy.users.parentContact.toLowerCase()}
+                    reveal={revealing ? (reason) => revealUser(user.id, ["parent_contact"], reason) : undefined}
+                  />
+                ),
+              },
+            ]
+          : []),
       ]}
     />
   );
@@ -62,7 +80,7 @@ export function CustomerContact({ user }: { user: CustomerRecord }) {
 
 type Simple = { action: CustomerAction; label: string; done: string; permission: string; when?: boolean };
 
-export function CustomerActions({ user }: { user: CustomerRecord }) {
+export function CustomerActions({ user }: { user: CustomerDetail }) {
   const router = useRouter();
   const can = useCan();
   const { run, busy, error } = useAction();
@@ -73,7 +91,7 @@ export function CustomerActions({ user }: { user: CustomerRecord }) {
       label: copy.users.action.resendVerification,
       done: copy.users.done.resendVerification,
       permission: P.usersResendVerification,
-      when: user.email_verified !== true,
+      when: user.consent === "pending",
     },
     {
       action: "password-reset",
@@ -86,7 +104,7 @@ export function CustomerActions({ user }: { user: CustomerRecord }) {
       label: copy.users.action.unlock,
       done: copy.users.done.unlock,
       permission: P.usersUnlock,
-      when: user.flags.locked,
+      when: user.locked,
     },
   ];
   const shown = simple.filter((item) => can(item.permission) && item.when !== false);
@@ -120,8 +138,11 @@ export function CustomerActions({ user }: { user: CustomerRecord }) {
             title={copy.users.action.endSessions}
             text={copy.people.endSessionsText}
             confirmLabel={copy.users.action.endSessions}
-            success={copy.users.done.endSessions}
             onConfirm={() => userAction(user.id, "end-sessions")}
+            onDone={(result) => {
+              toast.success(copy.people.sessionsEnded((result as { sessions: number }).sessions));
+              router.refresh();
+            }}
           />
         ) : null}
       </div>
@@ -129,15 +150,48 @@ export function CustomerActions({ user }: { user: CustomerRecord }) {
   );
 }
 
-export function CustomerDanger({ user }: { user: CustomerRecord }) {
+function Impersonating({ user, opened, onEnd }: { user: CustomerDetail; opened: Impersonation; onEnd: () => void }) {
+  const router = useRouter();
+  const { run, busy, error } = useAction();
+  return (
+    <Alert variant="success" title={copy.users.impersonateUntil(formatTime(opened.until))}>
+      <p>
+        <a href={opened.url} target="_blank" rel="noopener noreferrer" className="font-semibold">
+          {copy.users.impersonateOpen} <span className="sr-only">{copy.common.opensElsewhere}</span>
+        </a>
+      </p>
+      {error ? <p className="font-semibold text-destructive">{error.message}</p> : null}
+      <p>
+        <Button
+          size="sm"
+          variant="secondary"
+          busy={busy}
+          onClick={() =>
+            run(async () => {
+              await endImpersonation(user.id, opened.token);
+              toast.success(copy.users.impersonateEnded);
+              onEnd();
+              router.refresh();
+            })
+          }
+        >
+          {copy.users.impersonateEnd}
+        </Button>
+      </p>
+    </Alert>
+  );
+}
+
+export function CustomerDanger({ user }: { user: CustomerDetail }) {
   const can = useCan();
   const router = useRouter();
-  const [opened, setOpened] = useState<{ url: string; until: string } | null>(null);
-  const suspended = user.status === "suspended" || user.flags.suspended;
-  const label = user.name || user.masked_email || user.id;
+  // started here: its link and End (after a reload, the shell's banner keeps End for this tab)
+  const [opened, setOpened] = useState<Impersonation | null>(null);
+  const suspended = user.status === "suspended";
+  const label = user.full_name || user.email;
   return (
     <div className="flex flex-col gap-4">
-      {can(P.usersSuspend) ? (
+      {can(P.usersSuspend) && user.status !== "erased" ? (
         <DangerRow
           title={suspended ? copy.users.action.unsuspend : copy.users.action.suspend}
           text={copy.users.suspendText}
@@ -149,8 +203,9 @@ export function CustomerDanger({ user }: { user: CustomerRecord }) {
             text={copy.users.suspendText}
             confirmLabel={suspended ? copy.users.action.unsuspend : copy.users.action.suspend}
             confirmVariant={suspended ? "primary" : "destructive"}
+            reason
             success={suspended ? copy.users.done.unsuspend : copy.users.done.suspend}
-            onConfirm={() => userAction(user.id, suspended ? "unsuspend" : "suspend")}
+            onConfirm={({ reason }) => suspendUser(user.id, !suspended, reason)}
           />
         </DangerRow>
       ) : null}
@@ -162,7 +217,8 @@ export function CustomerDanger({ user }: { user: CustomerRecord }) {
             title={copy.users.resetMfaTitle}
             text={copy.users.resetMfaText}
             confirmLabel={copy.users.action.resetMfa}
-            onConfirm={() => resetUserMfa(user.id)}
+            reason
+            onConfirm={({ reason }) => resetUserMfa(user.id, reason)}
           />
         </DangerRow>
       ) : null}
@@ -175,25 +231,20 @@ export function CustomerDanger({ user }: { user: CustomerRecord }) {
             title={copy.users.impersonateTitle}
             text={copy.users.impersonateText}
             confirmLabel={copy.users.impersonateButton}
+            fields={[{ name: "ticket", label: copy.users.impersonateTicket, help: copy.users.impersonateTicketHelp }]}
             reason
             reasonHelp={copy.users.impersonateReasonHelp}
-            onConfirm={({ reason }) => impersonate(user.id, reason)}
+            onConfirm={({ reason, values }) =>
+              impersonate(user.id, { reason, ticket: values.ticket ?? "" }, WEBSITE_URL)
+            }
             onDone={(result) => {
-              setOpened(result as { url: string; until: string });
+              setOpened(result as Impersonation);
               router.refresh();
             }}
           />
         </DangerRow>
       ) : null}
-      {opened ? (
-        <Alert variant="success" title={copy.users.impersonateUntil(formatTime(opened.until))}>
-          <p>
-            <a href={opened.url} target="_blank" rel="noopener noreferrer" className="font-semibold">
-              {copy.users.impersonateOpen} <span className="sr-only">{copy.common.opensElsewhere}</span>
-            </a>
-          </p>
-        </Alert>
-      ) : null}
+      {opened ? <Impersonating user={user} opened={opened} onEnd={() => setOpened(null)} /> : null}
     </div>
   );
 }

@@ -1,7 +1,8 @@
 // Next's request proxy (Next 16's name for middleware.ts), on every request but static files and prefetches, as the
 // public site's (examleaf-frontend/src/proxy.ts):
 // 1. Django's prefixes (src/lib/site.ts) are passed to API_INTERNAL_BASE. Caddy does this in production, so these
-//    requests only arrive here in development and CI.
+//    requests only arrive here in development and CI. With STAFF_API_MOCK=1 (next dev only) /api/v1/staff/ goes to
+//    the fixtures' route instead (src/app/api/mock/staff/).
 // 2. Every other path gets its trailing slash (trailingSlash: true; allauth's paths have none).
 // 3. Every page gets a fresh nonce and its Content-Security-Policy (src/lib/security/csp.ts), and the path it was
 //    asked for (x-pathname: a page's "sign in, then back here").
@@ -50,6 +51,11 @@ const UNREACHABLE = statusPage({
 
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
+
+  // STAFF_API_MOCK=1 (next dev only: every build compiles it to ""): the staff API from the fixtures' route instead
+  if (process.env.STAFF_API_MOCK === "1" && pathname.startsWith("/api/v1/staff/")) {
+    return NextResponse.rewrite(new URL(`/api/mock/staff/${pathname.slice(14)}${search}`, request.url));
+  }
 
   if (DJANGO_PREFIXES.some((prefix) => pathname.startsWith(prefix) || `${pathname}/` === prefix)) {
     return NextResponse.rewrite(new URL(`${pathname}${search}`, API_INTERNAL_BASE));

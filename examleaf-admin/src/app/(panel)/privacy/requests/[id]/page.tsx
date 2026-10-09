@@ -1,30 +1,41 @@
-// /privacy/requests/<id>/: one data-rights request (GET data-requests/{id}/): its clocks, acknowledge, notes, an
-// erasure's dry run (what would go, what the law keeps and until when), a drafted reply, what was done, and its audit
-// events beside.
+// /privacy/requests/<id>/: one data-rights request (GET data-requests/{id}/): its clocks, who asked and whether their
+// identity was checked, its steps (acknowledge, the identity check, notes, an erasure's dry run and the erasure, an
+// access request's data by email), the answer's text (GET response/), closing it, and its notes and audit events
+// beside.
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { Clock } from "@/components/data/clock";
-import { EventTimeline } from "@/components/data/event-timeline";
 import { Problem } from "@/components/data/problem";
 import { Facts, RecordPage } from "@/components/data/record-page";
+import { recordSide } from "@/components/data/record-side";
 import { StatusChip, toneOf } from "@/components/data/status-chip";
-import { Acknowledge, ErasureDryRun, RequestNotes, ResponseDraft } from "@/components/modules/privacy/requests";
+import {
+  Acknowledge,
+  CloseRequest,
+  Erasure,
+  ExportData,
+  RequestNotes,
+  ResponseText,
+  VerifyIdentity,
+} from "@/components/modules/privacy/requests";
 import { Section } from "@/components/shell/page-header";
 import { ApiError } from "@/lib/api/errors";
-import { attempt, requestTime, staffPage } from "@/lib/api/page";
-import { FINAL_REQUEST_STATES, getDataRequest, listAudit } from "@/lib/api/staff";
+import { attempt, recordId, requestTime, staffPage } from "@/lib/api/page";
+import { dataRequestResponse, getDataRequest } from "@/lib/api/staff";
 import { copy, labelOf } from "@/lib/copy";
-import { requesterLabel } from "@/lib/display";
+import { staffLabel } from "@/lib/display";
 import { formatDateTime } from "@/lib/format";
+import { has, P } from "@/lib/modules";
 
 export const metadata: Metadata = { title: copy.privacy.requestsTitle };
 
 export default async function DataRequestPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { transport, path } = await staffPage(`/privacy/requests/${encodeURIComponent(id)}/`);
-  const [request, events] = await Promise.all([
-    attempt(getDataRequest(id, transport), path, "404"),
-    attempt(listAudit({ target_type: "data_request", target_id: id }, transport), path),
+  const { manifest, transport, path } = await staffPage(`/privacy/requests/${encodeURIComponent(id)}/`);
+  const [request, response] = await Promise.all([
+    attempt(getDataRequest(recordId(id), transport), path, "404"),
+    attempt(dataRequestResponse(recordId(id), transport), path),
   ]);
   const back = { href: "/privacy/requests/", label: copy.privacy.requestsTitle };
   if (request instanceof ApiError) {
@@ -35,46 +46,55 @@ export default async function DataRequestPage({ params }: { params: Promise<{ id
     );
   }
   const now = requestTime();
-  const open = !FINAL_REQUEST_STATES.has(request.state);
+  const open = request.status !== "closed";
+  const me = manifest.user.id;
   return (
     <RecordPage
       eyebrow={copy.privacy.requestsTitle}
-      title={`${labelOf(copy.privacy.types, request.type)} · ${request.id}`}
+      title={`${labelOf(copy.privacy.kinds, request.kind)} · ${request.id}`}
       back={back}
-      status={<StatusChip tone={toneOf(request.state)}>{labelOf(copy.privacy.states, request.state)}</StatusChip>}
-      timelineLabel={copy.audit.title}
-      timeline={
-        events instanceof ApiError ? (
-          <Problem error={events} />
-        ) : (
-          <EventTimeline events={events.results} label={copy.audit.title} />
-        )
-      }
+      status={<StatusChip tone={toneOf(request.status)}>{labelOf(copy.privacy.statuses, request.status)}</StatusChip>}
+      side={recordSide({
+        manifest,
+        transport,
+        path,
+        audit: { target_type: "staff.datarequest", target_id: String(request.id) },
+        note: { type: "staff.datarequest", id: String(request.id) },
+      })}
     >
       <Facts
         items={[
+          { label: copy.privacy.columns.requester, value: <span className="font-mono">{request.requester}</span> },
           {
-            label: copy.privacy.columns.requester,
-            value: (
-              <>
-                <span className="font-mono">{requesterLabel(request)}</span>
-                {request.requester.masked_email && request.requester.masked_phone ? (
-                  <span className="font-mono"> · {request.requester.masked_phone}</span>
-                ) : null}
-                <span className="block text-sm text-muted-foreground">
-                  {request.requester.verified ? copy.privacy.verifiedRequester : copy.privacy.unverifiedRequester}
-                </span>
-              </>
+            label: copy.privacy.account,
+            value: request.user ? (
+              <Link href={`/users/${request.user}/`}>{copy.privacy.accountLink(request.user)}</Link>
+            ) : (
+              copy.privacy.noAccount
             ),
           },
+          { label: copy.privacy.summary, value: <span className="whitespace-pre-wrap">{request.summary}</span> },
           { label: copy.privacy.channel, value: labelOf(copy.privacy.channels, request.channel) },
           { label: copy.privacy.columns.received, value: formatDateTime(request.received_at) },
+          {
+            label: copy.privacy.identity,
+            value: request.identity_verified ? (
+              <>
+                {copy.privacy.verifiedRequester(formatDateTime(request.verified_at))}
+                {request.identity_note ? (
+                  <span className="block text-sm text-muted-foreground">“{request.identity_note}”</span>
+                ) : null}
+              </>
+            ) : (
+              copy.privacy.unverifiedRequester
+            ),
+          },
           {
             label: copy.privacy.columns.ack,
             value: (
               <Clock
                 label={copy.privacy.ackClock}
-                start={request.received_at}
+                start={request.received_at ?? null}
                 due={request.ack_due_at}
                 doneAt={request.acknowledged_at}
                 doneAs="acknowledged"
@@ -85,41 +105,48 @@ export default async function DataRequestPage({ params }: { params: Promise<{ id
           {
             label: copy.privacy.columns.due,
             value: open ? (
-              <Clock label={copy.privacy.dueClock} start={request.received_at} due={request.due_at} now={now} />
+              <Clock label={copy.privacy.dueClock} start={request.received_at ?? null} due={request.due_at} now={now} />
             ) : (
-              labelOf(copy.privacy.states, request.state)
+              copy.privacy.closedWith(
+                labelOf(copy.privacy.outcomes, request.outcome),
+                formatDateTime(request.closed_at),
+              )
             ),
           },
+          { label: copy.privacy.assignee, value: staffLabel(request.assignee, me) },
         ]}
       />
       <Acknowledge request={request} />
+      {open && has(manifest, P.requestsHandle) && !request.identity_verified ? (
+        <Section id="identity" title={copy.privacy.verify} lead={copy.privacy.verifyNoteHelp}>
+          <VerifyIdentity request={request} />
+        </Section>
+      ) : null}
       <Section id="notes" title={copy.privacy.notes}>
         <RequestNotes request={request} />
       </Section>
-      {request.type === "erasure" ? (
-        <Section id="dry-run" title={copy.privacy.dryRun} lead={copy.privacy.dryRunLead}>
-          <ErasureDryRun request={request} />
+      {request.kind === "erasure" && request.user ? (
+        <Section id="erasure" title={copy.privacy.erasure} lead={copy.privacy.erasureLead}>
+          <Erasure request={request} />
         </Section>
       ) : null}
-      <Section id="response" title={copy.privacy.template} lead={copy.privacy.templateLead}>
-        <ResponseDraft request={request} />
-      </Section>
-      <Section id="done" title={copy.privacy.actions}>
-        {request.actions.length ? (
-          <ul className="m-0 flex list-none flex-col gap-1.5 p-0 text-[15px]">
-            {request.actions.map((action, index) => (
-              <li key={`${action.at}-${index}`}>
-                {action.at ? (
-                  <span className="font-mono text-sm text-muted-foreground">{formatDateTime(action.at)} · </span>
-                ) : null}
-                {action.text}
-              </li>
-            ))}
-          </ul>
+      {request.kind === "access" && request.user && has(manifest, P.requestsExport) ? (
+        <Section id="export" title={copy.privacy.exportTitle} lead={copy.privacy.exportText}>
+          <ExportData request={request} />
+        </Section>
+      ) : null}
+      <Section id="response" title={copy.privacy.response} lead={copy.privacy.responseLead}>
+        {response instanceof ApiError ? (
+          <Problem error={response} />
         ) : (
-          <p className="m-0 text-[15px] text-muted-foreground">{copy.privacy.noActions}</p>
+          <ResponseText subject={response.subject} body={request.response || response.body} />
         )}
       </Section>
+      {open && has(manifest, P.requestsHandle) ? (
+        <Section id="close" title={copy.privacy.close} lead={copy.privacy.closeLead}>
+          <CloseRequest request={request} draft={response instanceof ApiError ? "" : response.body} />
+        </Section>
+      ) : null}
     </RecordPage>
   );
 }

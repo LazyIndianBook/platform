@@ -1,15 +1,20 @@
 // One error shape for every answer the console gets, as on the public site (examleaf-frontend/src/lib/api/errors.ts):
 // the staff API and API v1 (DRF: {"field": ["…"]}, {"detail": "…", "code": "…"}), allauth.headless
-// ({"status": 400, "errors": [{"message", "code", "param"}]}), and no answer at all (status 0). The staff API adds
-// meanings the console acts on:
-//   401                        the session ended: sign in again, the typed draft kept (sessionStorage)
+// ({"status": 400, "errors": [{"message", "code", "param"}]}), and no answer at all (status 0). The staff API's codes
+// (examleaf-web/staff/README.md, API.md "Staff API") that the console acts on:
+//   401 not_authenticated, authentication_failed, session_idle, session_expired
+//                              the session ended: sign in again (the sign-in page says why), the draft kept
 //   403 permission_denied      the role does not allow it (the manifest is read again)
-//   403 scope_denied           the record is outside the person's scopes (the manifest is read again)
-//   403 reauth_required        confirm it's you (allauth's reauthenticate flows), then the call is sent again once
-//                              (reauthentication_required, the platform's name for it, reads the same)
-//   403 approval_required      a change request was made instead; changeRequestId links to it
-//   403 mfa_setup_required     staff without two-step sign-in (StaffMFAMiddleware)
-//   409 conflict               the record changed since it was read (If-Match): reload, the draft kept
+//   403 reauthentication_required
+//                              confirm it's you (allauth's flows), then the call is sent again once (read here as
+//                              reauth_required, the console's one name for it)
+//   403 mfa_setup_required     staff without two-step sign-in
+//   403 impersonating          not while this session is signed in as a customer (payments, passwords, consent …)
+//   403 link_expired           a job's file link older than 5 minutes: read the job again for a new one
+//   404 not_found              also a record outside the person's scopes: never a 403 that would tell it exists
+//   202 approval_required      the console's name for a 202 with a change request: nothing ran, a second person is
+//                              asked (the change request is the error's body)
+//   409 conflict               the record changed since it was read: reload, the draft kept
 //   429 throttled              retryAfter: the seconds of Retry-After, when the server sends it
 import { copy } from "@/lib/copy";
 
@@ -29,8 +34,7 @@ const DEFAULT_MESSAGES: Record<number, string> = {
   504: copy.errors.unavailable,
 };
 
-// The platform's own names for the same answers (API.md: the account endpoints already answer
-// reauthentication_required), read as the brief's, so either side of the contract works.
+// The platform's name for "confirm it's you", read as the console's one name for it.
 const ALIASES: Record<string, string> = { reauthentication_required: "reauth_required" };
 
 const CODES: Record<number, string> = {
@@ -55,13 +59,13 @@ export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
   readonly fields: FieldErrors;
-  /** The answer's body as it came (allauth's flows, a change request). */
+  /** The answer's body as it came (allauth's flows, a change request, an erasure's dry run). */
   readonly body: unknown;
   /** Seconds to wait (Retry-After of a 429), when the server said. */
   readonly retryAfter: number | null;
   /** When that wait ends (ms since 1970), counted from when the answer came. */
   readonly retryAt: number | null;
-  /** The change request made instead of the action (403 approval_required, or a 202). */
+  /** The change request made instead of the action (a 202 with it). */
   readonly changeRequestId: string | null;
 
   constructor(
@@ -87,20 +91,25 @@ export class ApiError extends Error {
   get unavailable(): boolean {
     return this.status === 0 || this.status >= 500;
   }
+
+  /** The change request a 202 answered with: its id, status and the permission its approver needs. */
+  get approval(): { id: string; status: string; checker: string | null } | null {
+    if (!this.changeRequestId) return null;
+    const body = (this.body ?? {}) as Record<string, unknown>;
+    return {
+      id: this.changeRequestId,
+      status: typeof body.status === "string" ? body.status : "pending",
+      checker: typeof body.checker === "string" ? body.checker : null,
+    };
+  }
 }
 
-/** The change request an answer names: {"change_request": {"id": 12}}, {"change_request": 12} or
- *  {"change_request_id": 12}. */
+/** The change request an answer is ({"id", "payload_sha256", "checker", …}) or names (a job's change_request_id). */
 export function changeRequestOf(body: unknown): string | null {
   if (!body || typeof body !== "object") return null;
   const record = body as Record<string, unknown>;
-  const named = record.change_request ?? record.change_request_id;
-  if (typeof named === "number" || (typeof named === "string" && named)) return String(named);
-  if (named && typeof named === "object") {
-    const id = (named as Record<string, unknown>).id;
-    if (typeof id === "number" || (typeof id === "string" && id)) return String(id);
-  }
-  return null;
+  const id = "payload_sha256" in record ? record.id : record.change_request_id;
+  return typeof id === "number" || (typeof id === "string" && id) ? String(id) : null;
 }
 
 const strings = (value: unknown): string[] =>
@@ -143,14 +152,20 @@ export function toApiError(status: number, body: unknown, headers?: Headers | nu
     return new ApiError(status, named, record.detail, {}, body, retryAfter);
   }
 
-  // DRF validation: {"field": ["…"], "non_field_errors": ["…"]}
+  // DRF validation: {"field": ["…"], "non_field_errors": ["…"]}; a job's params and an export's filters nest one level
+  // ({"params": {"reason": ["…"]}}), read as "params.reason"
   const fields: FieldErrors = {};
   let message = "";
-  for (const [key, value] of Object.entries(record)) {
+  const read = (key: string, value: unknown) => {
     const list = strings(value);
-    if (!list.length) continue;
+    if (!list.length) return;
     if (key === "non_field_errors" || key === "__all__") message = list[0];
     else if (key !== "code") fields[key] = list;
+  };
+  for (const [key, value] of Object.entries(record)) {
+    if (value && typeof value === "object" && !Array.isArray(value))
+      for (const [inner, nested] of Object.entries(value)) read(`${key}.${inner}`, nested);
+    else read(key, value);
   }
   const first = Object.values(fields)[0]?.[0];
   const named = typeof record.code === "string" && record.code ? record.code : code;

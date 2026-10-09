@@ -1,13 +1,13 @@
-// /people/: staff (GET people/?q=), and the invitation (POST people/invite/: an email address and a role; a privileged
-// role makes a change request instead).
+// /people/: staff (GET people/), the invitations (GET people/invites/), and inviting someone (POST people/invite/: an
+// address, a role and a reason; a privileged role makes a change request instead, answered 202).
 import type { Metadata } from "next";
 
 import { Problem } from "@/components/data/problem";
-import { InviteForm, PeopleTable } from "@/components/modules/people/people-table";
+import { InviteForm, Invites, PeopleTable } from "@/components/modules/people/people-table";
 import { PageHeader, Section } from "@/components/shell/page-header";
 import { ApiError } from "@/lib/api/errors";
-import { attempt, param, pathOf, type SearchParams, staffPage } from "@/lib/api/page";
-import { listPeople, listSavedViews } from "@/lib/api/staff";
+import { attempt, param, pathOf, requestTime, type SearchParams, staffPage } from "@/lib/api/page";
+import { listInvites, listPeople, listSavedViews } from "@/lib/api/staff";
 import { copy } from "@/lib/copy";
 import { has, P } from "@/lib/modules";
 
@@ -16,11 +16,12 @@ export const metadata: Metadata = { title: copy.people.title };
 export default async function PeoplePage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
   const { manifest, transport, path } = await staffPage(pathOf("/people/", params));
-  const [page, views] = await Promise.all([
-    attempt(listPeople({ q: param(params, "q"), cursor: param(params, "cursor") }, transport), path),
-    attempt(listSavedViews("people", transport), path),
+  const [page, invites, views] = await Promise.all([
+    attempt(listPeople({ cursor: param(params, "cursor") }, transport), path),
+    attempt(listInvites(transport), path),
+    has(manifest, P.savedViewsView) ? attempt(listSavedViews("people", transport), path) : null,
   ]);
-  const inviting = has(manifest, P.peopleInvite);
+  const inviting = has(manifest, P.peopleAssign);
   return (
     <>
       <PageHeader
@@ -45,6 +46,13 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
             views={views instanceof ApiError ? null : views}
           />
         )}
+        <Section id="invites" title={copy.people.invites} lead={copy.people.invitesLead}>
+          {invites instanceof ApiError ? (
+            <Problem error={invites} />
+          ) : (
+            <Invites invites={invites.results} now={requestTime()} />
+          )}
+        </Section>
         {inviting ? (
           <Section id="invite" title={copy.people.inviteTitle} lead={copy.people.inviteText}>
             <InviteForm />

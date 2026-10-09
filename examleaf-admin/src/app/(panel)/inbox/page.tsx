@@ -1,5 +1,5 @@
-// /inbox/: what waits for a person (GET inbox/?state=&kind=&assignee=&cursor=), the person's own by default, open by
-// default; done, snooze and assign per item or in bulk (components/modules/inbox/inbox-table.tsx).
+// /inbox/: what waits for a person (GET inbox/?kind=&mine=&done=&snoozed=&cursor=): open by default; done, snooze
+// and assign per item (components/modules/inbox/inbox-table.tsx).
 import type { Metadata } from "next";
 
 import { Problem } from "@/components/data/problem";
@@ -9,27 +9,29 @@ import { ApiError } from "@/lib/api/errors";
 import { attempt, param, pathOf, requestTime, type SearchParams, staffPage } from "@/lib/api/page";
 import { listInbox, listSavedViews } from "@/lib/api/staff";
 import { copy } from "@/lib/copy";
+import { has, P } from "@/lib/modules";
 
 export const metadata: Metadata = { title: copy.inbox.title };
 
 export default async function InboxPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
-  const { transport, path } = await staffPage(pathOf("/inbox/", params));
+  const { manifest, transport, path } = await staffPage(pathOf("/inbox/", params));
   const state = param(params, "state") || "open";
   const [page, views] = await Promise.all([
     attempt(
       listInbox(
         {
-          state,
           kind: param(params, "kind"),
-          assignee: param(params, "assignee") === "anyone" ? undefined : "me",
+          mine: param(params, "mine") === "true" || undefined,
+          done: state === "done" || undefined,
+          snoozed: state === "snoozed" || undefined,
           cursor: param(params, "cursor"),
         },
         transport,
       ),
       path,
     ),
-    attempt(listSavedViews("inbox", transport), path),
+    has(manifest, P.savedViewsView) ? attempt(listSavedViews("inbox", transport), path) : null,
   ]);
   return (
     <>

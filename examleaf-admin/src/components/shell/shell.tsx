@@ -16,14 +16,15 @@ import { IdleWatcher } from "@/components/shell/idle-watcher";
 import { useManifest } from "@/components/shell/manifest";
 import { PersonMenu } from "@/components/shell/person-menu";
 import { ReauthDialog } from "@/components/shell/reauth-dialog";
+import { SessionGate } from "@/components/shell/session-gate";
 import { ShortcutsDialog } from "@/components/shell/shortcuts-dialog";
 import { Sidebar } from "@/components/shell/sidebar";
-import type { InboxCounts } from "@/lib/api/staff";
+import type { InboxCount } from "@/lib/api/staff";
 import { copy } from "@/lib/copy";
 import { has, P } from "@/lib/modules";
 import { notForShortcuts, useShortcutsEnabled } from "@/lib/shortcuts";
 
-export function Shell({ inbox, now, children }: { inbox: InboxCounts | null; now: number; children: React.ReactNode }) {
+export function Shell({ inbox, now, children }: { inbox: InboxCount | null; now: number; children: React.ReactNode }) {
   const manifest = useManifest();
   const pathname = usePathname();
   const search = useSearchParams();
@@ -104,11 +105,11 @@ export function Shell({ inbox, now, children }: { inbox: InboxCounts | null; now
                 {/* its name is what it shows, "Inbox 6", then "open" for screen readers (WCAG 2.5.3) */}
                 <InboxIcon aria-hidden="true" className="size-5 shrink-0 min-[1100px]:hidden" />
                 <span className="max-[1099px]:sr-only">{copy.shell.inbox}</span>
-                {inbox && inbox.total > 0 ? (
+                {inbox && inbox.open > 0 ? (
                   <>
                     {" "}
                     <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-primary px-1.5 font-mono text-xs font-semibold text-primary-foreground">
-                      {inbox.more ? `${inbox.total}+` : inbox.total}
+                      {inbox.open}
                     </span>{" "}
                     <span className="sr-only">{copy.shell.inboxOpen}</span>
                   </>
@@ -131,6 +132,7 @@ export function Shell({ inbox, now, children }: { inbox: InboxCounts | null; now
       <CommandPalette open={palette} onOpenChange={setPalette} onShortcuts={() => setKeys(true)} />
       <ShortcutsDialog open={keys} onOpenChange={setKeys} />
       <ReauthDialog />
+      <SessionGate />
       <IdleWatcher idleSeconds={manifest.idle_timeout_s} absoluteEnd={manifest.absolute_expires_at} />
     </>
   );

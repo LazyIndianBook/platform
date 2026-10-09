@@ -1,5 +1,5 @@
-// /privacy/incidents/: the breach register with its 6-hour and 72-hour clocks (GET incidents/), and recording a new
-// incident (POST incidents/, #new) as soon as it is noticed.
+// /privacy/incidents/: the breach register with its 6-hour and 72-hour clocks (GET incidents/?open=&kind=), and
+// recording a new incident (POST incidents/, #new) as soon as it is noticed.
 import type { Metadata } from "next";
 
 import { Problem } from "@/components/data/problem";
@@ -17,11 +17,17 @@ export default async function IncidentsPage({ searchParams }: { searchParams: Pr
   const params = await searchParams;
   const { manifest, transport, path } = await staffPage(pathOf("/privacy/incidents/", params));
   const [page, views] = await Promise.all([
-    attempt(listIncidents({ state: param(params, "state"), cursor: param(params, "cursor") }, transport), path),
-    attempt(listSavedViews("incidents", transport), path),
+    attempt(
+      listIncidents(
+        { open: param(params, "open"), kind: param(params, "kind"), cursor: param(params, "cursor") },
+        transport,
+      ),
+      path,
+    ),
+    has(manifest, P.savedViewsView) ? attempt(listSavedViews("incidents", transport), path) : null,
   ]);
   const now = requestTime();
-  const recording = has(manifest, P.incidentsAdd);
+  const recording = has(manifest, P.incidentsManage);
   return (
     <>
       <PageHeader

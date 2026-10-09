@@ -34,6 +34,19 @@ export function pathOf(path: string, params: SearchParams = {}): string {
   return query ? `${path}?${query}` : path;
 }
 
+/** A record's id from its address: a whole number, else the page is a 404. */
+export function recordId(value: string): number {
+  return /^\d+$/.test(value) ? Number(value) : notFound();
+}
+
+/** A day of a date filter ("2026-10-09") as the moment the API compares with: its start in India (`until`: the next
+ *  day's start, the API's `until` being exclusive). */
+export function dayBound(day: string, end = false): string | undefined {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return undefined;
+  const start = Date.parse(`${day}T00:00:00+05:30`) + (end ? 86_400_000 : 0);
+  return new Date(start).toISOString();
+}
+
 export async function staffPage(path: string): Promise<{ manifest: Manifest; transport: Transport; path: string }> {
   const manifest = await requireStaff(path);
   return { manifest, transport: await staffTransport(), path };

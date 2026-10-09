@@ -1,32 +1,23 @@
 "use client";
 
 // Every list of the console. The server renders the rows of one page of the API's cursor pagination; this draws them
-// and owns the address: filters, the sort, the saved view and the cursor are search params, so a list can be
-// bookmarked, sent to a colleague and walked back. Around the table: the saved views, the filters, a column chooser
-// (kept with the view, or on this device for the plain list), Export (as far as limits.export_rows allows; the file is
-// made in the background and lands in the inbox), and a bulk bar for the selected rows, whose action runs as a job
-// with its progress and the rows that failed. Keyboard (when single-key shortcuts are on): j and k move between rows,
-// Enter opens one, x selects it, / jumps to the search box. Dense rows, 44 px targets, the header sticks while the
-// table scrolls in its own box (from 900 px).
+// and owns the address: filters, the saved view and the cursor are search params, so a list can be bookmarked, sent
+// to a colleague and walked back. Around the table: the saved views, the filters, a column chooser (kept with the
+// view, or on this device for the plain list) and the list's own tools (an export where the API has one). Keyboard
+// (when single-key shortcuts are on): j and k move between rows, Enter opens one, / jumps to the search box. Dense
+// rows, 44 px targets, the header sticks while the table scrolls in its own box (from 900 px). The staff API's lists
+// are newest first and take no sort: there is none to choose.
 import { cn } from "cn";
-import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Columns3 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Columns3 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore, useTransition } from "react";
 
-import { ApprovalNotice } from "@/components/data/approval-notice";
 import { FilterBar, type FilterDef, SEARCH_ID } from "@/components/data/filter-bar";
-import { JobProgress } from "@/components/data/job-progress";
 import { SavedViews, viewHref } from "@/components/data/saved-views";
-import { ErrorSummary } from "@/components/forms/error-summary";
-import { useAction } from "@/components/forms/use-action";
-import { useManifest } from "@/components/shell/manifest";
 import { Popover } from "@/components/shell/popover";
-import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { toast } from "@/components/ui/toaster";
 import type { SavedView } from "@/lib/api/staff";
-import { startJob } from "@/lib/api/staff";
 import { copy } from "@/lib/copy";
 import { notForShortcuts, useShortcutsEnabled } from "@/lib/shortcuts";
 
@@ -34,8 +25,6 @@ export type Column<T> = {
   key: string;
   label: string;
   render: (row: T) => React.ReactNode;
-  /** The API's ordering field: the header becomes a sort button. */
-  sort?: string;
   /** Not shown until chosen. */
   hidden?: boolean;
   numeric?: boolean;
@@ -45,8 +34,6 @@ export type Column<T> = {
   className?: string;
 };
 
-export type BulkAction = { action: string; label: string };
-
 type DataTableProps<T> = {
   /** The saved views' list_key and the columns' storage key. */
   listKey: string;
@@ -55,7 +42,6 @@ type DataTableProps<T> = {
   /** The first column is the row's name: never hidden, and the row's link. */
   columns: Column<T>[];
   rowId: (row: T) => string;
-  rowLabel: (row: T) => string;
   rowHref?: (row: T) => string | null;
   /** Instead of a link: what opening the row does (the audit trail's drawer). */
   onOpen?: (row: T) => void;
@@ -63,9 +49,6 @@ type DataTableProps<T> = {
   previous: string | null;
   filters?: FilterDef[];
   views?: SavedView[] | null;
-  bulk?: BulkAction[];
-  /** The job that exports what the filters show ("users.export"). */
-  exportAction?: string;
   empty?: { title: string; text: string };
   toolbar?: React.ReactNode;
 };
@@ -104,22 +87,18 @@ export function DataTable<T>({
   rows,
   columns,
   rowId,
-  rowLabel,
   rowHref,
   onOpen,
   next,
   previous,
   filters = [],
   views = null,
-  bulk = [],
-  exportAction,
   empty,
   toolbar,
 }: DataTableProps<T>) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
-  const manifest = useManifest();
   const shortcuts = useShortcutsEnabled();
   const [pending, startTransition] = useTransition();
   const body = useRef<HTMLTableSectionElement>(null);
@@ -127,8 +106,7 @@ export function DataTable<T>({
   const values = Object.fromEntries(filters.map((filter) => [filter.name, params.get(filter.name) ?? ""]));
   const filtered = Object.values(values).some(Boolean);
   const viewId = params.get("view");
-  const activeView = views?.find((view) => view.id === viewId) ?? null;
-  const sort = params.get("sort") ?? "";
+  const activeView = views?.find((view) => String(view.id) === viewId) ?? null;
 
   // columns: chosen here, else the view's, else this device's choice for the list, else the defaults
   const [chosen, setChosen] = useState<{ view: string | null; columns: string[] } | null>(null);
@@ -147,20 +125,8 @@ export function DataTable<T>({
           ? stored.split(",")
           : defaults;
   const shown = columns.filter((column, index) => index === 0 || visibleKeys.includes(column.key));
-
-  // selection: per page of rows
-  const ids = rows.map(rowId);
-  const pageKey = ids.join(",");
-  const [selection, setSelection] = useState<{ page: string; ids: Set<string> }>({ page: pageKey, ids: new Set() });
-  const selected = selection.page === pageKey ? selection.ids : new Set<string>();
-  const select = (next: Set<string>) => setSelection({ page: pageKey, ids: next });
   const [rowIndex, setActiveRow] = useState(-1);
   const activeRow = rowIndex < rows.length ? rowIndex : -1;
-
-  const job = useAction();
-  const [jobId, setJobId] = useState<string | null>(null);
-  const exporting = useAction();
-  const [exportId, setExportId] = useState<string | null>(null);
 
   const navigate = (change: (search: URLSearchParams) => void) => {
     const search = new URLSearchParams(params.toString());
@@ -176,13 +142,6 @@ export function DataTable<T>({
         if (value) search.set(name, value);
         else search.delete(name);
       }
-    });
-
-  const toggleSort = (field: string) =>
-    navigate((search) => {
-      const nextSort = sort === field ? `-${field}` : sort === `-${field}` ? "" : field;
-      if (nextSort) search.set("sort", nextSort);
-      else search.delete("sort");
     });
 
   const pageHref = (cursor: string) => {
@@ -205,13 +164,12 @@ export function DataTable<T>({
     else onOpen?.(row);
   };
 
-  // j / k / x / Enter / "/" while no field has the focus and no dialog is open (registered again with each render,
-  // so it always sees this render's rows and selection)
+  // j / k / Enter / "/" while no field has the focus and no dialog is open (registered again with each render, so it
+  // always sees this render's rows)
   useEffect(() => {
     if (!shortcuts) return;
     const current = activeRow;
     const list = rows;
-    const picked = selected;
     const onKey = (event: KeyboardEvent) => {
       if (notForShortcuts(event)) return;
       if (event.key === "/") {
@@ -231,15 +189,6 @@ export function DataTable<T>({
         link?.scrollIntoView({ block: "nearest" });
         return;
       }
-      if (event.key === "x" && bulk.length && current >= 0) {
-        event.preventDefault();
-        const id = rowId(list[current]);
-        const nextSet = new Set(picked);
-        if (nextSet.has(id)) nextSet.delete(id);
-        else nextSet.add(id);
-        select(nextSet);
-        return;
-      }
       if (
         event.key === "Enter" &&
         current >= 0 &&
@@ -253,22 +202,7 @@ export function DataTable<T>({
     return () => document.removeEventListener("keydown", onKey);
   });
 
-  const startBulk = (action: string) =>
-    job.run(async () => {
-      const started = await startJob({ action, ids: [...selected] });
-      setJobId(started.job_id);
-    });
-
-  const startExport = () =>
-    exporting.run(async () => {
-      const started = await startJob({ action: exportAction!, filters: values });
-      setExportId(started.job_id);
-    });
-
-  const allSelected = rows.length > 0 && ids.every((id) => selected.has(id));
-  const someSelected = !allSelected && ids.some((id) => selected.has(id));
-  const exportLimit = manifest.limits.export_rows;
-  const listState = { filters: values, columns: shown.map((column) => column.key), sort };
+  const listState = { filters: values, columns: shown.map((column) => column.key) };
 
   return (
     <div className="flex flex-col gap-4">
@@ -279,18 +213,6 @@ export function DataTable<T>({
         {filters.length ? <FilterBar filters={filters} values={values} onApply={applyFilters} /> : <span />}
         <div className="flex flex-wrap items-center gap-2">
           {toolbar}
-          {exportAction && exportLimit > 0 ? (
-            <Button
-              variant="secondary"
-              size="sm"
-              busy={exporting.busy}
-              onClick={startExport}
-              title={copy.table.exportHelp(exportLimit)}
-            >
-              {copy.table.exportLabel}
-              <span className="sr-only">: {copy.table.exportHelp(exportLimit)}</span>
-            </Button>
-          ) : null}
           {columns.length > 2 ? (
             <Popover
               button={
@@ -330,12 +252,6 @@ export function DataTable<T>({
           ) : null}
         </div>
       </div>
-      {exportAction ? (
-        <>
-          <ErrorSummary error={exporting.error} />
-          {exportId ? <JobProgress jobId={exportId} onDone={() => toast.success(copy.common.done)} /> : null}
-        </>
-      ) : null}
 
       {rows.length === 0 ? (
         <EmptyState
@@ -367,64 +283,11 @@ export function DataTable<T>({
             <caption className="sr-only">{caption}</caption>
             <thead>
               <tr>
-                {bulk.length ? (
-                  <th scope="col" className="w-12">
-                    <label className="flex size-11 cursor-pointer items-center justify-center">
-                      <input
-                        type="checkbox"
-                        data-slot="checkbox"
-                        checked={allSelected}
-                        ref={(element) => {
-                          if (element) element.indeterminate = someSelected;
-                        }}
-                        onChange={(event) => select(event.target.checked ? new Set(ids) : new Set())}
-                      />
-                      <span className="sr-only">{copy.table.selectPage}</span>
-                    </label>
+                {shown.map((column) => (
+                  <th key={column.key} scope="col" className={cn(column.numeric && "num", column.className)}>
+                    {column.label}
                   </th>
-                ) : null}
-                {shown.map((column) => {
-                  const direction =
-                    column.sort && sort === column.sort
-                      ? "ascending"
-                      : column.sort && sort === `-${column.sort}`
-                        ? "descending"
-                        : undefined;
-                  return (
-                    <th
-                      key={column.key}
-                      scope="col"
-                      aria-sort={direction}
-                      className={cn(column.numeric && "num", column.className)}
-                    >
-                      {column.sort ? (
-                        <button
-                          type="button"
-                          onClick={() => toggleSort(column.sort!)}
-                          className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 text-inherit uppercase hover:text-foreground"
-                        >
-                          {column.label}
-                          {direction === "ascending" ? (
-                            <ArrowUp aria-hidden="true" className="size-3.5" />
-                          ) : direction === "descending" ? (
-                            <ArrowDown aria-hidden="true" className="size-3.5" />
-                          ) : (
-                            <ArrowUpDown aria-hidden="true" className="size-3.5 opacity-60" />
-                          )}
-                          <span className="sr-only">
-                            {direction === "ascending"
-                              ? `, ${copy.table.sortedAscending}`
-                              : direction === "descending"
-                                ? `, ${copy.table.sortedDescending}`
-                                : ""}
-                          </span>
-                        </button>
-                      ) : (
-                        column.label
-                      )}
-                    </th>
-                  );
-                })}
+                ))}
               </tr>
             </thead>
             <tbody ref={body}>
@@ -435,7 +298,6 @@ export function DataTable<T>({
                   <tr
                     key={id}
                     data-active={index === activeRow || undefined}
-                    data-selected={selected.has(id) || undefined}
                     onFocus={() => setActiveRow(index)}
                     onClick={(event) => {
                       // the whole row opens it; its own controls keep their own click
@@ -444,24 +306,6 @@ export function DataTable<T>({
                       openRow(index);
                     }}
                   >
-                    {bulk.length ? (
-                      <td className="w-12">
-                        <label className="flex size-11 cursor-pointer items-center justify-center">
-                          <input
-                            type="checkbox"
-                            data-slot="checkbox"
-                            checked={selected.has(id)}
-                            onChange={(event) => {
-                              const nextSet = new Set(selected);
-                              if (event.target.checked) nextSet.add(id);
-                              else nextSet.delete(id);
-                              select(nextSet);
-                            }}
-                          />
-                          <span className="sr-only">{copy.table.select(rowLabel(row))}</span>
-                        </label>
-                      </td>
-                    ) : null}
                     {shown.map((column, columnIndex) => (
                       <td
                         key={column.key}
@@ -524,54 +368,6 @@ export function DataTable<T>({
             </Link>
           ) : null}
         </nav>
-      ) : null}
-
-      {bulk.length && (selected.size > 0 || jobId || job.error) ? (
-        <div
-          data-bulk-bar=""
-          role="region"
-          aria-label={copy.table.selected(selected.size)}
-          className="sticky bottom-0 z-20 -mx-4 flex flex-col gap-3 border-t-[1.5px] border-foreground bg-card px-4 py-3 nav:mx-0"
-        >
-          {jobId ? (
-            <JobProgress
-              jobId={jobId}
-              onDone={() => {
-                select(new Set());
-                router.refresh();
-              }}
-            />
-          ) : null}
-          {job.error?.code === "approval_required" ? (
-            <ApprovalNotice changeRequestId={job.error.changeRequestId} />
-          ) : (
-            <ErrorSummary error={job.error} />
-          )}
-          {selected.size > 0 ? (
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <p className="m-0 font-semibold">{copy.table.selected(selected.size)}</p>
-              {bulk.map((action) => (
-                <Button key={action.action} size="sm" busy={job.busy} onClick={() => startBulk(action.action)}>
-                  {action.label}
-                </Button>
-              ))}
-              <Button variant="ghost" size="sm" onClick={() => select(new Set())}>
-                {copy.table.clearSelection}
-              </Button>
-              {manifest.limits.bulk_rows > 0 && selected.size > manifest.limits.bulk_rows ? (
-                <p className="m-0 basis-full text-sm text-muted-foreground">
-                  {copy.table.bulkLimit(manifest.limits.bulk_rows)}
-                </p>
-              ) : null}
-            </div>
-          ) : jobId ? (
-            <div>
-              <Button variant="ghost" size="sm" onClick={() => setJobId(null)}>
-                {copy.common.close}
-              </Button>
-            </div>
-          ) : null}
-        </div>
       ) : null}
     </div>
   );

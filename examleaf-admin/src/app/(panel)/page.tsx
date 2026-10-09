@@ -1,7 +1,8 @@
-// Home: what waits for the person today, all from the API (nothing invented): their open inbox by kind, the change
-// requests waiting for a decision (and theirs waiting for someone else), the legal clocks nearest to due (data
-// requests to acknowledge or answer, incidents to report), the system's failing checks, and their modules. Each part
-// is drawn only when the manifest opens its module, and each fails on its own (a Problem in its card).
+// Home: what waits for the person today, all from the API (nothing invented): their inbox (its open and overdue
+// counts, GET inbox/count/, and the first page by kind), the change requests waiting for them to decide and theirs
+// waiting for someone else, the legal clocks nearest to due (data requests to acknowledge or answer, incidents to
+// report), the system's failing checks, and their modules. Each part is drawn only when the manifest opens its
+// module, and each fails on its own (a Problem in its card).
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -12,10 +13,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApiError } from "@/lib/api/errors";
 import { attempt, requestTime, staffPage } from "@/lib/api/page";
 import {
-  type DataRequest,
-  FINAL_REQUEST_STATES,
+  type DataRequestRow,
   getSystem,
   type Incident,
+  inboxCount,
   listChangeRequests,
   listDataRequests,
   listIncidents,
@@ -29,46 +30,50 @@ export const metadata: Metadata = { title: copy.home.title };
 
 type ClockRow = { key: string; label: string; href: string; start: string | null; due: string };
 
-function clocksOf(requests: DataRequest[], incidents: Incident[]): ClockRow[] {
+function clocksOf(requests: DataRequestRow[], incidents: Incident[]): ClockRow[] {
   const rows: ClockRow[] = [];
   for (const request of requests) {
-    if (FINAL_REQUEST_STATES.has(request.state)) continue;
-    const what = `${labelOf(copy.privacy.types, request.type)} · ${request.id}`;
-    if (!request.acknowledged_at && request.ack_due_at)
+    if (request.status === "closed") continue;
+    const what = `${labelOf(copy.privacy.kinds, request.kind)} · ${request.id}`;
+    const href = `/privacy/requests/${request.id}/`;
+    const start = request.received_at ?? null;
+    if (!request.acknowledged_at)
       rows.push({
         key: `ack-${request.id}`,
         label: `${what}: ${copy.privacy.ackClock}`,
-        href: `/privacy/requests/${request.id}/`,
-        start: request.received_at,
+        href,
+        start,
         due: request.ack_due_at,
       });
-    else if (request.due_at)
+    else
       rows.push({
         key: `due-${request.id}`,
         label: `${what}: ${copy.privacy.dueClock}`,
-        href: `/privacy/requests/${request.id}/`,
-        start: request.received_at,
+        href,
+        start,
         due: request.due_at,
       });
   }
   for (const incident of incidents) {
-    if (incident.state === "closed") continue;
-    const what = `${labelOf(copy.privacy.incidentTypes, incident.type)} · ${incident.id}`;
-    if (!incident.certin_reported_at && incident.certin_due_at)
+    if (incident.closed_at) continue;
+    const what = `${labelOf(copy.privacy.incidentKinds, incident.kind)} · ${incident.id}`;
+    const href = `/privacy/incidents/${incident.id}/`;
+    const start = incident.detected_at ?? null;
+    if (!incident.cert_in_reported_at)
       rows.push({
         key: `certin-${incident.id}`,
         label: `${what}: ${copy.privacy.certinClock}`,
-        href: `/privacy/incidents/${incident.id}/`,
-        start: incident.detected_at,
-        due: incident.certin_due_at,
+        href,
+        start,
+        due: incident.cert_in_due,
       });
-    if (!incident.board_reported_at && incident.board_due_at)
+    if (!incident.board_report_at)
       rows.push({
         key: `board-${incident.id}`,
         label: `${what}: ${copy.privacy.boardClock}`,
-        href: `/privacy/incidents/${incident.id}/`,
-        start: incident.detected_at,
-        due: incident.board_due_at,
+        href,
+        start,
+        due: incident.board_due,
       });
   }
   return rows.sort((a, b) => Date.parse(a.due) - Date.parse(b.due)).slice(0, 6);
@@ -77,11 +82,14 @@ function clocksOf(requests: DataRequest[], incidents: Incident[]): ClockRow[] {
 export default async function HomePage() {
   const { manifest, transport, path } = await staffPage("/");
   const now = requestTime();
-  const [inbox, approvals, requests, incidents, system] = await Promise.all([
-    has(manifest, P.inboxView) ? attempt(listInbox({ state: "open", assignee: "me" }, transport), path) : null,
-    has(manifest, P.approvalsView) ? attempt(listChangeRequests({ state: "pending" }, transport), path) : null,
+  const approvals = has(manifest, P.approvalsView);
+  const [count, inbox, awaiting, mine, requests, incidents, system] = await Promise.all([
+    has(manifest, P.inboxView) ? attempt(inboxCount(transport), path) : null,
+    has(manifest, P.inboxView) ? attempt(listInbox({}, transport), path) : null,
+    approvals ? attempt(listChangeRequests({ awaiting: true }, transport), path) : null,
+    approvals ? attempt(listChangeRequests({ mine: true, status: "pending" }, transport), path) : null,
     has(manifest, P.requestsView) ? attempt(listDataRequests({}, transport), path) : null,
-    has(manifest, P.incidentsView) ? attempt(listIncidents({}, transport), path) : null,
+    has(manifest, P.incidentsView) ? attempt(listIncidents({ open: true }, transport), path) : null,
     has(manifest, P.systemView) ? attempt(getSystem(transport), path) : null,
   ]);
 
@@ -95,6 +103,7 @@ export default async function HomePage() {
           incidents && !(incidents instanceof ApiError) ? incidents.results : [],
         )
       : null;
+  const failing = system && !(system instanceof ApiError) ? system.health.filter((check) => !check.ok) : [];
   const modules = visibleModules(manifest, ERP_URL).filter((module) => module.key !== "home");
 
   return (
@@ -105,6 +114,11 @@ export default async function HomePage() {
           <Card>
             <CardHeader>
               <CardTitle>{copy.home.inbox}</CardTitle>
+              {count && !(count instanceof ApiError) ? (
+                <p className="m-0 text-[15px] text-muted-foreground">
+                  {copy.home.inboxCount(count.open, count.overdue)}
+                </p>
+              ) : null}
             </CardHeader>
             <CardContent>
               {inbox instanceof ApiError ? (
@@ -113,13 +127,13 @@ export default async function HomePage() {
                 <p className="text-[15px] text-muted-foreground">{copy.home.inboxEmpty}</p>
               ) : (
                 <ul className="m-0 flex list-none flex-col p-0">
-                  {[...byKind].map(([kind, count]) => (
+                  {[...byKind].map(([kind, n]) => (
                     <li
                       key={kind}
                       className="flex items-center justify-between border-b border-border py-2 text-[15px]"
                     >
                       <Link href={`/inbox/?kind=${encodeURIComponent(kind)}`}>{labelOf(copy.inbox.kinds, kind)}</Link>
-                      <span className="font-mono font-semibold">{count}</span>
+                      <span className="font-mono font-semibold">{n}</span>
                     </li>
                   ))}
                   {inbox.next ? (
@@ -136,27 +150,25 @@ export default async function HomePage() {
           </Card>
         ) : null}
 
-        {approvals ? (
+        {awaiting && mine ? (
           <Card>
             <CardHeader>
               <CardTitle>{copy.home.approvals}</CardTitle>
             </CardHeader>
             <CardContent>
-              {approvals instanceof ApiError ? (
-                <Problem error={approvals} />
-              ) : approvals.results.length === 0 ? (
+              {awaiting instanceof ApiError ? (
+                <Problem error={awaiting} />
+              ) : mine instanceof ApiError ? (
+                <Problem error={mine} />
+              ) : awaiting.results.length + mine.results.length === 0 ? (
                 <p className="text-[15px] text-muted-foreground">{copy.home.approvalsEmpty}</p>
               ) : (
                 <ul className="m-0 flex list-none flex-col gap-1 p-0 text-[15px]">
                   <li className="font-semibold">
-                    {copy.home.approvalsForYou(
-                      approvals.results.filter((request) => request.maker.id !== manifest.user.id).length,
-                    )}
+                    <Link href="/approvals/?who=awaiting">{copy.home.approvalsForYou(awaiting.results.length)}</Link>
                   </li>
                   <li className="text-muted-foreground">
-                    {copy.home.approvalsYours(
-                      approvals.results.filter((request) => request.maker.id === manifest.user.id).length,
-                    )}
+                    <Link href="/approvals/?who=mine">{copy.home.approvalsYours(mine.results.length)}</Link>
                   </li>
                 </ul>
               )}
@@ -208,22 +220,20 @@ export default async function HomePage() {
             <CardContent>
               {system instanceof ApiError ? (
                 <Problem error={system} />
-              ) : system.health.every((check) => check.ok) ? (
+              ) : failing.length === 0 ? (
                 <p className="text-[15px]">{copy.home.healthOk}</p>
               ) : (
                 <>
                   <p className="text-[15px] font-semibold text-destructive">
-                    {copy.home.healthFailing(system.health.filter((check) => !check.ok).length)}
+                    {copy.home.healthFailing(failing.length)}
                   </p>
                   <ul className="m-0 flex list-none flex-col gap-1 p-0 text-[15px]">
-                    {system.health
-                      .filter((check) => !check.ok)
-                      .map((check) => (
-                        <li key={check.name}>
-                          <span className="font-mono">{check.name}</span>
-                          {check.detail ? <span className="text-muted-foreground">: {check.detail}</span> : null}
-                        </li>
-                      ))}
+                    {failing.map((check) => (
+                      <li key={check.check}>
+                        <span className="font-mono">{check.check}</span>
+                        {check.error ? <span className="text-muted-foreground">: {check.error}</span> : null}
+                      </li>
+                    ))}
                   </ul>
                 </>
               )}

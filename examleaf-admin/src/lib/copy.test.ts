@@ -53,8 +53,8 @@ describe("copy", () => {
   it("reads an unknown code as words", () => {
     expect(humanize("sync_failure")).toBe("Sync failure");
     expect(humanize("in-progress")).toBe("In progress");
-    expect(labelOf(copy.privacy.types, "erasure")).toBe("Erasure");
-    expect(labelOf(copy.privacy.types, "portability")).toBe("Portability");
-    expect(labelOf(copy.privacy.types, null)).toBe(copy.common.unknown);
+    expect(labelOf(copy.privacy.kinds, "erasure")).toBe("Erasure");
+    expect(labelOf(copy.privacy.kinds, "portability")).toBe("Portability");
+    expect(labelOf(copy.privacy.kinds, null)).toBe(copy.common.unknown);
   });
 });

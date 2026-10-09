@@ -1,5 +1,5 @@
-// One error shape for every answer: the staff API's codes (401, the four 403s, 409, 429 with Retry-After), DRF's and
-// allauth.headless's formats, and no answer at all.
+// One error shape for every answer: the staff API's codes (401, its 403s, 404, 409, 429 with Retry-After), DRF's and
+// allauth.headless's formats (a job's params and an export's filters nest), and no answer at all.
 import { describe, expect, it } from "vitest";
 
 import { ApiError, retryAfterSeconds, toApiError } from "./errors";
@@ -13,27 +13,24 @@ describe("toApiError", () => {
   });
 
   it("keeps the code of each 403 the console acts on", () => {
-    for (const code of ["permission_denied", "scope_denied", "reauth_required", "mfa_setup_required"]) {
+    for (const code of ["permission_denied", "mfa_setup_required", "impersonating", "link_expired"]) {
       const error = toApiError(403, { detail: "No.", code });
       expect(error.code).toBe(code);
       expect(error.message).toBe("No.");
       expect(error.unavailable).toBe(false);
     }
-    // the platform's name for "confirm it's you" (its account endpoints') reads as the brief's
+    // the platform's name for "confirm it's you" reads as the console's one name for it
     expect(toApiError(403, { detail: "Confirm.", code: "reauthentication_required" }).code).toBe("reauth_required");
   });
 
-  it("finds the change request an approval_required names, in any of its shapes", () => {
-    expect(
-      toApiError(403, { detail: "Asked.", code: "approval_required", change_request: { id: 12 } }).changeRequestId,
-    ).toBe("12");
-    expect(toApiError(403, { detail: "Asked.", code: "approval_required", change_request: 13 }).changeRequestId).toBe(
-      "13",
-    );
-    expect(
-      toApiError(403, { detail: "Asked.", code: "approval_required", change_request_id: "cr-14" }).changeRequestId,
-    ).toBe("cr-14");
-    expect(toApiError(403, { detail: "Asked.", code: "approval_required" }).changeRequestId).toBeNull();
+  it("finds the change request an answer is, or a job names", () => {
+    const changeRequest = { id: 12, payload_sha256: "ab", status: "pending", checker: "staff.approve_refund" };
+    const error = new ApiError(202, "approval_required", "Asked.", {}, changeRequest);
+    expect(error.changeRequestId).toBe("12");
+    expect(error.approval).toEqual({ id: "12", status: "pending", checker: "staff.approve_refund" });
+    const job = new ApiError(202, "approval_required", "Asked.", {}, { id: 702, change_request_id: 508 });
+    expect(job.changeRequestId).toBe("508");
+    expect(toApiError(403, { detail: "No.", code: "permission_denied" }).approval).toBeNull();
   });
 
   it("tells Django's CSRF page (a 403 without JSON) from the API's refusals", () => {
@@ -67,6 +64,10 @@ describe("toApiError", () => {
     expect(error.fields).toEqual({ reason: ["Give a reason."] });
     expect(error.message).toBe("Not now.");
     expect(toApiError(400, { email: ["Enter a work email address."] }).message).toBe("Enter a work email address.");
+    // a job's params and an export's filters nest one level
+    expect(toApiError(400, { filters: { actr: ["Not a filter of the audit log."] } }).fields).toEqual({
+      "filters.actr": ["Not a filter of the audit log."],
+    });
   });
 
   it("reads allauth.headless's errors", () => {

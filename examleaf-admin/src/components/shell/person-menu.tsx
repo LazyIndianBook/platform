@@ -9,6 +9,7 @@ import { useState } from "react";
 import { useManifest } from "@/components/shell/manifest";
 import { Popover } from "@/components/shell/popover";
 import { signOut, signOutEverywhere } from "@/components/shell/sign-out";
+import { rolesOf } from "@/lib/api/staff";
 import { copy, labelOf } from "@/lib/copy";
 import { formatDate } from "@/lib/format";
 import { setShortcutsEnabled, useShortcutsEnabled } from "@/lib/shortcuts";
@@ -20,7 +21,8 @@ export function PersonMenu({ onShortcuts }: { onShortcuts: () => void }) {
   const manifest = useManifest();
   const shortcuts = useShortcutsEnabled();
   const [leaving, setLeaving] = useState(false);
-  const name = manifest.user.name || manifest.user.email;
+  const name = manifest.user.full_name || manifest.user.email;
+  const roles = rolesOf(manifest);
 
   return (
     <Popover
@@ -46,10 +48,10 @@ export function PersonMenu({ onShortcuts }: { onShortcuts: () => void }) {
           <div className="flex flex-col gap-0.5 border-b border-border px-2.5 pb-2.5">
             <p className="m-0 font-semibold break-words">{name}</p>
             <p className="m-0 text-sm break-all text-muted-foreground">{manifest.user.email}</p>
-            {manifest.roles.length ? (
+            {roles.length ? (
               <p className="m-0 mt-1 text-sm">
                 <span className="text-muted-foreground">{copy.shell.roles}: </span>
-                {manifest.roles
+                {roles
                   .map((role) =>
                     role.expires_at
                       ? `${labelOf(copy.people.roleNames, role.name)} (${copy.account.roleUntil(formatDate(role.expires_at))})`

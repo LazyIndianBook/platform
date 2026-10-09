@@ -1,23 +1,21 @@
-// The list primitive: filters and sort live in the address (the cursor dropped when they change), saved views carry
-// their filters, sort and columns (saved, updated through the API), the column chooser, the keyboard (j, k, x, /, and
-// off when single-key shortcuts are off), and bulk actions as a background job with the rows that failed.
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+// The list primitive: filters live in the address (the cursor dropped when they change), saved views carry their
+// filters and columns (saved and updated through the API, a colleague's shared one read-only), the column chooser and
+// the keyboard (j, k, /, and off when single-key shortcuts are off).
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ManifestProvider } from "@/components/shell/manifest";
-import { ApiError } from "@/lib/api/errors";
-import { createSavedView, getJob, type SavedView, startJob, updateSavedView } from "@/lib/api/staff";
+import { createSavedView, type SavedView, updateSavedView } from "@/lib/api/staff";
+import { P } from "@/lib/modules";
 import { setShortcutsEnabled } from "@/lib/shortcuts";
 import { manifestWith } from "@/test/fixtures";
-
 import { navigation } from "@/test/navigation";
+
 import { type Column, DataTable } from "./data-table";
 
 vi.mock("@/lib/api/staff", async (original) => ({
   ...(await original<typeof import("@/lib/api/staff")>()),
-  startJob: vi.fn(),
-  getJob: vi.fn(),
   createSavedView: vi.fn(),
   updateSavedView: vi.fn(),
   deleteSavedView: vi.fn(),
@@ -31,20 +29,20 @@ const ROWS: Row[] = [
 ];
 const COLUMNS: Column<Row>[] = [
   { key: "name", label: "Name", render: (row) => row.name },
-  { key: "kind", label: "Kind", render: (row) => row.kind, sort: "kind" },
+  { key: "kind", label: "Kind", render: (row) => row.kind },
   { key: "extra", label: "Extra", render: () => "more", hidden: true },
 ];
+const VIEWS = [P.savedViewsView, P.savedViewsAdd, P.savedViewsChange, P.savedViewsDelete];
 
-function renderTable(views: SavedView[] = []) {
+function renderTable(views: SavedView[] = [], permissions = VIEWS) {
   return render(
-    <ManifestProvider manifest={manifestWith([])}>
+    <ManifestProvider manifest={manifestWith(permissions)}>
       <DataTable
         listKey="things"
         caption="Things"
         rows={ROWS}
         columns={COLUMNS}
         rowId={(row) => row.id}
-        rowLabel={(row) => row.name}
         rowHref={(row) => `/things/${row.id}/`}
         next="c2"
         previous={null}
@@ -53,7 +51,6 @@ function renderTable(views: SavedView[] = []) {
           { name: "q", label: "Search", type: "search" },
           { name: "kind", label: "Kind", type: "select", options: [{ value: "a", label: "Kind A" }] },
         ]}
-        bulk={[{ action: "things.done", label: "Mark done" }]}
       />
     </ManifestProvider>,
   );
@@ -75,8 +72,6 @@ beforeEach(() => {
   navigation.router.refresh = refresh;
   setShortcutsEnabled(true);
   window.localStorage.clear();
-  vi.mocked(startJob).mockReset();
-  vi.mocked(getJob).mockReset();
   vi.mocked(createSavedView).mockReset();
   vi.mocked(updateSavedView).mockReset();
 });
@@ -87,25 +82,13 @@ afterEach(() => {
 
 describe("the address", () => {
   it("takes the filters and drops the cursor", async () => {
-    navigation.search = new URLSearchParams("cursor=abc&sort=kind");
+    navigation.search = new URLSearchParams("cursor=abc");
     renderTable();
     await userEvent.type(screen.getByRole("searchbox", { name: "Search" }), "first{Enter}");
-    expect(replace).toHaveBeenLastCalledWith("/inbox/?sort=kind&q=first", { scroll: false });
+    expect(replace).toHaveBeenLastCalledWith("/inbox/?q=first", { scroll: false });
     // a choice applies at once, with what the other fields hold
     await userEvent.selectOptions(screen.getByRole("combobox", { name: "Kind" }), "a");
-    expect(replace).toHaveBeenLastCalledWith("/inbox/?sort=kind&q=first&kind=a", { scroll: false });
-  });
-
-  it("sorts by a column, then the other way, then not", async () => {
-    const { rerender } = renderTable();
-    await userEvent.click(screen.getByRole("button", { name: /^Kind/ }));
-    expect(replace).toHaveBeenLastCalledWith("/inbox/?sort=kind", { scroll: false });
-    navigation.search = new URLSearchParams("sort=kind");
-    rerender(<></>);
-    renderTable();
-    expect(screen.getByRole("columnheader", { name: /Kind/ })).toHaveAttribute("aria-sort", "ascending");
-    await userEvent.click(screen.getByRole("button", { name: /^Kind, sorted, first to last/ }));
-    expect(replace).toHaveBeenLastCalledWith("/inbox/?sort=-kind", { scroll: false });
+    expect(replace).toHaveBeenLastCalledWith("/inbox/?q=first&kind=a", { scroll: false });
   });
 
   it("pages with the cursor, keeping the filters", () => {
@@ -117,41 +100,47 @@ describe("the address", () => {
 
 describe("saved views", () => {
   const view: SavedView = {
-    id: "5",
+    id: 5,
+    owner: 7,
+    role: "SUPPORT",
     list_key: "things",
     name: "Mine",
     filters: { kind: "a" },
     columns: ["name"],
-    sort: "-kind",
-    shared_with_role: "SUPPORT",
+    sort: "",
+    created: "2026-10-01T10:00:00Z",
+    modified: "2026-10-01T10:00:00Z",
   };
 
-  it("are links that carry their filters and sort, and set the columns", () => {
-    navigation.search = new URLSearchParams("view=5&kind=a&sort=-kind");
+  it("are links that carry their filters, and set the columns", () => {
+    navigation.search = new URLSearchParams("view=5&kind=a");
     renderTable([view]);
     const tab = screen.getByRole("link", { name: /^Mine/ });
-    expect(tab).toHaveAttribute("href", "/inbox/?view=5&kind=a&sort=-kind");
+    expect(tab).toHaveAttribute("href", "/inbox/?view=5&kind=a");
     expect(tab).toHaveAttribute("aria-current", "page");
     expect(screen.queryByRole("columnheader", { name: /Kind/ })).toBeNull();
     expect(screen.queryByRole("button", { name: "Update this view" })).toBeNull();
   });
 
   it("offer an update when the filters differ, and send it", async () => {
-    navigation.search = new URLSearchParams("view=5&kind=b&sort=-kind");
+    navigation.search = new URLSearchParams("view=5&kind=b");
     vi.mocked(updateSavedView).mockResolvedValueOnce({ ...view, filters: { kind: "b" } });
     renderTable([view]);
     await userEvent.click(screen.getByRole("button", { name: "Update this view" }));
-    expect(updateSavedView).toHaveBeenCalledWith("5", {
-      filters: { q: "", kind: "b" },
-      columns: ["name"],
-      sort: "-kind",
-    });
+    expect(updateSavedView).toHaveBeenCalledWith(5, { filters: { q: "", kind: "b" }, columns: ["name"] });
     expect(refresh).toHaveBeenCalled();
+  });
+
+  it("leave a colleague's shared view as it is: neither update nor delete", () => {
+    navigation.search = new URLSearchParams("view=5&kind=b");
+    renderTable([{ ...view, owner: 9002 }]);
+    expect(screen.queryByRole("button", { name: "Update this view" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Delete this view" })).toBeNull();
   });
 
   it("save the list as it stands, shared with a role, and open it", async () => {
     navigation.search = new URLSearchParams("kind=a");
-    vi.mocked(createSavedView).mockResolvedValueOnce({ ...view, id: "9", name: "Kind A things" });
+    vi.mocked(createSavedView).mockResolvedValueOnce({ ...view, id: 9, name: "Kind A things" });
     renderTable();
     await userEvent.click(screen.getByRole("button", { name: "Save as a view" }));
     const dialog = screen.getByRole("dialog", { name: "Save as a view" });
@@ -161,12 +150,17 @@ describe("saved views", () => {
     expect(createSavedView).toHaveBeenCalledWith({
       list_key: "things",
       name: "Kind A things",
-      shared_with_role: "SUPPORT",
+      role: "SUPPORT",
+      sort: "",
       filters: { q: "", kind: "a" },
       columns: ["name", "kind"],
-      sort: "",
     });
-    expect(push).toHaveBeenCalledWith("/inbox/?view=9&kind=a&sort=-kind");
+    expect(push).toHaveBeenCalledWith("/inbox/?view=9&kind=a");
+  });
+
+  it("offer no saving without the permission to add one", () => {
+    renderTable([], [P.savedViewsView]);
+    expect(screen.queryByRole("button", { name: "Save as a view" })).toBeNull();
   });
 });
 
@@ -182,7 +176,7 @@ describe("columns", () => {
 });
 
 describe("the keyboard", () => {
-  it("moves with j and k, selects with x and searches with /", () => {
+  it("moves with j and k and searches with /", () => {
     renderTable();
     const links = () => screen.getAllByRole("link", { name: /^(First|Second|Third)$/ });
     fireEvent.keyDown(document.body, { key: "j" });
@@ -191,9 +185,6 @@ describe("the keyboard", () => {
     expect(links()[1]).toHaveFocus();
     fireEvent.keyDown(document.body, { key: "k" });
     expect(links()[0]).toHaveFocus();
-    fireEvent.keyDown(document.body, { key: "x" });
-    expect(screen.getByRole("checkbox", { name: "Select First" })).toBeChecked();
-    expect(screen.getByRole("region", { name: "1 selected" })).toBeInTheDocument();
     fireEvent.keyDown(document.body, { key: "/" });
     expect(screen.getByRole("searchbox", { name: "Search" })).toHaveFocus();
   });
@@ -208,42 +199,5 @@ describe("the keyboard", () => {
     search.focus();
     fireEvent.keyDown(search, { key: "j" });
     expect(search).toHaveFocus();
-  });
-});
-
-describe("bulk actions", () => {
-  it("run as a job and list the rows that failed", async () => {
-    vi.mocked(startJob).mockResolvedValueOnce({ job_id: "41" });
-    vi.mocked(getJob).mockResolvedValueOnce({
-      id: "41",
-      state: "done",
-      done: 2,
-      total: 2,
-      errors: [{ id: "3", label: "Third", message: "Close it from its own page." }],
-      result_url: null,
-    });
-    renderTable();
-    await userEvent.click(screen.getByRole("checkbox", { name: "Select First" }));
-    await userEvent.click(screen.getByRole("checkbox", { name: "Select Third" }));
-    const bar = screen.getByRole("region", { name: "2 selected" });
-    await userEvent.click(within(bar).getByRole("button", { name: "Mark done" }));
-    expect(startJob).toHaveBeenCalledWith({ action: "things.done", ids: ["1", "3"] });
-    await waitFor(() => expect(within(bar).getAllByText("Done: 1, 1 row failed").length).toBeGreaterThan(0));
-    expect(within(bar).getByText("Third")).toBeInTheDocument();
-    expect(within(bar).getByText(/Close it from its own page\./)).toBeInTheDocument();
-    expect(refresh).toHaveBeenCalled();
-  });
-
-  it("say when a second person must approve the job", async () => {
-    vi.mocked(startJob).mockRejectedValueOnce(
-      new ApiError(403, "approval_required", "Too many rows.", {}, { change_request: { id: 9 } }),
-    );
-    renderTable();
-    await userEvent.click(screen.getByRole("checkbox", { name: "Select every row on this page" }));
-    await userEvent.click(
-      within(screen.getByRole("region", { name: "3 selected" })).getByRole("button", { name: "Mark done" }),
-    );
-    expect(await screen.findByText("A second person needs to approve this")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /^Open the change request/ })).toHaveAttribute("href", "/approvals/9/");
   });
 });

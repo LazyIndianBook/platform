@@ -1,6 +1,6 @@
 // One record (a customer, a staff member, a change request, a data request): the header with its status chip and
-// primary actions, tabs for its parts (links: the server renders one part at a time), its content beside its
-// timeline (audit events and notes; under it on a phone), and the Danger section last, for what cannot be undone.
+// primary actions, tabs for its parts (links: the server renders one part at a time), its content beside its notes
+// and audit events (RecordSide; under it on a phone), and the Danger section last, for what cannot be undone.
 import { cn } from "cn";
 import Link from "next/link";
 
@@ -18,9 +18,8 @@ type RecordPageProps = {
   actions?: React.ReactNode;
   tabs?: RecordTab[];
   current?: string;
-  /** The record's timeline (EventTimeline), beside the content. */
-  timeline?: React.ReactNode;
-  timelineLabel?: string;
+  /** Beside the content: its notes and audit events (RecordSide). */
+  side?: React.ReactNode;
   /** The Danger section's content: actions that cannot be undone. */
   danger?: React.ReactNode;
   dangerTitle?: string;
@@ -36,8 +35,7 @@ export function RecordPage({
   actions,
   tabs,
   current,
-  timeline,
-  timelineLabel,
+  side,
   danger,
   dangerTitle,
   children,
@@ -65,15 +63,14 @@ export function RecordPage({
           </ul>
         </nav>
       ) : null}
-      <div className={cn("grid gap-8", timeline && "min-[1180px]:grid-cols-[minmax(0,1fr)_320px]")}>
+      <div className={cn("grid gap-8", side && "min-[1180px]:grid-cols-[minmax(0,1fr)_320px]")}>
         <div className="flex min-w-0 flex-col gap-8">{children}</div>
-        {timeline ? (
+        {side ? (
           <aside
-            aria-label={timelineLabel}
+            aria-label={copy.notes.side}
             className="min-w-0 border-t border-border pt-6 min-[1180px]:border-t-0 min-[1180px]:border-l min-[1180px]:pt-0 min-[1180px]:pl-6"
           >
-            {timelineLabel ? <h2 className="m-0 mb-4 font-head text-xl leading-tight">{timelineLabel}</h2> : null}
-            {timeline}
+            {side}
           </aside>
         ) : null}
       </div>

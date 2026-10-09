@@ -1,12 +1,13 @@
-// /system/: the platform's state (GET system/): the health checks, the Celery queues and failed tasks, recent
-// webhooks, email and SMS, the last backup, and maintenance mode with its switch. The console shows these; it never
-// replaces Sentry, the uptime monitor or the logs.
+// /system/: the platform's state (GET system/): the health checks, Celery's queues and failed tasks, Razorpay's
+// webhooks, email suppressions and the SMS log, the last backup, the audit chain's last check, maintenance mode with
+// its switch (through the site's settings), and a stuck payment's check with Razorpay. The console shows these; it
+// never replaces Sentry, the uptime monitor or the logs.
 import type { Metadata } from "next";
 
 import { Problem } from "@/components/data/problem";
 import { Facts } from "@/components/data/record-page";
 import { StatusChip } from "@/components/data/status-chip";
-import { MaintenanceForm } from "@/components/modules/system/maintenance";
+import { MaintenanceForm, ReconcileForm } from "@/components/modules/system/maintenance";
 import { PageHeader, Section } from "@/components/shell/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableCell, TableHead } from "@/components/ui/table";
@@ -18,6 +19,10 @@ import { formatAgo, formatBytes, formatDateTime, formatNumber } from "@/lib/form
 import { has, P } from "@/lib/modules";
 
 export const metadata: Metadata = { title: copy.system.title };
+
+/** A map of counts ({name: n}) as facts. */
+const counts = (map: Record<string, number> | undefined) =>
+  Object.entries(map ?? {}).map(([name, n]) => ({ label: humanize(name), value: formatNumber(n) }));
 
 export default async function SystemPage() {
   const { manifest, transport, path } = await staffPage("/system/");
@@ -31,6 +36,9 @@ export default async function SystemPage() {
       </>
     );
   }
+  const queues = system.celery.queues;
+  const verification = system.audit.last_verification;
+  const backups = system.backups;
   return (
     <>
       <PageHeader title={copy.system.title} lead={copy.system.lead} />
@@ -43,12 +51,12 @@ export default async function SystemPage() {
             <ul className="m-0 flex list-none flex-col p-0">
               {system.health.map((check) => (
                 <li
-                  key={check.name}
+                  key={check.check}
                   className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-border py-2 text-[15px]"
                 >
                   <span className="flex flex-col">
-                    <span className="font-semibold">{humanize(check.name)}</span>
-                    {check.detail ? <span className="text-sm text-muted-foreground">{check.detail}</span> : null}
+                    <span className="font-semibold">{humanize(check.check.replace(/Check$/, ""))}</span>
+                    {check.error ? <span className="text-sm text-muted-foreground">{check.error}</span> : null}
                   </span>
                   <StatusChip tone={check.ok ? "good" : "bad"}>
                     {check.ok ? copy.system.healthy : copy.system.failing}
@@ -64,65 +72,59 @@ export default async function SystemPage() {
             <CardTitle>{copy.system.queues}</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table caption={copy.system.queues}>
-              <thead>
-                <tr>
-                  <TableHead>{copy.system.queue}</TableHead>
-                  <TableHead numeric>{copy.system.waiting}</TableHead>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.entries(system.celery.queues).map(([name, size]) => (
-                  <tr key={name}>
-                    <TableCell>
-                      <code>{name}</code>
-                    </TableCell>
-                    <TableCell numeric>{formatNumber(size)}</TableCell>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-            <p className={system.celery.failed ? "font-semibold text-destructive" : "text-muted-foreground"}>
-              {copy.system.failedTasks(system.celery.failed)}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="min-[1100px]:col-span-2">
-          <CardHeader>
-            <CardTitle>{copy.system.webhooks}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {system.webhooks.length ? (
-              <Table caption={copy.system.webhooks}>
+            {queues === null ? (
+              <p className="text-[15px] text-muted-foreground">{copy.system.eager}</p>
+            ) : "error" in queues ? (
+              <p className="font-semibold text-destructive">{copy.system.brokerDown(String(queues.error))}</p>
+            ) : (
+              <Table caption={copy.system.queues}>
                 <thead>
                   <tr>
-                    <TableHead>{copy.system.webhookColumns.provider}</TableHead>
-                    <TableHead>{copy.system.webhookColumns.event}</TableHead>
-                    <TableHead>{copy.system.webhookColumns.at}</TableHead>
-                    <TableHead>{copy.system.webhookColumns.status}</TableHead>
+                    <TableHead>{copy.system.queue}</TableHead>
+                    <TableHead numeric>{copy.system.waiting}</TableHead>
                   </tr>
                 </thead>
                 <tbody>
-                  {system.webhooks.map((hook, index) => (
-                    <tr key={`${hook.provider}-${hook.at}-${index}`}>
-                      <TableCell>{humanize(hook.provider)}</TableCell>
+                  {Object.entries(queues).map(([name, size]) => (
+                    <tr key={name}>
                       <TableCell>
-                        <code className="text-[13px]">{hook.event}</code>
+                        <code>{name}</code>
                       </TableCell>
-                      <TableCell>{formatDateTime(hook.at)}</TableCell>
-                      <TableCell>
-                        <StatusChip tone={hook.ok ? "good" : "bad"}>
-                          {hook.status ?? (hook.ok ? copy.system.healthy : copy.system.failing)}
-                        </StatusChip>
-                      </TableCell>
+                      <TableCell numeric>{formatNumber(Number(size))}</TableCell>
                     </tr>
                   ))}
                 </tbody>
               </Table>
+            )}
+            <p className={system.celery.failed_7_days ? "font-semibold text-destructive" : "text-muted-foreground"}>
+              {copy.system.failedTasks(system.celery.failed_7_days)}
+            </p>
+            {system.celery.failed.length ? (
+              <ul className="m-0 flex list-none flex-col gap-1 p-0 text-sm">
+                {system.celery.failed.map((task) => (
+                  <li key={task.task_id}>
+                    <code>{task.task_name ?? task.task_id}</code> · {formatDateTime(task.date_done)}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>{copy.system.webhooks}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="m-0 text-sm font-semibold">{copy.system.webhooksDay}</p>
+            {Object.keys(system.webhooks.last_day).length ? (
+              <Facts items={counts(system.webhooks.last_day)} />
             ) : (
               <p className="text-[15px] text-muted-foreground">{copy.system.noWebhooks}</p>
             )}
+            <p className={system.webhooks.refused_7_days ? "font-semibold text-destructive" : "text-muted-foreground"}>
+              {copy.system.webhooksRefused(system.webhooks.refused_7_days)}
+            </p>
           </CardContent>
         </Card>
 
@@ -133,9 +135,11 @@ export default async function SystemPage() {
           <CardContent>
             <Facts
               items={[
-                { label: copy.system.sent, value: formatNumber(system.email.sent) },
-                { label: copy.system.bounced, value: formatNumber(system.email.bounced) },
                 { label: copy.system.suppressed, value: formatNumber(system.email.suppressed) },
+                ...counts(system.email.suppressed_7_days).map((row) => ({
+                  ...row,
+                  label: `${copy.system.suppressedWeek}: ${row.label}`,
+                })),
               ]}
             />
           </CardContent>
@@ -146,12 +150,11 @@ export default async function SystemPage() {
             <CardTitle>{copy.system.sms}</CardTitle>
           </CardHeader>
           <CardContent>
-            <Facts
-              items={Object.entries(system.sms).map(([key, value]) => ({
-                label: humanize(key),
-                value: typeof value === "number" ? formatNumber(value) : value,
-              }))}
-            />
+            {Object.keys(system.sms.last_day).length ? (
+              <Facts items={counts(system.sms.last_day)} />
+            ) : (
+              <p className="text-[15px] text-muted-foreground">{copy.system.noSms}</p>
+            )}
           </CardContent>
         </Card>
 
@@ -160,18 +163,41 @@ export default async function SystemPage() {
             <CardTitle>{copy.system.backups}</CardTitle>
           </CardHeader>
           <CardContent>
-            {system.backups.last_run ? (
+            {!backups.configured ? (
+              <p className="text-[15px] text-muted-foreground">{copy.system.backupsOff}</p>
+            ) : backups.error ? (
+              <p className="font-semibold text-destructive">{copy.system.backupError(backups.error)}</p>
+            ) : backups.latest && backups.at ? (
               <Facts
                 items={[
                   {
                     label: copy.system.lastBackup,
-                    value: `${formatDateTime(system.backups.last_run)} (${formatAgo(system.backups.last_run, now)})`,
+                    value: `${backups.latest} (${formatAgo(backups.at, now)})`,
                   },
-                  { label: copy.system.backupSize, value: formatBytes(system.backups.size) },
+                  { label: copy.system.backupSize, value: formatBytes(backups.size) },
                 ]}
               />
             ) : (
               <p className="font-semibold text-destructive">{copy.system.noBackup}</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>{copy.system.audit}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {verification ? (
+              <p
+                className={verification.action === "audit.verified" ? "text-[15px]" : "font-semibold text-destructive"}
+              >
+                {verification.action === "audit.verified"
+                  ? copy.system.auditVerified(formatDateTime(verification.ts))
+                  : copy.system.auditBroken(formatDateTime(verification.ts))}
+              </p>
+            ) : (
+              <p className="text-[15px] text-muted-foreground">{copy.system.auditNever}</p>
             )}
           </CardContent>
         </Card>
@@ -188,9 +214,15 @@ export default async function SystemPage() {
           <p className="m-0 text-[15px] text-muted-foreground">“{system.maintenance.banner}”</p>
         ) : null}
         {has(manifest, P.maintenance) ? (
-          <MaintenanceForm on={system.maintenance.on} banner={system.maintenance.banner} />
+          <MaintenanceForm on={system.maintenance.on} banner={system.maintenance.banner ?? ""} />
         ) : null}
       </Section>
+
+      {has(manifest, P.reconcile) ? (
+        <Section id="reconcile" title={copy.system.reconcile} lead={copy.system.reconcileLead} className="mt-10">
+          <ReconcileForm />
+        </Section>
+      ) : null}
     </>
   );
 }

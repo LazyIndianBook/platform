@@ -1,8 +1,8 @@
 "use client";
 
-// The inbox as a list: what waits (its record one click away), its kind, when it is due, who has it. Open items can
-// be marked done, snoozed until a time, or taken; several at once through the bulk bar (a background job). Filters:
-// open, snoozed or done; the kind; mine or anyone's.
+// The inbox as a list (GET inbox/): what waits (its record one click away), its kind, when it is due, who has it.
+// Open items can be marked done, snoozed until a time, or taken (POST inbox/{id}/done/, snooze/, assign/). Filters:
+// open (the default), open with the snoozed ones too, or done; the kind; only mine.
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -10,15 +10,15 @@ import { type Column, DataTable } from "@/components/data/data-table";
 import { StatusChip } from "@/components/data/status-chip";
 import { ErrorSummary } from "@/components/forms/error-summary";
 import { useAction } from "@/components/forms/use-action";
-import { useCan, useManifest } from "@/components/shell/manifest";
+import { useManifest } from "@/components/shell/manifest";
 import { Popover } from "@/components/shell/popover";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toaster";
 import { type InboxItem, inboxAssign, inboxDone, inboxSnooze, type SavedView } from "@/lib/api/staff";
 import { copy, labelOf } from "@/lib/copy";
+import { staffLabel } from "@/lib/display";
 import { formatDateTime, fromLocalInput, toLocalInput } from "@/lib/format";
-import { P } from "@/lib/modules";
 import { targetHref } from "@/lib/targets";
 
 /** Tomorrow at 09:00 in India, as a datetime-local value. */
@@ -87,7 +87,7 @@ function RowActions({ item, now }: { item: InboxItem; now: number }) {
             </form>
           )}
         </Popover>
-        {item.assignee?.id !== manifest.user.id ? (
+        {item.assignee !== manifest.user.id ? (
           <Button
             size="sm"
             variant="ghost"
@@ -123,8 +123,7 @@ export function InboxTable({
   state: string;
   now: number;
 }) {
-  const can = useCan();
-  const changing = can(P.inboxChange) && state === "open";
+  const manifest = useManifest();
   const columns: Column<InboxItem>[] = [
     { key: "title", label: copy.inbox.columns.title, render: (item) => item.title },
     {
@@ -136,24 +135,29 @@ export function InboxTable({
       key: "due",
       label: copy.inbox.columns.due,
       render: (item) =>
-        item.snoozed_until && state === "snoozed"
-          ? copy.inbox.snoozedUntil(formatDateTime(item.snoozed_until))
-          : item.due_at
-            ? formatDateTime(item.due_at)
-            : copy.common.none,
+        item.snoozed_until && Date.parse(item.snoozed_until) > now ? (
+          copy.inbox.snoozedUntil(formatDateTime(item.snoozed_until))
+        ) : item.due_at ? (
+          <span className={item.overdue ? "font-semibold text-destructive" : undefined}>
+            {formatDateTime(item.due_at)}
+            {item.overdue ? ` · ${copy.inbox.overdue}` : ""}
+          </span>
+        ) : (
+          copy.common.none
+        ),
     },
     {
       key: "assignee",
       label: copy.inbox.columns.assignee,
-      render: (item) => item.assignee?.name || item.assignee?.email || copy.inbox.unassigned,
+      render: (item) => staffLabel(item.assignee, manifest.user.id),
     },
-    { key: "created", label: copy.inbox.columns.created, render: (item) => formatDateTime(item.created_at) },
-    ...(changing
+    { key: "created", label: copy.inbox.columns.created, render: (item) => formatDateTime(item.created) },
+    ...(state !== "done"
       ? [
           {
             key: "actions",
             label: copy.common.actions,
-            render: (item: InboxItem) => <RowActions item={item} now={now} />,
+            render: (item: InboxItem) => (item.done_at ? null : <RowActions item={item} now={now} />),
           },
         ]
       : []),
@@ -165,9 +169,8 @@ export function InboxTable({
       caption={copy.inbox.title}
       rows={rows}
       columns={columns}
-      rowId={(item) => item.id}
-      rowLabel={(item) => item.title}
-      rowHref={(item) => targetHref(item.target)}
+      rowId={(item) => String(item.id)}
+      rowHref={(item) => targetHref(item.target_type, item.target_id)}
       next={next}
       previous={previous}
       views={views}
@@ -186,26 +189,16 @@ export function InboxTable({
           name: "kind",
           label: copy.inbox.kind,
           type: "select",
-          options: Object.entries(copy.inbox.kinds)
-            .filter(([kind]) => kind !== "change_request")
-            .map(([value, label]) => ({ value, label })),
+          options: Object.entries(copy.inbox.kinds).map(([value, label]) => ({ value, label })),
         },
         {
-          name: "assignee",
+          name: "mine",
           label: copy.inbox.assignee,
           type: "select",
-          options: [{ value: "anyone", label: copy.common.anyone }],
-          any: copy.common.me,
+          options: [{ value: "true", label: copy.inbox.mine }],
+          any: copy.common.anyone,
         },
       ]}
-      bulk={
-        changing
-          ? [
-              { action: "inbox.done", label: copy.inbox.done },
-              { action: "inbox.assign_me", label: copy.inbox.assignToMe },
-            ]
-          : []
-      }
       empty={{ title: copy.inbox.emptyTitle, text: copy.inbox.emptyText }}
     />
   );

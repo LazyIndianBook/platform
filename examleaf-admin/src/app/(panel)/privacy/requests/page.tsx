@@ -1,5 +1,5 @@
-// /privacy/requests/: the data-rights queue with its clocks (GET data-requests/?state=&type=), and logging a request
-// that came another way (POST data-requests/, #new).
+// /privacy/requests/: the data-rights queue with its clocks (GET data-requests/?status=&kind=&overdue=), and logging a
+// request that came another way (POST data-requests/, #new).
 import type { Metadata } from "next";
 
 import { Problem } from "@/components/data/problem";
@@ -19,15 +19,20 @@ export default async function DataRequestsPage({ searchParams }: { searchParams:
   const [page, views] = await Promise.all([
     attempt(
       listDataRequests(
-        { state: param(params, "state"), type: param(params, "type"), cursor: param(params, "cursor") },
+        {
+          status: param(params, "status"),
+          kind: param(params, "kind"),
+          overdue: param(params, "overdue"),
+          cursor: param(params, "cursor"),
+        },
         transport,
       ),
       path,
     ),
-    attempt(listSavedViews("data-requests", transport), path),
+    has(manifest, P.savedViewsView) ? attempt(listSavedViews("data-requests", transport), path) : null,
   ]);
   const now = requestTime();
-  const logging = has(manifest, P.requestsAdd);
+  const logging = has(manifest, P.requestsHandle);
   return (
     <>
       <PageHeader

@@ -1,17 +1,18 @@
-// /privacy/incidents/<id>/: one incident (GET incidents/{id}/): what is known, its two clocks, what was done, and the
-// form that keeps it up (PATCH incidents/{id}/); its audit events beside.
+// /privacy/incidents/<id>/: one incident (GET incidents/{id}/): what is known, its two clocks, what was done, the form
+// that keeps it up (PATCH incidents/{id}/) and closing it; its notes and audit events beside.
 import type { Metadata } from "next";
 
-import { EventTimeline } from "@/components/data/event-timeline";
 import { Problem } from "@/components/data/problem";
 import { Facts, RecordPage } from "@/components/data/record-page";
-import { StatusChip, toneOf } from "@/components/data/status-chip";
-import { IncidentClock, IncidentUpdateForm } from "@/components/modules/privacy/incidents";
+import { recordSide } from "@/components/data/record-side";
+import { StatusChip } from "@/components/data/status-chip";
+import { CloseIncident, IncidentClock, IncidentUpdateForm } from "@/components/modules/privacy/incidents";
 import { Section } from "@/components/shell/page-header";
 import { ApiError } from "@/lib/api/errors";
-import { attempt, requestTime, staffPage } from "@/lib/api/page";
-import { getIncident, listAudit } from "@/lib/api/staff";
+import { attempt, recordId, requestTime, staffPage } from "@/lib/api/page";
+import { getIncident } from "@/lib/api/staff";
 import { copy, labelOf } from "@/lib/copy";
+import { incidentState } from "@/lib/display";
 import { formatDateTime, formatNumber } from "@/lib/format";
 import { has, P } from "@/lib/modules";
 
@@ -20,10 +21,7 @@ export const metadata: Metadata = { title: copy.privacy.incidentsTitle };
 export default async function IncidentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { manifest, transport, path } = await staffPage(`/privacy/incidents/${encodeURIComponent(id)}/`);
-  const [incident, events] = await Promise.all([
-    attempt(getIncident(id, transport), path, "404"),
-    attempt(listAudit({ target_type: "incident", target_id: id }, transport), path),
-  ]);
+  const incident = await attempt(getIncident(recordId(id), transport), path, "404");
   const back = { href: "/privacy/incidents/", label: copy.privacy.incidentsTitle };
   if (incident instanceof ApiError) {
     return (
@@ -33,26 +31,36 @@ export default async function IncidentPage({ params }: { params: Promise<{ id: s
     );
   }
   const now = requestTime();
+  const managing = has(manifest, P.incidentsManage);
+  const text = (value: string | undefined) => value || copy.common.none;
   return (
     <RecordPage
-      eyebrow={copy.privacy.incidentsTitle}
-      title={`${labelOf(copy.privacy.incidentTypes, incident.type)} · ${incident.id}`}
+      eyebrow={`${labelOf(copy.privacy.incidentKinds, incident.kind)} · ${incident.id}`}
+      title={incident.title}
       back={back}
-      status={<StatusChip tone={toneOf(incident.state)}>{labelOf(copy.privacy.states, incident.state)}</StatusChip>}
-      timelineLabel={copy.audit.title}
-      timeline={
-        events instanceof ApiError ? (
-          <Problem error={events} />
-        ) : (
-          <EventTimeline events={events.results} label={copy.audit.title} />
-        )
+      status={
+        <StatusChip tone={incident.closed_at ? "stopped" : "waiting"}>
+          {labelOf(copy.privacy.incidentStates, incidentState(incident))}
+        </StatusChip>
       }
+      actions={managing ? <CloseIncident incident={incident} /> : null}
+      side={recordSide({
+        manifest,
+        transport,
+        path,
+        audit: { target_type: "staff.incident", target_id: String(incident.id) },
+        note: { type: "staff.incident", id: String(incident.id) },
+      })}
     >
       <Facts
         items={[
           { label: copy.privacy.detectedAt, value: formatDateTime(incident.detected_at) },
-          { label: copy.privacy.systems, value: incident.systems.join(", ") || copy.common.none },
-          { label: copy.privacy.dataCategories, value: incident.data_categories.join(", ") || copy.common.none },
+          {
+            label: copy.privacy.description,
+            value: <span className="whitespace-pre-wrap">{text(incident.description)}</span>,
+          },
+          { label: copy.privacy.systems, value: text(incident.systems) },
+          { label: copy.privacy.dataCategories, value: text(incident.data_categories) },
           { label: copy.privacy.peopleAffected, value: formatNumber(incident.people_affected) },
           {
             label: copy.privacy.childrenAffected,
@@ -66,26 +74,21 @@ export default async function IncidentPage({ params }: { params: Promise<{ id: s
             label: copy.privacy.incidentColumns.board,
             value: <IncidentClock incident={incident} which="board" now={now} />,
           },
-          { label: copy.privacy.noticesSent, value: formatNumber(incident.notices_sent) },
+          { label: copy.privacy.noticesSent, value: formatNumber(incident.notices_sent ?? 0) },
+          ...(incident.closed_at
+            ? [{ label: copy.privacy.incidentClosed, value: formatDateTime(incident.closed_at) }]
+            : []),
         ]}
       />
       <Section id="done" title={copy.privacy.incidentActions}>
-        {incident.actions.length ? (
-          <ul className="m-0 flex list-none flex-col gap-1.5 p-0 text-[15px]">
-            {incident.actions.map((action, index) => (
-              <li key={`${action.at}-${index}`}>
-                {action.at ? (
-                  <span className="font-mono text-sm text-muted-foreground">{formatDateTime(action.at)} · </span>
-                ) : null}
-                {action.text}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="m-0 text-[15px] text-muted-foreground">{copy.privacy.noActions}</p>
-        )}
+        <p className="m-0 text-[15px] whitespace-pre-wrap">{text(incident.actions)}</p>
+        {incident.root_cause ? (
+          <p className="m-0 text-[15px]">
+            <strong>{copy.privacy.rootCause}:</strong> {incident.root_cause}
+          </p>
+        ) : null}
       </Section>
-      {has(manifest, P.incidentsChange) ? (
+      {managing && !incident.closed_at ? (
         <Section id="update" title={copy.privacy.saveIncident}>
           <IncidentUpdateForm incident={incident} />
         </Section>

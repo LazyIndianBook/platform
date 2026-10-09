@@ -1,5 +1,6 @@
-// The sidebar is built from the manifest alone: a module shows when the person holds one of its permissions, nothing
-// is drawn for the others, the ERPNext links only with ERPNext's address, and the current page is the longest match.
+// The sidebar is built from the manifest alone: a module shows when the person holds one of its permissions (the
+// backend's codenames), nothing is drawn for the others, the ERPNext links only with ERPNext's address, and the
+// current page is the longest match.
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -11,37 +12,61 @@ import { groupedModules, has, moduleHref, P, soonModule, visibleModules } from "
 
 const keys = (permissions: string[], erp = "") => visibleModules(manifestWith(permissions), erp).map((m) => m.key);
 
+describe("P", () => {
+  it("names only the backend's codenames (app_label.codename)", () => {
+    for (const perm of Object.values(P)) expect(perm).toMatch(/^(staff|accounts|shipping|insights|erp)\.[a-z_]+$/);
+  });
+});
+
 describe("visibleModules", () => {
   it("gives a manifest without permissions Home alone", () => {
     expect(keys([])).toEqual(["home"]);
   });
 
-  it("draws exactly the modules a role's permissions open, in the plan's order", () => {
+  it("draws exactly the modules SUPPORT's permissions open, in the plan's order", () => {
     const support = [
       P.inboxView,
-      P.inboxChange,
       P.approvalsView,
+      P.approvalsAsk,
+      P.refundOrder,
       P.usersView,
       P.usersReveal,
       P.requestsView,
+      P.requestsHandle,
+      P.processorsView,
       "shop.view_order",
-      "support.view_ticket",
+      "accounts.view_teacherprofile",
     ];
-    expect(keys(support)).toEqual(["home", "inbox", "approvals", "orders", "users", "support", "requests"]);
+    expect(keys(support)).toEqual([
+      "home",
+      "inbox",
+      "approvals",
+      "orders",
+      "users",
+      "partners",
+      "requests",
+      "processors",
+    ]);
     expect(keys(support, "https://erp.example.invalid")).toEqual(keys(support));
   });
 
-  it("links the business modules to ERPNext only with its address, Support staying a module here", () => {
-    const finance = [P.approvalsView, "erp.view_finance", "erp.view_tax", "erp.view_crm"];
-    expect(keys(finance)).toEqual(["home", "approvals"]);
+  it("opens the audit trail to its readers only, and shipping and the insights by their apps' permissions", () => {
+    expect(keys([P.auditView])).toEqual(["home", "audit"]);
+    expect(keys([P.codView])).toEqual(["home", "shipping"]);
+    expect(keys([P.signalsAcknowledge])).toEqual(["home", "insights"]);
+  });
+
+  it("links the business modules to ERPNext for the sync's permissions, and only with its address", () => {
+    expect(keys([P.erpView])).toEqual(["home"]);
     const erp = "https://erp.example.invalid";
-    const linked = visibleModules(manifestWith(finance), erp).filter((m) => m.erp);
+    const linked = visibleModules(manifestWith([P.erpResolve]), erp).filter((m) => m.erp);
     expect(linked.map((m) => moduleHref(m, erp))).toEqual([
       "https://erp.example.invalid/app/accounting",
       "https://erp.example.invalid/app/gst-india",
+      "https://erp.example.invalid/app/stock",
+      "https://erp.example.invalid/app/buying",
       "https://erp.example.invalid/app/crm",
     ]);
-    expect(soonModule("support", manifestWith(["support.view_ticket"]))?.erp).toBeUndefined();
     expect(soonModule("partners", manifestWith(["accounts.view_teacherprofile"]))?.key).toBe("partners");
   });
 
@@ -52,7 +77,7 @@ describe("visibleModules", () => {
   });
 
   it("groups what is drawn and leaves out empty groups", () => {
-    const groups = groupedModules(manifestWith([P.auditView, P.peopleView, P.accessReview]), "");
+    const groups = groupedModules(manifestWith([P.auditView, P.peopleView]), "");
     expect(groups.map((group) => group.group)).toEqual(["work", "staff"]);
     expect(groups[1].modules.map((m) => m.key)).toEqual(["people", "accessReview"]);
   });

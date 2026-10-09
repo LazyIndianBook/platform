@@ -1,4 +1,4 @@
-// /users/: customers (GET users/?q=&kind=&status=), masked; a record opens with the logged full view.
+// /users/: customers (GET users/?q=&class_level=&is_active=), masked; a record opens with the logged full view.
 import type { Metadata } from "next";
 
 import { Problem } from "@/components/data/problem";
@@ -8,26 +8,27 @@ import { ApiError } from "@/lib/api/errors";
 import { attempt, param, pathOf, type SearchParams, staffPage } from "@/lib/api/page";
 import { listSavedViews, listUsers } from "@/lib/api/staff";
 import { copy } from "@/lib/copy";
+import { has, P } from "@/lib/modules";
 
 export const metadata: Metadata = { title: copy.users.title };
 
 export default async function UsersPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
-  const { transport, path } = await staffPage(pathOf("/users/", params));
+  const { manifest, transport, path } = await staffPage(pathOf("/users/", params));
   const [page, views] = await Promise.all([
     attempt(
       listUsers(
         {
           q: param(params, "q"),
-          kind: param(params, "kind"),
-          status: param(params, "status"),
+          class_level: param(params, "class_level"),
+          is_active: param(params, "is_active"),
           cursor: param(params, "cursor"),
         },
         transport,
       ),
       path,
     ),
-    attempt(listSavedViews("users", transport), path),
+    has(manifest, P.savedViewsView) ? attempt(listSavedViews("users", transport), path) : null,
   ]);
   return (
     <>
