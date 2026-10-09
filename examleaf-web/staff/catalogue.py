@@ -97,7 +97,7 @@ STAFF_ACTIONS = [
     ("book_parcel", "Book parcels: quotes, labels, pickups, manifests, cancellations", SHIPPING, MEDIUM),
     ("act_on_exception", "Act on failed deliveries and resolve parcel exceptions", SHIPPING, MEDIUM),
     ("view_cod", "See cash-on-delivery remittances and the courier's charges", PAYMENTS, LOW),
-    ("reconcile_cod", "Match cash-on-delivery remittances with the bank's credits", PAYMENTS, HIGH),
+    ("reconcile_cod", "Match cash-on-delivery remittances with the bank's credits", PAYMENTS, MEDIUM),
     ("manage_pickup_locations", "Add and change the pickup addresses", SHIPPING, MEDIUM),
     ("view_insights", "See the insights: forecasts, print runs, item analysis, cohorts, fraud signals", REPORTS, LOW),
     ("acknowledge_signal", "Acknowledge fraud signals (looked at and handled)", REPORTS, LOW),
