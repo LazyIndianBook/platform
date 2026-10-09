@@ -1,11 +1,12 @@
 "use client";
 
-// The idle limit of staff sessions (30 minutes on the admin host: the manifest's idle_timeout_s) and their absolute
-// end (absolute_expires_at). Activity is a key, a click, a tap or the wheel, in any tab of the console (the last one is
-// shared through localStorage); while there is activity the server is told now and then (GET session/), so its own
-// idle clock, which the backend enforces, stays in step. Two minutes before the end a dialog says when it happens and
-// offers to stay (WCAG 2.2.1); at the end the console signs out and goes to sign-in, coming back here afterwards.
-// What was typed into forms is kept as it was typed (useDraftForm), so nothing is lost by it.
+// The idle limit of staff sessions (the manifest's idle_timeout_s: 15 or 30 minutes by role) and their absolute end
+// (absolute_expires_at, 8 hours from the log-in), both read from the manifest, never assumed. Activity is a key, a
+// click, a tap or the wheel, in any tab of the console (the last one is shared through localStorage); while there is
+// activity the server is told now and then (GET session/; never in the background, or an idle session would never
+// end), so its own idle clock, which the backend enforces, stays in step. Two minutes before the end a dialog says
+// when it happens and offers to stay (WCAG 2.2.1); at the end the console signs out and goes to sign-in, coming back
+// here afterwards. What was typed into forms is kept as it was typed (useDraftForm), so nothing is lost by it.
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { signOut } from "@/components/shell/sign-out";

@@ -1,6 +1,6 @@
 "use client";
 
-// The console's frame around every signed-in page: the impersonation banner when there is one, the top bar (the
+// The console's frame around every signed-in page: the TEST and impersonation banners when they hold, the top bar (the
 // Menu button under 900 px, Search with ⌘K, the inbox and its count, the person's menu), the sidebar of modules, and
 // the page. Mounted once for the panel: the command palette, the shortcuts list, "confirm it's you" and the idle
 // watcher. ⌘K / Ctrl K opens the palette anywhere; "?" lists the shortcuts while single-key shortcuts are on.
@@ -9,10 +9,10 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
+import { Banners } from "@/components/shell/banners";
 import { Brand } from "@/components/shell/brand";
 import { CommandPalette, rememberRecent } from "@/components/shell/command-palette";
 import { IdleWatcher } from "@/components/shell/idle-watcher";
-import { ImpersonationBanner } from "@/components/shell/impersonation-banner";
 import { useManifest } from "@/components/shell/manifest";
 import { PersonMenu } from "@/components/shell/person-menu";
 import { ReauthDialog } from "@/components/shell/reauth-dialog";
@@ -70,7 +70,7 @@ export function Shell({ inbox, now, children }: { inbox: InboxCounts | null; now
       <a className="skip-link" href="#main">
         {copy.app.skip}
       </a>
-      {manifest.impersonating ? <ImpersonationBanner impersonating={manifest.impersonating} now={now} /> : null}
+      <Banners manifest={manifest} now={now} />
       <div className="console">
         <header className="console-top">
           <button

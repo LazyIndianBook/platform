@@ -194,6 +194,9 @@ export const en = {
     erp: "In ERPNext",
     erpOpens: "opens ERPNext",
     soon: "soon",
+    test: "Test",
+    testLabel: "Test environment",
+    testText: "Not the live site: what you see and do here is test data.",
     impersonating: (email: string, until: string) =>
       `You are signed in to the website as ${email} until ${until}. Every action is recorded.`,
     endImpersonation: "End",

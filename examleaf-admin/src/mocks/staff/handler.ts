@@ -30,6 +30,8 @@ const STAFF_ROLES = new Set([
   "AUDITOR",
 ]);
 const PRIVILEGED = new Set(["OWNER", "ADMIN"]);
+// the plan's idle limits (section 3.5): 15 minutes for OWNER, ADMIN, FINANCE and PACKER, 30 for the others
+const SHORT_IDLE_ROLES = new Set(["OWNER", "ADMIN", "FINANCE", "PACKER"]);
 
 const EVERYTHING = [...new Set([...Object.values(P), ...MODULES.flatMap((module) => module.any)])].sort();
 const views = EVERYTHING.filter((permission) => /\.view_/.test(permission));
@@ -132,22 +134,23 @@ async function signedIn(request: Request): Promise<Who | Response> {
   return { id: Number(body.id), email: String(body.email), name: String(body.full_name ?? body.email), role };
 }
 
-/** When the session last authenticated (allauth's records), in seconds since 1970. */
-async function lastAuthenticated(request: Request): Promise<number> {
+/** When the session logged in and last authenticated (allauth's records), in seconds since 1970; 0 when unknown. */
+async function authenticated(request: Request): Promise<{ first: number; last: number }> {
   try {
     const response = await fetch(`${API}/_allauth/browser/v1/auth/session`, {
       headers: { Cookie: request.headers.get("Cookie") ?? "", Accept: "application/json" },
       cache: "no-store",
     });
     const body = (await response.json()) as { data?: { methods?: { at?: number }[] } };
-    return Math.max(0, ...(body.data?.methods ?? []).map((method) => Number(method.at) || 0));
+    const times = (body.data?.methods ?? []).map((method) => Number(method.at) || 0).filter(Boolean);
+    return times.length ? { first: Math.min(...times), last: Math.max(...times) } : { first: 0, last: 0 };
   } catch {
-    return 0;
+    return { first: 0, last: 0 };
   }
 }
 
 async function recentlyAuthenticated(request: Request): Promise<boolean> {
-  const last = await lastAuthenticated(request);
+  const { last } = await authenticated(request);
   const after = Number(cookie(request, "staff_mock_reauth_after") ?? 0);
   return last > after && Date.now() / 1000 - last < REAUTH_SECONDS;
 }
@@ -236,7 +239,7 @@ const text = (value: Json | undefined) => (typeof value === "string" ? value.tri
 const matches = (row: Row, query: string) => JSON.stringify(row).toLowerCase().includes(query.toLowerCase());
 const byId = (rows: Row[], id: string) => rows.find((row) => String(row.id) === id);
 
-function session(context: Context, last: number): Response {
+function session(context: Context, { first, last }: { first: number; last: number }): Response {
   const { world, who } = context;
   const permissions = [...(ROLE_PERMISSIONS[who.role] ?? [])].sort();
   return json(200, {
@@ -245,10 +248,14 @@ function session(context: Context, last: number): Response {
     permissions,
     scopes: { subject: [], board_class: [], order_status: [], warehouse: [], school: [], ticket_queue: [] },
     limits: { refund_inr: 2000, discount_percent: 20, export_rows: 5000, bulk_rows: 100 },
-    flags: Object.fromEntries(world.flags.map((flag) => [String(flag.key), flag.value === true])),
+    // the mock's world is test data: the console shows its TEST band
+    flags: {
+      ...Object.fromEntries(world.flags.map((flag) => [String(flag.key), flag.value === true])),
+      test_mode: true,
+    },
     reauth_valid_until: last ? new Date((last + REAUTH_SECONDS) * 1000).toISOString() : null,
-    idle_timeout_s: 1800,
-    absolute_expires_at: new Date(Date.now() + 12 * 3_600_000).toISOString(),
+    idle_timeout_s: SHORT_IDLE_ROLES.has(who.role) ? 900 : 1800,
+    absolute_expires_at: first ? new Date((first + 8 * 3600) * 1000).toISOString() : null,
     impersonating:
       world.impersonating && new Date(String(world.impersonating.until)).getTime() > Date.now()
         ? world.impersonating
@@ -262,7 +269,7 @@ async function route(context: Context): Promise<Response> {
   const [area, id, verb, extra] = parts;
   const query = (name: string) => url.searchParams.get(name) ?? "";
 
-  if (area === "session" && method === "GET") return session(context, await lastAuthenticated(context.request));
+  if (area === "session" && method === "GET") return session(context, await authenticated(context.request));
 
   // a sensitive action needs a recent authentication (allauth's reauthenticate flows), as the backend asks
   const sensitive =
